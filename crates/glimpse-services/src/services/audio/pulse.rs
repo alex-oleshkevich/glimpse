@@ -633,6 +633,10 @@ fn source_output_to_raw(info: &SourceOutputInfo) -> RawStream {
     }
 }
 
+fn client_to_raw(info: &ClientInfo) -> (u32, HashMap<String, String>) {
+    (info.index, proplist_to_map(&info.proplist))
+}
+
 async fn timed_recv<T, C: ?Sized>(
     mainloop: &mut Mainloop,
     mut op: Operation<C>,
@@ -702,53 +706,21 @@ async fn get_server_info(
         .map_err(|()| "the pulse server did not answer a server-info request".to_owned())
 }
 
-async fn get_sink_list(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-) -> Result<Vec<RawDevice>, String> {
-    let (tx, rx) = oneshot::channel::<Result<Vec<RawDevice>, ()>>();
-    let mut tx = Some(tx);
-    let mut items = Vec::new();
+macro_rules! list_op {
+    ($name:ident, $method:ident, $info:ty, $item:ty, $what:literal, $to_item:path) => {
+        async fn $name(
+            mainloop: &mut Mainloop,
+            context: &mut Context,
+        ) -> Result<Vec<$item>, String> {
+            let (tx, rx) = oneshot::channel::<Result<Vec<$item>, ()>>();
+            let mut tx = Some(tx);
+            let mut items = Vec::new();
 
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_sink_info_list(move |result: ListResult<&SinkInfo>| match result {
-                ListResult::Item(info) => items.push(sink_to_raw(info)),
-                ListResult::End => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(Ok(std::mem::take(&mut items)));
-                    }
-                }
-                ListResult::Error => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(Err(()));
-                    }
-                }
-            });
-        drop(introspector);
-        op
-    };
-
-    recv_list(mainloop, op, rx, "sink").await
-}
-
-async fn get_source_list(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-) -> Result<Vec<RawDevice>, String> {
-    let (tx, rx) = oneshot::channel::<Result<Vec<RawDevice>, ()>>();
-    let mut tx = Some(tx);
-    let mut items = Vec::new();
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_source_info_list(
-                move |result: ListResult<&SourceInfo>| match result {
-                    ListResult::Item(info) => items.push(source_to_raw(info)),
+            let op = {
+                let _guard = MainloopGuard::new(mainloop);
+                let introspector = context.introspect();
+                let op = introspector.$method(move |result: ListResult<&$info>| match result {
+                    ListResult::Item(info) => items.push($to_item(info)),
                     ListResult::End => {
                         if let Some(tx) = tx.take() {
                             let _ = tx.send(Ok(std::mem::take(&mut items)));
@@ -759,263 +731,120 @@ async fn get_source_list(
                             let _ = tx.send(Err(()));
                         }
                     }
-                },
-            );
-        drop(introspector);
-        op
-    };
+                });
+                drop(introspector);
+                op
+            };
 
-    recv_list(mainloop, op, rx, "source").await
+            recv_list(mainloop, op, rx, $what).await
+        }
+    };
 }
 
-async fn get_sink_input_list(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-) -> Result<Vec<RawStream>, String> {
-    let (tx, rx) = oneshot::channel::<Result<Vec<RawStream>, ()>>();
-    let mut tx = Some(tx);
-    let mut items = Vec::new();
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_sink_input_info_list(move |result: ListResult<&SinkInputInfo>| {
-                match result {
-                    ListResult::Item(info) => items.push(sink_input_to_raw(info)),
-                    ListResult::End => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Ok(std::mem::take(&mut items)));
-                        }
-                    }
-                    ListResult::Error => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Err(()));
-                        }
-                    }
-                }
-            });
-        drop(introspector);
-        op
-    };
-
-    recv_list(mainloop, op, rx, "sink input").await
-}
-
-async fn get_source_output_list(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-) -> Result<Vec<RawStream>, String> {
-    let (tx, rx) = oneshot::channel::<Result<Vec<RawStream>, ()>>();
-    let mut tx = Some(tx);
-    let mut items = Vec::new();
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op = introspector.get_source_output_info_list(
-            move |result: ListResult<&SourceOutputInfo>| match result {
-                ListResult::Item(info) => items.push(source_output_to_raw(info)),
-                ListResult::End => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(Ok(std::mem::take(&mut items)));
-                    }
-                }
-                ListResult::Error => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(Err(()));
-                    }
-                }
-            },
-        );
-        drop(introspector);
-        op
-    };
-
-    recv_list(mainloop, op, rx, "source output").await
-}
+list_op!(
+    get_sink_list,
+    get_sink_info_list,
+    SinkInfo,
+    RawDevice,
+    "sink",
+    sink_to_raw
+);
+list_op!(
+    get_source_list,
+    get_source_info_list,
+    SourceInfo,
+    RawDevice,
+    "source",
+    source_to_raw
+);
+list_op!(
+    get_sink_input_list,
+    get_sink_input_info_list,
+    SinkInputInfo,
+    RawStream,
+    "sink input",
+    sink_input_to_raw
+);
+list_op!(
+    get_source_output_list,
+    get_source_output_info_list,
+    SourceOutputInfo,
+    RawStream,
+    "source output",
+    source_output_to_raw
+);
+list_op!(
+    get_client_list,
+    get_client_info_list,
+    ClientInfo,
+    (u32, HashMap<String, String>),
+    "client",
+    client_to_raw
+);
 
 async fn get_client_map(
     mainloop: &mut Mainloop,
     context: &mut Context,
 ) -> Result<HashMap<u32, HashMap<String, String>>, String> {
-    let (tx, rx) = oneshot::channel::<Result<Vec<(u32, HashMap<String, String>)>, ()>>();
-    let mut tx = Some(tx);
-    let mut items = Vec::new();
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_client_info_list(
-                move |result: ListResult<&ClientInfo>| match result {
-                    ListResult::Item(info) => {
-                        items.push((info.index, proplist_to_map(&info.proplist)))
-                    }
-                    ListResult::End => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Ok(std::mem::take(&mut items)));
-                        }
-                    }
-                    ListResult::Error => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Err(()));
-                        }
-                    }
-                },
-            );
-        drop(introspector);
-        op
-    };
-
-    recv_list(mainloop, op, rx, "client")
+    get_client_list(mainloop, context)
         .await
         .map(|items| items.into_iter().collect())
 }
 
-async fn get_sink_channel_volumes(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-    index: u32,
-) -> Result<ChannelVolumes, AudioError> {
-    let (tx, rx) = oneshot::channel::<Option<ChannelVolumes>>();
-    let mut tx = Some(tx);
+macro_rules! channel_volumes_op {
+    ($name:ident, $method:ident, $info:ty) => {
+        async fn $name(
+            mainloop: &mut Mainloop,
+            context: &mut Context,
+            index: u32,
+        ) -> Result<ChannelVolumes, AudioError> {
+            let (tx, rx) = oneshot::channel::<Option<ChannelVolumes>>();
+            let mut tx = Some(tx);
 
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_sink_info_by_index(index, move |result: ListResult<&SinkInfo>| {
-                match result {
-                    ListResult::Item(info) => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Some(info.volume));
+            let op = {
+                let _guard = MainloopGuard::new(mainloop);
+                let introspector = context.introspect();
+                let op =
+                    introspector.$method(index, move |result: ListResult<&$info>| match result {
+                        ListResult::Item(info) => {
+                            if let Some(tx) = tx.take() {
+                                let _ = tx.send(Some(info.volume));
+                            }
                         }
-                    }
-                    ListResult::End | ListResult::Error => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(None);
+                        ListResult::End | ListResult::Error => {
+                            if let Some(tx) = tx.take() {
+                                let _ = tx.send(None);
+                            }
                         }
-                    }
-                }
-            });
-        drop(introspector);
-        op
+                    });
+                drop(introspector);
+                op
+            };
+
+            match timed_recv(mainloop, op, rx).await {
+                Ok(Some(volume)) => Ok(volume),
+                Ok(None) | Err(()) => Err(AudioError::Unavailable),
+            }
+        }
     };
-
-    match timed_recv(mainloop, op, rx).await {
-        Ok(Some(volume)) => Ok(volume),
-        Ok(None) | Err(()) => Err(AudioError::Unavailable),
-    }
 }
 
-async fn get_source_channel_volumes(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-    index: u32,
-) -> Result<ChannelVolumes, AudioError> {
-    let (tx, rx) = oneshot::channel::<Option<ChannelVolumes>>();
-    let mut tx = Some(tx);
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_source_info_by_index(index, move |result: ListResult<&SourceInfo>| {
-                match result {
-                    ListResult::Item(info) => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Some(info.volume));
-                        }
-                    }
-                    ListResult::End | ListResult::Error => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(None);
-                        }
-                    }
-                }
-            });
-        drop(introspector);
-        op
-    };
-
-    match timed_recv(mainloop, op, rx).await {
-        Ok(Some(volume)) => Ok(volume),
-        Ok(None) | Err(()) => Err(AudioError::Unavailable),
-    }
-}
-
-async fn get_sink_input_channel_volumes(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-    index: u32,
-) -> Result<ChannelVolumes, AudioError> {
-    let (tx, rx) = oneshot::channel::<Option<ChannelVolumes>>();
-    let mut tx = Some(tx);
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op =
-            introspector.get_sink_input_info(index, move |result: ListResult<&SinkInputInfo>| {
-                match result {
-                    ListResult::Item(info) => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(Some(info.volume));
-                        }
-                    }
-                    ListResult::End | ListResult::Error => {
-                        if let Some(tx) = tx.take() {
-                            let _ = tx.send(None);
-                        }
-                    }
-                }
-            });
-        drop(introspector);
-        op
-    };
-
-    match timed_recv(mainloop, op, rx).await {
-        Ok(Some(volume)) => Ok(volume),
-        Ok(None) | Err(()) => Err(AudioError::Unavailable),
-    }
-}
-
-async fn get_source_output_channel_volumes(
-    mainloop: &mut Mainloop,
-    context: &mut Context,
-    index: u32,
-) -> Result<ChannelVolumes, AudioError> {
-    let (tx, rx) = oneshot::channel::<Option<ChannelVolumes>>();
-    let mut tx = Some(tx);
-
-    let op = {
-        let _guard = MainloopGuard::new(mainloop);
-        let introspector = context.introspect();
-        let op = introspector.get_source_output_info(
-            index,
-            move |result: ListResult<&SourceOutputInfo>| match result {
-                ListResult::Item(info) => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(Some(info.volume));
-                    }
-                }
-                ListResult::End | ListResult::Error => {
-                    if let Some(tx) = tx.take() {
-                        let _ = tx.send(None);
-                    }
-                }
-            },
-        );
-        drop(introspector);
-        op
-    };
-
-    match timed_recv(mainloop, op, rx).await {
-        Ok(Some(volume)) => Ok(volume),
-        Ok(None) | Err(()) => Err(AudioError::Unavailable),
-    }
-}
+channel_volumes_op!(get_sink_channel_volumes, get_sink_info_by_index, SinkInfo);
+channel_volumes_op!(
+    get_source_channel_volumes,
+    get_source_info_by_index,
+    SourceInfo
+);
+channel_volumes_op!(
+    get_sink_input_channel_volumes,
+    get_sink_input_info,
+    SinkInputInfo
+);
+channel_volumes_op!(
+    get_source_output_channel_volumes,
+    get_source_output_info,
+    SourceOutputInfo
+);
 
 async fn run_bool_op(
     mainloop: &mut Mainloop,
