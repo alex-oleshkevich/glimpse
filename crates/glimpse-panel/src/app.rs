@@ -483,6 +483,7 @@ fn reconcile_panels(
                 tray: services.tray.clone(),
                 bluetooth: services.bluetooth.clone(),
                 network: services.network.clone(),
+                audio: services.audio.clone(),
                 notifications: services.notifications(),
                 weather: services.weather(),
             };

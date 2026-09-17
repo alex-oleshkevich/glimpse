@@ -1,4 +1,5 @@
 mod agenda;
+pub mod audio;
 pub(crate) mod bluetooth;
 mod clock;
 mod heartbeat;
@@ -15,8 +16,8 @@ pub(crate) mod weather;
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
-    BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle,
-    MprisHandle, NetworkHandle, TrayHandle,
+    AudioHandle, BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle,
+    KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -50,6 +51,7 @@ pub fn build(
     tray: &TrayHandle,
     bluetooth: &BluetoothHandle,
     network: &NetworkHandle,
+    audio: &AudioHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
@@ -137,8 +139,15 @@ pub fn build(
                 Box::new(network::Network::start(network, notifications))
             }))
         }
-        AppletKind::Audio {}
-        | AppletKind::Battery {}
+        AppletKind::Audio {} => {
+            let audio = audio.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(audio.subscribe());
+                Box::new(audio::Audio::start(audio, notifications))
+            }))
+        }
+        AppletKind::Battery {}
         | AppletKind::Brightness {}
         | AppletKind::Display {}
         | AppletKind::Clipboard {}
@@ -223,11 +232,38 @@ mod tests {
     #[test]
     fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
         assert!(
-            AppletConfig::from_name("audio").is_some(),
-            "`audio` is a real applet, so skipping it is expected rather than a bad document"
+            AppletConfig::from_name("battery").is_some(),
+            "`battery` is a real applet, so skipping it is expected rather than a bad document"
         );
         assert!(AppletConfig::from_name("nonesuch").is_none());
         assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
+    }
+
+    #[tokio::test]
+    async fn the_audio_applet_now_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Audio {}.into();
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.notifications(),
+            &services.weather(),
+        );
+        assert!(built.is_some(), "audio now has an implementation");
+
+        services.shutdown().await;
     }
 
     /// The shipped defaults name applets in a panel zone and carry no `[applets.<name>]` table for

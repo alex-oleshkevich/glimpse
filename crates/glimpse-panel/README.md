@@ -272,6 +272,20 @@ both of which belong to the tooltip. No managed device renders nothing.
   `connect_access_point` it is silently not found. Its card names speed and address, and **an
   unplugged cable activates nothing**.
 
+**audio** — needs a PulseAudio-protocol server, `pipewire-pulse` or PulseAudio proper, and renders
+nothing without one.
+
+- **Selection and the three expanded flags are `Rc` cells the popover's closures write and
+  `Input::Woken` reads back**, the same shape as bluetooth's. A held app id is filtered against
+  current state on every dress, since a stream's app is the common thing to vanish, not the rare
+  one. **`move_app` closes the detail on success; every volume, mute and default-device change
+  leaves it open.**
+- **A master fader carries no device id of its own**, so its `level-changed`/`level-toggled`
+  resolve the current default device from a fresh `AudioHandle::snapshot()` at the moment the
+  signal fires, never from a value captured when the popover was built.
+- **List caps are constants in `indicator.rs`, not configuration** — `AppletKind::Audio {}` carries
+  no settings yet, unlike bluetooth's `devices`/`nearby`.
+
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in

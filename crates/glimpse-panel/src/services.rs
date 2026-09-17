@@ -7,9 +7,9 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Bluetooth, BluetoothHandle, Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat,
-    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Running, Tray, TrayHandle,
+    Audio, AudioHandle, Bluetooth, BluetoothHandle, Calendar, CalendarHandle, Compositor,
+    CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
+    Mpris, MprisHandle, Network, NetworkHandle, Running, Tray, TrayHandle,
 };
 
 pub struct PanelServices {
@@ -21,6 +21,7 @@ pub struct PanelServices {
     pub tray: TrayHandle,
     pub bluetooth: BluetoothHandle,
     pub network: NetworkHandle,
+    pub audio: AudioHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -29,6 +30,7 @@ pub struct PanelServices {
     tray_service: Running<Tray>,
     bluetooth_service: Running<Bluetooth>,
     network_service: Running<Network>,
+    audio_service: Running<Audio>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
 }
@@ -38,7 +40,7 @@ impl PanelServices {
         Self::start_with_buses(document, Buses::connect().await)
     }
 
-    fn start_with_buses(document: &Config, buses: Buses) -> Self {
+    pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
         let (notifications, weather) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
@@ -65,7 +67,8 @@ impl PanelServices {
         let (tray_service, tray) = Running::<Tray>::spawn(document, buses.clone(), ());
         let (bluetooth_service, bluetooth) =
             Running::<Bluetooth>::spawn(document, buses.clone(), ());
-        let (network_service, network) = Running::<Network>::spawn(document, buses, ());
+        let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
+        let (audio_service, audio) = Running::<Audio>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -76,6 +79,7 @@ impl PanelServices {
             tray,
             bluetooth,
             network,
+            audio,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -84,6 +88,7 @@ impl PanelServices {
             tray_service,
             bluetooth_service,
             network_service,
+            audio_service,
             notifications,
             weather,
         }
@@ -93,6 +98,7 @@ impl PanelServices {
         self.cancel();
         self.weather.shutdown().await;
         self.notifications.shutdown().await;
+        self.audio_service.stop().await;
         self.bluetooth_service.stop().await;
         self.network_service.stop().await;
         self.tray_service.stop().await;
@@ -112,6 +118,7 @@ impl PanelServices {
         self.tray_service.reconfigure(document);
         self.bluetooth_service.reconfigure(document);
         self.network_service.reconfigure(document);
+        self.audio_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -123,6 +130,7 @@ impl PanelServices {
     }
 
     fn cancel(&self) {
+        self.audio_service.cancel();
         self.bluetooth_service.cancel();
         self.network_service.cancel();
         self.tray_service.cancel();
