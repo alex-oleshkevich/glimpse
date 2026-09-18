@@ -1133,10 +1133,31 @@ dependencies = [
  "glimpse-dbus",
  "glimpse-utils",
  "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
+ "zbus",
+]
+
+[[package]]
+name = "glimpse-idle"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-utils",
+ "shadow-rs",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "wayland-client",
+ "wayland-protocols",
  "zbus",
 ]
 

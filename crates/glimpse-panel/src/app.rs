@@ -488,6 +488,7 @@ fn reconcile_panels(
                 night_light: services.night_light(),
                 notifications: services.notifications(),
                 weather: services.weather(),
+                idle: services.idle(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {

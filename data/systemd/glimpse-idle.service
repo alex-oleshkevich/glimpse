@@ -1,0 +1,21 @@
+[Unit]
+Description=Glimpse idle inhibitor authority
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=glimpse-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=dbus
+BusName=me.aresa.Glimpse.Idle
+ExecStart=/usr/bin/glimpse-idle
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true

@@ -261,10 +261,11 @@ mod fixtures {
     use glimpse_widgets::{
         Action, Advisory, Body, BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display,
         DisplayList, DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Fact, FactList,
-        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, NightLight, Notification,
-        NotificationsPopover, NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape,
-        Slot, SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
-        WeatherPopover, WorldClock, Ymd, Zone,
+        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
+        InhibitorSource, InhibitorTargets, NightLight, Notification, NotificationsPopover,
+        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SourceList,
+        SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
+        WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -322,6 +323,7 @@ mod fixtures {
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
             "tray_states" => tray_states(root),
+            "inhibitor_list_states" => inhibitor_list_states(root),
             _ => {}
         }
         drawer_nav(root);
@@ -1856,6 +1858,89 @@ mod fixtures {
         }
     }
 
+    fn inhibitor_list_states(root: &gtk4::Widget) {
+        let entry = |id: u64,
+                     source: InhibitorSource,
+                     label: &str,
+                     status: &str,
+                     targets: InhibitorTargets,
+                     can_release: bool| InhibitorEntry {
+            id,
+            source,
+            label: label.to_owned(),
+            status: status.to_owned(),
+            targets,
+            can_release,
+        };
+
+        let zoom = entry(
+            1,
+            InhibitorSource::ScreenSaver,
+            "Zoom",
+            "screen sharing · 2m ago",
+            InhibitorTargets {
+                idle: true,
+                suspend: true,
+                ..InhibitorTargets::default()
+            },
+            true,
+        );
+
+        for list in collect::<InhibitorList>(root) {
+            let case = list
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+                .unwrap_or_default();
+
+            match case.as_str() {
+                "empty" => list.set_inhibitors(&[]),
+                "one" => list.set_inhibitors(std::slice::from_ref(&zoom)),
+                "mix" => list.set_inhibitors(&[
+                    zoom.clone(),
+                    entry(
+                        2,
+                        InhibitorSource::Portal,
+                        "Steam (Flatpak)",
+                        "playing a video · (Flatpak via portal)",
+                        InhibitorTargets {
+                            idle: true,
+                            shutdown: true,
+                            ..InhibitorTargets::default()
+                        },
+                        false,
+                    ),
+                    entry(
+                        3,
+                        InhibitorSource::Login1,
+                        "packagekitd",
+                        "installing updates · (systemd-inhibit · pid 1183)",
+                        InhibitorTargets {
+                            shutdown: true,
+                            power_key: true,
+                            suspend_key: true,
+                            ..InhibitorTargets::default()
+                        },
+                        true,
+                    ),
+                    entry(
+                        4,
+                        InhibitorSource::ManualHold,
+                        "Keep awake",
+                        "manual hold · until 16:24",
+                        InhibitorTargets {
+                            idle: true,
+                            suspend: true,
+                            ..InhibitorTargets::default()
+                        },
+                        true,
+                    ),
+                ]),
+                _ => {}
+            }
+        }
+    }
+
     fn tray(root: &gtk4::Widget) {
         let group = gio::SimpleActionGroup::new();
 
@@ -2313,11 +2398,11 @@ fn ensure_types() {
     use glimpse_widgets::{
         BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClockRow, DisplayList,
         DisplayPopover, EventList, EventRow, FactList, Fader, ForecastDay, ForecastHour,
-        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, KeyboardPopover, Notice,
-        NotificationCard, NotificationHeader, NotificationImageBody, NotificationList,
-        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
-        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
-        Section, SourceList, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
+        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, InhibitorRow,
+        KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
+        NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying,
+        Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row,
+        Scrubber, Section, SourceList, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
         WeatherPopover, WorldClock,
     };
 
@@ -2369,6 +2454,8 @@ fn ensure_types() {
         KeyboardPopover::static_type(),
         Placeholder::static_type(),
         Row::static_type(),
+        InhibitorList::static_type(),
+        InhibitorRow::static_type(),
     ] {
         let _ = widget;
     }

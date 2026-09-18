@@ -1,0 +1,4 @@
+[portal]
+DBusName=me.aresa.Glimpse.Idle.Portal
+Interfaces=org.freedesktop.impl.portal.Inhibit
+UseIn=glimpse

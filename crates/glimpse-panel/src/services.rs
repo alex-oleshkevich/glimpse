@@ -4,6 +4,7 @@ use std::sync::Arc;
 use glimpse_config::Config;
 use glimpse_dbus::{
     Buses,
+    idle::{IdleProvider, IdleProviderHandle},
     night_light::{NightLightProvider, NightLightProviderHandle},
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
@@ -39,6 +40,7 @@ pub struct PanelServices {
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
+    idle: IdleProvider,
 }
 
 impl PanelServices {
@@ -47,16 +49,18 @@ impl PanelServices {
     }
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (notifications, weather, night_light) = match buses.session_bus() {
+        let (notifications, weather, night_light, idle) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
                 WeatherProvider::start(connection.clone()),
                 NightLightProvider::start(connection.clone()),
+                IdleProvider::start(connection.clone()),
             ),
             Err(reason) => (
                 NotificationsProvider::unavailable(reason),
                 WeatherProvider::unavailable(reason),
                 NightLightProvider::unavailable(reason),
+                IdleProvider::unavailable(reason),
             ),
         };
         let (compositor_service, compositor) =
@@ -108,12 +112,14 @@ impl PanelServices {
             notifications,
             weather,
             night_light,
+            idle,
         }
     }
 
     pub async fn shutdown(mut self) {
         self.cancel();
         self.weather.shutdown().await;
+        self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.night_light.shutdown().await;
         self.brightness_service.stop().await;
@@ -151,6 +157,10 @@ impl PanelServices {
 
     pub fn night_light(&self) -> NightLightProviderHandle {
         self.night_light.handle()
+    }
+
+    pub fn idle(&self) -> IdleProviderHandle {
+        self.idle.handle()
     }
 
     fn cancel(&self) {

@@ -1,0 +1,30 @@
+[package]
+name = "glimpse-idle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+futures-util.workspace = true
+glimpse-config.workspace = true
+glimpse-dbus.workspace = true
+glimpse-utils.workspace = true
+shadow-rs.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+wayland-client.workspace = true
+wayland-protocols.workspace = true
+zbus.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true
+
+[dev-dependencies]
+glimpse-dbus = { workspace = true, features = ["testing"] }
+tokio = { workspace = true, features = ["test-util"] }

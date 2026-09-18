@@ -19,13 +19,14 @@ asset="glimpse-${version}-${arch}.tar.zst"
 pkgroot="dist/pkgroot"
 # GLIMPSE_BINARIES is set by `just package-binary` from the justfile's single source of
 # truth; the fallback here only matters for a direct, non-just invocation of this script.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle}"
 
 rm -rf "$pkgroot"
 mkdir -p \
     "$pkgroot/usr/bin" \
     "$pkgroot/usr/lib/systemd/user" \
     "$pkgroot/usr/share/dbus-1/services" \
+    "$pkgroot/usr/share/xdg-desktop-portal/portals" \
     "$pkgroot/usr/share/glimpse/wallpapers" \
     "$pkgroot/etc/pam.d" \
     "$pkgroot/etc/geoclue/conf.d" \
@@ -64,6 +65,12 @@ for f in data/geoclue/conf.d/*.conf; do
 done
 for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/dbus-1/services/$(basename "$f")"
+done
+for f in data/portals/*.portal; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/xdg-desktop-portal/portals/$(basename "$f")"
+done
+for f in data/portals/*-portals.conf; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/xdg-desktop-portal/$(basename "$f")"
 done
 for f in data/pam.d/*; do
     [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] && install -Dm644 "$f" "$pkgroot/etc/pam.d/$(basename "$f")"

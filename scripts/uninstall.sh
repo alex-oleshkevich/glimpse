@@ -9,7 +9,9 @@ done
 
 rm -f "$unitdir"/glimpse*.service
 rm -f "$unitdir"/glimpse*.target
-rm -f "$dbusdir/org.freedesktop.Notifications.service" "$dbusdir/me.aresa.Glimpse.Notifications.service" "$dbusdir/me.aresa.Glimpse.Weather.service"
+rm -f "$dbusdir/org.freedesktop.Notifications.service" "$dbusdir/me.aresa.Glimpse.Notifications.service" "$dbusdir/me.aresa.Glimpse.Weather.service" "$dbusdir/me.aresa.Glimpse.Idle.service" "$dbusdir/me.aresa.Glimpse.Idle.Portal.service" "$dbusdir/org.freedesktop.ScreenSaver.service"
+rm -f "$portaldir/glimpse.portal"
+rm -f "$portalconfdir/glimpse-portals.conf"
 rm -f "$bindir/glimpse-notificationd"
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"

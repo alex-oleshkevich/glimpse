@@ -16,6 +16,7 @@
         <file>widgets/forecast_hour.ui</file>
         <file>widgets/fader.ui</file>
         <file>widgets/hero.ui</file>
+        <file>widgets/inhibitor_row.ui</file>
         <file>widgets/tooltip_card.ui</file>
         <file>widgets/workspaces_popover.ui</file>
         <file>widgets/workspace_section.ui</file>
@@ -43,5 +44,6 @@
         <file>widgets/switch_row.ui</file>
         <file>widgets/transport.ui</file>
         <file>widgets/weather_popover.ui</file>
+        <file>widgets/idle_popover.ui</file>
     </gresource>
 </gresources>

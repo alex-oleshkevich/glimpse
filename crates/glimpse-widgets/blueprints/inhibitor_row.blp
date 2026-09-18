@@ -1,0 +1,31 @@
+using Gtk 4.0;
+
+template $InhibitorRow: $Row {
+  styles [
+    "inhibitor-row",
+  ]
+
+  [trail]
+  Gtk.Box trailing {
+    orientation: horizontal;
+    spacing: 6;
+    valign: center;
+
+    Gtk.Box chips {
+      orientation: horizontal;
+      spacing: 4;
+    }
+
+    Gtk.Button release {
+      icon-name: "process-stop-symbolic";
+      has-frame: false;
+      valign: center;
+      visible: false;
+      tooltip-text: _("Release");
+
+      styles [
+        "inhibitor-row__release",
+      ]
+    }
+  }
+}

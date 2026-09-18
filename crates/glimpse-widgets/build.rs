@@ -60,6 +60,10 @@ fn main() {
         ("blueprints/fader.blp", "resources/widgets/fader.ui"),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         (
+            "blueprints/inhibitor_row.blp",
+            "resources/widgets/inhibitor_row.ui",
+        ),
+        (
             "blueprints/tooltip_card.blp",
             "resources/widgets/tooltip_card.ui",
         ),
@@ -139,6 +143,10 @@ fn main() {
         (
             "blueprints/weather_popover.blp",
             "resources/widgets/weather_popover.ui",
+        ),
+        (
+            "blueprints/idle_popover.blp",
+            "resources/widgets/idle_popover.ui",
         ),
     ]);
 

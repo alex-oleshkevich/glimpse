@@ -16,6 +16,12 @@ done
 for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$dbusdir/$(basename "$f")"
 done
+for f in data/portals/*.portal; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$portaldir/$(basename "$f")"
+done
+for f in data/portals/*-portals.conf; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$portalconfdir/$(basename "$f")"
+done
 for f in data/pam.d/*; do
     [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] && install -Dm644 "$f" "$pamdir/$(basename "$f")"
 done

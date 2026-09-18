@@ -21,6 +21,7 @@ zbus.workspace = true
 
 [dev-dependencies]
 glimpse-dbus = { path = ".", features = ["testing"] }
+serde_json.workspace = true
 
 [[example]]
 name = "fake-tray"

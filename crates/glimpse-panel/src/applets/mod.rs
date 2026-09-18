@@ -5,6 +5,7 @@ mod brightness;
 mod clock;
 mod display;
 mod heartbeat;
+pub(crate) mod idle;
 mod keyboard;
 mod mpris;
 pub mod network;
@@ -17,8 +18,8 @@ pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{
-    night_light::NightLightProviderHandle, notifications::NotificationsProviderHandle,
-    weather::WeatherProviderHandle,
+    idle::IdleProviderHandle, night_light::NightLightProviderHandle,
+    notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
 };
 use glimpse_services::{
     AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
@@ -61,6 +62,7 @@ pub fn build(
     night_light: &NightLightProviderHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
+    idle: &IdleProviderHandle,
 ) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => {
@@ -179,11 +181,17 @@ pub fn build(
                 Box::new(display::Display::start(compositor, notifications))
             }))
         }
+        AppletKind::Idle {} => {
+            let idle = idle.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(idle.subscribe());
+                Box::new(idle::Idle::start(idle))
+            }))
+        }
         AppletKind::Battery {}
         | AppletKind::Clipboard {}
         | AppletKind::Command {}
         | AppletKind::Exec {}
-        | AppletKind::Idle {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
         | AppletKind::Removable {}
@@ -292,6 +300,7 @@ mod tests {
             &services.night_light(),
             &services.notifications(),
             &services.weather(),
+            &services.idle(),
         );
         assert!(built.is_some(), "audio now has an implementation");
 
@@ -299,16 +308,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_brightness_and_display_applets_both_produce_a_builder() {
+    async fn the_brightness_display_and_idle_applets_produce_a_builder() {
         let services = crate::services::PanelServices::start_with_buses(
             &glimpse_config::Config::default(),
             glimpse_dbus::Buses::unavailable("no bus in tests"),
         );
-
         let brightness_config: AppletConfig = AppletKind::Brightness(<_>::default()).into();
         let display_config: AppletConfig = AppletKind::Display {}.into();
+        let idle_config: AppletConfig = AppletKind::Idle {}.into();
 
-        for config in [&brightness_config, &display_config] {
+        for config in [&brightness_config, &display_config, &idle_config] {
             let built = build(
                 config,
                 &services.compositor,
@@ -324,10 +333,11 @@ mod tests {
                 &services.night_light(),
                 &services.notifications(),
                 &services.weather(),
+                &services.idle(),
             );
             assert!(
                 built.is_some(),
-                "both AC-17 chips must build from one config"
+                "each configured panel chip must build from one config"
             );
         }
 

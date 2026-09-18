@@ -1,0 +1,97 @@
+using Gtk 4.0;
+
+template $IdlePopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "idle-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "preferences-desktop-screensaver-symbolic";
+
+      [slot]
+      Gtk.Switch hold {
+        valign: center;
+        tooltip-text: _("Keep awake");
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      Gtk.Box hold_holder {
+        orientation: vertical;
+
+        $Row hold_row {
+          activatable: true;
+          title: _("Keep awake for…");
+
+          [trail]
+          Gtk.Image {
+            icon-name: "go-next-symbolic";
+            accessible-role: presentation;
+          }
+        }
+
+        Gtk.Revealer hold_panel {
+          transition-type: slide_down;
+          reveal-child: false;
+
+          Gtk.Box {
+            orientation: vertical;
+
+            $Row preset_15m {
+              activatable: true;
+              title: _("15 minutes");
+            }
+
+            $Row preset_30m {
+              activatable: true;
+              title: _("30 minutes");
+            }
+
+            $Row preset_1h {
+              activatable: true;
+              title: _("1 hour");
+            }
+
+            $Row preset_2h {
+              activatable: true;
+              title: _("2 hours");
+            }
+
+            $Row preset_4h {
+              activatable: true;
+              title: _("4 hours");
+            }
+
+            $Row preset_indefinite {
+              activatable: true;
+              title: _("Until you turn it off");
+            }
+          }
+        }
+      }
+
+      Gtk.Separator list_rule {
+        orientation: horizontal;
+        visible: false;
+      }
+
+      $InhibitorList list {}
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}
