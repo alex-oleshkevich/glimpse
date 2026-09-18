@@ -286,6 +286,22 @@ nothing without one.
 - **List caps are constants in `indicator.rs`, not configuration** — `AppletKind::Audio {}` carries
   no settings yet, unlike bluetooth's `devices`/`nearby`.
 
+**idle** — the priority table behind the hero subtitle is documented by `render.rs`'s own test names,
+not restated here. The chip is never hidden while the daemon answers, unlike a notifier: it is the
+only way to reach the six fixed hold presets, so it must stay reachable even with nothing to report.
+`render::icon` carries that distinction instead.
+
+- **A hold's id never reaches the applet directly** — `Hold()` is fire-and-forget like every other
+  command, so `newly_adopted_holds` watches the next state for fresh records shaped like the daemon's
+  own manual-hold literal and adopts every one it finds into a set, not a single id, so a second
+  preset pressed while already holding is recognised as ours rather than rendered as a stranger.
+  **The adoption shape includes `can_release`**: any session-bus client can forge the same
+  `who`/`why` strings via `logind.Inhibit()`, but the daemon never marks that record releasable, so
+  it is never adopted and the toggle never sends a `Release()` the daemon would silently refuse. A
+  restart still forgets the panel's own holds and renders them as plain rows.
+- **`why` is capped tighter in `row_status` than the daemon's own 240 characters**, so a verbose
+  reason cannot push a row's `(Flatpak via portal)`/`(systemd-inhibit · pid N)` marker off the end.
+
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in

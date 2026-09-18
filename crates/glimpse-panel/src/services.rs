@@ -3,6 +3,7 @@ use std::fmt;
 use glimpse_config::Config;
 use glimpse_dbus::{
     Buses,
+    idle::{IdleProvider, IdleProviderHandle},
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
 };
@@ -33,6 +34,7 @@ pub struct PanelServices {
     audio_service: Running<Audio>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
+    idle: IdleProvider,
 }
 
 impl PanelServices {
@@ -41,14 +43,16 @@ impl PanelServices {
     }
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (notifications, weather) = match buses.session_bus() {
+        let (notifications, weather, idle) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
                 WeatherProvider::start(connection.clone()),
+                IdleProvider::start(connection.clone()),
             ),
             Err(reason) => (
                 NotificationsProvider::unavailable(reason),
                 WeatherProvider::unavailable(reason),
+                IdleProvider::unavailable(reason),
             ),
         };
         let (compositor_service, compositor) =
@@ -91,12 +95,14 @@ impl PanelServices {
             audio_service,
             notifications,
             weather,
+            idle,
         }
     }
 
     pub async fn shutdown(mut self) {
         self.cancel();
         self.weather.shutdown().await;
+        self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.audio_service.stop().await;
         self.bluetooth_service.stop().await;
@@ -127,6 +133,10 @@ impl PanelServices {
 
     pub fn weather(&self) -> WeatherProviderHandle {
         self.weather.handle()
+    }
+
+    pub fn idle(&self) -> IdleProviderHandle {
+        self.idle.handle()
     }
 
     fn cancel(&self) {

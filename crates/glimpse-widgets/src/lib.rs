@@ -12,8 +12,10 @@ mod fact_list;
 mod fader;
 mod forecast;
 mod hero;
+mod idle_popover;
 mod indicator;
 mod indicator_group;
+mod inhibitor_list;
 mod keyboard_popover;
 mod mpris_popover;
 mod network_popover;
@@ -70,8 +72,12 @@ pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
 pub use hero::Hero;
+pub use idle_popover::IdlePopover;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
+pub use inhibitor_list::{
+    InhibitorEntry, InhibitorList, InhibitorRow, InhibitorSource, InhibitorTargets,
+};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
@@ -648,6 +654,146 @@ mod tests {
              popover it sits in. `ellipsize` alone does not do this — it lowers the minimum \
              width and leaves the natural width at the full string."
         );
+
+        let fresh_row = InhibitorRow::new();
+        let fresh_release = child_named::<gtk4::Button>(&fresh_row, "inhibitor-row__release");
+        assert!(
+            !fresh_release.get_visible(),
+            "the release button starts hidden before any state is set"
+        );
+
+        let inhibitor_list = InhibitorList::new();
+        assert!(children_of::<InhibitorRow>(&inhibitor_list).is_empty());
+        assert_eq!(
+            inhibitor_list.measure(gtk4::Orientation::Vertical, -1).1,
+            0,
+            "an empty list reserves no height"
+        );
+
+        fn inhibitor(id: u64, label: &str, can_release: bool) -> InhibitorEntry {
+            InhibitorEntry {
+                id,
+                source: InhibitorSource::ScreenSaver,
+                label: label.to_owned(),
+                status: "screen sharing".to_owned(),
+                targets: InhibitorTargets {
+                    idle: true,
+                    ..InhibitorTargets::default()
+                },
+                can_release,
+            }
+        }
+
+        inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
+        let rows = children_of::<InhibitorRow>(&inhibitor_list);
+        assert_eq!(rows.len(), 2);
+
+        let touched_row: &Row = rows[0].upcast_ref();
+        touched_row.set_title(Some("Touched by hand"));
+        inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
+        assert_eq!(
+            touched_row.title().as_deref(),
+            Some("Touched by hand"),
+            "an unchanged slice is not re-applied: re-rendering it would overwrite what was \
+             touched by hand"
+        );
+
+        let title_label = child_named::<gtk4::Label>(&rows[0], "row__title");
+        let title_changes = Rc::new(Cell::new(0u32));
+        title_label.connect_label_notify({
+            let title_changes = Rc::clone(&title_changes);
+            move |_| title_changes.set(title_changes.get() + 1)
+        });
+        inhibitor_list.set_inhibitors(&[
+            inhibitor(1, "Zoom (sharing)", true),
+            inhibitor(2, "OBS", false),
+        ]);
+        assert_eq!(
+            title_changes.get(),
+            1,
+            "a changed slice re-applies the row it changed, undoing the hand touch"
+        );
+
+        let release_true = child_named::<gtk4::Button>(&rows[0], "inhibitor-row__release");
+        let release_false = child_named::<gtk4::Button>(&rows[1], "inhibitor-row__release");
+        assert!(
+            release_true.get_visible(),
+            "can_release: true shows the button"
+        );
+        assert!(
+            !release_false.get_visible(),
+            "can_release: false hides it rather than merely disabling it"
+        );
+
+        let reported = Rc::new(RefCell::new(Vec::<u64>::new()));
+        inhibitor_list.connect_release_requested({
+            let reported = Rc::clone(&reported);
+            move |_, id| reported.borrow_mut().push(id)
+        });
+        release_true.emit_clicked();
+        assert_eq!(*reported.borrow(), vec![1]);
+
+        inhibitor_list.set_inhibitors(&[inhibitor(9, "Zoom", true), inhibitor(2, "OBS", false)]);
+        let reused = children_of::<InhibitorRow>(&inhibitor_list);
+        assert_eq!(reused[0], rows[0], "row 0 is reused in place, not rebuilt");
+        release_true.emit_clicked();
+        assert_eq!(
+            *reported.borrow(),
+            vec![1, 9],
+            "the same button now reports the id its row currently represents, not the id \
+             captured when the row was first built"
+        );
+
+        let chip_entry = InhibitorEntry {
+            id: 5,
+            source: InhibitorSource::Login1,
+            label: "systemd-inhibit".to_owned(),
+            status: "installing updates".to_owned(),
+            targets: InhibitorTargets {
+                idle: true,
+                shutdown: true,
+                power_key: true,
+                ..InhibitorTargets::default()
+            },
+            can_release: false,
+        };
+        inhibitor_list.set_inhibitors(&[chip_entry]);
+        let chip_row = children_of::<InhibitorRow>(&inhibitor_list).remove(0);
+        assert_eq!(
+            all_named(&chip_row, "inhibitor-row__chip").len(),
+            3,
+            "idle, shutdown and power key are set; the other four targets get no chip"
+        );
+        assert_eq!(
+            all_named(&chip_row, "inhibitor-row__chip--minor").len(),
+            1,
+            "only power key is a secondary-tier target here"
+        );
+        let chip_icon = child_named::<gtk4::Image>(&chip_row, "row__icon");
+        assert_eq!(
+            chip_icon.icon_name().as_deref(),
+            Some("system-run-symbolic")
+        );
+        assert_eq!(
+            *chip_row.imp().accessible_name.borrow(),
+            "systemd-inhibit. Idle. Shutdown. Power key",
+            "a screen reader hears which targets are held, not only the process name"
+        );
+
+        let hostile = "ё".repeat(TEXT_MAX_CHARS * 2);
+        inhibitor_list.set_inhibitors(&[InhibitorEntry {
+            id: 7,
+            source: InhibitorSource::Portal,
+            label: hostile.clone(),
+            status: hostile,
+            targets: InhibitorTargets::default(),
+            can_release: false,
+        }]);
+        let hostile_row = children_of::<InhibitorRow>(&inhibitor_list).remove(0);
+        let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
+        let hostile_subtitle = child_named::<gtk4::Label>(&hostile_row, "row__subtitle");
+        assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
+        assert_eq!(hostile_subtitle.text().chars().count(), TEXT_MAX_CHARS);
 
         let calendar = Calendar::new();
         calendar.set_today(Ymd::new(2026, 9, 23));
@@ -4960,6 +5106,98 @@ mod tests {
         });
         audio.imp().footer.emit_clicked();
         assert_eq!(footer_activated.get(), 1);
+
+        let idle = IdlePopover::new();
+        let idle_hold = idle.imp().hold.clone();
+        let idle_hold_row = idle.imp().hold_row.clone();
+        let idle_hold_panel = idle.imp().hold_panel.clone();
+        let idle_list_rule = idle.imp().list_rule.clone();
+        assert!(
+            !idle_list_rule.get_visible(),
+            "no entries yet, so the hairline above the list shows nothing"
+        );
+
+        idle.set_heading("preferences-desktop-screensaver-symbolic", "Idle", None);
+        idle.set_hold_active(true);
+        assert!(idle_hold.is_active());
+
+        let idle_toggled = Rc::new(RefCell::new(Vec::<bool>::new()));
+        idle.connect_hold_toggled({
+            let idle_toggled = Rc::clone(&idle_toggled);
+            move |_, on| idle_toggled.borrow_mut().push(on)
+        });
+        idle.set_hold_active(false);
+        assert!(
+            idle_toggled.borrow().is_empty(),
+            "dressing the switch programmatically must not report it as a user action"
+        );
+        idle_hold.set_active(true);
+        assert_eq!(*idle_toggled.borrow(), [true]);
+
+        assert!(
+            !idle_hold_panel.reveals_child(),
+            "the duration choices start closed"
+        );
+        idle_hold_row.emit_clicked();
+        assert!(
+            idle_hold_panel.reveals_child(),
+            "the duration row opens its choices"
+        );
+        idle_hold_row.emit_clicked();
+        assert!(
+            !idle_hold_panel.reveals_child(),
+            "the same duration row closes its choices"
+        );
+
+        let idle_requested = Rc::new(RefCell::new(Vec::<u32>::new()));
+        idle.connect_hold_requested({
+            let idle_requested = Rc::clone(&idle_requested);
+            move |_, seconds| idle_requested.borrow_mut().push(seconds)
+        });
+        for (button, seconds) in [
+            (&idle.imp().preset_15m, 900u32),
+            (&idle.imp().preset_30m, 1800),
+            (&idle.imp().preset_1h, 3600),
+            (&idle.imp().preset_2h, 7200),
+            (&idle.imp().preset_4h, 14400),
+            (&idle.imp().preset_indefinite, 0),
+        ] {
+            button.emit_clicked();
+            assert_eq!(
+                *idle_requested.borrow().last().unwrap(),
+                seconds,
+                "each preset button must ask for its own duration, not a neighbour's"
+            );
+        }
+        assert_eq!(*idle_requested.borrow(), [900, 1800, 3600, 7200, 14400, 0]);
+
+        idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
+        assert!(
+            idle_list_rule.get_visible(),
+            "an entry pulls the hairline above the list back in"
+        );
+        let idle_released = Rc::new(RefCell::new(Vec::<u64>::new()));
+        idle.connect_release_requested({
+            let idle_released = Rc::clone(&idle_released);
+            move |_, id| idle_released.borrow_mut().push(id)
+        });
+        child_named::<gtk4::Button>(&idle, "inhibitor-row__release").emit_clicked();
+        assert_eq!(*idle_released.borrow(), [1]);
+
+        idle.set_inhibitors(&[]);
+        assert!(
+            !idle_list_rule.get_visible(),
+            "the hairline follows the list back out once it empties"
+        );
+
+        let idle_footer_activated = Rc::new(Cell::new(0u32));
+        idle.connect_footer_activated({
+            let idle_footer_activated = Rc::clone(&idle_footer_activated);
+            move |_| idle_footer_activated.set(idle_footer_activated.get() + 1)
+        });
+        idle.set_footer(Some("Idle settings"));
+        idle.imp().footer.emit_clicked();
+        assert_eq!(idle_footer_activated.get(), 1);
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

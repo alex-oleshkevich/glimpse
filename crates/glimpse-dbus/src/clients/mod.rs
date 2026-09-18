@@ -34,6 +34,7 @@ pub mod bluez;
 pub mod dbusmenu;
 pub mod geoclue;
 pub mod hostname1;
+pub mod idle;
 pub mod login1;
 pub mod mpris;
 pub mod network_manager;

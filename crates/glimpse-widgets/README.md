@@ -125,6 +125,25 @@ string, and loses its icon and its title/body split the moment it is flattened i
   row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
   lint allows `border:` but not `border-left:`.
 
+## InhibitorList and InhibitorRow
+
+`InhibitorRow` extends `Row` and composes two things into the one `trail` slot: a `chips` box and a
+`release` button, both declared once in the row's own template rather than adding a second slot.
+
+- **`InhibitorEntry`/`InhibitorSource`/`InhibitorTargets` are local to this crate**, per the widget
+  boundary rule above; `InhibitorSource` maps to a lead icon internally, not carried as a string.
+- **A chip exists only for a set target**, never a dimmed one for an unset target. Primary- and
+  secondary-tier chips share one CSS class; the secondary tier adds a modifier for lower contrast.
+- **The release button hides, never disables**, when `can_release` is false, in both the template's
+  initial state and the row's own setter.
+- **A row resolves its own id at click time**, from a `Cell<u64>` read inside the button's click
+  handler — rows are reused by position across a render, so the id cannot be captured at build time.
+- **A states board declares `$InhibitorList`, never `[trail]` on a bare `$InhibitorRow`.** The row's
+  own template already fills its inherited `trail` slot, so a `[trail]` tag on an *instance* routes
+  through `Row::set_trail` and tears that box back out — the fixture feeds real data through
+  `set_inhibitors` instead, the same way `tray_states` tags each `TrayStrip` with a `demo__<case>`
+  class.
+
 ## Section, EventList and WorldClock
 
 - **Visibility toggle, not a `Gtk.Stack`** — a stack sizes to its largest page, so a placeholder
@@ -230,6 +249,9 @@ Per-popover rules that are traps rather than taste:
 its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
 open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **What
 recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
+**`IdlePopover`'s hold switch is a second master control, not a readout**, emitting `hold-toggled` the
+same as an indefinite preset does; its six preset buttons carry their durations hardcoded in
+`imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
 wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal

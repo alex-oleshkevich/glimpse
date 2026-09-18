@@ -37,6 +37,7 @@ assets = [
   ["target/release/glimpse-sunset", "usr/bin/", "755"],
   ["target/release/glimpse-notifications", "usr/bin/", "755"],
   ["target/release/glimpse-weather", "usr/bin/", "755"],
+  ["target/release/glimpse-idle", "usr/bin/", "755"],
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../data/language-codes.json", "usr/share/glimpse/", "644"],
@@ -45,6 +46,8 @@ assets = [
   ["../../data/systemd/*.service", "usr/lib/systemd/user/", "644"],
   ["../../data/systemd/*.target", "usr/lib/systemd/user/", "644"],
   ["../../data/dbus-1/services/*.service", "usr/share/dbus-1/services/", "644"],
+  ["../../data/portals/*.portal", "usr/share/xdg-desktop-portal/portals/", "644"],
+  ["../../data/portals/*-portals.conf", "usr/share/xdg-desktop-portal/", "644"],
   ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
   ["../../LICENSE", "usr/share/glimpse/", "644"],
   # One line per language, never a glob — see README, "Translation catalogs".
@@ -68,6 +71,7 @@ assets = [
   { source = "target/release/glimpse-sunset", dest = "/usr/bin/glimpse-sunset", mode = "755" },
   { source = "target/release/glimpse-notifications", dest = "/usr/bin/glimpse-notifications", mode = "755" },
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
+  { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
@@ -76,6 +80,8 @@ assets = [
   { source = "data/systemd/*.service", dest = "/usr/lib/systemd/user/", mode = "644" },
   { source = "data/systemd/*.target", dest = "/usr/lib/systemd/user/", mode = "644" },
   { source = "data/dbus-1/services/*.service", dest = "/usr/share/dbus-1/services/", mode = "644" },
+  { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
+  { source = "data/portals/*-portals.conf", dest = "/usr/share/xdg-desktop-portal/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
   # One line per language here too, so the two lists stay comparable — see README.

@@ -3,6 +3,7 @@ pub mod audio;
 pub(crate) mod bluetooth;
 mod clock;
 mod heartbeat;
+pub(crate) mod idle;
 mod keyboard;
 mod mpris;
 pub mod network;
@@ -14,7 +15,10 @@ mod tray;
 pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
-use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
+use glimpse_dbus::{
+    idle::IdleProviderHandle, notifications::NotificationsProviderHandle,
+    weather::WeatherProviderHandle,
+};
 use glimpse_services::{
     AudioHandle, BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle,
     KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
@@ -54,6 +58,7 @@ pub fn build(
     audio: &AudioHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
+    idle: &IdleProviderHandle,
 ) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => {
@@ -147,13 +152,19 @@ pub fn build(
                 Box::new(audio::Audio::start(audio, notifications))
             }))
         }
+        AppletKind::Idle {} => {
+            let idle = idle.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(idle.subscribe());
+                Box::new(idle::Idle::start(idle))
+            }))
+        }
         AppletKind::Battery {}
         | AppletKind::Brightness {}
         | AppletKind::Display {}
         | AppletKind::Clipboard {}
         | AppletKind::Command {}
         | AppletKind::Exec {}
-        | AppletKind::Idle {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
         | AppletKind::Removable {}
@@ -260,8 +271,37 @@ mod tests {
             &services.audio,
             &services.notifications(),
             &services.weather(),
+            &services.idle(),
         );
         assert!(built.is_some(), "audio now has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_idle_applet_now_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Idle {}.into();
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+        );
+        assert!(built.is_some(), "idle has its own arm, not the catch-all");
 
         services.shutdown().await;
     }

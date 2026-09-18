@@ -486,6 +486,7 @@ fn reconcile_panels(
                 audio: services.audio.clone(),
                 notifications: services.notifications(),
                 weather: services.weather(),
+                idle: services.idle(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {

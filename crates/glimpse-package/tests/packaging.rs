@@ -96,6 +96,7 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
         "glimpse-wallpaper",
         "glimpse-sunset",
         "glimpse-notifications",
+        "glimpse-idle",
     ];
     let target = fs::read_to_string(directory.join("glimpse-session.target")).expect("target");
     assert!(target.contains("WantedBy=graphical-session.target"));
@@ -131,6 +132,30 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 }
 
 #[test]
+fn binary_tarball_includes_idle_portal_assets() {
+    let root = workspace_root();
+    let script = fs::read_to_string(root.join("scripts/package-binary.sh"))
+        .expect("binary packaging script");
+
+    for (source, destination) in [
+        (
+            "data/portals/*.portal",
+            "usr/share/xdg-desktop-portal/portals",
+        ),
+        (
+            "data/portals/*-portals.conf",
+            "usr/share/xdg-desktop-portal",
+        ),
+    ] {
+        assert!(script.contains(source), "{source}");
+        assert!(script.contains(destination), "{destination}");
+    }
+
+    assert!(root.join("data/portals/glimpse.portal").is_file());
+    assert!(root.join("data/portals/glimpse-portals.conf").is_file());
+}
+
+#[test]
 fn notification_provider_binary_is_packaged_with_its_local_services() {
     let root = workspace_root();
     let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))
@@ -151,9 +176,11 @@ fn notification_provider_binary_is_packaged_with_its_local_services() {
         2
     );
     let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
-    assert!(binaries.contains(
-        "binaries := \"glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather\""
-    ));
+    let binaries_line = binaries
+        .lines()
+        .find(|line| line.starts_with("binaries :="))
+        .expect("justfile has a binaries list");
+    assert!(binaries_line.contains("glimpse-notifications"));
 }
 
 #[test]

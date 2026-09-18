@@ -1,6 +1,9 @@
 use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
-use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
+use glimpse_dbus::{
+    idle::IdleProviderHandle, notifications::NotificationsProviderHandle,
+    weather::WeatherProviderHandle,
+};
 use glimpse_services::{
     AudioHandle, BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle,
     KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
@@ -71,6 +74,7 @@ pub struct Config {
     pub audio: AudioHandle,
     pub notifications: NotificationsProviderHandle,
     pub weather: WeatherProviderHandle,
+    pub idle: IdleProviderHandle,
 }
 
 impl Config {
@@ -261,6 +265,7 @@ impl Panel {
                                     &config.audio,
                                     &config.notifications,
                                     &config.weather,
+                                    &config.idle,
                                 ) else {
                                     tracing::debug!(
                                         applet = name,

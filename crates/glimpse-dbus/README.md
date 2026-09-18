@@ -9,6 +9,8 @@ connections they run on.
 - `provider.rs` — `Exported`, the name-and-object lifecycle the three providers share
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
 - `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
+- `clients/idle.rs` — idle-inhibitor and per-backend health wire values, typed proxy and owned
+  follower lifecycle
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 - `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
 
@@ -25,6 +27,7 @@ connections they run on.
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
 | `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
 | `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
+| `idle`                    | session | the Glimpse idle-inhibitor provider      |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 
@@ -160,11 +163,18 @@ and every consumer shares the result; a consumer that destructures the wire shap
 fields and skip caps. A snapshot that cannot be decoded is `unavailable` with the reason, which is
 the shape a dead provider already produces.
 
-**The two followers lose their provider differently, on purpose.** Weather keeps the last reading
+**The three followers lose their provider differently, on purpose.** Weather keeps the last reading
 and marks it `stale`, derived from the retained data rather than from the reason, so a provider that
 comes back empty cannot strand the flag on nothing. Notifications throws its `view` away: every
 dismiss and action on a retained list would call a provider that is gone, and the store is
-authoritative, so a stale list can show what someone already dismissed.
+authoritative, so a stale list can show what someone already dismissed. Idle splits the two: a hold
+that outlived its provider cannot be released through a dead proxy, so `inhibitors` is thrown away
+like Notifications' view — but `health` is kept at its last known value rather than fabricated,
+because a bus disconnect says nothing about which of the three backends was actually degraded, and
+`available: false` with `reason: Some(...)` already says the state is stale without inventing three
+fake `Degraded` rows the moment glimpse-idle simply is not running. Before the first successful read
+there is nothing yet to keep, so all three backends start `Unsupported` with `available: false` —
+health is only meaningful once `available` has been `true` at least once.
 
 **A reader caps text the writer already capped.** The owner of a well-known name is whoever claimed
 it, so a decoder that skipped the cap would be trusting a bus name rather than a process. Cap tables
