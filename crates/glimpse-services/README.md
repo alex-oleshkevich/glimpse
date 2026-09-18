@@ -84,9 +84,10 @@ event: the phase falls back to the sign of the solar declination against the lat
 **night light** — the tick's period is **in its own subscription key**, so crossing into a
 transition window tears the slow timer down and builds the fast one; the ramp position comes from
 the clock either way and the cadence only decides how often it is sampled. One tick a minute is
-correct and looks wrong — a 15-minute transition moves in steps of about 150 K — but each tick is a
-gamma *apply*, so the two constants are pinned against each other by a test. A `transition-minutes`
-of zero never asks for the faster tick. Every reader goes through `effective()` —
+correct and looks wrong — a 15-minute transition moves in steps of about 150 K. Daylight hands
+gamma control back; while serving a non-daylight schedule, each tick reapplies its selected
+temperature so a stolen output returns.
+A `transition-minutes` of zero never asks for the faster tick. Every reader goes through `effective()` —
 `forced.unwrap_or(config.schedule)` — so `SetSchedule` is complete rather than cosmetic; `forced` is
 not persisted and clears only when `[night-light]` changes.
 

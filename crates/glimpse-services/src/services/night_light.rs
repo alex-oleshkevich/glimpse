@@ -587,12 +587,16 @@ mod tests {
 
         harness.service.observed = day(Some(sunset()));
         harness.at(at(12, 0)).await;
-        assert_eq!(harness.gamma.applied(), vec![DAY]);
+        assert!(
+            harness.gamma.applied().is_empty(),
+            "daylight is the absence of a ramp, not a curve that happens to be neutral"
+        );
+        assert!(!harness.state.borrow().active());
 
         // Tomorrow's sunrise, because `solar` never reports a boundary that has already passed.
         harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
         harness.at(at(23, 0)).await;
-        assert_eq!(harness.gamma.applied(), vec![DAY, NIGHT]);
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
         assert!(harness.state.borrow().active());
     }
 
@@ -604,13 +608,17 @@ mod tests {
         harness.service.observed = day(Some(sunset()));
 
         harness.at(sunset() - TimeDelta::minutes(15)).await;
+        assert!(
+            harness.gamma.applied().is_empty(),
+            "the ramp opens at daylight, which is nothing applied"
+        );
+
         harness.at(sunset() - TimeDelta::minutes(8)).await;
         harness.at(sunset()).await;
 
         let applied = harness.gamma.applied();
-        assert_eq!(applied.first(), Some(&DAY), "the ramp opens at daylight");
         assert_eq!(applied.last(), Some(&NIGHT), "and closes at the target");
-        let midpoint = applied[1];
+        let midpoint = applied[0];
         assert!(
             midpoint < DAY && midpoint > NIGHT,
             "{midpoint}K is between the two"
@@ -640,8 +648,19 @@ mod tests {
         harness.service.observed = day(Some(sunset()));
 
         harness.at(sunset() - TimeDelta::minutes(1)).await;
+        assert!(
+            harness.gamma.applied().is_empty(),
+            "a minute before the boundary a zero transition has begun no ramp"
+        );
 
-        assert_eq!(harness.gamma.applied(), vec![DAY]);
+        harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
+        harness.at(sunset()).await;
+
+        assert_eq!(
+            harness.gamma.applied(),
+            vec![NIGHT],
+            "it steps straight to the target instead of travelling to it"
+        );
     }
 
     /// A summer night above fifty degrees is shorter than a generous transition, so the two ramps
@@ -709,12 +728,12 @@ mod tests {
     #[tokio::test]
     async fn a_failing_backend_degrades_and_a_later_success_clears_it() {
         let mut harness = harness(config(Schedule::Automatic)).await;
-        harness.service.observed = day(Some(sunset()));
+        harness.service.observed = night(None);
         harness
             .gamma
             .fail(Some("another gamma client holds the outputs"));
 
-        harness.at(at(12, 0)).await;
+        harness.at(at(23, 0)).await;
         assert!(
             harness
                 .reason()
@@ -722,9 +741,9 @@ mod tests {
         );
 
         harness.gamma.fail(None);
-        harness.at(at(12, 0)).await;
+        harness.at(at(23, 1)).await;
 
-        assert_eq!(harness.gamma.applied(), vec![DAY]);
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
         assert!(matches!(&*harness.health.borrow(), ServiceState::Running));
     }
 
@@ -734,14 +753,14 @@ mod tests {
     #[tokio::test]
     async fn the_temperature_is_reapplied_every_tick_so_stolen_outputs_come_back() {
         let mut harness = harness(config(Schedule::Automatic)).await;
-        harness.service.observed = day(Some(sunset()));
+        harness.service.observed = night(None);
 
-        harness.at(at(12, 0)).await;
-        harness.at(at(12, 1)).await;
-        harness.at(at(12, 2)).await;
+        harness.at(at(23, 0)).await;
+        harness.at(at(23, 1)).await;
+        harness.at(at(23, 2)).await;
 
-        assert_eq!(harness.gamma.applied(), vec![DAY, DAY, DAY]);
-        assert_eq!(harness.state.borrow().temperature, DAY);
+        assert_eq!(harness.gamma.applied(), vec![NIGHT, NIGHT, NIGHT]);
+        assert_eq!(harness.state.borrow().temperature, NIGHT);
     }
 
     #[tokio::test]
@@ -986,7 +1005,32 @@ mod tests {
         harness.at(at(12, 0)).await;
 
         assert!(!harness.state.borrow().manual);
-        assert_eq!(harness.gamma.applied().last(), Some(&DAY));
+        assert_eq!(
+            harness.gamma.resets(),
+            1,
+            "the ramp resumed at daylight, which releases rather than applies"
+        );
+        assert_eq!(harness.state.borrow().temperature, DAY);
+        assert!(!harness.state.borrow().active());
+    }
+
+    #[tokio::test]
+    async fn a_day_temperature_is_released_rather_than_written_as_a_neutral_curve() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+
+        harness.service.observed = day(Some(sunset()));
+        harness.at(at(12, 0)).await;
+
+        assert_eq!(
+            harness.gamma.applied(),
+            vec![NIGHT],
+            "nothing further was written; the outputs went back instead"
+        );
+        assert_eq!(harness.gamma.resets(), 1);
+        assert_eq!(harness.state.borrow().temperature, DAY);
     }
 
     #[tokio::test]

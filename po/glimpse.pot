@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-18 02:56+0200\n"
+"POT-Creation-Date: 2026-09-18 12:15+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -106,7 +106,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:130
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:197
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:256
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:257
 #: crates/glimpse-panel/src/applets/network/indicator.rs:512
 msgid "Could not change that setting"
 msgstr ""
@@ -135,26 +135,26 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:316
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:263
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
 msgid "That was not a valid value."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:318
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
 #: crates/glimpse-panel/src/applets/display/indicator.rs:139
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:319
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
 #: crates/glimpse-panel/src/applets/display/indicator.rs:140
 msgid "That could not be completed."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:320
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
 #: crates/glimpse-panel/src/applets/display/indicator.rs:141
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 msgid "That did not work."
@@ -206,7 +206,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:211
+#: crates/glimpse-widgets/src/lib.rs:218
 msgid "{percent}%"
 msgstr ""
 
@@ -583,34 +583,34 @@ msgstr ""
 msgid "Contacts"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:240
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:241
 #: crates/glimpse-panel/src/applets/display/indicator.rs:128
 #: crates/glimpse-widgets/blueprints/display_popover.blp:15
 msgid "Displays"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:242
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:243
 msgid "Could not change the brightness"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:254
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:255
 #: crates/glimpse-widgets/blueprints/brightness_popover.blp:43
 msgid "Night light"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
 msgid "The brightness service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:273
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
 msgid "That was not a valid setting."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
 msgid "The night light is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
 msgid "That took too long."
 msgstr ""
 
@@ -1311,7 +1311,7 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:193
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:189
 msgid "{kelvin} K"
 msgstr ""
 
@@ -1323,35 +1323,39 @@ msgstr ""
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:249
+#: crates/glimpse-widgets/src/display_list/mod.rs:247
+msgid "Connector"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:250
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:252
+#: crates/glimpse-widgets/src/display_list/mod.rs:253
 msgid "Model"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:256
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:258
+#: crates/glimpse-widgets/src/display_list/mod.rs:259
 msgid "Current mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:261
+#: crates/glimpse-widgets/src/display_list/mod.rs:262
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:262
+#: crates/glimpse-widgets/src/display_list/mod.rs:263
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:273
+#: crates/glimpse-widgets/src/display_list/mod.rs:274
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:291
+#: crates/glimpse-widgets/src/display_list/mod.rs:292
 msgid "{x}, {y}"
 msgstr ""
 
