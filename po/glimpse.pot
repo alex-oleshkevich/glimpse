@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-18 13:35+0200\n"
+"POT-Creation-Date: 2026-09-18 15:54+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -23,15 +23,41 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:224
+#: crates/glimpse-panel/src/app.rs:254
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:268
+#: crates/glimpse-panel/src/app.rs:298
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:380
+#: crates/glimpse-panel/src/app.rs:311
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
+#: crates/glimpse-widgets/blueprints/network_popover.blp:158
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:173
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+msgid "Cancel"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:371
+#: crates/glimpse-panel/src/applets/session/mod.rs:93
+msgid "Session"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:373
+msgid "Could not complete the session action"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:375
+msgid "The session manager refused that action."
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:474
 msgid "this device"
 msgstr ""
 
@@ -206,7 +232,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:224
+#: crates/glimpse-widgets/src/lib.rs:227
 msgid "{percent}%"
 msgstr ""
 
@@ -312,17 +338,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
 msgid "Forget"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
-#: crates/glimpse-widgets/blueprints/network_popover.blp:158
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-msgid "Cancel"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
@@ -634,8 +649,8 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/mod.rs:184
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:14
+#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:244
 msgid "Idle"
 msgstr ""
 
@@ -696,7 +711,7 @@ msgstr ""
 msgid "Preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:356
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:350
 msgid "Open {player}"
 msgstr ""
 
@@ -1006,6 +1021,98 @@ msgstr ""
 msgid "{count}d"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/session/render.rs:17
+msgid "Blocked by an active inhibitor."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:45
+msgid "Updates available"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:46
+msgid "No updates available"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:68
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:245
+msgid "Suspend"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:69
+msgid "Suspend this session?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:73
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-widgets/blueprints/session_popover.blp:27
+msgid "Hibernate"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:74
+msgid "Hibernate this session?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:78
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+msgid "Log out"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:79
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:83
+#: crates/glimpse-panel/src/applets/session/render.rs:85
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Restart"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:84
+msgid "Restart this computer?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:88
+#: crates/glimpse-panel/src/applets/session/render.rs:90
+#: crates/glimpse-widgets/blueprints/session_popover.blp:48
+msgid "Shut down"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:89
+msgid "Shut down this computer?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:114
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:137
+msgid "Wayland"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:138
+msgid "X11"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:139
+msgid "Terminal"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:146
+msgid "Signed in today"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:148
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] ""
+msgstr[1] ""
+
 #: crates/glimpse-panel/src/applets/tray/mod.rs:284
 msgid "Show {count} hidden item"
 msgid_plural "Show {count} hidden items"
@@ -1163,6 +1270,7 @@ msgid "Expires"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:377
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Source"
 msgstr ""
 
@@ -1286,10 +1394,6 @@ msgstr ""
 msgid "Until you turn it off"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/inhibitor_row.blp:24
-msgid "Release"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
 msgid "Other players"
 msgstr ""
@@ -1357,12 +1461,24 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:185
+#: crates/glimpse-widgets/src/lib.rs:188
 msgid "Play"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/scrubber.blp:17
 msgid "Seek"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+msgid "Lock"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:55
+msgid "Switch user"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:67
+msgid "Updates"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
@@ -1413,75 +1529,91 @@ msgstr ""
 msgid "{kelvin} K"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:126
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:161
+#: crates/glimpse-widgets/src/display_list/mod.rs:173
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:247
+#: crates/glimpse-widgets/src/display_list/mod.rs:266
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:250
+#: crates/glimpse-widgets/src/display_list/mod.rs:269
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:253
+#: crates/glimpse-widgets/src/display_list/mod.rs:272
 msgid "Model"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:256
+#: crates/glimpse-widgets/src/display_list/mod.rs:275
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:259
+#: crates/glimpse-widgets/src/display_list/mod.rs:278
 msgid "Current mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:262
+#: crates/glimpse-widgets/src/display_list/mod.rs:281
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:263
+#: crates/glimpse-widgets/src/display_list/mod.rs:282
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:274
+#: crates/glimpse-widgets/src/display_list/mod.rs:293
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:292
+#: crates/glimpse-widgets/src/display_list/mod.rs:311
 msgid "{x}, {y}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:15
-msgid "Suspend"
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:29
+msgid "Screen saver"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:16
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:30
+msgid "Portal"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:31
+msgid "System"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:32
+msgid "Manual hold"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:142
+msgid "Prevents"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:246
 msgid "Shutdown"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:17
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:247
 msgid "Lid"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:18
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:248
 msgid "Power key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:19
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:249
 msgid "Suspend key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/row.rs:20
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:250
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:184
+#: crates/glimpse-widgets/src/lib.rs:187
 msgid "Pause"
 msgstr ""
 

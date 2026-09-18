@@ -60,10 +60,6 @@ fn main() {
         ("blueprints/fader.blp", "resources/widgets/fader.ui"),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         (
-            "blueprints/inhibitor_row.blp",
-            "resources/widgets/inhibitor_row.ui",
-        ),
-        (
             "blueprints/tooltip_card.blp",
             "resources/widgets/tooltip_card.ui",
         ),
@@ -134,6 +130,10 @@ fn main() {
         ("blueprints/row.blp", "resources/widgets/row.ui"),
         ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),
+        (
+            "blueprints/session_popover.blp",
+            "resources/widgets/session_popover.ui",
+        ),
         ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
         (
             "blueprints/switch_row.blp",

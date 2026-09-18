@@ -188,10 +188,11 @@ tick against the provider's thirty-minute lease.
 
 - **`label-format` substitutes by name** — `.replace` per placeholder, never `format!` into the
   msgid. **The cap counts characters**, because track titles are chosen by whatever is playing.
-- **A label that renders to nothing leaves an icon-only chip, not an absent applet.**
+- **The bar shows only the current track label**, falling back to the player's name when that
+  label is empty.
 - **The optimistic value goes into `self.players`, not beside it**, so `dress` has one source.
 - **`aimed` is a shared cell holding the current player's id**, which row signals carry too.
-- **`show-others = false` hides the section**, because an empty `Section` shows its placeholder.
+- **The other players section appears only when enabled and another player exists.**
 - **An icon is a name the theme actually has**, checked with `IconTheme::has_icon`: `DesktopEntry`
   first, then the bus-name suffix whole and a segment at a time.
 
@@ -340,6 +341,12 @@ only way to reach the six fixed hold presets, so it must stay reachable even wit
   restart still forgets the panel's own holds and renders them as plain rows.
 - **`why` is capped tighter in `row_status` than the daemon's own 240 characters**, so a verbose
    reason cannot push a row's `(Flatpak via portal)`/`(systemd-inhibit · pid N)` marker off the end.
+
+**session** — icon-only. Power actions confirm on the app host after the popover closes; lock and
+session switch run immediately. Confirmation copy is formatted at click from the current snapshot,
+not from the one that opened the popover. Inhibitors are named only when they apply to that action;
+open windows are counted for log out, restart and shut down, never described as unsaved work.
+Updates appear only while PackageKit owns its name, as a status row, never a count.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

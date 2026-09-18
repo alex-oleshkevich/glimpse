@@ -1240,35 +1240,6 @@ window.notification-popup {
     color: var(--gl-surface-fg);
 }
 
-.inhibitor-row__chip {
-    padding: 0.2rem 0.55rem;
-    border-radius: 999px;
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-    background-color: var(--gl-hover);
-}
-
-.inhibitor-row__chip--minor {
-    padding: 0.15rem 0.45rem;
-    font-size: calc(var(--gl-text-caption) * 0.85);
-    color: var(--gl-dim);
-}
-
-.inhibitor-row__release {
-    min-width: 1.9rem;
-    min-height: 1.9rem;
-    padding: 0;
-    border-radius: 999px;
-    -gtk-icon-size: 1rem;
-    color: var(--gl-muted);
-    background-color: transparent;
-}
-
-.inhibitor-row__release:hover {
-    background-color: var(--gl-active);
-    color: var(--gl-surface-fg);
-}
-
 /* A tray icon is an application's own artwork, not a symbolic glyph, and reads smaller than one at
    the same box; without this the image falls back to GTK's default while the slot stays 1.5rem.
    Keep in step with `ICON_SIZE` in the tray applet, which decodes pixmaps to this measurement. */

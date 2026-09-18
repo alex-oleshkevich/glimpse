@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::InhibitorEntry;
+use crate::{InhibitorEntry, drawer};
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)
@@ -42,10 +42,32 @@ impl IdlePopover {
         let imp = self.imp();
         imp.list.set_inhibitors(entries);
         imp.list_rule.set_visible(!entries.is_empty());
+        imp.shell.set_footer_separated(!entries.is_empty());
+        self.sync_dimming();
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
         crate::set_footer_row(&self.imp().footer, label);
+    }
+
+    fn sync_dimming(&self) {
+        let imp = self.imp();
+        let hold_open = imp.hold_panel.reveals_child();
+        let detail_open = imp.list.is_open();
+        crate::set_css_class(&*imp.hold_row, drawer::OPEN, hold_open);
+        crate::set_css_class(&*imp.hold_row, drawer::RECEDED, detail_open);
+        for widget in [
+            imp.hero.upcast_ref::<gtk4::Widget>(),
+            imp.footer.upcast_ref(),
+        ] {
+            crate::set_css_class(widget, drawer::RECEDED, hold_open || detail_open);
+        }
+        for widget in [
+            imp.list_rule.upcast_ref::<gtk4::Widget>(),
+            imp.list.upcast_ref(),
+        ] {
+            crate::set_css_class(widget, drawer::RECEDED, hold_open);
+        }
     }
 
     pub fn connect_hold_toggled<F: Fn(&Self, bool) + 'static>(

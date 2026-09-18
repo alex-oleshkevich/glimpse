@@ -189,6 +189,10 @@ run-locker *ARGS:
 run-sunset *ARGS:
     cargo run -p glimpse-sunset -- "$@"
 
+[doc("run idle provider")]
+run-idle *ARGS:
+    cargo run -p glimpse-idle -- "$@"
+
 [doc("run notification popups")]
 run-notifications *ARGS:
     cargo run -p glimpse-notifications -- "$@"

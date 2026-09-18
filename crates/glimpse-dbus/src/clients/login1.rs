@@ -33,6 +33,8 @@ pub trait Login1Manager {
     fn reboot(&self, interactive: bool) -> zbus::Result<()>;
     fn power_off(&self, interactive: bool) -> zbus::Result<()>;
     fn terminate_session(&self, session_id: &str) -> zbus::Result<()>;
+    fn lock_session(&self, session_id: &str) -> zbus::Result<()>;
+    fn activate_session(&self, session_id: &str) -> zbus::Result<()>;
 
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<OwnedFd>;
 
@@ -43,6 +45,12 @@ pub trait Login1Manager {
 
     #[zbus(property, name = "DelayInhibited")]
     fn delay_inhibited(&self) -> zbus::Result<String>;
+
+    #[zbus(signal, name = "SessionNew")]
+    fn session_new(&self, session_id: &str, path: OwnedObjectPath) -> zbus::Result<()>;
+
+    #[zbus(signal, name = "SessionRemoved")]
+    fn session_removed(&self, session_id: &str, path: OwnedObjectPath) -> zbus::Result<()>;
 
     #[zbus(signal, name = "PrepareForSleep")]
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
@@ -64,6 +72,8 @@ pub trait Login1Session {
     fn class(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn name(&self) -> zbus::Result<String>;
+    #[zbus(property, name = "Id")]
+    fn id(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn seat(&self) -> zbus::Result<(String, OwnedObjectPath)>;
     #[zbus(property, name = "Type")]
@@ -71,6 +81,8 @@ pub trait Login1Session {
     /// `(uid, user_object_path)` tuple identifying the session's owner.
     #[zbus(property, name = "User")]
     fn user(&self) -> zbus::Result<(u32, OwnedObjectPath)>;
+    #[zbus(property, name = "Timestamp")]
+    fn timestamp(&self) -> zbus::Result<u64>;
 
     #[zbus(signal)]
     fn lock(&self) -> zbus::Result<()>;

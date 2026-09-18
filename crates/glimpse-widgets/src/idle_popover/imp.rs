@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, InhibitorList, PopoverShell, Row};
+use crate::{Hero, InhibitorList, PopoverShell, Row, drawer};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/idle_popover.ui")]
@@ -95,7 +95,23 @@ impl ObjectImpl for IdlePopover {
         self.hold_row.connect_clicked(glib::clone!(
             #[weak]
             popover,
-            move |_| crate::drawer::toggle(&popover.imp().hold_panel)
+            move |_| {
+                popover.imp().list.close_detail();
+                let panel = &popover.imp().hold_panel;
+                drawer::toggle(panel);
+                popover.sync_dimming();
+            }
+        ));
+
+        self.list.connect_detail_toggled(glib::clone!(
+            #[weak]
+            popover,
+            move |_, open| {
+                if open {
+                    drawer::set(&popover.imp().hold_panel, false);
+                }
+                popover.sync_dimming();
+            }
         ));
 
         for (button, seconds) in [

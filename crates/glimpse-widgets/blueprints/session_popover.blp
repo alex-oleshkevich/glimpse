@@ -1,0 +1,78 @@
+using Gtk 4.0;
+
+template $SessionPopover: Gtk.Widget {
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {}
+
+    Gtk.Box {
+      orientation: vertical;
+      spacing: 8;
+
+      $Section {
+        Gtk.Box {
+          orientation: vertical;
+
+          $Row lock {
+            title: _("Lock");
+            lead-icon: "system-lock-screen-symbolic";
+          }
+
+          $Row suspend {
+            title: _("Suspend");
+            lead-icon: "weather-clear-night-symbolic";
+          }
+
+          $Row hibernate {
+            title: _("Hibernate");
+            lead-icon: "drive-harddisk-symbolic";
+          }
+        }
+      }
+
+      $Section {
+        Gtk.Box {
+          orientation: vertical;
+
+          $Row logout {
+            title: _("Log out");
+            lead-icon: "system-log-out-symbolic";
+          }
+
+          $Row reboot {
+            title: _("Restart");
+            lead-icon: "system-reboot-symbolic";
+          }
+
+          $Row power_off {
+            title: _("Shut down");
+            lead-icon: "system-shutdown-symbolic";
+          }
+        }
+      }
+
+      $Section sessions_section {
+        title: _("Switch user");
+        visible: false;
+
+        Gtk.Box sessions {
+          orientation: vertical;
+        }
+      }
+
+      $Section updates_section {
+        visible: false;
+
+        $Row updates {
+          title: _("Updates");
+          activatable: false;
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

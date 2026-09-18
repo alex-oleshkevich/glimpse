@@ -44,6 +44,7 @@ mod reconcile;
 pub(crate) mod row;
 mod scrubber;
 mod section;
+mod session_popover;
 mod source_list;
 mod split_row;
 mod switch_row;
@@ -82,9 +83,7 @@ pub use hero::Hero;
 pub use idle_popover::IdlePopover;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
-pub use inhibitor_list::{
-    InhibitorEntry, InhibitorList, InhibitorRow, InhibitorSource, InhibitorTargets,
-};
+pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
@@ -112,6 +111,10 @@ pub use readout::Readout;
 pub use row::Row;
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
+pub use session_popover::{
+    ActionState as SessionActionState, HIBERNATE, LOCK, LOG_OUT, POWER_OFF, REBOOT, SUSPEND,
+    SessionChoice, SessionPopover,
+};
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
 pub use switch_row::SwitchRow;
@@ -676,15 +679,8 @@ mod tests {
              width and leaves the natural width at the full string."
         );
 
-        let fresh_row = InhibitorRow::new();
-        let fresh_release = child_named::<gtk4::Button>(&fresh_row, "inhibitor-row__release");
-        assert!(
-            !fresh_release.get_visible(),
-            "the release button starts hidden before any state is set"
-        );
-
         let inhibitor_list = InhibitorList::new();
-        assert!(children_of::<InhibitorRow>(&inhibitor_list).is_empty());
+        assert!(children_of::<gtk4::Box>(&inhibitor_list).is_empty());
         assert_eq!(
             inhibitor_list.measure(gtk4::Orientation::Vertical, -1).1,
             0,
@@ -706,10 +702,28 @@ mod tests {
         }
 
         inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let rows = children_of::<InhibitorRow>(&inhibitor_list);
-        assert_eq!(rows.len(), 2);
+        let holders = children_of::<gtk4::Box>(&inhibitor_list);
+        assert_eq!(holders.len(), 2);
+        let first = holders[0].first_child().unwrap().downcast::<Row>().unwrap();
+        let first_panel = holders[0]
+            .last_child()
+            .unwrap()
+            .downcast::<gtk4::Revealer>()
+            .unwrap();
+        let second_panel = holders[1]
+            .last_child()
+            .unwrap()
+            .downcast::<gtk4::Revealer>()
+            .unwrap();
+        let card = first_panel
+            .child()
+            .unwrap()
+            .downcast::<gtk4::Box>()
+            .unwrap();
+        let cancel = children_of::<gtk4::Button>(&card).remove(0);
+        assert!(!first_panel.reveals_child());
 
-        let touched_row: &Row = rows[0].upcast_ref();
+        let touched_row = first.clone();
         touched_row.set_title(Some("Touched by hand"));
         inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
         assert_eq!(
@@ -719,7 +733,7 @@ mod tests {
              touched by hand"
         );
 
-        let title_label = child_named::<gtk4::Label>(&rows[0], "row__title");
+        let title_label = child_named::<gtk4::Label>(&first, "row__title");
         let title_changes = Rc::new(Cell::new(0u32));
         title_label.connect_label_notify({
             let title_changes = Rc::clone(&title_changes);
@@ -735,29 +749,47 @@ mod tests {
             "a changed slice re-applies the row it changed, undoing the hand touch"
         );
 
-        let release_true = child_named::<gtk4::Button>(&rows[0], "inhibitor-row__release");
-        let release_false = child_named::<gtk4::Button>(&rows[1], "inhibitor-row__release");
-        assert!(
-            release_true.get_visible(),
-            "can_release: true shows the button"
-        );
-        assert!(
-            !release_false.get_visible(),
-            "can_release: false hides it rather than merely disabling it"
-        );
-
         let reported = Rc::new(RefCell::new(Vec::<u64>::new()));
         inhibitor_list.connect_release_requested({
             let reported = Rc::clone(&reported);
             move |_, id| reported.borrow_mut().push(id)
         });
-        release_true.emit_clicked();
+        first.emit_clicked();
+        assert!(first_panel.reveals_child());
+        assert!(inhibitor_list.is_open());
+        assert!(cancel.get_visible());
+        assert!(
+            reported.borrow().is_empty(),
+            "opening details does not cancel"
+        );
+        let second = holders[1].first_child().unwrap().downcast::<Row>().unwrap();
+        second.emit_clicked();
+        assert!(!first_panel.reveals_child());
+        assert!(second_panel.reveals_child());
+        let second_card = second_panel
+            .child()
+            .unwrap()
+            .downcast::<gtk4::Box>()
+            .unwrap();
+        let second_cancel = children_of::<gtk4::Button>(&second_card).remove(0);
+        assert!(!second_cancel.get_visible());
+        second.emit_clicked();
+        assert!(!second_panel.reveals_child());
+        first.emit_clicked();
+        cancel.emit_clicked();
         assert_eq!(*reported.borrow(), vec![1]);
 
         inhibitor_list.set_inhibitors(&[inhibitor(9, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let reused = children_of::<InhibitorRow>(&inhibitor_list);
-        assert_eq!(reused[0], rows[0], "row 0 is reused in place, not rebuilt");
-        release_true.emit_clicked();
+        let reused = children_of::<gtk4::Box>(&inhibitor_list);
+        assert_eq!(
+            reused[0], holders[0],
+            "row 0 is reused in place, not rebuilt"
+        );
+        assert!(
+            !inhibitor_list.is_open(),
+            "a removed inhibitor closes its details"
+        );
+        cancel.emit_clicked();
         assert_eq!(
             *reported.borrow(),
             vec![1, 9],
@@ -765,7 +797,7 @@ mod tests {
              captured when the row was first built"
         );
 
-        let chip_entry = InhibitorEntry {
+        let entry_without_tabs = InhibitorEntry {
             id: 5,
             source: InhibitorSource::Login1,
             label: "systemd-inhibit".to_owned(),
@@ -778,29 +810,37 @@ mod tests {
             },
             can_release: false,
         };
-        inhibitor_list.set_inhibitors(&[chip_entry]);
-        let chip_row = children_of::<InhibitorRow>(&inhibitor_list).remove(0);
-        assert_eq!(
-            all_named(&chip_row, "inhibitor-row__chip").len(),
-            3,
-            "idle, shutdown and power key are set; the other four targets get no chip"
-        );
-        assert_eq!(
-            all_named(&chip_row, "inhibitor-row__chip--minor").len(),
-            1,
-            "only power key is a secondary-tier target here"
-        );
-        let chip_icon = child_named::<gtk4::Image>(&chip_row, "row__icon");
+        inhibitor_list.set_inhibitors(&[entry_without_tabs]);
+        let holder_without_tabs = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
+        let row_without_tabs = holder_without_tabs
+            .first_child()
+            .unwrap()
+            .downcast::<Row>()
+            .unwrap();
+        let chip_icon = child_named::<gtk4::Image>(&row_without_tabs, "row__icon");
         assert_eq!(
             chip_icon.icon_name().as_deref(),
             Some("system-run-symbolic")
         );
-        assert_eq!(
-            *chip_row.imp().accessible_name.borrow(),
-            "systemd-inhibit. Idle. Shutdown. Power key",
-            "a screen reader hears which targets are held, not only the process name"
+        let panel = holder_without_tabs
+            .last_child()
+            .unwrap()
+            .downcast::<gtk4::Revealer>()
+            .unwrap();
+        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
+        let cancel = children_of::<gtk4::Button>(&card).remove(0);
+        row_without_tabs.emit_clicked();
+        assert!(panel.reveals_child());
+        assert!(
+            !cancel.get_visible(),
+            "an external inhibitor cannot be canceled"
         );
-
+        let facts = children_of::<FactList>(&card).remove(0);
+        let values = children_of::<Row>(&facts)
+            .iter()
+            .filter_map(Row::value)
+            .collect::<Vec<_>>();
+        assert!(values.iter().any(|value| value.contains("Shutdown")));
         let hostile = "ё".repeat(TEXT_MAX_CHARS * 2);
         inhibitor_list.set_inhibitors(&[InhibitorEntry {
             id: 7,
@@ -810,7 +850,12 @@ mod tests {
             targets: InhibitorTargets::default(),
             can_release: false,
         }]);
-        let hostile_row = children_of::<InhibitorRow>(&inhibitor_list).remove(0);
+        let hostile_holder = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
+        let hostile_row = hostile_holder
+            .first_child()
+            .unwrap()
+            .downcast::<Row>()
+            .unwrap();
         let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
         let hostile_subtitle = child_named::<gtk4::Label>(&hostile_row, "row__subtitle");
         assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
@@ -6106,6 +6151,41 @@ mod tests {
 
         display_popover.set_footer(Some("Display settings"));
         assert!(display_popover.imp().footer.get_visible());
+
+        let popover_heads: Vec<Row> = heads_of(&children_of(&*display_popover.imp().devices));
+        popover_heads[0].emit_clicked();
+        assert!(
+            display_popover
+                .imp()
+                .hero
+                .has_css_class(crate::drawer::RECEDED)
+                && display_popover
+                    .imp()
+                    .blank
+                    .has_css_class(crate::drawer::RECEDED)
+                && display_popover
+                    .imp()
+                    .footer
+                    .has_css_class(crate::drawer::RECEDED),
+            "opening display details dims the popover chrome while preserving the open row"
+        );
+        popover_heads[0].emit_clicked();
+        assert!(
+            !display_popover
+                .imp()
+                .hero
+                .has_css_class(crate::drawer::RECEDED)
+                && !display_popover
+                    .imp()
+                    .blank
+                    .has_css_class(crate::drawer::RECEDED)
+                && !display_popover
+                    .imp()
+                    .footer
+                    .has_css_class(crate::drawer::RECEDED),
+            "closing details restores the popover chrome"
+        );
+
         let popover_footer = Rc::new(Cell::new(0u32));
         display_popover.connect_footer_activated({
             let popover_footer = Rc::clone(&popover_footer);
@@ -6146,13 +6226,21 @@ mod tests {
         );
         idle_hold_row.emit_clicked();
         assert!(
-            idle_hold_panel.reveals_child(),
-            "the duration row opens its choices"
+            idle_hold_panel.reveals_child()
+                && idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
+                && idle.imp().hero.has_css_class(crate::drawer::RECEDED)
+                && idle.imp().list.has_css_class(crate::drawer::RECEDED)
+                && idle.imp().footer.has_css_class(crate::drawer::RECEDED),
+            "the duration row opens its choices and dims the resting popover"
         );
         idle_hold_row.emit_clicked();
         assert!(
-            !idle_hold_panel.reveals_child(),
-            "the same duration row closes its choices"
+            !idle_hold_panel.reveals_child()
+                && !idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
+                && !idle.imp().hero.has_css_class(crate::drawer::RECEDED)
+                && !idle.imp().list.has_css_class(crate::drawer::RECEDED)
+                && !idle.imp().footer.has_css_class(crate::drawer::RECEDED),
+            "the same duration row closes its choices and restores the popover"
         );
 
         let idle_requested = Rc::new(RefCell::new(Vec::<u32>::new()));
@@ -6187,13 +6275,24 @@ mod tests {
             let idle_released = Rc::clone(&idle_released);
             move |_, id| idle_released.borrow_mut().push(id)
         });
-        child_named::<gtk4::Button>(&idle, "inhibitor-row__release").emit_clicked();
+        let holder = children_of::<gtk4::Box>(&*idle.imp().list).remove(0);
+        let tile = holder.first_child().unwrap().downcast::<Row>().unwrap();
+        let panel = holder
+            .last_child()
+            .unwrap()
+            .downcast::<gtk4::Revealer>()
+            .unwrap();
+        tile.emit_clicked();
+        assert!(panel.reveals_child());
+        assert!(idle.imp().hero.has_css_class(crate::drawer::RECEDED));
+        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
+        children_of::<gtk4::Button>(&card).remove(0).emit_clicked();
         assert_eq!(*idle_released.borrow(), [1]);
 
         idle.set_inhibitors(&[]);
         assert!(
-            !idle_list_rule.get_visible(),
-            "the hairline follows the list back out once it empties"
+            !idle_list_rule.get_visible() && !idle.imp().hero.has_css_class(crate::drawer::RECEDED),
+            "the hairline and dimming clear when the list empties"
         );
 
         let idle_footer_activated = Rc::new(Cell::new(0u32));
@@ -6202,8 +6301,80 @@ mod tests {
             move |_| idle_footer_activated.set(idle_footer_activated.get() + 1)
         });
         idle.set_footer(Some("Idle settings"));
+        assert!(
+            !idle.imp().shell.imp().footer_rule.get_visible(),
+            "an empty inhibitor list leaves no divider between Keep awake and settings"
+        );
+        idle.set_inhibitors(&[inhibitor(2, "Firefox", false)]);
+        assert!(idle.imp().shell.imp().footer_rule.get_visible());
+        idle.set_inhibitors(&[]);
+        assert!(!idle.imp().shell.imp().footer_rule.get_visible());
         idle.imp().footer.emit_clicked();
         assert_eq!(idle_footer_activated.get(), 1);
+
+        let session = SessionPopover::new();
+        assert!(
+            session
+                .layout_manager()
+                .is_some_and(|layout| layout.is::<gtk4::BinLayout>()),
+            "the session popover root has a bin layout"
+        );
+        let session_actions = Rc::new(RefCell::new(Vec::new()));
+        session.connect_action_requested({
+            let session_actions = Rc::clone(&session_actions);
+            move |_, action| session_actions.borrow_mut().push(action.to_owned())
+        });
+        let hibernate = SessionActionState {
+            visible: true,
+            enabled: false,
+            subtitle: Some("Blocked by an active inhibitor.".to_owned()),
+        };
+        session.set_action(HIBERNATE, &hibernate);
+        assert!(!session.imp().hibernate.is_sensitive());
+        let notifies = Rc::new(Cell::new(0u32));
+        session.imp().hibernate.connect_notify_local(None, {
+            let notifies = Rc::clone(&notifies);
+            move |_, _| notifies.set(notifies.get() + 1)
+        });
+        session.set_action(HIBERNATE, &hibernate);
+        assert_eq!(
+            notifies.get(),
+            0,
+            "an unchanged action must not write the row"
+        );
+        session.imp().lock.emit_clicked();
+        assert_eq!(*session_actions.borrow(), [LOCK]);
+        session.set_updates(Some("Updates available"));
+        assert!(session.imp().updates_section.get_visible());
+        assert_eq!(
+            session.imp().updates.value().as_deref(),
+            Some("Updates available")
+        );
+        session.set_updates(None);
+        assert!(!session.imp().updates_section.get_visible());
+        session.set_sessions(&[SessionChoice {
+            id: "other".to_owned(),
+            user: "Other user".to_owned(),
+            subtitle: Some("wayland".to_owned()),
+        }]);
+        assert!(session.imp().sessions_section.get_visible());
+        let activated = Rc::new(RefCell::new(Vec::new()));
+        session.connect_activate_session({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id.to_owned())
+        });
+        session
+            .imp()
+            .sessions
+            .first_child()
+            .unwrap()
+            .downcast::<Row>()
+            .unwrap()
+            .emit_clicked();
+        assert_eq!(*activated.borrow(), ["other"]);
+        session.set_sessions(&[]);
+        assert!(session.imp().sessions.first_child().is_none());
+        assert!(!session.imp().sessions_section.get_visible());
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

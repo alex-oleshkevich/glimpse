@@ -6,6 +6,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 use crate::{Fact, FactList, Row, SwitchRow};
 
 pub(crate) const ENABLE_REQUESTED: &str = "enable-requested";
+pub(crate) const DETAILS_OPEN_CHANGED: &str = "details-open-changed";
 const DETAIL: &str = "detail-card";
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -86,6 +87,17 @@ impl DisplayList {
             glib::closure_local!(move |list: Self, connector: String, enabled: bool| {
                 f(&list, connector, enabled)
             }),
+        )
+    }
+
+    pub fn connect_details_open_changed<F: Fn(&Self, bool) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            DETAILS_OPEN_CHANGED,
+            false,
+            glib::closure_local!(move |list: Self, open: bool| f(&list, open)),
         )
     }
 
@@ -205,20 +217,27 @@ impl DisplayList {
     }
 
     fn apply_reveal(&self) {
-        let holders = self.imp().holders.borrow();
-        let any_open = holders
-            .iter()
-            .any(|holder| crate::drawer::panel(holder).is_some_and(|panel| panel.reveals_child()));
+        let any_open = {
+            let holders = self.imp().holders.borrow();
+            let any_open = holders.iter().any(|holder| {
+                crate::drawer::panel(holder).is_some_and(|panel| panel.reveals_child())
+            });
 
-        for holder in holders.iter() {
-            let Some(panel) = crate::drawer::panel(holder) else {
-                continue;
-            };
-            let open = panel.reveals_child();
-            if let Some(row) = crate::drawer::head::<Row>(holder) {
-                crate::set_css_class(&row, crate::drawer::OPEN, open);
-                crate::set_css_class(&row, crate::drawer::RECEDED, any_open && !open);
+            for holder in holders.iter() {
+                let Some(panel) = crate::drawer::panel(holder) else {
+                    continue;
+                };
+                let open = panel.reveals_child();
+                if let Some(row) = crate::drawer::head::<Row>(holder) {
+                    crate::set_css_class(&row, crate::drawer::OPEN, open);
+                    crate::set_css_class(&row, crate::drawer::RECEDED, any_open && !open);
+                }
             }
+            any_open
+        };
+
+        if self.imp().details_open.replace(any_open) != any_open {
+            self.emit_by_name::<()>(DETAILS_OPEN_CHANGED, &[&any_open]);
         }
     }
 

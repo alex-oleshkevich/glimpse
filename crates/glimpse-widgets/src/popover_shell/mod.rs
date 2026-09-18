@@ -55,6 +55,11 @@ impl PopoverShell {
         self.settle();
     }
 
+    pub fn set_footer_separated(&self, separated: bool) {
+        self.imp().footer_rule_suppressed.set(!separated);
+        self.settle();
+    }
+
     fn watch(&self, widget: &impl IsA<gtk4::Widget>) {
         widget.as_ref().connect_visible_notify(glib::clone!(
             #[weak(rename_to = shell)]
@@ -65,14 +70,14 @@ impl PopoverShell {
 
     fn settle(&self) {
         let imp = self.imp();
-        for (slot, rule) in [
-            (&*imp.hero_box, &*imp.hero_rule),
-            (&*imp.footer_box, &*imp.footer_rule),
-        ] {
-            let shown = shows_anything(slot);
-            slot.set_visible(shown);
-            rule.set_visible(shown);
-        }
+        let hero_shown = shows_anything(&imp.hero_box);
+        imp.hero_box.set_visible(hero_shown);
+        imp.hero_rule.set_visible(hero_shown);
+
+        let footer_shown = shows_anything(&imp.footer_box);
+        imp.footer_box.set_visible(footer_shown);
+        imp.footer_rule
+            .set_visible(footer_shown && !imp.footer_rule_suppressed.get());
     }
 }
 

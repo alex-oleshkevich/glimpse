@@ -324,6 +324,11 @@ snapshot, never the backend, and an id that has just disappeared is `Refused`, n
 `set_app_volume` fans out through `Role::scaled` rather than one absolute write, so a group's
 streams keep their relative mix.
 
+**session actions** — logind capabilities, same-seat sessions and inhibitors on their own
+subscription, window count from the compositor, PackageKit updates only on `UpdatesChanged`. A
+window appearing does not re-query the package manager. Capability reasons are an enum; the applet
+formats them.
+
 ## Rules
 
 Concrete handles only — no broker, registry or string routing; see `.claude/rules/daemon.md`.

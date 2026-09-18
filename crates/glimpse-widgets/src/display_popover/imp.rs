@@ -71,6 +71,12 @@ impl ObjectImpl for DisplayPopover {
             }
         ));
 
+        self.devices.connect_details_open_changed(glib::clone!(
+            #[weak]
+            popover,
+            move |_, open| popover.set_details_open(open)
+        ));
+
         self.blank.connect_clicked(glib::clone!(
             #[weak]
             popover,

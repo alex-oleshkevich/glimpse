@@ -127,24 +127,17 @@ string, and loses its icon and its title/body split the moment it is flattened i
   row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
   lint allows `border:` but not `border-left:`.
 
-## InhibitorList and InhibitorRow
+## InhibitorList
 
-`InhibitorRow` extends `Row` and composes two things into the one `trail` slot: a `chips` box and a
-`release` button, both declared once in the row's own template rather than adding a second slot.
+Each inhibitor is a regular `Row`. Clicking it opens a drawer with its source and targets. A
+releasable inhibitor has a Cancel button inside the drawer.
 
 - **`InhibitorEntry`/`InhibitorSource`/`InhibitorTargets` are local to this crate**, per the widget
   boundary rule above; `InhibitorSource` maps to a lead icon internally, not carried as a string.
-- **A chip exists only for a set target**, never a dimmed one for an unset target. Primary- and
-  secondary-tier chips share one CSS class; the secondary tier adds a modifier for lower contrast.
-- **The release button hides, never disables**, when `can_release` is false, in both the template's
-  initial state and the row's own setter.
-- **A row resolves its own id at click time**, from a `Cell<u64>` read inside the button's click
-  handler — rows are reused by position across a render, so the id cannot be captured at build time.
-- **A states board declares `$InhibitorList`, never `[trail]` on a bare `$InhibitorRow`.** The row's
-  own template already fills its inherited `trail` slot, so a `[trail]` tag on an *instance* routes
-  through `Row::set_trail` and tears that box back out — the fixture feeds real data through
-  `set_inhibitors` instead, the same way `tray_states` tags each `TrayStrip` with a `demo__<case>`
-  class.
+- **The Cancel button hides when `can_release` is false.** The handler reads the current entry by
+  position, because rows are reused across updates and an id captured at construction can go stale.
+- **A states board declares `$InhibitorList` and feeds real data through `set_inhibitors`**, the same
+  way `tray_states` tags each `TrayStrip` with a `demo__<case>` class.
 
 ## Section, EventList and WorldClock
 
@@ -215,7 +208,7 @@ hover, focus and any pending press. The key can therefore be captured when the r
 ## Popovers
 
 `PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
-separator between each pair.
+separator between each pair. An applet can suppress its footer separator when no divider is needed.
 
 - **A section and its hairline show and hide together**, the shell watching `notify::visible` on
   what is appended; hiding the section alone leaves a line floating against nothing.
@@ -254,6 +247,7 @@ recedes follows the row the list shows, not the id asked for**: a hidden section
 **`IdlePopover`'s hold switch is a second master control, not a readout**, emitting `hold-toggled` the
 same as an indefinite preset does; its six preset buttons carry their durations hardcoded in
 `imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
+Its inhibitor and footer separators stay hidden until an inhibitor row exists.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
 wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
@@ -390,6 +384,12 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 - **The knob's own row carries `_("Warm the screen")`, not `_("Enabled")`.** `DisplayList` already
   owns that msgid for "this output is on"; sharing it would ask one translation to serve two
   unrelated ideas.
+
+## SessionPopover
+
+Lock, sleep and power rows are template children; other sessions and the updates row are sections
+that hide when empty. Static labels live in the blueprint. The widget emits `action-requested` and
+`activate-session` and does not know logind.
 
 ## DisplayPopover
 

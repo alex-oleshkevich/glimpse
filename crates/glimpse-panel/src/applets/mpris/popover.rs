@@ -1,16 +1,10 @@
 use std::collections::HashMap;
 
+use super::ResolvedIcon;
 use glimpse_services::{Playback, PlayerStatus};
 use glimpse_widgets::Player;
-use gtk4::{gio, prelude::*};
-
-use super::Themed;
 
 const FALLBACK_ICON: &str = "multimedia-player-symbolic";
-
-pub fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
 
 /// A player's own application icon where the theme has one, and a category icon where it does not.
 /// An unresolvable name renders as a broken-image glyph, which reads worse than a generic icon, so
@@ -46,9 +40,7 @@ fn installed(name: &str) -> bool {
         .is_some_and(|theme| theme.has_icon(name))
 }
 
-/// Icons come from the applet's own cache rather than being resolved here, so every player on
-/// screen is resolved on the same terms as the one on the bar.
-pub fn rows(players: &[PlayerStatus], icons: &HashMap<String, Themed>) -> Vec<Player> {
+pub fn rows(players: &[PlayerStatus], icons: &HashMap<String, ResolvedIcon>) -> Vec<Player> {
     players
         .iter()
         .filter(|player| !player.current)

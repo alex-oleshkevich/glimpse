@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
@@ -15,6 +17,7 @@ pub struct PopoverShell {
     pub footer_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
     pub footer_box: TemplateChild<gtk4::Box>,
+    pub footer_rule_suppressed: Cell<bool>,
 }
 
 #[glib::object_subclass]

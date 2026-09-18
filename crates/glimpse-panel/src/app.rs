@@ -1,5 +1,5 @@
 use adw::gdk::{self, prelude::*};
-use adw::prelude::AdwDialogExt;
+use adw::prelude::{AdwDialogExt, AlertDialogExt};
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
@@ -9,7 +9,10 @@ use zeroize::Zeroizing;
 use glimpse_config::{
     Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_services::{Answer, BluetoothHandle, NetworkHandle};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
+use glimpse_services::{
+    Answer, BluetoothHandle, CommandError, NetworkHandle, SessionAction, SessionActionsHandle,
+};
 use glimpse_widgets::{
     NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
     SecretDialog, Styles,
@@ -20,6 +23,7 @@ use relm4::{
 use tokio::task::JoinHandle;
 
 use crate::{
+    applet::{Report, spawn_reported},
     applets::bluetooth::{cap, typed},
     components::{self, panel},
     services::PanelServices,
@@ -33,6 +37,14 @@ pub struct SecretPrompt {
     entered: NetworkEntered,
 }
 
+#[derive(Clone, Debug)]
+pub struct SessionDialog {
+    pub title: String,
+    pub body: String,
+    pub accept: String,
+    pub action: SessionAction,
+}
+
 pub struct AppInit {
     pub config: Config,
     pub config_path: Option<PathBuf>,
@@ -43,6 +55,8 @@ pub struct AppInit {
 pub enum AppInput {
     BluetoothPrompt(Option<(Entry, String, String)>),
     NetworkSecret(Option<SecretPrompt>),
+    SessionConfirm(SessionDialog),
+    SessionRun(SessionAction),
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -127,7 +141,8 @@ impl SimpleComponent for App {
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
                 if renamed {
                     self.theme_watch.abort();
-                    self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
+                    self.theme_watch =
+                        spawn_theme_watch(&self.config.appearance.theme, sender.clone());
                     self.reload_styles();
                 }
             }
@@ -173,9 +188,24 @@ impl SimpleComponent for App {
                 }
                 return;
             }
+            AppInput::SessionConfirm(request) => {
+                self.close_popovers();
+                self.show_session_dialog(request);
+                return;
+            }
+            AppInput::SessionRun(action) => {
+                self.close_popovers();
+                self.run_session_action(action);
+                return;
+            }
             AppInput::ThemeChanged => self.reload_styles(),
         }
-        reconcile_panels(&mut self.panels, &self.config, self.services.as_ref());
+        reconcile_panels(
+            &mut self.panels,
+            &self.config,
+            self.services.as_ref(),
+            sender.input_sender().clone(),
+        );
     }
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
@@ -276,11 +306,75 @@ impl App {
         dialog.ask(&key, &name, retry, entered);
     }
 
+    fn show_session_dialog(&self, request: SessionDialog) {
+        let dialog = adw::AlertDialog::new(Some(&request.title), Some(&request.body));
+        dialog.add_response("cancel", &gettext("Cancel"));
+        dialog.add_response("accept", &request.accept);
+        dialog.set_response_appearance("accept", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        let host = self.host.clone();
+        let action = request.action.clone();
+        let actions = self
+            .services
+            .as_ref()
+            .map(|services| services.session_actions.clone());
+        let notifications = self
+            .services
+            .as_ref()
+            .map(|services| services.notifications());
+        dialog.connect_response(None, move |_, response| {
+            if session_accepted(response)
+                && let (Some(actions), Some(notifications)) =
+                    (actions.clone(), notifications.clone())
+            {
+                execute_session(actions, notifications, action.clone());
+            }
+            host.set_visible(false);
+        });
+        self.host.set_title(Some(&request.title));
+        self.host.set_visible(true);
+        dialog.present(Some(&self.host));
+    }
+
+    fn run_session_action(&self, action: SessionAction) {
+        let Some(services) = &self.services else {
+            return;
+        };
+        execute_session(
+            services.session_actions.clone(),
+            services.notifications(),
+            action,
+        );
+    }
+
     fn reload_styles(&self) {
         let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
         self.styles
             .load(theme.as_deref(), user_stylesheet().as_deref());
     }
+}
+
+fn session_accepted(response: &str) -> bool {
+    response == "accept"
+}
+
+fn execute_session(
+    actions: SessionActionsHandle,
+    notifications: NotificationsProviderHandle,
+    action: SessionAction,
+) {
+    spawn_reported(
+        "session.run_action",
+        Report {
+            notifications,
+            app_name: gettext("Session"),
+            icon: "system-shutdown-symbolic".to_owned(),
+            summary: gettext("Could not complete the session action"),
+        },
+        |_: &CommandError| Some(gettext("The session manager refused that action.")),
+        async move { actions.run(action).await },
+    );
 }
 
 fn close<D: IsA<adw::Dialog>>(open: Option<(D, glib::SignalHandlerId)>) {
@@ -437,6 +531,7 @@ fn reconcile_panels(
     panels: &mut Vec<PanelState>,
     config: &Config,
     services: Option<&PanelServices>,
+    dialog: relm4::Sender<AppInput>,
 ) {
     let Some(services) = services else {
         return;
@@ -489,6 +584,8 @@ fn reconcile_panels(
                 notifications: services.notifications(),
                 weather: services.weather(),
                 idle: services.idle(),
+                session_actions: services.session_actions.clone(),
+                dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {
@@ -519,4 +616,16 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
     (0..model.n_items())
         .filter_map(|i| model.item(i).and_downcast::<gdk::Monitor>())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_dialog_accepts_only_the_destructive_response() {
+        assert!(!session_accepted("cancel"));
+        assert!(!session_accepted("close"));
+        assert!(session_accepted("accept"));
+    }
 }

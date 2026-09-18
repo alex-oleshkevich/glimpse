@@ -1,13 +1,26 @@
-use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
-use super::{InhibitorEntry, InhibitorRow};
+use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
+
+use super::InhibitorEntry;
+use crate::{FactList, Row};
+
+#[derive(Debug)]
+pub struct Item {
+    pub holder: gtk4::Box,
+    pub row: Row,
+    pub panel: gtk4::Revealer,
+    pub description: gtk4::Label,
+    pub facts: FactList,
+    pub cancel: gtk4::Button,
+}
 
 #[derive(Debug, Default)]
 pub struct InhibitorList {
     pub entries: RefCell<Vec<InhibitorEntry>>,
-    pub rows: RefCell<Vec<InhibitorRow>>,
+    pub items: RefCell<Vec<Item>>,
+    pub opened: Cell<Option<u64>>,
 }
 
 #[glib::object_subclass]
@@ -27,6 +40,9 @@ impl ObjectImpl for InhibitorList {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
+                glib::subclass::Signal::builder("detail-toggled")
+                    .param_types([bool::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("release-requested")
                     .param_types([u64::static_type()])
                     .build(),
@@ -44,8 +60,8 @@ impl ObjectImpl for InhibitorList {
     }
 
     fn dispose(&self) {
-        for row in self.rows.borrow_mut().drain(..) {
-            row.unparent();
+        for item in self.items.borrow_mut().drain(..) {
+            item.holder.unparent();
         }
     }
 }

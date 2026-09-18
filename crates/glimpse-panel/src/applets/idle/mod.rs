@@ -153,7 +153,7 @@ impl Idle {
                 ..Default::default()
             });
         }
-        let active = !self.state.inhibitors.is_empty();
+        let active = !self.manual_hold.borrow().is_empty();
         let icon = self.themed(render::icon(active));
         Some(IndicatorSpec {
             icon: Some(icon),
@@ -162,6 +162,7 @@ impl Idle {
                 &self.manual_hold.borrow(),
                 self.tooltip_format.as_deref(),
             ),
+            severity: active.then_some(Severity::Warning),
             ..Default::default()
         })
     }
@@ -195,4 +196,71 @@ impl Idle {
 
 fn ids_of(state: &IdleProviderState) -> Vec<u64> {
     state.inhibitors.iter().map(|record| record.id).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use glimpse_dbus::idle::{
+        IdleInhibitorRecord, IdleInhibitorSource, IdleProvider, InhibitionTargets, Login1Mode,
+    };
+
+    use super::*;
+
+    #[test]
+    fn external_inhibitors_leave_the_indicator_idle() {
+        let provider = IdleProvider::unavailable("idle provider unavailable");
+        let mut applet = Idle::start(provider.handle());
+        applet.state.available = true;
+        applet.state.reason = None;
+        applet.state.inhibitors.push(IdleInhibitorRecord {
+            id: 1,
+            who: "Firefox".to_owned(),
+            why: "Playing video".to_owned(),
+            bus_name: ":1.7".to_owned(),
+            process_name: "firefox".to_owned(),
+            source: IdleInhibitorSource::screen_saver(1),
+            targets: InhibitionTargets::idle_only(),
+            can_release: false,
+            added_at_unix: 0,
+        });
+
+        let indicator = applet.indicator().unwrap();
+
+        assert_eq!(indicator.severity, None);
+        assert_eq!(
+            applet.icon.as_ref().map(|(name, _)| *name),
+            Some(render::ICON_IDLE)
+        );
+    }
+
+    #[test]
+    fn manual_hold_activates_the_indicator() {
+        let provider = IdleProvider::unavailable("idle provider unavailable");
+        let mut applet = Idle::start(provider.handle());
+        applet.state.available = true;
+        applet.state.reason = None;
+        applet.state.inhibitors.push(IdleInhibitorRecord {
+            id: 1,
+            who: "glimpse-idle".to_owned(),
+            why: "Manual hold".to_owned(),
+            bus_name: ":1.7".to_owned(),
+            process_name: String::new(),
+            source: IdleInhibitorSource::login1(4242, 1000, Login1Mode::Block),
+            targets: InhibitionTargets::manual_hold(),
+            can_release: true,
+            added_at_unix: 0,
+        });
+        applet
+            .manual_hold
+            .borrow_mut()
+            .extend(render::manual_hold_ids(&applet.state.inhibitors));
+
+        let indicator = applet.indicator().unwrap();
+
+        assert_eq!(indicator.severity, Some(Severity::Warning));
+        assert_eq!(
+            applet.icon.as_ref().map(|(name, _)| *name),
+            Some(render::ICON_ACTIVE)
+        );
+    }
 }

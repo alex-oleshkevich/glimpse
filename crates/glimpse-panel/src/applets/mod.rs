@@ -12,6 +12,7 @@ pub mod network;
 mod next_event;
 mod notifications;
 mod pager;
+mod session;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
@@ -23,7 +24,7 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
-    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
+    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -63,6 +64,8 @@ pub fn build(
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
     idle: &IdleProviderHandle,
+    session_actions: &SessionActionsHandle,
+    dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => {
@@ -188,14 +191,21 @@ pub fn build(
                 Box::new(idle::Idle::start(idle))
             }))
         }
+        AppletKind::Session {} => {
+            let session_actions = session_actions.clone();
+            let dialog = dialog.cloned()?;
+            Some(Box::new(move |ctx| {
+                ctx.watch(session_actions.subscribe());
+                Box::new(session::Session::start(session_actions, dialog))
+            }))
+        }
         AppletKind::Battery {}
         | AppletKind::Clipboard {}
         | AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
-        | AppletKind::Removable {}
-        | AppletKind::Session {} => None,
+        | AppletKind::Removable {} => None,
     }
 }
 
@@ -301,8 +311,69 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.session_actions,
+            None,
         );
         assert!(built.is_some(), "audio now has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_session_applet_needs_the_dialog_host() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Session {}.into();
+        let (dialog, _rx) = relm4::channel();
+
+        assert!(
+            build(
+                &config,
+                &services.compositor,
+                &services.keyboard,
+                &services.calendar,
+                &services.mpris,
+                &services.heartbeat,
+                &services.tray,
+                &services.bluetooth,
+                &services.network,
+                &services.audio,
+                &services.brightness,
+                &services.night_light(),
+                &services.notifications(),
+                &services.weather(),
+                &services.idle(),
+                &services.session_actions,
+                None,
+            )
+            .is_none(),
+            "a session chip cannot confirm without the host"
+        );
+        assert!(
+            build(
+                &config,
+                &services.compositor,
+                &services.keyboard,
+                &services.calendar,
+                &services.mpris,
+                &services.heartbeat,
+                &services.tray,
+                &services.bluetooth,
+                &services.network,
+                &services.audio,
+                &services.brightness,
+                &services.night_light(),
+                &services.notifications(),
+                &services.weather(),
+                &services.idle(),
+                &services.session_actions,
+                Some(&dialog),
+            )
+            .is_some(),
+            "session is a configured panel chip"
+        );
 
         services.shutdown().await;
     }
@@ -334,6 +405,8 @@ mod tests {
                 &services.notifications(),
                 &services.weather(),
                 &services.idle(),
+                &services.session_actions,
+                None,
             );
             assert!(
                 built.is_some(),

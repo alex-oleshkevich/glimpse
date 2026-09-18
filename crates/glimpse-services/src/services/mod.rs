@@ -28,6 +28,7 @@ mod network;
 mod night_light;
 mod notifications;
 mod session;
+mod session_actions;
 mod solar;
 mod tray;
 mod weather;
@@ -64,6 +65,11 @@ pub use night_light::{
 };
 pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
+pub use session_actions::{
+    Action as SessionAction, Capability as SessionCapability,
+    Dependencies as SessionActionsDependencies, Inhibitor as SessionInhibitor, SessionActions,
+    SessionActionsHandle, SessionActionsState, SessionEntry, Updates as SessionUpdates,
+};
 pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};

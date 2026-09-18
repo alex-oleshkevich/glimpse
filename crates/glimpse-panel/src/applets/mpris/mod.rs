@@ -12,7 +12,7 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
 use glimpse_services::MprisHandle;
 use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
-use gtk4::{gdk, gio, glib};
+use gtk4::{gdk, glib};
 
 use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
@@ -21,14 +21,9 @@ const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
 const ART: i32 = 192;
 
-/// A player's icon, resolved against the theme once rather than once per render: `indicators` is
-/// pulled after every input, and resolving walks a candidate list calling `has_icon` on each. The
-/// desktop entry is held because it is an input to that resolution and a player may answer
-/// `DesktopEntry` late — keyed on the id alone, a fallback would stick for the player's whole life.
-pub struct Themed {
+pub struct ResolvedIcon {
     pub entry: Option<String>,
     pub name: String,
-    pub icon: gio::Icon,
 }
 
 pub struct Mpris {
@@ -38,7 +33,7 @@ pub struct Mpris {
     players: Vec<PlayerStatus>,
     ticking: Option<bool>,
     art: Option<(String, gdk::Texture)>,
-    icons: HashMap<String, Themed>,
+    icons: HashMap<String, ResolvedIcon>,
     /// The player the popover's own controls act on. A signal closure cannot reach `&mut self`,
     /// and which player is current changes under it.
     aimed: Rc<RefCell<String>>,
@@ -208,9 +203,8 @@ impl Mpris {
             let name = popover::icon_name(player);
             self.icons.insert(
                 player.id.clone(),
-                Themed {
+                ResolvedIcon {
                     entry: player.desktop_entry.clone(),
-                    icon: popover::themed(&name),
                     name,
                 },
             );
@@ -288,19 +282,18 @@ impl Mpris {
             .map(|texture| (path, texture));
     }
 
-    /// A label that renders to nothing leaves an icon-only chip rather than removing the applet:
-    /// a stream with no metadata would otherwise take the popover off the bar with it, while it is
-    /// still the thing making the noise.
     fn indicator(&self) -> Option<IndicatorSpec> {
         let player = self.current()?;
         let now = Utc::now();
+        let cap = usize::from(self.settings.max_length.max(1));
+        let label = render::trimmed(
+            &render::label(&self.settings.label_format, player, now),
+            cap,
+        )
+        .or_else(|| render::trimmed(&player.identity, cap));
 
         Some(IndicatorSpec {
-            icon: self.icons.get(&player.id).map(|held| held.icon.clone()),
-            label: render::trimmed(
-                &render::label(&self.settings.label_format, player, now),
-                usize::from(self.settings.max_length.max(1)),
-            ),
+            label,
             tooltip: self
                 .tooltip_format
                 .as_deref()
@@ -312,7 +305,7 @@ impl Mpris {
     fn dress(&self, shown: &MprisPopover) {
         let Some(player) = self.current() else {
             self.aimed.replace(String::new());
-            shown.set_others(self.settings.show_others.then_some(&[][..]));
+            shown.set_others(None);
             shown.set_footer(None);
             return;
         };
@@ -347,7 +340,8 @@ impl Mpris {
         let others = self
             .settings
             .show_others
-            .then(|| popover::rows(&self.players, &self.icons));
+            .then(|| popover::rows(&self.players, &self.icons))
+            .filter(|rows| !rows.is_empty());
         shown.set_others(others.as_deref());
         shown.set_footer(
             player
