@@ -720,6 +720,91 @@ exist at all** — a muted or unavailable device needs a signal other than eithe
 whichever test touches `DesktopAppInfo` first decides the path for every test that runs after it
 in the same process.
 
+**Brightness sources, September 2026.** Measured against an amdgpu panel backlight and an ASUS
+`asus::kbd_backlight` (UPower 1.91.3, kernel udev 261).
+
+- **The `backlight` uevent fires on every WRITE, not every change** — three `SetBrightness` calls
+  through logind produced three `change` uevents, and the first wrote the value already present. A
+  udev source must read a uevent as "re-read this device", never as "something external moved";
+  what stops the loop is structural, not a guard — the reconcile path has no write edge back out.
+- **`udev` is promoted to a direct workspace dependency solely to enable its `send` feature**, which
+  `tokio-udev` does not request; without it, `Device`/`MonitorSocket`/`Builder`/`Udev` are `!Send`
+  and the `Sub::stream` plumbing does not compile. The resulting `unsafe impl Send` is sound only
+  because no `udev::Device` or `Event` ever escapes the single stream task while the monitor lives.
+  `libudev` is now a link-time system dependency, confirmed present here at version 261 via
+  pkg-config.
+- **UPower's `KbdBacklight` introspection under-reports, the mirror of the BlueZ case above**: the
+  parent node's introspection lists the interface with only a `NativePath` property and no methods,
+  yet `GetBrightness`/`GetMaxBrightness` both answer on it. What actually breaks is that the
+  parent's `NativePath` is the EMPTY STRING; only a child node (machine-specific, e.g.
+  `asusookbd_backlight` here) carries the real sysfs path, which is the dedup key against
+  `/sys/class/leds`.
+- **`BrightnessChangedWithSource` does not discriminate a client's own write.** Calling
+  `SetBrightness` through UPower's own D-Bus API reports `(value, "external")` — indistinguishable
+  from an actual external change. Filtering on `source` filters nothing; the echo loop is stopped
+  the same structural way as the backlight uevent.
+- **Adwaita ships no `display-brightness-*` level variants** — there is no icon ladder to step
+  through the way `network-*` or `audio-volume-*` have one.
+
+**The night light Schedule trap, September 2026.** `NightLightState::active()` is `self.temperature
+!= DAY`, so it reads `false` — "off" — for every daylight hour under `Automatic`, since the ramp
+holds `DAY` (6500 K) whenever the sun says so. A switch or an icon bound to `active()` lies all day;
+the schedule to read is `schedule != "off"`.
+
+**Output power and richer output info, September 2026.**
+
+- **niri STORES the output scale rather than recomputing it** — three samples of `niri msg -j
+  outputs` 0.4s apart returned a byte-identical `logical.scale` (1.25, exactly representable in
+  `f64`) and an integer-mHz `refresh_rate`, which is what makes float equality safe inside
+  `OutputInfo`'s republish gate. Hyprland's `logical.scale` is its own `f64` passed verbatim and is
+  UNVERIFIED — no Hyprland session exists on this machine.
+- **A niri output with `current_mode: null` has no `wl_output` global.** `gdk_monitor(connector)`
+  finds nothing, `place()` calls `set_monitor(None)`, and the compositor picks — so a notification
+  popup placed on a disabled output is NOT invisible, it lands on the compositor's default output,
+  ignoring both `[notifications] monitor` and the focused-output rule, with no log line;
+  `constrain_height`'s overflow trim also never runs, since it early-returns on the same `None`.
+- **niri-ipc 26.4.0 declares `Action::PowerOffMonitors` as an EMPTY STRUCT variant and
+  `Request::Action` as a NEWTYPE variant**, so the wire bytes are exactly
+  `{"Action":{"PowerOffMonitors":{}}}` — read off the vendored crate source, not guessed.
+- **Hyprland's `dispatch dpms off` wake-on-input is UNVERIFIED** — no Hyprland session exists on
+  this machine to test it — and hypridle's own configuration pairs that dispatch with an explicit
+  `on-resume = hyprctl dispatch dpms on`, which is how you configure something that does not come
+  back by itself. `Capabilities.output_power` stays true on both backends for exactly this reason
+  (bead `glimpse-50pe`): if Hyprland needs an explicit power-on, the two backends disagree.
+- **EDID descriptor strings terminate with `0x0A` and pad with `0x20` — but some panels pad with
+  `0x00`**, and `'\0'` is not whitespace. Sanitizing control characters must run BEFORE trimming,
+  never after, or the null padding survives. **`make`, `model` and `serial` all come from the same
+  EDID block and all reach a label** — `label_of` composes `format!("{make} {model}")`, so
+  sanitizing only `model` leaves half of a rendered string raw.
+
+**`zvariant`'s `OwnedValue` derive makes every D-Bus struct property APPEND-ONLY, September 2026.**
+The generated impl does `Structure::try_from(value)?.into_fields()` then pops ONE FIELD PER DECLARED
+FIELD in order, silently ignoring whatever is left over — so appending a field to a struct signature
+is free (an old client's fewer downcasts all succeed, the extras are dropped), reordering breaks
+decoding for any untyped client such as `gdbus`, and removing a field PANICS the client outright,
+because the pop is `Vec::remove(0)`. None of this is visible from the D-Bus spec, which carries no
+field names in a struct signature at all — only from the generated code.
+
+**glib-rs panics on a NaN write to ANY `f64` GObject property, September 2026.**
+`g_param_value_validate`'s `CLAMP` leaves a `NaN` value unchanged — `NaN > high` and `NaN < low` are
+both false — but glib-rs's own `set_property` compares before and after with `!=` to decide whether
+the value was coerced, and `NaN != NaN` reads as "changed"; with `LAX_VALIDATION` unset (the
+default), that panics as "invalid or out of range" before the property's own setter body ever runs.
+No paramspec bound — `minimum`, `maximum`, anything — prevents it; the guard has to be in the caller.
+
+**Every brightness fixture used a 0-100 range, which hid a real bug, September 2026.** `$Fader`
+carries the hardware's native range, so a display source arrives as `value` against a `maximum` of
+`400000` on this machine's `amdgpu_bl1`. The popover readout printed the raw value and appended
+`%`, reading `400000%` on a real panel. No test and no states board could fail: every `Source`
+fixture and every board sets `maximum: 100`, where the raw value and the percentage are the same
+number. A percentage assertion is only meaningful against a maximum that is not 100.
+
+**`ddcci-backlight` is not loaded on this machine, so there is no external display source.**
+`/sys/class/backlight` holds `amdgpu_bl1` alone. An absent external fader and a scroll that only
+ever moves the built-in panel are both this, not applet bugs — `render::current_display` already
+prefers the focused connector and falls back to the internal display, and with one source the
+fallback is the only path. Load the module before concluding anything about multi-source brightness.
+
 ## Finishing
 
 Finishing is a pass over the work, not the moment the last edit compiles. Run it every time, before

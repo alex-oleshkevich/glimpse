@@ -76,6 +76,7 @@ fn named(name: &str) -> Exit {
         | "org.freedesktop.DBus.Error.TimedOut" => Exit::Timeout,
 
         "me.aresa.Glimpse.NightLight1.Error.InvalidSchedule"
+        | "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature"
         | "me.aresa.Glimpse.Weather1.Error.InvalidPlace"
         | "me.aresa.Glimpse.Notifications1.Error.InvalidAction"
         | "org.freedesktop.DBus.Error.InvalidArgs"
@@ -120,6 +121,12 @@ mod tests {
         assert_eq!(
             exit(&method_error(
                 "me.aresa.Glimpse.NightLight1.Error.InvalidSchedule"
+            )),
+            Exit::Rejected
+        );
+        assert_eq!(
+            exit(&method_error(
+                "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature"
             )),
             Exit::Rejected
         );

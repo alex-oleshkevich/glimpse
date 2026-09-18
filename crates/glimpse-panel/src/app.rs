@@ -484,6 +484,8 @@ fn reconcile_panels(
                 bluetooth: services.bluetooth.clone(),
                 network: services.network.clone(),
                 audio: services.audio.clone(),
+                brightness: services.brightness.clone(),
+                night_light: services.night_light(),
                 notifications: services.notifications(),
                 weather: services.weather(),
             };

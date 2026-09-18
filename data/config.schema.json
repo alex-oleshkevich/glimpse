@@ -128,12 +128,20 @@
           "required": []
         },
         "brightness": {
-          "description": "Display backlight level.",
+          "description": "Display backlight level, and the keyboard's own where the machine has one.",
           "type": "object",
           "properties": {
             "extends": {
               "type": "string",
               "const": "brightness"
+            },
+            "scroll-step": {
+              "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 5,
+              "maximum": 100,
+              "minimum": 1
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -148,6 +156,11 @@
                 "string",
                 "null"
               ]
+            },
+            "show-keyboard": {
+              "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
+              "type": "boolean",
+              "default": true
             },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
@@ -1112,12 +1125,20 @@
             ]
           },
           {
-            "description": "Display backlight level.",
+            "description": "Display backlight level, and the keyboard's own where the machine has one.",
             "type": "object",
             "properties": {
               "extends": {
                 "type": "string",
                 "const": "brightness"
+              },
+              "scroll-step": {
+                "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 5,
+                "maximum": 100,
+                "minimum": 1
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1132,6 +1153,11 @@
                   "string",
                   "null"
                 ]
+              },
+              "show-keyboard": {
+                "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
+                "type": "boolean",
+                "default": true
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
@@ -2030,6 +2056,12 @@
         "scan-timeout": 30
       }
     },
+    "brightness": {
+      "$ref": "#/$defs/Brightness",
+      "default": {
+        "minimum": 3
+      }
+    },
     "calendar": {
       "$ref": "#/$defs/Calendar",
       "default": {
@@ -2281,6 +2313,20 @@
           "type": "integer",
           "format": "uint64",
           "default": 30,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Brightness": {
+      "type": "object",
+      "properties": {
+        "minimum": {
+          "description": "The lowest percent a display's backlight is allowed to reach; the keyboard backlight ignores\nit and may still go to 0. Every write glimpse makes to a display source is clamped here,\nbecause a screen driven all the way dark is indistinguishable from one that has failed.",
+          "type": "integer",
+          "format": "uint8",
+          "default": 3,
+          "maximum": 100,
           "minimum": 0
         }
       },

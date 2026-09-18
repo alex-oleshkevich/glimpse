@@ -1,15 +1,18 @@
 use std::fmt;
+use std::sync::Arc;
 
 use glimpse_config::Config;
 use glimpse_dbus::{
     Buses,
+    night_light::{NightLightProvider, NightLightProviderHandle},
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Audio, AudioHandle, Bluetooth, BluetoothHandle, Calendar, CalendarHandle, Compositor,
-    CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
-    Mpris, MprisHandle, Network, NetworkHandle, Running, Tray, TrayHandle,
+    Audio, AudioHandle, Backlight, Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies,
+    BrightnessHandle, Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat,
+    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
+    NetworkHandle, Running, SysfsBacklight, Tray, TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -22,6 +25,7 @@ pub struct PanelServices {
     pub bluetooth: BluetoothHandle,
     pub network: NetworkHandle,
     pub audio: AudioHandle,
+    pub brightness: BrightnessHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -31,8 +35,10 @@ pub struct PanelServices {
     bluetooth_service: Running<Bluetooth>,
     network_service: Running<Network>,
     audio_service: Running<Audio>,
+    brightness_service: Running<Brightness>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
+    night_light: NightLightProvider,
 }
 
 impl PanelServices {
@@ -41,14 +47,16 @@ impl PanelServices {
     }
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (notifications, weather) = match buses.session_bus() {
+        let (notifications, weather, night_light) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
                 WeatherProvider::start(connection.clone()),
+                NightLightProvider::start(connection.clone()),
             ),
             Err(reason) => (
                 NotificationsProvider::unavailable(reason),
                 WeatherProvider::unavailable(reason),
+                NightLightProvider::unavailable(reason),
             ),
         };
         let (compositor_service, compositor) =
@@ -68,7 +76,13 @@ impl PanelServices {
         let (bluetooth_service, bluetooth) =
             Running::<Bluetooth>::spawn(document, buses.clone(), ());
         let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
-        let (audio_service, audio) = Running::<Audio>::spawn(document, buses, ());
+        let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
+        let backend: Arc<dyn Backlight> = match buses.system_bus() {
+            Ok(bus) => Arc::new(SysfsBacklight::new(bus.clone())),
+            Err(_) => Arc::new(UnavailableBacklight),
+        };
+        let (brightness_service, brightness) =
+            Running::<Brightness>::spawn(document, buses, BrightnessDependencies { backend });
 
         Self {
             compositor,
@@ -80,6 +94,7 @@ impl PanelServices {
             bluetooth,
             network,
             audio,
+            brightness,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -89,8 +104,10 @@ impl PanelServices {
             bluetooth_service,
             network_service,
             audio_service,
+            brightness_service,
             notifications,
             weather,
+            night_light,
         }
     }
 
@@ -98,6 +115,8 @@ impl PanelServices {
         self.cancel();
         self.weather.shutdown().await;
         self.notifications.shutdown().await;
+        self.night_light.shutdown().await;
+        self.brightness_service.stop().await;
         self.audio_service.stop().await;
         self.bluetooth_service.stop().await;
         self.network_service.stop().await;
@@ -119,6 +138,7 @@ impl PanelServices {
         self.bluetooth_service.reconfigure(document);
         self.network_service.reconfigure(document);
         self.audio_service.reconfigure(document);
+        self.brightness_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -129,7 +149,12 @@ impl PanelServices {
         self.weather.handle()
     }
 
+    pub fn night_light(&self) -> NightLightProviderHandle {
+        self.night_light.handle()
+    }
+
     fn cancel(&self) {
+        self.brightness_service.cancel();
         self.audio_service.cancel();
         self.bluetooth_service.cancel();
         self.network_service.cancel();

@@ -14,31 +14,27 @@ watch-backed state, sources, health and command plumbing; `services/` is one mod
 **A service says what state it starts in; nobody else gets to.** `Service::initial_state` is
 required and `ServiceRuntime::new` takes the config rather than the state, because `new` builds the
 handle and a handle answers `snapshot()` before `run` is called — a deferred state would leak an
-`Option` into every consumer.
-
-**`Running<S>` is one owned service — spawn, reconfigure, stop.** A composition root holds one per
-service and a fixed list of calls, rather than a sender, a token and a task each. A dropped
-`Running` cancels its service, so no root writes its own `Drop`. `Running::build` and
-`Pending::start` are the halves of `spawn`, kept apart for `glimpse-sunset`, which takes the D-Bus
-name and gamma control between them so a duplicate fails at the name rather than at the outputs.
+`Option` into every consumer. **`Running<S>` is one owned service — spawn, reconfigure, stop.** A
+composition root holds one per service and a fixed list of calls, rather than a sender, a token and a
+task each. A dropped `Running` cancels its service, so no root writes its own `Drop`. `Running::build`
+and `Pending::start` are the halves of `spawn`, kept apart for `glimpse-sunset`, which takes the
+D-Bus name and gamma control between them so a duplicate fails at the name rather than at the outputs.
 
 **The unchanged-configuration gate belongs in `run`, never on `ServiceSender`** — see
 `.claude/rules/daemon.md` for the gate itself. Senders are cloned and handed out before `run` is
-spawned, and a `try_send` onto a full inbox must not record a config that never arrived.
-
-Health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`. **`Degraded` is a
-running service** — it keeps publishing what it can, so a consumer must not dim its values. A
-producer stopping altogether reaches a consumer as `Sub::watch`'s closed-producer event, not as a
-predicate over health; a flag would be a second, lagging source of one fact.
+spawned, and a `try_send` onto a full inbox must not record a config that never arrived. Health is
+`Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`. **`Degraded` is a running
+service** — it keeps publishing what it can, so a consumer must not dim its values. A producer
+stopping altogether reaches a consumer as `Sub::watch`'s closed-producer event, not as a predicate
+over health; a flag would be a second, lagging source of one fact.
 
 **`ServiceState::unavailable_reason` is the one mapping from health to what a consumer is told.** It
 answers `None` while serving and otherwise why not, totally, so a new variant makes every provider
 fail to compile until it decides what to say. The strings are read over D-Bus, so `"starting"` and
-`"stopped"` are contract rather than log text; a provider layers its own case with `.or(...)`.
-
-Commands are ordinary Rust variants with typed arguments and command-specific oneshot senders. A
-handle method offers one through `ServiceEndpoint::command` and awaits its typed result; a full or
-closed inbox returns `CommandError::Unavailable`.
+`"stopped"` are contract rather than log text; a provider layers its own case with `.or(...)`. Commands
+are ordinary Rust variants with typed arguments and command-specific oneshot senders: a handle method
+offers one through `ServiceEndpoint::command` and awaits its typed result, and a full or closed inbox
+returns `CommandError::Unavailable`.
 
 ### Sources
 
@@ -57,23 +53,21 @@ Everything reaching a handler arrives from a source, and every source is one `ct
 semicolon and aborts the task before it runs. **`spawn_detached` is the one `Ctx` task handing back
 no guard**, because it is not a source — a handler returns before the work is done, and an
 abort-on-drop guard would cancel the call it just deferred. Shutdown still stops it through the
-cancellation token.
-
-A panic inside a source is caught, logged and turned into `degraded`. A source is where a backend's
-data gets parsed, which makes it the likeliest place to panic and the least visible — uncaught, the
-task stops and the service goes on believing it still has a source. `Sub::watch` reads a
-dependency's current value before waiting for changes, so a consumer gets a complete initial
-snapshot without a race, then maps a closed producer to an explicit unavailable event.
+cancellation token. A panic inside a source is caught, logged and turned into `degraded`. A source is
+where a backend's data gets parsed, which makes it the likeliest place to panic and the least
+visible — uncaught, the task stops and the service goes on believing it still has a source.
+`Sub::watch` reads a dependency's current value before waiting for changes, so a consumer gets a
+complete initial snapshot without a race, then maps a closed producer to an explicit unavailable
+event.
 
 ### Subscriptions
 
 **`Sub::deadline` waits on the wall clock, not on elapsed time.** A tokio timer runs on
 `CLOCK_MONOTONIC`, which does not advance while the machine is suspended, so one sleep of the whole
 interval fires late by however long the lid was shut, and an NTP step does the same. The wait is
-capped and the remaining time re-derived from `Utc::now()` each pass.
-
-**Tearing a timer down does not unqueue an event it has already emitted**, so an event carries its
-own deadline and the handler ignores one that no longer matches.
+capped and the remaining time re-derived from `Utc::now()` each pass. **Tearing a timer down does
+not unqueue an event it has already emitted**, so an event carries its own deadline and the handler
+ignores one that no longer matches.
 
 ## The services
 
@@ -81,12 +75,11 @@ own deadline and the handler ignores one that no longer matches.
 follows GeoClue's `Location`, subscribed **before** `Start` because the first fix can arrive before
 that call returns. Accuracy is `CITY`. Authorization is a shipped file,
 `data/geoclue/conf.d/glimpse.conf`, whose section name and `DESKTOP_ID` must agree. A missing fix or
-refused request leaves the service `degraded` publishing `None`.
-
-**solar** — `phase` and `next_change`, no color temperature (the night light's to decide).
-`next_change` is always still ahead, so a consumer needs no midnight special case. Above the polar
-circles a date has neither event: the phase falls back to the sign of the solar declination against
-the latitude, and `next_change` is `None`. Without a location it publishes nothing and degrades.
+refused request leaves the service `degraded` publishing `None`. **solar** publishes `phase` and
+`next_change`, no color temperature (the night light's to decide); `next_change` is always still
+ahead, so a consumer needs no midnight special case. Above the polar circles a date has neither
+event: the phase falls back to the sign of the solar declination against the latitude, and
+`next_change` is `None`. Without a location it publishes nothing and degrades.
 
 **night light** — the tick's period is **in its own subscription key**, so crossing into a
 transition window tears the slow timer down and builds the fast one; the ramp position comes from
@@ -102,40 +95,73 @@ is linked into the panel and every provider and none may gain a Wayland dependen
 **synchronous**: the real implementation blocks and says so with `block_in_place`, and a synchronous
 signature is dyn-compatible, which lets `NightLight` take `Box<dyn Gamma>`. `FakeGamma` sits beside
 it rather than behind `#[cfg(test)]`, because `glimpse-sunset`'s tests are a separate unit.
+**brightness** — `Backlight` adds `read` beside `enumerate` and `write`; `SysfsBacklight` reads
+`/sys/class/backlight` with `tokio::fs`, writes through `Login1SessionProxy::set_brightness`, and
+caches its session once via `glimpse-dbus::login1::session_path` rather than per write. `FakeBacklight`
+sits beside it, not behind `#[cfg(test)]`, like `FakeGamma`. **`current` and `confirmed` differ on
+purpose**: `current` moves the instant a command is accepted, `confirmed` only once a write lands, and
+a failed write rolls `current` back unless a newer value is queued. An `Entry` always carries an
+already-read value — `enumerate_sysfs` skips one whose `brightness` or `max_brightness` would not
+parse, so the trait has no `Option` to invent one. **`floor` is published, not only enforced**, or a
+dragged fader would snap back at the edge; sources collapse to the highest-preference controller **per
+connector**, only where known — two connectorless controllers both publish. External monitors join
+this list the same way, needing no code here, once the `ddcci-backlight` DKMS module
+(`ddcci-driver-linux-dkms`) is loaded, exposing one as an ordinary `/sys/class/backlight` entry. An
+absent module is an ordinary no-external-sources state, not a banner. **It does not see a hotplug**:
+a replugged monitor needs `modprobe -r ddcci && modprobe ddcci`. **A `backlight` uevent
+names a device to re-read, never a value to trust**: the driver fires on every write, even a repeat, so
+reacting to it as a change would loop at bus speed; `Refresh` re-reads every source the same way, for a
+driver that never calls `backlight_force_update()`. A re-read for an in-flight write is dropped, not
+reconciled, so it cannot clobber the value already applied; one reporting the device gone drops the
+source, a failed call is skipped rather than read as gone. Opening the udev monitor can fail — no
+`/run/udev` is ordinary — without enumeration or `Refresh` depending on it. **`udev` is a direct
+dependency only to carry the `send` feature** into the build `tokio-udev` already resolves — no file
+names `udev::`, so a cleanup pass reading it as unused would break the live path. **That `unsafe impl
+Send` is sound only because no `udev::Device` or `Event` ever escapes the stream task while the monitor
+lives** — `rescans_from` consumes each into an owned value before `Event::Rescanned`; widening that
+event to carry a `udev::Device`, or moving a read into `ctx.spawn` with the event still in hand, is a
+data race the compiler will not catch. **The keyboard source is `Kind::Keyboard`, found by Introspect,
+never a hardcoded child name.** `org.freedesktop.UPower.KbdBacklight` moved to a machine-specific child
+node in UPower ≥ 1.90; the parent still answers `GetBrightness`/`GetMaxBrightness` even where
+introspection omits the methods, so the sorted-first child wins, the parent only as fallback when
+Introspect names none. **The keyboard publishes under exactly one id, so there is nothing to dedupe
+against `/sys/class/leds`** — the LED fallback, picked the same sorted way, is tried only once UPower
+has none. **`source` on `BrightnessChangedWithSource` does not discriminate a client's own write** —
+glimpse's own `SetBrightness` reports `external` too, on UPower 1.91.3 — so every signal is taken as a
+reconcile; what stops an echo loop is structural, the same as a `backlight` uevent: `rescanned` has no
+write edge, so a repeat report re-reads and nothing else. Writes go through the cached
+`UPowerKbdBacklightProxy`, kept beside the logind session cache, or
+`Login1SessionProxy::set_brightness("leds", …)` against the LED fallback when UPower has none — never a
+direct sysfs write, which needs root. `Kind::Keyboard` ignores `floor`: `[brightness] minimum` is a
+display floor, and a keyboard may still reach zero.
 
-**compositor** — mirrors `glimpse-compositors` into one aggregate state and passes eight typed
-commands. There is no separate focus state: a focus change mutates the `focused` flag inside the
-lists. **The whole snapshot is re-read on a resync, not the named part** — `Snapshot` fetches every
-part concurrently and `Publisher::update` drops an unchanged aggregate, so it costs one round trip
-and publishes only what moved. A resync is a declared source keyed by an attempt counter, so one
-arriving mid-fetch tears the in-flight read down; that is the coalescing, and it needs no
-`fetching`/`pending` bookkeeping. `start` reads the backend out of the environment and so cannot be
-used from a test; `with_backend` takes one, which is what a headless test calls so its assertions do
-not depend on the machine's compositor.
+**compositor** — mirrors `glimpse-compositors` into one aggregate state and passes ten typed
+commands. **Disabling the last enabled output is refused from the service's own snapshot, not a
+round trip** — a disabled output stays listed so it can be switched back on. There is no separate
+focus state: a focus change mutates the `focused` flag inside the lists. **The whole snapshot is
+re-read on a resync, not the named part** — `Snapshot` fetches every part concurrently and
+`Publisher::update` drops an unchanged aggregate, costing one round trip and publishing only what
+moved. A resync is a declared source keyed by an attempt counter, so one arriving mid-fetch tears
+the in-flight read down — the coalescing, needing no `fetching`/`pending` bookkeeping. `start` reads
+the backend from the environment and cannot be tested; `with_backend` takes one so a headless test
+doesn't depend on the machine's compositor.
 
 **Urgency is derived here so every client sees one answer**: a workspace is urgent when the
-compositor says so *or* when any window on it is, which is what makes Hyprland work at all. A
-focused window's urgency is cleared locally, because Hyprland's `urgent>>address` only ever arrives
-as "became urgent". Workspaces order by output then `index`, falling back to `id`.
-
-**`WindowRef::Pid` is resolved here, not by a backend**, because the snapshot is the only place
-holding a pid-bearing window list and niri has no focus-by-pid action at all. Several windows
-resolve to the lowest id, the list being edited in place; a pid with no window is `InvalidArgs`,
-which does not invite a retry.
-
-**Commands are awaited inline rather than spawned** in the compositor and keyboard services, which
-keeps a command and the events it causes in order.
-
-**keyboard** — owns compositor layouts so a layout switch does not resync workspaces and windows.
-`[keyboard] remember` is honoured here, in-memory, and a window with no memory inherits the current
-layout.
+compositor says so *or* when any window on it is — the only way Hyprland works. A focused window's
+urgency is cleared locally, because Hyprland's `urgent>>address` only ever arrives as "became
+urgent". Workspaces order by output then `index`, falling back to `id`. **`WindowRef::Pid` is
+resolved here, not by a backend**, because the snapshot is the only pid-bearing window list, and
+niri has no focus-by-pid action. Several windows resolve to the lowest id from the list edited in
+place; a pid with no window is `InvalidArgs`, not worth retrying. **Commands are awaited inline, not
+spawned,** in the compositor and keyboard services, keeping a command and its events in order.
+**keyboard** owns compositor layouts, so switching one does not resync workspaces or windows;
+`[keyboard] remember` is honoured in-memory, and a memoryless window inherits the current layout.
 
 **calendar** — every occurrence from every source as one sorted state value. **Whether a source is
 watched or fetched follows the uri, not the kind**: a local path is watched, `http(s)` is polled,
-and a `file://` holding a one-line feed URL is both, which is why `resolve` reads the file.
-
-A watched source has no timer: the stream opens with a read, `Update::Unavailable` is a failure not
-a warning, and `poll-interval` describes only the network.
+and a `file://` holding a one-line feed URL is both, which is why `resolve` reads the file. A watched
+source has no timer: the stream opens with a read, `Update::Unavailable` is a failure not a warning,
+and `poll-interval` describes only the network.
 
 - **Fetching and expanding are two steps, and only the first touches the world**, so `set_range`
   changes what is published without a request, and an unparseable document is a reported failure
@@ -213,37 +239,30 @@ may already own the name. **Signals are emitted from inside the handler rather t
 `invoked` resolves the interface once and emits both from that handle. **An activation token is
 rejected, never shortened.** `notify` holds `&mut self`, which is what keeps ids and events in the
 same order, and the sender pid is captured because `hdr.sender()` exists only inside the call.
-
-**do not disturb** — `until` is honoured by a subscription rather than a check at read time: while
-it is on **and** carries an expiry, one `Sub::deadline` at that instant delivers `DoNotDisturbLapsed`
-and clears both fields, so a reader that only looks at `enabled` sees it turn itself off. The expiry
-is in the subscription key; keying on a bare marker would lapse at the wrong instant.
+**Do-not-disturb's `until`** is honoured by a subscription rather than a check at read time: while it
+is on **and** carries an expiry, one `Sub::deadline` at that instant delivers `DoNotDisturbLapsed` and
+clears both fields, so a reader that only looks at `enabled` sees it turn itself off — the expiry is
+in the subscription key, because keying on a bare marker would lapse at the wrong instant.
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when it is free and hosts on whoever holds
 it when it is not. Its state is every item in registration order; no bus is `degraded` publishing an
-empty list, never a failure to start.
-
-**A taken name is not a broken tray.** A failed claim registers `org.kde.StatusNotifierHost-<pid>`
-with the incumbent, reads its `RegisteredStatusNotifierItems` and follows its two registration
-signals; only a watcher refusing us as a host is `degraded`. Entries resolve to their unique owner —
-the spelling `NameOwnerChanged` reports — and that list is read whole on each signal, never
-reconciled entry by entry.
-
-**The claim lives inside the `NameOwnerChanged` source, not in `start`.** A source is installed only
-*after* `start` returns, so claiming there races the signal that recovers a lost one. All three
-triggers call the same `claim`, off the handler and one at a time; `NameTaken` *by us* is success.
-
-**A fresh owner sweeps, because items register once and never learn they were forgotten.** Announce
-`StatusNotifierHostRegistered` *first* — Qt and libayatana clients re-register on it — then sweep
-`ListNames`, the canonical key collapsing the two arrivals.
+empty list, never a failure to start. **A taken name is not a broken tray.** A failed claim registers
+`org.kde.StatusNotifierHost-<pid>` with the incumbent, reads its `RegisteredStatusNotifierItems` and
+follows its two registration signals; only a watcher refusing us as a host is `degraded`. Entries
+resolve to their unique owner — the spelling `NameOwnerChanged` reports — and that list is read whole
+on each signal, never reconciled entry by entry. **The claim lives inside the `NameOwnerChanged`
+source, not in `start`**, because a source is installed only *after* `start` returns, so claiming
+there races the signal that
+recovers a lost one; all three triggers call the same `claim`, off the handler and one at a time, and
+`NameTaken` *by us* is success. **A fresh owner sweeps, because items register once and never learn
+they were forgotten**: announce `StatusNotifierHostRegistered` *first* — Qt and libayatana clients
+re-register on it — then sweep `ListNames`, the canonical key collapsing the two arrivals.
 
 **One `Watch::Item(key)` per item, and no teardown code** — a key stops appearing, its guard drops,
 its match rules go. A menu follower is keyed by item *and path*, and an item that stops answering is
-dropped, not retried.
-
-**Every command is answered off the handler under a five-second deadline.** `AboutToShow` reports
-whether the layout changed and **must be awaited**; `Event` is `no_reply` and must not be. Menus
-load on pointer-enter, naming every submenu id first.
+dropped, not retried. **Every command is answered off the handler under a five-second deadline.**
+`AboutToShow` reports whether the layout changed and **must be awaited**; `Event` is `no_reply` and
+must not be. Menus load on pointer-enter, naming every submenu id first.
 
 **bluetooth** — one adapter, its devices, a pairing prompt and a confirmation in one state value,
 enumerated with one `GetManagedObjects` per generation and never polled. **BlueZ's `ObjectManager`
@@ -251,24 +270,22 @@ is at `/`, not `/org/bluez`** — the root answers `UnknownMethod` and its signa
 only `PropertiesChanged` and `Disconnected` take the `/org/bluez` namespace. **One
 `PropertiesChanged` stream serves every device**, and every decoder returns an all-`Option` partial
 the service merges. A signal arriving after a generation bump but before its enumeration is dropped,
-or the previous owner's queue edits the new snapshot.
+or the previous owner's queue edits the new snapshot. **Match a device path by shape, not by
+prefix** — connecting adds `dev_XX/fd0` and `sep1`…`sep6` as children, and a prefix match invents
+seven phantom devices; `fd0` is the `MediaTransport1` the codec.
 
-**Match a device path by shape, not by prefix.** Connecting adds `dev_XX/fd0` and `sep1`…`sep6` as
-children; a prefix match invents seven phantom devices. `fd0` is the `MediaTransport1` the codec.
-
-**`busy` is cleared by its own command's completion, never by the property moving.** `Connect()` on
+**`busy` is cleared by its own command's completion, never by the property moving** — `Connect()` on
 an already-connected device returns `AlreadyConnected` with no state change, so a property-based
-clear leaves that row spinning forever; `Settled` names the `Busy` it answers, so a superseded
+clear leaves that row spinning forever, and `Settled` names the `Busy` it answers, so a superseded
 command cannot clear a newer one. Five BlueZ errors are not failures at all — `AlreadyConnected`,
 `AlreadyExists`, `InProgress` on a scan, `DoesNotExist`, a stop's `Failed: No discovery started` —
 and the rest reach the caller **typed**, as `BluetoothError::Failed(Failure)`: as a string the panel
 cannot word it. `failure.rs` matches the name, then the token by its **suffix** (BlueZ spells each
-reason once per transport), and `settle` logs both. **Pairing ends connected.**
-
-**A scan starts two ways and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none,
-and a bluez restart clears it, the session having died with the daemon. `SetDiscoveryFilter` carries
-`Transport` alone: any filter disables the RSSI delta-threshold. **The agent is per-connection**;
-**a confirmation is a refusal carrying a request**.
+reason once per transport), and `settle` logs both. **Pairing ends connected.** **A scan starts two
+ways and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none, and a bluez restart
+clears it, the session having died with the daemon. `SetDiscoveryFilter` carries `Transport` alone:
+any filter disables the RSSI delta-threshold. **The agent is per-connection**; **a confirmation is a
+refusal carrying a request**.
 
 **network** — devices, access points, saved profiles, active connections and the secret prompt in
 one state value, enumerated once per generation. **Only a device a user can act on reaches the
@@ -286,7 +303,6 @@ setting expects** — `vpn.secrets` is `a{ss}` keyed by the hint, a WEP key is `
 Only `802-11-wireless-security` and `vpn` are serviced, **one prompt is open at a time**, **a
 cancellation names its connection and setting**, and **`SaveSecrets` and `DeleteSecrets` are
 refused**: NetworkManager then offers them to an agent that has a store.
-
 **A saved profile answers for a beacon only when its `key-mgmt` can join it**, then by a seen BSSID,
 then `timestamp`, then lowest path: the wrong one fails without asking for a password. `owe` needs
 no secret and **802.1X is refused rather than a PSK profile**. **Commands go through the adapter
@@ -299,7 +315,6 @@ radio write publishes once taken** and **busy is cleared by `Settled`**.
 `Operation`, unlock, await the oneshot its callback completes off the lock, since a Pulse callback
 runs under that lock. **A PA name is never capped**, only displayed — it is a `Device`'s key and
 the literal `set_default_sink`/`set_default_source` argument.
-
 **The service never calls `pulse::connect()` from `start`** — the connection is
 `Sub::stream(Watch::Pulse(generation), …)`, so a `Gone` bumps the generation and the runtime swaps
 in a fresh source; bumping only the receiver would leave the dead bridge thread in place and audio

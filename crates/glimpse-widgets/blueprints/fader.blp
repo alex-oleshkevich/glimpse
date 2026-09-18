@@ -20,6 +20,16 @@ template $Fader: Gtk.Widget {
     ]
   }
 
+  Gtk.Image icon {
+    visible: false;
+    valign: center;
+    accessible-role: presentation;
+
+    styles [
+      "fader__icon",
+    ]
+  }
+
   Gtk.Scale track {
     orientation: horizontal;
     draw-value: false;

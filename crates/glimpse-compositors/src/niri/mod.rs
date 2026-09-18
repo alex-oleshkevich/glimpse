@@ -15,13 +15,14 @@ use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
     LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
-    WorkspaceId, WorkspaceTarget, is_built_in,
+    WorkspaceId, WorkspaceTarget, capped_edid_str, is_built_in,
 };
 use event::{EventState, WireCast, WireLayouts, active_casts};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: false,
     workspace_reorder: true,
+    output_power: true,
 };
 
 /// Niri answers one request per connection and then closes it, so there is no connection to hold —
@@ -148,6 +149,10 @@ impl Niri {
         self.request(&output_request(connector, on)).await.map(drop)
     }
 
+    pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
+        self.act(&power_off_monitors_action()).await
+    }
+
     async fn fetch<T: for<'de> Deserialize<'de>>(
         &self,
         name: &'static str,
@@ -236,6 +241,8 @@ struct WireOutput {
     #[serde(default)]
     model: Option<String>,
     #[serde(default)]
+    serial: Option<String>,
+    #[serde(default)]
     modes: Vec<WireMode>,
     /// An index into `modes`, and `null` for an output that is switched off — niri has no
     /// `enabled` field, so this is the only thing that says so.
@@ -259,8 +266,9 @@ impl WireOutput {
         Output {
             built_in: is_built_in(&self.name),
             connector: self.name,
-            make: self.make,
-            model: self.model,
+            make: self.make.as_deref().and_then(capped_edid_str),
+            model: self.model.as_deref().and_then(capped_edid_str),
+            serial: self.serial.as_deref().and_then(capped_edid_str),
             description: None,
             logical: self.logical,
             enabled: current_mode.is_some(),
@@ -349,8 +357,14 @@ fn output_request(connector: &str, on: bool) -> Value {
     json!({ "Output": { "output": connector, "action": action } })
 }
 
+fn power_off_monitors_action() -> Value {
+    json!({ "PowerOffMonitors": {} })
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use futures_util::StreamExt;
     use serde_json::json;
 
@@ -433,6 +447,37 @@ mod tests {
         assert_eq!(snapshot.keyboard.names, ["Polish", "Russian"]);
         assert_eq!(snapshot.keyboard.codes, ["PL", "RU"]);
         assert_eq!(snapshot.keyboard.current, Some(1));
+    }
+
+    #[test]
+    fn a_serial_decodes_when_present_null_or_absent() {
+        let with_serial: WireOutput = serde_json::from_value(json!({
+            "name": "DP-2", "serial": "69QC174", "current_mode": null
+        }))
+        .expect("wire output");
+        assert_eq!(with_serial.into_model().serial, Some("69QC174".to_owned()));
+
+        let null_serial: WireOutput = serde_json::from_value(json!({
+            "name": "eDP-1", "serial": null, "current_mode": null
+        }))
+        .expect("wire output");
+        assert_eq!(null_serial.into_model().serial, None);
+
+        let absent_serial: WireOutput = serde_json::from_value(json!({
+            "name": "eDP-1", "current_mode": null
+        }))
+        .expect("wire output");
+        assert_eq!(absent_serial.into_model().serial, None);
+    }
+
+    #[test]
+    fn a_model_with_the_edid_trailing_space_is_trimmed() {
+        let output: WireOutput = serde_json::from_value(json!({
+            "name": "eDP-1", "model": "ATNA60CL10-0 ", "current_mode": null
+        }))
+        .expect("wire output");
+
+        assert_eq!(output.into_model().model.as_deref(), Some("ATNA60CL10-0"));
     }
 
     #[tokio::test]
@@ -638,6 +683,31 @@ mod tests {
         assert_eq!(
             output_request("eDP-1", false),
             json!({ "Output": { "output": "eDP-1", "action": "Off" } })
+        );
+
+        assert_eq!(
+            power_off_monitors_action(),
+            json!({ "PowerOffMonitors": {} })
+        );
+    }
+
+    #[tokio::test]
+    async fn power_off_monitors_sends_the_action_envelope() {
+        let received: Arc<Mutex<Option<String>>> = Arc::default();
+        let sink = received.clone();
+        let server = FakeNiri::spawn(move |request| {
+            *sink.lock().expect("lock") = Some(request.to_owned());
+            vec![json!({ "Ok": null }).to_string()]
+        });
+
+        Niri::at(&server.socket)
+            .power_off_monitors()
+            .await
+            .expect("dispatched");
+
+        assert_eq!(
+            received.lock().expect("lock").as_deref(),
+            Some(r#"{"Action":{"PowerOffMonitors":{}}}"#)
         );
     }
 

@@ -1,0 +1,48 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $DisplayPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "display-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "video-display-symbolic";
+      title: _("Displays");
+    }
+
+    Adw.Bin column {
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section displays {
+        visible: false;
+
+        Gtk.Box {
+          orientation: vertical;
+
+          $DisplayList devices {}
+
+          $Row blank {
+            visible: false;
+            activatable: true;
+            title: _("Blank the screens");
+            subtitle: _("Any input wakes them again");
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

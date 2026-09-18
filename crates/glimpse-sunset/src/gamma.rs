@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
 use std::os::fd::AsFd;
 
-use glimpse_services::Gamma;
+use glimpse_services::{Gamma, NEUTRAL_KELVIN as NEUTRAL};
 use rustix::fs::{MemfdFlags, memfd_create};
 use wayland_client::protocol::{wl_output, wl_registry};
 use wayland_client::{Connection, Dispatch, EventQueue, QueueHandle, delegate_noop};
@@ -278,9 +278,21 @@ fn ramp(size: u32, red: f32, green: f32, blue: f32) -> Result<File, String> {
     Ok(file)
 }
 
-/// Tanner Helland's blackbody approximation, as every night light uses. It is neutral at 6500K,
-/// which is what makes that the temperature meaning "nothing applied".
+/// Tanner Helland's blackbody approximation, as every night light uses, divided through by its own
+/// value at `NEUTRAL`. A ramp adjusts the panel relative to a whitepoint that is already daylight,
+/// so the absolute curve reads 2% low on blue at 6500K and tints every screen it is written to.
 fn scales(kelvin: u32) -> (f32, f32, f32) {
+    let (red, green, blue) = blackbody(kelvin);
+    let (dr, dg, db) = blackbody(NEUTRAL);
+
+    (
+        (red / dr).clamp(0.0, 1.0),
+        (green / dg).clamp(0.0, 1.0),
+        (blue / db).clamp(0.0, 1.0),
+    )
+}
+
+fn blackbody(kelvin: u32) -> (f32, f32, f32) {
     let hundreds = (kelvin as f32).clamp(1000.0, 40_000.0) / 100.0;
 
     let red = match hundreds <= 66.0 {
@@ -299,11 +311,7 @@ fn scales(kelvin: u32) -> (f32, f32, f32) {
         138.517_73 * (hundreds - 10.0).ln() - 305.044_8
     };
 
-    (
-        (red / 255.0).clamp(0.0, 1.0),
-        (green / 255.0).clamp(0.0, 1.0),
-        (blue / 255.0).clamp(0.0, 1.0),
-    )
+    (red / 255.0, green / 255.0, blue / 255.0)
 }
 
 fn say(error: impl std::fmt::Display) -> String {
@@ -321,7 +329,11 @@ mod tests {
         let (red, green, blue) = scales(6500);
 
         for channel in [red, green, blue] {
-            assert!(channel > 0.95, "{channel} is not neutral");
+            assert!(
+                (channel - 1.0).abs() < 1e-6,
+                "{channel} is not neutral; a channel below one tints the screen whenever nothing \
+                 is meant to be applied"
+            );
         }
     }
 

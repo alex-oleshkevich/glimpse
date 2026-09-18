@@ -16,14 +16,15 @@ use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
     KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
-    Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_name_str, capped_title_str,
-    is_built_in,
+    Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str, capped_name_str,
+    capped_title_str, is_built_in,
 };
 use event::{EventState, address, layout_index};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: true,
     workspace_reorder: false,
+    output_power: true,
 };
 
 const CONTROL_SOCKET: &str = ".socket.sock";
@@ -205,6 +206,10 @@ impl Hyprland {
             None => format!("{connector},preferred,auto,1"),
         };
         self.dispatch(&format!("keyword monitor {args}")).await
+    }
+
+    pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
+        self.dispatch("dispatch dpms off").await
     }
 
     async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
@@ -394,6 +399,8 @@ struct WireMonitor {
     #[serde(default)]
     model: Option<String>,
     #[serde(default)]
+    serial: Option<String>,
+    #[serde(default)]
     width: u32,
     #[serde(default)]
     height: u32,
@@ -456,8 +463,9 @@ impl WireMonitor {
             current_mode: current_mode.flatten(),
             connector: self.name,
             description: self.description.as_deref().and_then(capped_name_str),
-            make: self.make,
-            model: self.model,
+            make: self.make.as_deref().and_then(capped_edid_str),
+            model: self.model.as_deref().and_then(capped_edid_str),
+            serial: self.serial.as_deref().and_then(capped_edid_str),
             enabled,
         }
     }
@@ -821,6 +829,29 @@ mod tests {
         assert!(
             matches!(error, CompositorError::Unavailable(_)),
             "a dispatch would have failed to connect first, so this is what proves nothing was sent"
+        );
+    }
+
+    #[tokio::test]
+    async fn power_off_monitors_dispatches_dpms_off() {
+        let received: Arc<Mutex<Option<String>>> = Arc::default();
+        let sink = received.clone();
+        let server = FakeHyprland::spawn(
+            move |command| {
+                *sink.lock().expect("lock") = Some(command.to_owned());
+                "ok".to_owned()
+            },
+            Vec::new(),
+        );
+
+        Hyprland::at(&server.dir)
+            .power_off_monitors()
+            .await
+            .expect("dispatched");
+
+        assert_eq!(
+            received.lock().expect("lock").as_deref(),
+            Some("dispatch dpms off")
         );
     }
 

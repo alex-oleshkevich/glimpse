@@ -26,12 +26,14 @@ use futures_util::stream::BoxStream;
 pub struct Capabilities {
     pub floating: bool,
     pub workspace_reorder: bool,
+    pub output_power: bool,
 }
 
 impl Capabilities {
     pub const NONE: Self = Self {
         floating: false,
         workspace_reorder: false,
+        output_power: false,
     };
 }
 
@@ -169,6 +171,11 @@ impl Compositor {
             backend.set_output_enabled(connector, on)
         })
     }
+
+    pub async fn power_off_monitors(&self) -> Result<(), CompositorError> {
+        delegate!(self, "cannot power off monitors", |backend| backend
+            .power_off_monitors())
+    }
 }
 
 #[cfg(test)]
@@ -198,6 +205,10 @@ mod tests {
             Err(CompositorError::Unsupported(_))
         ));
         assert!(matches!(
+            compositor.power_off_monitors().await,
+            Err(CompositorError::Unsupported(_))
+        ));
+        assert!(matches!(
             compositor.close_window(WindowId(1)).await,
             Err(CompositorError::Unsupported(_))
         ));
@@ -221,5 +232,6 @@ mod tests {
             hyprland.floating && !hyprland.workspace_reorder,
             "a Hyprland workspace's index is its identity, so there is no position to change"
         );
+        assert!(niri.output_power && hyprland.output_power);
     }
 }

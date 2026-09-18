@@ -30,6 +30,9 @@ schedule = "automatic"
 temperature = 4200
 transition-minutes = 15
 
+[brightness]
+minimum = 3
+
 [idle]
 enabled = true
 respect-inhibitors = true

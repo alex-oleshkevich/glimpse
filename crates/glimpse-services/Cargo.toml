@@ -26,11 +26,13 @@ serde.workspace = true
 serde_json.workspace = true
 sunrise.workspace = true
 thiserror.workspace = true
+tokio-udev.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 zeroize.workspace = true
 tzf-rs.workspace = true
+udev.workspace = true
 url.workspace = true
 zbus.workspace = true
 

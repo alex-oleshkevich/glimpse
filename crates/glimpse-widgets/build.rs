@@ -27,6 +27,14 @@ fn main() {
             "resources/widgets/bluetooth_popover.ui",
         ),
         (
+            "blueprints/brightness_popover.blp",
+            "resources/widgets/brightness_popover.ui",
+        ),
+        (
+            "blueprints/display_popover.blp",
+            "resources/widgets/display_popover.ui",
+        ),
+        (
             "blueprints/network_popover.blp",
             "resources/widgets/network_popover.ui",
         ),

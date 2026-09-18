@@ -133,6 +133,51 @@ fn select_session_candidate_impl(
     .or_else(|| select_best_session(candidates.iter().copied()))
 }
 
+pub async fn session_path(bus: &zbus::Connection) -> Result<OwnedObjectPath, String> {
+    let manager = Login1ManagerProxy::new(bus)
+        .await
+        .map_err(|error| error.to_string())?;
+    let uid = current_uid().map_err(|error| error.to_string())?;
+    let mut candidates = Vec::new();
+    for (id, candidate_uid, _, seat, path) in manager
+        .list_sessions()
+        .await
+        .map_err(|error| error.to_string())?
+    {
+        if candidate_uid != uid {
+            continue;
+        }
+        let candidate = async {
+            let session = Login1SessionProxy::builder(bus)
+                .path(path.clone())
+                .map_err(|error| error.to_string())?
+                .build()
+                .await
+                .map_err(|error| error.to_string())?;
+            let (active, class, kind) =
+                tokio::try_join!(session.active(), session.class(), session.kind())
+                    .map_err(|error| error.to_string())?;
+            Ok::<_, String>(SessionCandidate {
+                id,
+                uid: candidate_uid,
+                seat,
+                path,
+                active,
+                class: Some(class),
+                kind: Some(kind),
+            })
+        }
+        .await;
+        match candidate {
+            Ok(candidate) => candidates.push(candidate),
+            Err(error) => tracing::debug!(%error, "skipping a partial login session"),
+        }
+    }
+    select_session_candidate(&candidates, uid)
+        .map(|candidate| candidate.path.clone())
+        .ok_or_else(|| "the current user has no login session".to_owned())
+}
+
 fn select_best_session<'a>(
     candidates: impl Iterator<Item = &'a SessionCandidate>,
 ) -> Option<&'a SessionCandidate> {

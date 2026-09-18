@@ -4,6 +4,8 @@
         <file>widgets/audio_popover.ui</file>
         <file>widgets/bluetooth_pairing_dialog.ui</file>
         <file>widgets/bluetooth_popover.ui</file>
+        <file>widgets/brightness_popover.ui</file>
+        <file>widgets/display_popover.ui</file>
         <file>widgets/network_popover.ui</file>
         <file>widgets/network_secret_dialog.ui</file>
         <file>widgets/calendar.ui</file>

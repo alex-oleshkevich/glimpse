@@ -119,7 +119,9 @@ string, and loses its icon and its title/body split the moment it is flattened i
 - **`.row` must reset `font-weight`.** libadwaita styles bare `button` bold and weight inherits, so
   every row would render bold — and the grammar distinguishes a selected row by weight.
 - **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
-  only emitter, so the row and the switch can never double each other.
+  only emitter, so the row and the switch can never double each other. **`locked` disables the knob
+  and makes a row-body click a no-op, but never the row itself** — `set_sensitive(false)` on the row
+  would dim the subtitle explaining the lock, the same defect `Fader::toggleable` exists to avoid.
 - **`Placeholder` stands where content would be**; its `error` flag only recolours the icon.
 - **`SplitRow` wraps a `Row` rather than subclassing one**, or its trailing button lands inside the
   row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
@@ -261,13 +263,66 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 
 ## Fader
 
-- **Lifts `Scrubber`'s drag guard wholesale**: the same `held: Cell<Option<f64>>`, capture-phase
-  `EventControllerLegacy` and `connect_unmap` reset, so an incoming state update cannot fight a drag
-  in progress.
-- **`set_muted` raises `quiet` around `ToggleButton::set_active`**, exactly as `SwitchRow::set_active`
-  does, or rendering an already-muted device's state fires `toggled` on its own.
-- **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects an
-  `Adjustment` carrying anything besides `lower`, `upper` and `value`.
+- **Lifts `Scrubber`'s drag guard wholesale** — the same `held: Cell<Option<f64>>`, capture-phase
+  `EventControllerLegacy` and `connect_unmap` reset, so an incoming state update cannot fight a drag.
+- **`set_muted` raises `quiet` around `ToggleButton::set_active`**, as `SwitchRow::set_active` does,
+  or a muted render fires `toggled` on its own.
+- **`maximum` (default 100 — the audio popover needs no change) puts value and clamp in the
+  device's own units**, and `set_value`/`connect_change_value` clamp to it, never to a literal 100.
+  Increments (`max(1, max/100)`, `max(1, max/20)`) are a pure function of `maximum`, computed by
+  the single `apply_increments` also run at construction — cache them once and a later
+  `set_maximum` leaves two same-state faders answering arrow keys differently. Still not in the
+  template, for the same `blueprint-compiler lint` reason as `ForecastList`'s `Adjustment` above.
+- **`toggleable: false` swaps the leading `ToggleButton` for a plain, non-dimmed `Gtk.Image`** — an
+  insensitive `ToggleButton` renders dimmed, the bug this property avoids. `set_icon_name` writes
+  both children unconditionally, and `.fader__icon` matches `.fader__mute`'s min size so the track's
+  edge does not shift with the presentation.
+- **`floor` (default 0 — the audio popover needs no change) moves the adjustment's lower bound**,
+  the same shape as `maximum`: the getter reads `adjustment().lower()` rather than a stored `Cell`,
+  and `set_value`/`connect_change_value` clamp to `floor..=maximum`, never to a literal `0`. Raising
+  `floor` past the current value pulls the value up to it, because `GtkAdjustment::set_lower` does
+  not re-clamp `value` on its own. A `floor` above the current `maximum` is clamped down to it, and
+  a `maximum` set below the current `floor` is clamped up to it — both setters guard the same
+  direction so neither can invert the range and panic the next `f64::clamp`. A negative `floor` is
+  clamped the same way a negative `maximum` already is. Neither setter guards a non-finite value:
+  `f64::max`/`min` turn `±∞` finite, but a `NaN` write panics instead of being rejected —
+  `g_param_value_validate`'s `CLAMP` leaves `NaN` unchanged, and glib-rs reads that as changed (`NaN
+  != NaN`) before either setter body runs.
+
+## SourceList
+
+- The second shape, exactly `PlayerList`'s: no template, a `BoxLayout` set in `class_init`,
+  children parented at runtime. A row and its `Fader` are parented as siblings one after the
+  other, never nested, so the row's `activatable: false` cannot reach the fader beneath it.
+- A source's own `maximum` and `floor` pass straight through to the `Fader`, `maximum` first —
+  `Fader::set_floor` is the one place that reconciles the two, clamping a floor above the maximum
+  down to it, never the maximum up to the floor. `SourceList` must not pre-clamp either value, or
+  the fader's own clamp never fires.
+- Each fader is built with `toggleable: false` and `display-brightness-symbolic` as its icon: a
+  brightness source has nothing for a mute button to mute, the same reasoning `fader_states.blp`
+  already states for the identical pairing.
+- `Source.key` is read back when a fader reports `changed`, not captured when the row was built,
+  for the reason `Player.key` documents: a reconcile reuses a row in place.
+
+## DisplayList
+
+- Also the second shape. Each entry is a `crate::drawer::holder`; `OPEN` and `RECEDED` are read
+  back from `Gtk.Revealer::reveals_child()` on every apply rather than from a stored index, so a
+  reconcile can never disagree with what is actually on screen.
+- The detail is a `FactList` (make, model, serial, current mode, scale, position — a field the
+  snapshot does not carry is left out of the list, never shown as `Unknown`) followed by a
+  `SwitchRow` enabling the output. The connector is not repeated there: the head's own title
+  already carries it.
+- The enable switch's own `locked` is set only when its own output is enabled **and** it is the sole
+  one enabled — never on a disabled output, which would strand the user with no way to turn a
+  display back on. `DisplayList` sets the property; it no longer walks the switch's children for
+  its knob, the anti-pattern `Fader::floor` also replaced on `SourceList`.
+- **`set_output_power(false)` removes the switch from the row, rather than locking it.** `locked`
+  answers "offered, but this is your last enabled display"; the gate answers "this compositor
+  cannot do this at all", and the two never fight because nothing computes or applies a lock while
+  the switch is out. `render` reparents the same `SwitchRow` into or out of the body as the gate
+  flips — never rebuilt — so a reused row keeps its identity and an open detail stays open either
+  way.
 
 ## AudioPopover
 
@@ -283,6 +338,48 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 - **Outputs, inputs and applications each end in their own overflow row** (`more_outputs`,
   `more_inputs`, `more_apps`), on the same footing as `more_paired`/`more_nearby`: the widget only
   shows and labels the row, and leaves whether the fuller list stays open to whoever is asking.
+
+## BrightnessPopover
+
+- **`set_sources` takes the slice already ordered with the current source first.** The caller
+  resolves "current" — focused output, then the single internal source, then the first display
+  source, then none — and hands it over that way; `primary` mirrors `sources[0]` and `SourceList`
+  renders only `sources[1..]`. Handing the whole slice to both would put two faders on the current
+  display that do not track each other until a round trip, and would make the hero state a number
+  for whichever source enumerated first rather than the one on screen.
+- **The hero's `Readout` is the only place a percentage appears.** `primary`, `temperature` and
+  every `SourceList` fader alike carry their exact value in a tooltip instead, the audio popover's
+  own settled decision — `SourceList` sets it itself, since `BrightnessPopover` cannot reach its
+  children to add one after the fact.
+- **The night light section keeps its last-good snapshot rather than collapsing on `None`.** The
+  provider is a separate process that can restart mid-popover; losing the section for a moment
+  reads as a fault. It stays up, greyed by `set_sensitive(false)`, until a fresh snapshot lifts it.
+  A snapshot that has never arrived is a different state — no section at all.
+- **The temperature rail hides, rather than disables, while the switch is off** — the night light
+  service hands its outputs back at that point, and an insensitive override would fight the release.
+  **The knob drives it optimistically**: toggling `enabled` shows or hides the rail immediately,
+  before `set_night_light` ever reconciles it, per the rule that UI state never waits on a round
+  trip.
+- **`.fader--warm` is the rail's only styling hook**, reading `--gl-warning-text` rather than the
+  accent colour `.fader.accent` uses elsewhere, so it cannot be mistaken for `.indicator--notice`.
+  Its selector reads `.fader__track:not(:disabled)`, because it otherwise has the identical
+  specificity of `.fader__track:disabled` and sits later in the sheet — without the guard, greying
+  the section out under AC-5 would leave the rail looking live and warm rather than muted.
+- **The knob's own row carries `_("Warm the screen")`, not `_("Enabled")`.** `DisplayList` already
+  owns that msgid for "this output is on"; sharing it would ask one translation to serve two
+  unrelated ideas.
+
+## DisplayPopover
+
+- Composes `DisplayList` unchanged; blanking the screens is a plain `$Row` beside it, never a
+  `$SwitchRow` — DPMS has no state to sit in, since the first input undoes it and the popover is
+  already gone by then.
+- **The `displays` section and the blank row are absent, not disabled, once there is nothing to
+  act on** — an empty list hides the section, and `output_power: false` hides the blank row.
+- **`set_output_power` forwards straight to `DisplayList`'s own setter of the same name.** The
+  popover owns no logic of its own here: `DisplayList` decides what its gate means, `DisplayPopover`
+  only relays the one value it already tracks for the blank row, so the blank row and every
+  per-output switch disappear on the same signal.
 
 ## Stylesheets
 

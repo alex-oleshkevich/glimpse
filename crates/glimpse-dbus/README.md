@@ -11,6 +11,7 @@ connections they run on.
 - `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 - `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
+- `clients/night_light.rs` — the night light proxy, typed handle and owned follower lifecycle
 
 | Module                    | Bus     | What it fronts                          |
 | ------------------------- | ------- | --------------------------------------- |
@@ -27,6 +28,7 @@ connections they run on.
 | `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
+| `night_light`             | session | the Glimpse night light provider         |
 
 ## Rules
 
@@ -160,11 +162,18 @@ and every consumer shares the result; a consumer that destructures the wire shap
 fields and skip caps. A snapshot that cannot be decoded is `unavailable` with the reason, which is
 the shape a dead provider already produces.
 
-**The two followers lose their provider differently, on purpose.** Weather keeps the last reading
+**The three followers lose their provider differently, on purpose.** Weather keeps the last reading
 and marks it `stale`, derived from the retained data rather than from the reason, so a provider that
 comes back empty cannot strand the flag on nothing. Notifications throws its `view` away: every
 dismiss and action on a retained list would call a provider that is gone, and the store is
-authoritative, so a stale list can show what someone already dismissed.
+authoritative, so a stale list can show what someone already dismissed. Night light throws its
+snapshot away too: a snapshot describes what the screen is doing right now, and a retained one marked
+stale would claim a temperature the screen is no longer showing while every control beside it is
+dead.
+
+**`NightLightProviderHandle::set_temperature(0)` clears the override rather than requesting 0
+kelvin.** That sentinel belongs to `glimpse-sunset` and is documented only in its README; a caller
+reaches the override through this crate's handle, not that one.
 
 **A reader caps text the writer already capped.** The owner of a well-known name is whoever claimed
 it, so a decoder that skipped the cap would be trusting a bus name rather than a process. Cap tables

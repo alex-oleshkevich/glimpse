@@ -108,8 +108,8 @@ impl PopupState {
                     Some(connector) => !self
                         .outputs
                         .iter()
-                        .any(|output| output.connector == connector),
-                    None => !self.outputs.is_empty(),
+                        .any(|output| output.enabled && output.connector == connector),
+                    None => self.outputs.iter().any(|output| output.enabled),
                 });
         if reselect {
             self.placement = Some(self.next_placement());
@@ -240,16 +240,21 @@ impl PopupState {
             .filter(|target| {
                 self.outputs
                     .iter()
-                    .any(|output| output.connector == target.as_str())
+                    .any(|output| output.enabled && output.connector == target.as_str())
             })
             .cloned()
             .or_else(|| {
                 self.outputs
                     .iter()
-                    .find(|output| output.focused)
+                    .find(|output| output.enabled && output.focused)
                     .map(|output| output.connector.clone())
             })
-            .or_else(|| self.outputs.first().map(|output| output.connector.clone()));
+            .or_else(|| {
+                self.outputs
+                    .iter()
+                    .find(|output| output.enabled)
+                    .map(|output| output.connector.clone())
+            });
         Placement {
             connector,
             edge: self.settings.edge,
@@ -289,6 +294,12 @@ mod tests {
             label: None,
             built_in: false,
             focused,
+            make: None,
+            model: None,
+            serial: None,
+            current_mode: None,
+            logical: None,
+            enabled: true,
         }
     }
 
@@ -494,6 +505,23 @@ mod tests {
         ready(&mut state);
         state.update(vec![note(1, "one")]);
         assert!(state.set_outputs(vec![output("eDP-1", true)]));
+        assert_eq!(
+            state.placement().unwrap().connector.as_deref(),
+            Some("eDP-1")
+        );
+    }
+
+    #[test]
+    fn a_disabled_output_still_listed_reselects_the_placement() {
+        let mut state = PopupState::new(Notifications::default());
+        state.set_outputs(vec![output("DP-2", true), output("eDP-1", false)]);
+        state.update(Vec::new());
+        ready(&mut state);
+        state.update(vec![note(1, "one")]);
+
+        let mut disabled = output("DP-2", true);
+        disabled.enabled = false;
+        assert!(state.set_outputs(vec![disabled, output("eDP-1", false)]));
         assert_eq!(
             state.placement().unwrap().connector.as_deref(),
             Some("eDP-1")

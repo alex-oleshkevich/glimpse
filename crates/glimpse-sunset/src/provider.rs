@@ -3,16 +3,26 @@ use glimpse_dbus::night_light::{
     GLIMPSE_NIGHT_LIGHT_BUS_NAME, GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, NightLightSnapshot,
 };
 use glimpse_dbus::{Exported, Snapshot};
-use glimpse_services::NightLightHandle;
+use glimpse_services::{CommandError, NightLightHandle};
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
 #[zbus(prefix = "me.aresa.Glimpse.NightLight1.Error", impl_display = true)]
 pub enum Error {
     InvalidSchedule(String),
+    InvalidTemperature(String),
     Unavailable(String),
     #[zbus(error)]
     ZBus(zbus::Error),
+}
+
+impl From<CommandError> for Error {
+    fn from(error: CommandError) -> Self {
+        match error {
+            CommandError::InvalidArgument(reason) => Self::InvalidTemperature(reason),
+            error => Self::Unavailable(error.to_string()),
+        }
+    }
 }
 
 pub(crate) struct Provider {
@@ -39,7 +49,14 @@ impl Provider {
         self.night_light
             .set_schedule(parse(schedule)?)
             .await
-            .map_err(|error| Error::Unavailable(error.to_string()))
+            .map_err(Error::from)
+    }
+
+    async fn set_temperature(&self, kelvin: u32) -> Result<(), Error> {
+        self.night_light
+            .set_temperature(if kelvin == 0 { None } else { Some(kelvin) })
+            .await
+            .map_err(Error::from)
     }
 }
 
@@ -79,6 +96,8 @@ fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
         active: state.active(),
         serving: unavailable.is_none(),
         reason: unavailable.unwrap_or_default(),
+        configured: state.configured.as_str().to_owned(),
+        manual: state.manual,
     }
 }
 
@@ -219,9 +238,11 @@ mod tests {
         let snapshot = proxy.snapshot().await.expect("a snapshot");
         assert_eq!(snapshot.schedule, "automatic");
         assert!(!snapshot.overridden);
+        assert_eq!(snapshot.configured, "automatic");
         assert_eq!(snapshot.temperature, 6500);
         assert_eq!(snapshot.target, 4200);
         assert!(!snapshot.active);
+        assert!(!snapshot.manual);
 
         let reply = client
             .call_method(
@@ -245,7 +266,10 @@ mod tests {
     <method name="SetSchedule">
       <arg name="schedule" type="s" direction="in"/>
     </method>
-    <property name="Snapshot" type="(sbuubbs)" access="read"/>
+    <method name="SetTemperature">
+      <arg name="kelvin" type="u" direction="in"/>
+    </method>
+    <property name="Snapshot" type="(sbuubbssb)" access="read"/>
   </interface>"#
         );
 
@@ -256,6 +280,11 @@ mod tests {
         let overridden = proxy.snapshot().await.expect("a snapshot");
         assert_eq!(overridden.schedule, "off");
         assert!(overridden.overridden, "the document still says automatic");
+        assert_eq!(
+            overridden.configured, "automatic",
+            "the document's own schedule survives the override, so the UI has something to \
+             switch back to"
+        );
 
         proxy
             .set_schedule("sometimes")
@@ -266,5 +295,89 @@ mod tests {
         cancel.cancel();
         let _ = night_task.await;
         let _ = solar_task.await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn set_temperature_refuses_out_of_range_and_sets_the_manual_flag_in_range() {
+        let bus = PrivateBus::start();
+        let cancel = CancellationToken::new();
+        let buses = Buses::unavailable("no backend bus in test");
+
+        let (solar_runtime, solar) = ServiceRuntime::<Solar>::new(
+            <Solar as Service>::Config::from(&glimpse_config::Config::default()),
+            buses.clone(),
+            cancel.child_token(),
+        );
+        drop(solar_runtime);
+
+        let mut document = glimpse_config::Config::default();
+        document.night_light.schedule = Schedule::Schedule;
+        document.night_light.start_time = Some("20:00".to_owned());
+        document.night_light.end_time = Some("07:00".to_owned());
+
+        let (mut night_runtime, night_light) = ServiceRuntime::<NightLight>::new(
+            NightLightConfig::from(&document),
+            buses,
+            cancel.child_token(),
+        );
+        let night_task = tokio::spawn(async move {
+            night_runtime
+                .run(NightLightDependencies {
+                    solar,
+                    gamma: Box::new(FakeGamma::default()),
+                })
+                .await
+        });
+
+        let provider = start(bus.connection().await, night_light)
+            .await
+            .expect("the provider starts");
+        let client = bus.connection().await;
+        let proxy = NightLight1Proxy::builder(&client)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await
+            .expect("a proxy");
+
+        let refused = proxy
+            .set_temperature(999)
+            .await
+            .expect_err("999 is below the accepted range");
+        match &refused {
+            zbus::Error::MethodError(name, detail, _) => {
+                assert_eq!(
+                    name.as_str(),
+                    "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature"
+                );
+                let detail = detail.clone().unwrap_or_default();
+                assert!(
+                    !detail.contains("999"),
+                    "the rejected value must not be echoed, got {detail}"
+                );
+            }
+            other => panic!("expected a MethodError, got {other:?}"),
+        }
+
+        proxy
+            .set_temperature(3000)
+            .await
+            .expect("3000 is in range and any Schedule window has a boundary");
+        let manual = proxy.snapshot().await.expect("a snapshot");
+        assert!(manual.manual);
+        assert!(
+            !manual.overridden,
+            "a manual temperature does not change what overridden means"
+        );
+
+        proxy
+            .set_temperature(0)
+            .await
+            .expect("zero clears the override and is always accepted");
+        let cleared = proxy.snapshot().await.expect("a snapshot");
+        assert!(!cleared.manual);
+
+        provider.shutdown().await;
+        cancel.cancel();
+        let _ = night_task.await;
     }
 }

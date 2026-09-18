@@ -1,9 +1,12 @@
 use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
-use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
+use glimpse_dbus::{
+    night_light::NightLightProviderHandle, notifications::NotificationsProviderHandle,
+    weather::WeatherProviderHandle,
+};
 use glimpse_services::{
-    AudioHandle, BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle,
-    KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
+    AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
+    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -69,6 +72,8 @@ pub struct Config {
     pub bluetooth: BluetoothHandle,
     pub network: NetworkHandle,
     pub audio: AudioHandle,
+    pub brightness: BrightnessHandle,
+    pub night_light: NightLightProviderHandle,
     pub notifications: NotificationsProviderHandle,
     pub weather: WeatherProviderHandle,
 }
@@ -259,6 +264,8 @@ impl Panel {
                                     &config.bluetooth,
                                     &config.network,
                                     &config.audio,
+                                    &config.brightness,
+                                    &config.night_light,
                                     &config.notifications,
                                     &config.weather,
                                 ) else {

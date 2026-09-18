@@ -149,8 +149,6 @@ impl ObjectImpl for AudioPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.output.add_css_class("accent");
-
         self.output.connect_changed(glib::clone!(
             #[weak]
             popover,

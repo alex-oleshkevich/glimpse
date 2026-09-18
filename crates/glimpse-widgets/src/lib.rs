@@ -2,9 +2,12 @@ mod artwork;
 mod audio_popover;
 mod bluetooth_pairing_dialog;
 mod bluetooth_popover;
+mod brightness_popover;
 mod calendar;
 mod calendar_popover;
 mod choice_list;
+mod display_list;
+mod display_popover;
 mod dots;
 pub mod drawer;
 mod event_list;
@@ -39,6 +42,7 @@ mod reconcile;
 pub(crate) mod row;
 mod scrubber;
 mod section;
+mod source_list;
 mod split_row;
 mod switch_row;
 mod theme;
@@ -62,9 +66,12 @@ pub use bluetooth_popover::{
     Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
     Line as BluetoothLine, Place as BluetoothPlace,
 };
+pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
+pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
+pub use display_popover::DisplayPopover;
 pub use event_list::{Event, EventList, EventRow};
 pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
@@ -99,6 +106,7 @@ pub use readout::Readout;
 pub use row::Row;
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
+pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
 pub use switch_row::SwitchRow;
 pub use theme::Styles;
@@ -195,6 +203,19 @@ pub(crate) fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>)
 
 pub(crate) fn none_if_empty(text: &str) -> Option<&str> {
     (!text.is_empty()).then_some(text)
+}
+
+pub(crate) fn percent_of(value: f64, maximum: f64) -> f64 {
+    if maximum <= 0.0 {
+        return 0.0;
+    }
+    (value / maximum * 100.0).round()
+}
+
+pub(crate) fn percent_text(value: f64) -> String {
+    use gettextrs::gettext;
+
+    gettext("{percent}%").replace("{percent}", &value.round().to_string())
 }
 
 pub fn register_resources() -> Result<(), glib::Error> {
@@ -1903,6 +1924,59 @@ mod tests {
             "the knob and the row body share one emitter, so neither doubles the other"
         );
 
+        assert!(!toggle.locked());
+        toggle.set_locked(true);
+        assert!(!knob.is_sensitive(), "a locked row disables the knob");
+        assert!(
+            toggle.is_sensitive(),
+            "the row itself stays sensitive so its subtitle is not dimmed along with the knob"
+        );
+
+        let sensitive_changes = Rc::new(Cell::new(0u32));
+        knob.connect_sensitive_notify({
+            let sensitive_changes = Rc::clone(&sensitive_changes);
+            move |_| sensitive_changes.set(sensitive_changes.get() + 1)
+        });
+        toggle.set_locked(true);
+        assert_eq!(
+            sensitive_changes.get(),
+            0,
+            "locking an already-locked row does not touch the knob a second time"
+        );
+
+        let flips_before = flips.borrow().len();
+        toggle.emit_clicked();
+        assert_eq!(
+            flips.borrow().len(),
+            flips_before,
+            "a locked row's body click is inert"
+        );
+        assert!(
+            toggle.active(),
+            "a locked row does not change value on a body click"
+        );
+
+        toggle.set_active(false);
+        assert!(
+            !toggle.active() && !knob.is_active(),
+            "render still reaches a locked switch"
+        );
+        assert_eq!(
+            flips.borrow().len(),
+            flips_before,
+            "a programmatic set stays quiet under lock, same as unlocked"
+        );
+
+        toggle.set_locked(false);
+        assert_eq!(sensitive_changes.get(), 1);
+        assert!(knob.is_sensitive());
+        toggle.emit_clicked();
+        assert_eq!(
+            flips.borrow().len(),
+            flips_before + 1,
+            "unlocking gives the row body its click back"
+        );
+
         let section = Section::new();
         let header = child_named::<gtk4::Box>(&section, "section__header");
         let section_count = child_named::<gtk4::Label>(&section, "section__count");
@@ -2340,9 +2414,10 @@ mod tests {
                 track.adjustment().step_increment(),
                 track.adjustment().page_increment()
             ),
-            (5.0, 20.0),
-            "the increments are set from Rust because blueprint-compiler's adjustment rule \
-             rejects an adjustment carrying anything besides lower, upper and value"
+            (1.0, 5.0),
+            "the increments are set from Rust, as a function of the configured maximum, \
+             because blueprint-compiler's adjustment rule rejects an adjustment carrying \
+             anything besides lower, upper and value"
         );
 
         let changed = Rc::new(RefCell::new(Vec::new()));
@@ -2408,6 +2483,201 @@ mod tests {
         assert_eq!(icon_changes.get(), 1);
         fader.set_icon_name(Some("audio-volume-high-symbolic".to_owned()));
         assert_eq!(icon_changes.get(), 1, "an equal icon name is not reapplied");
+
+        let fader = Fader::new();
+        assert_eq!(fader.maximum(), 100.0);
+
+        let track = child_named::<gtk4::Scale>(&fader, "fader__track");
+        let page_notifies = Rc::new(Cell::new(0u32));
+        track
+            .adjustment()
+            .connect_notify_local(Some("page-increment"), {
+                let page_notifies = Rc::clone(&page_notifies);
+                move |_, _| page_notifies.set(page_notifies.get() + 1)
+            });
+
+        fader.set_maximum(3.0);
+        assert_eq!(
+            (
+                track.adjustment().step_increment(),
+                track.adjustment().page_increment()
+            ),
+            (1.0, 1.0),
+            "max(1, max/100) and max(1, max/20) both floor at 1 on a three-position control"
+        );
+        assert_eq!(page_notifies.get(), 1);
+        fader.set_value(4.0);
+        assert_eq!(
+            fader.value(),
+            3.0,
+            "set_value clamps to the configured maximum, never a literal 100"
+        );
+        fader.set_maximum(3.0);
+        assert_eq!(
+            page_notifies.get(),
+            1,
+            "an unchanged maximum is not reapplied"
+        );
+
+        let fader = Fader::new();
+        fader.set_value(60.0);
+        fader.set_maximum(3.0);
+        assert_eq!(
+            fader.value(),
+            3.0,
+            "lowering the maximum below the current value must not leave the slider drawn \
+             past the end of its own track"
+        );
+
+        let fader = Fader::new();
+        fader.set_maximum(-5.0);
+        assert_eq!(
+            fader.maximum(),
+            0.0,
+            "a negative maximum is clamped inside the setter itself — a paramspec minimum \
+             bound was tried first and measured to panic on this exact input, since \
+             glib-rs treats the C side's own silent coercion as an error"
+        );
+        fader.set_value(1.0);
+        assert_eq!(
+            fader.value(),
+            0.0,
+            "a maximum of zero leaves nothing to set a positive value to"
+        );
+
+        let fader = Fader::new();
+        fader.set_maximum(400000.0);
+        let track = child_named::<gtk4::Scale>(&fader, "fader__track");
+        assert_eq!(
+            (
+                track.adjustment().step_increment(),
+                track.adjustment().page_increment()
+            ),
+            (4000.0, 20000.0),
+            "increments scale with a wide native range"
+        );
+        let changed = Rc::new(RefCell::new(Vec::new()));
+        fader.connect_changed({
+            let changed = Rc::clone(&changed);
+            move |_, value| changed.borrow_mut().push(value)
+        });
+        let _: bool = track.emit_by_name("change-value", &[&gtk4::ScrollType::None, &400000.0f64]);
+        assert_eq!(
+            *changed.borrow(),
+            [400000.0],
+            "GtkRange's own class handler re-clamps the adjustment to its current bounds \
+             after every connected handler runs, so value() settles at 400000.0 whether or \
+             not this handler's own clamp used the configured maximum — only the changed \
+             signal, read from inside the handler before that class handler runs, tells a \
+             fixed clamp apart from a literal 100.0"
+        );
+
+        let fader = Fader::new();
+        assert_eq!(fader.floor(), 0.0);
+        assert_eq!(fader.maximum(), 100.0);
+
+        fader.set_floor(5.0);
+        assert_eq!(fader.floor(), 5.0);
+        fader.set_value(0.0);
+        assert_eq!(
+            fader.value(),
+            5.0,
+            "set_value clamps to the configured floor, never a literal 0"
+        );
+
+        fader.set_value(50.0);
+        let track = child_named::<gtk4::Scale>(&fader, "fader__track");
+        let changed = Rc::new(RefCell::new(Vec::new()));
+        fader.connect_changed({
+            let changed = Rc::clone(&changed);
+            move |_, value| changed.borrow_mut().push(value)
+        });
+        let _: bool = track.emit_by_name("change-value", &[&gtk4::ScrollType::None, &0.0f64]);
+        assert_eq!(
+            *changed.borrow(),
+            [5.0],
+            "GtkRange's own class handler re-clamps the adjustment to its current bounds \
+             after every connected handler runs, so value() settles at the floor whether or \
+             not this handler's own clamp used the configured floor — only the changed \
+             signal, read from inside the handler before that class handler runs, tells a \
+             floor-aware clamp apart from a literal 0.0"
+        );
+
+        let fader = Fader::new();
+        fader.set_value(10.0);
+        fader.set_floor(50.0);
+        assert_eq!(
+            fader.value(),
+            50.0,
+            "GtkAdjustment::set_lower does not re-clamp value on its own, so a raised floor \
+             pulls the value up to it explicitly"
+        );
+
+        let fader = Fader::new();
+        fader.set_floor(150.0);
+        assert_eq!(
+            fader.floor(),
+            100.0,
+            "a floor above the current maximum is clamped down to it rather than inverting \
+             the range"
+        );
+        assert_eq!(
+            fader.maximum(),
+            100.0,
+            "the maximum itself is left untouched"
+        );
+
+        let fader = Fader::new();
+        fader.set_floor(-5.0);
+        assert_eq!(
+            fader.floor(),
+            0.0,
+            "a negative floor is clamped inside the setter itself, exactly as a negative \
+             maximum already is"
+        );
+
+        let fader = Fader::new();
+        assert!(fader.toggleable());
+        let mute = child_named::<gtk4::ToggleButton>(&fader, "fader__mute");
+        let icon = child_named::<gtk4::Image>(&fader, "fader__icon");
+        assert!(mute.get_visible());
+        assert!(!icon.get_visible());
+
+        fader.set_toggleable(false);
+        assert!(!fader.toggleable());
+        assert!(!mute.get_visible());
+        assert!(icon.get_visible());
+        assert!(
+            fader.is_sensitive(),
+            "a plain icon presentation has nothing to mute and must not disable the fader"
+        );
+        assert!(
+            icon.is_sensitive(),
+            "an insensitive image renders dimmed, which is the exact bug being fixed"
+        );
+
+        fader.set_icon_name(Some("display-brightness-symbolic".to_owned()));
+        assert_eq!(
+            icon.icon_name().as_deref(),
+            Some("display-brightness-symbolic"),
+            "icon-name sets the icon under either presentation"
+        );
+
+        let visible_notifies = Rc::new(Cell::new(0u32));
+        icon.connect_notify_local(Some("visible"), {
+            let visible_notifies = Rc::clone(&visible_notifies);
+            move |_, _| visible_notifies.set(visible_notifies.get() + 1)
+        });
+        fader.set_toggleable(false);
+        assert_eq!(
+            visible_notifies.get(),
+            0,
+            "an unchanged toggleable is not reapplied"
+        );
+
+        fader.set_toggleable(true);
+        assert!(mute.get_visible());
+        assert!(!icon.get_visible());
 
         let transport = Transport::new();
         let buttons = children_of::<gtk4::Button>(&transport);
@@ -4596,9 +4866,9 @@ mod tests {
         let audio = AudioPopover::new();
         assert_eq!(audio.imp().hero.title().as_deref(), Some("Sound"));
         assert!(
-            audio.imp().output.has_css_class("accent")
+            !audio.imp().output.has_css_class("accent")
                 && !audio.imp().input.has_css_class("accent"),
-            "the output master fader carries the accent styling the input fader does not"
+            "neither fader is accented; both take the default white track the brightness fader uses"
         );
 
         audio.set_readout(Some("42%"));
@@ -4960,6 +5230,743 @@ mod tests {
         });
         audio.imp().footer.emit_clicked();
         assert_eq!(footer_activated.get(), 1);
+
+        let sources = SourceList::new();
+        assert!(
+            sources.first_child().is_none(),
+            "a source list renders nothing before the first set"
+        );
+
+        let source = |key: &str, name: &str, value: f64, maximum: f64, floor: f64| Source {
+            key: key.to_owned(),
+            name: name.to_owned(),
+            value,
+            maximum,
+            floor,
+        };
+
+        let changed = Rc::new(RefCell::new(Vec::<(String, f64)>::new()));
+        sources.connect_changed({
+            let changed = Rc::clone(&changed);
+            move |_, key, value| changed.borrow_mut().push((key, value))
+        });
+
+        sources.set_sources(&[
+            source("built-in", "Built-in", 40.0, 100.0, 0.0),
+            source("dp-1", "DP-1", 60.0, 100.0, 0.0),
+            source("dp-2", "DP-2", 80.0, 100.0, 5.0),
+        ]);
+
+        let rows: Vec<Row> = children_of(&sources);
+        let faders: Vec<Fader> = children_of(&sources);
+        assert_eq!(rows.len(), 3);
+        assert_eq!(faders.len(), 3);
+        assert_eq!(rows[0].title().as_deref(), Some("Built-in"));
+        assert_eq!(rows[2].title().as_deref(), Some("DP-2"));
+        assert!(
+            !rows[0].activatable(),
+            "a titled row above a fader takes no click of its own"
+        );
+        assert_eq!(
+            rows[0].parent(),
+            Some(sources.clone().upcast::<gtk4::Widget>())
+        );
+        assert_eq!(
+            faders[0].parent(),
+            Some(sources.clone().upcast::<gtk4::Widget>()),
+            "the fader is a sibling of the row, not a child of it, so the row's own \
+             non-activatable state cannot reach it"
+        );
+
+        assert_eq!(faders[0].value(), 40.0);
+        assert_eq!(faders[2].value(), 80.0);
+
+        assert_eq!(
+            faders[2].floor(),
+            5.0,
+            "a source's own floor becomes the fader's floor"
+        );
+        assert_eq!(faders[2].maximum(), 100.0);
+
+        faders[1].emit_by_name::<()>("changed", &[&65.0f64]);
+        assert_eq!(
+            *changed.borrow(),
+            vec![("dp-1".to_owned(), 65.0)],
+            "moving one fader reports that source's own key and no other"
+        );
+        changed.borrow_mut().clear();
+
+        let first_row = rows[0].clone();
+        let first_fader = faders[0].clone();
+        sources.set_sources(&[
+            source("built-in", "Built-in", 55.0, 100.0, 0.0),
+            source("dp-1", "DP-1", 65.0, 100.0, 0.0),
+            source("dp-2", "DP-2", 80.0, 100.0, 5.0),
+        ]);
+        let rows_after: Vec<Row> = children_of(&sources);
+        let faders_after: Vec<Fader> = children_of(&sources);
+        assert_eq!(
+            rows_after[0], first_row,
+            "an untouched row is reused rather than rebuilt"
+        );
+        assert_eq!(faders_after[0], first_fader, "and so is its fader");
+        assert_eq!(faders_after[0].value(), 55.0);
+
+        let renders_before = sources.imp().renders.get();
+        sources.set_sources(&[
+            source("built-in", "Built-in", 55.0, 100.0, 0.0),
+            source("dp-1", "DP-1", 65.0, 100.0, 0.0),
+            source("dp-2", "DP-2", 80.0, 100.0, 5.0),
+        ]);
+        assert_eq!(
+            sources.imp().renders.get(),
+            renders_before,
+            "an identical slice returns early and never re-renders"
+        );
+
+        sources.set_sources(&[source("hostile", &"ё".repeat(300), 10.0, 100.0, 0.0)]);
+        let hostile_rows: Vec<Row> = children_of(&sources);
+        assert_eq!(hostile_rows.len(), 1);
+        assert!(
+            child_named::<gtk4::Label>(&hostile_rows[0], "row__title")
+                .text()
+                .chars()
+                .count()
+                <= TEXT_MAX_CHARS,
+            "an unbounded, multi-byte source name is capped without slicing a character"
+        );
+
+        sources.set_sources(&[]);
+        assert!(
+            sources.first_child().is_none(),
+            "an emptied source list renders no children"
+        );
+
+        let displays = DisplayList::new();
+        assert!(
+            displays.first_child().is_none(),
+            "a display list renders nothing before the first snapshot"
+        );
+
+        let mode = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_mhz: 60_000,
+        };
+        let logical = DisplayLogical {
+            x: 0,
+            y: 0,
+            scale: 1.5,
+        };
+        let built_in = Display {
+            connector: "eDP-1".to_owned(),
+            label: "Built-in display".to_owned(),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical.clone()),
+            enabled: true,
+            ..Display::default()
+        };
+        let external = Display {
+            connector: "DP-1".to_owned(),
+            label: "DELL U2720Q".to_owned(),
+            make: Some("Dell Inc.".to_owned()),
+            model: Some("U2720Q".to_owned()),
+            serial: Some("8QK1P93".to_owned()),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical.clone()),
+            enabled: true,
+        };
+
+        let detail_of = |holder: &gtk4::Box| -> (FactList, SwitchRow) {
+            let body = crate::drawer::panel(holder)
+                .and_then(|panel| panel.child())
+                .expect("a detail body");
+            let facts = body
+                .first_child()
+                .and_downcast::<FactList>()
+                .expect("a fact list");
+            let switch = facts
+                .next_sibling()
+                .and_downcast::<SwitchRow>()
+                .expect("a switch row");
+            (facts, switch)
+        };
+        let heads_of = |holders: &[gtk4::Box]| -> Vec<Row> {
+            holders.iter().filter_map(crate::drawer::head).collect()
+        };
+
+        displays.set_displays(&[built_in.clone(), external.clone()]);
+        let heads: Vec<Row> = heads_of(&children_of(&displays));
+        let holders: Vec<gtk4::Box> = children_of(&displays);
+        assert_eq!(heads.len(), 2);
+        assert_eq!(holders.len(), 2);
+
+        let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
+        let (external_facts, external_switch) = detail_of(&holders[1]);
+        let built_in_fact_rows: Vec<Row> = children_of(&built_in_facts);
+        let external_fact_rows: Vec<Row> = children_of(&external_facts);
+        assert_eq!(
+            built_in_fact_rows.len(),
+            4,
+            "the connector always leads the detail; a display with no make, model or serial omits \
+             those lines rather than rendering Unknown or an empty row"
+        );
+        assert_eq!(external_fact_rows.len(), 7);
+        assert!(
+            !built_in_fact_rows
+                .iter()
+                .any(|row| row.value().as_deref() == Some("8QK1P93"))
+        );
+        assert!(
+            external_fact_rows
+                .iter()
+                .any(|row| row.value().as_deref() == Some("8QK1P93"))
+        );
+        assert!(
+            built_in_fact_rows
+                .iter()
+                .any(|row| row.title().as_deref() == Some("Connector")),
+            "the head names the display, so the connector is a line of the detail"
+        );
+
+        assert!(!built_in_switch.locked());
+        assert!(
+            !external_switch.locked(),
+            "two enabled outputs: the guard bites on neither"
+        );
+
+        let solo = built_in.clone();
+        let mut off = external.clone();
+        off.enabled = false;
+        displays.set_displays(&[solo.clone(), off.clone()]);
+        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let (_, solo_switch) = detail_of(&holders[0]);
+        let (_, off_switch) = detail_of(&holders[1]);
+        assert!(
+            solo_switch.locked(),
+            "the only enabled output's switch cannot be turned off"
+        );
+        assert!(
+            solo_switch.is_sensitive(),
+            "the row itself stays sensitive so its explanation is not dimmed along with the knob"
+        );
+        let solo_head: &Row = solo_switch.upcast_ref();
+        assert_eq!(
+            solo_head.subtitle().as_deref(),
+            Some("The last enabled display can't be turned off")
+        );
+        assert!(
+            !off_switch.locked(),
+            "a disabled output is never locked, or its user would be stranded"
+        );
+        assert!(!off_switch.active());
+
+        let enable_requests = Rc::new(RefCell::new(Vec::<(String, bool)>::new()));
+        displays.connect_enable_requested({
+            let enable_requests = Rc::clone(&enable_requests);
+            move |_, connector, enabled| enable_requests.borrow_mut().push((connector, enabled))
+        });
+        off_switch.emit_by_name::<()>("toggled", &[&true]);
+        assert_eq!(
+            *enable_requests.borrow(),
+            vec![("DP-1".to_owned(), true)],
+            "toggling a disabled output's switch requests it be enabled, naming its own connector"
+        );
+
+        displays.set_displays(&[built_in.clone(), external.clone()]);
+        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let heads: Vec<Row> = heads_of(&holders);
+        let panel_of = |holder: &gtk4::Box| crate::drawer::panel(holder).expect("a revealer");
+
+        assert!(!panel_of(&holders[0]).reveals_child());
+        assert!(!heads[0].has_css_class(crate::drawer::OPEN));
+
+        heads[0].emit_clicked();
+        assert!(
+            panel_of(&holders[0]).reveals_child() && heads[0].has_css_class(crate::drawer::OPEN),
+            "activating a head opens its own detail"
+        );
+        assert!(
+            !panel_of(&holders[1]).reveals_child()
+                && heads[1].has_css_class(crate::drawer::RECEDED)
+                && !heads[1].has_css_class(crate::drawer::OPEN),
+            "every other holder recedes, derived from what is revealed rather than from \
+             remembered state"
+        );
+
+        heads[0].emit_clicked();
+        assert!(
+            !panel_of(&holders[0]).reveals_child() && !heads[0].has_css_class(crate::drawer::OPEN),
+            "activating the open head again closes it"
+        );
+        assert!(
+            !heads[1].has_css_class(crate::drawer::RECEDED),
+            "closing the only open detail lifts the receded state everywhere"
+        );
+
+        heads[0].emit_clicked();
+        assert!(panel_of(&holders[0]).reveals_child());
+        let kept_head = heads[0].clone();
+        let renders_before = displays.imp().renders.get();
+        displays.set_displays(&[built_in.clone(), external.clone()]);
+        assert_eq!(
+            displays.imp().renders.get(),
+            renders_before,
+            "an identical slice returns early and never re-renders"
+        );
+        let heads_after: Vec<Row> = heads_of(&children_of(&displays));
+        assert_eq!(heads_after.len(), 2);
+        assert_eq!(heads_after[0], kept_head, "rows are reused, not rebuilt");
+        assert!(
+            panel_of(&holders[0]).reveals_child(),
+            "an unchanged slice must not close a detail the user has open"
+        );
+
+        let hostile = Display {
+            connector: "DP-2".to_owned(),
+            make: Some("ё".repeat(300)),
+            model: Some("ё".repeat(300)),
+            serial: Some("ё".repeat(300)),
+            enabled: true,
+            ..Display::default()
+        };
+        displays.set_displays(&[hostile]);
+        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let (hostile_facts, _) = detail_of(&holders[0]);
+        assert!(
+            children_of::<Row>(&hostile_facts).iter().all(|row| {
+                row.value()
+                    .map(|value| value.chars().count() <= TEXT_MAX_CHARS)
+                    .unwrap_or(true)
+            }),
+            "an unbounded, multi-byte EDID string is capped without slicing a character"
+        );
+
+        displays.set_displays(&[]);
+        assert!(
+            displays.first_child().is_none(),
+            "an emptied display list renders no children"
+        );
+
+        let gate = DisplayList::new();
+        let mut gate_off = external.clone();
+        gate_off.enabled = false;
+        gate.set_displays(&[built_in.clone(), gate_off.clone()]);
+        let gate_holders: Vec<gtk4::Box> = children_of(&gate);
+        assert_eq!(gate_holders.len(), 2);
+
+        let facts_of = |holder: &gtk4::Box| -> FactList {
+            crate::drawer::panel(holder)
+                .and_then(|panel| panel.child())
+                .and_then(|body| body.first_child())
+                .and_downcast::<FactList>()
+                .expect("a fact list")
+        };
+
+        let (_, gate_built_in_switch) = detail_of(&gate_holders[0]);
+        assert!(
+            gate_built_in_switch.locked(),
+            "AC-1: output_power true, the default, keeps today's behaviour unchanged"
+        );
+
+        let gate_heads: Vec<Row> = heads_of(&gate_holders);
+        gate_heads[0].emit_clicked();
+        let gate_panel = crate::drawer::panel(&gate_holders[0]).expect("a revealer");
+        assert!(
+            gate_panel.reveals_child(),
+            "the detail opens before the gate changes"
+        );
+
+        gate.set_output_power(false);
+        let gate_holders_off: Vec<gtk4::Box> = children_of(&gate);
+        assert_eq!(
+            gate_holders_off, gate_holders,
+            "gating the switches off reuses the existing rows rather than rebuilding them"
+        );
+        assert!(
+            gate_panel.reveals_child(),
+            "AC-6: closing the gate on a display that is not changing must not shut an open \
+             detail under the user's hand"
+        );
+        for holder in &gate_holders_off {
+            assert!(
+                facts_of(holder).next_sibling().is_none(),
+                "AC-2/AC-5: output_power false omits the enable switch entirely, even on the \
+                 sole enabled output, rather than leaving it present and locked"
+            );
+        }
+        assert_eq!(
+            children_of::<Row>(&facts_of(&gate_holders_off[0])).len(),
+            4,
+            "AC-3: the built-in display's own facts survive the gate"
+        );
+        assert_eq!(
+            children_of::<Row>(&facts_of(&gate_holders_off[1])).len(),
+            7,
+            "AC-3: so do the external display's, connector through position"
+        );
+
+        gate.set_output_power(true);
+        assert!(
+            gate_panel.reveals_child(),
+            "AC-6: reopening the gate must not shut the detail either"
+        );
+        let (_, gate_built_in_switch_again) = detail_of(&gate_holders[0]);
+        let (_, gate_off_switch_again) = detail_of(&gate_holders[1]);
+        assert_eq!(
+            gate_built_in_switch_again, gate_built_in_switch,
+            "AC-4: the switch that comes back is the same row, not a rebuilt one"
+        );
+        assert!(
+            gate_built_in_switch_again.locked(),
+            "AC-4: the sole enabled output relocks once the gate reopens"
+        );
+        assert!(
+            !gate_off_switch_again.locked(),
+            "AC-4: a disabled output's switch is never locked"
+        );
+
+        let brightness = BrightnessPopover::new();
+        assert!(
+            !brightness.imp().primary.get_visible() && !brightness.imp().devices.get_visible(),
+            "AC-1: with no sources, neither the primary fader nor the source list renders"
+        );
+
+        let level = |key: &str, name: &str, value: f64| Source {
+            key: key.to_owned(),
+            name: name.to_owned(),
+            value,
+            maximum: 100.0,
+            floor: 0.0,
+        };
+
+        brightness.set_sources(&[level("built-in", "Built-in", 42.0)]);
+        assert!(
+            brightness.imp().primary.get_visible(),
+            "AC-1: one source renders the primary fader"
+        );
+        assert!(
+            !brightness.imp().devices.get_visible(),
+            "AC-1: one source keeps the source list hidden"
+        );
+        assert_eq!(brightness.imp().primary.value(), 42.0);
+        assert_eq!(
+            brightness.imp().readout.value().as_deref(),
+            Some("42"),
+            "AC-2: the hero readout carries the percentage"
+        );
+        assert_eq!(brightness.imp().readout.unit().as_deref(), Some("%"));
+        assert!(
+            brightness
+                .imp()
+                .primary
+                .tooltip_text()
+                .is_some_and(|text| text.contains("42")),
+            "AC-2: the fader carries its exact value in a tooltip instead of a readout"
+        );
+
+        brightness.set_sources(&[Source {
+            key: "built-in".to_owned(),
+            name: "Built-in".to_owned(),
+            value: 200_000.0,
+            maximum: 400_000.0,
+            floor: 0.0,
+        }]);
+        assert_eq!(
+            brightness.imp().primary.value(),
+            200_000.0,
+            "the fader keeps the hardware's own native range"
+        );
+        assert_eq!(
+            brightness.imp().readout.value().as_deref(),
+            Some("50"),
+            "the readout is a percentage of the maximum, not the raw native value"
+        );
+        assert!(
+            brightness
+                .imp()
+                .primary
+                .tooltip_text()
+                .is_some_and(|text| text.contains("50") && !text.contains("200000")),
+            "the tooltip is a percentage too; a native value would read 200000%"
+        );
+
+        brightness.set_sources(&[
+            level("built-in", "Built-in", 40.0),
+            level("dp-1", "DP-1", 60.0),
+            level("dp-2", "DP-2", 80.0),
+        ]);
+        assert!(
+            brightness.imp().primary.get_visible() && brightness.imp().devices.get_visible(),
+            "AC-1: three sources render both the primary fader and the source list"
+        );
+        assert_eq!(
+            brightness.imp().primary.value(),
+            40.0,
+            "the primary rail mirrors the caller's own first, current source"
+        );
+        let non_primary_faders: Vec<Fader> = children_of(&*brightness.imp().devices);
+        assert_eq!(
+            non_primary_faders.len(),
+            2,
+            "the source list renders only sources[1..], or the current source would get two \
+             faders that do not track each other"
+        );
+        assert_eq!(non_primary_faders[0].value(), 60.0);
+        assert_eq!(non_primary_faders[1].value(), 80.0);
+        assert!(
+            non_primary_faders
+                .iter()
+                .all(|fader| fader.tooltip_text().is_some_and(|text| !text.is_empty())),
+            "AC-2: every source-list fader carries its exact value in a tooltip too, not only \
+             the primary rail"
+        );
+
+        brightness.set_sources(&[]);
+        assert!(
+            !brightness.imp().primary.get_visible() && !brightness.imp().devices.get_visible(),
+            "AC-1: going back to no sources hides both again, without panicking"
+        );
+        brightness.set_sources(&[level("built-in", "Built-in", 55.0)]);
+
+        assert!(
+            !brightness.imp().night_light.get_visible(),
+            "AC-4: with no night light snapshot ever seen, the whole section is absent"
+        );
+
+        brightness.set_night_light(Some(&NightLight {
+            enabled: false,
+            temperature: 6500,
+        }));
+        assert!(brightness.imp().night_light.get_visible());
+        assert!(brightness.imp().night_light.is_sensitive());
+        assert!(
+            !brightness.imp().temperature.get_visible(),
+            "AC-3: the temperature rail is hidden, not merely insensitive, while the switch is off"
+        );
+
+        brightness.set_night_light(Some(&NightLight {
+            enabled: true,
+            temperature: 4200,
+        }));
+        assert!(brightness.imp().temperature.get_visible());
+        assert_eq!(brightness.imp().temperature.value(), 4200.0);
+        assert!(
+            brightness
+                .imp()
+                .temperature
+                .tooltip_text()
+                .is_some_and(|text| text.contains("4200")),
+            "the temperature rail carries its exact value in a tooltip too"
+        );
+        assert!(
+            brightness.imp().temperature.has_css_class("fader--warm"),
+            "AC-6: the warm tint is a class scoped to this one fader"
+        );
+        assert!(
+            !brightness.imp().temperature.has_css_class("accent"),
+            "AC-6: the warm tint is not the accent colour the audio popover's own fader uses"
+        );
+
+        brightness.set_night_light(None);
+        assert!(
+            brightness.imp().night_light.get_visible()
+                && !brightness.imp().night_light.is_sensitive(),
+            "AC-5: losing the provider keeps the last-good section visible but greys it"
+        );
+        assert_eq!(
+            brightness.imp().temperature.value(),
+            4200.0,
+            "AC-5: the last-good values stay on screen rather than resetting"
+        );
+        assert!(
+            brightness.imp().temperature.get_visible(),
+            "the last-known state was 'on', so the rail stays up while greyed"
+        );
+
+        brightness.set_night_light(Some(&NightLight {
+            enabled: true,
+            temperature: 3000,
+        }));
+        assert!(
+            brightness.imp().night_light.is_sensitive(),
+            "a fresh snapshot lifts the greyed state"
+        );
+
+        let brightness_changed = Rc::new(RefCell::new(Vec::<(String, f64)>::new()));
+        brightness.connect_changed({
+            let brightness_changed = Rc::clone(&brightness_changed);
+            move |_, key, value| {
+                brightness_changed
+                    .borrow_mut()
+                    .push((key.to_owned(), value))
+            }
+        });
+        brightness
+            .imp()
+            .primary
+            .emit_by_name::<()>("changed", &[&33.0f64]);
+        assert_eq!(
+            *brightness_changed.borrow(),
+            [("built-in".to_owned(), 33.0)],
+            "the primary fader reports the key of the source it mirrors"
+        );
+        brightness_changed.borrow_mut().clear();
+        brightness
+            .imp()
+            .devices
+            .emit_by_name::<()>("changed", &[&"dp-1".to_owned(), &70.0f64]);
+        assert_eq!(
+            *brightness_changed.borrow(),
+            [("dp-1".to_owned(), 70.0)],
+            "a source list change is forwarded with its own key"
+        );
+
+        let night_toggled = Rc::new(RefCell::new(Vec::<bool>::new()));
+        brightness.connect_night_light_toggled({
+            let night_toggled = Rc::clone(&night_toggled);
+            move |_, on| night_toggled.borrow_mut().push(on)
+        });
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&false]);
+        assert_eq!(*night_toggled.borrow(), [false]);
+        assert!(
+            !brightness.imp().temperature.get_visible(),
+            "UI state never waits on a round trip: the rail follows the knob optimistically, \
+             before any set_night_light call reconciles it"
+        );
+
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&true]);
+        assert_eq!(*night_toggled.borrow(), [false, true]);
+        assert!(
+            brightness.imp().temperature.get_visible(),
+            "and reappears the same optimistic way when the knob flips back"
+        );
+
+        let night_changed = Rc::new(RefCell::new(Vec::<f64>::new()));
+        brightness.connect_night_light_changed({
+            let night_changed = Rc::clone(&night_changed);
+            move |_, value| night_changed.borrow_mut().push(value)
+        });
+        brightness
+            .imp()
+            .temperature
+            .emit_by_name::<()>("changed", &[&3400.0f64]);
+        assert_eq!(*night_changed.borrow(), [3400.0]);
+
+        brightness.set_footer(Some("Display settings"));
+        assert!(brightness.imp().footer.get_visible());
+        let brightness_footer = Rc::new(Cell::new(0u32));
+        brightness.connect_footer_activated({
+            let brightness_footer = Rc::clone(&brightness_footer);
+            move |_| brightness_footer.set(brightness_footer.get() + 1)
+        });
+        brightness.imp().footer.emit_clicked();
+        assert_eq!(brightness_footer.get(), 1);
+
+        let display_popover = DisplayPopover::new();
+        assert!(
+            !display_popover.imp().section.get_visible(),
+            "AC-12: no outputs renders empty, without panicking"
+        );
+
+        display_popover.set_output_power(true);
+        display_popover.set_displays(&[built_in.clone(), external.clone()]);
+        assert!(
+            display_popover.imp().section.get_visible(),
+            "AC-9: two outputs render the section"
+        );
+        let popover_holders: Vec<gtk4::Box> = children_of(&*display_popover.imp().devices);
+        assert_eq!(
+            heads_of(&popover_holders).len(),
+            2,
+            "AC-9: both outputs list"
+        );
+        assert!(
+            display_popover.imp().blank.get_visible(),
+            "AC-9: the blank row is present when output power is supported"
+        );
+        assert_eq!(
+            display_popover.imp().blank.subtitle().as_deref(),
+            Some("Any input wakes them again"),
+            "AC-11: the blank row's subtitle says input wakes the screens"
+        );
+        assert_eq!(
+            display_popover.imp().blank.type_(),
+            Row::static_type(),
+            "AC-11: the blank row is a Row, never a SwitchRow — DPMS has no state to sit in, so \
+             a knob that moved without the screen following it would be lying"
+        );
+
+        let devices_renders_before = display_popover.imp().devices.imp().renders.get();
+        display_popover.set_output_power(false);
+        assert!(
+            !display_popover.imp().blank.get_visible(),
+            "AC-10: the blank row is absent entirely, not merely insensitive, when output power \
+             is unsupported"
+        );
+        assert_eq!(
+            children_of::<gtk4::Box>(&*display_popover.imp().devices).len(),
+            2,
+            "gating output power keeps both outputs listed"
+        );
+        assert!(
+            display_popover.imp().devices.imp().renders.get() > devices_renders_before,
+            "AC-10: DisplayPopover forwards output_power to DisplayList, which gates every \
+             per-output switch on its own render (proven directly on DisplayList, above)"
+        );
+
+        display_popover.set_displays(&[]);
+        assert!(
+            !display_popover.imp().section.get_visible(),
+            "AC-12: emptying the outputs renders empty again"
+        );
+
+        display_popover.set_output_power(true);
+        display_popover.set_displays(std::slice::from_ref(&built_in));
+        assert!(display_popover.imp().blank.get_visible());
+
+        let popover_enable_requests = Rc::new(RefCell::new(Vec::<(String, bool)>::new()));
+        display_popover.connect_enable_requested({
+            let popover_enable_requests = Rc::clone(&popover_enable_requests);
+            move |_, connector, enabled| {
+                popover_enable_requests
+                    .borrow_mut()
+                    .push((connector.to_owned(), enabled))
+            }
+        });
+        display_popover
+            .imp()
+            .devices
+            .emit_by_name::<()>("enable-requested", &[&"eDP-1".to_owned(), &false]);
+        assert_eq!(
+            *popover_enable_requests.borrow(),
+            [("eDP-1".to_owned(), false)],
+            "a DisplayList request is forwarded as the popover's own signal"
+        );
+
+        let blanked = Rc::new(Cell::new(0u32));
+        display_popover.connect_blanked({
+            let blanked = Rc::clone(&blanked);
+            move |_| blanked.set(blanked.get() + 1)
+        });
+        display_popover.imp().blank.emit_clicked();
+        assert_eq!(blanked.get(), 1);
+
+        display_popover.set_footer(Some("Display settings"));
+        assert!(display_popover.imp().footer.get_visible());
+        let popover_footer = Rc::new(Cell::new(0u32));
+        display_popover.connect_footer_activated({
+            let popover_footer = Rc::clone(&popover_footer);
+            move |_| popover_footer.set(popover_footer.get() + 1)
+        });
+        display_popover.imp().footer.emit_clicked();
+        assert_eq!(popover_footer.get(), 1);
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

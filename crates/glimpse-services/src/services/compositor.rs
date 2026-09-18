@@ -37,18 +37,41 @@ pub struct WindowInfo {
     pub order: Option<u16>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputMode {
+    pub width: u32,
+    pub height: u32,
+    pub refresh_mhz: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OutputLogical {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub scale: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OutputInfo {
     pub connector: String,
     pub label: Option<String>,
     pub built_in: bool,
     pub focused: bool,
+    pub make: Option<String>,
+    pub model: Option<String>,
+    pub serial: Option<String>,
+    pub current_mode: Option<OutputMode>,
+    pub logical: Option<OutputLogical>,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompositorCapabilities {
     pub floating: bool,
     pub workspace_reorder: bool,
+    pub output_power: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,6 +163,14 @@ pub enum Command {
         id: u64,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
+    SetOutputEnabled {
+        connector: String,
+        enabled: bool,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    PowerOffMonitors {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 #[derive(Clone)]
@@ -227,6 +258,26 @@ impl CompositorHandle {
         self.0.command(Command::CloseWindow { id, reply })?;
         result.await.map_err(|_| stopped())?
     }
+
+    pub async fn set_output_enabled(
+        &self,
+        connector: String,
+        enabled: bool,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::SetOutputEnabled {
+            connector,
+            enabled,
+            reply,
+        })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn power_off_monitors(&self) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::PowerOffMonitors { reply })?;
+        result.await.map_err(|_| stopped())?
+    }
 }
 
 fn stopped() -> CommandError {
@@ -247,6 +298,7 @@ pub struct Compositor {
     state_publisher: Publisher<CompositorState>,
     state: Option<Snapshot>,
     attempt: u64,
+    capabilities: CompositorCapabilities,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -346,17 +398,19 @@ impl Service for Compositor {
 
 impl Compositor {
     fn with_backend(ctx: &Ctx<Self>, backend: Backend) -> Self {
+        let capabilities = capabilities(backend.capabilities());
         let service = Self {
             state_publisher: ctx.publisher(),
             state: None,
             attempt: 0,
+            capabilities,
             backend,
         };
 
         service.state_publisher.update(|state| {
             state.status = Some(CompositorStatus {
                 name: service.backend.name().to_owned(),
-                capabilities: capabilities(service.backend.capabilities()),
+                capabilities: service.capabilities,
             });
         });
 
@@ -433,11 +487,62 @@ impl Compositor {
             Command::CloseWindow { id, reply } => {
                 (self.backend.close_window(WindowId(id)).await, reply)
             }
+            Command::SetOutputEnabled {
+                connector,
+                enabled,
+                reply,
+            } => {
+                let outcome = if !self.capabilities.output_power {
+                    Err(CompositorError::Unsupported(
+                        "this compositor cannot turn displays on or off",
+                    ))
+                } else {
+                    match self.state.as_ref() {
+                        None => Err(CompositorError::Refused(
+                            "the compositor state has not arrived yet".to_owned(),
+                        )),
+                        Some(state) => match state
+                            .outputs
+                            .iter()
+                            .find(|output| output.connector == connector)
+                        {
+                            None => Err(CompositorError::Refused(format!(
+                                "unknown output {connector}"
+                            ))),
+                            Some(output)
+                                if !enabled
+                                    && output.enabled
+                                    && enabled_output_count(state) <= 1 =>
+                            {
+                                Err(CompositorError::Refused(
+                                    "cannot turn off the last display that is still on".to_owned(),
+                                ))
+                            }
+                            Some(_) => self.backend.set_output_enabled(&connector, enabled).await,
+                        },
+                    }
+                };
+                (outcome, reply)
+            }
+            Command::PowerOffMonitors { reply } => {
+                let outcome = if !self.capabilities.output_power {
+                    Err(CompositorError::Unsupported(
+                        "this compositor cannot blank the displays",
+                    ))
+                } else {
+                    self.backend.power_off_monitors().await
+                };
+                (outcome, reply)
+            }
         };
 
         let outcome = outcome.map_err(|error| command_error(&error));
         let _ = reply.send(outcome);
     }
+}
+
+fn enabled_output_count(state: &Snapshot) -> usize {
+    state.outputs.iter().filter(|output| output.enabled).count()
 }
 
 fn apply(state: &mut Snapshot, change: Change) -> bool {
@@ -589,12 +694,27 @@ fn outputs_of(state: &Snapshot) -> Vec<OutputInfo> {
     state
         .outputs
         .iter()
-        .filter(|output| output.enabled)
         .map(|output| OutputInfo {
             connector: output.connector.clone(),
             label: label_of(output),
             built_in: output.built_in,
             focused: state.focused_output.as_ref() == Some(&output.connector),
+            make: output.make.clone(),
+            model: output.model.clone(),
+            serial: output.serial.clone(),
+            current_mode: output.current_mode.map(|mode| OutputMode {
+                width: mode.width,
+                height: mode.height,
+                refresh_mhz: mode.refresh_mhz,
+            }),
+            logical: output.logical.as_ref().map(|logical| OutputLogical {
+                x: logical.x,
+                y: logical.y,
+                width: logical.width,
+                height: logical.height,
+                scale: logical.scale,
+            }),
+            enabled: output.enabled,
         })
         .collect()
 }
@@ -621,6 +741,7 @@ fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
     CompositorCapabilities {
         floating: capabilities.floating,
         workspace_reorder: capabilities.workspace_reorder,
+        output_power: capabilities.output_power,
     }
 }
 
@@ -663,13 +784,62 @@ fn command_error(error: &CompositorError) -> CommandError {
 
 #[cfg(test)]
 mod tests {
-    use glimpse_compositors::Window;
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+
+    use glimpse_compositors::{Niri, Window};
     use glimpse_dbus::Buses;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::UnixListener;
     use tokio::sync::{mpsc, watch};
     use tokio_util::sync::CancellationToken;
 
     use super::*;
     use crate::service::ServiceState;
+
+    struct FakeNiri {
+        _dir: tempfile::TempDir,
+        socket: PathBuf,
+        requests: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl FakeNiri {
+        fn spawn() -> Self {
+            let dir = tempfile::tempdir().expect("a temporary directory");
+            let socket = dir.path().join("niri.sock");
+            let listener = UnixListener::bind(&socket).expect("bind the fake niri socket");
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let recorded = requests.clone();
+
+            tokio::spawn(async move {
+                while let Ok((stream, _)) = listener.accept().await {
+                    let recorded = recorded.clone();
+                    tokio::spawn(async move {
+                        let mut reader = BufReader::new(stream);
+                        let mut request = String::new();
+                        if reader.read_line(&mut request).await.is_err() {
+                            return;
+                        }
+                        recorded
+                            .lock()
+                            .expect("not poisoned")
+                            .push(request.trim().to_owned());
+                        let _ = reader.get_mut().write_all(b"{\"Ok\":null}\n").await;
+                    });
+                }
+            });
+
+            Self {
+                _dir: dir,
+                socket,
+                requests,
+            }
+        }
+
+        fn requests(&self) -> Vec<String> {
+            self.requests.lock().expect("not poisoned").clone()
+        }
+    }
 
     struct Harness {
         service: Compositor,
@@ -854,6 +1024,7 @@ mod tests {
             connector: connector.to_owned(),
             make: Some("Samsung".to_owned()),
             model: Some("ATNA60CL10-0 ".to_owned()),
+            serial: None,
             description: None,
             logical: None,
             current_mode: None,
@@ -1085,7 +1256,7 @@ mod tests {
     }
 
     #[test]
-    fn a_disabled_output_is_not_published() {
+    fn a_disabled_output_still_publishes_with_enabled_false() {
         let state = Snapshot {
             outputs: vec![output("DP-1", true), output("HDMI-A-1", false)],
             focused_output: Some("DP-1".to_owned()),
@@ -1094,13 +1265,114 @@ mod tests {
 
         let published = outputs_of(&state);
 
-        assert_eq!(published.len(), 1);
-        assert!(published[0].focused);
+        assert_eq!(published.len(), 2, "a disabled output must stay switchable");
+        let disabled = published
+            .iter()
+            .find(|output| output.connector == "HDMI-A-1")
+            .expect("HDMI-A-1");
+        assert!(!disabled.enabled);
+        let enabled = published
+            .iter()
+            .find(|output| output.connector == "DP-1")
+            .expect("DP-1");
+        assert!(enabled.focused);
         assert_eq!(
-            published[0].label.as_deref(),
+            enabled.label.as_deref(),
             Some("Samsung ATNA60CL10-0"),
             "niri fills make and model, leaves description null, and pads the model with a \
              trailing space; a popover offering `Move to display` has nothing to render otherwise"
+        );
+    }
+
+    #[test]
+    fn a_snapshot_populates_every_output_field() {
+        let mut display = output("DP-1", true);
+        display.model = Some("ATNA60CL10-0".to_owned());
+        display.serial = Some("69QC174".to_owned());
+        display.current_mode = Some(glimpse_compositors::Mode {
+            width: 3840,
+            height: 2160,
+            refresh_mhz: 239_991,
+        });
+        display.logical = Some(glimpse_compositors::Logical {
+            x: -3072,
+            y: 0,
+            width: 3072,
+            height: 1728,
+            scale: 1.25,
+        });
+        let state = Snapshot {
+            outputs: vec![display],
+            focused_output: Some("DP-1".to_owned()),
+            ..Snapshot::default()
+        };
+
+        let published = outputs_of(&state);
+
+        assert_eq!(published[0].make.as_deref(), Some("Samsung"));
+        assert_eq!(published[0].model.as_deref(), Some("ATNA60CL10-0"));
+        assert_eq!(published[0].serial.as_deref(), Some("69QC174"));
+        assert_eq!(
+            published[0].current_mode,
+            Some(OutputMode {
+                width: 3840,
+                height: 2160,
+                refresh_mhz: 239_991,
+            })
+        );
+        assert_eq!(
+            published[0].logical,
+            Some(OutputLogical {
+                x: -3072,
+                y: 0,
+                width: 3072,
+                height: 1728,
+                scale: 1.25,
+            })
+        );
+        assert!(published[0].enabled);
+    }
+
+    #[test]
+    fn output_power_is_mirrored_into_compositor_capabilities() {
+        let mapped = capabilities(Capabilities {
+            floating: false,
+            workspace_reorder: true,
+            output_power: true,
+        });
+
+        assert!(mapped.output_power);
+    }
+
+    #[tokio::test]
+    async fn an_identical_snapshot_does_not_republish() {
+        let mut harness = harness(Backend::Unsupported);
+        let snapshot = || Snapshot {
+            outputs: vec![output("DP-1", true), output("HDMI-A-1", false)],
+            focused_output: Some("DP-1".to_owned()),
+            ..Snapshot::default()
+        };
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(snapshot()))),
+            )
+            .await;
+        harness.state.borrow_and_update();
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(snapshot()))),
+            )
+            .await;
+
+        assert!(
+            !harness.state.has_changed().expect("sender is alive"),
+            "two identical snapshots must not rebuild every consumer's widget list"
         );
     }
 
@@ -1126,5 +1398,184 @@ mod tests {
             command_error(&CompositorError::Closed),
             CommandError::Unavailable(_)
         ));
+    }
+
+    async fn snapshot_of_outputs(harness: &mut Harness, outputs: Vec<Output>) {
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(Snapshot {
+                    outputs,
+                    ..Snapshot::default()
+                }))),
+            )
+            .await;
+    }
+
+    async fn set_output_enabled(
+        harness: &mut Harness,
+        connector: &str,
+        enabled: bool,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Command(Command::SetOutputEnabled {
+                    connector: connector.to_owned(),
+                    enabled,
+                    reply,
+                }),
+            )
+            .await;
+        result.await.expect("service is running")
+    }
+
+    async fn power_off_monitors(harness: &mut Harness) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Command(Command::PowerOffMonitors { reply }),
+            )
+            .await;
+        result.await.expect("service is running")
+    }
+
+    #[tokio::test]
+    async fn disabling_the_only_enabled_output_is_refused_without_reaching_the_backend() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(&mut harness, vec![output("DP-1", true)]).await;
+
+        let result = set_output_enabled(&mut harness, "DP-1", false).await;
+
+        assert!(matches!(result, Err(CommandError::InvalidArgument(_))));
+        assert!(
+            fake.requests().is_empty(),
+            "no call may reach the compositor backend"
+        );
+    }
+
+    #[tokio::test]
+    async fn disabling_one_of_two_enabled_outputs_reaches_the_backend_and_succeeds() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(
+            &mut harness,
+            vec![output("DP-1", true), output("HDMI-A-1", true)],
+        )
+        .await;
+
+        let result = set_output_enabled(&mut harness, "DP-1", false).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            fake.requests(),
+            vec![r#"{"Output":{"action":"Off","output":"DP-1"}}"#]
+        );
+    }
+
+    #[tokio::test]
+    async fn enabling_a_disabled_output_is_never_blocked_by_the_guard() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(
+            &mut harness,
+            vec![output("DP-1", true), output("HDMI-A-1", false)],
+        )
+        .await;
+
+        let result = set_output_enabled(&mut harness, "HDMI-A-1", true).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            fake.requests(),
+            vec![r#"{"Output":{"action":"On","output":"HDMI-A-1"}}"#]
+        );
+    }
+
+    #[tokio::test]
+    async fn disabling_an_already_disabled_output_is_not_mistaken_for_the_last_one() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(
+            &mut harness,
+            vec![output("DP-1", true), output("HDMI-A-1", false)],
+        )
+        .await;
+
+        let result = set_output_enabled(&mut harness, "HDMI-A-1", false).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            fake.requests(),
+            vec![r#"{"Output":{"action":"Off","output":"HDMI-A-1"}}"#]
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unknown_connector_is_refused_without_reaching_the_backend() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(&mut harness, vec![output("DP-1", true)]).await;
+
+        let result = set_output_enabled(&mut harness, "HDMI-A-1", false).await;
+
+        assert!(matches!(result, Err(CommandError::InvalidArgument(_))));
+        assert!(fake.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn power_off_monitors_reaches_the_backend_with_no_last_output_guard() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+        snapshot_of_outputs(&mut harness, vec![output("DP-1", true)]).await;
+
+        let result = power_off_monitors(&mut harness).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            fake.requests(),
+            vec![r#"{"Action":{"PowerOffMonitors":{}}}"#]
+        );
+    }
+
+    #[tokio::test]
+    async fn output_commands_are_unsupported_without_the_capability() {
+        let mut harness = harness(Backend::Unsupported);
+        snapshot_of_outputs(
+            &mut harness,
+            vec![output("DP-1", true), output("HDMI-A-1", true)],
+        )
+        .await;
+
+        assert!(matches!(
+            set_output_enabled(&mut harness, "DP-1", false).await,
+            Err(CommandError::Unsupported(_))
+        ));
+        assert!(matches!(
+            power_off_monitors(&mut harness).await,
+            Err(CommandError::Unsupported(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn set_output_enabled_before_any_snapshot_is_refused_rather_than_reaching_the_backend() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+
+        let result = set_output_enabled(&mut harness, "DP-1", false).await;
+
+        assert_eq!(
+            result,
+            Err(CommandError::InvalidArgument(
+                "the compositor state has not arrived yet".to_owned()
+            ))
+        );
+        assert!(fake.requests().is_empty());
     }
 }

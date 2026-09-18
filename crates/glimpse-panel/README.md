@@ -286,13 +286,52 @@ nothing without one.
 - **List caps are constants in `indicator.rs`, not configuration** — `AppletKind::Audio {}` carries
   no settings yet, unlike bluetooth's `devices`/`nearby`.
 
+**brightness** — the chip renders as long as either a backlight source or a reachable night light
+exists; an empty source list on its own is an ordinary desktop, not an error, and only the absence
+of both hides the chip.
+
+- **The current display resolves in three rungs**: the display source whose connector is the
+  focused output, then the single source carrying no connector at all (the internal panel), then
+  the first display source — `render::current_display` is the whole ladder and is what
+  `BrightnessPopover::set_sources` is handed with that source first.
+- **The chosen source is pinned for as long as the popover stays open.** `popover()` resolves the
+  ladder once and holds the id; `dress` keeps feeding that id first even if focus moves to another
+  output before release, because `BrightnessPopover::report_primary_changed` reads the key at emit
+  time, not at press time, and a focus change mid-press would otherwise write to the wrong display.
+- **The switch reads `schedule != "off"`, never `active`.** `active` is `temperature != DAY`, false
+  every daylight hour under Automatic, so a switch bound to it would read off while the night light
+  works. Turning it on sends `SetSchedule` with the snapshot's own `configured` mode rather than a
+  hardcoded `automatic`.
+- **`BrightnessPopover` already remembers the night light's last-good values across `None`** and
+  only greys them; the applet feeds `night_light.current` straight through on every wake rather than
+  holding a second copy. The *chip*, one layer up, latches its own "night light has ever been seen"
+  bit instead, because `current` also drops to `None` for the duration of a provider restart and a
+  backlight-less machine would otherwise lose its only chip along with it.
+- **The temperature rail sends live, on `moved` as well as `changed`.** A colour has no readout but
+  the screen itself, so a grab-release-wait cycle is not acceptable there the way it is for a
+  percentage; `Fader::set_value` is already a no-op while held, so the service's own echo cannot
+  fight the drag. Both signals route through the same `render::Coalescer`: one call in flight,
+  everything that arrives while it is busy collapses to the latest value, and the call that follows
+  always carries that value rather than every value in between. The primary and device faders still
+  send only on `changed` — `BrightnessPopover` wires no `moved` for them yet.
+- **`scroll-step` is a percent in config and native units on the wire, validated to 1..=100** so it
+  can neither leave the wheel silently dead nor move several times the display's own range in one
+  notch. `render::native_step` converts and rounds away from zero.
+
+**display** — the chip is `video-display-symbolic` with one output, `video-joined-displays-symbolic`
+with more than one, and empty with none. The applet only maps `CompositorOutputs` into
+`glimpse_widgets::Display` and wires `enable-requested` to `compositor.set_output_enabled` and
+`blanked` to `compositor.power_off_monitors` — never the other way around, since the first removes an
+output from the layout and the second is DPMS and wakes on input. The last-enabled-output lock and
+its readable subtitle are `DisplayList`'s own; the service refuses the command underneath it too.
+
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in
 the log. That is not this crate's doing — every GTK application on the machine behaves the same way.
-Do not re-derive it; all three obvious guesses were checked. The `closed` signal on the connection
-`g_bus_get_sync` returns never fires, `set_exit_on_close(false)` changes nothing, and GLib prints no
-message of its own. The process is gone before anything in `run` could speak.
+Do not re-derive it: the `closed` signal on the connection `g_bus_get_sync` returns never fires,
+`set_exit_on_close(false)` changes nothing, and GLib prints no message of its own. The process is
+gone before anything in `run` could speak.
 
 **`Restart=on-failure` deliberately does not cover it.** systemd's `on-failure` excludes SIGTERM, so
 the unit does not come back — right in both cases that reach it: a session bus that died is a

@@ -5,15 +5,14 @@ use std::sync::OnceLock;
 
 use super::{CHANGED, MOVED, TOGGLED};
 
-const STEP: f64 = 5.0;
-const PAGE: f64 = 20.0;
-
 #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
 #[properties(wrapper_type = super::Fader)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/fader.ui")]
 pub struct Fader {
     #[template_child]
     pub mute: TemplateChild<gtk4::ToggleButton>,
+    #[template_child]
+    pub icon: TemplateChild<gtk4::Image>,
     #[template_child]
     pub track: TemplateChild<gtk4::Scale>,
 
@@ -26,6 +25,12 @@ pub struct Fader {
     muted: PhantomData<bool>,
     #[property(name = "icon-name", get = Self::icon_name, set = Self::set_icon_name, nullable)]
     icon_name: PhantomData<Option<String>>,
+    #[property(name = "maximum", get = Self::maximum, set = Self::set_maximum, default = 100.0)]
+    maximum: PhantomData<f64>,
+    #[property(name = "floor", get = Self::floor, set = Self::set_floor, default = 0.0)]
+    floor: PhantomData<f64>,
+    #[property(name = "toggleable", get = Self::toggleable, set = Self::set_toggleable, default = true)]
+    toggleable: PhantomData<bool>,
 }
 
 impl Fader {
@@ -37,7 +42,7 @@ impl Fader {
         if self.held.get().is_some() {
             return;
         }
-        let value = value.clamp(0.0, 100.0);
+        let value = value.clamp(self.floor(), self.maximum());
         if self.value() == value {
             return;
         }
@@ -69,6 +74,56 @@ impl Fader {
             return;
         }
         self.mute.set_icon_name(name.as_deref().unwrap_or_default());
+        self.icon.set_icon_name(name.as_deref());
+    }
+
+    fn maximum(&self) -> f64 {
+        self.track.adjustment().upper()
+    }
+
+    fn set_maximum(&self, maximum: f64) {
+        let maximum = maximum.max(self.floor());
+        if self.maximum() == maximum {
+            return;
+        }
+        let adjustment = self.track.adjustment();
+        adjustment.set_upper(maximum);
+        self.apply_increments(maximum);
+        adjustment.set_value(adjustment.value());
+        self.obj().notify_value();
+    }
+
+    fn apply_increments(&self, maximum: f64) {
+        let adjustment = self.track.adjustment();
+        adjustment.set_step_increment((maximum / 100.0).max(1.0));
+        adjustment.set_page_increment((maximum / 20.0).max(1.0));
+    }
+
+    fn floor(&self) -> f64 {
+        self.track.adjustment().lower()
+    }
+
+    fn set_floor(&self, floor: f64) {
+        let floor = floor.max(0.0).min(self.maximum());
+        if self.floor() == floor {
+            return;
+        }
+        let adjustment = self.track.adjustment();
+        adjustment.set_lower(floor);
+        adjustment.set_value(adjustment.value());
+        self.obj().notify_value();
+    }
+
+    fn toggleable(&self) -> bool {
+        self.mute.get_visible()
+    }
+
+    fn set_toggleable(&self, toggleable: bool) {
+        if self.toggleable() == toggleable {
+            return;
+        }
+        self.mute.set_visible(toggleable);
+        self.icon.set_visible(!toggleable);
     }
 
     fn emit_changed(&self) {
@@ -116,8 +171,7 @@ impl ObjectImpl for Fader {
         let obj = self.obj().clone();
 
         let adjustment = self.track.adjustment();
-        adjustment.set_step_increment(STEP);
-        adjustment.set_page_increment(PAGE);
+        self.apply_increments(adjustment.upper());
         adjustment.connect_value_changed(glib::clone!(
             #[weak]
             obj,
@@ -157,7 +211,7 @@ impl ObjectImpl for Fader {
             glib::Propagation::Proceed,
             move |_, _, value| {
                 let imp = obj.imp();
-                let value = value.clamp(0.0, 100.0);
+                let value = value.clamp(imp.floor(), imp.maximum());
                 if imp.held.get().is_none() && value != imp.value() {
                     imp.track.set_value(value);
                     imp.emit_changed();

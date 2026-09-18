@@ -2,7 +2,8 @@
 
 The night light: it owns `[night-light]`, follows the solar phase, and applies a color temperature
 to every output through `zwlr_gamma_control_unstable_v1`. It exports what it is doing on
-`me.aresa.Glimpse.NightLight1`, whose one setter changes the mode in force and nothing else.
+`me.aresa.Glimpse.NightLight1`, with two setters: `SetSchedule` forces the mode and `SetTemperature`
+overrides the temperature it runs at.
 
 ## Contents
 
@@ -27,7 +28,7 @@ alternative, computed from `start-time` and `end-time` in the machine's own zone
 
 ## Rules
 
-**`SetSchedule` is the only setter, and it never reaches the document.** A temperature, a time or a
+**Neither setter reaches the document.** A temperature, a time or a
 transition length is a preference: it belongs in `[night-light]`, which is already re-read on
 change, and writing it back from here would mean editing a file the user owns. The mode in force
 right now is the one thing that cannot live there, because it has to outlive neither the reload nor
@@ -35,6 +36,32 @@ the process — so it is held in memory, reported as `overridden`, and dropped t
 `[night-light]` itself is edited or the process restarts. A reload that leaves that table alone
 keeps it: every service is reconfigured on every reload, so clearing on any `Input::Config` would
 let an edit to `[weather]` cancel a mode nobody touched.
+
+**A manual temperature survives every tick, and ends only at a boundary, a new mode, or a restart.**
+`SetTemperature` suppresses the ramp until the phase changes from the one it was set in, until
+`SetSchedule` arrives, or until the process restarts — a document reload counts as the restart it is
+closest to, so editing `[night-light]` clears it too. It is never cleared by a tick alone: the
+temperature it names is what gets applied on every one, exactly like the ramp it replaces. The
+boundary it ends at is a step rather than a ramp — the screen jumps straight from the manual kelvin to
+whichever steady temperature the schedule already holds. Nothing about it reaches the document, so
+there is nothing here for a restart to lose. `SetTemperature(0)` clears it; 0 is outside the accepted
+1000–6500 range and cannot name a temperature.
+
+**`configured` reports the document's own schedule, never the effective one.** The published
+`schedule` is `effective()` — `forced.unwrap_or(config.schedule)` — so the moment `SetSchedule`
+forces the mode to `off` there is nothing left in `schedule` for a UI to switch back to. `configured`
+is `[night-light] schedule` unconditionally, independent of any override. `manual` is `true` exactly
+while a `SetTemperature` override is in force; it does not change what `overridden` means, which is
+still only about `SetSchedule`.
+
+**`Snapshot` is append-only.** `NightLightSnapshot`'s `OwnedValue` decode pops one field per declared
+field with `Vec::remove(0)` and drops whatever is left on the wire, so an appended field is invisible
+to a client built against the shorter signature and costs nothing to add. Reordering or inserting a
+field is not the same operation: every downstream `downcast()` after the change point receives the
+wrong type and fails, silently for an untyped reader like `gdbus` or a shell script indexing the
+tuple. The same `remove(0)` panics rather than errors if the wire ever carries fewer fields than
+declared, so a field may be added but never removed. This is also why the interface carries no
+version suffix: an append needs no break to signal.
 
 **The method answers after the display has been driven, not when the command was queued.**
 `ServiceEndpoint::command` is a `try_send`, so a fire-and-forget setter would return while the old

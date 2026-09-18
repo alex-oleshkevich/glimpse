@@ -60,8 +60,8 @@ pub enum Kind {
     Battery {},
     /// Adapter state and paired devices.
     Bluetooth(Bluetooth),
-    /// Display backlight level.
-    Brightness {},
+    /// Display backlight level, and the keyboard's own where the machine has one.
+    Brightness(Brightness),
     /// Clipboard history.
     Clipboard {},
     /// The time and date, with a calendar in its popover.
@@ -227,6 +227,43 @@ impl Default for Bluetooth {
             nearby: 8,
         }
     }
+}
+
+/// Settings for the brightness applet. The floor a display can reach is `[brightness] minimum`;
+/// this is only how the bar and its popover behave.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Brightness {
+    /// How much a scroll notch on the chip moves the current display, in percent of its range.
+    /// Converted to native units at the call site and rounded away from zero, so a notch always
+    /// moves something even on a display with a small native range. Zero would leave the wheel
+    /// silently dead; the range is 1 to 100.
+    #[serde(deserialize_with = "scroll_percent")]
+    #[schemars(range(min = 1, max = 100))]
+    pub scroll_step: u8,
+    /// Whether the keyboard's own backlight, where the machine has one, gets a fader in the
+    /// popover alongside the displays.
+    pub show_keyboard: bool,
+}
+
+impl Default for Brightness {
+    fn default() -> Self {
+        Self {
+            scroll_step: 5,
+            show_keyboard: true,
+        }
+    }
+}
+
+fn scroll_percent<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = u8::deserialize(deserializer)?;
+    (1..=100)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| D::Error::custom("must be between 1 and 100 percent"))
 }
 
 /// One zone in the clock popover's world clock.

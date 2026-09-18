@@ -259,11 +259,12 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Group, Hero, Hour, Indicator, IndicatorSpec, Notification,
+        Action, Advisory, Body, BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display,
+        DisplayList, DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Fact, FactList,
+        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, NightLight, Notification,
         NotificationsPopover, NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape,
-        Slot, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
-        WorldClock, Ymd, Zone,
+        Slot, SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -312,6 +313,10 @@ mod fixtures {
                 }
             }
             "mpris" => mpris(root),
+            "source_list_states" => source_list_states(root),
+            "display_list_states" => display_list_states(root),
+            "brightness_popover_full" => brightness_popover_states(root),
+            "display_popover_full" => display_popover_states(root),
             "next_event" => next_event(root),
             "weather_popover" => weather_popover(root),
             "notifications" => notifications(root, notification_catalog()),
@@ -968,6 +973,161 @@ mod fixtures {
                 }
             ),
         );
+    }
+
+    fn source_list_states(root: &gtk4::Widget) {
+        let source =
+            |key: &str, name: &str, value: f64, maximum: f64, floor: f64| glimpse_widgets::Source {
+                key: key.to_owned(),
+                name: name.to_owned(),
+                value,
+                maximum,
+                floor,
+            };
+
+        for list in tagged::<SourceList>(root, "one") {
+            list.set_sources(&[source("built-in", "Built-in", 65.0, 100.0, 0.0)]);
+        }
+        for list in tagged::<SourceList>(root, "three") {
+            list.set_sources(&[
+                source("built-in", "Built-in", 40.0, 100.0, 0.0),
+                source("dp-1", "DP-1", 60.0, 100.0, 0.0),
+                source("dp-2", "DP-2", 80.0, 100.0, 5.0),
+            ]);
+        }
+    }
+
+    fn display_list_states(root: &gtk4::Widget) {
+        let mode = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_mhz: 60_000,
+        };
+        let logical = |scale: f64| DisplayLogical { x: 0, y: 0, scale };
+
+        let built_in = Display {
+            connector: "eDP-1".to_owned(),
+            label: "Built-in display".to_owned(),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical(2.0)),
+            enabled: true,
+            ..Display::default()
+        };
+        let external = Display {
+            connector: "DP-1".to_owned(),
+            label: "DELL U2720Q".to_owned(),
+            make: Some("Dell Inc.".to_owned()),
+            model: Some("U2720Q".to_owned()),
+            serial: Some("8QK1P93".to_owned()),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical(1.25)),
+            enabled: true,
+        };
+
+        for list in tagged::<DisplayList>(root, "one") {
+            list.set_displays(std::slice::from_ref(&built_in));
+        }
+        for list in tagged::<DisplayList>(root, "two") {
+            list.set_displays(&[built_in.clone(), external.clone()]);
+        }
+        for list in tagged::<DisplayList>(root, "disabled") {
+            let mut disabled = external.clone();
+            disabled.enabled = false;
+            list.set_displays(&[built_in.clone(), disabled]);
+        }
+        for list in tagged::<DisplayList>(root, "no_power") {
+            list.set_displays(&[built_in.clone(), external.clone()]);
+            list.set_output_power(false);
+        }
+    }
+
+    fn brightness_popover_states(root: &gtk4::Widget) {
+        let level = |key: &str, name: &str, value: f64| glimpse_widgets::Source {
+            key: key.to_owned(),
+            name: name.to_owned(),
+            value,
+            maximum: 100.0,
+            floor: 0.0,
+        };
+
+        for popover in tagged::<BrightnessPopover>(root, "none") {
+            popover.set_sources(&[]);
+        }
+        for popover in tagged::<BrightnessPopover>(root, "one") {
+            popover.set_sources(&[level("built-in", "Built-in", 65.0)]);
+        }
+        for popover in tagged::<BrightnessPopover>(root, "three") {
+            popover.set_sources(&[
+                level("built-in", "Built-in", 40.0),
+                level("dp-1", "DP-1", 60.0),
+                level("dp-2", "DP-2", 80.0),
+            ]);
+        }
+        for popover in tagged::<BrightnessPopover>(root, "unavailable") {
+            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
+            popover.set_night_light(None);
+        }
+        for popover in tagged::<BrightnessPopover>(root, "off") {
+            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
+            popover.set_night_light(Some(&NightLight {
+                enabled: false,
+                temperature: 6500,
+            }));
+        }
+        for popover in tagged::<BrightnessPopover>(root, "on") {
+            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
+            popover.set_night_light(Some(&NightLight {
+                enabled: true,
+                temperature: 4200,
+            }));
+        }
+    }
+
+    fn display_popover_states(root: &gtk4::Widget) {
+        let mode = DisplayMode {
+            width: 1920,
+            height: 1080,
+            refresh_mhz: 60_000,
+        };
+        let logical = |scale: f64| DisplayLogical { x: 0, y: 0, scale };
+
+        let built_in = Display {
+            connector: "eDP-1".to_owned(),
+            label: "Built-in display".to_owned(),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical(2.0)),
+            enabled: true,
+            ..Display::default()
+        };
+        let external = Display {
+            connector: "DP-1".to_owned(),
+            label: "DELL U2720Q".to_owned(),
+            make: Some("Dell Inc.".to_owned()),
+            model: Some("U2720Q".to_owned()),
+            serial: Some("8QK1P93".to_owned()),
+            current_mode: Some(mode.clone()),
+            logical: Some(logical(1.25)),
+            enabled: true,
+        };
+
+        for popover in tagged::<DisplayPopover>(root, "one") {
+            popover.set_output_power(true);
+            popover.set_displays(std::slice::from_ref(&built_in));
+        }
+        for popover in tagged::<DisplayPopover>(root, "two") {
+            popover.set_output_power(true);
+            popover.set_displays(&[built_in.clone(), external.clone()]);
+        }
+        for popover in tagged::<DisplayPopover>(root, "disabled") {
+            popover.set_output_power(true);
+            let mut disabled = external.clone();
+            disabled.enabled = false;
+            popover.set_displays(&[built_in.clone(), disabled]);
+        }
+        for popover in tagged::<DisplayPopover>(root, "no_power") {
+            popover.set_output_power(false);
+            popover.set_displays(&[built_in.clone(), external.clone()]);
+        }
     }
 
     /// Where the row carrying `key` sits in `entries`. Rows cover `entries[1..]`, and the list
@@ -2151,20 +2311,25 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
-        ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
-        NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
-        NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
-        Readout, Row, Scrubber, Section, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
+        BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClockRow, DisplayList,
+        DisplayPopover, EventList, EventRow, FactList, Fader, ForecastDay, ForecastHour,
+        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, KeyboardPopover, Notice,
+        NotificationCard, NotificationHeader, NotificationImageBody, NotificationList,
+        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
+        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
+        Section, SourceList, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
         WeatherPopover, WorldClock,
     };
 
     for widget in [
+        BrightnessPopover::static_type(),
         Calendar::static_type(),
         CalendarPopover::static_type(),
         ChoiceList::static_type(),
         ClockRow::static_type(),
+        DisplayList::static_type(),
+        DisplayPopover::static_type(),
+        SourceList::static_type(),
         EventRow::static_type(),
         FactList::static_type(),
         ForecastDay::static_type(),
@@ -2186,6 +2351,7 @@ fn ensure_types() {
         Transport::static_type(),
         RangeBar::static_type(),
         Readout::static_type(),
+        Fader::static_type(),
         EventList::static_type(),
         Section::static_type(),
         WeatherPopover::static_type(),

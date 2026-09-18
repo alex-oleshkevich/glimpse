@@ -1,7 +1,9 @@
 mod agenda;
 pub mod audio;
 pub(crate) mod bluetooth;
+mod brightness;
 mod clock;
+mod display;
 mod heartbeat;
 mod keyboard;
 mod mpris;
@@ -14,10 +16,13 @@ mod tray;
 pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
-use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
+use glimpse_dbus::{
+    night_light::NightLightProviderHandle, notifications::NotificationsProviderHandle,
+    weather::WeatherProviderHandle,
+};
 use glimpse_services::{
-    AudioHandle, BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle,
-    KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
+    AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
+    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -52,6 +57,8 @@ pub fn build(
     bluetooth: &BluetoothHandle,
     network: &NetworkHandle,
     audio: &AudioHandle,
+    brightness: &BrightnessHandle,
+    night_light: &NightLightProviderHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
@@ -147,9 +154,32 @@ pub fn build(
                 Box::new(audio::Audio::start(audio, notifications))
             }))
         }
+        AppletKind::Brightness(_) => {
+            let brightness = brightness.clone();
+            let night_light = night_light.clone();
+            let compositor = compositor.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(brightness.subscribe());
+                ctx.watch(night_light.subscribe());
+                ctx.watch(compositor.subscribe());
+                Box::new(brightness::Brightness::start(
+                    brightness,
+                    night_light,
+                    compositor,
+                    notifications,
+                ))
+            }))
+        }
+        AppletKind::Display {} => {
+            let compositor = compositor.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(compositor.subscribe());
+                Box::new(display::Display::start(compositor, notifications))
+            }))
+        }
         AppletKind::Battery {}
-        | AppletKind::Brightness {}
-        | AppletKind::Display {}
         | AppletKind::Clipboard {}
         | AppletKind::Command {}
         | AppletKind::Exec {}
@@ -258,10 +288,48 @@ mod tests {
             &services.bluetooth,
             &services.network,
             &services.audio,
+            &services.brightness,
+            &services.night_light(),
             &services.notifications(),
             &services.weather(),
         );
         assert!(built.is_some(), "audio now has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_brightness_and_display_applets_both_produce_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+
+        let brightness_config: AppletConfig = AppletKind::Brightness(<_>::default()).into();
+        let display_config: AppletConfig = AppletKind::Display {}.into();
+
+        for config in [&brightness_config, &display_config] {
+            let built = build(
+                config,
+                &services.compositor,
+                &services.keyboard,
+                &services.calendar,
+                &services.mpris,
+                &services.heartbeat,
+                &services.tray,
+                &services.bluetooth,
+                &services.network,
+                &services.audio,
+                &services.brightness,
+                &services.night_light(),
+                &services.notifications(),
+                &services.weather(),
+            );
+            assert!(
+                built.is_some(),
+                "both AC-17 chips must build from one config"
+            );
+        }
 
         services.shutdown().await;
     }

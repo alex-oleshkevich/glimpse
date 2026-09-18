@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-17 18:04+0200\n"
+"POT-Creation-Date: 2026-09-18 02:56+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -110,6 +110,7 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:130
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:197
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:256
 #: crates/glimpse-panel/src/applets/network/indicator.rs:512
 msgid "Could not change that setting"
 msgstr ""
@@ -144,18 +145,27 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:316
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:263
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
 msgid "That was not a valid value."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:318
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
+#: crates/glimpse-panel/src/applets/display/indicator.rs:139
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:319
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
+#: crates/glimpse-panel/src/applets/display/indicator.rs:140
 msgid "That could not be completed."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:320
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
+#: crates/glimpse-panel/src/applets/display/indicator.rs:141
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 msgid "That did not work."
 msgstr ""
@@ -219,6 +229,8 @@ msgid "Muted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
+#: crates/glimpse-panel/src/applets/brightness/render.rs:102
+#: crates/glimpse-widgets/src/lib.rs:211
 msgid "{percent}%"
 msgstr ""
 
@@ -540,6 +552,8 @@ msgid "Speaker"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:492
+#: crates/glimpse-panel/src/applets/brightness/render.rs:63
+#: crates/glimpse-panel/src/applets/brightness/render.rs:339
 msgid "Keyboard"
 msgstr ""
 
@@ -602,6 +616,66 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:526
 msgid "Contacts"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:240
+#: crates/glimpse-panel/src/applets/display/indicator.rs:128
+#: crates/glimpse-widgets/blueprints/display_popover.blp:15
+msgid "Displays"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:242
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not change the brightness"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:254
+#: crates/glimpse-widgets/blueprints/brightness_popover.blp:43
+msgid "Night light"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
+msgid "The brightness service is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:273
+msgid "That was not a valid setting."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
+msgid "The night light is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
+msgid "That took too long."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/brightness/render.rs:99
+msgid "{name}: {percent}%"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:80
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not change that display"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:100
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not blank the screens"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:137
+msgid "That change was refused."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:138
+msgid "The compositor is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/mpris/mod.rs:356
@@ -1130,6 +1204,14 @@ msgstr ""
 msgid "Visible to other devices"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/brightness_popover.blp:14
+msgid "Brightness"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/brightness_popover.blp:49
+msgid "Warm the screen"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
 msgid "Show the whole year"
 msgstr "Показать весь год"
@@ -1171,6 +1253,14 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:61
 msgid "World clock"
 msgstr "Мировые часы"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:36
+msgid "Blank the screens"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:37
+msgid "Any input wakes them again"
+msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
 msgid "Mute"
@@ -1245,7 +1335,7 @@ msgstr "Всё просмотрено."
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:171
+#: crates/glimpse-widgets/src/lib.rs:179
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -1297,7 +1387,53 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:170
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:193
+msgid "{kelvin} K"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:126
+msgid "The last enabled display can't be turned off"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:161
+msgid "Enabled"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:249
+msgid "Make"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:252
+msgid "Model"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:255
+msgid "Serial"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:258
+msgid "Current mode"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:261
+msgid "Scale"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:262
+#, fuzzy
+#| msgid "Notification"
+msgid "Position"
+msgstr "Уведомление"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:273
+msgid "{width} × {height} · {hz} Hz"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:291
+msgid "{x}, {y}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/lib.rs:178
 msgid "Pause"
 msgstr "Пауза"
 
@@ -1364,9 +1500,6 @@ msgstr "Вчера"
 
 #~ msgid "Silence notifications until you turn this off"
 #~ msgstr "Отключить уведомления, пока вы не выключите этот режим"
-
-#~ msgid "Notification"
-#~ msgstr "Уведомление"
 
 #, fuzzy
 #~| msgid "min"

@@ -16,8 +16,11 @@ use crate::{
     subscription::Sub,
 };
 
-/// Neutral daylight. Nothing is applied at this temperature; it is the value both ramps return to.
-const DAY: u32 = 6500;
+/// Neutral daylight. Nothing is applied at this temperature; it is the value both ramps return to,
+/// and the one the gamma curve is normalized against.
+pub const DAY: u32 = 6500;
+
+const MIN_MANUAL_TEMPERATURE: u32 = 1000;
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
@@ -54,6 +57,8 @@ pub struct NightLightState {
     pub overridden: bool,
     pub temperature: u32,
     pub target: u32,
+    pub configured: Schedule,
+    pub manual: bool,
 }
 
 impl NightLightState {
@@ -69,6 +74,8 @@ fn initial_state(config: &Config) -> NightLightState {
         overridden: false,
         temperature: DAY,
         target: config.temperature,
+        configured: config.schedule,
+        manual: false,
     }
 }
 
@@ -80,6 +87,10 @@ pub enum Event {
 pub enum Command {
     SetSchedule {
         schedule: Schedule,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetTemperature {
+        kelvin: Option<u32>,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
 }
@@ -118,6 +129,16 @@ impl NightLightHandle {
             CommandError::Unavailable("night light stopped before accepting the mode".to_owned())
         })?
     }
+
+    pub async fn set_temperature(&self, kelvin: Option<u32>) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::SetTemperature { kelvin, reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable(
+                "night light stopped before accepting the temperature".to_owned(),
+            )
+        })?
+    }
 }
 
 pub struct NightLight {
@@ -126,6 +147,7 @@ pub struct NightLight {
     gamma: Box<dyn Gamma>,
     config: Config,
     forced: Option<Schedule>,
+    manual: Option<(u32, SolarPhase)>,
     observed: Option<SolarStatus>,
     applied: Option<u32>,
 }
@@ -179,6 +201,7 @@ impl Service for NightLight {
             gamma: dependencies.gamma,
             config,
             forced: None,
+            manual: None,
             observed: None,
             applied: None,
         })
@@ -191,10 +214,37 @@ impl Service for NightLight {
             Input::Event(Event::Tick) => {}
             Input::Command(Command::SetSchedule { schedule, reply }) => {
                 self.forced = Some(schedule);
+                self.manual = None;
                 pending = Some(reply);
             }
+            Input::Command(Command::SetTemperature { kelvin, reply }) => match kelvin {
+                Some(kelvin) if !(MIN_MANUAL_TEMPERATURE..=DAY).contains(&kelvin) => {
+                    let _ = reply.send(Err(CommandError::InvalidArgument(format!(
+                        "temperature must fall between {MIN_MANUAL_TEMPERATURE} and {DAY} kelvin"
+                    ))));
+                }
+                Some(kelvin) => match self.boundary(Utc::now()) {
+                    Some((phase, _)) => {
+                        self.manual = Some((kelvin, phase));
+                        pending = Some(reply);
+                    }
+                    None => {
+                        let reason = if self.effective() == Schedule::Off {
+                            "there is nothing to override while the night light is off"
+                        } else {
+                            self.missing()
+                        };
+                        let _ = reply.send(Err(CommandError::Unavailable(reason.to_owned())));
+                    }
+                },
+                None => {
+                    self.manual = None;
+                    pending = Some(reply);
+                }
+            },
             Input::Config(config) => {
                 self.forced = None;
+                self.manual = None;
                 self.config = config;
             }
         }
@@ -243,10 +293,22 @@ impl NightLight {
             return ctx.degraded(self.missing());
         };
 
+        if let Some((_, manual_phase)) = &self.manual
+            && *manual_phase != phase
+        {
+            self.manual = None;
+        }
+
         // Applied on every tick rather than only when it moves: the compositor is the authority on
         // whether we still hold the outputs, and a client that took them from us and left would
         // otherwise leave the screen neutral while this service still believed it had applied.
-        let wanted = ramp(&phase, next_change, now, &self.config);
+        let wanted = match self.manual {
+            Some((kelvin, _)) => kelvin,
+            None => ramp(&phase, next_change, now, &self.config),
+        };
+        if wanted == DAY {
+            return self.release(ctx);
+        }
         match self.gamma.apply(wanted) {
             Ok(()) => {
                 self.applied = Some(wanted);
@@ -300,6 +362,8 @@ impl NightLight {
             overridden: self.forced.is_some(),
             temperature: self.applied.unwrap_or(DAY),
             target: self.config.temperature,
+            configured: self.config.schedule,
+            manual: self.manual.is_some(),
         });
     }
 }
@@ -421,6 +485,13 @@ mod tests {
                 .await
                 .expect("the handler answers")
                 .expect("the mode is accepted");
+        }
+
+        async fn set_temperature(&mut self, kelvin: Option<u32>) -> Result<(), CommandError> {
+            let (reply, result) = oneshot::channel();
+            self.feed(Input::Command(Command::SetTemperature { kelvin, reply }))
+                .await;
+            result.await.expect("the handler answers")
         }
 
         fn reason(&self) -> Option<String> {
@@ -847,6 +918,160 @@ mod tests {
         assert_eq!(harness.state.borrow().schedule, Schedule::Automatic);
         assert_eq!(harness.state.borrow().temperature, NIGHT);
         assert_eq!(harness.reason().as_deref(), Some("no gamma control"));
+    }
+
+    #[tokio::test]
+    async fn a_manual_temperature_is_applied_on_every_tick() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = day(Some(sunset()));
+
+        harness
+            .set_temperature(Some(3000))
+            .await
+            .expect("3000 is in range");
+        harness.at(at(12, 0)).await;
+        harness.at(at(12, 1)).await;
+
+        assert_eq!(harness.gamma.applied(), vec![3000, 3000, 3000]);
+        assert!(harness.state.borrow().manual);
+    }
+
+    #[tokio::test]
+    async fn a_boundary_crossing_clears_the_manual_override() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = day(Some(sunset()));
+        harness
+            .set_temperature(Some(3000))
+            .await
+            .expect("3000 is in range");
+        harness.at(at(12, 0)).await;
+        assert!(harness.state.borrow().manual);
+
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+
+        assert!(!harness.state.borrow().manual);
+        assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+    }
+
+    #[tokio::test]
+    async fn setting_the_schedule_clears_a_manual_override() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = day(Some(sunset()));
+        harness
+            .set_temperature(Some(3000))
+            .await
+            .expect("3000 is in range");
+        assert!(harness.state.borrow().manual);
+
+        harness.set(Schedule::Automatic).await;
+
+        assert!(!harness.state.borrow().manual);
+    }
+
+    #[tokio::test]
+    async fn clearing_the_override_lets_the_ramp_resume_on_the_next_evaluate() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = day(Some(sunset()));
+        harness
+            .set_temperature(Some(3000))
+            .await
+            .expect("3000 is in range");
+        assert!(harness.state.borrow().manual);
+
+        harness
+            .set_temperature(None)
+            .await
+            .expect("clearing is always accepted");
+        harness.at(at(12, 0)).await;
+
+        assert!(!harness.state.borrow().manual);
+        assert_eq!(harness.gamma.applied().last(), Some(&DAY));
+    }
+
+    #[tokio::test]
+    async fn an_out_of_range_temperature_is_refused_without_quoting_what_arrived() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+
+        let low = harness
+            .set_temperature(Some(999))
+            .await
+            .expect_err("too cold");
+        let high = harness
+            .set_temperature(Some(6501))
+            .await
+            .expect_err("too warm");
+
+        for (rejected, value) in [(&low, "999"), (&high, "6501")] {
+            assert!(matches!(rejected, CommandError::InvalidArgument(_)));
+            assert!(
+                !rejected.to_string().contains(value),
+                "the rejected value must not be echoed, got {rejected}"
+            );
+        }
+        assert!(!harness.state.borrow().manual);
+        assert!(!harness.gamma.applied().contains(&999));
+        assert!(!harness.gamma.applied().contains(&6501));
+    }
+
+    #[test]
+    fn a_fresh_service_has_no_manual_override_and_reports_the_configured_schedule() {
+        let state = initial_state(&config(Schedule::Schedule));
+
+        assert!(!state.manual);
+        assert_eq!(state.configured, Schedule::Schedule);
+    }
+
+    #[tokio::test]
+    async fn an_override_does_not_resurrect_a_released_ramp() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+
+        harness.set(Schedule::Off).await;
+        assert_eq!(harness.gamma.resets(), 1);
+        assert!(!harness.state.borrow().active());
+
+        let refused = harness.set_temperature(Some(3000)).await;
+        assert!(refused.is_err(), "there is nothing to override while off");
+
+        harness.at(at(23, 1)).await;
+
+        assert_eq!(
+            harness.gamma.resets(),
+            1,
+            "hand_back is a no-op, not a second reset"
+        );
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    }
+
+    #[tokio::test]
+    async fn a_temperature_is_refused_while_the_night_light_is_off() {
+        let mut harness = harness(config(Schedule::Off)).await;
+
+        let refused = harness
+            .set_temperature(Some(3000))
+            .await
+            .expect_err("off has nothing to override");
+
+        assert!(matches!(refused, CommandError::Unavailable(_)));
+        assert!(harness.gamma.applied().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_temperature_is_refused_under_automatic_with_no_fix() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+
+        let refused = harness
+            .set_temperature(Some(3000))
+            .await
+            .expect_err("there is no phase to anchor the override to yet");
+
+        assert!(matches!(refused, CommandError::Unavailable(_)));
+        assert!(!harness.state.borrow().manual);
+        assert!(harness.gamma.applied().is_empty());
     }
 
     /// The window crosses midnight, which is the case a same-day comparison gets backwards.

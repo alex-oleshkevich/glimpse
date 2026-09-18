@@ -72,14 +72,22 @@ a single time per process, on the first layout that needs naming, and making it 
 
 ## Capabilities carries only differences a caller acts upon
 
-`Capabilities { floating, workspace_reorder }`. Everything else a compositor "supports" is answered
-by whether it is `Unsupported`, and an unsupported daemon publishes no compositor topics at all, so
-a panel renders nothing without needing to ask. Flags that hold the same value on every backend are
-documentation charging runtime rent; this paragraph is cheaper.
+`Capabilities { floating, workspace_reorder, output_power }`. Everything else a compositor
+"supports" is answered by whether it is `Unsupported`, and an unsupported daemon publishes no
+compositor topics at all, so a panel renders nothing without needing to ask. Flags that hold the
+same value on every backend are documentation charging runtime rent; this paragraph is cheaper.
 
 `workspace_reorder` is false under Hyprland, where a workspace's index *is* its identity and there
 is no position to change. A popover renders `Move up` / `Move down` disabled with that reason rather
 than omitting the rows, so the two compositors present the same list and only one of them acts.
+
+`output_power` is true on both backends today, which would ordinarily be exactly the flag this
+section warns against. It earns its rent because Hyprland's `dispatch dpms off` wake-on-input is
+unverified — no Hyprland session exists on this machine to test it — and hypridle's own
+configuration pairs that dispatch with an explicit `on-resume = hyprctl dispatch dpms on`, which is
+how you configure something that does not come back by itself. If that holds, Hyprland needs a
+power-on the two backends will disagree over, and the flag is the seat kept warm for that question
+until a Hyprland session settles it.
 
 ## Unsupported and Unavailable are different failures
 

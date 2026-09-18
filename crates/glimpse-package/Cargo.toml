@@ -28,6 +28,7 @@ depends = [
   "libpam0g",
   "geoclue-2.0",
   "libpulse0",
+  "libudev1",
 ]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
@@ -92,6 +93,7 @@ libheif = "*"
 pam-libs = "*"
 geoclue2 = "*"
 pulseaudio-libs = "*"
+systemd-libs = "*"
 
 [dev-dependencies]
 toml.workspace = true

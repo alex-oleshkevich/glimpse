@@ -17,6 +17,7 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
 
 mod audio;
 mod bluetooth;
+mod brightness;
 mod calendar;
 mod compositor;
 mod geolocation;
@@ -41,6 +42,11 @@ pub use bluetooth::{
     Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
     DeviceId, Failure, Hold, Prompt,
 };
+pub use brightness::{
+    Backlight, Brightness, BrightnessHandle, BrightnessState, Config as BrightnessConfig,
+    Dependencies as BrightnessDependencies, Entry as BacklightEntry, Kind as BrightnessKind,
+    Source as BrightnessSource, SysfsBacklight, UnavailableBacklight,
+};
 pub use calendar::{Calendar, CalendarHandle};
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};
@@ -53,8 +59,8 @@ pub use network::{
     Secret as NetworkSecret, Vpn, Wired,
 };
 pub use night_light::{
-    Config as NightLightConfig, Dependencies as NightLightDependencies, NightLight,
-    NightLightHandle, NightLightState,
+    Config as NightLightConfig, DAY as NEUTRAL_KELVIN, Dependencies as NightLightDependencies,
+    NightLight, NightLightHandle, NightLightState,
 };
 pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
@@ -65,8 +71,8 @@ pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, Weather
 pub use calendar::{CalendarEvent, CalendarEvents};
 pub use compositor::{
     CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
-    CompositorWindows, CompositorWorkspaces, OutputInfo, WindowInfo, WindowRef, WorkspaceInfo,
-    WorkspaceRef,
+    CompositorWindows, CompositorWorkspaces, OutputInfo, OutputLogical, OutputMode, WindowInfo,
+    WindowRef, WorkspaceInfo, WorkspaceRef,
 };
 pub use geolocation::GeolocationStatus;
 pub use heartbeat::{HeartbeatInterval, HeartbeatTick};

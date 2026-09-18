@@ -55,6 +55,7 @@ pub struct Output {
     pub connector: String,
     pub make: Option<String>,
     pub model: Option<String>,
+    pub serial: Option<String>,
     pub description: Option<String>,
     pub logical: Option<Logical>,
     pub current_mode: Option<Mode>,
@@ -125,6 +126,7 @@ pub enum WindowTarget {
 const TITLE_CAP: usize = 512;
 const APP_ID_CAP: usize = 128;
 const NAME_CAP: usize = 128;
+const EDID_CAP: usize = 128;
 
 /// Titles and app ids belong to other applications: unbounded, and in practice already carrying
 /// bidi overrides that would reorder whatever a panel draws next to them.
@@ -163,6 +165,10 @@ pub(crate) fn capped_app_id_str(text: &str) -> Option<String> {
 
 pub(crate) fn capped_name_str(text: &str) -> Option<String> {
     non_empty(sanitize(text, NAME_CAP))
+}
+
+pub(crate) fn capped_edid_str(text: &str) -> Option<String> {
+    non_empty(sanitize(text, EDID_CAP).trim().to_owned())
 }
 
 fn non_empty(text: String) -> Option<String> {
@@ -230,6 +236,16 @@ mod tests {
             Some("x".repeat(NAME_CAP)),
             "a workspace name is set by whatever ran renameworkspace, not only by hand"
         );
+    }
+
+    #[test]
+    fn an_edid_string_is_sanitized_before_it_is_trimmed() {
+        assert_eq!(
+            capped_edid_str("AW2725Q \u{1}"),
+            Some("AW2725Q".to_owned()),
+            "trimming first would leave the control character in place to defeat it"
+        );
+        assert_eq!(capped_edid_str("\u{202a} \u{202a}"), None);
     }
 
     #[test]

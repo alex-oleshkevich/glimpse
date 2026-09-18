@@ -15,6 +15,8 @@ pub struct SwitchRow {
 
     #[property(name = "active", get = Self::active, set = Self::set_active)]
     active: PhantomData<bool>,
+    #[property(name = "locked", get = Self::locked, set = Self::set_locked, default = false)]
+    locked: PhantomData<bool>,
 
     pub quiet: Cell<bool>,
 }
@@ -31,6 +33,17 @@ impl SwitchRow {
         self.quiet.set(true);
         self.knob.set_active(active);
         self.quiet.set(false);
+    }
+
+    fn locked(&self) -> bool {
+        !self.knob.is_sensitive()
+    }
+
+    fn set_locked(&self, locked: bool) {
+        if self.locked() == locked {
+            return;
+        }
+        self.knob.set_sensitive(!locked);
     }
 }
 
@@ -80,6 +93,9 @@ impl ObjectImpl for SwitchRow {
 
         row.connect_clicked(|row| {
             let knob = row.imp().knob.get();
+            if !knob.is_sensitive() {
+                return;
+            }
             knob.set_active(!knob.is_active());
         });
     }

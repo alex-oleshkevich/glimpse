@@ -1,0 +1,70 @@
+using Gtk 4.0;
+
+template $BrightnessPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "brightness-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "display-brightness-symbolic";
+      title: _("Brightness");
+
+      [slot]
+      $Readout readout {
+        valign: center;
+        visible: false;
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Fader primary {
+        visible: false;
+        toggleable: false;
+        icon-name: "display-brightness-symbolic";
+      }
+
+      $SourceList devices {
+        visible: false;
+      }
+
+      $Section night_light {
+        visible: false;
+        title: _("Night light");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          $SwitchRow enabled {
+            title: _("Warm the screen");
+          }
+
+          $Fader temperature {
+            visible: false;
+            toggleable: false;
+            icon-name: "night-light-symbolic";
+
+            styles [
+              "fader--warm",
+            ]
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}
