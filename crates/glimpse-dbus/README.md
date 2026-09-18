@@ -23,7 +23,7 @@ connections they run on.
 | `network_manager`         | system  | NetworkManager devices and connections   |
 | `power_profiles`          | system  | power-profiles-daemon                    |
 | `udisks2`                 | system  | UDisks2 removable media                  |
-| `upower`                  | system  | UPower devices and battery state         |
+| `upower`                  | system  | UPower devices, decoded from one `GetAll`; `EnableChargeThreshold` |
 | `mpris`                   | session | MPRIS players                            |
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
 | `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |

@@ -2,6 +2,7 @@
 <gresources>
     <gresource prefix="/me/aresa/GlimpseShell">
         <file>widgets/audio_popover.ui</file>
+        <file>widgets/battery_popover.ui</file>
         <file>widgets/bluetooth_pairing_dialog.ui</file>
         <file>widgets/bluetooth_popover.ui</file>
         <file>widgets/brightness_popover.ui</file>

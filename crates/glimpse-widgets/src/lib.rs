@@ -1,5 +1,6 @@
 mod artwork;
 mod audio_popover;
+mod battery_popover;
 mod bluetooth_pairing_dialog;
 mod bluetooth_popover;
 mod brightness_popover;
@@ -61,6 +62,9 @@ mod world_clock;
 pub use artwork::artwork;
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
+};
+pub use battery_popover::{
+    BatteryPopover, ChargeLimit as BatteryChargeLimit, Device as BatteryDevice,
 };
 pub use bluetooth_pairing_dialog::{
     Entry as PairingEntry, PASSKEY_MAX, PIN_MAX, PairingAnswer, PairingDialog,
@@ -705,6 +709,7 @@ mod tests {
         let holders = children_of::<gtk4::Box>(&inhibitor_list);
         assert_eq!(holders.len(), 2);
         let first = holders[0].first_child().unwrap().downcast::<Row>().unwrap();
+        let _chevron = child_named::<gtk4::Image>(&first, "drawer-chevron");
         let first_panel = holders[0]
             .last_child()
             .unwrap()
@@ -720,7 +725,8 @@ mod tests {
             .unwrap()
             .downcast::<gtk4::Box>()
             .unwrap();
-        let cancel = children_of::<gtk4::Button>(&card).remove(0);
+        let cancel = children_of::<Row>(&card).remove(0);
+        assert!(cancel.activatable());
         assert!(!first_panel.reveals_child());
 
         let touched_row = first.clone();
@@ -771,7 +777,7 @@ mod tests {
             .unwrap()
             .downcast::<gtk4::Box>()
             .unwrap();
-        let second_cancel = children_of::<gtk4::Button>(&second_card).remove(0);
+        let second_cancel = children_of::<Row>(&second_card).remove(0);
         assert!(!second_cancel.get_visible());
         second.emit_clicked();
         assert!(!second_panel.reveals_child());
@@ -793,7 +799,7 @@ mod tests {
         assert_eq!(
             *reported.borrow(),
             vec![1, 9],
-            "the same button now reports the id its row currently represents, not the id \
+            "the same action row now reports the id its row currently represents, not the id \
              captured when the row was first built"
         );
 
@@ -828,7 +834,7 @@ mod tests {
             .downcast::<gtk4::Revealer>()
             .unwrap();
         let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        let cancel = children_of::<gtk4::Button>(&card).remove(0);
+        let cancel = children_of::<Row>(&card).remove(0);
         row_without_tabs.emit_clicked();
         assert!(panel.reveals_child());
         assert!(
@@ -5591,6 +5597,9 @@ mod tests {
         let holders: Vec<gtk4::Box> = children_of(&displays);
         assert_eq!(heads.len(), 2);
         assert_eq!(holders.len(), 2);
+        for head in &heads {
+            let _chevron = child_named::<gtk4::Image>(head, "drawer-chevron");
+        }
 
         let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
         let (external_facts, external_switch) = detail_of(&holders[1]);
@@ -6196,6 +6205,7 @@ mod tests {
         let idle = IdlePopover::new();
         let idle_hold = idle.imp().hold.clone();
         let idle_hold_row = idle.imp().hold_row.clone();
+        let _hold_chevron = child_named::<gtk4::Image>(&idle_hold_row, "drawer-chevron");
         let idle_hold_panel = idle.imp().hold_panel.clone();
         let idle_list_rule = idle.imp().list_rule.clone();
         assert!(
@@ -6224,13 +6234,34 @@ mod tests {
             !idle_hold_panel.reveals_child(),
             "the duration choices start closed"
         );
+        assert!(
+            idle_hold_panel
+                .child()
+                .is_some_and(|card| card.has_css_class("detail-card")),
+            "duration choices use the same detail card as other drawers"
+        );
+        idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
+        idle.set_footer(Some("Idle settings"));
         idle_hold_row.emit_clicked();
         assert!(
             idle_hold_panel.reveals_child()
                 && idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
                 && idle.imp().hero.has_css_class(crate::drawer::RECEDED)
                 && idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().footer.has_css_class(crate::drawer::RECEDED),
+                && idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
+                && idle.imp().footer.has_css_class(crate::drawer::RECEDED)
+                && idle
+                    .imp()
+                    .shell
+                    .imp()
+                    .hero_rule
+                    .has_css_class(crate::drawer::RECEDED)
+                && idle
+                    .imp()
+                    .shell
+                    .imp()
+                    .footer_rule
+                    .has_css_class(crate::drawer::RECEDED),
             "the duration row opens its choices and dims the resting popover"
         );
         idle_hold_row.emit_clicked();
@@ -6239,7 +6270,20 @@ mod tests {
                 && !idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
                 && !idle.imp().hero.has_css_class(crate::drawer::RECEDED)
                 && !idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().footer.has_css_class(crate::drawer::RECEDED),
+                && !idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
+                && !idle.imp().footer.has_css_class(crate::drawer::RECEDED)
+                && !idle
+                    .imp()
+                    .shell
+                    .imp()
+                    .hero_rule
+                    .has_css_class(crate::drawer::RECEDED)
+                && !idle
+                    .imp()
+                    .shell
+                    .imp()
+                    .footer_rule
+                    .has_css_class(crate::drawer::RECEDED),
             "the same duration row closes its choices and restores the popover"
         );
 
@@ -6286,7 +6330,7 @@ mod tests {
         assert!(panel.reveals_child());
         assert!(idle.imp().hero.has_css_class(crate::drawer::RECEDED));
         let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        children_of::<gtk4::Button>(&card).remove(0).emit_clicked();
+        children_of::<Row>(&card).remove(0).emit_clicked();
         assert_eq!(*idle_released.borrow(), [1]);
 
         idle.set_inhibitors(&[]);
@@ -6375,6 +6419,78 @@ mod tests {
         session.set_sessions(&[]);
         assert!(session.imp().sessions.first_child().is_none());
         assert!(!session.imp().sessions_section.get_visible());
+
+        let battery = BatteryPopover::new();
+        assert!(
+            battery
+                .layout_manager()
+                .is_some_and(|layout| layout.is::<gtk4::BinLayout>()),
+            "the battery popover root has a bin layout"
+        );
+        battery.set_heading(
+            Some("battery-full-charged-symbolic"),
+            Some("Fully charged"),
+            Some(100),
+        );
+        assert_eq!(battery.imp().readout.value().as_deref(), Some("100"));
+        assert!(battery.imp().readout.get_visible());
+        battery.set_profiles(&[], None);
+        assert!(!battery.imp().profiles_section.get_visible());
+        battery.set_profiles(
+            &[Choice {
+                label: "Balanced".to_owned(),
+                detail: String::new(),
+                icon_name: "power-profile-balanced-symbolic".to_owned(),
+            }],
+            Some(0),
+        );
+        assert!(battery.imp().profiles_section.get_visible());
+        battery.set_devices(&[]);
+        assert!(!battery.imp().devices_section.get_visible());
+        battery.set_devices(&[BatteryDevice {
+            name: "MX Master 3S".to_owned(),
+            subtitle: "Mouse".to_owned(),
+            icon_name: "input-mouse-symbolic".to_owned(),
+            value: "41%".to_owned(),
+        }]);
+        assert!(battery.imp().devices_section.get_visible());
+        battery.set_details(&[], None);
+        assert!(!battery.imp().details_holder.get_visible());
+        assert!(!battery.imp().details_panel.reveals_child());
+        battery.set_details(
+            &[Fact::new("Charge", "100%")],
+            Some(&BatteryChargeLimit {
+                enabled: false,
+                subtitle: "Stops at 80% to slow wear".to_owned(),
+            }),
+        );
+        assert!(battery.imp().details_holder.get_visible());
+        assert!(battery.imp().charge_limit.get_visible());
+        assert!(!battery.imp().charge_limit.active());
+        battery.imp().details_row.emit_clicked();
+        assert!(battery.imp().details_panel.reveals_child());
+        battery.close_details();
+        assert!(!battery.imp().details_panel.reveals_child());
+        let battery_profiles = Rc::new(Cell::new(None));
+        battery.connect_profile_activated({
+            let battery_profiles = Rc::clone(&battery_profiles);
+            move |_, index| battery_profiles.set(Some(index))
+        });
+        battery
+            .imp()
+            .profiles
+            .emit_by_name::<()>("activated", &[&0u32]);
+        assert_eq!(battery_profiles.get(), Some(0));
+        let battery_limit = Rc::new(Cell::new(None));
+        battery.connect_charge_limit_toggled({
+            let battery_limit = Rc::clone(&battery_limit);
+            move |_, on| battery_limit.set(Some(on))
+        });
+        battery
+            .imp()
+            .charge_limit
+            .emit_by_name::<()>("toggled", &[&true]);
+        assert_eq!(battery_limit.get(), Some(true));
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

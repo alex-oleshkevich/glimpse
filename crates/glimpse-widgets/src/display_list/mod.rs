@@ -160,6 +160,10 @@ impl DisplayList {
 
     fn build_row(&self, index: u32) -> (Row, gtk4::Box, Detail) {
         let row = Row::new();
+        let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        chevron.add_css_class("drawer-chevron");
+        row.set_trail(&chevron);
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,

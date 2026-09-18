@@ -57,7 +57,7 @@ pub enum Kind {
     /// Output volume, with the default sink and per-application streams in its popover.
     Audio {},
     /// Charge level and time remaining, with the power profile in its popover.
-    Battery {},
+    Battery(Battery),
     /// Adapter state and paired devices.
     Bluetooth(Bluetooth),
     /// Display backlight level, and the keyboard's own where the machine has one.
@@ -132,6 +132,31 @@ pub enum NotificationIndicatorStyle {
     #[default]
     IconDot,
     IconCounter,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Battery {
+    pub indicator_style: BatteryIndicatorStyle,
+    pub label_format: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum BatteryIndicatorStyle {
+    #[default]
+    IconOnly,
+    IconText,
+    Text,
+}
+
+impl Default for Battery {
+    fn default() -> Self {
+        Self {
+            indicator_style: BatteryIndicatorStyle::IconOnly,
+            label_format: "{percentage}".to_owned(),
+        }
+    }
 }
 
 /// Settings for the mpris applet. Which players exist and which one is current is the service's
@@ -728,7 +753,7 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMON, Common, Kind, NotificationIndicatorStyle};
+    use super::{BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle};
 
     #[test]
     fn every_common_setting_is_taken_off_the_table() {
@@ -796,5 +821,34 @@ mod tests {
 
         toml::from_str::<crate::Config>("[applets.notifications]\nindicator-style = \"counter\"\n")
             .expect_err("an undocumented spelling is refused");
+    }
+
+    #[test]
+    fn battery_defaults_to_icon_only_and_reads_every_style() {
+        let default: crate::Config =
+            toml::from_str("[applets.battery]\n").expect("the built-in battery applet loads");
+        let Kind::Battery(default) = &default.applets["battery"].kind else {
+            panic!("battery resolves to its own kind");
+        };
+        assert_eq!(default.indicator_style, BatteryIndicatorStyle::IconOnly);
+        assert_eq!(default.label_format, "{percentage}");
+
+        for (value, expected) in [
+            ("icon-only", BatteryIndicatorStyle::IconOnly),
+            ("icon-text", BatteryIndicatorStyle::IconText),
+            ("text", BatteryIndicatorStyle::Text),
+        ] {
+            let text = format!("[applets.battery]\nindicator-style = \"{value}\"\n");
+            let document: crate::Config = toml::from_str(&text).expect("the style is valid");
+            let Kind::Battery(settings) = &document.applets["battery"].kind else {
+                panic!("battery resolves to its own kind");
+            };
+            assert_eq!(settings.indicator_style, expected);
+        }
+
+        toml::from_str::<crate::Config>("[applets.battery]\nindicator-style = \"percent\"\n")
+            .expect_err("an undocumented spelling is refused");
+        toml::from_str::<crate::Config>("[applets.battery]\nunknown = 1\n")
+            .expect_err("a struct variant refuses keys that are not its own");
     }
 }

@@ -130,11 +130,12 @@ string, and loses its icon and its title/body split the moment it is flattened i
 ## InhibitorList
 
 Each inhibitor is a regular `Row`. Clicking it opens a drawer with its source and targets. A
-releasable inhibitor has a Cancel button inside the drawer.
+releasable inhibitor has a clickable Cancel row inside the drawer. Drawer chevrons rotate downward
+when their rows open.
 
 - **`InhibitorEntry`/`InhibitorSource`/`InhibitorTargets` are local to this crate**, per the widget
   boundary rule above; `InhibitorSource` maps to a lead icon internally, not carried as a string.
-- **The Cancel button hides when `can_release` is false.** The handler reads the current entry by
+- **The Cancel row hides when `can_release` is false.** The handler reads the current entry by
   position, because rows are reused across updates and an id captured at construction can go stale.
 - **A states board declares `$InhibitorList` and feeds real data through `set_inhibitors`**, the same
   way `tray_states` tags each `TrayStrip` with a `demo__<case>` class.
@@ -247,7 +248,8 @@ recedes follows the row the list shows, not the id asked for**: a hidden section
 **`IdlePopover`'s hold switch is a second master control, not a readout**, emitting `hold-toggled` the
 same as an indefinite preset does; its six preset buttons carry their durations hardcoded in
 `imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
-Its inhibitor and footer separators stay hidden until an inhibitor row exists.
+Its duration choices use a detail card and dim the rest of the popover while open. Its inhibitor and
+footer separators stay hidden until an inhibitor row exists.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
 wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
@@ -385,6 +387,13 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   owns that msgid for "this output is on"; sharing it would ask one translation to serve two
   unrelated ideas.
 
+## BatteryPopover
+
+Hero readout is the percentage; `$ChoiceList` is the power-mode selector (its first caller);
+device rows hide when empty. Battery details is the last row in the column; facts and the
+charge-limit switch unfold under it, the same in-place card IdlePopover and NetworkPopover
+use. Static labels live in the blueprint.
+
 ## SessionPopover
 
 Lock, sleep and power rows are template children; other sessions and the updates row are sections
@@ -393,6 +402,7 @@ that hide when empty. Static labels live in the blueprint. The widget emits `act
 
 ## DisplayPopover
 
+- Display rows carry a chevron that rotates down while their detail drawer is open.
 - Composes `DisplayList` unchanged; blanking the screens is a plain `$Row` beside it, never a
   `$SwitchRow` — DPMS has no state to sit in, since the first input undoes it and the popover is
   already gone by then.

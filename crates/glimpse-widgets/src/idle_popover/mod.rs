@@ -59,6 +59,8 @@ impl IdlePopover {
         for widget in [
             imp.hero.upcast_ref::<gtk4::Widget>(),
             imp.footer.upcast_ref(),
+            imp.shell.imp().hero_rule.upcast_ref(),
+            imp.shell.imp().footer_rule.upcast_ref(),
         ] {
             crate::set_css_class(widget, drawer::RECEDED, hold_open || detail_open);
         }

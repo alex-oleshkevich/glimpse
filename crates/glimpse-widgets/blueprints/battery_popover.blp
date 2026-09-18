@@ -1,0 +1,95 @@
+using Gtk 4.0;
+
+template $BatteryPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "battery-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "battery-symbolic";
+      title: _("Battery");
+
+      [slot]
+      $Readout readout {
+        valign: center;
+        visible: false;
+        unit: "%";
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section profiles_section {
+        title: _("Power mode");
+        visible: false;
+
+        $ChoiceList profiles {}
+      }
+
+      $Section devices_section {
+        title: _("Devices");
+        visible: false;
+
+        Gtk.Box devices_box {
+          orientation: vertical;
+        }
+      }
+
+      Gtk.Box details_holder {
+        orientation: vertical;
+        visible: false;
+
+        $Row details_row {
+          activatable: true;
+          title: _("Battery details");
+          lead-icon: "dialog-information-symbolic";
+
+          [trail]
+          Gtk.Image {
+            icon-name: "go-next-symbolic";
+            accessible-role: presentation;
+
+            styles [
+              "drawer-chevron",
+            ]
+          }
+        }
+
+        Gtk.Revealer details_panel {
+          transition-type: slide_down;
+          reveal-child: false;
+
+          Gtk.Box {
+            orientation: vertical;
+
+            styles [
+              "detail-card",
+            ]
+
+            $FactList facts {}
+
+            $SwitchRow charge_limit {
+              title: _("Charge limit");
+              visible: false;
+            }
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

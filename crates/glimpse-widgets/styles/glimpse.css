@@ -624,6 +624,14 @@
     border-radius: 0.75rem;
 }
 
+.drawer-chevron {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+.row.open .drawer-chevron {
+    transform: rotate(90deg);
+}
+
 .detail-card__description {
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
@@ -633,7 +641,8 @@
 .popover-shell .split-row,
 .popover-shell .hero,
 .popover-shell .section,
-.popover-shell .fader {
+.popover-shell .fader,
+.popover-shell .inhibitor-list {
     transition: opacity var(--gl-duration) var(--gl-ease);
 }
 

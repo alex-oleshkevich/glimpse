@@ -5,8 +5,9 @@ use glimpse_dbus::{
     notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
 };
 use glimpse_services::{
-    AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
-    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, SessionActionsHandle, TrayHandle,
+    AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle,
+    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle,
+    SessionActionsHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -78,6 +79,7 @@ pub struct Config {
     pub weather: WeatherProviderHandle,
     pub idle: IdleProviderHandle,
     pub session_actions: SessionActionsHandle,
+    pub battery: BatteryHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -273,6 +275,7 @@ impl Panel {
                                     &config.weather,
                                     &config.idle,
                                     &config.session_actions,
+                                    &config.battery,
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(

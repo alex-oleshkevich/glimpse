@@ -13,7 +13,7 @@ pub struct Item {
     pub panel: gtk4::Revealer,
     pub description: gtk4::Label,
     pub facts: FactList,
-    pub cancel: gtk4::Button,
+    pub cancel: Row,
 }
 
 #[derive(Debug, Default)]

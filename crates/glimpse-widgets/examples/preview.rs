@@ -259,13 +259,13 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Action, Advisory, Body, BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display,
-        DisplayList, DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Fact, FactList,
-        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
-        InhibitorSource, InhibitorTargets, NightLight, Notification, NotificationsPopover,
-        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SourceList,
-        SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
-        WorldClock, Ymd, Zone,
+        Action, Advisory, BatteryChargeLimit, BatteryDevice, BatteryPopover, Body,
+        BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
+        DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
+        Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
+        NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
+        Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow, TransportAction, TrayChip,
+        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -316,6 +316,7 @@ mod fixtures {
             "mpris" => mpris(root),
             "source_list_states" => source_list_states(root),
             "display_list_states" => display_list_states(root),
+            "battery" => battery_popover(root),
             "brightness_popover_full" => brightness_popover_states(root),
             "display_popover_full" => display_popover_states(root),
             "next_event" => next_event(root),
@@ -1041,6 +1042,58 @@ mod fixtures {
             list.set_displays(&[built_in.clone(), external.clone()]);
             list.set_output_power(false);
         }
+    }
+
+    fn battery_popover(root: &gtk4::Widget) {
+        let Some(popover) = find::<BatteryPopover>(root) else {
+            return;
+        };
+        popover.set_heading(
+            Some("battery-full-charged-symbolic"),
+            Some("Fully charged"),
+            Some(100),
+        );
+        popover.set_profiles(
+            &[
+                Choice {
+                    label: "Power saver".to_owned(),
+                    detail: "Longer battery life, slower response".to_owned(),
+                    icon_name: "power-profile-power-saver-symbolic".to_owned(),
+                },
+                Choice {
+                    label: "Balanced".to_owned(),
+                    detail: "The default trade-off".to_owned(),
+                    icon_name: "power-profile-balanced-symbolic".to_owned(),
+                },
+                Choice {
+                    label: "Performance".to_owned(),
+                    detail: String::new(),
+                    icon_name: "power-profile-performance-symbolic".to_owned(),
+                },
+            ],
+            Some(1),
+        );
+        popover.set_devices(&[BatteryDevice {
+            name: "MX Master 3S".to_owned(),
+            subtitle: "Mouse".to_owned(),
+            icon_name: "input-mouse-symbolic".to_owned(),
+            value: "41%".to_owned(),
+        }]);
+        popover.set_details(
+            &[
+                Fact::new("Charge", "100%"),
+                Fact::new("Energy", "87.0 / 87.0 Wh"),
+                Fact::new("Health", "97%"),
+                Fact::new("Voltage", "17.2 V"),
+                Fact::new("Technology", "Li-ion"),
+                Fact::new("Model", "A32-K55"),
+                Fact::new("Vendor", "ASUS"),
+            ],
+            Some(&BatteryChargeLimit {
+                enabled: false,
+                subtitle: "Stops at 80% to slow wear".to_owned(),
+            }),
+        );
     }
 
     fn brightness_popover_states(root: &gtk4::Widget) {
@@ -2396,9 +2449,9 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClockRow, DisplayList,
-        DisplayPopover, EventList, EventRow, FactList, Fader, ForecastDay, ForecastHour,
-        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
+        BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClockRow,
+        DisplayList, DisplayPopover, EventList, EventRow, FactList, Fader, ForecastDay,
+        ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
         KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
         NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
         NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
@@ -2407,6 +2460,7 @@ fn ensure_types() {
     };
 
     for widget in [
+        BatteryPopover::static_type(),
         BrightnessPopover::static_type(),
         Calendar::static_type(),
         CalendarPopover::static_type(),

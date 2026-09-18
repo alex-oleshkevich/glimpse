@@ -1,5 +1,6 @@
 mod agenda;
 pub mod audio;
+mod battery;
 pub(crate) mod bluetooth;
 mod brightness;
 mod clock;
@@ -23,8 +24,9 @@ use glimpse_dbus::{
     notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
 };
 use glimpse_services::{
-    AudioHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, CompositorHandle,
-    HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, SessionActionsHandle, TrayHandle,
+    AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle,
+    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle,
+    SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -65,6 +67,7 @@ pub fn build(
     weather: &WeatherProviderHandle,
     idle: &IdleProviderHandle,
     session_actions: &SessionActionsHandle,
+    battery: &BatteryHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -199,8 +202,15 @@ pub fn build(
                 Box::new(session::Session::start(session_actions, dialog))
             }))
         }
-        AppletKind::Battery {}
-        | AppletKind::Clipboard {}
+        AppletKind::Battery(_) => {
+            let battery = battery.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(battery.subscribe());
+                Box::new(battery::Battery::start(battery, notifications))
+            }))
+        }
+        AppletKind::Clipboard {}
         | AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Privacy {}
@@ -280,8 +290,8 @@ mod tests {
     #[test]
     fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
         assert!(
-            AppletConfig::from_name("battery").is_some(),
-            "`battery` is a real applet, so skipping it is expected rather than a bad document"
+            AppletConfig::from_name("clipboard").is_some(),
+            "`clipboard` is a real applet, so skipping it is expected rather than a bad document"
         );
         assert!(AppletConfig::from_name("nonesuch").is_none());
         assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
@@ -312,6 +322,7 @@ mod tests {
             &services.weather(),
             &services.idle(),
             &services.session_actions,
+            &services.battery,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -346,6 +357,7 @@ mod tests {
                 &services.weather(),
                 &services.idle(),
                 &services.session_actions,
+                &services.battery,
                 None,
             )
             .is_none(),
@@ -369,6 +381,7 @@ mod tests {
                 &services.weather(),
                 &services.idle(),
                 &services.session_actions,
+                &services.battery,
                 Some(&dialog),
             )
             .is_some(),
@@ -387,8 +400,14 @@ mod tests {
         let brightness_config: AppletConfig = AppletKind::Brightness(<_>::default()).into();
         let display_config: AppletConfig = AppletKind::Display {}.into();
         let idle_config: AppletConfig = AppletKind::Idle {}.into();
+        let battery_config: AppletConfig = AppletKind::Battery(<_>::default()).into();
 
-        for config in [&brightness_config, &display_config, &idle_config] {
+        for config in [
+            &brightness_config,
+            &display_config,
+            &idle_config,
+            &battery_config,
+        ] {
             let built = build(
                 config,
                 &services.compositor,
@@ -406,6 +425,7 @@ mod tests {
                 &services.weather(),
                 &services.idle(),
                 &services.session_actions,
+                &services.battery,
                 None,
             );
             assert!(

@@ -91,6 +91,12 @@ A `transition-minutes` of zero never asks for the faster tick. Every reader goes
 `forced.unwrap_or(config.schedule)` — so `SetSchedule` is complete rather than cosmetic; `forced` is
 not persisted and clears only when `[night-light]` changes.
 
+**battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals
+and charge-threshold details come from the real `BAT*` objects, because the composite omits them.
+Peripherals are other present UPower devices, not a second BlueZ walk. `TimeTo*` `0`, `ChargeCycles`
+`<= 0` and empty serials are absent. No per-app wattage. Commands are `set_profile` and
+`EnableChargeThreshold`.
+
 **gamma** — `trait Gamma` is declared here and implemented in `glimpse-sunset`, because this crate
 is linked into the panel and every provider and none may gain a Wayland dependency. It is
 **synchronous**: the real implementation blocks and says so with `block_in_place`, and a synchronous

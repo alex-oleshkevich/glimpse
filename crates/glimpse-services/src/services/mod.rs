@@ -16,6 +16,7 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
 }
 
 mod audio;
+mod battery;
 mod bluetooth;
 mod brightness;
 mod calendar;
@@ -37,6 +38,10 @@ pub use audio::{
     App as AudioApp, AppId as AudioAppId, Audio, AudioError, AudioHandle, AudioState,
     Device as AudioDevice, DeviceId as AudioDeviceId, Direction as AudioDirection,
     NAME_CAP as AUDIO_NAME_CAP, Role as AudioRole, StreamRef as AudioStreamRef,
+};
+pub use battery::{
+    Battery, BatteryHandle, BatteryState, Charge, Peripheral as BatteryPeripheral, Profiles,
+    Supply as BatterySupply,
 };
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{

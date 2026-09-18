@@ -342,6 +342,12 @@ only way to reach the six fixed hold presets, so it must stay reachable even wit
 - **`why` is capped tighter in `row_status` than the daemon's own 240 characters**, so a verbose
    reason cannot push a row's `(Flatpak via portal)`/`(systemd-inhibit · pid N)` marker off the end.
 
+**battery** — the chip is `DisplayDevice`; internals, facts and the charge-limit switch come from
+the first present `BAT*` object, because the composite omits them. Extra packs after that join the
+device list. `indicator-style` is icon-only by default; `label-format` substitutes `{percentage}`,
+`{state}` and `{remaining}`. A failed profile or charge-limit command is a notification. Battery
+details is the last row in the column and unfolds in place.
+
 **session** — icon-only. Power actions confirm on the app host after the popover closes; lock and
 session switch run immediately. Confirmation copy is formatted at click from the current snapshot,
 not from the one that opened the popover. Inhibitors are named only when they apply to that action;

@@ -10,11 +10,12 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Audio, AudioHandle, Backlight, Bluetooth, BluetoothHandle, Brightness, BrightnessDependencies,
-    BrightnessHandle, Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat,
-    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Running, SessionActions, SessionActionsDependencies, SessionActionsHandle,
-    SysfsBacklight, Tray, TrayHandle, UnavailableBacklight,
+    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothHandle, Brightness,
+    BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Compositor,
+    CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
+    Mpris, MprisHandle, Network, NetworkHandle, Running, SessionActions,
+    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
+    UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -29,6 +30,7 @@ pub struct PanelServices {
     pub audio: AudioHandle,
     pub brightness: BrightnessHandle,
     pub session_actions: SessionActionsHandle,
+    pub battery: BatteryHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -40,6 +42,7 @@ pub struct PanelServices {
     audio_service: Running<Audio>,
     brightness_service: Running<Brightness>,
     session_actions_service: Running<SessionActions>,
+    battery_service: Running<Battery>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -95,11 +98,12 @@ impl PanelServices {
         );
         let (session_actions_service, session_actions) = Running::<SessionActions>::spawn(
             document,
-            buses,
+            buses.clone(),
             SessionActionsDependencies {
                 compositor: compositor.clone(),
             },
         );
+        let (battery_service, battery) = Running::<Battery>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -113,6 +117,7 @@ impl PanelServices {
             audio,
             brightness,
             session_actions,
+            battery,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -124,6 +129,7 @@ impl PanelServices {
             audio_service,
             brightness_service,
             session_actions_service,
+            battery_service,
             notifications,
             weather,
             night_light,
@@ -139,6 +145,7 @@ impl PanelServices {
         self.night_light.shutdown().await;
         self.brightness_service.stop().await;
         self.session_actions_service.stop().await;
+        self.battery_service.stop().await;
         self.audio_service.stop().await;
         self.bluetooth_service.stop().await;
         self.network_service.stop().await;
@@ -162,6 +169,7 @@ impl PanelServices {
         self.audio_service.reconfigure(document);
         self.brightness_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
+        self.battery_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -183,6 +191,7 @@ impl PanelServices {
     fn cancel(&self) {
         self.brightness_service.cancel();
         self.session_actions_service.cancel();
+        self.battery_service.cancel();
         self.audio_service.cancel();
         self.bluetooth_service.cancel();
         self.network_service.cancel();

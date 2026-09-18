@@ -38,6 +38,10 @@ template $IdlePopover: Gtk.Widget {
           Gtk.Image {
             icon-name: "go-next-symbolic";
             accessible-role: presentation;
+
+            styles [
+              "drawer-chevron",
+            ]
           }
         }
 
@@ -47,6 +51,10 @@ template $IdlePopover: Gtk.Widget {
 
           Gtk.Box {
             orientation: vertical;
+
+            styles [
+              "detail-card",
+            ]
 
             $Row preset_15m {
               activatable: true;

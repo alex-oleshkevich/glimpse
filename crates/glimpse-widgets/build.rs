@@ -19,6 +19,10 @@ fn main() {
             "resources/widgets/audio_popover.ui",
         ),
         (
+            "blueprints/battery_popover.blp",
+            "resources/widgets/battery_popover.ui",
+        ),
+        (
             "blueprints/bluetooth_pairing_dialog.blp",
             "resources/widgets/bluetooth_pairing_dialog.ui",
         ),

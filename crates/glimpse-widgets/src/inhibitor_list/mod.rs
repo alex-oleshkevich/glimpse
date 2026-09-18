@@ -153,6 +153,7 @@ impl InhibitorList {
         let row = Row::new();
         let arrow = gtk4::Image::from_icon_name("go-next-symbolic");
         arrow.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        arrow.add_css_class("drawer-chevron");
         row.set_trail(&arrow);
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
@@ -170,8 +171,9 @@ impl InhibitorList {
         description.set_xalign(0.0);
         description.add_css_class("detail-card__description");
         let facts = FactList::new();
-        let cancel = gtk4::Button::with_label(&gettext("Cancel"));
-        cancel.set_halign(gtk4::Align::End);
+        let cancel = Row::new();
+        cancel.set_title(Some(gettext("Cancel")));
+        cancel.set_activatable(true);
         cancel.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,
