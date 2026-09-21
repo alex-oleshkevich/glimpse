@@ -83,9 +83,90 @@ pub fn artwork(path: &Path, side: i32) -> Option<gdk::Texture> {
     )
 }
 
+/// A bounded thumbnail for image bytes another application put on the clipboard.
+///
+/// `gdk::Texture::from_bytes` decodes at full size, and a small compressed image can decode to an
+/// enormous bitmap — the byte cap the clipboard applies says nothing about the pixel count. The
+/// loader is asked for its dimensions first and told to scale during decode, so the work and the
+/// memory are bounded on **both** axes rather than by whatever the sender chose.
+pub fn thumbnail(bytes: &[u8], side: i32) -> Option<gdk::Texture> {
+    use gtk4::gdk_pixbuf::PixbufLoader;
+    use gtk4::prelude::PixbufLoaderExt;
+
+    let loader = PixbufLoader::new();
+    loader.connect_size_prepared(move |loader, width, height| {
+        // `cover` scales by the SHORTER side, so a 65535x48 image passes through it untouched and
+        // decodes to megabytes. Both axes are clamped here, which is the bound the caller is told
+        // it has — the sender chose these dimensions and is not to be trusted with them.
+        if width > LARGEST || height > LARGEST {
+            loader.set_size(side.min(width), side.min(height));
+            return;
+        }
+        let Some(cover) = cover(width, height, side) else {
+            return;
+        };
+        loader.set_size(cover.width.min(LARGEST), cover.height.min(LARGEST));
+    });
+    if loader.write(bytes).is_err() {
+        let _ = loader.close();
+        return None;
+    }
+    loader.close().ok()?;
+
+    let scaled = loader.pixbuf()?;
+    Some(
+        gdk::MemoryTexture::new(
+            scaled.width(),
+            scaled.height(),
+            match scaled.has_alpha() {
+                true => gdk::MemoryFormat::R8g8b8a8,
+                false => gdk::MemoryFormat::R8g8b8,
+            },
+            &scaled.read_pixel_bytes(),
+            scaled.rowstride().max(0) as usize,
+        )
+        .upcast(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn png(width: i32, height: i32) -> Vec<u8> {
+        let source = Pixbuf::new(gtk4::gdk_pixbuf::Colorspace::Rgb, false, 8, width, height)
+            .expect("a pixbuf");
+        source.fill(0x00ff00ff);
+        source
+            .save_to_bufferv("png", &[])
+            .expect("a png buffer")
+            .to_vec()
+    }
+
+    /// The clipboard caps an entry's *bytes*, which says nothing about its pixel count: a small
+    /// compressed image can decode to an enormous bitmap. The decode has to be bounded too.
+    #[test]
+    fn a_large_image_is_scaled_during_decode_rather_than_after() {
+        let texture = thumbnail(&png(4000, 3000), 48).expect("a thumbnail");
+
+        assert!(texture.width() <= 64, "got {}", texture.width());
+        assert!(texture.height() <= 64, "got {}", texture.height());
+    }
+
+    #[test]
+    fn a_small_image_is_not_enlarged() {
+        let texture = thumbnail(&png(16, 16), 48).expect("a thumbnail");
+
+        assert_eq!((texture.width(), texture.height()), (16, 16));
+    }
+
+    /// Another application chose these bytes. A picture that will not decode is not an error path:
+    /// the entry stays restorable and the row falls back to its icon.
+    #[test]
+    fn bytes_that_are_not_an_image_yield_nothing_rather_than_panicking() {
+        assert!(thumbnail(b"definitely not a png", 48).is_none());
+        assert!(thumbnail(&[], 48).is_none());
+    }
 
     #[test]
     fn a_square_source_larger_than_the_slot_is_scaled_and_not_cropped() {

@@ -589,6 +589,35 @@
     transform: rotate(90deg);
 }
 
+.clipboard-popover .popover-shell {
+    border-radius: 1.5rem;
+    padding: 1.1rem;
+}
+
+.clipboard-popover .hero__title {
+    font-size: var(--gl-text-title);
+    font-weight: 700;
+}
+
+.clipboard-list .split-row {
+    border-radius: 0.75rem;
+    min-height: 3.2rem;
+}
+
+.clipboard-list .split-row__detail image {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+.clipboard-list .split-row.open .split-row__detail image {
+    transform: rotate(90deg);
+}
+
+.clipboard-list picture {
+    border-radius: 0.25rem;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
 .network-popover .popover-shell {
     border-radius: 1.5rem;
     padding: 1.1rem;

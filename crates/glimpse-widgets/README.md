@@ -413,6 +413,25 @@ that hide when empty. Static labels live in the blueprint. The widget emits `act
   only relays the one value it already tracks for the blank row, so the blank row and every
   per-output switch disappear on the same signal.
 
+## ClipboardPopover and ClipboardList
+
+`ClipboardList` is index-reconciled like `PlayerList`: one `crate::drawer::holder` per clip, a
+`$SplitRow` head and its own `Gtk.Revealer`. The row body emits `restored`, the chevron `detailed`,
+and the panel underneath emits `pinned` and `removed`. **Every signal reads its id back at fire
+time** from the position the row was built for — a row outlives the clip that was in it.
+
+**The detail panel is rebuilt on each reveal rather than cached.** Its pin row reads *Pin* or
+*Unpin* depending on the clip, so a panel kept from a previous open would contradict the entry
+above it.
+
+**The list owns no wording.** `set_actions` takes the two action labels from the applet, because a
+widget owns structure and no content; the popover's only built-in strings are the placeholder's,
+which live in the `.blp`.
+
+`ClipboardPopover` holds two of these lists and drives `set_open` across both, so one cannot keep a
+panel open while the other opens a second. Its `$Notice` carries only the standing condition a
+notification cannot — no data-control protocol at all; a refused command is a notification.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

@@ -3,6 +3,7 @@ pub mod audio;
 mod battery;
 pub(crate) mod bluetooth;
 mod brightness;
+mod clipboard;
 mod clock;
 mod display;
 mod heartbeat;
@@ -24,7 +25,7 @@ use glimpse_dbus::{
     notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
 };
 use glimpse_services::{
-    AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle,
+    AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle,
     SessionActionsHandle, TrayHandle,
 };
@@ -68,6 +69,7 @@ pub fn build(
     idle: &IdleProviderHandle,
     session_actions: &SessionActionsHandle,
     battery: &BatteryHandle,
+    clipboard: &ClipboardHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -210,8 +212,15 @@ pub fn build(
                 Box::new(battery::Battery::start(battery, notifications))
             }))
         }
-        AppletKind::Clipboard {}
-        | AppletKind::Command {}
+        AppletKind::Clipboard(_) => {
+            let clipboard = clipboard.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(clipboard.subscribe());
+                Box::new(clipboard::Clipboard::start(clipboard, notifications))
+            }))
+        }
+        AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
@@ -280,6 +289,16 @@ mod tests {
     }
 
     #[test]
+    fn the_clipboard_applet_is_configured_and_no_longer_falls_through_to_nothing() {
+        let applets = configured("clipboard", &BTreeMap::new(), &Regional::default())
+            .expect("`clipboard` ships in the default right zone, so it must resolve");
+        assert!(
+            matches!(applets.kind, AppletKind::Clipboard(_)),
+            "a unit variant would let deny_unknown_fields swallow every key under it"
+        );
+    }
+
+    #[test]
     fn the_notifications_applet_is_configured_rather_than_skipped() {
         assert!(
             configured("notifications", &BTreeMap::new(), &Regional::default()).is_some(),
@@ -290,11 +309,45 @@ mod tests {
     #[test]
     fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
         assert!(
-            AppletConfig::from_name("clipboard").is_some(),
-            "`clipboard` is a real applet, so skipping it is expected rather than a bad document"
+            AppletConfig::from_name("printing").is_some(),
+            "`printing` is a real applet, so skipping it is expected rather than a bad document"
         );
         assert!(AppletConfig::from_name("nonesuch").is_none());
         assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
+    }
+
+    #[tokio::test]
+    async fn the_clipboard_applet_now_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Clipboard(<_>::default()).into();
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            None,
+        );
+        assert!(built.is_some(), "clipboard now has an implementation");
+
+        services.shutdown().await;
     }
 
     #[tokio::test]
@@ -323,6 +376,7 @@ mod tests {
             &services.idle(),
             &services.session_actions,
             &services.battery,
+            &services.clipboard,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -358,6 +412,7 @@ mod tests {
                 &services.idle(),
                 &services.session_actions,
                 &services.battery,
+                &services.clipboard,
                 None,
             )
             .is_none(),
@@ -382,6 +437,7 @@ mod tests {
                 &services.idle(),
                 &services.session_actions,
                 &services.battery,
+                &services.clipboard,
                 Some(&dialog),
             )
             .is_some(),
@@ -426,6 +482,7 @@ mod tests {
                 &services.idle(),
                 &services.session_actions,
                 &services.battery,
+                &services.clipboard,
                 None,
             );
             assert!(

@@ -102,6 +102,14 @@ is linked into the panel and every provider and none may gain a Wayland dependen
 **synchronous**: the real implementation blocks and says so with `block_in_place`, and a synchronous
 signature is dyn-compatible, which lets `NightLight` take `Box<dyn Gamma>`. `FakeGamma` sits beside
 it rather than behind `#[cfg(test)]`, because `glimpse-sunset`'s tests are a separate unit.
+
+**clipboard** — `trait Selection` is `Gamma`'s counterpart in `glimpse-panel`; **every `events()`
+call must yield a fresh stream**, because the runtime rebuilds a torn-down source. The history is
+**in memory only** and an entry's `id` fingerprints `(kind, content)`, not the mime spelling — so
+**dedup closes the echo loop**, with no suppression list and no timer. `is_sensitive` is the whole
+password-manager rule, called before content is read; nothing is tombstoned, which would say a
+password was copied and when. Both budgets count only unpinned entries, or pins eat the cap.
+
 **brightness** — `SysfsBacklight` reads `/sys/class/backlight` with `tokio::fs` and writes through
 logind. **`current` moves when a command is accepted, `confirmed` when the write lands**; a failed
 write rolls `current` back unless a newer value is queued. **`floor` is published**, or a dragged

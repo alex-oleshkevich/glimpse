@@ -189,6 +189,20 @@
               "type": "string",
               "const": "clipboard"
             },
+            "label-format": {
+              "description": "What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the\nchip is an icon alone, which is what every applet does unless asked otherwise.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "preview-chars": {
+              "description": "How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at\nmost and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much\non screen. Clamped to 8..=128.",
+              "type": "integer",
+              "format": "uint",
+              "default": 72,
+              "minimum": 0
+            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -203,12 +217,24 @@
                 "null"
               ]
             },
+            "show-when-empty": {
+              "description": "Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room\nuntil there is something to open it for.",
+              "type": "boolean",
+              "default": false
+            },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
               ]
+            },
+            "visible": {
+              "description": "How many recent entries the popover lists. Nothing in the panel scrolls, so this is what\nkeeps the card on the screen. Pinned entries are listed above and are not counted here —\na pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.",
+              "type": "integer",
+              "format": "uint",
+              "default": 10,
+              "minimum": 0
             }
           },
           "additionalProperties": false,
@@ -1196,6 +1222,20 @@
                 "type": "string",
                 "const": "clipboard"
               },
+              "label-format": {
+                "description": "What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the\nchip is an icon alone, which is what every applet does unless asked otherwise.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "preview-chars": {
+                "description": "How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at\nmost and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much\non screen. Clamped to 8..=128.",
+                "type": "integer",
+                "format": "uint",
+                "default": 72,
+                "minimum": 0
+              },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
                 "type": "array",
@@ -1210,12 +1250,24 @@
                   "null"
                 ]
               },
+              "show-when-empty": {
+                "description": "Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room\nuntil there is something to open it for.",
+                "type": "boolean",
+                "default": false
+              },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
                 ]
+              },
+              "visible": {
+                "description": "How many recent entries the popover lists. Nothing in the panel scrolls, so this is what\nkeeps the card on the screen. Pinned entries are listed above and are not counted here —\na pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.",
+                "type": "integer",
+                "format": "uint",
+                "default": 10,
+                "minimum": 0
               }
             },
             "additionalProperties": false,
@@ -2085,6 +2137,16 @@
         "sources": []
       }
     },
+    "clipboard": {
+      "$ref": "#/$defs/Clipboard",
+      "default": {
+        "capture-images": true,
+        "enabled": true,
+        "limit": 100,
+        "max-entry-kib": 2048,
+        "max-total-kib": 10240
+      }
+    },
     "geolocation": {
       "$ref": "#/$defs/Geolocation",
       "default": {
@@ -2229,6 +2291,7 @@
             "bluetooth",
             "network",
             "display",
+            "brightness",
             "audio",
             "idle",
             "battery",
@@ -2384,6 +2447,44 @@
           "items": {
             "$ref": "#/$defs/Source"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Clipboard": {
+      "description": "What the panel remembers of the clipboard. The history lives in the panel process and in memory\nonly: it survives nothing, which is deliberate for a buffer that routinely holds passwords.",
+      "type": "object",
+      "properties": {
+        "capture-images": {
+          "description": "Whether images are captured as well as text. Off records text only; an image copied while\noff is not recorded at all rather than recorded without its content.",
+          "type": "boolean",
+          "default": true
+        },
+        "enabled": {
+          "description": "Whether the clipboard is watched at all. Off means no compositor connection is opened and\nnothing is recorded; the applet then renders as if nothing had ever been copied.",
+          "type": "boolean",
+          "default": true
+        },
+        "limit": {
+          "description": "How many entries are kept. Pinned entries do not count against it and are never evicted, so\na history full of pins holds more than this many. Clamped to 1..=10000.",
+          "type": "integer",
+          "format": "uint",
+          "default": 100,
+          "minimum": 0
+        },
+        "max-entry-kib": {
+          "description": "The largest single entry that will be captured, in kibibytes. Another application chooses\nwhat it puts on the clipboard, so this is what stops one handing over something enormous.\nClamped to 4..=2048: the compositor read is capped at 2 MiB, and a larger value here would\npromise a size that is discarded before it ever reaches the history.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 2048,
+          "minimum": 0
+        },
+        "max-total-kib": {
+          "description": "The total the history may occupy, in kibibytes. Reached, the oldest unpinned entry is\ndropped. This bounds memory in a way `limit` alone cannot, because one image can outweigh a\nhundred lines of text. Clamped to 64..=1048576.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 10240,
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -2922,6 +3023,7 @@
             "bluetooth",
             "network",
             "display",
+            "brightness",
             "audio",
             "idle",
             "battery",

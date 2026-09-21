@@ -70,6 +70,13 @@ remember = "window"
 poll-interval = 600
 sources = []
 
+[clipboard]
+enabled = true
+limit = 100
+max-entry-kib = 2048
+max-total-kib = 10240
+capture-images = true
+
 [weather]
 provider = "open-meteo"
 poll-interval = 900
@@ -141,6 +148,7 @@ right = [
     "bluetooth",
     "network",
     "display",
+    "brightness",
     "audio",
     "idle",
     "battery",

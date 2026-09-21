@@ -4,6 +4,7 @@ mod backdrop;
 mod bluetooth;
 mod brightness;
 mod calendar;
+mod clipboard;
 mod geolocation;
 mod idle;
 mod keyboard;
@@ -27,17 +28,18 @@ use serde::{Deserialize, Serialize};
 pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
     Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
-    Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig, Clock as ClockConfig,
-    Common as AppletCommon, FirstDay, Kind as AppletKind, Mpris as MprisAppletConfig,
-    NextEvent as NextEventConfig, NotificationIndicatorStyle,
-    Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
-    PagerShape, Place as WeatherPlace, Timezone as ClockTimezone, Tray as TrayAppletConfig,
-    Weather as WeatherAppletConfig,
+    Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,
+    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Common as AppletCommon, FirstDay,
+    Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
+    NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
+    PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Timezone as ClockTimezone,
+    Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
 };
 pub use backdrop::Backdrop;
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
+pub use clipboard::Clipboard;
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
@@ -68,6 +70,7 @@ pub struct Config {
     pub power: Power,
     pub keyboard: Keyboard,
     pub calendar: Calendar,
+    pub clipboard: Clipboard,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
@@ -95,6 +98,7 @@ impl Default for Config {
             power: Power::default(),
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
+            clipboard: Clipboard::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),

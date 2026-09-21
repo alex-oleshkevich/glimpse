@@ -131,6 +131,10 @@ fn main() {
             "resources/widgets/popover_shell.ui",
         ),
         ("blueprints/readout.blp", "resources/widgets/readout.ui"),
+        (
+            "blueprints/clipboard_popover.blp",
+            "resources/widgets/clipboard_popover.ui",
+        ),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
         ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),

@@ -176,6 +176,16 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   `{conflicts}` for the tooltip. Two meetings at once is the user's problem to see, not the applet's
   to resolve, and a count on the label would shift the bar as the day moves.
 
+**clipboard** — renders `ClipboardState` as two `$Section`s, pinned above recent, each a
+`$ClipboardList` of `$SplitRow`s: the body copies, the chevron unfolds Pin and Forget under it.
+**Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
+history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
+not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
+and is injected as `Arc<dyn Selection>`. **An image is decoded through `thumbnail`, never
+`Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
+count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
+to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.
+
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
 

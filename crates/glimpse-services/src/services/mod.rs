@@ -20,6 +20,7 @@ mod battery;
 mod bluetooth;
 mod brightness;
 mod calendar;
+mod clipboard;
 mod compositor;
 mod geolocation;
 mod heartbeat;
@@ -54,6 +55,10 @@ pub use brightness::{
     Source as BrightnessSource, SysfsBacklight, UnavailableBacklight,
 };
 pub use calendar::{Calendar, CalendarHandle};
+pub use clipboard::{
+    Clipboard, ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState,
+    Config as ClipboardConfig, Dependencies as ClipboardDependencies,
+};
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

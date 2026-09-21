@@ -2449,14 +2449,15 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClockRow,
-        DisplayList, DisplayPopover, EventList, EventRow, FactList, Fader, ForecastDay,
-        ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
-        KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
-        NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
-        NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
-        Readout, Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, SwitchRow,
-        TooltipCard, Transport, TrayStrip, WeatherPopover, WorldClock,
+        BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClipboardList,
+        ClipboardPopover, ClockRow, DisplayList, DisplayPopover, EventList, EventRow, FactList,
+        Fader, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator,
+        IndicatorGroup, InhibitorList, KeyboardPopover, Notice, NotificationCard,
+        NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
+        NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, Placeholder,
+        PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber, Section,
+        SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
+        WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -2510,6 +2511,8 @@ fn ensure_types() {
         Placeholder::static_type(),
         Row::static_type(),
         InhibitorList::static_type(),
+        ClipboardList::static_type(),
+        ClipboardPopover::static_type(),
     ] {
         let _ = widget;
     }

@@ -47,3 +47,47 @@ for f in target/locale/*/LC_MESSAGES/glimpse.mo; do
     lang="$(basename "$(dirname "$(dirname "$f")")")"
     install -Dm644 "$f" "$localedir/$lang/LC_MESSAGES/glimpse.mo"
 done
+
+# Seed the user's own configuration, and never replace it: the moment that file exists it is
+# theirs, and an upgrade that overwrote it would discard everything they had written. The copy at
+# $sharedir/config.default.toml is the reference that stays current.
+seed_user_config() {
+    # A packaging build stages into DESTDIR and must not touch anybody's home directory.
+    if [[ -n "$destdir" ]]; then
+        return 0
+    fi
+
+    # Under sudo the environment is root's, so $HOME and $XDG_CONFIG_HOME point at the wrong
+    # person. The invoking user's passwd entry is what says where their configuration lives.
+    local owner home config_home
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        owner="$SUDO_USER"
+        home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+        config_home="$home/.config"
+    else
+        owner=""
+        home="${HOME:-}"
+        config_home="${XDG_CONFIG_HOME:-$home/.config}"
+    fi
+
+    if [[ -z "$home" || ! -d "$home" ]]; then
+        return 0
+    fi
+
+    local config="$config_home/glimpse/config.toml"
+    if [[ -e "$config" ]]; then
+        printf 'keeping existing %s\n' "$config"
+        return 0
+    fi
+
+    mkdir -p "$config_home/glimpse"
+    install -m644 data/config.default.toml "$config"
+    # Installed as root the file would be root-owned, and the user could not edit their own
+    # configuration without sudo.
+    if [[ -n "$owner" ]]; then
+        chown "$owner:$(id -gn "$owner")" "$config_home/glimpse" "$config"
+    fi
+    printf 'installed a starting configuration at %s\n' "$config"
+}
+
+seed_user_config

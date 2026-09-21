@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-21 17:50+0200\n"
+"POT-Creation-Date: 2026-09-21 21:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -237,7 +237,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:231
+#: crates/glimpse-widgets/src/lib.rs:235
 msgid "{percent}%"
 msgstr ""
 
@@ -552,6 +552,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:163
 msgid "Forget"
 msgstr ""
 
@@ -814,6 +815,68 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:128
+msgid "Image · {size}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:161
+msgid "Pin"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:162
+msgid "Unpin"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:173
+msgid "Clear history"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
+msgid "Clipboard"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:200
+msgid "The clipboard is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:214
+msgid "That entry is no longer in the history."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:222
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+msgid "{count} min ago"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:224
+msgid "{count} h ago"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:234
+msgid "{count} items · {size}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:304
+msgid "Could not copy that entry"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:329
+msgid "Could not pin that entry"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:345
+msgid "Could not forget that entry"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:361
+msgid "Could not clear the history"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/display/indicator.rs:79
 msgid "Could not change that display"
 msgstr ""
@@ -864,10 +927,6 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:129
 msgid "Unknown"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/idle/render.rs:136
-msgid "just now"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:139
@@ -1603,6 +1662,18 @@ msgstr ""
 msgid "World clock"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:31
+msgid "Pinned"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:38
+msgid "Recent"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:45
+msgid "Nothing copied yet"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/display_popover.blp:36
 msgid "Blank the screens"
 msgstr ""
@@ -1711,7 +1782,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:192
+#: crates/glimpse-widgets/src/lib.rs:196
 msgid "Play"
 msgstr ""
 
@@ -1855,7 +1926,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:191
+#: crates/glimpse-widgets/src/lib.rs:195
 msgid "Pause"
 msgstr ""
 

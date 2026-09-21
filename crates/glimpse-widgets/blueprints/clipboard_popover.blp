@@ -1,0 +1,61 @@
+using Gtk 4.0;
+
+template $ClipboardPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "clipboard-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "edit-paste-symbolic";
+      title: _("Clipboard");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Notice trouble {
+        visible: false;
+        icon-name: "dialog-warning-symbolic";
+      }
+
+      $Section pinned_section {
+        title: _("Pinned");
+        visible: false;
+
+        $ClipboardList pinned {}
+      }
+
+      $Section recent_section {
+        title: _("Recent");
+
+        $ClipboardList recent {}
+
+        [placeholder]
+        $Placeholder nothing {
+          icon-name: "edit-paste-symbolic";
+          title: _("Nothing copied yet");
+        }
+      }
+    }
+
+    [footer]
+    $Row clear {
+      visible: false;
+      lead-icon: "edit-clear-all-symbolic";
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

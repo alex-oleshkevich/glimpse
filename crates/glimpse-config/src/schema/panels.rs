@@ -33,6 +33,7 @@ impl Default for Panel {
                 "bluetooth",
                 "network",
                 "display",
+                "brightness",
                 "audio",
                 "idle",
                 "battery",

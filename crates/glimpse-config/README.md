@@ -25,9 +25,17 @@ file: what a caller joins onto it is that caller's business.
 **Merging is per key: tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
 
-`data/config.default.toml` is a reference nothing reads, kept honest the way `cargo fmt` keeps
+`data/config.default.toml` is read by nothing at runtime, and kept honest the way `cargo fmt` keeps
 formatting honest: `default_document()` renders it from `Config::default()` and a test fails if the
 checked-in file differs. `data/config.schema.json` is generated the same way, for editor tooling.
+
+**`scripts/install.sh` seeds it to `user_dir()/config.toml` and never replaces it.** The moment that
+file exists it is the user's, so an upgrade that overwrote it would discard whatever they had
+written; the copy at `DATA_DIR/config.default.toml` is the reference that stays current. The seed is
+skipped entirely when `DESTDIR` is set, because a packaging build must not touch anybody's home, and
+under `sudo` the destination and the owner come from `SUDO_USER`'s passwd entry rather than from the
+environment — root's `$HOME` and `$XDG_CONFIG_HOME` name the wrong person, and a root-owned
+`config.toml` is one its owner cannot edit.
 
 ## Key naming
 

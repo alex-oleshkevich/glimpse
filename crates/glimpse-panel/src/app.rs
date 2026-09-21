@@ -592,6 +592,7 @@ fn reconcile_panels(
                 weather: services.weather(),
                 idle: services.idle(),
                 session_actions: services.session_actions.clone(),
+                clipboard: services.clipboard.clone(),
                 battery: services.battery.clone(),
                 dialog: dialog.clone(),
             };

@@ -64,7 +64,7 @@ pub enum Kind {
     /// Display backlight level, and the keyboard's own where the machine has one.
     Brightness(Brightness),
     /// Clipboard history.
-    Clipboard {},
+    Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
     /// Runs a command and renders its output on the bar.
@@ -118,6 +118,38 @@ pub struct Tray {
     /// How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every
     /// icon on the bar and shows no chevron.
     pub max_visible: u8,
+}
+
+/// The clipboard applet's own settings.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Clipboard {
+    /// What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the
+    /// chip is an icon alone, which is what every applet does unless asked otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label_format: Option<String>,
+    /// How many recent entries the popover lists. Nothing in the panel scrolls, so this is what
+    /// keeps the card on the screen. Pinned entries are listed above and are not counted here —
+    /// a pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.
+    pub visible: usize,
+    /// How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at
+    /// most and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much
+    /// on screen. Clamped to 8..=128.
+    pub preview_chars: usize,
+    /// Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room
+    /// until there is something to open it for.
+    pub show_when_empty: bool,
+}
+
+impl Default for Clipboard {
+    fn default() -> Self {
+        Self {
+            label_format: None,
+            visible: 10,
+            preview_chars: 72,
+            show_when_empty: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

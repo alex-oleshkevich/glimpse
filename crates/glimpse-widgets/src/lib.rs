@@ -7,6 +7,8 @@ mod brightness_popover;
 mod calendar;
 mod calendar_popover;
 mod choice_list;
+mod clipboard_list;
+mod clipboard_popover;
 mod display_list;
 mod display_popover;
 mod dots;
@@ -59,7 +61,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
-pub use artwork::artwork;
+pub use artwork::{artwork, thumbnail};
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
@@ -77,6 +79,8 @@ pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
+pub use clipboard_list::{Actions as ClipActions, Clip, ClipboardList};
+pub use clipboard_popover::ClipboardPopover;
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
 pub use event_list::{Event, EventList, EventRow};
@@ -6491,6 +6495,128 @@ mod tests {
             .charge_limit
             .emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(battery_limit.get(), Some(true));
+    }
+
+    /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these
+    /// from running — which is exactly what happened while they were written.
+    #[test]
+    #[ignore = "needs a display"]
+    fn clipboard_widgets() {
+        if gtk4::init().is_err() {
+            return;
+        }
+        register_resources().expect("resources");
+        let _styles = Styles::install(adw::ColorScheme::Default);
+
+        let clipboard = ClipboardPopover::new();
+        clipboard.set_actions(ClipActions {
+            pin: "Pin".to_owned(),
+            unpin: "Unpin".to_owned(),
+            forget: "Forget".to_owned(),
+        });
+        let clip = |id: u64, pinned: bool| Clip {
+            id,
+            title: "Марта🙂 a rather long clipboard entry that keeps going".to_owned(),
+            subtitle: "just now".to_owned(),
+            icon: "text-x-generic-symbolic".to_owned(),
+            image: None,
+            pinned,
+        };
+        clipboard.set_pinned(&[clip(1, true)]);
+        clipboard.set_recent(&[clip(2, false), clip(3, false)]);
+
+        let rows = |list: &ClipboardList| {
+            let mut found = Vec::new();
+            let mut child = list.first_child();
+            while let Some(holder) = child {
+                child = holder.next_sibling();
+                if let Some(split) = holder
+                    .downcast_ref::<gtk4::Box>()
+                    .and_then(drawer::head::<SplitRow>)
+                {
+                    found.push(split);
+                }
+            }
+            found
+        };
+        assert_eq!(rows(&clipboard.imp().recent).len(), 2);
+        assert!(
+            clipboard.imp().pinned_section.get_visible(),
+            "a pinned entry gives the section something to show"
+        );
+
+        let width =
+            |popover: &ClipboardPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
+        let floor = width(&clipboard);
+
+        clipboard.set_open(Some(2));
+        assert!(
+            clipboard.imp().hero.has_css_class("receded"),
+            "the hero is read against the open panel and must recede with everything else"
+        );
+        assert!(
+            clipboard.imp().clear.has_css_class("receded")
+                && clipboard.imp().footer.has_css_class("receded"),
+            "a footer row that stays lit still looks pressable while a card asks a question"
+        );
+        let opened = &rows(&clipboard.imp().recent)[0];
+        assert!(
+            opened.has_css_class("open") && !opened.has_css_class("receded"),
+            "the row that was opened is the one thing that must not recede"
+        );
+        assert!(
+            rows(&clipboard.imp().recent)[1].has_css_class("receded"),
+            "its neighbour recedes"
+        );
+        assert_eq!(
+            width(&clipboard),
+            floor,
+            "opening a detail must not resize the card under the pointer that opened it"
+        );
+
+        clipboard.set_open(None);
+        assert!(!clipboard.imp().hero.has_css_class("receded"));
+
+        // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
+        clipboard.set_open(Some(2));
+        let panel_of = |list: &ClipboardList, index: usize| {
+            let holder = list.observe_children().item(index as u32)?;
+            drawer::panel(holder.downcast_ref::<gtk4::Box>()?)?.child()
+        };
+        let before = panel_of(&clipboard.imp().recent, 0).expect("an open panel");
+        clipboard.set_recent(&[clip(2, false), clip(3, false)]);
+        assert_eq!(
+            panel_of(&clipboard.imp().recent, 0).as_ref(),
+            Some(&before),
+            "an unrelated republish must leave the open panel's buttons alone"
+        );
+
+        let cleared = Rc::new(Cell::new(false));
+        clipboard.connect_cleared({
+            let cleared = Rc::clone(&cleared);
+            move |_| cleared.set(true)
+        });
+        clipboard.imp().clear.emit_by_name::<()>("clicked", &[]);
+        assert!(cleared.get());
+
+        let restored = Rc::new(Cell::new(None));
+        clipboard.connect_restored({
+            let restored = Rc::clone(&restored);
+            move |_, id| restored.set(Some(id))
+        });
+        rows(&clipboard.imp().recent)[1].emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            restored.get(),
+            Some(3),
+            "a row emits the entry it currently holds, not the one it was built for"
+        );
+
+        // An empty Recent beside a populated Pinned would otherwise read "Nothing copied yet".
+        clipboard.set_recent(&[]);
+        assert!(
+            !clipboard.imp().recent_section.get_visible(),
+            "an empty Recent hides rather than contradicting the Pinned list above it"
+        );
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

@@ -547,6 +547,31 @@ experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second 
   `unmap` then stops unconditionally, by design. The second stop is routine, so `classify` reads it
   as done rather than as a refusal.
 
+**Data-control and the clipboard, September 2026.** niri 26.04 implements **both**
+`ext_data_control_manager_v1` and `zwlr_data_control_manager_v1` (read out of the binary; smithay
+compiles both selection handlers). `ext` is bound first as the standardised successor. The protocol
+carries **no client identity at all** — `ext_data_control_offer_v1` has one event, `offer(mime_type)`
+— so a row can never name the application a selection came from, and guessing it from the focused
+window is wrong whenever a script or a clipboard tool wrote it.
+
+- **Reading exactly the byte cap truncates silently.** `reader.take(CAP)` returns a full buffer for
+  any oversize selection, which then *passes* a cap comparison downstream and is stored as a
+  fragment that pastes back as corrupt content. Read `CAP + 1` and discard above `CAP`. Found by a
+  live `wl-copy` of 3 MB, not by any test — it needs a real peer writing more than the cap.
+- **`x-kde-passwordManagerHint` must be classified off the mime list before any content is read**,
+  so a secret never enters the process. `wl-copy --sensitive` exercises it end to end;
+  `wl-clipboard` is installed here, which makes this the most live-testable applet in the tree.
+- **`gdk::Texture::from_bytes` decodes at full size.** A byte cap says nothing about a pixel count
+  and a small file can decode to an enormous bitmap, so clipboard images go through
+  `glimpse_widgets::thumbnail`, which asks the loader for its dimensions and scales during decode.
+- **`DefaultHasher` has fixed keys** and produces identical output in every process, so a content
+  fingerprint built on it is forgeable by the application that chose the content. `RandomState` per
+  instance, and compare the content on an id match.
+- **`pgrep -f <pattern>` matches the shell running it**, so `pkill -f glimpse-panel` kills its own
+  command and the tool reports exit 144. Use `pkill -x`.
+- **`ydotoold` is not running here**, so `just click` cannot drive the panel at all — clicking a
+  popover row stays on the manual list.
+
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.
 It cannot prove the **pointer** case: `Row` is a `Gtk.Button` and `Gtk.Switch` runs its own click
