@@ -14,10 +14,7 @@ pub use {
     context::Ctx,
     gamma::{FakeGamma, Gamma},
     publisher::Publisher,
-    selection::{
-        Capture, FakeSelection, Offer, SENSITIVE_HINT, Selection, SelectionEvent,
-        UnavailableSelection, is_sensitive,
-    },
+    selection::{Capture, FakeSelection, Offer, Selection, SelectionEvent, is_sensitive},
     service::{
         CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceError,
         ServiceRuntime, ServiceSender, ServiceState,

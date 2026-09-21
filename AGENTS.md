@@ -569,8 +569,31 @@ window is wrong whenever a script or a clipboard tool wrote it.
   instance, and compare the content on an id match.
 - **`pgrep -f <pattern>` matches the shell running it**, so `pkill -f glimpse-panel` kills its own
   command and the tool reports exit 144. Use `pkill -x`.
+- **`data_offer` precedes `selection` OR `primary_selection`**, so a mouse highlight delivers an
+  offer too. Ignoring the `primary_selection` arm leaks a map entry and an undestroyed compositor
+  resource per highlight — thousands a day. Destroy it even when the value is unwanted. Measured:
+  65 highlights, 0 KB RSS growth once handled.
+- **A data-control connection must follow demand.** Constructing the backend unconditionally means
+  `enabled = false` still opens a socket and reads every copy into the process, which is the exact
+  promise that setting exists to make. Gate on the first `events()` subscriber and release the
+  connection when the last one goes; that also makes a re-enable work, which a `subscriptions()`
+  key leaving and returning otherwise cannot.
+- **Dropping a `spawn_blocking` `JoinHandle` does not cancel the task.** A retry loop that re-spawns
+  instead of re-awaiting leaks one pool thread per attempt; relm4 caps the pool at 512, after which
+  every other `spawn_blocking` in the panel stalls. Carry the handle, as `glimpse-idle` does.
+- **Keep every blocking setup step inside the timeout.** A `roundtrip` left on an async worker is
+  not covered by a timeout wrapping only the `spawn_blocking` before it, and parks a share of the
+  runtime for as long as the compositor stays silent.
 - **`ydotoold` is not running here**, so `just click` cannot drive the panel at all — clicking a
   popover row stays on the manual list.
+
+**The `#[ignore]`d GTK suite is not run by `just verify`, and is currently red, September 2026.**
+`just test` is `cargo test --workspace` with no `--include-ignored`, so `tests::widgets` — the single
+function holding nearly every widget assertion — only runs under `just test-compositor`. It fails at
+HEAD on a `DisplayList` render-gate assertion (bead `glimpse-cpr4`), reproduced in a clean worktree.
+Two consequences: the suite can rot unnoticed between compositor runs, and **one failure hides every
+assertion after it in that function** — new assertions appended to it may never execute. Put a new
+widget's assertions in their own `#[ignore]`d test rather than at the end of `widgets()`.
 
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.

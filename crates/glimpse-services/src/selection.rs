@@ -23,7 +23,7 @@ pub trait Selection: Send + Sync + 'static {
 /// The mime an application sets beside its content to say the clipboard holds a secret. Matched
 /// case-insensitively because it is a convention rather than a registered type, and the
 /// applications that honour it do not agree on the spelling.
-pub const SENSITIVE_HINT: &str = "x-kde-passwordManagerHint";
+const SENSITIVE_HINT: &str = "x-kde-passwordManagerHint";
 
 /// Whether an offer's mime list asks not to be remembered. This is the whole of the
 /// password-manager rule and the one place it is decided; a backend classifies the offer with it
@@ -77,34 +77,6 @@ impl std::fmt::Debug for Offer {
             .field("mime", &self.mime)
             .field("bytes", &self.data.len())
             .finish()
-    }
-}
-
-/// The null backend, for a compositor with neither data-control protocol. It watches nothing and
-/// refuses a write plainly rather than pretending one landed, and it says so once through
-/// `SelectionEvent::Unavailable` so the applet can explain itself.
-pub struct UnavailableSelection {
-    reason: String,
-}
-
-impl UnavailableSelection {
-    pub fn new(reason: impl Into<String>) -> Self {
-        Self {
-            reason: reason.into(),
-        }
-    }
-}
-
-impl Selection for UnavailableSelection {
-    fn events(&self) -> Pin<Box<dyn Stream<Item = SelectionEvent> + Send>> {
-        let reason = self.reason.clone();
-        Box::pin(stream::once(
-            async move { SelectionEvent::Unavailable(reason) },
-        ))
-    }
-
-    fn offer(&self, _offer: Offer) -> Result<(), String> {
-        Err(self.reason.clone())
     }
 }
 

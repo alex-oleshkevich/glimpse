@@ -265,7 +265,7 @@ mod tests {
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::selection::{Capture, FakeSelection, UnavailableSelection};
+    use crate::selection::{Capture, FakeSelection};
     use crate::service::ServiceState;
 
     const TEXT: &str = "text/plain;charset=utf-8";
@@ -434,12 +434,9 @@ mod tests {
     #[tokio::test]
     async fn a_compositor_without_data_control_degrades_and_says_why_in_the_state() {
         let reason = "the compositor does not offer a data-control protocol";
-        let mut harness = harness_with(
-            Arc::new(UnavailableSelection::new(reason)),
-            FakeSelection::default(),
-            config(),
-        )
-        .await;
+        let selection = FakeSelection::default();
+        selection.fail(Some(reason));
+        let mut harness = harness_with(Arc::new(selection.clone()), selection, config()).await;
 
         harness
             .feed(Input::Event(SelectionEvent::Unavailable(reason.to_owned())))
