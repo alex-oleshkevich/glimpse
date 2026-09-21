@@ -15,23 +15,45 @@ UPower to choose between `profiles.ac` and `profiles.battery`.
   which listeners are fired, and runs their commands
 - `wayland_notify.rs` — the `ext-idle-notify-v1` client that turns `Idled`/`Resumed` events into
   actor events and reports a stalled compositor as `Degraded` health
-- `inhibitors/registry.rs` — `Registry`, the shared capacity/rate-limited store every inhibitor
-  D-Bus surface inserts into and reads from
+- `inhibitors/registry.rs` — `Registry`, the shared capacity-bounded store every inhibitor D-Bus
+  surface inserts into and reads from
+- `inhibitors/health.rs` — `Health`, the one `InhibitorsHealth` every backend reports its own slot
+  of, and the generation behind the `Idle1.Health` property
 - `inhibitors/shared.rs` — `SharedRegistry`, the `Arc`+`Mutex`-wrapped `Registry` every D-Bus
   surface shares, plus the `watch::Receiver<bool>` the idle gate subscribes to
 - `inhibitors/control.rs` — `Idle1Server`, serving `me.aresa.Glimpse.Idle1` (`Hold`/`Release`, the
   `Inhibitors`/`Health` properties)
 - `inhibitors/screen_saver.rs` — `ScreenSaverServer`, serving `org.freedesktop.ScreenSaver`
-  (`Inhibit`/`UnInhibit`) at both `/org/freedesktop/ScreenSaver` and `/ScreenSaver`; also the
+  (`Inhibit`/`UnInhibit` only) at both `/org/freedesktop/ScreenSaver` and `/ScreenSaver`; also the
   `NameOwnerChanged` disconnect watcher that auto-releases a departed client's records
 - `inhibitors/login1_observer.rs` — polls `Login1Manager.ListInhibitors` every 5s and mirrors
   external inhibitors (backup tools, package-manager hooks, `systemd-inhibit` itself) into the
   registry as read-only records
-- `inhibitors/portal.rs` — `PortalInhibit`, serving `org.freedesktop.impl.portal.Inhibit` at
-  `/org/freedesktop/portal/desktop` for xdg-desktop-portal; `PortalRequest`, the dynamic per-call
-  `org.freedesktop.impl.portal.Request` object that releases the record on `Close()`
+- `inhibitors/portal.rs` — `PortalInhibit`, serving the whole of
+  `org.freedesktop.impl.portal.Inhibit` at `/org/freedesktop/portal/desktop`; `PortalRequest`, the
+  per-call `Request` object that releases the record on `Close()`; `PortalSession`, the monitor
+  session `CreateMonitor` hands back
 
 ## Design
+
+**`org.freedesktop.ScreenSaver` is served as `Inhibit`/`UnInhibit` and nothing else.** The
+interface has no published schema and the rest of it — `GetActive`, `SetActive`, `Lock`,
+`SimulateUserActivity`, `GetActiveTime`, `GetSessionIdleTime` — describes a screensaver this
+daemon does not own. An app that introspects finds the interface and gets `UnknownMethod` for
+those; that is the deliberate trade, because the two implemented members are what browsers and
+media players actually call.
+
+**The portal interface is served whole, because `glimpse-portals.conf` claims it whole.** Declaring
+`org.freedesktop.impl.portal.Inhibit=glimpse` routes `CreateMonitor` and `QueryEndResponse` here
+too, so implementing only `Inhibit` would hand an error to every app that asks to monitor session
+state. `CreateMonitor` serves a real `Session` object and emits one `StateChanged` carrying
+`session-state: 1`. **`screensaver-active` is deliberately absent** — the spec makes every key
+optional, and the lock screen belongs to `glimpse-lock`, so answering would be a guess.
+
+**There is no rate limiter.** Capacity alone bounds the registry (32 per bus, 128 total) and a
+disconnect sweeps a client's records, so throttling only bought smoothing — while a refused
+`Inhibit` blanks the screen under a media player that re-inhibits as it plays. Refusing a release
+was worse still: the record stranded and suppressed every listener until the client disconnected.
 
 **The D-Bus name is taken before any other task starts.** `own_name` failing is fatal, matching
 every other glimpse provider's primary name, and taking it first means a duplicate `glimpse-idle`
@@ -89,11 +111,12 @@ indices, so AC's listener 0 and battery's listener 0 are different listeners wit
 current one — otherwise a compositor event already in flight when a profile switch or config reload
 lands would fire whatever listener now holds that same index under the new policy.
 
-**`Actor` keeps the last real backend health as state, separate from `config.enabled`.**
-`state_for_config` derives the published health from that stored value, coercing it to `Disabled`
-only when the config itself is disabled. Deriving `Ready` straight from `config.enabled` would let a
-`false -> true` edit publish `Ready` for one tick even while the Wayland backend is still degraded or
-mid-reconnect.
+**Health is one value with one slot per backend, and the actor holds none of it.**
+`inhibitors/health.rs`'s `Health` owns an `InhibitorsHealth` behind one lock plus the generation
+that drives `Idle1.Health`; each backend writes only its own slot through `Backend`. The Wayland
+slot is the load-bearing one: a compositor with no `ext-idle-notify-v1` fires no listener ever,
+and without a slot of its own that reads on the bus exactly like a healthy daemon with nothing to
+report. The panel's idle applet warns on it through `render::unusable`.
 
 **The Wayland setup runs on a blocking worker under a timeout, and a stalled attempt is never
 abandoned for a second one.** Connecting, binding the registry and roundtripping is blocking and
@@ -140,12 +163,11 @@ nothing; `services::watch_registry` is what turns that `watch::Receiver` into
 change without it — a second idle-targeting record inserted while one already exists, or a
 `process_name` backfilled onto an existing record. `Registry::version` is bumped only by the
 operations that change what a reader could observe — `insert`, `release_record`,
-`set_process_name` — and by nothing else: `check_capacity`, `check_rate`, `mint_id` and
-`mint_cookie` never touch it, so a rejected `Inhibit`, an unknown-cookie `UnInhibit`, or a
-`NameOwnerChanged` disconnect from a bus name holding nothing all correctly bump neither `version`
-nor `generation`. Without that distinction the rate limiter would bound records but not the
-signal traffic those same rejected requests generate, and every session-bus disconnect from any
-app — not just one holding an inhibitor — would broadcast the full `Inhibitors` array.
+`set_process_name` — and by nothing else: `check_capacity`, `mint_id` and `mint_cookie` never
+touch it, so a rejected `Inhibit`, an unknown-cookie `UnInhibit`, or a `NameOwnerChanged`
+disconnect from a bus name holding nothing all correctly bump neither `version` nor `generation`.
+Without that distinction every session-bus disconnect from any app — not just one holding an
+inhibitor — would broadcast the full `Inhibitors` array.
 `SharedRegistry::mutate` republishes `generation` with `send_if_modified` against the registry's
 version, exactly like `any_idle_target`. `services::emit_changes` subscribes to it and, on
 every real change, re-fetches the `Idle1Server` object off the connection's `ObjectServer` and
@@ -196,29 +218,19 @@ one), a vanished key is released, and a still-present key has `/proc/<pid>/comm`
 before it ever reaches the diff — a delay inhibitor postpones shutdown by a few seconds for
 in-flight cleanup, not meaningful inhibition a user would want surfaced — while `block` and
 `block-weak` both pass through unchanged. Every mutation goes through `SharedRegistry::mutate`, so
-`Inhibitors`'s `PropertiesChanged` rides the existing `generation` mechanism for free. A
-`ListInhibitors` call that fails degrades `InhibitorsHealth.login1`, advancing the separate health
-generation only when that observable value changes, and is retried on the next 5s tick rather than
-in a tight loop — the interval is built with
-`MissedTickBehavior::Delay` rather than the default `Burst`, so a slow or hung poll delays the next
-tick instead of firing a backlog of catch-up ticks the instant it finally returns; the diff and the
-failure are both independent of the previously-observed set, so a transient failure never desyncs
-it. The first failure after a healthy run logs at `warn`; every further consecutive failure logs at
-`debug` instead, so a permanently logind-less machine does not spam the journal once a minute
-forever.
+`Inhibitors`'s `PropertiesChanged` rides the existing `generation` mechanism for free. A failed
+`ListInhibitors` degrades the `login1` health slot and retries on the next tick; the interval takes
+`MissedTickBehavior::Delay`, so a hung poll delays the next tick rather than firing a backlog of
+catch-up ticks the moment it returns. The first failure after a healthy run logs at `warn` and every
+further consecutive one at `debug`, so a logind-less machine does not spam the journal forever.
 
-**`login1_observer.rs` accepts three known blind spots, the same way the Wayland setup above accepts
-its own.** Cancellation is only checked between ticks, not while awaiting `ListInhibitors` itself, so
-`shutdown()` can block for up to that call's own bus timeout on a hung logind before this task
-actually stops — not solved here, matching the Wayland backend's unabortable `spawn_blocking` above.
-An inhibitor taken and released entirely within one 5-second window is never observed at all: this
-is the accepted cost of polling a backend with no change signal, `_old`'s equivalent module
-documented the same tradeoff, and every real inhibitor (a suspend blocker, a media hold) lives far
-longer than 5s in practice. And the `(pid, who, why)` key has two known limits of its own: a pid
-recycled by the kernel between one poll and the next can be misread as the same inhibitor continuing
-under a new process, and two genuinely distinct inhibitors from one process sharing an identical
-`who`/`why` pair collapse to whichever one `ListInhibitors` lists first — `compute_diff`'s dedup
-keeps that one and silently drops the rest until the kept one's `what`/mode next changes.
+**`login1_observer.rs` accepts three known blind spots.** Cancellation is checked only between
+ticks, so `shutdown()` can block for one bus timeout on a hung logind. An inhibitor taken and
+released inside one 5-second window is never observed — the cost of polling a backend with no
+change signal. And the `(pid, who, why)` key mis-reads a recycled pid as the same inhibitor, and
+collapses two inhibitors from one process that share a `who`/`why` pair to whichever
+`ListInhibitors` lists first; the rest are dropped rather than overwriting each other in
+`observed`, which would leak an untracked, permanently un-releasable record.
 
 **`Idle1Server.login1` is `Option<Login1ManagerProxy>`, independently of the D-Bus name.** Taking
 `me.aresa.Glimpse.Idle` is fatal on failure, same as every other glimpse provider's primary name —
@@ -229,28 +241,17 @@ all, so only `Hold` returns `NotSupported` on a logind-less system, and `login1_
 degrades `InhibitorsHealth.login1` and returns rather than polling nothing forever — everything else
 keeps working.
 
-**`Idle1Server::hold` checks capacity/rate before calling `login1.Inhibit`, then inserts after.**
-The reservation (`check_capacity` + `check_rate` + `mint_id`) and the insert are two separate
-`SharedRegistry::mutate` calls with the outbound `login1.Inhibit` call in between, because
-`check_rate` has a real side effect (it spends a token) and `mutate`'s closure is synchronous, so
-that call cannot sit inside the same lock as an `.await`. This bounds the common case — a rejected
-Hold never reaches logind at all — at the cost of a small, bounded overshoot of `MAX_INHIBITORS_*`
-equal to however many Holds are concurrently between their reservation and their insert; that
-trade is deliberate.
+**`Idle1Server::hold` checks capacity before calling `login1.Inhibit`, then re-checks and inserts
+after.** `mutate`'s closure is synchronous, so the outbound call cannot sit inside the same lock;
+the reservation and the insert are two calls with it in between. A rejected Hold never reaches
+logind, at the cost of a bounded overshoot equal to the Holds concurrently in flight.
 
-**`portal.rs`'s `PortalInhibit` uses the caller's `app_id`, not a D-Bus sender, as the rate-limit
-identity key — capacity is not keyed by it.** Every `xdg-desktop-portal` backend call arrives from
-the portal's own connection — sandbox isolation means the sandboxed app never talks to glimpse
-directly — so `header.sender()` would be the same value for every app and would let one hostile
-flatpak exhaust the shared token bucket for everyone else; `check_rate(Some(&app_id), ..)` keys its
-own per-name map on `app_id` and so works as intended. `check_capacity(Some(&app_id), ..)`, though,
-looks up `bus_name_to_ids`, and a portal record's `bus_name` is deliberately left empty (below), so
-it never populates that map — a portal inhibit is bounded only by the unconditional
-`MAX_INHIBITORS_TOTAL` cap, not by a per-app_id share of it. This is a fairness gap, not an
-unbounded one: the rate limiter alone still caps a hostile app at roughly one call per second
-sustained. `app_id` is not stored in the record's `bus_name` field: a portal record has no real
-bus-name identity to release-by-disconnect on, so `bus_name` stays empty and the only release path
-is `Request.Close()`.
+**`PortalInhibit` identifies a caller by `app_id`, not by its D-Bus sender.** Every backend call
+arrives on xdg-desktop-portal's own connection, so `header.sender()` is the same value for every
+sandboxed app and would pool them all together. `check_capacity` counts a record through
+`IdleInhibitorRecord::owned_by`, which matches either the bus name or the `app_id` — a portal
+record's `bus_name` stays empty, because it has no bus-name identity to release-by-disconnect on
+and `Request.Close()` is its only release path.
 
 **A missing `login1` proxy, or a failed `login1.Inhibit` call, degrades to a trackless record rather
 than refusing the portal call.** `Inhibit` has no return value in the xdg-desktop-portal spec, so

@@ -17,13 +17,6 @@ pub enum PowerSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Health {
-    Disabled,
-    Ready,
-    Degraded { message: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveListener {
     pub id: usize,
     pub timeout: u64,
@@ -34,7 +27,6 @@ pub struct ActiveListener {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
-    pub health: Health,
     pub enabled: bool,
     pub power_source: PowerSource,
     pub listeners: Vec<ActiveListener>,
@@ -48,7 +40,6 @@ pub enum Event {
     OnBattery(bool),
     ListenerIdle { generation: u64, id: usize },
     ListenerResume { generation: u64, id: usize },
-    BackendHealth(Health),
     RegistryChanged(bool),
 }
 
@@ -121,16 +112,12 @@ pub struct Actor {
     suppressed: HashSet<usize>,
     any_idle_target: bool,
     command_locks: HashMap<usize, Arc<AsyncMutex<()>>>,
-    last_backend_health: Health,
 }
 
 impl Actor {
     pub fn new(config: Idle, on_battery: bool, runner: Arc<dyn CommandRunner>) -> (Self, Handle) {
         let power_source = power_source_for(on_battery);
-        let last_backend_health = Health::Degraded {
-            message: "not connected".to_owned(),
-        };
-        let state = state_for_config(&config, power_source, 0, &last_backend_health);
+        let state = state_for_config(&config, power_source, 0);
         let command_locks = command_locks_for(&state.listeners);
         let (state_tx, state_rx) = watch::channel(state);
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
@@ -146,7 +133,6 @@ impl Actor {
                 suppressed: HashSet::new(),
                 any_idle_target: false,
                 command_locks,
-                last_backend_health,
             },
             Handle {
                 command_tx,
@@ -165,7 +151,6 @@ impl Actor {
                     Some(Event::OnBattery(on_battery)) => self.set_on_battery(on_battery),
                     Some(Event::ListenerIdle { generation, id }) => self.listener_idle(generation, id),
                     Some(Event::ListenerResume { generation, id }) => self.listener_resume(generation, id),
-                    Some(Event::BackendHealth(health)) => self.set_health(health),
                     Some(Event::RegistryChanged(value)) => self.set_any_idle_target(value),
                     None => break,
                 }
@@ -205,12 +190,7 @@ impl Actor {
         self.fired.clear();
         self.suppressed.clear();
 
-        let state = state_for_config(
-            &self.config,
-            self.power_source,
-            current.generation + 1,
-            &self.last_backend_health,
-        );
+        let state = state_for_config(&self.config, self.power_source, current.generation + 1);
         self.sync_command_locks(&state.listeners);
         self.state_tx.send_replace(state);
     }
@@ -311,19 +291,6 @@ impl Actor {
         });
     }
 
-    fn set_health(&mut self, health: Health) {
-        self.last_backend_health = health.clone();
-        self.state_tx.send_if_modified(|state| {
-            let health = effective_health(&health, state.enabled);
-            if state.health == health {
-                false
-            } else {
-                state.health = health;
-                true
-            }
-        });
-    }
-
     fn sync_command_locks(&mut self, listeners: &[ActiveListener]) {
         self.command_locks
             .retain(|id, _| listeners.iter().any(|listener| listener.id == *id));
@@ -343,27 +310,13 @@ fn power_source_for(on_battery: bool) -> PowerSource {
     }
 }
 
-fn state_for_config(
-    config: &Idle,
-    power_source: PowerSource,
-    generation: u64,
-    backend_health: &Health,
-) -> State {
+fn state_for_config(config: &Idle, power_source: PowerSource, generation: u64) -> State {
     State {
-        health: effective_health(backend_health, config.enabled),
         enabled: config.enabled,
         power_source,
         listeners: effective_listeners(config, power_source),
         fired_listeners: vec![],
         generation,
-    }
-}
-
-fn effective_health(backend_health: &Health, enabled: bool) -> Health {
-    if enabled {
-        backend_health.clone()
-    } else {
-        Health::Disabled
     }
 }
 
@@ -641,8 +594,10 @@ mod tests {
         let task = tokio::spawn(actor.run(cancel.clone()));
 
         let state = handle.snapshot();
-        assert_eq!(state.health, Health::Disabled);
-        assert!(state.listeners.is_empty());
+        assert!(
+            state.listeners.is_empty(),
+            "`enabled = false` resolves to no listeners at all"
+        );
 
         handle
             .send(Event::ListenerIdle {
@@ -684,41 +639,6 @@ mod tests {
 
         assert!(handle.snapshot().fired_listeners.is_empty());
         assert!(commands.0.lock().unwrap().is_empty());
-
-        cancel.cancel();
-        let _ = task.await;
-    }
-    #[tokio::test]
-    async fn enabling_reapplies_last_known_backend_health() {
-        let mut disabled = test_config();
-        disabled.enabled = false;
-        let (actor, handle) = Actor::new(
-            disabled,
-            false,
-            Arc::new(RecordingRunner {
-                commands: Recorded::default(),
-            }),
-        );
-        let cancel = CancellationToken::new();
-        let task = tokio::spawn(actor.run(cancel.clone()));
-
-        handle
-            .send(Event::BackendHealth(Health::Degraded {
-                message: "no compositor".into(),
-            }))
-            .await;
-        settle().await;
-        assert_eq!(handle.snapshot().health, Health::Disabled);
-
-        handle.send(Event::ApplyConfig(test_config())).await;
-        settle().await;
-
-        assert_eq!(
-            handle.snapshot().health,
-            Health::Degraded {
-                message: "no compositor".into()
-            }
-        );
 
         cancel.cancel();
         let _ = task.await;

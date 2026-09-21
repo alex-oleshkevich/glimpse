@@ -1,4 +1,5 @@
 mod control;
+mod health;
 pub mod login1_observer;
 pub mod portal;
 mod registry;
@@ -8,7 +9,8 @@ mod shared;
 pub(crate) mod test_support;
 
 pub use control::Idle1Server;
-pub use registry::{Registry, ReleaseOutcome, clamp_label};
+pub use health::{Backend, Health};
+pub use registry::Registry;
 pub use shared::SharedRegistry;
 
 pub(crate) const WHO_CAP: usize = 120;

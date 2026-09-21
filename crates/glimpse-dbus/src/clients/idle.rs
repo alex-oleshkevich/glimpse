@@ -168,6 +168,13 @@ pub struct IdleInhibitorRecord {
     pub added_at_unix: u64,
 }
 
+impl IdleInhibitorRecord {
+    pub fn owned_by(&self, owner: &str) -> bool {
+        (!self.bus_name.is_empty() && self.bus_name == owner)
+            || (!self.source.app_id.is_empty() && self.source.app_id == owner)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct BackendHealth {
     pub kind: HealthKind,
@@ -179,10 +186,17 @@ pub struct InhibitorsHealth {
     pub screen_saver: BackendHealth,
     pub portal: BackendHealth,
     pub login1: BackendHealth,
+    pub wayland: BackendHealth,
+}
+
+impl Default for InhibitorsHealth {
+    fn default() -> Self {
+        Self::unknown()
+    }
 }
 
 impl InhibitorsHealth {
-    fn unknown() -> Self {
+    pub(crate) fn unknown() -> Self {
         let health = BackendHealth {
             kind: HealthKind::Unsupported,
             message: String::new(),
@@ -190,7 +204,8 @@ impl InhibitorsHealth {
         Self {
             screen_saver: health.clone(),
             portal: health.clone(),
-            login1: health,
+            login1: health.clone(),
+            wayland: health,
         }
     }
 }
@@ -635,6 +650,7 @@ fn decode_health(health: InhibitorsHealth) -> InhibitorsHealth {
         screen_saver: clean_backend_health(health.screen_saver),
         portal: clean_backend_health(health.portal),
         login1: clean_backend_health(health.login1),
+        wayland: clean_backend_health(health.wayland),
     }
 }
 
@@ -658,7 +674,12 @@ mod tests {
             IdleInhibitorRecord::SIGNATURE,
             "(tssss(uussuuu)(bbbbbbb)bt)"
         );
-        assert_eq!(InhibitorsHealth::SIGNATURE, "((us)(us)(us))");
+        assert_eq!(
+            InhibitorsHealth::SIGNATURE,
+            "((us)(us)(us)(us))",
+            "the wayland slot was appended; the OwnedValue derive pops one field per declared \
+             field in order, so an older client drops the extra and only a removal would panic it"
+        );
     }
 
     #[test]

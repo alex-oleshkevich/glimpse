@@ -118,9 +118,6 @@ mod tests {
         let (shared, _idle_target, mut generation) = SharedRegistry::new();
         assert_eq!(*generation.borrow_and_update(), 0);
 
-        // Minting alone changes nothing a reader could observe, so it must not wake a subscriber
-        // — this is the case that used to defeat the rate limiter by broadcasting on every
-        // rejected Inhibit.
         shared.mutate(|registry| registry.mint_id()).await;
         assert!(
             !generation.has_changed().unwrap(),
@@ -144,8 +141,6 @@ mod tests {
         assert!(generation.has_changed().unwrap());
         assert_eq!(*generation.borrow_and_update(), 3);
 
-        // Releasing an id already gone (an unknown UnInhibit cookie, a disconnect from a bus name
-        // holding nothing) must not broadcast either.
         shared.mutate(|registry| registry.release_record(id)).await;
         assert!(!generation.has_changed().unwrap());
     }

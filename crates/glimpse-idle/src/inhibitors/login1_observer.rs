@@ -2,15 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use glimpse_dbus::idle::{
-    BackendHealth, HealthKind, IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets,
-    Login1Mode,
-};
+use glimpse_dbus::idle::{IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, Login1Mode};
 use glimpse_dbus::login1::{Login1InhibitorEntry, Login1ManagerProxy};
-use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
-use super::{SharedRegistry, WHO_CAP, WHY_CAP, clamp_label, unix_now};
+use super::{Backend, Health, SharedRegistry, WHO_CAP, WHY_CAP, unix_now};
 
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -29,27 +25,6 @@ pub struct Diff {
 pub struct Rename {
     pub id: u64,
     pub process_name: String,
-}
-
-pub(crate) fn set_health(
-    health: &std::sync::Mutex<BackendHealth>,
-    generation: &watch::Sender<u64>,
-    next: BackendHealth,
-) {
-    let changed = {
-        let mut current = health
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if *current == next {
-            false
-        } else {
-            *current = next;
-            true
-        }
-    };
-    if changed {
-        generation.send_modify(|value| *value = value.wrapping_add(1));
-    }
 }
 
 pub fn parse_login1_mode(mode: &str) -> Option<Login1Mode> {
@@ -91,11 +66,6 @@ pub fn compute_diff(
     let current_keys: HashSet<ObservedKey> =
         surfaced.iter().map(|entry| observed_key(entry)).collect();
 
-    // logind hands out no id of its own, so two genuinely distinct inhibitors from the same
-    // process sharing a `who`/`why` pair are indistinguishable by key within one snapshot; the
-    // first occurrence wins and the rest are dropped rather than silently overwriting each other
-    // in `observed`, which would otherwise leak the overwritten one as an untracked, permanently
-    // un-releasable registry record.
     let mut seen = HashSet::with_capacity(surfaced.len());
     let added = surfaced
         .into_iter()
@@ -123,8 +93,8 @@ pub fn entry_to_record(
     let (what, who, why, mode, uid, pid) = entry;
     IdleInhibitorRecord {
         id,
-        who: clamp_label(who, WHO_CAP),
-        why: clamp_label(why, WHY_CAP),
+        who: glimpse_utils::clean(who, WHO_CAP),
+        why: glimpse_utils::clean(why, WHY_CAP),
         bus_name: String::new(),
         process_name,
         source: IdleInhibitorSource::login1(
@@ -158,34 +128,24 @@ async fn read_process_name(pid: u32) -> Option<String> {
     let comm = tokio::fs::read_to_string(format!("/proc/{pid}/comm"))
         .await
         .ok()?;
-    Some(clamp_label(&comm, WHO_CAP))
+    Some(glimpse_utils::clean(&comm, WHO_CAP))
 }
 
 pub async fn start(
     login1: Option<Login1ManagerProxy<'static>>,
     registry: Arc<SharedRegistry>,
-    health: Arc<std::sync::Mutex<BackendHealth>>,
-    health_generation: watch::Sender<u64>,
+    health: Health,
     cancel: CancellationToken,
 ) {
     let Some(login1) = login1 else {
         tracing::warn!("no system bus; login1 inhibitors will not be observed");
-        set_health(
-            &health,
-            &health_generation,
-            BackendHealth {
-                kind: HealthKind::Degraded,
-                message: "cannot reach org.freedesktop.login1".to_owned(),
-            },
-        );
+        health.degraded(Backend::Login1, "cannot reach org.freedesktop.login1");
         return;
     };
 
     let own_pid = std::process::id();
     let mut observed: HashMap<ObservedKey, ObservedInhibitor> = HashMap::new();
     let mut interval = tokio::time::interval(POLL_INTERVAL);
-    // A hung `ListInhibitors` reply delays the next tick already; a burst of catch-up ticks the
-    // instant it finally fails or returns would turn one slow poll into a retry storm.
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let mut poll_failing = false;
 
@@ -207,14 +167,7 @@ pub async fn start(
                     tracing::warn!(%error, "logind ListInhibitors failed");
                     poll_failing = true;
                 }
-                set_health(
-                    &health,
-                    &health_generation,
-                    BackendHealth {
-                        kind: HealthKind::Degraded,
-                        message: glimpse_utils::clean(&error.to_string(), WHY_CAP),
-                    },
-                );
+                health.degraded(Backend::Login1, error.to_string());
                 continue;
             }
         };
@@ -239,9 +192,6 @@ pub async fn start(
             }
         }
 
-        // A read that fails (the process exited between the `ListInhibitors` reply and this read)
-        // is left out of `fresh_names` entirely, so `compute_renames`'s own "no fresh name" guard
-        // skips it — never a blank overwrite of a name we already have on file.
         let mut fresh_names = HashMap::with_capacity(observed.len());
         for key in observed.keys() {
             if let Some(process_name) = read_process_name(key.0).await {
@@ -262,14 +212,7 @@ pub async fn start(
             }
         }
 
-        set_health(
-            &health,
-            &health_generation,
-            BackendHealth {
-                kind: HealthKind::Ready,
-                message: String::new(),
-            },
-        );
+        health.ready(Backend::Login1);
     }
 }
 

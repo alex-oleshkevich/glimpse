@@ -13,16 +13,18 @@ use wayland_protocols::ext::idle_notify::v1::client::{
 };
 
 use crate::idle;
+use crate::inhibitors::{Backend as HealthOf, Health};
 
 pub const WAYLAND_SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 const WAYLAND_RETRY_DELAY: Duration = Duration::from_secs(2);
 
-pub async fn run(idle: idle::Handle, cancel: CancellationToken) {
+pub async fn run(idle: idle::Handle, health: Health, cancel: CancellationToken) {
     let mut connecting: Option<JoinHandle<anyhow::Result<Setup>>> = None;
 
     loop {
         match run_inner(
             idle.clone(),
+            &health,
             cancel.clone(),
             WAYLAND_SETUP_TIMEOUT,
             &mut connecting,
@@ -32,12 +34,7 @@ pub async fn run(idle: idle::Handle, cancel: CancellationToken) {
             Ok(()) => break,
             Err(error) => {
                 tracing::warn!(%error, "idle wayland backend failed");
-                send_health(
-                    &idle,
-                    idle::Health::Degraded {
-                        message: error.to_string(),
-                    },
-                );
+                health.degraded(HealthOf::Wayland, error.to_string());
                 tokio::select! {
                     _ = cancel.cancelled() => break,
                     _ = tokio::time::sleep(WAYLAND_RETRY_DELAY) => {}
@@ -58,6 +55,7 @@ struct Setup {
 
 async fn run_inner(
     idle: idle::Handle,
+    health: &Health,
     cancel: CancellationToken,
     setup_timeout: Duration,
     connecting: &mut Option<JoinHandle<anyhow::Result<Setup>>>,
@@ -75,7 +73,7 @@ async fn run_inner(
     };
 
     tracing::info!("idle backend connected to ext-idle-notify-v1");
-    send_health(&idle, idle::Health::Ready);
+    health.ready(HealthOf::Wayland);
 
     let mut state_rx = idle.subscribe();
     sync_notifications(&mut backend, &notifier, &seat, &qh, &idle.snapshot());
@@ -219,12 +217,6 @@ fn register_listener(
 fn clear_notifications(backend: &mut Backend) {
     for notification in backend.notifications.drain(..) {
         notification.destroy();
-    }
-}
-
-fn send_health(idle: &idle::Handle, health: idle::Health) {
-    if let Err(error) = idle.try_send(idle::Event::BackendHealth(health)) {
-        tracing::warn!(%error, "failed to update idle backend health");
     }
 }
 

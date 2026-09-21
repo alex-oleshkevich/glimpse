@@ -2,38 +2,31 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use glimpse_dbus::idle::{
-    BackendHealth, IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, InhibitorsHealth,
-    Login1Mode,
+    IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, InhibitorsHealth, Login1Mode,
 };
 use glimpse_dbus::login1::{Login1ManagerProxy, current_uid};
 use zbus::message::Header;
 
-use super::{SharedRegistry, unix_now};
+use super::{Health, SharedRegistry, unix_now};
 
 const REASON_CAP: usize = 240;
 
 pub struct Idle1Server {
     registry: Arc<SharedRegistry>,
     login1: Option<Login1ManagerProxy<'static>>,
-    screen_saver_health: Arc<std::sync::Mutex<BackendHealth>>,
-    portal_health: Arc<std::sync::Mutex<BackendHealth>>,
-    login1_health: Arc<std::sync::Mutex<BackendHealth>>,
+    health: Health,
 }
 
 impl Idle1Server {
     pub fn new(
         registry: Arc<SharedRegistry>,
         login1: Option<Login1ManagerProxy<'static>>,
-        screen_saver_health: Arc<std::sync::Mutex<BackendHealth>>,
-        portal_health: Arc<std::sync::Mutex<BackendHealth>>,
-        login1_health: Arc<std::sync::Mutex<BackendHealth>>,
+        health: Health,
     ) -> Self {
         Self {
             registry,
             login1,
-            screen_saver_health,
-            portal_health,
-            login1_health,
+            health,
         }
     }
 }
@@ -47,26 +40,7 @@ impl Idle1Server {
 
     #[zbus(property)]
     async fn health(&self) -> InhibitorsHealth {
-        let screen_saver = self
-            .screen_saver_health
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone();
-        let login1 = self
-            .login1_health
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone();
-        let portal = self
-            .portal_health
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone();
-        InhibitorsHealth {
-            screen_saver,
-            portal,
-            login1,
-        }
+        self.health.snapshot()
     }
 
     async fn hold(
@@ -91,9 +65,6 @@ impl Idle1Server {
             .registry
             .mutate(move |registry| -> Result<u64, String> {
                 registry.check_capacity(Some(&bus_name_for_check))?;
-                if !registry.check_rate(Some(&bus_name_for_check), std::time::Instant::now()) {
-                    return Err("inhibit rate limit exceeded".to_owned());
-                }
                 Ok(registry.mint_id())
             })
             .await
@@ -182,16 +153,10 @@ mod tests {
     use zbus::Connection;
 
     use super::*;
+    use crate::inhibitors::Backend;
     use crate::inhibitors::test_support::{
         FakeLogin1, start_fake_login1, start_paused_fake_login1,
     };
-
-    fn test_health_cell() -> Arc<std::sync::Mutex<BackendHealth>> {
-        Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }))
-    }
 
     async fn start_server(
         bus: &PrivateBus,
@@ -200,13 +165,7 @@ mod tests {
         let app = bus.connection().await;
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
         let login1 = Login1ManagerProxy::new(&app).await.unwrap();
-        let server = Idle1Server::new(
-            registry.clone(),
-            Some(login1),
-            test_health_cell(),
-            test_health_cell(),
-            test_health_cell(),
-        );
+        let server = Idle1Server::new(registry.clone(), Some(login1), Health::new().0);
         app.object_server()
             .at(GLIMPSE_IDLE_OBJECT_PATH, server)
             .await
@@ -231,13 +190,7 @@ mod tests {
         let app = bus.connection().await;
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
         let login1 = Login1ManagerProxy::new(&app).await.unwrap();
-        let server = Idle1Server::new(
-            registry.clone(),
-            Some(login1),
-            test_health_cell(),
-            test_health_cell(),
-            test_health_cell(),
-        );
+        let server = Idle1Server::new(registry.clone(), Some(login1), Health::new().0);
         app.object_server()
             .at(GLIMPSE_IDLE_OBJECT_PATH, server)
             .await
@@ -433,13 +386,7 @@ mod tests {
         let bus = PrivateBus::start();
         let app = bus.connection().await;
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let server = Idle1Server::new(
-            registry,
-            None,
-            test_health_cell(),
-            test_health_cell(),
-            test_health_cell(),
-        );
+        let server = Idle1Server::new(registry, None, Health::new().0);
         app.object_server()
             .at(GLIMPSE_IDLE_OBJECT_PATH, server)
             .await
@@ -463,72 +410,36 @@ mod tests {
         assert!(proxy.inhibitors().await.unwrap().is_empty());
     }
     #[tokio::test]
-    async fn health_reflects_the_shared_screen_saver_health_cell() {
+    async fn health_reports_every_backend_from_the_one_shared_value() {
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let health_cell = test_health_cell();
-        let server = Idle1Server::new(
-            registry,
-            None,
-            health_cell.clone(),
-            test_health_cell(),
-            test_health_cell(),
-        );
+        let health = Health::new().0;
+        let server = Idle1Server::new(registry, None, health.clone());
 
+        let initial = server.health().await;
+        for kind in [
+            initial.screen_saver.kind,
+            initial.portal.kind,
+            initial.login1.kind,
+            initial.wayland.kind,
+        ] {
+            assert_eq!(kind, HealthKind::Unsupported, "nothing has reported yet");
+        }
+
+        health.degraded(Backend::ScreenSaver, "Bus name already owned");
+        health.degraded(Backend::Portal, "Bus name already owned");
+        health.degraded(Backend::Login1, "cannot reach org.freedesktop.login1");
+        health.degraded(Backend::Wayland, "no ext-idle-notify-v1");
+
+        let reported = server.health().await;
+        assert_eq!(reported.screen_saver.message, "Bus name already owned");
+        assert_eq!(reported.portal.message, "Bus name already owned");
         assert_eq!(
-            server.health().await.screen_saver.kind,
-            HealthKind::Unsupported
+            reported.login1.message,
+            "cannot reach org.freedesktop.login1"
         );
-
-        *health_cell.lock().unwrap() = BackendHealth {
-            kind: HealthKind::Degraded,
-            message: "Bus name already owned".to_owned(),
-        };
-        let health = server.health().await;
-        assert_eq!(health.screen_saver.kind, HealthKind::Degraded);
-        assert_eq!(health.screen_saver.message, "Bus name already owned");
-    }
-    #[tokio::test]
-    async fn health_reflects_the_shared_login1_health_cell() {
-        let (registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let login1_health_cell = test_health_cell();
-        let server = Idle1Server::new(
-            registry,
-            None,
-            test_health_cell(),
-            test_health_cell(),
-            login1_health_cell.clone(),
+        assert_eq!(
+            reported.wayland.message, "no ext-idle-notify-v1",
+            "without this slot the compositor lacking the protocol is invisible to every client"
         );
-
-        assert_eq!(server.health().await.login1.kind, HealthKind::Unsupported);
-
-        *login1_health_cell.lock().unwrap() = BackendHealth {
-            kind: HealthKind::Degraded,
-            message: "cannot reach org.freedesktop.login1".to_owned(),
-        };
-        let health = server.health().await;
-        assert_eq!(health.login1.kind, HealthKind::Degraded);
-        assert_eq!(health.login1.message, "cannot reach org.freedesktop.login1");
-    }
-    #[tokio::test]
-    async fn health_reflects_the_shared_portal_health_cell() {
-        let (registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let portal_health_cell = test_health_cell();
-        let server = Idle1Server::new(
-            registry,
-            None,
-            test_health_cell(),
-            portal_health_cell.clone(),
-            test_health_cell(),
-        );
-
-        assert_eq!(server.health().await.portal.kind, HealthKind::Unsupported);
-
-        *portal_health_cell.lock().unwrap() = BackendHealth {
-            kind: HealthKind::Degraded,
-            message: "Bus name already owned".to_owned(),
-        };
-        let health = server.health().await;
-        assert_eq!(health.portal.kind, HealthKind::Degraded);
-        assert_eq!(health.portal.message, "Bus name already owned");
     }
 }

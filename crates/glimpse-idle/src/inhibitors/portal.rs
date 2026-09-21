@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
-use glimpse_dbus::idle::{
-    BackendHealth, HealthKind, IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets,
-};
+use glimpse_dbus::idle::{IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets};
 use glimpse_dbus::login1::Login1ManagerProxy;
 use zbus::Connection;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue};
 
-use super::{SharedRegistry, WHO_CAP, WHY_CAP, clamp_label, unix_now};
+use super::{Backend, Health, SharedRegistry, WHO_CAP, WHY_CAP, unix_now};
 
 const BUS_NAME: &str = "me.aresa.Glimpse.Idle.Portal";
 const OBJECT_PATH: &str = "/org/freedesktop/portal/desktop";
+const PORTAL_RESPONSE_SUCCESS: u32 = 0;
+const PORTAL_RESPONSE_OTHER: u32 = 2;
+const SESSION_RUNNING: u32 = 1;
 
 pub struct PortalInhibit {
     registry: Arc<SharedRegistry>,
@@ -30,12 +30,12 @@ impl PortalInhibit {
         options: HashMap<String, OwnedValue>,
         #[zbus(connection)] conn: &Connection,
     ) -> zbus::fdo::Result<()> {
-        let app_id = clamp_label(&app_id, WHO_CAP);
+        let app_id = glimpse_utils::clean(&app_id, WHO_CAP);
         let targets = InhibitionTargets::from_portal_flags(flags);
         let reason = options
             .get("reason")
             .and_then(|value| String::try_from(value.clone()).ok())
-            .map(|reason| clamp_label(&reason, WHY_CAP))
+            .map(|reason| glimpse_utils::clean(&reason, WHY_CAP))
             .unwrap_or_default();
 
         let app_id_for_check = app_id.clone();
@@ -43,9 +43,6 @@ impl PortalInhibit {
             .registry
             .mutate(move |registry| -> Result<u64, String> {
                 registry.check_capacity(Some(&app_id_for_check))?;
-                if !registry.check_rate(Some(&app_id_for_check), Instant::now()) {
-                    return Err("inhibit rate limit exceeded".to_owned());
-                }
                 Ok(registry.mint_id())
             })
             .await
@@ -128,6 +125,65 @@ impl PortalInhibit {
 
         Ok(())
     }
+
+    async fn create_monitor(
+        &self,
+        _handle: ObjectPath<'_>,
+        session_handle: ObjectPath<'_>,
+        app_id: String,
+        _window: String,
+        #[zbus(connection)] conn: &Connection,
+        #[zbus(signal_emitter)] emitter: zbus::object_server::SignalEmitter<'_>,
+    ) -> zbus::fdo::Result<u32> {
+        let owned: OwnedObjectPath = session_handle.to_owned().into();
+        let session = PortalSession {
+            handle: owned.clone(),
+        };
+        if let Err(error) = conn.object_server().at(owned.clone(), session).await {
+            tracing::warn!(%error, session = %owned, "portal monitor session path already taken");
+            return Ok(PORTAL_RESPONSE_OTHER);
+        }
+        tracing::info!(%app_id, session = %owned, "portal monitor session created");
+
+        let _ = emitter.state_changed(owned.as_ref(), running_state()).await;
+        Ok(PORTAL_RESPONSE_SUCCESS)
+    }
+
+    async fn query_end_response(&self, session_handle: ObjectPath<'_>) {
+        tracing::debug!(session = %session_handle, "portal query-end acknowledged");
+    }
+
+    #[zbus(signal)]
+    async fn state_changed(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        session_handle: ObjectPath<'_>,
+        state: HashMap<String, OwnedValue>,
+    ) -> zbus::Result<()>;
+}
+
+fn running_state() -> HashMap<String, OwnedValue> {
+    let mut state = HashMap::new();
+    if let Ok(running) = OwnedValue::try_from(zbus::zvariant::Value::from(SESSION_RUNNING)) {
+        state.insert("session-state".to_owned(), running);
+    }
+    state
+}
+
+struct PortalSession {
+    handle: OwnedObjectPath,
+}
+
+#[zbus::interface(name = "org.freedesktop.impl.portal.Session")]
+impl PortalSession {
+    async fn close(&self, #[zbus(object_server)] object_server: &zbus::ObjectServer) {
+        let _ = object_server
+            .remove::<PortalSession, _>(self.handle.clone())
+            .await;
+        tracing::debug!(session = %self.handle, "portal monitor session closed");
+    }
+
+    #[zbus(signal)]
+    async fn closed(emitter: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()>;
 }
 
 struct PortalRequest {
@@ -167,35 +223,26 @@ pub async fn start(
     connection: Connection,
     registry: Arc<SharedRegistry>,
     login1: Option<Login1ManagerProxy<'static>>,
-    health: Arc<std::sync::Mutex<BackendHealth>>,
+    health: Health,
 ) {
     let server = PortalInhibit { registry, login1 };
     if let Err(error) = connection.object_server().at(OBJECT_PATH, server).await {
         tracing::warn!(%error, "failed to register org.freedesktop.impl.portal.Inhibit object");
     }
 
-    let result = match glimpse_dbus::own_name(&connection, BUS_NAME).await {
+    match glimpse_dbus::own_name(&connection, BUS_NAME).await {
         Ok(()) => {
             tracing::info!(bus_name = BUS_NAME, "acquired me.aresa.Glimpse.Idle.Portal");
-            BackendHealth {
-                kind: HealthKind::Ready,
-                message: String::new(),
-            }
+            health.ready(Backend::Portal);
         }
         Err(error) => {
             tracing::warn!(
                 %error,
                 "me.aresa.Glimpse.Idle.Portal already owned; running in degraded mode"
             );
-            BackendHealth {
-                kind: HealthKind::Degraded,
-                message: "Bus name already owned".to_owned(),
-            }
+            health.degraded(Backend::Portal, "Bus name already owned");
         }
-    };
-    *health
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner()) = result;
+    }
 }
 
 #[cfg(test)]
@@ -235,6 +282,27 @@ mod tests {
         fn close(&self) -> zbus::Result<()>;
     }
 
+    #[zbus::proxy(
+        interface = "org.freedesktop.impl.portal.Inhibit",
+        default_service = "me.aresa.Glimpse.Idle.Portal",
+        default_path = "/org/freedesktop/portal/desktop"
+    )]
+    trait PortalMonitorTest {
+        fn create_monitor(
+            &self,
+            handle: &ObjectPath<'_>,
+            session_handle: &ObjectPath<'_>,
+            app_id: &str,
+            window: &str,
+        ) -> zbus::Result<u32>;
+        fn query_end_response(&self, session_handle: &ObjectPath<'_>) -> zbus::Result<()>;
+    }
+
+    #[zbus::proxy(interface = "org.freedesktop.impl.portal.Session")]
+    trait PortalSessionTest {
+        fn close(&self) -> zbus::Result<()>;
+    }
+
     async fn start_server(
         bus: &PrivateBus,
     ) -> (Connection, Connection, Arc<SharedRegistry>, FakeLogin1) {
@@ -242,10 +310,7 @@ mod tests {
         let app = bus.connection().await;
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
         let login1 = Login1ManagerProxy::new(&app).await.unwrap();
-        let health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
+        let health = Health::new().0;
         start(app.clone(), registry.clone(), Some(login1), health).await;
         (login1_conn, app, registry, fake_login1)
     }
@@ -264,10 +329,7 @@ mod tests {
         let app = bus.connection().await;
         let registry = SharedRegistry::new().0;
         let login1 = Login1ManagerProxy::new(&app).await.unwrap();
-        let health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
+        let health = Health::new().0;
         start(app.clone(), registry.clone(), Some(login1), health).await;
         (login1_conn, app, registry, fake_login1, started, release)
     }
@@ -345,11 +407,9 @@ mod tests {
         request_proxy.close().await.unwrap();
         assert!(find_record(&registry, id).await.is_none());
 
-        // The object is gone; a second Close() must fail cleanly rather than panic the process.
         let second = request_proxy.close().await;
         assert!(second.is_err());
 
-        // The server itself is still alive and answers a fresh Inhibit call.
         let handle2 = ObjectPath::try_from("/req/2b").unwrap();
         inhibit_proxy
             .inhibit(&handle2, "org.test.App", "", 8, HashMap::new())
@@ -391,8 +451,6 @@ mod tests {
              object routing to it"
         );
 
-        // The original record survives and is still reachable/releasable through the handle,
-        // since that Request object is the one that actually stayed registered.
         let request_proxy = PortalRequestTestProxy::builder(&client)
             .path(handle.clone())
             .unwrap()
@@ -505,6 +563,43 @@ mod tests {
         assert_eq!(readers[0].read(&mut buf).unwrap(), 0);
     }
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn create_monitor_serves_a_session_that_closes_and_query_end_is_accepted() {
+        let bus = PrivateBus::start();
+        let (_login1_conn, _app, _registry, _fake) = start_server(&bus).await;
+        let client = bus.connection().await;
+        let proxy = PortalMonitorTestProxy::new(&client).await.unwrap();
+
+        let handle = ObjectPath::try_from("/req/monitor").unwrap();
+        let session = ObjectPath::try_from("/session/monitor").unwrap();
+        assert_eq!(
+            proxy
+                .create_monitor(&handle, &session, "org.test.App", "")
+                .await
+                .expect("xdg-desktop-portal routes this here because glimpse claims the interface"),
+            0
+        );
+
+        proxy
+            .query_end_response(&session)
+            .await
+            .expect("the acknowledgement is accepted even though glimpse never asks for one");
+
+        let session_proxy = PortalSessionTestProxy::builder(&client)
+            .destination("me.aresa.Glimpse.Idle.Portal")
+            .unwrap()
+            .path(session.clone())
+            .unwrap()
+            .build()
+            .await
+            .unwrap();
+        session_proxy.close().await.expect("the session closes");
+        assert!(
+            session_proxy.close().await.is_err(),
+            "the object is gone after the first close rather than lingering"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn app_id_and_reason_are_clamped_to_their_own_caps() {
         let bus = PrivateBus::start();
         let (_login1_conn, _app, registry, _fake_login1) = start_server(&bus).await;
@@ -541,10 +636,7 @@ mod tests {
         let bus = PrivateBus::start();
         let first = bus.connection().await;
         let (first_registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let first_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
+        let first_health = Health::new().0;
         start(
             first.clone(),
             first_registry.clone(),
@@ -552,14 +644,14 @@ mod tests {
             first_health.clone(),
         )
         .await;
-        assert_eq!(first_health.lock().unwrap().kind, HealthKind::Ready);
+        assert_eq!(
+            first_health.kind(Backend::Portal),
+            glimpse_dbus::idle::HealthKind::Ready
+        );
 
         let second = bus.connection().await;
         let (second_registry, _any_idle_target, _generation) = SharedRegistry::new();
-        let second_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
+        let second_health = Health::new().0;
         start(
             second.clone(),
             second_registry.clone(),
@@ -568,9 +660,9 @@ mod tests {
         )
         .await;
 
-        let health = second_health.lock().unwrap().clone();
-        assert_eq!(health.kind, HealthKind::Degraded);
-        assert_eq!(health.message, "Bus name already owned");
+        let health = second_health.snapshot();
+        assert_eq!(health.portal.kind, glimpse_dbus::idle::HealthKind::Degraded);
+        assert_eq!(health.portal.message, "Bus name already owned");
 
         assert!(
             second

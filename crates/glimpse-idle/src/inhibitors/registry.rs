@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::time::Instant;
 
 use glimpse_dbus::idle::{IdleInhibitorRecord, SourceKind};
 use zbus::zvariant::OwnedFd;
@@ -9,17 +8,6 @@ pub struct InternalRecord {
     pub logind_fd: Option<OwnedFd>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ReleaseOutcome {
-    pub id: u64,
-    pub had_logind_fd: bool,
-}
-
-struct RateState {
-    tokens: f64,
-    last: Instant,
-}
-
 #[derive(Default)]
 pub struct Registry {
     next_id: u64,
@@ -27,16 +15,12 @@ pub struct Registry {
     version: u64,
     records: HashMap<u64, InternalRecord>,
     cookie_to_id: HashMap<u32, u64>,
-    portal_handle_to_id: HashMap<String, u64>,
     bus_name_to_ids: HashMap<String, Vec<u64>>,
-    inhibit_rate: HashMap<String, RateState>,
 }
 
 impl Registry {
     pub const MAX_INHIBITORS_PER_BUS: usize = 32;
     pub const MAX_INHIBITORS_TOTAL: usize = 128;
-    const RATE_BURST: f64 = 5.0;
-    const RATE_REFILL_PER_SEC: f64 = 1.0;
 
     pub fn mint_id(&mut self) -> u64 {
         loop {
@@ -62,59 +46,27 @@ impl Registry {
         }
     }
 
-    pub fn check_capacity(&self, bus_name: Option<&str>) -> Result<(), String> {
+    pub fn check_capacity(&self, owner: Option<&str>) -> Result<(), String> {
         if self.records.len() >= Self::MAX_INHIBITORS_TOTAL {
             return Err(format!(
                 "global inhibitor limit ({}) reached",
                 Self::MAX_INHIBITORS_TOTAL
             ));
         }
-        match bus_name {
-            Some(bus_name) => {
-                let count = self.bus_name_to_ids.get(bus_name).map_or(0, Vec::len);
-                if count >= Self::MAX_INHIBITORS_PER_BUS {
-                    return Err(format!(
-                        "per-bus inhibitor limit ({}) reached",
-                        Self::MAX_INHIBITORS_PER_BUS
-                    ));
-                }
-            }
-            None => {
-                let count = self
-                    .records
-                    .values()
-                    .filter(|internal| internal.record.bus_name.is_empty())
-                    .count();
-                if count >= Self::MAX_INHIBITORS_TOTAL {
-                    return Err(format!(
-                        "global inhibitor limit ({}) reached",
-                        Self::MAX_INHIBITORS_TOTAL
-                    ));
-                }
+        if let Some(owner) = owner {
+            let count = self
+                .records
+                .values()
+                .filter(|internal| internal.record.owned_by(owner))
+                .count();
+            if count >= Self::MAX_INHIBITORS_PER_BUS {
+                return Err(format!(
+                    "per-source inhibitor limit ({}) reached",
+                    Self::MAX_INHIBITORS_PER_BUS
+                ));
             }
         }
         Ok(())
-    }
-
-    pub fn check_rate(&mut self, bus_name: Option<&str>, now: Instant) -> bool {
-        let Some(bus_name) = bus_name else {
-            return true;
-        };
-        let state = self
-            .inhibit_rate
-            .entry(bus_name.to_owned())
-            .or_insert_with(|| RateState {
-                tokens: Self::RATE_BURST,
-                last: now,
-            });
-        let elapsed = now.saturating_duration_since(state.last).as_secs_f64();
-        state.tokens = (state.tokens + elapsed * Self::RATE_REFILL_PER_SEC).min(Self::RATE_BURST);
-        state.last = now;
-        if state.tokens < 1.0 {
-            return false;
-        }
-        state.tokens -= 1.0;
-        true
     }
 
     pub fn insert(&mut self, record: IdleInhibitorRecord, logind_fd: Option<OwnedFd>) -> u64 {
@@ -136,11 +88,7 @@ impl Registry {
             SourceKind::ScreenSaver if record.source.cookie != 0 => {
                 self.cookie_to_id.insert(record.source.cookie, id);
             }
-            SourceKind::ScreenSaver | SourceKind::Login1 => {}
-            SourceKind::Portal => {
-                self.portal_handle_to_id
-                    .insert(record.source.request_handle.clone(), id);
-            }
+            SourceKind::ScreenSaver | SourceKind::Login1 | SourceKind::Portal => {}
         }
         if !record.bus_name.is_empty() {
             self.bus_name_to_ids
@@ -154,16 +102,15 @@ impl Registry {
         id
     }
 
-    pub fn release_record(&mut self, id: u64) -> Option<ReleaseOutcome> {
+    pub fn release_record(&mut self, id: u64) -> Option<u64> {
         let internal = self.records.remove(&id)?;
-        let had_logind_fd = internal.logind_fd.is_some();
         tracing::info!(
             id,
             source = ?internal.record.source.kind,
             who = %internal.record.who,
             why = %internal.record.why,
             bus_name = %internal.record.bus_name,
-            had_logind_fd,
+            had_logind_fd = internal.logind_fd.is_some(),
             "idle inhibitor removed"
         );
         drop(internal.logind_fd);
@@ -171,11 +118,7 @@ impl Registry {
             SourceKind::ScreenSaver => {
                 self.cookie_to_id.remove(&internal.record.source.cookie);
             }
-            SourceKind::Portal => {
-                self.portal_handle_to_id
-                    .remove(&internal.record.source.request_handle);
-            }
-            SourceKind::Login1 => {}
+            SourceKind::Login1 | SourceKind::Portal => {}
         }
         if !internal.record.bus_name.is_empty()
             && let Some(ids) = self.bus_name_to_ids.get_mut(&internal.record.bus_name)
@@ -186,7 +129,7 @@ impl Registry {
             }
         }
         self.version += 1;
-        Some(ReleaseOutcome { id, had_logind_fd })
+        Some(id)
     }
 
     pub fn release_by_bus_name(&mut self, bus_name: &str) -> Vec<u64> {
@@ -195,12 +138,9 @@ impl Registry {
             .get(bus_name)
             .cloned()
             .unwrap_or_default();
-        let released: Vec<u64> = ids
-            .into_iter()
+        ids.into_iter()
             .filter(|id| self.release_record(*id).is_some())
-            .collect();
-        self.inhibit_rate.remove(bus_name);
-        released
+            .collect()
     }
 
     pub fn lookup_by_cookie(&self, cookie: u32) -> Option<u64> {
@@ -211,10 +151,6 @@ impl Registry {
         self.records
             .get(&id)
             .is_some_and(|internal| internal.record.bus_name == bus_name)
-    }
-
-    pub fn lookup_by_portal_handle(&self, handle: &str) -> Option<u64> {
-        self.portal_handle_to_id.get(handle).copied()
     }
 
     pub fn any_idle_target(&self) -> bool {
@@ -264,15 +200,10 @@ impl Registry {
     }
 }
 
-pub fn clamp_label(text: &str, cap: usize) -> String {
-    glimpse_utils::clean(text, cap)
-}
-
 #[cfg(test)]
 mod tests {
     use std::io::Read;
     use std::os::fd::OwnedFd as StdOwnedFd;
-    use std::time::Duration;
 
     use glimpse_dbus::idle::{IdleInhibitorSource, InhibitionTargets, Login1Mode};
 
@@ -312,20 +243,6 @@ mod tests {
     }
 
     #[test]
-    fn portal_handle_round_trips_through_insert_and_release() {
-        let mut r = Registry::default();
-        let id = r.mint_id();
-        let record = IdleInhibitorRecord {
-            source: IdleInhibitorSource::portal("/req/1", "org.foo"),
-            ..test_record(id, ":1.2", false)
-        };
-        r.insert(record, None);
-        assert_eq!(r.lookup_by_portal_handle("/req/1"), Some(id));
-        r.release_record(id);
-        assert_eq!(r.lookup_by_portal_handle("/req/1"), None);
-    }
-
-    #[test]
     fn release_record_removes_from_every_secondary_map() {
         let mut r = Registry::default();
         let id = r.mint_id();
@@ -335,14 +252,7 @@ mod tests {
             ..test_record(id, ":1.1", false)
         };
         r.insert(record, None);
-        let outcome = r.release_record(id).unwrap();
-        assert_eq!(
-            outcome,
-            ReleaseOutcome {
-                id,
-                had_logind_fd: false
-            }
-        );
+        assert_eq!(r.release_record(id), Some(id));
         assert_eq!(r.lookup_by_cookie(cookie), None);
         assert!(!r.has_bus_name_entry(":1.1"));
         assert_eq!(r.count(), 0);
@@ -362,8 +272,7 @@ mod tests {
         let write_fd: StdOwnedFd = writer.into();
         r.insert(test_record(id, ":1.1", false), Some(write_fd.into()));
 
-        let outcome = r.release_record(id).unwrap();
-        assert!(outcome.had_logind_fd);
+        assert_eq!(r.release_record(id), Some(id));
 
         let mut buf = [0u8; 1];
         let read = reader
@@ -414,6 +323,27 @@ mod tests {
     }
 
     #[test]
+    fn a_portal_app_id_counts_against_the_per_source_cap_like_a_bus_name() {
+        let mut r = Registry::default();
+        for _ in 0..Registry::MAX_INHIBITORS_PER_BUS {
+            let id = r.mint_id();
+            let record = IdleInhibitorRecord {
+                source: IdleInhibitorSource::portal(format!("/req/{id}"), "org.hostile.App"),
+                bus_name: String::new(),
+                ..test_record(id, "", false)
+            };
+            r.insert(record, None);
+        }
+
+        assert!(
+            r.check_capacity(Some("org.hostile.App")).is_err(),
+            "a portal record carries no bus name, so counting only bus names lets one sandboxed \
+             app take every global slot"
+        );
+        assert!(r.check_capacity(Some("org.polite.App")).is_ok());
+    }
+
+    #[test]
     fn check_capacity_enforces_per_bus_limit_independently_per_bus_name() {
         let mut r = Registry::default();
         for _ in 0..Registry::MAX_INHIBITORS_PER_BUS {
@@ -452,48 +382,6 @@ mod tests {
         }
         assert!(r.check_capacity(Some(":1.0")).is_err());
         assert!(r.check_capacity(Some("brand-new-bus-name")).is_err());
-    }
-
-    #[test]
-    fn check_rate_allows_burst_then_throttles_and_refills_over_injected_time() {
-        let mut r = Registry::default();
-        let now = Instant::now();
-        let mut allowed = 0;
-        while r.check_rate(Some(":1.3"), now) {
-            allowed += 1;
-            assert!(allowed <= 100, "rate limiter never throttled");
-        }
-        assert_eq!(allowed, Registry::RATE_BURST as u32);
-        assert!(!r.check_rate(Some(":1.3"), now));
-        assert!(r.check_rate(Some(":1.3"), now + Duration::from_secs(1)));
-    }
-
-    #[test]
-    fn check_rate_never_throttles_records_without_a_bus_name() {
-        let mut r = Registry::default();
-        let now = Instant::now();
-        for _ in 0..1000 {
-            assert!(r.check_rate(None, now));
-        }
-    }
-
-    #[test]
-    fn clamp_label_truncates_multi_byte_string_on_a_char_boundary() {
-        let long = "é".repeat(200);
-        let clamped = clamp_label(&long, 120);
-        assert!(clamped.chars().take(120).all(|c| c == 'é'));
-        assert!(clamped.ends_with('…'), "a truncated label is marked as cut");
-    }
-
-    #[test]
-    fn clamp_label_leaves_short_labels_untouched() {
-        assert_eq!(clamp_label("firefox", 120), "firefox");
-    }
-
-    #[test]
-    fn clamp_label_strips_bidi_override_characters() {
-        let clamped = clamp_label("Update\u{202e}gpj.exe", 120);
-        assert!(!clamped.contains('\u{202e}'));
     }
 
     #[test]
@@ -541,7 +429,6 @@ mod tests {
         assert_eq!(r.version(), before + 1);
 
         let _ = r.check_capacity(Some(":1.1"));
-        let _ = r.check_rate(Some(":1.1"), Instant::now());
         assert_eq!(
             r.version(),
             before + 1,

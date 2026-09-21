@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use gettextrs::{gettext, ngettext};
-use glimpse_dbus::idle::{IdleInhibitorRecord, IdleProviderState, SourceKind};
+use glimpse_dbus::idle::{HealthKind, IdleInhibitorRecord, IdleProviderState, SourceKind};
 use glimpse_widgets::{InhibitorEntry, InhibitorSource, InhibitorTargets};
 
 pub const ICON_IDLE: &str = "alarm-symbolic";
@@ -14,9 +14,30 @@ pub fn icon(active: bool) -> &'static str {
     }
 }
 
+pub fn unusable(state: &IdleProviderState) -> Option<String> {
+    if !state.available {
+        return Some(
+            state
+                .reason
+                .clone()
+                .unwrap_or_else(|| gettext("Idle daemon not running")),
+        );
+    }
+    match state.health.wayland.kind {
+        HealthKind::Degraded => Some(match state.health.wayland.message.is_empty() {
+            true => gettext("The compositor is not reporting idle time"),
+            false => state.health.wayland.message.clone(),
+        }),
+        HealthKind::Ready | HealthKind::Unsupported => None,
+    }
+}
+
 pub fn hero_subtitle(state: &IdleProviderState, manual_hold: &[u64]) -> String {
     if !state.available {
         return gettext("Idle daemon not running");
+    }
+    if state.health.wayland.kind == HealthKind::Degraded {
+        return gettext("The compositor is not reporting idle time");
     }
     if state.inhibitors.is_empty() {
         return gettext("Nothing preventing idle");
@@ -207,7 +228,8 @@ mod tests {
         InhibitorsHealth {
             screen_saver: ready.clone(),
             portal: ready.clone(),
-            login1: ready,
+            login1: ready.clone(),
+            wayland: ready,
         }
     }
 
@@ -367,6 +389,30 @@ mod tests {
             manual_hold_ids(&records[..1]),
             Vec::<u64>::new(),
             "a hold that has left the provider's list leaves the panel's with it"
+        );
+    }
+
+    #[test]
+    fn a_degraded_wayland_backend_is_named_rather_than_reading_as_a_healthy_daemon() {
+        let mut broken = state(vec![]);
+        broken.health.wayland = BackendHealth {
+            kind: HealthKind::Degraded,
+            message: "the compositor does not offer ext-idle-notify-v1".to_owned(),
+        };
+
+        assert_eq!(
+            unusable(&broken).as_deref(),
+            Some("the compositor does not offer ext-idle-notify-v1"),
+            "no listener can fire, which otherwise looks exactly like an idle daemon with \
+             nothing to report"
+        );
+        assert_eq!(
+            hero_subtitle(&broken, &[]),
+            "The compositor is not reporting idle time"
+        );
+        assert!(
+            unusable(&state(vec![])).is_none(),
+            "a healthy backend says nothing"
         );
     }
 

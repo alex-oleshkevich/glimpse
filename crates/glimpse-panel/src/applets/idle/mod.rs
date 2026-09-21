@@ -143,10 +143,10 @@ impl Idle {
     }
 
     fn indicator(&mut self) -> Option<IndicatorSpec> {
-        if !self.state.available {
+        if let Some(reason) = render::unusable(&self.state) {
             return Some(IndicatorSpec {
                 icon: Some(self.themed(render::ICON_IDLE)),
-                tooltip: self.state.reason.clone(),
+                tooltip: Some(reason),
                 severity: Some(Severity::Warning),
                 ..Default::default()
             });

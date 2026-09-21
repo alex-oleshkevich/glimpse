@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-21 17:28+0200\n"
+"POT-Creation-Date: 2026-09-21 17:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -831,60 +831,66 @@ msgstr ""
 msgid "Idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:19
+#: crates/glimpse-panel/src/applets/idle/render.rs:23
+#: crates/glimpse-panel/src/applets/idle/render.rs:37
 msgid "Idle daemon not running"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:22
+#: crates/glimpse-panel/src/applets/idle/render.rs:28
+#: crates/glimpse-panel/src/applets/idle/render.rs:40
+msgid "The compositor is not reporting idle time"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:43
 msgid "Nothing preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:36
-#: crates/glimpse-panel/src/applets/idle/render.rs:39
+#: crates/glimpse-panel/src/applets/idle/render.rs:57
+#: crates/glimpse-panel/src/applets/idle/render.rs:60
 msgid "Awake until you turn it off"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:52
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
 msgid "{n} app preventing idle or sleep"
 msgid_plural "{n} apps preventing idle or sleep"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:57
+#: crates/glimpse-panel/src/applets/idle/render.rs:78
 msgid "{n} app preventing idle"
 msgid_plural "{n} apps preventing idle"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:108
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
 msgid "Unknown"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:115
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
 msgid "just now"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:118
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
 msgid "{n} minute ago"
 msgid_plural "{n} minutes ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:122
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
 msgid "{n} hour ago"
 msgid_plural "{n} hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:127
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
 msgid "(Flatpak via portal)"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:129
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
 msgid "(systemd-inhibit · pid {pid})"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:138
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
 msgid "Preventing idle"
 msgstr ""
 

@@ -5,9 +5,7 @@ use futures_util::StreamExt;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::Exported;
-use glimpse_dbus::idle::{
-    BackendHealth, GLIMPSE_IDLE_BUS_NAME, GLIMPSE_IDLE_OBJECT_PATH, HealthKind,
-};
+use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, GLIMPSE_IDLE_OBJECT_PATH};
 use glimpse_dbus::login1::Login1ManagerProxy;
 use glimpse_dbus::upower::UPowerProxy;
 use tokio::sync::watch;
@@ -17,7 +15,9 @@ use zbus::Connection;
 use zbus::proxy::PropertyStream;
 
 use crate::idle::{Actor, Event, Handle, ShellRunner};
-use crate::inhibitors::{Idle1Server, SharedRegistry, login1_observer, portal, screen_saver};
+use crate::inhibitors::{
+    Health, Idle1Server, SharedRegistry, login1_observer, portal, screen_saver,
+};
 use crate::wayland_notify;
 
 pub struct IdleServices {
@@ -37,49 +37,26 @@ impl IdleServices {
             .context("the idle provider needs the session bus")?;
 
         let (shared_registry, any_idle_target_rx, generation_rx) = SharedRegistry::new();
-        let (health_generation, health_generation_rx) = watch::channel(0);
         let login1 = connect_login1(&buses).await;
 
-        let screen_saver_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let portal_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let login1_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
+        let (health, health_changes) = Health::new();
         let idle1 = Exported::start(
             session.clone(),
             GLIMPSE_IDLE_BUS_NAME,
             GLIMPSE_IDLE_OBJECT_PATH,
-            Idle1Server::new(
-                shared_registry.clone(),
-                login1.clone(),
-                screen_saver_health.clone(),
-                portal_health.clone(),
-                login1_health.clone(),
-            ),
+            Idle1Server::new(shared_registry.clone(), login1.clone(), health.clone()),
             std::future::pending::<()>(),
         )
         .await
         .context("another glimpse-idle already owns its D-Bus name")?;
 
-        screen_saver::start(
-            session.clone(),
-            shared_registry.clone(),
-            screen_saver_health,
-        )
-        .await;
+        screen_saver::start(session.clone(), shared_registry.clone(), health.clone()).await;
 
         portal::start(
             session.clone(),
             shared_registry.clone(),
             login1.clone(),
-            portal_health,
+            health.clone(),
         )
         .await;
 
@@ -102,7 +79,11 @@ impl IdleServices {
         let (actor, handle) = Actor::new(document.idle.clone(), on_battery, Arc::new(ShellRunner));
         let cancel = CancellationToken::new();
         let tasks = vec![
-            tokio::spawn(wayland_notify::run(handle.clone(), cancel.clone())),
+            tokio::spawn(wayland_notify::run(
+                handle.clone(),
+                health.clone(),
+                cancel.clone(),
+            )),
             tokio::spawn(watch_battery(changes, handle.clone(), cancel.clone())),
             tokio::spawn(watch_registry(
                 any_idle_target_rx,
@@ -116,7 +97,7 @@ impl IdleServices {
                 Signal::Inhibitors,
             )),
             tokio::spawn(emit_changes(
-                health_generation_rx,
+                health_changes,
                 session.clone(),
                 cancel.clone(),
                 Signal::Health,
@@ -129,8 +110,7 @@ impl IdleServices {
             tokio::spawn(login1_observer::start(
                 login1,
                 shared_registry,
-                login1_health,
-                health_generation,
+                health.clone(),
                 cancel.clone(),
             )),
             tokio::spawn(actor.run(cancel.clone())),
@@ -417,25 +397,7 @@ mod tests {
         let bus = PrivateBus::start();
         let app = bus.connection().await;
         let (shared_registry, _any_idle_target_rx, generation_rx) = SharedRegistry::new();
-        let health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let login1_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let portal_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let server = Idle1Server::new(
-            shared_registry.clone(),
-            None,
-            health,
-            portal_health,
-            login1_health,
-        );
+        let server = Idle1Server::new(shared_registry.clone(), None, Health::new().0);
         app.object_server()
             .at(GLIMPSE_IDLE_OBJECT_PATH, server)
             .await
@@ -481,25 +443,8 @@ mod tests {
         let bus = PrivateBus::start();
         let app = bus.connection().await;
         let (shared_registry, _any_idle_target_rx, _generation_rx) = SharedRegistry::new();
-        let screen_saver_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let portal_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let login1_health = Arc::new(std::sync::Mutex::new(BackendHealth {
-            kind: HealthKind::Unsupported,
-            message: String::new(),
-        }));
-        let server = Idle1Server::new(
-            shared_registry,
-            None,
-            screen_saver_health,
-            portal_health,
-            login1_health.clone(),
-        );
+        let (health, health_changes) = Health::new();
+        let server = Idle1Server::new(shared_registry, None, health.clone());
         app.object_server()
             .at(GLIMPSE_IDLE_OBJECT_PATH, server)
             .await
@@ -508,10 +453,9 @@ mod tests {
             .await
             .unwrap();
 
-        let (health_generation, health_generation_rx) = watch::channel(0);
         let cancel = CancellationToken::new();
         let task = tokio::spawn(emit_changes(
-            health_generation_rx,
+            health_changes,
             app.clone(),
             cancel.clone(),
             Signal::Health,
@@ -525,30 +469,14 @@ mod tests {
             .unwrap();
         assert_eq!(
             proxy.cached_health().unwrap(),
-            Some(InhibitorsHealth {
-                screen_saver: BackendHealth {
-                    kind: HealthKind::Unsupported,
-                    message: String::new(),
-                },
-                portal: BackendHealth {
-                    kind: HealthKind::Unsupported,
-                    message: String::new(),
-                },
-                login1: BackendHealth {
-                    kind: HealthKind::Unsupported,
-                    message: String::new(),
-                },
-            })
+            Some(InhibitorsHealth::default()),
+            "nothing has reported yet, so every backend reads unknown"
         );
 
         let mut changes = proxy.receive_health_changed().await;
-        login1_observer::set_health(
-            &login1_health,
-            &health_generation,
-            BackendHealth {
-                kind: HealthKind::Degraded,
-                message: "cannot reach org.freedesktop.login1".to_owned(),
-            },
+        health.degraded(
+            crate::inhibitors::Backend::Login1,
+            "cannot reach org.freedesktop.login1",
         );
         tokio::time::timeout(Duration::from_secs(5), changes.next())
             .await
@@ -556,11 +484,9 @@ mod tests {
             .expect("a live property-change stream item");
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                if proxy
-                    .cached_health()
-                    .unwrap()
-                    .is_some_and(|health| health.login1.kind == HealthKind::Degraded)
-                {
+                if proxy.cached_health().unwrap().is_some_and(|health| {
+                    health.login1.kind == glimpse_dbus::idle::HealthKind::Degraded
+                }) {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;

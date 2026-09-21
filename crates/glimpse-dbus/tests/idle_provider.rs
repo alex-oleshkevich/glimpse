@@ -28,7 +28,8 @@ fn ready() -> InhibitorsHealth {
     InhibitorsHealth {
         screen_saver: health.clone(),
         portal: health.clone(),
-        login1: health,
+        login1: health.clone(),
+        wayland: health,
     }
 }
 
