@@ -28,7 +28,6 @@ mkdir -p \
     "$pkgroot/usr/share/dbus-1/services" \
     "$pkgroot/usr/share/xdg-desktop-portal/portals" \
     "$pkgroot/usr/share/glimpse/wallpapers" \
-    "$pkgroot/etc/pam.d" \
     "$pkgroot/etc/geoclue/conf.d" \
     dist
 
@@ -73,7 +72,8 @@ for f in data/portals/*-portals.conf; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/xdg-desktop-portal/$(basename "$f")"
 done
 for f in data/pam.d/*; do
-    [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] && install -Dm644 "$f" "$pkgroot/etc/pam.d/$(basename "$f")"
+    [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] || continue
+    install -Dm644 "$f" "$pkgroot/etc/pam.d/$(basename "$f")"
 done
 for f in wallpapers/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/glimpse/wallpapers/$(basename "$f")"

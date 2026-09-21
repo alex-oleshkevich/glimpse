@@ -69,6 +69,17 @@ is worth reading first.
 `/usr/bin/`, so an installed package wins over a `target/` build for anything started by
 activation rather than by hand.
 
+**A dependency is declared because something links it, not because it sounds right.** `ldd` over
+every shipped binary is the check; it is what retired `libheif` and `pam` from all three manifests,
+both of them left over from an implementation that did link them. Everything the applets merely
+*talk to* over D-Bus — UPower, power-profiles-daemon, NetworkManager, BlueZ, PackageKit,
+xdg-desktop-portal — is an `optdepends`, because each one absent is a degraded applet rather than a
+broken install.
+
+**`options=('!debug')`.** `profile.release` sets `strip = true`, so there are no symbols left to
+split: the debug package comes out as nothing but `.build-id` links, and pacman does not remove it
+with its parent, so it lingers after an uninstall.
+
 ## Themes
 
 Themes are the one asset whose directory structure is load-bearing: `themes/<name>/panel.css` is

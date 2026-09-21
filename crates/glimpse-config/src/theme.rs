@@ -276,11 +276,26 @@ mod tests {
         );
     }
 
+    /// The root has to be a temporary one, not `/usr/share/glimpse/themes`: `theme_dir_in` asks
+    /// the filesystem whether the default theme is there, so a hardcoded system path asserts that
+    /// glimpse is not installed on the machine running the test.
     #[test]
     fn a_platform_naming_no_config_directory_still_watches_the_installed_root() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        let root = base.path().join("themes");
+        std::fs::create_dir_all(&root).expect("an installed theme root");
+
         assert_eq!(
-            watch_dirs_in(&[PathBuf::from("/usr/share/glimpse/themes")], None, ""),
-            [PathBuf::from("/usr/share/glimpse/themes")]
+            watch_dirs_in(std::slice::from_ref(&root), None, ""),
+            std::slice::from_ref(&root),
+            "with no theme directory under it there is only the root to watch"
+        );
+
+        std::fs::create_dir_all(root.join(DEFAULT_THEME)).expect("the default theme");
+        assert_eq!(
+            watch_dirs_in(std::slice::from_ref(&root), None, ""),
+            [root.clone(), root.join(DEFAULT_THEME)],
+            "an installed default theme is watched too, which is what an installed package has"
         );
     }
 

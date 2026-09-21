@@ -17,15 +17,15 @@ extended-description = """\
 A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, and a lock."""
 
 # $auto scans this crate's own linked libraries via dpkg-shlibdeps; the other binaries
-# bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell/libheif/PAM, which
-# $auto's scan may not cover, so those are listed explicitly rather than trusted to auto-detect.
+# bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell, which $auto's scan
+# may not cover, so those are listed explicitly rather than trusted to auto-detect. Nothing links
+# libheif or PAM — `ldd` over every shipped binary finds neither, and no crate declares them —
+# so neither is listed here.
 depends = [
   "$auto",
   "libgtk-4-1",
   "libadwaita-1-0",
   "libgtk4-layer-shell0",
-  "libheif1",
-  "libpam0g",
   "geoclue-2.0",
   "libpulse0",
   "libudev1",
@@ -95,8 +95,6 @@ assets = [
 gtk4 = "*"
 libadwaita = "*"
 gtk4-layer-shell = "*"
-libheif = "*"
-pam-libs = "*"
 geoclue2 = "*"
 pulseaudio-libs = "*"
 systemd-libs = "*"

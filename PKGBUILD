@@ -1,11 +1,22 @@
 pkgname=glimpse-desktop-bin
 pkgver=0.16.0
 pkgrel=1
-pkgdesc="Desktop shell suite for Wayland compositors: panel, wallpaper renderer, lock screen, and night-light service, backed by one daemon"
+pkgdesc="Desktop shell suite for Wayland compositors: panel, wallpaper, lock screen and night light"
 arch=('x86_64')
 url="https://github.com/alex-oleshkevich/glimpse"
 license=('BSD-3-Clause')
-depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'libheif' 'pam' 'geoclue' 'libpulse')
+depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'geoclue' 'libpulse')
+optdepends=(
+    'upower: battery level and peripheral charge'
+    'power-profiles-daemon: power modes in the battery popover'
+    'networkmanager: the network applet'
+    'bluez: the bluetooth applet'
+    'packagekit: the pending-updates row in the session popover'
+    'xdg-desktop-portal: routes app inhibit requests to glimpse-idle'
+)
+# cargo already strips (profile.release strip = true), so splitting debug symbols yields a
+# package of nothing but .build-id links that pacman will not remove with its parent.
+options=('!debug')
 backup=('etc/geoclue/conf.d/glimpse.conf')
 provides=('glimpse-desktop')
 conflicts=('glimpse-desktop')
