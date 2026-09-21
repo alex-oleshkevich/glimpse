@@ -82,6 +82,12 @@ for f in data/themes/*/*.css; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/glimpse/themes/$(basename "$(dirname "$f")")/$(basename "$f")"
 done
 
+for f in target/locale/*/LC_MESSAGES/glimpse.mo; do
+    [[ -e "$f" ]] || continue
+    lang="$(basename "$(dirname "$(dirname "$f")")")"
+    install -Dm644 "$f" "$pkgroot/usr/share/locale/$lang/LC_MESSAGES/glimpse.mo"
+done
+
 tar --zstd -cf "dist/$asset" -C "$pkgroot" .
 b2sum "dist/$asset" > "dist/$asset.b2"
 sha256sum "dist/$asset" > "dist/$asset.sha256"

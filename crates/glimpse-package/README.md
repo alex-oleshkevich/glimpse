@@ -39,8 +39,35 @@ reaches it without reaching both asset lists; a second test fails if a glob is e
 Both read the manifest with comment lines stripped, because the prose describing the hazard
 otherwise trips the guard against it.
 
-`just package-deb` and `just package-rpm` depend on `build-translations`, so the `.mo` files exist
-before either tool resolves its assets.
+`just package-deb`, `just package-rpm` and `just package-binary` all depend on
+`build-translations`, so the `.mo` files exist before any of them resolves its assets. The binary
+tarball is what the AUR package unpacks, so a language missing there is missing from every Arch
+install as well — `package-binary.sh` walks `target/locale/*/LC_MESSAGES` and rebuilds `<lang>/`
+from the source path, the same way it walks the themes below.
+
+## Arch
+
+`just package-aur` builds `dist/glimpse-desktop-bin-<version>-1-x86_64.pkg.tar.zst` from the
+tarball `package-binary` just wrote, through `makepkg`. It is the same `PKGBUILD` the AUR carries:
+`scripts/render-pkgbuild.sh --local` only swaps the source for the tarball sitting beside it and
+skips the checksum, because there is nothing downloaded to check. `--release`, used by
+`just release-pkgbuild` from the release workflow, keeps the published URL and its real b2sum.
+Keeping one `PKGBUILD` is the point — a second copy would drift on `depends` first. `makepkg` runs
+`--nodeps` because `package()` only copies an already-built tree; the declared dependencies are
+what the package needs to run, not what building it needs.
+
+`just install-aur` builds it and hands it to `pacman -U`; `just uninstall-aur` removes it again.
+Both go through the `elevate` variable, which is `sudo` — these are run from a terminal that has
+one. **`pkexec` is the wrong default here**: it drops the working directory, so a relative package
+path never resolves, and its own polkit path is the fragile one — a correct password still fails
+with `No session for cookie` when the agent cannot tie the calling process to a session. Set
+`GLIMPSE_SUDO=pkexec` from a launcher with no terminal, and pass the package by absolute path,
+which these recipes do anyway. Neither passes `--noconfirm`: a transaction that writes to `/usr`
+is worth reading first.
+
+**Installing changes which binary the session bus activates** — the D-Bus service files name
+`/usr/bin/`, so an installed package wins over a `target/` build for anything started by
+activation rather than by hand.
 
 ## Themes
 

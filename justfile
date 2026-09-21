@@ -7,6 +7,10 @@ set positional-arguments
 # Single source of truth for install/uninstall/package-binary, passed to those scripts as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it, as do the scripts' own no-just fallback defaults.
+# How a recipe that writes outside the tree becomes root. `sudo` because these are run from a
+# terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
+elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
+
 binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle"
 
 [doc("list recipes")]
@@ -317,7 +321,7 @@ release-verify TAG:
     echo "tag ${raw_tag} matches Cargo.toml version $version"
 
 [doc("build a release tarball (glimpse-<version>-<arch>.tar.zst) under dist/ — builds its own binaries")]
-package-binary VERSION="":
+package-binary VERSION="": build-translations
     GLIMPSE_BINARIES="{{ binaries }}" scripts/package-binary.sh {{ quote(VERSION) }}
 
 [doc("build a .deb under target/debian/ (needs: cargo install cargo-deb)")]
@@ -328,10 +332,26 @@ package-deb: build-release-binaries build-translations
 package-rpm: build-release-binaries build-translations
     cargo generate-rpm -p crates/glimpse-package
 
-[doc("render dist/PKGBUILD for VERSION with the x86_64 tarball's b2sum patched in")]
-aur-pkgbuild VERSION B2SUM:
+[doc("build an Arch package under dist/ (needs: base-devel) — builds its own binaries")]
+package-aur: package-binary
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
+    asset="glimpse-${version}-x86_64.tar.zst"
+    dest="$PWD/dist"
+    build="$dest/aur"
+    rm -rf "$build"
+    mkdir -p "$build"
+    cp "$dest/$asset" "$build/"
+    scripts/render-pkgbuild.sh --local "$version" > "$build/PKGBUILD"
+    # --nodeps: package() only copies an already-built tree, so the runtime
+    # dependencies are what the package declares, not what building it needs.
+    cd "$build" && PKGDEST="$dest" makepkg --force --nodeps --noconfirm
+
+[doc("render dist/PKGBUILD for the AUR: VERSION and the released tarball's b2sum")]
+release-pkgbuild VERSION B2SUM:
     mkdir -p dist
-    scripts/render-aur-pkgbuild.sh {{ quote(VERSION) }} {{ quote(B2SUM) }} > dist/PKGBUILD
+    scripts/render-pkgbuild.sh --release {{ quote(VERSION) }} {{ quote(B2SUM) }} > dist/PKGBUILD
 
 # ---------------------------------------------------------------- clean
 
@@ -352,3 +372,26 @@ install: build-release build-translations
 [doc("remove installed files")]
 uninstall:
     GLIMPSE_BINARIES="{{ binaries }}" scripts/uninstall.sh
+
+[doc("build the Arch package and install it with pacman (elevate with $GLIMPSE_SUDO, default sudo)")]
+install-aur: package-aur
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
+    pkg="$PWD/dist/glimpse-desktop-bin-${version}-1-x86_64.pkg.tar.zst"
+    if [ ! -f "$pkg" ]; then
+        echo "no package at $pkg" >&2
+        exit 1
+    fi
+    {{ elevate }} pacman -U "$pkg"
+    echo "installed $pkg — 'just uninstall-aur' removes it"
+
+[doc("remove the installed Arch package (elevate with $GLIMPSE_SUDO, default sudo)")]
+uninstall-aur:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! pacman -Qq glimpse-desktop-bin >/dev/null 2>&1; then
+        echo "glimpse-desktop-bin is not installed"
+        exit 0
+    fi
+    {{ elevate }} pacman -R glimpse-desktop-bin

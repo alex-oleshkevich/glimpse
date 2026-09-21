@@ -152,7 +152,7 @@ jobs:
           pacman -Sy --noconfirm --needed just openssh git
           version="${TAG#v}"
           b2sum="$(cut -d' ' -f1 "dist/glimpse-${version}-x86_64.tar.zst.b2")"
-          just aur-pkgbuild "$version" "$b2sum"
+          just release-pkgbuild "$version" "$b2sum"
           useradd -m builder
           chown -R builder:builder dist/
           su builder -c 'cd dist && makepkg -p PKGBUILD --printsrcinfo > .SRCINFO'
