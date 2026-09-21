@@ -280,8 +280,6 @@ mod tests {
     fn entry(what: &str, who: &str, why: &str, mode: &str, pid: u32) -> Login1InhibitorEntry {
         (what.into(), who.into(), why.into(), mode.into(), 1000, pid)
     }
-
-    /// AC-1: additions are detected and the daemon's own pid is excluded.
     #[test]
     fn diff_detects_additions_excluding_own_pid() {
         let previous = HashMap::new();
@@ -296,12 +294,6 @@ mod tests {
         assert_eq!(diff.added[0].1, "firefox");
         assert!(diff.removed.is_empty());
     }
-
-    /// A single snapshot carrying two entries with the same `(pid, who, why)` key but different
-    /// `what`/`mode` (the same process taking two distinct inhibitors under identical labels) must
-    /// not both be added — `observed` can only ever map that key to one id, so a second `insert`
-    /// under the same key would silently orphan the first as an untracked, un-releasable record.
-    /// The first occurrence wins.
     #[test]
     fn diff_deduplicates_same_key_entries_within_one_snapshot() {
         let previous = HashMap::new();
@@ -322,8 +314,6 @@ mod tests {
             "the first occurrence must be the one kept"
         );
     }
-
-    /// AC-2: delay-mode entries never surface; block and block-weak both do.
     #[test]
     fn diff_filters_delay_mode_but_keeps_block_and_block_weak() {
         let previous = HashMap::new();
@@ -342,8 +332,6 @@ mod tests {
         assert!(!who.contains(&"NetworkManager"));
         assert!(!who.contains(&"ModemManager"));
     }
-
-    /// A mode logind's own vocabulary does not define is never trusted; the entry is dropped.
     #[test]
     fn diff_drops_entries_with_an_unrecognized_mode() {
         let previous = HashMap::new();
@@ -353,8 +341,6 @@ mod tests {
 
         assert!(diff.added.is_empty());
     }
-
-    /// AC-3: an entry present in the previous poll and absent now is reported removed.
     #[test]
     fn diff_detects_removals() {
         let mut previous = HashMap::new();
@@ -390,8 +376,6 @@ mod tests {
         assert_eq!(parse_login1_mode("delay"), Some(Login1Mode::Delay));
         assert_eq!(parse_login1_mode("anything-else"), None);
     }
-
-    /// AC-4: pid/uid/targets carry through and can_release is always false.
     #[test]
     fn entry_to_record_carries_pid_uid_and_targets_and_never_allows_release() {
         let e = entry("sleep:shutdown", "apt", "upgrade", "block", 1234);
@@ -411,8 +395,6 @@ mod tests {
         assert_eq!(record.source.uid, 1000);
         assert_eq!(record.source.mode, Login1Mode::Block);
     }
-
-    /// AC-5: a rename is only reported when the freshly-read name actually differs.
     #[test]
     fn compute_renames_only_reports_ids_whose_process_name_actually_changed() {
         let mut observed = HashMap::new();
@@ -459,10 +441,6 @@ mod tests {
 
         assert!(renames.is_empty());
     }
-
-    /// A pid with no readable `/proc/<pid>/comm` (already exited, or never existed) must not be
-    /// blamed with a blank name — the caller feeds this `None` straight past `fresh_names`, never
-    /// converting it into an empty-string overwrite.
     #[tokio::test]
     async fn read_process_name_returns_none_for_a_pid_with_no_readable_comm() {
         assert_eq!(read_process_name(u32::MAX).await, None);

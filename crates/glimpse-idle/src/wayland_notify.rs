@@ -273,8 +273,6 @@ delegate_noop!(Backend: ignore ExtIdleNotifierV1);
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// AC-6: the setup helper surfaces a timeout rather than hanging.
     #[tokio::test]
     async fn setup_timeout_surfaces_error_for_a_stalled_connect() {
         let stalled = std::future::pending::<anyhow::Result<()>>();

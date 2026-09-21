@@ -1,7 +1,5 @@
 pub(crate) mod render;
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time::Duration;
 
 use chrono::Utc;
@@ -12,7 +10,7 @@ use glimpse_widgets::{IdlePopover, IndicatorSpec, Severity};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, spawn_command};
+use crate::applet::{Applet, Ctx, Input, Opener};
 
 const MINUTE: Duration = Duration::from_secs(60);
 
@@ -21,8 +19,7 @@ pub struct Idle {
     footer: Option<(String, Vec<String>)>,
     tooltip_format: Option<String>,
     state: IdleProviderState,
-    known_ids: Vec<u64>,
-    manual_hold: Rc<RefCell<Vec<u64>>>,
+    manual_hold: Vec<u64>,
     icon: Option<(&'static str, gio::Icon)>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<IdlePopover>,
@@ -57,40 +54,51 @@ impl Applet for Idle {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = IdlePopover::new();
 
         shown.connect_hold_requested({
             let idle = self.idle.clone();
+            let opener = seat.opener();
             move |popover, seconds| {
                 popover.set_hold_active(true);
                 let idle = idle.clone();
-                spawn_command("idle.hold", async move { idle.hold(seconds).await });
+                settling("idle.hold", opener.clone(), async move {
+                    idle.hold(seconds).await
+                });
             }
         });
 
         shown.connect_hold_toggled({
             let idle = self.idle.clone();
-            let manual_hold = Rc::clone(&self.manual_hold);
+            let opener = seat.opener();
             move |_, on| {
                 if on {
                     let idle = idle.clone();
-                    spawn_command("idle.hold", async move { idle.hold(0).await });
+                    settling(
+                        "idle.hold",
+                        opener.clone(),
+                        async move { idle.hold(0).await },
+                    );
                     return;
                 }
-                let holds = manual_hold.borrow().clone();
-                for id in holds {
+                for id in render::manual_hold_ids(&idle.snapshot().inhibitors) {
                     let idle = idle.clone();
-                    spawn_command("idle.release", async move { idle.release(id).await });
+                    settling("idle.release", opener.clone(), async move {
+                        idle.release(id).await
+                    });
                 }
             }
         });
 
         shown.connect_release_requested({
             let idle = self.idle.clone();
+            let opener = seat.opener();
             move |_, id| {
                 let idle = idle.clone();
-                spawn_command("idle.release", async move { idle.release(id).await });
+                settling("idle.release", opener.clone(), async move {
+                    idle.release(id).await
+                });
             }
         });
 
@@ -108,14 +116,12 @@ impl Applet for Idle {
 impl Idle {
     pub fn start(idle: IdleProviderHandle) -> Self {
         let state = idle.snapshot();
-        let known_ids = ids_of(&state);
-        let manual_hold = Rc::new(RefCell::new(render::manual_hold_ids(&state.inhibitors)));
+        let manual_hold = render::manual_hold_ids(&state.inhibitors);
         Self {
             idle,
             footer: None,
             tooltip_format: None,
             state,
-            known_ids,
             manual_hold,
             icon: None,
             spec: Vec::new(),
@@ -124,16 +130,8 @@ impl Idle {
     }
 
     fn sync(&mut self) {
-        let state = self.idle.snapshot();
-        let adopted = render::newly_adopted_holds(&state.inhibitors, &self.known_ids);
-        if !adopted.is_empty() {
-            self.manual_hold.borrow_mut().extend(adopted);
-        }
-        self.manual_hold
-            .borrow_mut()
-            .retain(|id| state.inhibitors.iter().any(|record| record.id == *id));
-        self.known_ids = ids_of(&state);
-        self.state = state;
+        self.state = self.idle.snapshot();
+        self.manual_hold = render::manual_hold_ids(&self.state.inhibitors);
     }
 
     fn refresh(&mut self) {
@@ -153,13 +151,13 @@ impl Idle {
                 ..Default::default()
             });
         }
-        let active = !self.manual_hold.borrow().is_empty();
+        let active = !self.manual_hold.is_empty();
         let icon = self.themed(render::icon(active));
         Some(IndicatorSpec {
             icon: Some(icon),
             tooltip: render::tooltip(
                 &self.state,
-                &self.manual_hold.borrow(),
+                &self.manual_hold,
                 self.tooltip_format.as_deref(),
             ),
             severity: active.then_some(Severity::Warning),
@@ -168,34 +166,44 @@ impl Idle {
     }
 
     fn themed(&mut self, name: &'static str) -> gio::Icon {
-        if self.icon.as_ref().is_none_or(|(held, _)| *held != name) {
-            self.icon = Some((name, gio::ThemedIcon::new(name).upcast()));
-        }
-        match self.icon.as_ref() {
-            Some((_, icon)) => icon.clone(),
-            None => gio::ThemedIcon::new(name).upcast(),
+        match &self.icon {
+            Some((held, icon)) if *held == name => icon.clone(),
+            _ => {
+                let icon: gio::Icon = gio::ThemedIcon::new(name).upcast();
+                self.icon = Some((name, icon.clone()));
+                icon
+            }
         }
     }
 
     fn dress(&self, shown: &IdlePopover) {
-        let manual_hold = self.manual_hold.borrow();
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         shown.set_heading(
             render::ICON_IDLE,
             &gettext("Idle"),
-            Some(&render::hero_subtitle(&self.state, &manual_hold)),
+            Some(&render::hero_subtitle(&self.state, &self.manual_hold)),
         );
-        shown.set_hold_active(!manual_hold.is_empty());
+        shown.set_hold_active(!self.manual_hold.is_empty());
         shown.set_inhibitors(&render::to_inhibitor_entries(
             &self.state.inhibitors,
-            &manual_hold,
+            &self.manual_hold,
             Utc::now(),
         ));
     }
 }
 
-fn ids_of(state: &IdleProviderState) -> Vec<u64> {
-    state.inhibitors.iter().map(|record| record.id).collect()
+fn settling<F, T, E>(operation: &'static str, opener: Opener, future: F)
+where
+    F: std::future::Future<Output = Result<T, E>> + 'static,
+    T: 'static,
+    E: std::fmt::Display + 'static,
+{
+    relm4::spawn_local(async move {
+        if let Err(error) = future.await {
+            tracing::warn!(operation, %error, "service command failed");
+            opener.wake();
+        }
+    });
 }
 
 #[cfg(test)]
@@ -250,10 +258,7 @@ mod tests {
             can_release: true,
             added_at_unix: 0,
         });
-        applet
-            .manual_hold
-            .borrow_mut()
-            .extend(render::manual_hold_ids(&applet.state.inhibitors));
+        applet.manual_hold = render::manual_hold_ids(&applet.state.inhibitors);
 
         let indicator = applet.indicator().unwrap();
 

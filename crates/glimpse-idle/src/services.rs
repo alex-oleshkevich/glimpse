@@ -22,32 +22,12 @@ use crate::wayland_notify;
 
 pub struct IdleServices {
     handle: Handle,
-    actor_cancel: CancellationToken,
-    wayland_cancel: CancellationToken,
-    battery_cancel: CancellationToken,
-    registry_cancel: CancellationToken,
-    generation_cancel: CancellationToken,
-    health_generation_cancel: CancellationToken,
-    screen_saver_watch_cancel: CancellationToken,
-    login1_observer_cancel: CancellationToken,
-    actor_task: JoinHandle<()>,
-    wayland_task: JoinHandle<()>,
-    battery_task: JoinHandle<()>,
-    registry_task: JoinHandle<()>,
-    generation_task: JoinHandle<()>,
-    health_generation_task: JoinHandle<()>,
-    screen_saver_watch_task: JoinHandle<()>,
-    login1_observer_task: JoinHandle<()>,
+    cancel: CancellationToken,
+    tasks: Vec<JoinHandle<()>>,
     idle1: Exported<Idle1Server>,
 }
 
 impl IdleServices {
-    /// The D-Bus name is taken first, before any other task is spawned: `own_name` failing is
-    /// fatal, matching every other glimpse provider's primary name, and taking it first means a
-    /// duplicate `glimpse-idle` never touches the Wayland, UPower or registry resources the
-    /// running one already holds. The system bus (and so `login1`) is independently optional —
-    /// only `Hold` needs it, so its absence degrades that one method rather than the whole
-    /// control interface.
     pub async fn start(document: &Config) -> Result<Self> {
         let buses = Buses::connect().await;
         let session = buses
@@ -120,76 +100,47 @@ impl IdleServices {
         };
 
         let (actor, handle) = Actor::new(document.idle.clone(), on_battery, Arc::new(ShellRunner));
-        let actor_cancel = CancellationToken::new();
-        let actor_task = tokio::spawn(actor.run(actor_cancel.clone()));
-
-        let wayland_cancel = CancellationToken::new();
-        let wayland_task =
-            tokio::spawn(wayland_notify::run(handle.clone(), wayland_cancel.clone()));
-
-        let battery_cancel = CancellationToken::new();
-        let battery_task = tokio::spawn(watch_battery(
-            changes,
-            handle.clone(),
-            battery_cancel.clone(),
-        ));
-
-        let registry_cancel = CancellationToken::new();
-        let registry_task = tokio::spawn(watch_registry(
-            any_idle_target_rx,
-            handle.clone(),
-            registry_cancel.clone(),
-        ));
-
-        let generation_cancel = CancellationToken::new();
-        let generation_task = tokio::spawn(watch_generation(
-            generation_rx,
-            session.clone(),
-            generation_cancel.clone(),
-        ));
-
-        let health_generation_cancel = CancellationToken::new();
-        let health_generation_task = tokio::spawn(watch_health_generation(
-            health_generation_rx,
-            session.clone(),
-            health_generation_cancel.clone(),
-        ));
-
-        let screen_saver_watch_cancel = CancellationToken::new();
-        let screen_saver_watch_task = tokio::spawn(screen_saver::watch_disconnects(
-            session.clone(),
-            shared_registry.clone(),
-            screen_saver_watch_cancel.clone(),
-        ));
-
-        let login1_observer_cancel = CancellationToken::new();
-        let login1_observer_task = tokio::spawn(login1_observer::start(
-            login1,
-            shared_registry,
-            login1_health,
-            health_generation,
-            login1_observer_cancel.clone(),
-        ));
+        let cancel = CancellationToken::new();
+        let tasks = vec![
+            tokio::spawn(wayland_notify::run(handle.clone(), cancel.clone())),
+            tokio::spawn(watch_battery(changes, handle.clone(), cancel.clone())),
+            tokio::spawn(watch_registry(
+                any_idle_target_rx,
+                handle.clone(),
+                cancel.clone(),
+            )),
+            tokio::spawn(emit_changes(
+                generation_rx,
+                session.clone(),
+                cancel.clone(),
+                Signal::Inhibitors,
+            )),
+            tokio::spawn(emit_changes(
+                health_generation_rx,
+                session.clone(),
+                cancel.clone(),
+                Signal::Health,
+            )),
+            tokio::spawn(screen_saver::watch_disconnects(
+                session.clone(),
+                shared_registry.clone(),
+                cancel.clone(),
+            )),
+            tokio::spawn(login1_observer::start(
+                login1,
+                shared_registry,
+                login1_health,
+                health_generation,
+                cancel.clone(),
+            )),
+            tokio::spawn(actor.run(cancel.clone())),
+        ];
 
         tracing::info!("idle service graph started");
         Ok(Self {
             handle,
-            actor_cancel,
-            wayland_cancel,
-            battery_cancel,
-            registry_cancel,
-            generation_cancel,
-            health_generation_cancel,
-            screen_saver_watch_cancel,
-            login1_observer_cancel,
-            actor_task,
-            wayland_task,
-            battery_task,
-            registry_task,
-            generation_task,
-            health_generation_task,
-            screen_saver_watch_task,
-            login1_observer_task,
+            cancel,
+            tasks,
             idle1,
         })
     }
@@ -206,22 +157,10 @@ impl IdleServices {
     pub async fn shutdown(self) {
         tracing::info!("idle shutting down");
         self.idle1.shutdown().await;
-        self.wayland_cancel.cancel();
-        self.battery_cancel.cancel();
-        self.registry_cancel.cancel();
-        self.generation_cancel.cancel();
-        self.health_generation_cancel.cancel();
-        self.screen_saver_watch_cancel.cancel();
-        self.login1_observer_cancel.cancel();
-        self.actor_cancel.cancel();
-        let _ = self.wayland_task.await;
-        let _ = self.battery_task.await;
-        let _ = self.registry_task.await;
-        let _ = self.generation_task.await;
-        let _ = self.health_generation_task.await;
-        let _ = self.screen_saver_watch_task.await;
-        let _ = self.login1_observer_task.await;
-        let _ = self.actor_task.await;
+        self.cancel.cancel();
+        for task in self.tasks {
+            let _ = task.await;
+        }
         tracing::info!("idle stopped");
     }
 }
@@ -265,75 +204,62 @@ async fn watch_registry(
     }
 }
 
-async fn watch_generation(
+#[derive(Debug, Clone, Copy)]
+enum Signal {
+    Inhibitors,
+    Health,
+}
+
+impl Signal {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Inhibitors => "Inhibitors",
+            Self::Health => "Health",
+        }
+    }
+}
+
+async fn emit_changes(
     mut generation: watch::Receiver<u64>,
     connection: Connection,
     cancel: CancellationToken,
+    signal: Signal,
 ) {
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
             changed = generation.changed() => match changed {
-                Ok(()) => {
-                    let interface = match connection
-                        .object_server()
-                        .interface::<_, Idle1Server>(GLIMPSE_IDLE_OBJECT_PATH)
-                        .await
-                    {
-                        Ok(interface) => interface,
-                        Err(error) => {
-                            tracing::warn!(%error, "idle control object unavailable for an Inhibitors change signal");
-                            continue;
-                        }
-                    };
-                    if let Err(error) = interface
-                        .get()
-                        .await
-                        .inhibitors_changed(interface.signal_emitter())
-                        .await
-                    {
-                        tracing::warn!(%error, "failed to emit Idle1.Inhibitors change");
-                    }
-                }
+                Ok(()) => emit(&connection, signal).await,
                 Err(_) => break,
             }
         }
     }
 }
 
-async fn watch_health_generation(
-    mut generation: watch::Receiver<u64>,
-    connection: Connection,
-    cancel: CancellationToken,
-) {
-    loop {
-        tokio::select! {
-            _ = cancel.cancelled() => break,
-            changed = generation.changed() => match changed {
-                Ok(()) => {
-                    let interface = match connection
-                        .object_server()
-                        .interface::<_, Idle1Server>(GLIMPSE_IDLE_OBJECT_PATH)
-                        .await
-                    {
-                        Ok(interface) => interface,
-                        Err(error) => {
-                            tracing::warn!(%error, "idle control object unavailable for a Health change signal");
-                            continue;
-                        }
-                    };
-                    if let Err(error) = interface
-                        .get()
-                        .await
-                        .health_changed(interface.signal_emitter())
-                        .await
-                    {
-                        tracing::warn!(%error, "failed to emit Idle1.Health change");
-                    }
-                }
-                Err(_) => break,
-            }
+async fn emit(connection: &Connection, signal: Signal) {
+    let interface = match connection
+        .object_server()
+        .interface::<_, Idle1Server>(GLIMPSE_IDLE_OBJECT_PATH)
+        .await
+    {
+        Ok(interface) => interface,
+        Err(error) => {
+            tracing::warn!(
+                %error,
+                member = signal.name(),
+                "idle control object unavailable for a change signal"
+            );
+            return;
         }
+    };
+    let emitter = interface.signal_emitter();
+    let server = interface.get().await;
+    let emitted = match signal {
+        Signal::Inhibitors => server.inhibitors_changed(emitter).await,
+        Signal::Health => server.health_changed(emitter).await,
+    };
+    if let Err(error) = emitted {
+        tracing::warn!(%error, member = signal.name(), "failed to emit an Idle1 change");
     }
 }
 
@@ -387,9 +313,6 @@ mod tests {
 
     use super::*;
 
-    /// A `CommandRunner` that never shells out — `ShellRunner` would actually run `on_idle`
-    /// through `/bin/sh -c`, and this test only needs to observe `fired_listeners`, not exercise
-    /// real command execution (that belongs to `idle.rs`'s own tests).
     struct NoopRunner;
 
     impl crate::idle::CommandRunner for NoopRunner {
@@ -436,10 +359,6 @@ mod tests {
     async fn settle() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-
-    /// F5: `shared.rs` proves the watch channel republishes and `idle.rs` proves the actor reacts
-    /// to `Event::RegistryChanged` directly; this is the only test that proves `watch_registry` —
-    /// the glue between the two — actually forwards one into the other.
     #[tokio::test]
     async fn watch_registry_forwards_shared_registry_changes_into_the_actor() {
         let (shared_registry, any_idle_target_rx, _generation_rx) = SharedRegistry::new();
@@ -490,12 +409,8 @@ mod tests {
         let _ = registry_task.await;
         let _ = actor_task.await;
     }
-
-    /// Proves `watch_generation` is the crate's single `Inhibitors`-changed emitter: a
-    /// `SharedRegistry::mutate` call that actually changes state reaches a live
-    /// `Idle1.Inhibitors` `PropertiesChanged` signal, with no emission code in the caller.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn watch_generation_emits_inhibitors_changed_on_every_mutation() {
+    async fn emit_changes_sends_inhibitors_changed_on_every_mutation() {
         use glimpse_dbus::idle::Idle1Proxy;
         use glimpse_dbus::testing::PrivateBus;
 
@@ -530,7 +445,12 @@ mod tests {
             .unwrap();
 
         let cancel = CancellationToken::new();
-        let task = tokio::spawn(watch_generation(generation_rx, app.clone(), cancel.clone()));
+        let task = tokio::spawn(emit_changes(
+            generation_rx,
+            app.clone(),
+            cancel.clone(),
+            Signal::Inhibitors,
+        ));
 
         let client = bus.connection().await;
         let proxy = Idle1Proxy::new(&client).await.unwrap();
@@ -553,7 +473,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn watch_health_generation_refreshes_a_cached_health_property() {
+    async fn emit_changes_refreshes_a_cached_health_property() {
         use glimpse_dbus::idle::{Idle1Proxy, InhibitorsHealth};
         use glimpse_dbus::testing::PrivateBus;
         use zbus::proxy::CacheProperties;
@@ -590,10 +510,11 @@ mod tests {
 
         let (health_generation, health_generation_rx) = watch::channel(0);
         let cancel = CancellationToken::new();
-        let task = tokio::spawn(watch_health_generation(
+        let task = tokio::spawn(emit_changes(
             health_generation_rx,
             app.clone(),
             cancel.clone(),
+            Signal::Health,
         ));
 
         let client = bus.connection().await;

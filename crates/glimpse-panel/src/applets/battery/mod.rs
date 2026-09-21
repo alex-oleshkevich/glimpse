@@ -10,7 +10,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
 pub struct Battery {
     battery: BatteryHandle,
@@ -57,20 +57,20 @@ impl Battery {
         if render::shows_icon(self.settings.indicator_style)
             && let Some(charge) = self.state.display.as_ref()
         {
-            let name = render::icon(charge).to_owned();
+            let name = render::icon(charge);
             spec.icon = Some(self.themed(&name));
         }
         Some(spec)
     }
 
     fn themed(&mut self, name: &str) -> gio::Icon {
-        if self.icon.as_ref().is_none_or(|(held, _)| held != name) {
-            let icon = gio::ThemedIcon::new(name).upcast();
-            self.icon = Some((name.to_owned(), icon));
-        }
-        match self.icon.as_ref() {
-            Some((_, icon)) => icon.clone(),
-            None => gio::ThemedIcon::new(name).upcast(),
+        match &self.icon {
+            Some((held, icon)) if held == name => icon.clone(),
+            _ => {
+                let icon: gio::Icon = gio::ThemedIcon::new(name).upcast();
+                self.icon = Some((name.to_owned(), icon.clone()));
+                icon
+            }
         }
     }
 
@@ -120,12 +120,13 @@ impl Applet for Battery {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = BatteryPopover::new();
         shown.close_details();
 
         let battery = self.battery.clone();
         let notifications = self.notifications.clone();
+        let opener = seat.opener();
         shown.connect_profile_activated(move |_, index| {
             let Some(name) = battery
                 .snapshot()
@@ -139,6 +140,7 @@ impl Applet for Battery {
             let battery = battery.clone();
             tell(
                 &notifications,
+                opener.clone(),
                 "battery.set_profile",
                 gettext("Could not change the power mode"),
                 async move { battery.set_profile(name).await },
@@ -147,6 +149,7 @@ impl Applet for Battery {
 
         let battery = self.battery.clone();
         let notifications = self.notifications.clone();
+        let opener = seat.opener();
         shown.connect_charge_limit_toggled(move |_, enabled| {
             let Some(path) = battery
                 .snapshot()
@@ -159,6 +162,7 @@ impl Applet for Battery {
             let battery = battery.clone();
             tell(
                 &notifications,
+                opener.clone(),
                 "battery.enable_charge_threshold",
                 gettext("Could not change the charge limit"),
                 async move { battery.enable_charge_threshold(path, enabled).await },
@@ -178,12 +182,13 @@ impl Applet for Battery {
 
 fn tell<F, T>(
     notifications: &NotificationsProviderHandle,
+    opener: Opener,
     operation: &'static str,
     summary: String,
     future: F,
 ) where
-    F: std::future::Future<Output = Result<T, CommandError>> + Send + 'static,
-    T: Send + 'static,
+    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
+    T: 'static,
 {
     let report = Report {
         notifications: notifications.clone(),
@@ -191,15 +196,12 @@ fn tell<F, T>(
         icon: "battery-symbolic".to_owned(),
         summary,
     };
-    spawn_reported(operation, report, wording, future);
-}
-
-fn wording(error: &CommandError) -> Option<String> {
-    Some(match error {
-        CommandError::InvalidArgument(_) => gettext("That was not a valid value."),
-        CommandError::Unavailable(_) => gettext("The battery service is unavailable."),
-        CommandError::Unsupported(_) => gettext("That is not supported."),
-        CommandError::LimitExceeded(_) => gettext("That could not be completed."),
-        CommandError::Internal(_) => gettext("That did not work."),
-    })
+    let unavailable = gettext("The battery service is unavailable.");
+    relm4::spawn_local(async move {
+        let Err(error) = future.await else {
+            return;
+        };
+        opener.wake();
+        report_failure(operation, report, wording(&error, &unavailable), error).await;
+    });
 }

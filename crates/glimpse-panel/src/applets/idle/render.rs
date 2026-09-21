@@ -80,14 +80,6 @@ pub fn tooltip(
     })
 }
 
-pub fn newly_adopted_holds(records: &[IdleInhibitorRecord], known_ids: &[u64]) -> Vec<u64> {
-    records
-        .iter()
-        .filter(|record| !known_ids.contains(&record.id) && is_manual_hold(record))
-        .map(|record| record.id)
-        .collect()
-}
-
 pub fn manual_hold_ids(records: &[IdleInhibitorRecord]) -> Vec<u64> {
     records
         .iter()
@@ -353,40 +345,29 @@ mod tests {
     }
 
     #[test]
-    fn newly_adopted_holds_finds_every_fresh_manual_hold_shaped_record() {
-        let records = vec![
-            screen_saver_record(1),
-            manual_hold_record(2),
-            manual_hold_record(3),
-        ];
-        assert_eq!(newly_adopted_holds(&records, &[1]), vec![2, 3]);
-        assert_eq!(
-            newly_adopted_holds(&records, &[1, 2, 3]),
-            Vec::<u64>::new(),
-            "an id already known is not adopted a second time"
-        );
-        assert_eq!(
-            newly_adopted_holds(&[screen_saver_record(3)], &[]),
-            Vec::<u64>::new(),
-            "a fresh record that is not shaped like the manual hold is never adopted"
-        );
-    }
-
-    #[test]
-    fn a_forged_manual_hold_shaped_record_is_never_adopted_when_it_cannot_be_released() {
+    fn a_forged_manual_hold_shaped_record_is_not_ours_when_it_cannot_be_released() {
         let mut forged = manual_hold_record(2);
         forged.can_release = false;
         assert_eq!(
-            newly_adopted_holds(&[forged], &[]),
+            manual_hold_ids(&[forged]),
             Vec::<u64>::new(),
             "a record the daemon itself refuses to release is never ours, whatever its shape"
         );
     }
 
     #[test]
-    fn existing_manual_holds_are_owned_when_the_panel_starts() {
-        let records = vec![screen_saver_record(1), manual_hold_record(2)];
-        assert_eq!(manual_hold_ids(&records), vec![2]);
+    fn the_hold_set_is_derived_from_the_records_rather_than_remembered() {
+        let records = vec![
+            screen_saver_record(1),
+            manual_hold_record(2),
+            manual_hold_record(3),
+        ];
+        assert_eq!(manual_hold_ids(&records), vec![2, 3]);
+        assert_eq!(
+            manual_hold_ids(&records[..1]),
+            Vec::<u64>::new(),
+            "a hold that has left the provider's list leaves the panel's with it"
+        );
     }
 
     #[test]

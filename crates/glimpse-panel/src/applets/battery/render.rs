@@ -35,7 +35,7 @@ pub fn shows_icon(style: BatteryIndicatorStyle) -> bool {
 }
 
 pub fn heading(charge: &Charge) -> (String, Option<String>, u8) {
-    (icon(charge).to_owned(), subtitle(charge), charge.percentage)
+    (icon(charge), subtitle(charge), charge.percentage)
 }
 
 pub fn profiles(profile: Option<&Profiles>) -> (Vec<Choice>, Option<u32>) {
@@ -238,56 +238,27 @@ fn warning(level: WarningLevel) -> (Option<Severity>, bool) {
     }
 }
 
-pub fn icon(charge: &Charge) -> &str {
+pub fn icon(charge: &Charge) -> String {
     if !charge.icon_name.is_empty() {
-        return &charge.icon_name;
+        return charge.icon_name.clone();
     }
     fallback_icon(charge.percentage, charge.state)
 }
 
-fn fallback_icon(percentage: u8, state: ChargeState) -> &'static str {
-    let band = (u32::from(percentage) / 10 * 10).min(100);
+fn fallback_icon(percentage: u8, state: ChargeState) -> String {
+    let band = u32::from(percentage).min(100) / 10 * 10;
     match state {
-        ChargeState::Charging | ChargeState::PendingDischarge => match band {
-            100 => "battery-level-100-charged-symbolic",
-            90 => "battery-level-90-charging-symbolic",
-            80 => "battery-level-80-charging-symbolic",
-            70 => "battery-level-70-charging-symbolic",
-            60 => "battery-level-60-charging-symbolic",
-            50 => "battery-level-50-charging-symbolic",
-            40 => "battery-level-40-charging-symbolic",
-            30 => "battery-level-30-charging-symbolic",
-            20 => "battery-level-20-charging-symbolic",
-            10 => "battery-level-10-charging-symbolic",
-            _ => "battery-level-0-charging-symbolic",
-        },
-        ChargeState::Full => "battery-full-charged-symbolic",
-        ChargeState::PendingCharge => match band {
-            100 => "battery-level-100-plugged-in-symbolic",
-            90 => "battery-level-90-plugged-in-symbolic",
-            80 => "battery-level-80-plugged-in-symbolic",
-            70 => "battery-level-70-plugged-in-symbolic",
-            60 => "battery-level-60-plugged-in-symbolic",
-            50 => "battery-level-50-plugged-in-symbolic",
-            40 => "battery-level-40-plugged-in-symbolic",
-            30 => "battery-level-30-plugged-in-symbolic",
-            20 => "battery-level-20-plugged-in-symbolic",
-            10 => "battery-level-10-plugged-in-symbolic",
-            _ => "battery-level-0-plugged-in-symbolic",
-        },
-        _ => match band {
-            100 => "battery-level-100-symbolic",
-            90 => "battery-level-90-symbolic",
-            80 => "battery-level-80-symbolic",
-            70 => "battery-level-70-symbolic",
-            60 => "battery-level-60-symbolic",
-            50 => "battery-level-50-symbolic",
-            40 => "battery-level-40-symbolic",
-            30 => "battery-level-30-symbolic",
-            20 => "battery-level-20-symbolic",
-            10 => "battery-level-10-symbolic",
-            _ => "battery-level-0-symbolic",
-        },
+        ChargeState::Full => "battery-full-charged-symbolic".to_owned(),
+        ChargeState::Charging | ChargeState::PendingDischarge if band == 100 => {
+            "battery-level-100-charged-symbolic".to_owned()
+        }
+        ChargeState::Charging | ChargeState::PendingDischarge => {
+            format!("battery-level-{band}-charging-symbolic")
+        }
+        ChargeState::PendingCharge => format!("battery-level-{band}-plugged-in-symbolic"),
+        ChargeState::Discharging | ChargeState::Empty | ChargeState::Unknown => {
+            format!("battery-level-{band}-symbolic")
+        }
     }
 }
 
@@ -623,6 +594,18 @@ mod tests {
         assert_eq!(icon(&charging), "battery-full-charging-symbolic");
         charging.icon_name.clear();
         assert_eq!(icon(&charging), "battery-level-40-charging-symbolic");
+
+        let mut full = charge(100, ChargeState::Charging);
+        full.icon_name.clear();
+        assert_eq!(
+            icon(&full),
+            "battery-level-100-charged-symbolic",
+            "Adwaita has no battery-level-100-charging-symbolic"
+        );
+
+        let mut waiting = charge(55, ChargeState::PendingCharge);
+        waiting.icon_name.clear();
+        assert_eq!(icon(&waiting), "battery-level-50-plugged-in-symbolic");
     }
 
     #[test]

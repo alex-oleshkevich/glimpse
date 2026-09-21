@@ -2,8 +2,10 @@ pub mod catcher;
 pub mod popover;
 pub mod runtime;
 
+use gettextrs::gettext;
 use glimpse_config::Applet as AppletConfig;
 use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
+use glimpse_services::CommandError;
 use glimpse_widgets::IndicatorSpec;
 use popover::{PopoverHandle, Seat};
 use std::cell::RefCell;
@@ -127,6 +129,16 @@ pub fn spawn_reported<F, T, E>(
     });
 }
 
+pub fn wording(error: &CommandError, unavailable: &str) -> Option<String> {
+    Some(match error {
+        CommandError::Unavailable(_) => unavailable.to_owned(),
+        CommandError::InvalidArgument(_) => gettext("That change was refused."),
+        CommandError::Unsupported(_) => gettext("That is not supported."),
+        CommandError::LimitExceeded(_) => gettext("That could not be completed."),
+        CommandError::Internal(_) => gettext("That did not work."),
+    })
+}
+
 pub async fn report_failure<E: Display>(
     operation: &'static str,
     report: Report,
@@ -171,6 +183,10 @@ impl Opener {
 
     pub fn toggle_popover(&self) {
         let _ = self.0.send(runtime::HostInput::PopoverToggled);
+    }
+
+    pub fn close_popover(&self) {
+        let _ = self.0.send(runtime::HostInput::PopoverLowered);
     }
 
     pub fn wake(&self) {

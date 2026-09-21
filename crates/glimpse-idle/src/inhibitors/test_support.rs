@@ -4,13 +4,6 @@ use std::sync::Arc;
 
 use glimpse_dbus::testing::PrivateBus;
 use zbus::Connection;
-
-/// Stashes each pipe's reader so a test can confirm the writer end (handed to the caller as the
-/// "logind fd") actually closes later, the same EOF technique
-/// `registry.rs`'s `release_record_closes_the_held_logind_fd` test uses. Shared by
-/// `control.rs`'s and `portal.rs`'s tests, since both exercise an outbound `login1.Inhibit` call.
-/// `whats` additionally records each call's `what` argument, in order, so a test can assert the
-/// exact wire string (`"sleep"`, `"shutdown"`, `"sleep:shutdown"`) rather than only the fd count.
 #[derive(Default, Clone)]
 pub(crate) struct FakeLogin1 {
     pub(crate) readers: Arc<std::sync::Mutex<Vec<std::io::PipeReader>>>,

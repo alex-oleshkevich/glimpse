@@ -28,7 +28,6 @@ pub struct BatteryState {
     pub internals: Vec<Supply>,
     pub devices: Vec<Peripheral>,
     pub profile: Option<Profiles>,
-    pub generation: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,7 +90,6 @@ pub enum Event {
     Upower(UpowerSnapshot),
     Profiles(Option<Profiles>),
     Failed(String),
-    Settled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,7 +109,6 @@ pub struct Battery {
     state: Publisher<BatteryState>,
     upower: UpowerSnapshot,
     profile: Option<Profiles>,
-    generation: u64,
 }
 
 #[derive(Clone)]
@@ -198,7 +195,6 @@ impl Service for Battery {
                 devices: BTreeMap::new(),
             },
             profile: None,
-            generation: 0,
         })
     }
 
@@ -215,10 +211,6 @@ impl Service for Battery {
             }
             Input::Event(Event::Failed(reason)) => {
                 ctx.degraded(reason);
-            }
-            Input::Event(Event::Settled) => {
-                self.generation = self.generation.saturating_add(1);
-                self.publish();
             }
             Input::Command(Command::SetProfile { name, reply }) => {
                 self.set_profile(ctx, name, reply);
@@ -245,7 +237,6 @@ impl Battery {
             internals,
             devices,
             profile: self.profile.clone(),
-            generation: self.generation,
         });
     }
 
@@ -261,10 +252,8 @@ impl Battery {
             )));
             return;
         };
-        let events = ctx.events();
         ctx.spawn_detached(move |_ctx| async move {
             let _ = reply.send(set_active_profile(&bus, &name).await);
-            let _ = events.send(Input::Event(Event::Settled)).await;
         });
     }
 
@@ -281,10 +270,8 @@ impl Battery {
             )));
             return;
         };
-        let events = ctx.events();
         ctx.spawn_detached(move |_ctx| async move {
             let _ = reply.send(enable_charge_threshold(&bus, &path, enabled).await);
-            let _ = events.send(Input::Event(Event::Settled)).await;
         });
     }
 }

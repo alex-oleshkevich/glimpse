@@ -3,7 +3,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use crate::error::{ConfigError, MAX_FILE_BYTES};
-use crate::schema::Config;
+use crate::schema::{Applet, Config};
 
 const SYSTEM_DIR: &str = "/etc/glimpse";
 const FILE_NAME: &str = "config.toml";
@@ -108,6 +108,37 @@ fn load_from(
         .map_err(ConfigError::schema)
 }
 
+pub fn named_applets_exist(config: &Config) -> Result<(), ConfigError> {
+    for (index, panel) in config.panels.iter().enumerate() {
+        for (zone, names) in [
+            ("left", &panel.left),
+            ("center", &panel.center),
+            ("right", &panel.right),
+        ] {
+            for name in names {
+                if config.applets.contains_key(name) || Applet::from_name(name).is_some() {
+                    continue;
+                }
+                return Err(ConfigError::Schema {
+                    message: format!(
+                        "[[panels]] #{index} {zone}: unknown applet `{name}`{}",
+                        suggestion(name)
+                    ),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn suggestion(name: &str) -> String {
+    let kebab = name.replace('_', "-");
+    match Applet::from_name(&kebab).is_some() {
+        true => format!(", did you mean `{kebab}`?"),
+        false => String::new(),
+    }
+}
+
 fn stack(
     system_dir: &Path,
     user_dir: Option<&Path>,
@@ -181,6 +212,49 @@ fn is_missing(error: &ConfigError) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn panel_naming(name: &str) -> Config {
+        Config {
+            panels: vec![crate::schema::Panel {
+                right: vec![name.to_owned()],
+                ..crate::schema::Panel::default()
+            }],
+            ..Config::default()
+        }
+    }
+
+    #[test]
+    fn an_applet_name_the_document_cannot_resolve_is_a_load_error() {
+        let error = named_applets_exist(&panel_naming("not-an-applet"))
+            .expect_err("a name nothing resolves is not a panel glimpse can build");
+        assert!(
+            error.to_string().contains("not-an-applet"),
+            "the message has to name the applet: {error}"
+        );
+        assert!(error.to_string().contains("right"));
+    }
+
+    #[test]
+    fn an_underscore_spelling_names_the_kebab_case_one_it_meant() {
+        let error = named_applets_exist(&panel_naming("next_event"))
+            .expect_err("every applet kind is kebab-case");
+        assert!(
+            error.to_string().contains("did you mean `next-event`?"),
+            "an underscore is the typo worth spelling out: {error}"
+        );
+    }
+
+    #[test]
+    fn a_kind_name_and_a_configured_instance_name_both_resolve() {
+        named_applets_exist(&panel_naming("next-event")).expect("a kind name resolves");
+
+        let mut named = panel_naming("my-clock");
+        named.applets.insert(
+            "my-clock".to_owned(),
+            Applet::from_name("clock").expect("clock"),
+        );
+        named_applets_exist(&named).expect("a name declared under [applets] resolves");
+    }
 
     #[test]
     fn the_stack_is_each_directory_and_its_dropins_in_merge_order() {

@@ -9,7 +9,7 @@ use glimpse_config::{CalendarSource, CalendarSourceKind, Update};
 use glimpse_utils::clean;
 use icalendar::{
     Calendar as ICalendar, CalendarDateTime, Component as _, DatePerhapsTime, Event as IEvent,
-    EventLike as _,
+    EventLike as _, EventStatus, PartStat,
 };
 use reqwest::Url;
 use tokio::{fs, sync::oneshot};
@@ -29,6 +29,8 @@ const EVENTS: usize = 512;
 const FILES: usize = 256;
 const SUMMARY: usize = 120;
 const DETAIL: usize = 120;
+const ORGANIZER: usize = 80;
+const MEETING_URL: usize = 512;
 const SIDECAR: usize = 2048;
 const REASON: usize = 240;
 const MIN_POLL: u64 = 60;
@@ -39,12 +41,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CalendarEvent {
     pub source: String,
+    pub calendar: String,
     pub summary: String,
-    pub detail: String,
+    pub location: String,
+    pub description: String,
+    pub meeting_url: Option<String>,
+    pub organizer: Option<String>,
+    pub guests: Option<GuestCounts>,
+    pub tentative: bool,
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
     pub all_day: bool,
     pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuestCounts {
+    pub total: u32,
+    pub accepted: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -151,7 +165,12 @@ impl Window {
 
 pub struct Occurrence {
     summary: String,
-    detail: String,
+    location: String,
+    description: String,
+    meeting_url: Option<String>,
+    organizer: Option<String>,
+    guests: Option<GuestCounts>,
+    tentative: bool,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
     all_day: bool,
@@ -429,6 +448,7 @@ impl Calendar {
                 let fetch = self.fetched.get(&source.id)?;
                 Some(Loaded {
                     id: source.id.clone(),
+                    name: source.name.clone(),
                     color: source.color.clone(),
                     calendars: fetch.calendars.clone(),
                 })
@@ -439,6 +459,7 @@ impl Calendar {
 
 struct Loaded {
     id: String,
+    name: Option<String>,
     color: Option<String>,
     calendars: Vec<Arc<ICalendar>>,
 }
@@ -450,8 +471,14 @@ fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
             for occurrence in expand(calendar, window) {
                 events.push(CalendarEvent {
                     source: source.id.clone(),
+                    calendar: source.name.clone().unwrap_or_else(|| source.id.clone()),
                     summary: occurrence.summary,
-                    detail: occurrence.detail,
+                    location: occurrence.location,
+                    description: occurrence.description,
+                    meeting_url: occurrence.meeting_url,
+                    organizer: occurrence.organizer,
+                    guests: occurrence.guests,
+                    tentative: occurrence.tentative,
                     start: occurrence.start,
                     end: occurrence.end,
                     all_day: occurrence.all_day,
@@ -621,10 +648,14 @@ async fn read(
 fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
     let from = bound(window.from);
     let to = bound(window.to);
+    let overridden = overridden_instances(calendar);
 
     let mut occurrences = Vec::new();
     for entry in calendar.calendar_events() {
         let event = entry.event();
+        if event.get_status() == Some(EventStatus::Cancelled) {
+            continue;
+        }
         let Some(start) = event.get_start() else {
             continue;
         };
@@ -639,13 +670,30 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             continue;
         };
         let summary = clean(event.get_summary().unwrap_or_default(), SUMMARY);
-        let detail = detail(event);
+        let location = line(event.get_location());
+        let description = line(event.get_description().and_then(first_line));
+        let meeting_url = meeting_url(event);
+        let organizer = organizer(event);
+        let guests = guests(event);
+        let tentative = event.get_status() == Some(EventStatus::Tentative);
+        let replaced = match event.property_value("RECURRENCE-ID") {
+            Some(_) => None,
+            None => overridden.get(event.get_uid().unwrap_or("")),
+        };
 
         for date in set.after(from).before(to).all(OCCURRENCES).dates {
             let start = date.with_timezone(&Utc);
+            if replaced.is_some_and(|replaced| replaced.holds(&date)) {
+                continue;
+            }
             occurrences.push(Occurrence {
                 summary: summary.clone(),
-                detail: detail.clone(),
+                location: location.clone(),
+                description: description.clone(),
+                meeting_url: meeting_url.clone(),
+                organizer: organizer.clone(),
+                guests,
+                tentative,
                 start,
                 end: start.checked_add_signed(length).unwrap_or(start),
                 all_day,
@@ -744,18 +792,178 @@ fn spanning(text: &str) -> Option<TimeDelta> {
     TimeDelta::from_std(std::time::Duration::from(parsed)).ok()
 }
 
-fn detail(event: &IEvent) -> String {
-    let location = event
-        .get_location()
+#[derive(Default)]
+struct Replaced {
+    utc: BTreeSet<NaiveDateTime>,
+    local: BTreeSet<NaiveDateTime>,
+}
+
+impl Replaced {
+    fn holds(&self, date: &DateTime<rrule::Tz>) -> bool {
+        self.utc.contains(&date.naive_utc()) || self.local.contains(&date.naive_local())
+    }
+}
+
+fn overridden_instances(calendar: &ICalendar) -> BTreeMap<String, Replaced> {
+    let mut overridden: BTreeMap<String, Replaced> = BTreeMap::new();
+    for entry in calendar.calendar_events() {
+        let event = entry.event();
+        let Some(uid) = event.get_uid() else {
+            continue;
+        };
+        let Some(recurrence) = event.get_recurrence_id() else {
+            continue;
+        };
+        let replaced = overridden.entry(uid.to_owned()).or_default();
+        match recurrence {
+            DatePerhapsTime::DateTime(CalendarDateTime::Utc(_)) => {
+                replaced.utc.insert(moment(&recurrence))
+            }
+            _ => replaced.local.insert(moment(&recurrence)),
+        };
+    }
+    overridden
+}
+
+fn line(text: Option<&str>) -> String {
+    text.map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(|text| clean(text, DETAIL))
+        .unwrap_or_default()
+}
+
+fn first_line(description: &str) -> Option<&str> {
+    description
+        .lines()
         .map(str::trim)
+        .find(|line| !line.is_empty())
+}
+
+fn organizer(event: &IEvent) -> Option<String> {
+    let property = event.properties().get("ORGANIZER")?;
+    let named = property
+        .params()
+        .get("CN")
+        .map(|parameter| parameter.value().trim())
         .filter(|text| !text.is_empty());
-    let described = event.get_description().and_then(|description| {
-        description
-            .lines()
-            .map(str::trim)
-            .find(|line| !line.is_empty())
-    });
-    clean(location.or(described).unwrap_or_default(), DETAIL)
+    named
+        .or_else(|| mailbox(property.value()))
+        .map(|text| clean(text, ORGANIZER))
+}
+
+fn mailbox(value: &str) -> Option<&str> {
+    let address = value
+        .trim()
+        .strip_prefix("mailto:")
+        .or_else(|| value.trim().strip_prefix("MAILTO:"))
+        .unwrap_or(value.trim());
+    let local = address.split('@').next()?.trim();
+    (!local.is_empty()).then_some(local)
+}
+
+fn guests(event: &IEvent) -> Option<GuestCounts> {
+    let attendees = event.get_attendees();
+    let total = u32::try_from(attendees.len()).unwrap_or(u32::MAX);
+    if total < 2 {
+        return None;
+    }
+    let accepted = attendees
+        .iter()
+        .filter(|attendee| attendee.part_stat == Some(PartStat::Accepted))
+        .count();
+    Some(GuestCounts {
+        total,
+        accepted: u32::try_from(accepted).unwrap_or(u32::MAX),
+    })
+}
+
+fn meeting_url(event: &IEvent) -> Option<String> {
+    http_url(event.property_value("X-GOOGLE-CONFERENCE"))
+        .or_else(|| http_url(event.property_value("X-MICROSOFT-SKYPETEAMSMEETINGURL")))
+        .or_else(|| event.get_url().and_then(conference_url))
+        .or_else(|| event.get_location().and_then(conference_url))
+        .or_else(|| event.get_description().and_then(first_conference))
+}
+
+fn http_url(value: Option<&str>) -> Option<String> {
+    let text = value?.trim();
+    let url = Url::parse(text).ok()?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return None;
+    }
+    let canon = url.as_str();
+    if canon.chars().count() > MEETING_URL {
+        return None;
+    }
+    Some(clean(canon, MEETING_URL))
+}
+
+fn conference_url(text: &str) -> Option<String> {
+    let url = http_url(Some(text))?;
+    match meeting(&url)?.provider {
+        MeetingProvider::Other => None,
+        _ => Some(url),
+    }
+}
+
+fn first_conference(description: &str) -> Option<String> {
+    description
+        .split(|character: char| character.is_whitespace() || matches!(character, '<' | '>' | '"'))
+        .map(|token| token.trim_end_matches([')', ']', '.', ',', ';', '>']))
+        .find(|token| token.starts_with("http://") || token.starts_with("https://"))
+        .and_then(conference_url)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeetingProvider {
+    GoogleMeet,
+    Zoom,
+    Teams,
+    Webex,
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Meeting {
+    pub provider: MeetingProvider,
+    pub location: String,
+}
+
+pub fn meeting(url: &str) -> Option<Meeting> {
+    let parsed = Url::parse(url.trim()).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    let host = parsed
+        .host_str()?
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
+    let path = parsed.path().trim_end_matches('/');
+    Some(Meeting {
+        provider: provider_of(&host),
+        location: format!("{host}{path}"),
+    })
+}
+
+fn provider_of(host: &str) -> MeetingProvider {
+    if under(host, "meet.google.com") {
+        MeetingProvider::GoogleMeet
+    } else if under(host, "zoom.us") {
+        MeetingProvider::Zoom
+    } else if under(host, "teams.microsoft.com") {
+        MeetingProvider::Teams
+    } else if under(host, "webex.com") {
+        MeetingProvider::Webex
+    } else {
+        MeetingProvider::Other
+    }
+}
+
+fn under(host: &str, domain: &str) -> bool {
+    host == domain
+        || host
+            .strip_suffix(domain)
+            .is_some_and(|rest| rest.ends_with('.'))
 }
 
 #[cfg(test)]
@@ -1072,6 +1280,7 @@ END:VCALENDAR\r
     fn loaded(id: &str, calendar: Arc<ICalendar>) -> Loaded {
         Loaded {
             id: id.to_owned(),
+            name: None,
             color: None,
             calendars: vec![calendar],
         }
@@ -1101,6 +1310,7 @@ END:VCALENDAR\r
             0,
             vec![Loaded {
                 id: "crowd".to_owned(),
+                name: None,
                 color: None,
                 calendars: fetch.calendars,
             }],
@@ -1120,7 +1330,8 @@ END:VCALENDAR\r
         let found = expanded("Standup");
 
         assert_eq!(found.len(), 1);
-        assert_eq!(found[0].detail, "Meeting room 2");
+        assert_eq!(found[0].location, "Meeting room 2");
+        assert_eq!(found[0].description, "");
         assert_eq!(
             found[0].start,
             Utc.with_ymd_and_hms(2026, 9, 4, 9, 0, 0).unwrap()
@@ -1130,6 +1341,319 @@ END:VCALENDAR\r
             Utc.with_ymd_and_hms(2026, 9, 4, 9, 30, 0).unwrap()
         );
         assert!(!found[0].all_day);
+    }
+
+    fn recurring(overrides: &str) -> Vec<String> {
+        let document = format!(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:r@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART:20260902T090000Z\r\nDTEND:20260902T093000Z\r\n\
+             RRULE:FREQ=DAILY;COUNT=4\r\nSUMMARY:Daily\r\nEND:VEVENT\r\n\
+             {overrides}END:VCALENDAR\r\n"
+        );
+        let mut shown: Vec<String> = expand(&parsed(&document), window())
+            .iter()
+            .map(|occurrence| format!("{} {}", occurrence.start, occurrence.summary))
+            .collect();
+        shown.sort();
+        shown
+    }
+
+    #[test]
+    fn a_moved_instance_replaces_the_one_the_rule_would_have_produced() {
+        assert_eq!(
+            recurring(
+                "BEGIN:VEVENT\r\nUID:r@example\r\nDTSTAMP:20260901T000000Z\r\n\
+                 RECURRENCE-ID:20260903T090000Z\r\nDTSTART:20260903T140000Z\r\n\
+                 DTEND:20260903T143000Z\r\nSUMMARY:Daily moved\r\nEND:VEVENT\r\n"
+            ),
+            [
+                "2026-09-02 09:00:00 UTC Daily",
+                "2026-09-03 14:00:00 UTC Daily moved",
+                "2026-09-04 09:00:00 UTC Daily",
+                "2026-09-05 09:00:00 UTC Daily",
+            ],
+            "RECURRENCE-ID names the instant the rule produced, not the one the override sits at"
+        );
+    }
+
+    #[test]
+    fn a_zoned_override_replaces_its_instance_the_way_a_utc_one_does() {
+        let document = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:z@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART;TZID=Europe/Warsaw:20260902T110000\r\n\
+             DTEND;TZID=Europe/Warsaw:20260902T113000\r\n\
+             RRULE:FREQ=DAILY;COUNT=4\r\nSUMMARY:Daily\r\nEND:VEVENT\r\n\
+             BEGIN:VEVENT\r\nUID:z@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             RECURRENCE-ID;TZID=Europe/Warsaw:20260903T110000\r\n\
+             DTSTART;TZID=Europe/Warsaw:20260903T160000\r\n\
+             DTEND;TZID=Europe/Warsaw:20260903T163000\r\n\
+             SUMMARY:Daily moved\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        let mut shown: Vec<String> = expand(&parsed(document), window())
+            .iter()
+            .map(|occurrence| format!("{} {}", occurrence.start, occurrence.summary))
+            .collect();
+        shown.sort();
+
+        assert_eq!(
+            shown,
+            [
+                "2026-09-02 09:00:00 UTC Daily",
+                "2026-09-03 14:00:00 UTC Daily moved",
+                "2026-09-04 09:00:00 UTC Daily",
+                "2026-09-05 09:00:00 UTC Daily",
+            ],
+            "a TZID RECURRENCE-ID names a local instant while the occurrence is published in UTC, \
+             so matching only the UTC face leaves the replaced instance behind — and every Google \
+             and Outlook feed is written this way"
+        );
+    }
+
+    #[test]
+    fn a_cancelled_instance_leaves_a_gap_rather_than_a_duplicate() {
+        assert_eq!(
+            recurring(
+                "BEGIN:VEVENT\r\nUID:r@example\r\nDTSTAMP:20260901T000000Z\r\n\
+                 RECURRENCE-ID:20260903T090000Z\r\nDTSTART:20260903T090000Z\r\n\
+                 DTEND:20260903T093000Z\r\nSTATUS:CANCELLED\r\nSUMMARY:Daily\r\nEND:VEVENT\r\n"
+            ),
+            [
+                "2026-09-02 09:00:00 UTC Daily",
+                "2026-09-04 09:00:00 UTC Daily",
+                "2026-09-05 09:00:00 UTC Daily",
+            ]
+        );
+    }
+
+    #[test]
+    fn an_excluded_date_is_dropped_by_the_rule_itself() {
+        let document = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:e@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART:20260902T090000Z\r\nDTEND:20260902T093000Z\r\n\
+             RRULE:FREQ=DAILY;COUNT=4\r\nEXDATE:20260903T090000Z\r\n\
+             SUMMARY:Daily\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        assert_eq!(expand(&parsed(document), window()).len(), 3);
+    }
+
+    #[test]
+    fn a_zoned_hourly_series_keeps_the_instance_whose_utc_face_looks_like_the_override() {
+        let document = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:h@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART;TZID=America/New_York:20260903T160000\r\n\
+             DTEND;TZID=America/New_York:20260903T161500\r\n\
+             RRULE:FREQ=HOURLY;COUNT=5\r\nSUMMARY:Hourly\r\nEND:VEVENT\r\n\
+             BEGIN:VEVENT\r\nUID:h@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             RECURRENCE-ID;TZID=America/New_York:20260903T200000\r\n\
+             DTSTART;TZID=America/New_York:20260903T210000\r\n\
+             DTEND;TZID=America/New_York:20260903T211500\r\n\
+             SUMMARY:Hourly moved\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        let found = expand(&parsed(document), window());
+
+        assert_eq!(
+            found.len(),
+            5,
+            "16:00 EDT is 20:00 UTC, the same wall time the override names in local terms — \
+             matching whichever face happens to agree would drop it as well as the real 20:00"
+        );
+        assert_eq!(
+            found.iter().filter(|o| o.summary == "Hourly moved").count(),
+            1
+        );
+    }
+
+    fn one(body: &str) -> Occurrence {
+        let document = format!(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:x@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART:20260904T090000Z\r\nDTEND:20260904T093000Z\r\n\
+             SUMMARY:Entry\r\n{body}END:VEVENT\r\nEND:VCALENDAR\r\n"
+        );
+        let found = expand(&parsed(&document), window());
+        assert_eq!(found.len(), 1, "{body}");
+        found.into_iter().next().expect("one occurrence")
+    }
+
+    fn none(body: &str) {
+        let document = format!(
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n\
+             BEGIN:VEVENT\r\nUID:x@example\r\nDTSTAMP:20260901T000000Z\r\n\
+             DTSTART:20260904T090000Z\r\nDTEND:20260904T093000Z\r\n\
+             SUMMARY:Entry\r\n{body}END:VEVENT\r\nEND:VCALENDAR\r\n"
+        );
+        assert!(
+            expand(&parsed(&document), window()).is_empty(),
+            "{body} should not publish"
+        );
+    }
+
+    #[test]
+    fn location_and_description_stay_apart() {
+        let event = one("LOCATION:Room 2\r\nDESCRIPTION:Bring slides\\nMore\r\n");
+
+        assert_eq!(event.location, "Room 2");
+        assert_eq!(event.description, "Bring slides");
+    }
+
+    #[test]
+    fn a_description_alone_does_not_become_a_location() {
+        let event = one("DESCRIPTION:Bring slides\r\n");
+
+        assert_eq!(event.location, "");
+        assert_eq!(event.description, "Bring slides");
+    }
+
+    #[test]
+    fn a_google_conference_is_the_join_url() {
+        let event = one("X-GOOGLE-CONFERENCE:https://meet.google.com/aaa-bbbb-ccc\r\n");
+
+        assert_eq!(
+            event.meeting_url.as_deref(),
+            Some("https://meet.google.com/aaa-bbbb-ccc")
+        );
+    }
+
+    #[test]
+    fn a_teams_url_is_the_join_url() {
+        let event = one(
+            "X-MICROSOFT-SKYPETEAMSMEETINGURL:https://teams.microsoft.com/l/meetup-join/19\r\n",
+        );
+
+        assert_eq!(
+            event.meeting_url.as_deref(),
+            Some("https://teams.microsoft.com/l/meetup-join/19")
+        );
+    }
+
+    #[test]
+    fn a_plain_url_earns_a_join_row_only_when_it_names_a_conference_host() {
+        let page = one("URL:https://calendar.example/event\r\n");
+        assert_eq!(
+            page.meeting_url, None,
+            "an event page is not a meeting, and a Join row that opens one is a lie"
+        );
+
+        let conference = one("URL:https://zoom.us/j/123\r\n");
+        assert_eq!(
+            conference.meeting_url.as_deref(),
+            Some("https://zoom.us/j/123")
+        );
+
+        let hostile = one("URL:javascript:alert(1)\r\n");
+        assert_eq!(hostile.meeting_url, None);
+    }
+
+    #[test]
+    fn a_meet_in_the_location_or_description_is_still_a_join_url() {
+        let at_location = one("LOCATION:https://meet.google.com/loc-only\r\n");
+        assert_eq!(
+            at_location.meeting_url.as_deref(),
+            Some("https://meet.google.com/loc-only")
+        );
+
+        let in_body = one("DESCRIPTION:Dial in at https://zoom.us/j/123 then sit down\r\n");
+        assert_eq!(
+            in_body.meeting_url.as_deref(),
+            Some("https://zoom.us/j/123")
+        );
+
+        let street = one("LOCATION:Antakalnio g. 18\r\n");
+        assert_eq!(street.meeting_url, None);
+
+        let spoof = one("LOCATION:https://evilzoom.us/j/1\r\n");
+        assert_eq!(spoof.meeting_url, None);
+    }
+
+    #[test]
+    fn a_dedicated_conference_property_outranks_a_url_in_the_body() {
+        let event = one(
+            "X-GOOGLE-CONFERENCE:https://meet.google.com/aaa-bbbb-ccc\r\n\
+             LOCATION:https://zoom.us/j/999\r\n",
+        );
+
+        assert_eq!(
+            event.meeting_url.as_deref(),
+            Some("https://meet.google.com/aaa-bbbb-ccc")
+        );
+    }
+
+    #[test]
+    fn the_organizer_prefers_a_common_name_over_the_mailbox() {
+        let named = one("ORGANIZER;CN=Marta Kazlauskiene:mailto:marta@example.com\r\n");
+        assert_eq!(named.organizer.as_deref(), Some("Marta Kazlauskiene"));
+
+        let mail = one("ORGANIZER:mailto:marta@example.com\r\n");
+        assert_eq!(mail.organizer.as_deref(), Some("marta"));
+    }
+
+    #[test]
+    fn guests_are_a_count_and_only_when_there_are_two() {
+        let pair = one(
+            "ATTENDEE;CN=Alex;PARTSTAT=ACCEPTED:mailto:alex@example.com\r\n\
+             ATTENDEE;CN=Marta;PARTSTAT=NEEDS-ACTION:mailto:marta@example.com\r\n",
+        );
+        assert_eq!(
+            pair.guests,
+            Some(GuestCounts {
+                total: 2,
+                accepted: 1
+            })
+        );
+
+        let solo = one("ATTENDEE;CN=Alex;PARTSTAT=ACCEPTED:mailto:alex@example.com\r\n");
+        assert_eq!(solo.guests, None);
+    }
+
+    #[test]
+    fn tentative_is_a_flag_and_cancelled_is_not_published() {
+        let maybe = one("STATUS:TENTATIVE\r\n");
+        assert!(maybe.tentative);
+
+        let confirmed = one("STATUS:CONFIRMED\r\n");
+        assert!(!confirmed.tentative);
+
+        none("STATUS:CANCELLED\r\n");
+    }
+
+    #[test]
+    fn the_published_calendar_label_is_the_source_name() {
+        let payload = payload(expanding(
+            0,
+            vec![Loaded {
+                id: "work".to_owned(),
+                name: Some("Work".to_owned()),
+                color: None,
+                calendars: vec![parsed(DOCUMENT)],
+            }],
+            window(),
+        ));
+
+        let standup = payload
+            .events
+            .iter()
+            .find(|event| event.summary == "Standup")
+            .expect("standup");
+        assert_eq!(standup.source, "work");
+        assert_eq!(standup.calendar, "Work");
+        assert_eq!(standup.location, "Meeting room 2");
+    }
+
+    #[test]
+    fn an_unset_name_falls_back_to_the_source_id() {
+        let published = payload(expanding(
+            0,
+            vec![loaded("work", parsed(DOCUMENT))],
+            window(),
+        ));
+        assert_eq!(
+            published
+                .events
+                .iter()
+                .find(|event| event.summary == "Standup")
+                .expect("standup")
+                .calendar,
+            "work",
+            "`name` is documented as falling back to `id`, and an empty string hides the row"
+        );
     }
 
     /// The rule is the reason this service exists rather than a list of DTSTARTs: a weekly entry

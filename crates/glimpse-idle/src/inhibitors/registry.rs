@@ -450,8 +450,6 @@ mod tests {
             let bus_name = format!(":1.{i}");
             r.insert(test_record(id, &bus_name, false), None);
         }
-        // Every individual bus name here holds exactly one record, far under
-        // MAX_INHIBITORS_PER_BUS, and "brand-new-bus-name" holds none at all.
         assert!(r.check_capacity(Some(":1.0")).is_err());
         assert!(r.check_capacity(Some("brand-new-bus-name")).is_err());
     }

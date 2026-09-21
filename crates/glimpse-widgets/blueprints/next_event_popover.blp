@@ -11,8 +11,6 @@ template $NextEventPopover: Gtk.Widget {
     [hero]
     $Hero hero {
       icon-name: "appointment-soon-symbolic";
-      title: _("Nothing scheduled");
-      subtitle: _("No calendar entry is coming up.");
 
       [slot]
       $Readout countdown {
@@ -20,20 +18,32 @@ template $NextEventPopover: Gtk.Widget {
       }
     }
 
-    $Section upcoming {
-      title: _("Coming up");
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
 
       styles [
         "column",
       ]
 
-      $EventList later {}
+      $Row join {
+        visible: false;
+        lead-icon: "camera-web-symbolic";
+        activatable: true;
+      }
 
-      [placeholder]
-      $Placeholder nothing {
-        icon-name: "appointment-soon-symbolic";
-        title: _("Nothing else scheduled");
-        description: _("The rest of the day is yours.");
+      $Section details {
+        visible: false;
+        title: _("Details");
+
+        $FactList facts {}
+      }
+
+      $Section upcoming {
+        visible: false;
+        title: _("Coming up");
+
+        $EventList later {}
       }
     }
 

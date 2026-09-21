@@ -4,9 +4,6 @@ use tokio::sync::{Mutex, watch};
 
 use super::Registry;
 
-/// The inhibitor registry, shared across every D-Bus surface that mutates or reads it, plus two
-/// `watch` channels: `any_idle_target` for the idle actor's gate, `generation` for the crate's one
-/// `Inhibitors`-changed emitter. See the crate README for what each tracks and why.
 pub struct SharedRegistry {
     registry: Mutex<Registry>,
     any_idle_target: watch::Sender<bool>,

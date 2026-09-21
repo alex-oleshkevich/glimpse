@@ -247,21 +247,12 @@ impl Actor {
         self.spawn_command(id, listener.on_resume);
     }
 
-    /// Runs `on_idle` and marks `id` fired. Takes `on_idle` from the caller rather than looking
-    /// the listener up again: both call sites (`listener_idle`'s unsuppressed path,
-    /// `set_any_idle_target`'s release-while-suppressed path) already hold it, since every id
-    /// that reaches here is guaranteed to name a listener in the current active set —
-    /// `replace_policy` clears `fired` and `suppressed` on every path that changes that set.
     fn fire(&mut self, id: usize, on_idle: String) {
         self.fired.insert(id);
         self.publish_fired();
         self.spawn_command(id, on_idle);
     }
 
-    /// Tracks the registry's "any idle-targeting inhibitor" flag. Dropping to `false` fires
-    /// every listener that was idle but suppressed pending this drop, without waiting for a new
-    /// `Idled` event. Fired listeners stay sticky: a new inhibitor appearing afterward (`value ==
-    /// true`) never un-fires one.
     fn set_any_idle_target(&mut self, value: bool) {
         self.any_idle_target = value;
         if value {
@@ -506,8 +497,6 @@ mod tests {
     async fn settle() {
         tokio::time::sleep(Duration::from_millis(25)).await;
     }
-
-    /// AC-2: an on-battery flip re-resolves the listener set from `profiles.battery`.
     #[tokio::test]
     async fn battery_change_reresolves_listeners_from_battery_profile() {
         let (actor, handle) = Actor::new(
@@ -531,9 +520,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-3: a fired listener's `on_resume` runs before the policy switches, and `fired` is
-    /// cleared under the new policy.
     #[tokio::test]
     async fn battery_change_resumes_fired_listener_before_switching_and_clears_fired() {
         let commands = Recorded::default();
@@ -568,8 +554,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-4: an in-flight `on_idle` command does not block that listener's next transition.
     #[tokio::test]
     async fn in_flight_command_does_not_block_next_transition() {
         let (started_tx, started_rx) = oneshot::channel();
@@ -606,9 +590,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-5: a config change while a listener is fired runs its `on_resume` before the new policy
-    /// takes effect.
     #[tokio::test]
     async fn config_change_resumes_fired_listener_before_replacing_policy() {
         let commands = Recorded::default();
@@ -644,9 +625,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-7: `enabled = false` reports `Health::Disabled` with no active listeners, and events for
-    /// a stale listener id run nothing.
     #[tokio::test]
     async fn disabled_config_reports_disabled_health_and_runs_nothing() {
         let commands = Recorded::default();
@@ -679,10 +657,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// A listener event stamped with a generation older than the actor's current one is dropped,
-    /// even when its id happens to name a real listener under the new policy — otherwise a stale
-    /// `Idled` in flight during a profile switch fires the wrong listener's script immediately.
     #[tokio::test]
     async fn stale_generation_listener_event_is_ignored() {
         let commands = Recorded::default();
@@ -714,9 +688,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-4/bugfix: re-enabling the idle policy must show the real last-known backend health
-    /// rather than a false `Ready`, until the backend itself reports something newer.
     #[tokio::test]
     async fn enabling_reapplies_last_known_backend_health() {
         let mut disabled = test_config();
@@ -752,10 +723,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// Pins the two rules `resolve_listeners` applies before the rest of the actor ever sees a
-    /// listener: `timeout == 0` is dropped, and a per-listener `respect_inhibitors` overrides the
-    /// table default only when set.
     #[test]
     fn resolve_listeners_filters_disabled_and_resolves_inhibitor_override() {
         let mut config = test_config();
@@ -778,10 +745,6 @@ mod tests {
             "an explicit override wins over the table default"
         );
     }
-
-    /// A config edit that only touches the profile currently NOT in effect must not disturb an
-    /// already-fired listener on the active profile, nor bump its generation — the active policy
-    /// hasn't actually changed.
     #[tokio::test]
     async fn editing_the_inactive_profile_does_not_disturb_the_active_policy() {
         let commands = Recorded::default();
@@ -829,9 +792,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-4: a `respect_inhibitors = true` listener's `Idled` event does not fire `on_idle` while
-    /// the registry reports an idle-targeting inhibitor, even though the event itself arrived.
     #[tokio::test]
     async fn respecting_listener_does_not_fire_while_an_idle_target_inhibitor_exists() {
         let commands = Recorded::default();
@@ -861,9 +821,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-5: releasing the last idle-targeting inhibitor while a listener is idle-but-suppressed
-    /// fires `on_idle` immediately, with no new `Idled` event required.
     #[tokio::test]
     async fn releasing_the_last_idle_target_fires_a_suppressed_listener_immediately() {
         let commands = Recorded::default();
@@ -897,9 +854,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-6: once `on_idle` has fired, a new inhibitor appearing afterward does not un-fire the
-    /// listener; only a real `Resumed` event clears `fired`.
     #[tokio::test]
     async fn a_fired_listener_stays_fired_when_a_new_inhibitor_appears() {
         let commands = Recorded::default();
@@ -939,8 +893,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-7: a `respect_inhibitors = false` listener fires regardless of registry state.
     #[tokio::test]
     async fn non_respecting_listener_fires_regardless_of_registry_state() {
         let commands = Recorded::default();
@@ -972,10 +924,6 @@ mod tests {
         cancel.cancel();
         let _ = task.await;
     }
-
-    /// AC-8: a suppressed entry from before a profile switch must not fire under the new policy
-    /// just because the registry flag later drops — `replace_policy` clears `suppressed` exactly
-    /// as it already clears `fired`.
     #[tokio::test]
     async fn a_stale_generation_suppressed_entry_cannot_fire_under_a_new_policy() {
         let commands = Recorded::default();

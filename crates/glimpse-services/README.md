@@ -102,45 +102,13 @@ is linked into the panel and every provider and none may gain a Wayland dependen
 **synchronous**: the real implementation blocks and says so with `block_in_place`, and a synchronous
 signature is dyn-compatible, which lets `NightLight` take `Box<dyn Gamma>`. `FakeGamma` sits beside
 it rather than behind `#[cfg(test)]`, because `glimpse-sunset`'s tests are a separate unit.
-**brightness** — `Backlight` adds `read` beside `enumerate` and `write`; `SysfsBacklight` reads
-`/sys/class/backlight` with `tokio::fs`, writes through `Login1SessionProxy::set_brightness`, and
-caches its session once via `glimpse-dbus::login1::session_path` rather than per write. `FakeBacklight`
-sits beside it, not behind `#[cfg(test)]`, like `FakeGamma`. **`current` and `confirmed` differ on
-purpose**: `current` moves the instant a command is accepted, `confirmed` only once a write lands, and
-a failed write rolls `current` back unless a newer value is queued. An `Entry` always carries an
-already-read value — `enumerate_sysfs` skips one whose `brightness` or `max_brightness` would not
-parse, so the trait has no `Option` to invent one. **`floor` is published, not only enforced**, or a
-dragged fader would snap back at the edge; sources collapse to the highest-preference controller **per
-connector**, only where known — two connectorless controllers both publish. External monitors join
-this list the same way, needing no code here, once the `ddcci-backlight` DKMS module
-(`ddcci-driver-linux-dkms`) is loaded, exposing one as an ordinary `/sys/class/backlight` entry. An
-absent module is an ordinary no-external-sources state, not a banner. **It does not see a hotplug**:
-a replugged monitor needs `modprobe -r ddcci && modprobe ddcci`. **A `backlight` uevent
-names a device to re-read, never a value to trust**: the driver fires on every write, even a repeat, so
-reacting to it as a change would loop at bus speed; `Refresh` re-reads every source the same way, for a
-driver that never calls `backlight_force_update()`. A re-read for an in-flight write is dropped, not
-reconciled, so it cannot clobber the value already applied; one reporting the device gone drops the
-source, a failed call is skipped rather than read as gone. Opening the udev monitor can fail — no
-`/run/udev` is ordinary — without enumeration or `Refresh` depending on it. **`udev` is a direct
-dependency only to carry the `send` feature** into the build `tokio-udev` already resolves — no file
-names `udev::`, so a cleanup pass reading it as unused would break the live path. **That `unsafe impl
-Send` is sound only because no `udev::Device` or `Event` ever escapes the stream task while the monitor
-lives** — `rescans_from` consumes each into an owned value before `Event::Rescanned`; widening that
-event to carry a `udev::Device`, or moving a read into `ctx.spawn` with the event still in hand, is a
-data race the compiler will not catch. **The keyboard source is `Kind::Keyboard`, found by Introspect,
-never a hardcoded child name.** `org.freedesktop.UPower.KbdBacklight` moved to a machine-specific child
-node in UPower ≥ 1.90; the parent still answers `GetBrightness`/`GetMaxBrightness` even where
-introspection omits the methods, so the sorted-first child wins, the parent only as fallback when
-Introspect names none. **The keyboard publishes under exactly one id, so there is nothing to dedupe
-against `/sys/class/leds`** — the LED fallback, picked the same sorted way, is tried only once UPower
-has none. **`source` on `BrightnessChangedWithSource` does not discriminate a client's own write** —
-glimpse's own `SetBrightness` reports `external` too, on UPower 1.91.3 — so every signal is taken as a
-reconcile; what stops an echo loop is structural, the same as a `backlight` uevent: `rescanned` has no
-write edge, so a repeat report re-reads and nothing else. Writes go through the cached
-`UPowerKbdBacklightProxy`, kept beside the logind session cache, or
-`Login1SessionProxy::set_brightness("leds", …)` against the LED fallback when UPower has none — never a
-direct sysfs write, which needs root. `Kind::Keyboard` ignores `floor`: `[brightness] minimum` is a
-display floor, and a keyboard may still reach zero.
+**brightness** — `SysfsBacklight` reads `/sys/class/backlight` with `tokio::fs` and writes through
+logind. **`current` moves when a command is accepted, `confirmed` when the write lands**; a failed
+write rolls `current` back unless a newer value is queued. **`floor` is published**, or a dragged
+fader snaps back at the edge. Sources collapse to the highest-preference controller per connector.
+A `backlight` uevent names a device to re-read, never a value to trust. The keyboard is
+`Kind::Keyboard` via UPower introspect, then `/sys/class/leds`; writes never go to sysfs. Keyboard
+ignores `[brightness] minimum`.
 
 **compositor** — mirrors `glimpse-compositors` into one aggregate state and passes ten typed
 commands. **Disabling the last enabled output is refused from the service's own snapshot, not a
@@ -164,31 +132,15 @@ spawned,** in the compositor and keyboard services, keeping a command and its ev
 **keyboard** owns compositor layouts, so switching one does not resync workspaces or windows;
 `[keyboard] remember` is honoured in-memory, and a memoryless window inherits the current layout.
 
-**calendar** — every occurrence from every source as one sorted state value. **Whether a source is
-watched or fetched follows the uri, not the kind**: a local path is watched, `http(s)` is polled,
-and a `file://` holding a one-line feed URL is both, which is why `resolve` reads the file. A watched
-source has no timer: the stream opens with a read, `Update::Unavailable` is a failure not a warning,
-and `poll-interval` describes only the network.
-
-- **Fetching and expanding are two steps, and only the first touches the world**, so `set_range`
-  changes what is published without a request, and an unparseable document is a reported failure
-  rather than a source that expands to nothing. **Re-expansion is a subscription**, keyed on a
-  `generation` and run on `spawn_blocking`.
-- **Every instant from a client is added to with `checked_add_signed`** — `DateTime + TimeDelta`
-  panics on overflow — and **an entry's length is capped**, because a surface walks the days it
-  covers one at a time and a `DURATION` of `P9999Y` is millions of GTK main-loop iterations.
-- **An entry may carry `DURATION` instead of `DTEND` and `icalendar` does not surface it** —
-  `get_end()` returns `None`, reading as a zero-length event. `DTEND` wins where both appear.
-- **Truncation is reported, not silent**, and the cap belongs to the merged payload: capping each
-  source would publish more than the cap. **`webcal://` is rewritten before the url is parsed**, as
-  a case-insensitive string swap — `Url::set_scheme` refuses a non-special to special change.
-- **A dead watch never overwrites a failed read** — `Unwatched` arrives second and fills in with
-  `entry().or_insert()`. **A failure reason never contains the uri**: an iCalendar URL is a token.
-- **Text off a feed is cleaned against bidi, not only control characters.** `char::is_control` is Cc
-  alone, so `U+202A..=U+202E` and `U+2066..=U+2069` pass it, and Pango honours both.
-- **The poll interval has a floor of sixty seconds**, because `Duration::from_secs(0)` panics
-  `tokio::time::interval`. Two sources sharing an id share a subscription key, so a duplicate id is
-  filtered rather than left to overwrite the first's events.
+**calendar** — every occurrence from every source as one sorted state value. A local path is
+watched, `http(s)` is polled, and a `file://` holding a one-line feed URL is both. Fetching and
+expanding are two steps; `set_range` re-expands without a request. `CANCELLED` is dropped.
+`source` is the configured id; `calendar` is `name`, or the id when unset. Location and the first
+description line stay separate. A join URL is the first `http`/`https` of
+`X-GOOGLE-CONFERENCE`, `X-MICROSOFT-SKYPETEAMSMEETINGURL`, `URL`, a Meet/Zoom/Teams/Webex
+`LOCATION`, then the same hosts inside `DESCRIPTION`. Guests publish only when there are two
+attendees. **A failure reason never contains the uri.** Length is capped; `DURATION` is read when
+`DTEND` is absent; `webcal://` is `https://`; the poll floor is sixty seconds.
 
 **weather** — one state entry per place watched. **Places are not configured; they are leased**: a
 consumer calls the typed watch method and the registration is honoured for thirty minutes unless

@@ -293,8 +293,6 @@ mod tests {
             })
             .await
     }
-
-    /// AC-1: `Inhibit` with flags=12 (Idle|Suspend) inserts a record with those targets.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn inhibit_with_idle_and_suspend_flags_lands_a_matching_record() {
         let bus = PrivateBus::start();
@@ -322,9 +320,6 @@ mod tests {
         assert_eq!(record.who, "org.test.App");
         assert_eq!(record.bus_name, "");
     }
-
-    /// AC-2: `Request.Close()` releases the record and removes the object; a second `Close()`
-    /// (against a now-unrouted path) must not panic the server, which keeps answering other calls.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn close_releases_the_record_and_a_second_close_does_not_crash_the_server() {
         let bus = PrivateBus::start();
@@ -362,12 +357,6 @@ mod tests {
             .unwrap();
         assert!(record_for_handle(&registry, "/req/2b").await.is_some());
     }
-
-    /// D1: `ObjectServer::at` returns `Ok(false)`, not `Err`, when a path is already registered.
-    /// A portal frontend that reuses a `handle` (its bug, but glimpse is the backend and must
-    /// defend against it) must not leak the second `Inhibit`'s record — it has no `Request` object
-    /// routing to it, since the path is still owned by the first call's object, so it would
-    /// otherwise sit in the registry forever with no way to release it.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_reused_handle_releases_the_second_records_rather_than_leaking_it() {
         let bus = PrivateBus::start();
@@ -415,10 +404,6 @@ mod tests {
         request_proxy.close().await.unwrap();
         assert!(find_record(&registry, first_id).await.is_none());
     }
-
-    /// AC-4: a suspend/shutdown-targeting record takes an outbound login1 fd; a pure-idle one does
-    /// not. Measured through the fake login1 service's own pipe count, since that is the only
-    /// externally observable trace of the outbound `Inhibit` call actually happening.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn login1_fd_is_taken_only_when_targets_include_suspend_or_shutdown() {
         let bus = PrivateBus::start();
@@ -473,7 +458,7 @@ mod tests {
         let proxy = PortalInhibitTestProxy::new(&client).await.unwrap();
 
         let inhibit = tokio::spawn(async move {
-            let handle = ObjectPath::try_from("/req/late-capacity").unwrap();
+            let handle = ObjectPath::try_from("/req/late_capacity").unwrap();
             proxy
                 .inhibit(&handle, "org.test.App", "", 4, HashMap::new())
                 .await
@@ -519,8 +504,6 @@ mod tests {
         let mut buf = [0u8; 1];
         assert_eq!(readers[0].read(&mut buf).unwrap(), 0);
     }
-
-    /// AC-5: an oversized multi-byte `app_id`/`reason` is clamped before storage.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn app_id_and_reason_are_clamped_to_their_own_caps() {
         let bus = PrivateBus::start();
@@ -553,8 +536,6 @@ mod tests {
         assert!(record.who.ends_with('…'));
         assert!(record.why.ends_with('…'));
     }
-
-    /// AC-6: a second acquisition attempt is non-fatal and the second instance still serves.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_second_acquisition_attempt_degrades_health_but_keeps_serving() {
         let bus = PrivateBus::start();

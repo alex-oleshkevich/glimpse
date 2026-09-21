@@ -7,7 +7,7 @@ mod watch;
 
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
-pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
+pub use load::{DATA_DIR, load, named_applets_exist, resolved_files, user_dir, watch_dirs};
 pub use schema::*;
 pub use theme::{
     DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet,

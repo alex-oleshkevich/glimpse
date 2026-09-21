@@ -13,7 +13,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Report, report_failure};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
 use super::render;
 
@@ -62,47 +62,39 @@ impl Applet for Display {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = DisplayPopover::new();
 
         shown.connect_enable_requested({
             let compositor = self.compositor.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, connector, enabled| {
                 let compositor = compositor.clone();
-                let notifications = notifications.clone();
                 let connector = connector.to_owned();
-                relm4::spawn_local(async move {
-                    if let Err(error) = compositor.set_output_enabled(connector, enabled).await {
-                        report_display_failure(
-                            &notifications,
-                            "compositor.set_output_enabled",
-                            gettext("Could not change that display"),
-                            error,
-                        )
-                        .await;
-                    }
-                });
+                tell(
+                    &notifications,
+                    opener.clone(),
+                    "compositor.set_output_enabled",
+                    gettext("Could not change that display"),
+                    async move { compositor.set_output_enabled(connector, enabled).await },
+                );
             }
         });
 
         shown.connect_blanked({
             let compositor = self.compositor.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_| {
                 let compositor = compositor.clone();
-                let notifications = notifications.clone();
-                relm4::spawn_local(async move {
-                    if let Err(error) = compositor.power_off_monitors().await {
-                        report_display_failure(
-                            &notifications,
-                            "compositor.power_off_monitors",
-                            gettext("Could not blank the screens"),
-                            error,
-                        )
-                        .await;
-                    }
-                });
+                tell(
+                    &notifications,
+                    opener.clone(),
+                    "compositor.power_off_monitors",
+                    gettext("Could not blank the screens"),
+                    async move { compositor.power_off_monitors().await },
+                );
             }
         });
 
@@ -117,29 +109,30 @@ impl Applet for Display {
     }
 }
 
-async fn report_display_failure(
+fn tell<F, T>(
     notifications: &NotificationsProviderHandle,
+    opener: Opener,
     operation: &'static str,
     summary: String,
-    error: CommandError,
-) {
+    future: F,
+) where
+    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
+    T: 'static,
+{
     let report = Report {
         notifications: notifications.clone(),
         app_name: gettext("Displays"),
         icon: render::SINGLE_ICON.to_owned(),
         summary,
     };
-    report_failure(operation, report, wording(&error), error).await;
-}
-
-fn wording(error: &CommandError) -> Option<String> {
-    Some(match error {
-        CommandError::InvalidArgument(_) => gettext("That change was refused."),
-        CommandError::Unavailable(_) => gettext("The compositor is unavailable."),
-        CommandError::Unsupported(_) => gettext("That is not supported."),
-        CommandError::LimitExceeded(_) => gettext("That could not be completed."),
-        CommandError::Internal(_) => gettext("That did not work."),
-    })
+    let unavailable = gettext("The compositor is unavailable.");
+    relm4::spawn_local(async move {
+        let Err(error) = future.await else {
+            return;
+        };
+        opener.wake();
+        report_failure(operation, report, wording(&error, &unavailable), error).await;
+    });
 }
 
 fn to_mode(mode: &OutputMode) -> WidgetDisplayMode {

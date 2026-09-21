@@ -1,12 +1,14 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta, Utc};
 use gettextrs::gettext;
-use glimpse_widgets::Event;
+use glimpse_services::MeetingProvider;
+use glimpse_widgets::{Event, Fact};
 
 use crate::applets::agenda::{self, Occasion};
 use crate::applets::tokens;
 
 const MOST_ROWS: usize = 20;
 const TITLE: usize = 24;
+const JOIN: usize = 48;
 const ELLIPSIS: char = '…';
 const HOUR_MINUTES: i64 = 60;
 const DAY_HOURS: i64 = 24;
@@ -68,9 +70,9 @@ pub fn label(now: DateTime<Local>, event: &Occasion, counting: TimeDelta) -> Str
 
 pub fn heading(now: DateTime<Local>, event: &Occasion, clock: &str) -> (String, String) {
     let extent = extent(now, event, clock);
-    let subtitle = match event.detail.is_empty() {
+    let subtitle = match event.location.is_empty() {
         true => extent,
-        false => format!("{extent} · {}", event.detail),
+        false => format!("{extent} · {}", event.location),
     };
     (event.summary.clone(), subtitle)
 }
@@ -191,13 +193,95 @@ fn row(now: DateTime<Local>, event: &Occasion, clock: &str) -> Event {
     row
 }
 
-pub fn tooltip(format: &str, event: &Occasion, reading: &str) -> String {
+pub fn tooltip(format: &str, event: &Occasion, reading: &str, conflicts: &[String]) -> String {
+    let clashes = clashes(conflicts);
     tokens::render(format, |token| match token {
         "summary" => Some(event.summary.as_str()),
-        "detail" => Some(event.detail.as_str()),
+        "detail" => Some(event.subtitle()),
         "when" => Some(reading),
+        "conflicts" => Some(clashes.as_str()),
         _ => None,
     })
+}
+
+fn clashes(conflicts: &[String]) -> String {
+    match conflicts.is_empty() {
+        true => String::new(),
+        false => gettext("Clashes with {events}").replace("{events}", &conflicts.join(", ")),
+    }
+}
+
+pub struct Join {
+    pub title: String,
+    pub subtitle: String,
+    pub url: String,
+}
+
+pub fn join(event: &Occasion) -> Option<Join> {
+    let url = event.meeting_url.as_deref()?;
+    let meeting = glimpse_services::meeting(url)?;
+    Some(Join {
+        title: join_title(meeting.provider),
+        subtitle: glimpse_utils::clean(&meeting.location, JOIN),
+        url: url.to_owned(),
+    })
+}
+
+fn join_title(provider: MeetingProvider) -> String {
+    match provider {
+        MeetingProvider::GoogleMeet => gettext("Join Google Meet"),
+        MeetingProvider::Zoom => gettext("Join Zoom"),
+        MeetingProvider::Teams => gettext("Join Microsoft Teams"),
+        MeetingProvider::Webex => gettext("Join Webex"),
+        MeetingProvider::Other => gettext("Join meeting"),
+    }
+}
+
+pub fn conflicts(events: &[Occasion], chosen: Option<usize>) -> Vec<String> {
+    let Some(event) = chosen.and_then(|index| events.get(index)) else {
+        return Vec::new();
+    };
+    events
+        .iter()
+        .enumerate()
+        .filter(|(index, other)| Some(*index) != chosen && overlaps(event, other))
+        .map(|(_, other)| other.summary.clone())
+        .take(MOST_ROWS)
+        .collect()
+}
+
+fn overlaps(event: &Occasion, other: &Occasion) -> bool {
+    event.start < other.end && other.start < event.end
+}
+
+pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
+    let mut facts = Vec::new();
+    if !event.calendar.is_empty() {
+        facts.push(Fact::new(gettext("Calendar"), event.calendar.clone()));
+    }
+    if !event.location.is_empty() {
+        facts.push(Fact::new(gettext("Location"), event.location.clone()));
+    }
+    if let Some(organizer) = &event.organizer {
+        facts.push(Fact::new(gettext("Organizer"), organizer.clone()));
+    }
+    if let Some(guests) = &event.guests
+        && guests.total >= 2
+    {
+        facts.push(Fact::new(
+            gettext("Guests"),
+            gettext("{total} · {accepted} accepted")
+                .replace("{total}", &guests.total.to_string())
+                .replace("{accepted}", &guests.accepted.to_string()),
+        ));
+    }
+    if event.tentative {
+        facts.push(Fact::new(gettext("Status"), gettext("Tentative")));
+    }
+    if !conflicts.is_empty() {
+        facts.push(Fact::new(gettext("Conflicts"), conflicts.join(", ")));
+    }
+    facts
 }
 
 #[cfg(test)]
@@ -205,6 +289,7 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
     use glimpse_config::TWENTY_FOUR;
+    use glimpse_services::GuestCounts;
 
     const HORIZON: TimeDelta = TimeDelta::hours(1);
     const REACH: TimeDelta = TimeDelta::hours(12);
@@ -219,7 +304,13 @@ mod tests {
     fn event(summary: &str, start: DateTime<Local>, end: DateTime<Local>) -> Occasion {
         Occasion {
             summary: summary.to_owned(),
-            detail: String::new(),
+            location: String::new(),
+            description: String::new(),
+            calendar: String::new(),
+            meeting_url: None,
+            organizer: None,
+            guests: None,
+            tentative: false,
             start,
             end,
             all_day: false,
@@ -436,7 +527,7 @@ mod tests {
     fn a_location_joins_the_heading_and_an_absent_one_leaves_no_separator() {
         let now = at(4, 9, 0);
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        meeting.detail = "Room 2".to_owned();
+        meeting.location = "Room 2".to_owned();
 
         assert_eq!(
             heading(now, &meeting, TWENTY_FOUR).1,
@@ -549,18 +640,18 @@ mod tests {
     #[test]
     fn a_tooltip_resolves_its_own_tokens_and_keeps_the_text_around_them() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        meeting.detail = "Room 2".to_owned();
+        meeting.location = "Room 2".to_owned();
 
         assert_eq!(
-            tooltip("{summary} in {detail} — {when}", &meeting, "in 12 min"),
+            tooltip("{summary} in {detail} — {when}", &meeting, "in 12 min", &[]),
             "Standup in Room 2 — in 12 min"
         );
         assert_eq!(
-            tooltip("{nonesuch}", &meeting, "in 12 min"),
+            tooltip("{nonesuch}", &meeting, "in 12 min", &[]),
             "{nonesuch}",
             "an unknown token is left alone rather than silently emptied"
         );
-        assert_eq!(tooltip("{unclosed", &meeting, ""), "{unclosed");
+        assert_eq!(tooltip("{unclosed", &meeting, "", &[]), "{unclosed");
     }
 
     /// A summary comes from a `.ics` file the user did not write, so a token inside one must
@@ -569,7 +660,7 @@ mod tests {
     fn a_token_inside_an_events_own_text_is_not_substituted() {
         let hostile = event("{when}", at(4, 14, 0), at(4, 15, 0));
 
-        assert_eq!(tooltip("{summary}", &hostile, "in 12 min"), "{when}");
+        assert_eq!(tooltip("{summary}", &hostile, "in 12 min", &[]), "{when}");
     }
 
     /// The bar's label ellipsizes at its rendered width, but only for a string that still
@@ -594,5 +685,166 @@ mod tests {
             "Standup",
             "a title that fits is not marked as cut"
         );
+    }
+
+    #[test]
+    fn join_is_labelled_from_the_host_and_absent_when_there_is_no_url() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        assert!(join(&meeting).is_none());
+
+        meeting.meeting_url = Some("https://meet.google.com/aaa-bbbb-ccc".to_owned());
+        let shown = join(&meeting).expect("a meet url");
+        assert_eq!(shown.title, "Join Google Meet");
+        assert_eq!(shown.subtitle, "meet.google.com/aaa-bbbb-ccc");
+        assert_eq!(shown.url, "https://meet.google.com/aaa-bbbb-ccc");
+
+        meeting.meeting_url = Some("https://zoom.us/j/123".to_owned());
+        assert_eq!(join(&meeting).expect("zoom").title, "Join Zoom");
+
+        meeting.meeting_url = Some("https://teams.microsoft.com/l/meetup-join/19".to_owned());
+        assert_eq!(join(&meeting).expect("teams").title, "Join Microsoft Teams");
+
+        meeting.meeting_url = Some("https://calendar.example/event".to_owned());
+        assert_eq!(join(&meeting).expect("other").title, "Join meeting");
+
+        meeting.meeting_url = Some("https://user:pass@zoom.us/j/123".to_owned());
+        let shown = join(&meeting).expect("userinfo");
+        assert_eq!(shown.title, "Join Zoom");
+        assert_eq!(shown.subtitle, "zoom.us/j/123");
+        assert!(
+            !shown.subtitle.contains("pass"),
+            "a password in the URL is not a subtitle"
+        );
+
+        meeting.meeting_url = Some("https://acme.webex.com/meet/sam".to_owned());
+        assert_eq!(
+            join(&meeting).expect("webex").title,
+            "Join Webex",
+            "the service accepts a webex link as a meeting, so the row has to name it — the two \
+             lists drifting is what sharing one classifier prevents"
+        );
+
+        meeting.meeting_url = Some("https://acme.zoom.us/j/123".to_owned());
+        assert_eq!(join(&meeting).expect("subdomain").title, "Join Zoom");
+
+        meeting.meeting_url = Some("https://notzoom.us/j/123".to_owned());
+        assert_eq!(
+            join(&meeting).expect("lookalike").title,
+            "Join meeting",
+            "a suffix match must not treat notzoom.us as zoom.us"
+        );
+    }
+
+    #[test]
+    fn facts_omit_empty_rows_and_a_solo_attendee() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        assert!(facts(&meeting, &[]).is_empty());
+
+        meeting.calendar = "Work".to_owned();
+        meeting.location = "Room 2".to_owned();
+        meeting.organizer = Some("Marta".to_owned());
+        meeting.guests = Some(GuestCounts {
+            total: 2,
+            accepted: 1,
+        });
+        meeting.tentative = true;
+
+        let shown: Vec<(String, String)> = facts(&meeting, &[])
+            .into_iter()
+            .map(|fact| (fact.label, fact.value))
+            .collect();
+        assert_eq!(
+            shown,
+            vec![
+                ("Calendar".to_owned(), "Work".to_owned()),
+                ("Location".to_owned(), "Room 2".to_owned()),
+                ("Organizer".to_owned(), "Marta".to_owned()),
+                ("Guests".to_owned(), "2 · 1 accepted".to_owned()),
+                ("Status".to_owned(), "Tentative".to_owned()),
+            ]
+        );
+
+        meeting.guests = Some(GuestCounts {
+            total: 1,
+            accepted: 1,
+        });
+        meeting.tentative = false;
+        meeting.organizer = None;
+        let labels: Vec<String> = facts(&meeting, &[])
+            .into_iter()
+            .map(|fact| fact.label)
+            .collect();
+        assert_eq!(labels, vec!["Calendar".to_owned(), "Location".to_owned()]);
+    }
+
+    #[test]
+    fn an_overlapping_event_is_named_beside_the_one_the_bar_chose() {
+        let events = vec![
+            event("Design review", at(4, 14, 0), at(4, 15, 0)),
+            event("1:1 with Sam", at(4, 14, 0), at(4, 14, 30)),
+            event("Retro", at(4, 16, 0), at(4, 17, 0)),
+        ];
+        let now = at(4, 13, 0);
+        let chosen = next(now, &events, TimeDelta::hours(2), false);
+
+        assert_eq!(
+            events[chosen.expect("one is chosen")].summary,
+            "1:1 with Sam",
+            "the same start is broken by the earlier end, so the shorter one is the bar's"
+        );
+        assert_eq!(
+            conflicts(&events, chosen),
+            ["Design review"],
+            "the later-ending overlap is named; Retro does not touch it"
+        );
+    }
+
+    #[test]
+    fn an_event_with_nothing_over_it_reports_no_conflict_and_adds_no_fact() {
+        let events = vec![
+            event("Standup", at(4, 14, 0), at(4, 15, 0)),
+            event("Retro", at(4, 15, 0), at(4, 16, 0)),
+        ];
+        let now = at(4, 13, 0);
+        let chosen = next(now, &events, TimeDelta::hours(2), false);
+
+        assert!(
+            conflicts(&events, chosen).is_empty(),
+            "a back-to-back pair touches at one instant and does not overlap"
+        );
+        assert!(
+            !facts(&events[chosen.expect("one is chosen")], &[])
+                .iter()
+                .any(|fact| fact.label == "Conflicts")
+        );
+    }
+
+    #[test]
+    fn a_clash_reaches_the_tooltip_with_and_without_a_format() {
+        let meeting = event("Design review", at(4, 14, 0), at(4, 15, 0));
+        let clash = ["1:1 with Sam (14:00–14:30)".to_owned()];
+
+        assert_eq!(
+            tooltip("{summary} — {conflicts}", &meeting, "", &clash),
+            "Design review — Clashes with 1:1 with Sam (14:00–14:30)"
+        );
+        assert_eq!(
+            tooltip("{summary}{conflicts}", &meeting, "", &[]),
+            "Design review",
+            "a quiet calendar leaves the token empty rather than printing an empty clause"
+        );
+    }
+
+    #[test]
+    fn an_event_outside_the_bar_window_leaves_no_applet_at_all() {
+        let events = vec![event("Standup", at(4, 14, 0), at(4, 15, 0))];
+        let now = at(4, 9, 0);
+
+        assert!(
+            next(now, &events, TimeDelta::hours(1), false).is_none(),
+            "the applet shows one event's details; five hours out it has none to show"
+        );
+        assert!(next(now, &events, TimeDelta::hours(12), false).is_some());
+        assert!(next(now, &[], TimeDelta::hours(12), false).is_none());
     }
 }

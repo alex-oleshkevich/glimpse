@@ -115,7 +115,13 @@ mod tests {
     fn event(start: DateTime<Local>, end: DateTime<Local>) -> Occasion {
         Occasion {
             summary: "Standup".to_owned(),
-            detail: String::new(),
+            location: String::new(),
+            description: String::new(),
+            calendar: String::new(),
+            meeting_url: None,
+            organizer: None,
+            guests: None,
+            tentative: false,
             start,
             end,
             all_day: false,

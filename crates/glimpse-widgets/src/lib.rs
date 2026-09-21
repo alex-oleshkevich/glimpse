@@ -3670,11 +3670,6 @@ mod tests {
 
         let next = NextEventPopover::new();
         let hero = || next.imp().hero.clone();
-        let quiet = (hero().title(), hero().subtitle());
-        assert!(
-            quiet.0.is_some() && quiet.1.is_some(),
-            "the empty wording is the template's own, so no translator has to find it in Rust"
-        );
 
         next.set_footer(None);
         assert!(!child_named::<gtk4::Box>(&next, "popover-shell__footer").is_visible());
@@ -3690,25 +3685,30 @@ mod tests {
         assert!(next.imp().countdown.get_visible());
 
         next.set_upcoming(&[]);
-        assert!(next.imp().upcoming.empty());
+        assert!(
+            !next.imp().upcoming.get_visible(),
+            "the popover opens for one event; a caption over an empty list is the empty state \
+             this applet does not have"
+        );
         next.set_upcoming(&few);
-        assert!(!next.imp().upcoming.empty());
+        assert!(next.imp().upcoming.get_visible());
 
         next.set_heading("Design review", Some("14:00–15:00"));
         assert_eq!(hero().title().as_deref(), Some("Design review"));
 
-        next.set_nothing();
-        assert_eq!(
-            (hero().title(), hero().subtitle()),
-            quiet,
-            "the last event ending restores the wording rather than leaving a finished one up"
-        );
-        assert!(!next.imp().countdown.get_visible());
-        assert!(
-            !next.imp().upcoming.empty(),
-            "nothing is *next* — the list reaches further than the bar does, so emptying it here \
-             would wipe entries the horizon still holds"
-        );
+        next.set_join(Some((
+            "Join Google Meet",
+            "meet.google.com/aaa-bbbb-ccc",
+            "https://meet.google.com/aaa-bbbb-ccc",
+        )));
+        assert!(next.imp().join.get_visible());
+        next.set_join(None);
+        assert!(!next.imp().join.get_visible());
+
+        next.set_facts(&[Fact::new("Calendar", "Work")]);
+        assert!(next.imp().details.get_visible());
+        next.set_facts(&[]);
+        assert!(!next.imp().details.get_visible());
 
         popover.imp().calendar.select(Ymd::new(2027, 2, 3));
         assert_eq!(

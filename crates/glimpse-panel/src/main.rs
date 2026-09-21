@@ -28,6 +28,7 @@ fn main() -> ExitCode {
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     let config = glimpse_config::load(cli.config.as_deref())?;
+    glimpse_config::named_applets_exist(&config)?;
     init_translations(config.regional.language());
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()

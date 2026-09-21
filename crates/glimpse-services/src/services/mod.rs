@@ -79,7 +79,7 @@ pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 
-pub use calendar::{CalendarEvent, CalendarEvents};
+pub use calendar::{CalendarEvent, CalendarEvents, GuestCounts, Meeting, MeetingProvider, meeting};
 pub use compositor::{
     CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
     CompositorWindows, CompositorWorkspaces, OutputInfo, OutputLogical, OutputMode, WindowInfo,

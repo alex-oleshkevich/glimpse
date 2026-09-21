@@ -6,10 +6,10 @@ use chrono::{DateTime, Local, TimeDelta};
 use glimpse_config::{Applet as AppletConfig, AppletKind, NextEventConfig};
 use glimpse_services::CalendarHandle;
 use glimpse_widgets::{IndicatorSpec, NextEventPopover};
-use gtk4::glib;
+use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input};
+use crate::applet::{Applet, Ctx, Input, Opener};
 use crate::applets::agenda::{self, Occasion};
 
 const MINUTE: Duration = Duration::from_secs(60);
@@ -24,6 +24,7 @@ pub struct NextEvent {
     chosen: Option<usize>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<NextEventPopover>,
+    icon: gio::Icon,
 }
 
 impl Applet for NextEvent {
@@ -40,10 +41,10 @@ impl Applet for NextEvent {
             .map(|(label, command)| (label.to_owned(), command.to_vec()));
 
         ctx.interval(MINUTE);
-        self.refresh();
+        self.refresh(&ctx.opener());
     }
 
-    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
                 self.events = agenda::occasions(&self.calendar.snapshot().events);
@@ -51,23 +52,28 @@ impl Applet for NextEvent {
             Input::Tick => {}
             _ => return,
         }
-        self.refresh();
+        self.refresh(&ctx.opener());
     }
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = NextEventPopover::new();
 
         if let Some((_, command)) = &self.footer {
             let command = command.clone();
             shown.connect_footer_activated(move |_| run(&command));
         }
+        shown.connect_join_activated(|_, url| {
+            if url.starts_with("https://") || url.starts_with("http://") {
+                run(&["xdg-open".to_owned(), url]);
+            }
+        });
 
         self.shown.set(Some(&shown));
-        self.refresh();
+        self.refresh(&seat.opener());
         Some(Box::new(shown))
     }
 }
@@ -85,6 +91,7 @@ impl NextEvent {
             chosen: None,
             spec: Vec::new(),
             shown: glib::WeakRef::default(),
+            icon: gio::ThemedIcon::new("appointment-soon-symbolic").upcast(),
         }
     }
 
@@ -104,29 +111,47 @@ impl NextEvent {
         glimpse_config::clock(self.twelve)
     }
 
-    fn refresh(&mut self) {
+    fn refresh(&mut self, opener: &Opener) {
         let now = Local::now();
         self.chosen = render::next(now, &self.events, self.within(), self.settings.all_day);
         self.spec = self.indicator(now).into_iter().collect();
 
-        if let Some(shown) = self.shown.upgrade() {
-            self.dress(now, &shown);
+        let Some(shown) = self.shown.upgrade() else {
+            return;
+        };
+        match self.event() {
+            Some(_) => self.dress(now, &shown),
+            None => opener.close_popover(),
         }
     }
 
     fn indicator(&self, now: DateTime<Local>) -> Option<IndicatorSpec> {
-        let event = self.events.get(self.chosen?)?;
+        let event = self.event()?;
         Some(IndicatorSpec {
+            icon: Some(self.icon.clone()),
             dot: event.color,
             label: Some(render::label(now, event, self.counting())),
             tooltip: self.tooltip_format.as_deref().map(|format| {
-                render::tooltip(format, event, &render::reading(now, event, self.clock()))
+                let clock = self.clock();
+                render::tooltip(
+                    format,
+                    event,
+                    &render::reading(now, event, clock),
+                    &render::conflicts(&self.events, self.chosen),
+                )
             }),
             ..Default::default()
         })
     }
 
+    fn event(&self) -> Option<&Occasion> {
+        self.chosen.and_then(|index| self.events.get(index))
+    }
+
     fn dress(&self, now: DateTime<Local>, shown: &NextEventPopover) {
+        let Some(event) = self.event() else {
+            return;
+        };
         let clock = self.clock();
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         shown.set_upcoming(&render::upcoming(
@@ -138,16 +163,23 @@ impl NextEvent {
             clock,
         ));
 
-        let Some(event) = self.chosen.and_then(|index| self.events.get(index)) else {
-            shown.set_nothing();
-            return;
-        };
-
         let (title, subtitle) = render::heading(now, event, clock);
         let countdown = render::countdown(now, event);
+        let join = render::join(event);
 
         shown.set_heading(&title, Some(subtitle.as_str()));
         shown.set_countdown(countdown.as_ref().map(render::Countdown::readout));
+        shown.set_join(join.as_ref().map(|join| {
+            (
+                join.title.as_str(),
+                join.subtitle.as_str(),
+                join.url.as_str(),
+            )
+        }));
+        shown.set_facts(&render::facts(
+            event,
+            &render::conflicts(&self.events, self.chosen),
+        ));
     }
 }
 

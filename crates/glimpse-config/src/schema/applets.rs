@@ -29,8 +29,9 @@ pub struct Applet {
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Common {
     /// What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,
-    /// `{index}` and `{name}` for the pager — the same way `label` already differs between them.
-    /// Unset means the applet shows no tooltip.
+    /// `{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`
+    /// for next-event — the same way `label` already differs between them. A token with nothing
+    /// behind it renders as nothing. Unset means the applet shows no tooltip.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
     /// The label on the row the applet's popover puts in its footer. Set it together with

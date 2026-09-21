@@ -163,10 +163,18 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   bar label; a calendar is not somewhere else.
 - **Several panels share one calendar range, so the last to ask wins** — no client identity.
 - **A day past `truncated_from` says so instead of looking empty.**
-- **The next-event window is why the applet is usually absent.** Anything further out than `within`
-  leaves nothing on the bar. An all-day entry is demoted and excluded by default, or a week of them
-  would bury the meeting in ten minutes; a multi-day entry counts from the day the reader is on.
-- **It does not send `calendar.set_range`** — the clock owns the month being shown.
+- **The next-event applet has no empty state, which is why it is usually absent.** It exists to
+  show one event's details, so nothing inside `within` means no chip, and with no chip there is no
+  popover to render empty. `horizon` reaches further than `within` for the *Coming up* list alone,
+  and that section hides rather than captioning nothing. **An event ending under an open popover
+  closes it**, through `Opener::close_popover` — nothing in the runtime closes one when its group
+  empties, and with no empty state there is nothing to fall back to, so the alternative is a
+  finished meeting left on screen with a live *Join* row. All-day is off by default. Join and details hide when the feed has no meeting URL or
+  facts. There is no RSVP. It does not send `calendar.set_range`.
+- **An overlap is named, never re-chosen.** The bar takes one event — running before upcoming, then
+  earliest start, then earliest end — and a *Conflicts* fact names what runs over it, with
+  `{conflicts}` for the tooltip. Two meetings at once is the user's problem to see, not the applet's
+  to resolve, and a count on the label would shift the bar as the day moves.
 
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
@@ -331,10 +339,10 @@ not restated here. The chip is never hidden while the daemon answers, unlike a n
 only way to reach the six fixed hold presets, so it must stay reachable even with nothing to report.
 `render::icon` carries that distinction instead.
 
-- **A hold's id never reaches the applet directly** — `Hold()` is fire-and-forget like every other
-  command, so `newly_adopted_holds` watches the next state for fresh records shaped like the daemon's
-  own manual-hold literal and adopts every one it finds into a set, not a single id, so a second
-  preset pressed while already holding is recognised as ours rather than rendered as a stranger.
+- **A hold's id never reaches the applet directly** — `Hold()` is fire-and-forget, so
+  `manual_hold_ids` derives the whole set from the next state by the daemon's own manual-hold
+  literal. A derivation, never a remembered set: the applet keeps no id the provider has stopped
+  reporting, and a second preset pressed while holding is ours rather than a stranger.
   **The adoption shape includes `can_release`**: any session-bus client can forge the same
   `who`/`why` strings via `logind.Inhibit()`, but the daemon never marks that record releasable, so
   it is never adopted and the toggle never sends a `Release()` the daemon would silently refuse. A
@@ -344,12 +352,15 @@ only way to reach the six fixed hold presets, so it must stay reachable even wit
 
 **battery** — the chip is `DisplayDevice`; internals, facts and the charge-limit switch come from
 the first present `BAT*` object, because the composite omits them. Extra packs after that join the
-device list. `indicator-style` is icon-only by default; `label-format` substitutes `{percentage}`,
-`{state}` and `{remaining}`. A failed profile or charge-limit command is a notification. Battery
+device list. `indicator-style` is icon-only by default; `label-format` substitutes `{percentage}`, `{state}` and
+`{remaining}`, and a format resolving to nothing drops the label rather than a bare separator.
+UPower's `IconName` is the chip icon; the level ladder is only its fallback. A failed profile or
+charge-limit command is a notification. Battery
 details is the last row in the column and unfolds in place.
 
-**session** — icon-only. Power actions confirm on the app host after the popover closes; lock and
-session switch run immediately. Confirmation copy is formatted at click from the current snapshot,
+**session** — icon-only, and the hero names the session type beside how long the user has been
+signed in. Power actions confirm on the app host after the popover closes; lock and session switch
+run immediately. Confirmation copy is formatted at click from the current snapshot,
 not from the one that opened the popover. Inhibitors are named only when they apply to that action;
 open windows are counted for log out, restart and shut down, never described as unsaved work.
 Updates appear only while PackageKit owns its name, as a status row, never a count.
@@ -373,7 +384,10 @@ never opens a D-Bus connection, never reaches a backend directly, and holds no s
 its own widget.
 
 UI state never waits on a round trip: update the widget optimistically and let the service event
-reconcile it.
+reconcile it. **A command that fails wakes its own applet**, because a mirror service publishes
+nothing when a rejected command leaves its state byte-identical — the optimistic flip would then
+stand until something unrelated moved. The wake re-dresses from the snapshot, which is what puts the
+row back.
 
 **One substituter renders every `{token}` format.** `applets/tokens.rs::render` walks the template
 once, resolving each token through a closure the applet supplies; the applet decides its own token

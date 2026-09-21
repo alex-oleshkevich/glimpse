@@ -10,7 +10,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     CommandError, CompositorHandle, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint,
-    ServiceError, Sub,
+    ServiceError, Sub, say,
 };
 
 const INHIBITOR_MAX: usize = 8;
@@ -359,14 +359,14 @@ async fn updates_events(ctx: Ctx<SessionActions>) -> Events {
 }
 
 async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, String> {
-    let manager = Login1ManagerProxy::new(bus).await.map_err(stringify)?;
+    let manager = Login1ManagerProxy::new(bus).await.map_err(say)?;
     let path = session_path(bus).await?;
     let current = Login1SessionProxy::builder(bus)
         .path(path)
-        .map_err(stringify)?
+        .map_err(say)?
         .build()
         .await
-        .map_err(stringify)?;
+        .map_err(say)?;
     let (user, kind, seat, timestamp, session_id) = tokio::try_join!(
         current.name(),
         current.kind(),
@@ -374,12 +374,12 @@ async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, Strin
         current.timestamp(),
         current.id()
     )
-    .map_err(stringify)?;
+    .map_err(say)?;
     let sessions = same_seat_sessions(bus, &manager, &seat.0, Some(session_id.as_str())).await?;
     let inhibitors = manager
         .list_inhibitors()
         .await
-        .map_err(stringify)
+        .map_err(say)
         .map(inhibitors)?;
     let (suspend, hibernate, reboot, power_off) = tokio::try_join!(
         manager.can_suspend(),
@@ -387,7 +387,7 @@ async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, Strin
         manager.can_reboot(),
         manager.can_power_off()
     )
-    .map_err(stringify)?;
+    .map_err(say)?;
     Ok(LogindSnapshot {
         user: nonempty(user),
         session_type: nonempty(kind),
@@ -444,21 +444,25 @@ async fn same_seat_sessions(
     seat: &str,
     current_session: Option<&str>,
 ) -> Result<Vec<SessionEntry>, String> {
-    let entries = manager.list_sessions().await.map_err(stringify)?;
+    let entries = manager.list_sessions().await.map_err(say)?;
     let mut sessions = Vec::new();
     for (id, _, user, entry_seat, path) in entries {
         if !is_switch_target(&entry_seat, &id, seat, current_session) {
             continue;
         }
-        let session = Login1SessionProxy::builder(bus)
+        let Ok(session) = Login1SessionProxy::builder(bus)
             .path(path)
-            .map_err(stringify)?
+            .map_err(say)?
             .build()
             .await
-            .map_err(stringify)?;
-        let (active, class, kind) =
+        else {
+            continue;
+        };
+        let Ok((active, class, kind)) =
             tokio::try_join!(session.active(), session.class(), session.kind())
-                .map_err(stringify)?;
+        else {
+            continue;
+        };
         if class != "user" {
             continue;
         }
@@ -546,10 +550,6 @@ fn signed_in(timestamp: u64) -> Option<u64> {
 fn nonempty(value: String) -> Option<String> {
     let value = clean(&value, TEXT_MAX);
     (!value.is_empty()).then_some(value)
-}
-
-fn stringify(error: impl std::fmt::Display) -> String {
-    error.to_string()
 }
 
 #[cfg(test)]

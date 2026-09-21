@@ -247,9 +247,6 @@ mod tests {
             .unwrap();
         (login1_conn, app, registry, fake_login1, started, release)
     }
-
-    /// A reader end's next read returns 0 (EOF) once every writer fd for that pipe has closed —
-    /// exactly the signal that the logind fd `Hold` was holding has been released.
     fn assert_fd_closed(fake_login1: &FakeLogin1, index: usize) {
         use std::io::Read as _;
         let mut readers = fake_login1.readers.lock().unwrap();
@@ -262,12 +259,6 @@ mod tests {
             "EOF only appears once every fd referencing the write end is closed"
         );
     }
-
-    /// Polls with real (unpaused) sleeps rather than a paused-clock `advance`: with time paused,
-    /// tokio auto-advances past a pending timer the moment the runtime is otherwise idle, which
-    /// can release the hold before the test ever inspects its pre-release shape. `seconds` is a
-    /// whole `u32` on the wire, so 1s is the shortest duration `Hold` can express; this bounds the
-    /// wait at a few real seconds rather than pausing/advancing virtual time.
     async fn wait_until_released(registry: &SharedRegistry, id: u64) {
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
@@ -283,9 +274,6 @@ mod tests {
         .await
         .unwrap_or_else(|_| panic!("expected inhibitor {id} to have auto-released"));
     }
-
-    /// AC-1: Hold returns an id, the record carries {idle, suspend} targets, and it auto-releases
-    /// once the requested duration elapses.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn hold_returns_an_id_with_manual_hold_targets_and_auto_releases() {
         let bus = PrivateBus::start();
@@ -310,8 +298,6 @@ mod tests {
         wait_until_released(&registry, id).await;
         assert_fd_closed(&fake_login1, 0);
     }
-
-    /// AC-2: Hold(0) never auto-releases; only an explicit Release clears it.
     #[tokio::test(start_paused = true)]
     async fn hold_zero_seconds_never_auto_releases_only_release_clears_it() {
         let bus = PrivateBus::start();
@@ -385,10 +371,6 @@ mod tests {
         );
         assert_fd_closed(&fake_login1, 0);
     }
-
-    /// AC-3: Release on a can_release = false record (simulated directly, since the login1
-    /// observer that would produce one for real doesn't exist yet) returns NotSupported and
-    /// leaves the record in place.
     #[tokio::test(start_paused = true)]
     async fn release_of_a_non_releasable_record_returns_not_supported() {
         let bus = PrivateBus::start();
@@ -429,8 +411,6 @@ mod tests {
             .await;
         assert!(present, "a NotSupported release must not remove the record");
     }
-
-    /// Release on an id the registry has never seen is a distinct error from NotSupported.
     #[tokio::test(start_paused = true)]
     async fn release_of_an_unknown_id_is_unknown_object() {
         let bus = PrivateBus::start();
@@ -448,10 +428,6 @@ mod tests {
             "unexpected error: {error:?}"
         );
     }
-
-    /// F2: on a system with no logind reachable, `Idle1Server` still serves `Inhibitors` and
-    /// `Release`; only `Hold` needs `login1`, and reports that need as `NotSupported` rather than
-    /// failing the whole control interface.
     #[tokio::test(start_paused = true)]
     async fn hold_without_login1_returns_not_supported() {
         let bus = PrivateBus::start();
@@ -486,10 +462,6 @@ mod tests {
         );
         assert!(proxy.inhibitors().await.unwrap().is_empty());
     }
-
-    /// Called directly on the `Idle1Server` value, not round-tripped through a live `Idle1Proxy`:
-    /// zbus caches a proxy's properties by default, so a second wire read would see the first
-    /// response's cached value rather than this test's direct mutation of the cell.
     #[tokio::test]
     async fn health_reflects_the_shared_screen_saver_health_cell() {
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
@@ -515,8 +487,6 @@ mod tests {
         assert_eq!(health.screen_saver.kind, HealthKind::Degraded);
         assert_eq!(health.screen_saver.message, "Bus name already owned");
     }
-
-    /// Same wiring as the screen-saver health cell above, for the login1 observer's own cell.
     #[tokio::test]
     async fn health_reflects_the_shared_login1_health_cell() {
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();
@@ -539,8 +509,6 @@ mod tests {
         assert_eq!(health.login1.kind, HealthKind::Degraded);
         assert_eq!(health.login1.message, "cannot reach org.freedesktop.login1");
     }
-
-    /// Same wiring, for the portal backend's own cell.
     #[tokio::test]
     async fn health_reflects_the_shared_portal_health_cell() {
         let (registry, _any_idle_target, _generation) = SharedRegistry::new();

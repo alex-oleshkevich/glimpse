@@ -37,7 +37,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -78,7 +78,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -125,7 +125,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -171,7 +171,7 @@
               "default": true
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -204,7 +204,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -261,7 +261,7 @@
               }
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -299,7 +299,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -332,7 +332,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -365,7 +365,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -398,7 +398,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -431,7 +431,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -464,7 +464,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -520,7 +520,7 @@
               "default": true
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -558,7 +558,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -622,7 +622,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -673,7 +673,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -733,7 +733,7 @@
               "default": "dots"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -780,7 +780,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -813,7 +813,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -846,7 +846,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -879,7 +879,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -936,7 +936,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -999,7 +999,7 @@
               ]
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -1036,7 +1036,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1079,7 +1079,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1128,7 +1128,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1176,7 +1176,7 @@
                 "default": true
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1211,7 +1211,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1270,7 +1270,7 @@
                 }
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1310,7 +1310,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1345,7 +1345,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1380,7 +1380,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1415,7 +1415,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1450,7 +1450,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1485,7 +1485,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1543,7 +1543,7 @@
                 "default": true
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1583,7 +1583,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1649,7 +1649,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1702,7 +1702,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1764,7 +1764,7 @@
                 "default": "dots"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1813,7 +1813,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1848,7 +1848,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1883,7 +1883,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1918,7 +1918,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1977,7 +1977,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -2042,7 +2042,7 @@
                 ]
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
                 "type": [
                   "string",
                   "null"

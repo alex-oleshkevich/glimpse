@@ -6,7 +6,14 @@ use glimpse_services::{
 use glimpse_widgets::{SessionActionState, SessionChoice};
 
 pub fn heading(state: &SessionActionsState) -> (Option<&str>, Option<String>) {
-    (state.user.as_deref(), state.signed_in_seconds.map(duration))
+    let kind = state.session_type.as_deref().map(kind_label);
+    let signed_in = state.signed_in_seconds.map(duration);
+    let subtitle = match (kind, signed_in) {
+        (None, signed_in) => signed_in,
+        (Some(kind), None) => Some(kind),
+        (Some(kind), Some(signed_in)) => Some(format!("{kind} · {signed_in}")),
+    };
+    (state.user.as_deref(), subtitle)
 }
 
 pub fn action_state(capability: SessionCapability) -> SessionActionState {
@@ -265,6 +272,17 @@ mod tests {
     }
 
     #[test]
+    fn the_heading_names_the_session_type_beside_the_sign_in() {
+        let state = SessionActionsState {
+            user: Some("alex".into()),
+            session_type: Some("wayland".into()),
+            signed_in_seconds: None,
+            ..Default::default()
+        };
+        assert_eq!(heading(&state).1.as_deref(), Some("Wayland"));
+    }
+
+    #[test]
     fn signed_in_today_is_not_a_day_count() {
         let state = SessionActionsState {
             user: Some("alex".into()),
@@ -274,6 +292,6 @@ mod tests {
         };
         let (user, signed) = heading(&state);
         assert_eq!(user, Some("alex"));
-        assert_eq!(signed.as_deref(), Some("Signed in today"));
+        assert_eq!(signed.as_deref(), Some("Wayland · Signed in today"));
     }
 }

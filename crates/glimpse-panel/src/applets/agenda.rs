@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
 use gettextrs::gettext;
-use glimpse_services::CalendarEvent;
+use glimpse_services::{CalendarEvent, GuestCounts};
 use glimpse_widgets::Event;
 use gtk4::gdk;
 
@@ -11,11 +11,27 @@ const HOUR: i64 = 60;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Occasion {
     pub summary: String,
-    pub detail: String,
+    pub location: String,
+    pub description: String,
+    pub calendar: String,
+    pub meeting_url: Option<String>,
+    pub organizer: Option<String>,
+    pub guests: Option<GuestCounts>,
+    pub tentative: bool,
     pub start: DateTime<Local>,
     pub end: DateTime<Local>,
     pub all_day: bool,
     pub color: Option<gdk::RGBA>,
+}
+
+impl Occasion {
+    pub fn subtitle(&self) -> &str {
+        if self.location.is_empty() {
+            &self.description
+        } else {
+            &self.location
+        }
+    }
 }
 
 pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
@@ -23,7 +39,13 @@ pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
         .iter()
         .map(|event| Occasion {
             summary: event.summary.clone(),
-            detail: event.detail.clone(),
+            location: event.location.clone(),
+            description: event.description.clone(),
+            calendar: event.calendar.clone(),
+            meeting_url: event.meeting_url.clone(),
+            organizer: event.organizer.clone(),
+            guests: event.guests,
+            tentative: event.tentative,
             start: event.start.with_timezone(&Local),
             end: event.end.with_timezone(&Local),
             all_day: event.all_day,
@@ -38,7 +60,7 @@ pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
 pub fn row(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str) -> Event {
     Event {
         summary: event.summary.clone(),
-        detail: event.detail.clone(),
+        detail: event.subtitle().to_owned(),
         when: when(now, day, event, clock),
         color: event.color,
     }
@@ -148,7 +170,13 @@ mod tests {
     fn event(start: DateTime<Local>, end: DateTime<Local>) -> Occasion {
         Occasion {
             summary: "Standup".to_owned(),
-            detail: String::new(),
+            location: String::new(),
+            description: String::new(),
+            calendar: String::new(),
+            meeting_url: None,
+            organizer: None,
+            guests: None,
+            tentative: false,
             start,
             end,
             all_day: false,
@@ -165,8 +193,14 @@ mod tests {
     fn an_event_converts_from_the_wire_and_survives_a_bad_color() {
         let wire = |color: Option<&str>| CalendarEvent {
             source: "work".to_owned(),
+            calendar: "Work".to_owned(),
             summary: "Standup".to_owned(),
-            detail: "Room 2".to_owned(),
+            location: "Room 2".to_owned(),
+            description: "Bring slides".to_owned(),
+            meeting_url: None,
+            organizer: None,
+            guests: None,
+            tentative: false,
             start: at(9, 0).with_timezone(&Utc),
             end: at(10, 0).with_timezone(&Utc),
             all_day: false,
@@ -177,6 +211,10 @@ mod tests {
 
         assert_eq!(converted.len(), 3);
         assert_eq!(converted[0].summary, "Standup");
+        assert_eq!(converted[0].calendar, "Work");
+        assert_eq!(converted[0].location, "Room 2");
+        assert_eq!(converted[0].description, "Bring slides");
+        assert_eq!(converted[0].subtitle(), "Room 2");
         assert_eq!(converted[0].start, at(9, 0));
         assert!(converted[0].color.is_some(), "a hex colour parses");
         assert!(
@@ -270,6 +308,29 @@ mod tests {
             span(TimeDelta::seconds(-10)),
             "0 min",
             "a negative span is not a huge one"
+        );
+    }
+
+    #[test]
+    fn a_row_subtitle_is_the_location_and_falls_back_to_the_description() {
+        let mut meeting = event(at(9, 0), at(10, 0));
+        meeting.location = "Room 2".to_owned();
+        meeting.description = "Bring slides".to_owned();
+        assert_eq!(
+            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
+            "Room 2"
+        );
+
+        meeting.location.clear();
+        assert_eq!(
+            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
+            "Bring slides"
+        );
+
+        meeting.description.clear();
+        assert_eq!(
+            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
+            ""
         );
     }
 }

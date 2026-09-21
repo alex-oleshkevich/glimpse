@@ -48,6 +48,12 @@ document, then acts on only the tables it owns. An unknown key is an error where
 the set of top-level table names is closed — `deny_unknown_fields` on `Config` is what catches a
 misspelled `[panle]` that every reader would otherwise ignore.
 
+**An applet a panel names has to resolve, and the load fails when it does not.** `left`, `center`
+and `right` are strings, so serde cannot check them; `named_applets_exist` does, against `[applets]`
+first and then the kind names. Without it a misspelling is a `warn` and an applet missing from the
+bar, which reads as a broken applet rather than a typo. Every kind is kebab-case, so the message
+names the kebab spelling when the written one differs only by underscores.
+
 ## Reading a file
 
 - Symlinks are followed — a `config.toml` pointing into a dotfile repository is the ordinary case.

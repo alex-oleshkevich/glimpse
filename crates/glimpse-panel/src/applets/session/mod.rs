@@ -83,18 +83,15 @@ impl Applet for Session {
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
         let tooltip = match self.tooltip_format.as_deref() {
-            Some(format) => Some(crate::applets::tokens::render(
-                format,
-                |token| match token {
-                    "user" => self.state.user.as_deref(),
-                    _ => None,
-                },
-            )),
-            None => Some(gettext("Session")),
+            Some(format) => crate::applets::tokens::render(format, |token| match token {
+                "user" => Some(self.state.user.as_deref().unwrap_or_default()),
+                _ => None,
+            }),
+            None => gettext("Session"),
         };
         vec![IndicatorSpec {
             icon: Some(self.icon.clone()),
-            tooltip,
+            tooltip: Some(tooltip),
             ..Default::default()
         }]
     }

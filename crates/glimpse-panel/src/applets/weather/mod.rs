@@ -209,17 +209,14 @@ impl Weather {
         })
     }
 
-    /// `indicators` is pulled after every input, so the icon is rebuilt when the name changes
-    /// rather than once per render.
     fn themed(&mut self, name: &str) -> gio::Icon {
-        if self.icon.as_ref().is_none_or(|(held, _)| held != name) {
-            let icon = gio::ThemedIcon::new(name).upcast();
-            self.icon = Some((name.to_owned(), icon));
-        }
-
-        match self.icon.as_ref() {
-            Some((_, icon)) => icon.clone(),
-            None => gio::ThemedIcon::new(name).upcast(),
+        match &self.icon {
+            Some((held, icon)) if held == name => icon.clone(),
+            _ => {
+                let icon: gio::Icon = gio::ThemedIcon::new(name).upcast();
+                self.icon = Some((name.to_owned(), icon.clone()));
+                icon
+            }
         }
     }
 

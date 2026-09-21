@@ -10,10 +10,7 @@ UPower to choose between `profiles.ac` and `profiles.battery`.
 - `errors.rs` — the exit codes and the single `downcast_ref` that maps an error onto one
 - `cli.rs` — the argument surface, flattening the shared structs from `glimpse-utils`
 - `services.rs` — the composition root: takes the `me.aresa.Glimpse.Idle` name and serves
-  `Idle1Server` first, then starts `ScreenSaver` and the portal backend (both non-fatal name
-  acquisition), the login1 observer, the idle actor, the Wayland backend, the UPower AC/battery
-  watch, the registry-change forwarder, the `Inhibitors`/`Health`-changed generation forwarders
-  and the `ScreenSaver` disconnect watcher, and wires config reloads into the actor
+  `Idle1Server` first, then starts every other task and wires config reloads into the actor
 - `idle.rs` — the listener state machine: resolves `ActiveListener`s from the active profile, tracks
   which listeners are fired, and runs their commands
 - `wayland_notify.rs` — the `ext-idle-notify-v1` client that turns `Idled`/`Resumed` events into
@@ -35,6 +32,28 @@ UPower to choose between `profiles.ac` and `profiles.battery`.
   `org.freedesktop.impl.portal.Request` object that releases the record on `Close()`
 
 ## Design
+
+**The D-Bus name is taken before any other task starts.** `own_name` failing is fatal, matching
+every other glimpse provider's primary name, and taking it first means a duplicate `glimpse-idle`
+never touches the Wayland, UPower or registry resources the running one already holds. The system
+bus, and so `login1`, is independently optional: only `Hold` needs it, so its absence degrades that
+one method rather than the whole control interface.
+
+**`fire` takes `on_idle` from its caller rather than looking the listener up again.** Both call
+sites already hold it, and every id reaching it names a listener in the current active set, because
+`replace_policy` clears `fired` and `suppressed` on every path that changes that set.
+
+**A fired listener is sticky, and a suppressed one is not.** The registry's idle-targeting flag
+dropping to `false` fires every listener that was idle but suppressed pending that drop, with no new
+`Idled` event needed; an inhibitor appearing afterwards never un-fires one, and only a real
+`Resumed` clears `fired`. A listener event stamped with a generation older than the actor's current
+one is dropped even when its id names a real listener under the new policy, or a stale `Idled` in
+flight during a profile switch fires the wrong script.
+
+**One task list, one cancellation token.** `IdleServices` holds `Vec<JoinHandle<()>>` and a single
+`CancellationToken`: every task is cancelled together on shutdown, so there is no per-task token to
+keep in step. `emit_changes` is the crate's only `Idle1` change emitter, for both `Inhibitors` and
+`Health`; no caller emits one itself.
 
 **No `glimpse-services` `Service`.** This crate talks to UPower directly through a `UPowerProxy`
 rather than through a registered service, because a whole `Service`/`Ctx` graph for one `bool` is
@@ -128,7 +147,7 @@ nor `generation`. Without that distinction the rate limiter would bound records 
 signal traffic those same rejected requests generate, and every session-bus disconnect from any
 app — not just one holding an inhibitor — would broadcast the full `Inhibitors` array.
 `SharedRegistry::mutate` republishes `generation` with `send_if_modified` against the registry's
-version, exactly like `any_idle_target`. `services::watch_generation` subscribes to it and, on
+version, exactly like `any_idle_target`. `services::emit_changes` subscribes to it and, on
 every real change, re-fetches the `Idle1Server` object off the connection's `ObjectServer` and
 calls its generated `inhibitors_changed` — the crate's *only* `Inhibitors` `PropertiesChanged`
 emission site. `screen_saver.rs`'s `Inhibit`, `UnInhibit` and process-name backfill ride it for
@@ -153,7 +172,7 @@ owned"}` — into an `Arc<std::sync::Mutex<BackendHealth>>` built by `services::
 `screen_saver::start` or `Idle1Server::new` run, and handed to both. `Idle1Server::health()` reads
 that cell on every call rather than caching it. ScreenSaver and portal acquisition each settle once
 during startup, while the login1 observer can transition later; its health generation wakes
-`services::watch_health_generation`, the only `Health` `PropertiesChanged` emitter, so a cached
+`services::emit_changes`, the only `Health` `PropertiesChanged` emitter, so a cached
 client refreshes on a logind failure or recovery.
 
 **A manual `Hold` records itself as `SourceKind::Login1` with `pid == std::process::id()` — this

@@ -56,6 +56,7 @@ pub enum AppInput {
     BluetoothPrompt(Option<(Entry, String, String)>),
     NetworkSecret(Option<SecretPrompt>),
     SessionConfirm(SessionDialog),
+    SessionDialogClosed,
     SessionRun(SessionAction),
     ConfigChanged(Config),
     MonitorsChanged,
@@ -190,7 +191,13 @@ impl SimpleComponent for App {
             }
             AppInput::SessionConfirm(request) => {
                 self.close_popovers();
-                self.show_session_dialog(request);
+                self.show_session_dialog(request, &sender);
+                return;
+            }
+            AppInput::SessionDialogClosed => {
+                if self.pairing.is_none() && self.secret.is_none() && self.host.is_visible() {
+                    self.host.set_visible(false);
+                }
                 return;
             }
             AppInput::SessionRun(action) => {
@@ -306,14 +313,14 @@ impl App {
         dialog.ask(&key, &name, retry, entered);
     }
 
-    fn show_session_dialog(&self, request: SessionDialog) {
+    fn show_session_dialog(&self, request: SessionDialog, sender: &ComponentSender<Self>) {
         let dialog = adw::AlertDialog::new(Some(&request.title), Some(&request.body));
         dialog.add_response("cancel", &gettext("Cancel"));
         dialog.add_response("accept", &request.accept);
         dialog.set_response_appearance("accept", adw::ResponseAppearance::Destructive);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
-        let host = self.host.clone();
+        let closed = sender.input_sender().clone();
         let action = request.action.clone();
         let actions = self
             .services
@@ -330,7 +337,7 @@ impl App {
             {
                 execute_session(actions, notifications, action.clone());
             }
-            host.set_visible(false);
+            let _ = closed.send(AppInput::SessionDialogClosed);
         });
         self.host.set_title(Some(&request.title));
         self.host.set_visible(true);

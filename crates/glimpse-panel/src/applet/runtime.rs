@@ -30,6 +30,7 @@ pub enum HostInput {
     Configured(AppletConfig),
     PopoverRequested,
     PopoverToggled,
+    PopoverLowered,
     PopoverDismissed,
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
@@ -120,6 +121,7 @@ impl Component for AppletRuntime {
         match message {
             HostInput::PopoverRequested => self.raise_popover(&sender),
             HostInput::PopoverToggled => self.toggle_popover(&sender),
+            HostInput::PopoverLowered => self.lower_popover(),
             HostInput::PopoverDismissed => {
                 if !self.owns() {
                     self.shown = None;
@@ -185,6 +187,12 @@ impl AppletRuntime {
             return self.catcher.close();
         }
         self.show_popover(sender);
+    }
+
+    fn lower_popover(&mut self) {
+        if self.up() {
+            self.catcher.close();
+        }
     }
 
     fn raise_popover(&mut self, sender: &ComponentSender<Self>) {
