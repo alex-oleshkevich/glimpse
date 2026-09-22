@@ -34,11 +34,8 @@ install -Dm644 data/config.schema.json "$sharedir/config.schema.json"
 install -Dm644 data/language-codes.json "$sharedir/language-codes.json"
 install -Dm644 LICENSE "$sharedir/LICENSE"
 
-for f in data/themes/*/*.css; do
+for f in data/themes/*/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/themes/$(basename "$(dirname "$f")")/$(basename "$f")"
-done
-for f in wallpapers/*; do
-    [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/wallpapers/$(basename "$f")"
 done
 
 # Built by `just build-translations`, which `just install` depends on.

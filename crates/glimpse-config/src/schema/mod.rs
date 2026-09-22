@@ -523,7 +523,7 @@ mod tests {
 
         assert_eq!(
             by_name["clock"]["properties"]["label-format"]["default"],
-            serde_json::json!("%H:%M"),
+            serde_json::json!("%a, %-d %b, %H:%M"),
             "a by-name entry carries the applet's own settings"
         );
         assert_eq!(

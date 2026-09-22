@@ -256,7 +256,7 @@
             "label-format": {
               "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
               "type": "string",
-              "default": "%H:%M"
+              "default": "%a, %-d %b, %H:%M"
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1365,7 +1365,7 @@
               "label-format": {
                 "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
                 "type": "string",
-                "default": "%H:%M"
+                "default": "%a, %-d %b, %H:%M"
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",

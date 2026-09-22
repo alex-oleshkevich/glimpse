@@ -1,6 +1,8 @@
 :root {
+    /*--gl-panel: black;
+    --gl-panel-fg: white;*/
 }
 
-.indicator-group {
-    /*background-color: red;*/
+.dark .panel {
+    background-color: red;
 }

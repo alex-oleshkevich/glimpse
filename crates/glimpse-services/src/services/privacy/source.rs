@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::pin::Pin;
 
@@ -7,7 +8,7 @@ use glimpse_utils::clean;
 
 use crate::context::Ctx;
 use crate::services::audio::{App, AudioState, Direction};
-use crate::services::compositor::{CastKindInfo, CastTargetInfo, CompositorPrivacy};
+use crate::services::compositor::{CastInfo, CastKindInfo, CastTargetInfo, CompositorPrivacy};
 
 use super::{Event, Fact, NAME_CAP, Privacy, Resource};
 
@@ -152,13 +153,13 @@ fn display_name(app: &App) -> Option<String> {
     Some(clean(raw, NAME_CAP)).filter(|name| !name.is_empty())
 }
 
-pub fn screen(privacy: &CompositorPrivacy) -> Vec<Fact> {
+pub fn screen(privacy: &CompositorPrivacy, attribution: &HashMap<u32, String>) -> Vec<Fact> {
     privacy
         .casts
         .iter()
         .filter(|cast| cast.active)
         .map(|cast| Fact {
-            app: None,
+            app: screen_app(cast, attribution),
             icon: None,
             detail: match &cast.target {
                 CastTargetInfo::Output(name) => Some(clean(name, NAME_CAP)),
@@ -171,6 +172,14 @@ pub fn screen(privacy: &CompositorPrivacy) -> Vec<Fact> {
             },
         })
         .collect()
+}
+
+fn screen_app(cast: &CastInfo, attribution: &HashMap<u32, String>) -> Option<String> {
+    if cast.kind != CastKindInfo::PipeWire {
+        return None;
+    }
+    let name = attribution.get(&cast.pw_node_id?)?;
+    Some(clean(name, NAME_CAP))
 }
 
 pub async fn location(ctx: Ctx<Privacy>) -> Events {
@@ -532,7 +541,7 @@ mod tests {
             )],
         };
 
-        assert!(screen(&privacy).is_empty());
+        assert!(screen(&privacy, &HashMap::new()).is_empty());
     }
 
     #[test]
@@ -557,14 +566,83 @@ mod tests {
             ],
         };
 
-        let facts = screen(&privacy);
+        let facts = screen(&privacy, &HashMap::new());
         assert_eq!(facts.len(), 2, "neither cast kind is treated as invisible");
         assert_eq!(facts[0].detail.as_deref(), Some("DP-2"));
         assert_eq!(facts[0].app, None);
         assert_eq!(facts[0].stream_id, Some(1));
         assert_eq!(facts[1].detail, None);
-        assert_eq!(facts[1].app, None, "screen attribution is a later bead");
+        assert_eq!(
+            facts[1].app, None,
+            "a screencopy cast has no pipewire node to attribute"
+        );
         assert_eq!(facts[1].stream_id, Some(2));
+    }
+
+    #[test]
+    fn a_pipewire_cast_is_named_via_its_active_link_consumer() {
+        let privacy = CompositorPrivacy {
+            active: true,
+            casts: vec![CastInfo {
+                pw_node_id: Some(107),
+                ..cast(
+                    1,
+                    Some(11),
+                    CastKindInfo::PipeWire,
+                    CastTargetInfo::Unknown,
+                    true,
+                )
+            }],
+        };
+        let attribution = HashMap::from([(107, "chrome".to_owned())]);
+
+        assert_eq!(
+            screen(&privacy, &attribution)[0].app.as_deref(),
+            Some("chrome")
+        );
+    }
+
+    #[test]
+    fn a_screencopy_cast_is_never_attributed_even_carrying_a_stray_pw_node_id() {
+        let privacy = CompositorPrivacy {
+            active: true,
+            casts: vec![CastInfo {
+                pw_node_id: Some(107),
+                ..cast(
+                    1,
+                    None,
+                    CastKindInfo::Screencopy,
+                    CastTargetInfo::Unknown,
+                    true,
+                )
+            }],
+        };
+        let attribution = HashMap::from([(107, "chrome".to_owned())]);
+
+        assert_eq!(
+            screen(&privacy, &attribution)[0].app,
+            None,
+            "attribution is scoped to CastKindInfo::PipeWire, never joined on pw_node_id alone"
+        );
+    }
+
+    #[test]
+    fn a_pipewire_cast_with_no_matching_link_stays_unnamed() {
+        let privacy = CompositorPrivacy {
+            active: true,
+            casts: vec![CastInfo {
+                pw_node_id: Some(107),
+                ..cast(
+                    1,
+                    Some(11),
+                    CastKindInfo::PipeWire,
+                    CastTargetInfo::Unknown,
+                    true,
+                )
+            }],
+        };
+
+        assert_eq!(screen(&privacy, &HashMap::new())[0].app, None);
     }
 
     #[test]
@@ -596,7 +674,7 @@ mod tests {
             ],
         };
 
-        let facts = screen(&privacy);
+        let facts = screen(&privacy, &HashMap::new());
         assert_eq!(
             facts[0].session,
             Some(11),
@@ -625,7 +703,7 @@ mod tests {
             )],
         };
 
-        assert_eq!(screen(&privacy)[0].detail, None);
+        assert_eq!(screen(&privacy, &HashMap::new())[0].detail, None);
     }
 
     #[tokio::test]

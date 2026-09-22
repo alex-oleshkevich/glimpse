@@ -23,7 +23,6 @@ glimpse/
 ├── crates/       all Rust code, flat, one directory per crate
 ├── data/         installed assets: systemd units, D-Bus service files, pam.d, GeoClue policy, default config
 ├── scripts/      install, uninstall and packaging scripts, plus development helpers; not installed
-├── wallpapers/   bundled wallpapers
 ├── var/          scratch, not installed; `var/glimpse2` holds third-party design drafts
 └── _old/         the previous implementation, kept for reference only
 ```

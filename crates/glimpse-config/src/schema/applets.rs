@@ -630,7 +630,7 @@ impl Default for NextEvent {
 impl Default for Clock {
     fn default() -> Self {
         Self {
-            label_format: "%H:%M".to_owned(),
+            label_format: "%a, %-d %b, %H:%M".to_owned(),
             timezone: None,
             first_day: FirstDay::default(),
             week_numbers: true,

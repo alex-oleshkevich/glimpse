@@ -1,5 +1,8 @@
+mod graph;
+mod screencast;
 mod source;
 
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 
 use tokio::sync::oneshot;
@@ -79,6 +82,7 @@ pub enum Watch {
     Camera,
     Microphone,
     Screen,
+    ScreenAttribution,
     Location,
 }
 
@@ -101,6 +105,7 @@ pub enum Event {
     Camera(Vec<Fact>),
     Audio(AudioState),
     Compositor(Option<CompositorPrivacy>),
+    Graph(HashMap<u32, String>),
     Location(bool),
     Unavailable(Resource, &'static str),
 }
@@ -118,6 +123,8 @@ pub struct Privacy {
     microphone: Vec<Usage>,
     screen: Vec<Usage>,
     location: Vec<Usage>,
+    compositor_privacy: Option<CompositorPrivacy>,
+    attribution: HashMap<u32, String>,
 }
 
 #[derive(Clone)]
@@ -193,6 +200,7 @@ impl Service for Privacy {
                     "screen: the compositor service is unavailable",
                 ),
             ),
+            Sub::stream(Watch::ScreenAttribution, |_ctx| screencast::attribution()),
             Sub::stream(Watch::Location, source::location),
         ]
     }
@@ -210,6 +218,8 @@ impl Service for Privacy {
             microphone: Vec::new(),
             screen: Vec::new(),
             location: Vec::new(),
+            compositor_privacy: None,
+            attribution: HashMap::new(),
         })
     }
 
@@ -230,8 +240,13 @@ impl Service for Privacy {
             }
             Input::Event(Event::Compositor(privacy)) => {
                 ctx.running();
-                let facts = privacy.as_ref().map(source::screen).unwrap_or_default();
-                self.screen = refresh(&self.screen, Resource::Screen, facts);
+                self.compositor_privacy = privacy;
+                self.recompute_screen();
+                self.publish();
+            }
+            Input::Event(Event::Graph(attribution)) => {
+                self.attribution = attribution;
+                self.recompute_screen();
                 self.publish();
             }
             Input::Event(Event::Location(in_use)) => {
@@ -265,6 +280,15 @@ impl Service for Privacy {
 }
 
 impl Privacy {
+    fn recompute_screen(&mut self) {
+        let facts = self
+            .compositor_privacy
+            .as_ref()
+            .map(|privacy| source::screen(privacy, &self.attribution))
+            .unwrap_or_default();
+        self.screen = refresh(&self.screen, Resource::Screen, facts);
+    }
+
     fn publish(&mut self) {
         let mut usages = Vec::with_capacity(
             self.camera.len() + self.microphone.len() + self.screen.len() + self.location.len(),
@@ -326,7 +350,7 @@ mod tests {
     use crate::services::audio::{
         App, AppId, Audio, Device as AudioDevice, DeviceId as AudioDeviceId, Role, StreamRef,
     };
-    use crate::services::compositor::Compositor;
+    use crate::services::compositor::{CastInfo, CastKindInfo, CastTargetInfo, Compositor};
     use glimpse_dbus::Buses;
 
     fn usage(
@@ -660,5 +684,154 @@ mod tests {
             "only the resource that became unavailable is cleared"
         );
         assert_eq!(usages[0].kind, Resource::Location);
+    }
+
+    fn pipewire_privacy(pw_node_id: u32) -> CompositorPrivacy {
+        CompositorPrivacy {
+            active: true,
+            casts: vec![CastInfo {
+                stream_id: 1,
+                session_id: Some(11),
+                kind: CastKindInfo::PipeWire,
+                target: CastTargetInfo::Unknown,
+                pw_node_id: Some(pw_node_id),
+                active: true,
+            }],
+        }
+    }
+
+    #[tokio::test]
+    async fn the_screen_row_renders_before_the_graph_names_anyone() {
+        let cancel = CancellationToken::new();
+        let audio = fake_audio(&cancel);
+        let compositor = fake_compositor(&cancel);
+        let mut harness = harness(audio, compositor).await;
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Compositor(Some(pipewire_privacy(107)))),
+            )
+            .await;
+
+        let usages = harness.state.borrow_and_update().usages.clone();
+        assert_eq!(
+            usages.len(),
+            1,
+            "losing or never having the attribution graph must not remove the screen row"
+        );
+        assert_eq!(usages[0].kind, Resource::Screen);
+        assert_eq!(usages[0].app, None);
+    }
+
+    #[tokio::test]
+    async fn the_graph_names_the_pipewire_cast_once_it_arrives() {
+        let cancel = CancellationToken::new();
+        let audio = fake_audio(&cancel);
+        let compositor = fake_compositor(&cancel);
+        let mut harness = harness(audio, compositor).await;
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Compositor(Some(pipewire_privacy(107)))),
+            )
+            .await;
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Graph(HashMap::from([(107, "chrome".to_owned())]))),
+            )
+            .await;
+
+        let usages = harness.state.borrow_and_update().usages.clone();
+        assert_eq!(usages[0].app.as_deref(), Some("chrome"));
+    }
+
+    #[tokio::test]
+    async fn a_graph_event_does_not_touch_health() {
+        let cancel = CancellationToken::new();
+        let audio = fake_audio(&cancel);
+        let compositor = fake_compositor(&cancel);
+        let mut harness = harness(audio, compositor).await;
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Unavailable(
+                    Resource::Camera,
+                    "camera: /proc/modules is unreadable",
+                )),
+            )
+            .await;
+        assert!(harness.ctx.is_degraded());
+
+        harness
+            .service
+            .handle(&harness.ctx, Input::Event(Event::Graph(HashMap::new())))
+            .await;
+
+        assert!(
+            harness.ctx.is_degraded(),
+            "losing the attribution graph is not a compositor failure and must not clear an \
+             unrelated degradation, nor mark the service running on its own"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_resolved_screen_state_does_not_depend_on_event_order() {
+        let privacy = pipewire_privacy(107);
+        let attribution = HashMap::from([(107, "chrome".to_owned())]);
+
+        let cancel_a = CancellationToken::new();
+        let mut compositor_first = harness(fake_audio(&cancel_a), fake_compositor(&cancel_a)).await;
+        compositor_first
+            .service
+            .handle(
+                &compositor_first.ctx,
+                Input::Event(Event::Compositor(Some(privacy.clone()))),
+            )
+            .await;
+        compositor_first
+            .service
+            .handle(
+                &compositor_first.ctx,
+                Input::Event(Event::Graph(attribution.clone())),
+            )
+            .await;
+
+        let cancel_b = CancellationToken::new();
+        let mut graph_first = harness(fake_audio(&cancel_b), fake_compositor(&cancel_b)).await;
+        graph_first
+            .service
+            .handle(
+                &graph_first.ctx,
+                Input::Event(Event::Graph(attribution.clone())),
+            )
+            .await;
+        graph_first
+            .service
+            .handle(
+                &graph_first.ctx,
+                Input::Event(Event::Compositor(Some(privacy.clone()))),
+            )
+            .await;
+
+        assert_eq!(
+            compositor_first.state.borrow_and_update().usages[0].app,
+            graph_first.state.borrow_and_update().usages[0].app,
+            "the compositor snapshot and the attribution graph are cached independently, so \
+             either arriving first must resolve to the same screen usage"
+        );
+        assert_eq!(
+            graph_first.state.borrow_and_update().usages[0]
+                .app
+                .as_deref(),
+            Some("chrome")
+        );
     }
 }
