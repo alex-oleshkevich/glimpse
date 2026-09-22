@@ -927,11 +927,8 @@ fn watch_session(
 }
 
 fn watch_monitors(sender: ComponentSender<App>) {
-    let Some(display) = gdk::Display::default() else {
-        return;
-    };
     let monitor_sender = sender.input_sender().clone();
-    display.monitors().connect_items_changed(move |_, _, _, _| {
+    glimpse_widgets::watch_monitors(move || {
         let _ = monitor_sender.send(Input::MonitorsChanged);
     });
 }

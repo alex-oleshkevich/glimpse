@@ -1,9 +1,7 @@
 use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
-use glimpse_dbus::login1::{
-    Login1ManagerProxy, Login1SessionProxy, SessionCandidate, current_uid, select_session_candidate,
-};
+use glimpse_dbus::login1::{Login1SessionProxy, session_path};
 
 use crate::{
     context::Ctx,
@@ -163,41 +161,7 @@ async fn locked_events(
     ctx: &Ctx<Session>,
 ) -> Result<impl Stream<Item = Event> + Send + 'static, String> {
     let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
-    let manager = Login1ManagerProxy::new(&bus).await.map_err(say)?;
-    let uid = current_uid().map_err(say)?;
-    let mut candidates = Vec::new();
-    for (id, candidate_uid, _, seat, path) in manager.list_sessions().await.map_err(say)? {
-        if candidate_uid != uid {
-            continue;
-        }
-        let candidate = async {
-            let session = Login1SessionProxy::builder(&bus)
-                .path(path.clone())
-                .map_err(say)?
-                .build()
-                .await
-                .map_err(say)?;
-            let (active, class, kind) =
-                tokio::try_join!(session.active(), session.class(), session.kind()).map_err(say)?;
-            Ok::<_, String>(SessionCandidate {
-                id,
-                uid: candidate_uid,
-                seat,
-                path,
-                active,
-                class: Some(class),
-                kind: Some(kind),
-            })
-        }
-        .await;
-        match candidate {
-            Ok(candidate) => candidates.push(candidate),
-            Err(error) => tracing::debug!(%error, "skipping a partial login session"),
-        }
-    }
-    let path = select_session_candidate(&candidates, uid)
-        .map(|candidate| candidate.path.clone())
-        .ok_or_else(|| "the current user has no login session".to_owned())?;
+    let path = session_path(&bus).await?;
     let session = Login1SessionProxy::builder(&bus)
         .path(path)
         .map_err(say)?

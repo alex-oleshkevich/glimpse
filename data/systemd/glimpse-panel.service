@@ -14,4 +14,3 @@ RestartSec=2
 NoNewPrivileges=true
 LockPersonality=true
 RestrictRealtime=true
-RestrictSUIDSGID=true

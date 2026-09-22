@@ -61,6 +61,9 @@ impl DisplayList {
 
     pub fn set_displays(&self, displays: &[Display]) {
         let imp = self.imp();
+        if imp.displays.borrow().as_slice() == displays {
+            return;
+        }
         imp.displays.replace(displays.to_vec());
         self.render();
     }
