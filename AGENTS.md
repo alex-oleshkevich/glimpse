@@ -704,6 +704,13 @@ ran at all. Six tests are in this state today — bead `glimpse-9vjo`. Until it 
 add a seventh**: a new widget's assertions go at the end of `widgets()`, and the constraint is per
 *process*, so a separate test binary under `tests/` is the escape hatch if one is really needed.
 
+**A separate `#[ignore]`d GTK test can pass without running, September 2026.** Every one of them
+opens with `if gtk4::init().is_err() { return; }`, and cargo runs them on parallel threads: the one
+that initializes GTK first wins, and the rest return early and report `ok`. Measured on
+`workspace_name_popover_widgets` — a mutation that clobbers the entry passed inside
+`just test-crate-compositor glimpse-widgets` and failed when the test ran alone. A mutation check
+on a GTK test runs that test by itself (`cargo test -p <crate> --lib <name> -- --include-ignored`).
+
 **niri refuses a workspace name another workspace holds, and says `Ok`, September 2026.** Measured
 on niri 26.04: `set-workspace-name` naming a second workspace after the first exits 0, changes
 nothing and emits no event. A client that updates optimistically must drop its guess on any reply
