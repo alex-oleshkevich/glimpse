@@ -156,6 +156,7 @@
 # size = 36
 # position = "top"
 # left = [
+#     "workspace-name",
 #     "pager",
 #     "places",
 #     "mpris",

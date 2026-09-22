@@ -2483,6 +2483,7 @@
             "privacy"
           ],
           "left": [
+            "workspace-name",
             "pager",
             "places",
             "mpris"
@@ -3297,6 +3298,7 @@
         "left": {
           "type": "array",
           "default": [
+            "workspace-name",
             "pager",
             "places",
             "mpris"

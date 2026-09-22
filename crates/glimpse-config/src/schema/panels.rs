@@ -21,7 +21,7 @@ impl Default for Panel {
             monitor: None,
             position: Position::Top,
             margin: Margin::default(),
-            left: names(&["pager", "places", "mpris"]),
+            left: names(&["workspace-name", "pager", "places", "mpris"]),
             center: names(&["clock", "weather", "notifications", "privacy"]),
             right: names(&[
                 "next-event",
