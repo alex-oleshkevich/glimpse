@@ -93,7 +93,7 @@ pub enum Kind {
     /// Home and user directories, bookmarks, network shares and the trash.
     Places(Places),
     /// Active print jobs.
-    Printing {},
+    Printing(Printing),
     /// Shows when the microphone, camera or screen is in use.
     Privacy {},
     /// Removable drives and their volumes, with mount, unmount and eject in its popover.
@@ -315,6 +315,20 @@ pub struct Removable {
 impl Default for Removable {
     fn default() -> Self {
         Self { volumes: 6 }
+    }
+}
+
+/// The printing applet's own settings.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Printing {
+    /// Print jobs listed in the popover before older ones are hidden.
+    pub jobs: usize,
+}
+
+impl Default for Printing {
+    fn default() -> Self {
+        Self { jobs: 8 }
     }
 }
 
@@ -817,7 +831,9 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
 
 #[cfg(test)]
 mod tests {
-    use super::{BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle};
+    use super::{
+        BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle, Printing,
+    };
 
     #[test]
     fn every_common_setting_is_taken_off_the_table() {
@@ -941,6 +957,26 @@ mod tests {
         toml::from_str::<crate::Config>("[applets.battery]\nindicator-style = \"percent\"\n")
             .expect_err("an undocumented spelling is refused");
         toml::from_str::<crate::Config>("[applets.battery]\nunknown = 1\n")
+            .expect_err("a struct variant refuses keys that are not its own");
+    }
+
+    #[test]
+    fn printing_defaults_and_refuses_an_unknown_key() {
+        let default: crate::Config =
+            toml::from_str("[applets.printing]\n").expect("the built-in printing applet loads");
+        assert_eq!(
+            default.applets["printing"].kind,
+            Kind::Printing(Printing::default())
+        );
+
+        let configured: crate::Config = toml::from_str("[applets.printing]\njobs = 3\n")
+            .expect("jobs is the printing applet's own setting");
+        let Kind::Printing(settings) = &configured.applets["printing"].kind else {
+            panic!("the table names the printing applet");
+        };
+        assert_eq!(settings.jobs, 3);
+
+        toml::from_str::<crate::Config>("[applets.printing]\nbogus = 1\n")
             .expect_err("a struct variant refuses keys that are not its own");
     }
 }

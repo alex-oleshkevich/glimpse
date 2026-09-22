@@ -564,6 +564,37 @@ experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second 
   `unmap` then stops unconditionally, by design. The second stop is routine, so `classify` reads it
   as done rather than as a refusal.
 
+**Printing has two test harnesses and they are not interchangeable, September 2026.**
+`scripts/printing-mock-cups.py` **replaces** cups — it serves IPP itself and the panel is pointed at
+it with `[printing] server-url`, so no part of the real daemon runs. `scripts/printing-network-
+printer.sh` goes the other way: `ippeveprinter` (shipped with cups, no root, high port) serves a real
+IPP Everywhere printer, avahi advertises it, cups-browsed creates a temporary queue, and the applet
+reads it through the ordinary local cups server. Use the mock for widget states, the other for
+discovery and job control. Measured end to end here: cups, cups-browsed and avahi-daemon are all
+active, and a queue appears within seconds.
+
+- **A discovered queue answers `lpstat -e` but not `lpstat -p` until something instantiates it**, so
+  a readiness check written on `-p` waits forever on a printer that is already there.
+- **Jobs need `lp -H hold` to stay in the queue at all.** `ippeveprinter` completes a job almost
+  instantly, so without the hold there is nothing to render; `--slow N` sets a print command that
+  sleeps, which is the only way to watch `processing` and a page count.
+- **`cupsdisable -r` is the only route to `printer-state = stopped`**, and so the only way to reach
+  `render::attention`. It needs the queue instantiated by one job first — before that cups answers
+  `client-error-not-found` on a discovered queue. It sets `printer-state-reasons = paused` and puts
+  the text in `printer-state-message`, which **the applet does not read**.
+- **A supply reason cannot reach this applet at all.** `ippeveprinter`'s /supplies and /media forms
+  do produce real `toner-low-report`, `toner-empty-report`, `media-low-report` and
+  `media-empty-report` keywords — read back off the emulator's own port to confirm it. None of them
+  reach cups: a discovered queue reports `printer-state-reasons = none` idle *and* mid-job, and a
+  permanent `lpadmin` queue on the same device does the same. `fetch_printers` asks the cups server
+  with `CUPS-Get-Printers`, never the device, so low ink and out-of-paper are unreachable without
+  the applet reading the printer directly. The harness does not pretend to offer them.
+- **Avahi advertises on every interface**, docker bridges and veths included, so one printer appears
+  half a dozen times in `avahi-browse`. That is the machine, not a bug in the advertisement.
+- **A backgrounded emulator dies with the shell that started it.** `scripts/printing-network-
+  printer.sh run` owns it in the foreground and tears it down on `^C`, which is why that is the mode
+  to use by hand; `up` is for scripted use and needs the caller to keep the shell alive.
+
 **Data-control and the clipboard, September 2026.** niri 26.04 implements **both**
 `ext_data_control_manager_v1` and `zwlr_data_control_manager_v1` (read out of the binary; smithay
 compiles both selection handlers). `ext` is bound first as the standardised successor. The protocol

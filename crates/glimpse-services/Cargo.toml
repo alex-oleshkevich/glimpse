@@ -16,6 +16,7 @@ glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-utils.workspace = true
 icalendar.workspace = true
+ipp.workspace = true
 iso8601.workspace = true
 libpulse-binding.workspace = true
 regex.workspace = true

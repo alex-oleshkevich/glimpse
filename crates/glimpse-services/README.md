@@ -4,10 +4,9 @@ The service framework and every service implementation.
 
 A service is one Tokio task owning typed state and typed commands. The runtime owns the select loop
 and handlers run serially on `&mut self`; cloneable handles give in-process consumers a snapshot, a
-watch receiver, health and command methods.
-
-`service.rs`, `context.rs`, `subscription.rs` and `publisher.rs` are the runtime, endpoint,
-watch-backed state, sources, health and command plumbing; `services/` is one module per service.
+watch receiver, health and command methods. `service.rs`, `context.rs`, `subscription.rs` and
+`publisher.rs` are that runtime, endpoint, watch-backed state, sources, health and command
+plumbing; `services/` is one module per service.
 
 ## The framework
 
@@ -27,7 +26,6 @@ spawned, and a `try_send` onto a full inbox must not record a config that never 
 service** — it keeps publishing what it can, so a consumer must not dim its values. A producer
 stopping altogether reaches a consumer as `Sub::watch`'s closed-producer event, not as a predicate
 over health; a flag would be a second, lagging source of one fact.
-
 **`ServiceState::unavailable_reason` is the one mapping from health to what a consumer is told.** It
 answers `None` while serving and otherwise why not, totally, so a new variant makes every provider
 fail to compile until it decides what to say. The strings are read over D-Bus, so `"starting"` and
@@ -86,16 +84,16 @@ transition window tears the slow timer down and builds the fast one; the ramp po
 the clock either way and the cadence only decides how often it is sampled. One tick a minute is
 correct and looks wrong — a 15-minute transition moves in steps of about 150 K. Daylight hands
 gamma control back; while serving a non-daylight schedule, each tick reapplies its selected
-temperature so a stolen output returns.
-A `transition-minutes` of zero never asks for the faster tick. Every reader goes through `effective()` —
-`forced.unwrap_or(config.schedule)` — so `SetSchedule` is complete rather than cosmetic; `forced` is
-not persisted and clears only when `[night-light]` changes.
+temperature so a stolen output returns. A `transition-minutes` of zero never asks for the faster
+tick. Every reader goes through `effective()` — `forced.unwrap_or(config.schedule)` — so
+`SetSchedule` is complete rather than cosmetic; `forced` is not persisted and clears only when
+`[night-light]` changes.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals
 and charge-threshold details come from the real `BAT*` objects, because the composite omits them.
-Peripherals are other present UPower devices, not a second BlueZ walk. `TimeTo*` `0`, `ChargeCycles`
-`<= 0` and empty serials are absent. No per-app wattage. Commands are `set_profile` and
-`EnableChargeThreshold`.
+Peripherals are other present UPower devices, not a second BlueZ walk. `TimeTo*` `0`,
+`ChargeCycles` `<= 0` and empty serials are absent. No per-app wattage. Commands are `set_profile`
+and `EnableChargeThreshold`.
 
 **gamma** — `trait Gamma` is declared here and implemented in `glimpse-sunset`, because this crate
 is linked into the panel and every provider and none may gain a Wayland dependency. It is
@@ -125,17 +123,15 @@ focus state: a focus change mutates the `focused` flag inside the lists. **The w
 re-read on a resync, not the named part** — `Snapshot` fetches every part concurrently and
 `Publisher::update` drops an unchanged aggregate, costing one round trip and publishing only what
 moved. A resync is a declared source keyed by an attempt counter, so one arriving mid-fetch tears
-the in-flight read down — the coalescing, needing no `fetching`/`pending` bookkeeping. `start` reads
-the backend from the environment and cannot be tested; `with_backend` takes one so a headless test
-doesn't depend on the machine's compositor.
-
-**Urgency is derived here so every client sees one answer**: a workspace is urgent when the
-compositor says so *or* when any window on it is — the only way Hyprland works. A focused window's
-urgency is cleared locally, because Hyprland's `urgent>>address` only ever arrives as "became
-urgent". Workspaces order by output then `index`, falling back to `id`. **`WindowRef::Pid` is
-resolved here, not by a backend**, because the snapshot is the only pid-bearing window list, and
-niri has no focus-by-pid action. Several windows resolve to the lowest id from the list edited in
-place; a pid with no window is `InvalidArgs`, not worth retrying. **Commands are awaited inline, not
+the in-flight read down, needing no `fetching`/`pending` bookkeeping. `start` reads the backend
+from the environment and cannot be tested; `with_backend` takes one so a headless test doesn't
+depend on the machine's compositor. **Urgency is derived here so every client sees one answer**: a
+workspace is urgent when the compositor says so *or* when any window on it is — the only way
+Hyprland works. A focused window's urgency clears locally, since Hyprland's `urgent>>address` only
+ever arrives as "became urgent". Workspaces order by output then `index`, falling back to `id`.
+**`WindowRef::Pid` is resolved here, not by a backend**, since the snapshot is the only pid-bearing
+window list and niri has no focus-by-pid action; several windows resolve to the lowest id, and a
+pid with no window is `InvalidArgs`, not worth retrying. **Commands are awaited inline, not
 spawned,** in the compositor and keyboard services, keeping a command and its events in order.
 **keyboard** owns compositor layouts, so switching one does not resync workspaces or windows;
 `[keyboard] remember` is honoured in-memory, and a memoryless window inherits the current layout.
@@ -154,38 +150,45 @@ attendees. **A failure reason never contains the uri.** Length is capped; `DURAT
 consumer calls the typed watch method and the registration is honoured for thirty minutes unless
 asked for again. There is no `forget`; not renewing is how you stop.
 
-- **With nothing leased, nothing happens.** A fresh install issues no outbound request and the
-  user's coordinates never leave the machine until a consumer asks. That is structural rather than a
-  default someone can flip, which is why `[weather]` has no `follow-location` key.
-- **Leases are swept on a watch as well as on a fetch**, because a renewal is the one event that
-  still arrives while nothing is being fetched.
-- **A renewal must not restart the poll.** `Sub::interval` starts at `Instant::now()`, so a rebuilt
-  subscription fetches immediately; `generation` is bumped when the resolved coordinate set changes,
-  never when a command merely arrives.
+- **With nothing leased, nothing happens.** A fresh install sends no outbound request, and a
+  user's coordinates never leave the machine until asked — structural, not a default someone can
+  flip, which is why `[weather]` has no `follow-location` key.
+- **Leases are swept on a watch as well as on a fetch**, since a renewal is the one event that
+  still arrives while nothing is being fetched, and **a renewal must not restart the poll**:
+  `Sub::interval` starts at `Instant::now()`, so a rebuilt subscription fetches immediately, and
+  `generation` bumps only when the resolved coordinates change, never when a command merely arrives.
 - **A fix has to move a kilometre to count**, measured against the fix last *accepted*, so drift
   never accumulates into a refetch.
 - **`timeformat=unixtime` is load-bearing**: with `timezone=auto` the provider otherwise returns
-  naive local ISO strings with no offset. Each place carries `utc_offset_seconds`, without which a
-  renderer cannot label a time for a place in another timezone.
-- **`observed_at` is the provider's own validity time, not our fetch clock**, so it freezes when the
-  network dies — the truthful thing for "updated N minutes ago" to say.
-- **A failed fetch keeps the last reading and degrades.** There is no retry loop: the next tick is
-  the retry. **A failure reason never quotes the request**, because the query string carries the
-  user's coordinates.
+  naive local ISO strings with no offset, so each place carries `utc_offset_seconds` for a renderer
+  to label a time in another timezone. **`observed_at` is the provider's own validity time**, not
+  our fetch clock, so it freezes when the network dies — the truthful thing for "updated N minutes
+  ago" to say.
+- **A failed fetch keeps the last reading and degrades**, and the next tick is the retry rather
+  than a loop of its own. **A failure reason never quotes the request**, since the query string
+  carries the user's coordinates.
 - **Every list is cut in `absorb`, not in the provider that filled it** — `sunlit` fills the sun
-  times and `sanitized` caps and bidi-strips the alerts, so a third provider inherits all three.
-  Hours are the exception, capped inside each provider against the module constant `HOURS`.
+  times and `sanitized` caps and bidi-strips the alerts, so a third provider inherits all three;
+  hours are the exception, capped inside each provider against the module constant `HOURS`.
 - **Sun times are computed, never taken from a provider**, or one fact arrives two ways and
-  disagrees at the edges. `crate::sun::events` is shared with solar and returns a nested `Option` on
-  purpose: the outer is coordinates not on Earth, the inner a day the sun did not cross the horizon.
-- **Conditions are provider-neutral** — a closed `Condition` enum rather than a raw WMO code, tagged
-  `#[serde(other)]` so an older panel reads an unknown as `Unknown`, with no `_` arm in any renderer
-  so the compiler names every site that must decide. It grew a variant rather than mapping met.no's
-  sleet onto freezing rain.
+  disagrees at the edges — `crate::sun::events` is shared with solar and returns a nested `Option`,
+  the outer for coordinates not on Earth, the inner for a day the sun never crossed the horizon.
+- **Conditions are provider-neutral** — a closed `Condition` enum rather than a raw WMO code,
+  tagged `#[serde(other)]` so an older panel reads an unknown as `Unknown`, with no `_` arm in any
+  renderer, so it grew a variant rather than mapping met.no's sleet onto freezing rain.
 - **Alerts are in the shared model before any provider fills them**, as `Vec` under
-  `#[serde(default)]`: two spellings of "nothing to report" is one too many. **A failed alerts
-  request is not a failed forecast.**
-- **The poll interval has a floor of ten minutes**, because Open-Meteo recomputes every fifteen.
+  `#[serde(default)]` — two spellings of "nothing to report" is one too many, and **a failed
+  alerts request is not a failed forecast.** The poll floor is ten minutes, since Open-Meteo
+  recomputes every fifteen.
+
+**printing** — CUPS over IPP, polled rather than mirrored, since the protocol has no subscription
+surviving a client restart. `Watch::Poll`'s key carries the cadence, its period and a generation
+bumped on every config change, so a `server_url` or interval reload rebuilds a source immediately.
+`org.cups.cupsd.Notifier` is read only as an undecoded, debounced wake hint — its D-Bus argument
+shape is undocumented anywhere in this tree, and nothing here creates a subscription of its own.
+`Cancel-Job` on an already-finished job, and `Release-Job` on an already-released one, are not
+failures, since a 2s poll racing the job's own completion is the common case; CUPS unreachable
+degrades like bluetooth without an adapter, logged once at `debug!`, never per poll or `warn!`.
 
 **mpris** — both sources subscribe before they read, so nothing is missed between the two. **There
 is no progress timer**: the payload carries `position_us`, `position_at` and `rate`, and a renderer
@@ -219,17 +222,16 @@ follows its two registration signals; only a watcher refusing us as a host is `d
 resolve to their unique owner — the spelling `NameOwnerChanged` reports — and that list is read whole
 on each signal, never reconciled entry by entry. **The claim lives inside the `NameOwnerChanged`
 source, not in `start`**, because a source is installed only *after* `start` returns, so claiming
-there races the signal that
-recovers a lost one; all three triggers call the same `claim`, off the handler and one at a time, and
-`NameTaken` *by us* is success. **A fresh owner sweeps, because items register once and never learn
-they were forgotten**: announce `StatusNotifierHostRegistered` *first* — Qt and libayatana clients
-re-register on it — then sweep `ListNames`, the canonical key collapsing the two arrivals.
-
-**One `Watch::Item(key)` per item, and no teardown code** — a key stops appearing, its guard drops,
-its match rules go. A menu follower is keyed by item *and path*, and an item that stops answering is
-dropped, not retried. **Every command is answered off the handler under a five-second deadline.**
-`AboutToShow` reports whether the layout changed and **must be awaited**; `Event` is `no_reply` and
-must not be. Menus load on pointer-enter, naming every submenu id first.
+there races the signal that recovers a lost one; all three triggers call the same `claim`, off the
+handler and one at a time, and `NameTaken` *by us* is success. **A fresh owner sweeps, because
+items register once and never learn they were forgotten**: announce `StatusNotifierHostRegistered`
+*first* — Qt and libayatana clients re-register on it — then sweep `ListNames`, the canonical key
+collapsing the two arrivals. **One `Watch::Item(key)` per item, and no teardown code** — a key
+stops appearing, its guard drops, its match rules go. A menu follower is keyed by item *and path*,
+and an item that stops answering is dropped, not retried. **Every command is answered off the
+handler under a five-second deadline.** `AboutToShow` reports whether the layout changed and
+**must be awaited**; `Event` is `no_reply` and must not be. Menus load on pointer-enter, naming
+every submenu id first.
 
 **bluetooth** — one adapter, its devices, a pairing prompt and a confirmation in one state value,
 enumerated with one `GetManagedObjects` per generation and never polled. **BlueZ's `ObjectManager`
@@ -239,20 +241,19 @@ only `PropertiesChanged` and `Disconnected` take the `/org/bluez` namespace. **O
 the service merges. A signal arriving after a generation bump but before its enumeration is dropped,
 or the previous owner's queue edits the new snapshot. **Match a device path by shape, not by
 prefix** — connecting adds `dev_XX/fd0` and `sep1`…`sep6` as children, and a prefix match invents
-seven phantom devices; `fd0` is the `MediaTransport1` the codec.
-
-**`busy` is cleared by its own command's completion, never by the property moving** — `Connect()` on
-an already-connected device returns `AlreadyConnected` with no state change, so a property-based
-clear leaves that row spinning forever, and `Settled` names the `Busy` it answers, so a superseded
-command cannot clear a newer one. Five BlueZ errors are not failures at all — `AlreadyConnected`,
-`AlreadyExists`, `InProgress` on a scan, `DoesNotExist`, a stop's `Failed: No discovery started` —
-and the rest reach the caller **typed**, as `BluetoothError::Failed(Failure)`: as a string the panel
-cannot word it. `failure.rs` matches the name, then the token by its **suffix** (BlueZ spells each
-reason once per transport), and `settle` logs both. **Pairing ends connected.** **A scan starts two
-ways and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none, and a bluez restart
-clears it, the session having died with the daemon. `SetDiscoveryFilter` carries `Transport` alone:
-any filter disables the RSSI delta-threshold. **The agent is per-connection**; **a confirmation is a
-refusal carrying a request**.
+seven phantom devices; `fd0` is the `MediaTransport1` the codec. **`busy` is cleared by its own
+command's completion, never by the property moving** — `Connect()` on an already-connected device
+returns `AlreadyConnected` with no state change, so a property-based clear leaves that row
+spinning forever, and `Settled` names the `Busy` it answers, so a superseded command cannot clear
+a newer one. Five BlueZ errors are not failures at all — `AlreadyConnected`, `AlreadyExists`,
+`InProgress` on a scan, `DoesNotExist`, a stop's `Failed: No discovery started` — and the rest
+reach the caller **typed**, as `BluetoothError::Failed(Failure)`: as a string the panel cannot
+word it. `failure.rs` matches the name, then the token by its **suffix** (BlueZ spells each reason
+once per transport), and `settle` logs both. **Pairing ends connected.** **A scan starts two ways
+and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none, and a bluez restart
+clears it, the session having died with the daemon. `SetDiscoveryFilter` carries `Transport`
+alone: any filter disables the RSSI delta-threshold. **The agent is per-connection**; **a
+confirmation is a refusal carrying a request**.
 
 **network** — devices, access points, saved profiles, active connections and the secret prompt in
 one state value, enumerated once per generation. **Only a device a user can act on reaches the
@@ -281,14 +282,13 @@ radio write publishes once taken** and **busy is cleared by `Settled`**.
 **audio** — the libpulse bridge (`services/audio/pulse.rs`) owns one OS thread: lock, create the
 `Operation`, unlock, await the oneshot its callback completes off the lock, since a Pulse callback
 runs under that lock. **A PA name is never capped**, only displayed — it is a `Device`'s key and
-the literal `set_default_sink`/`set_default_source` argument.
-**The service never calls `pulse::connect()` from `start`** — the connection is
-`Sub::stream(Watch::Pulse(generation), …)`, so a `Gone` bumps the generation and the runtime swaps
-in a fresh source; bumping only the receiver would leave the dead bridge thread in place and audio
-deaf until a restart. A command resolves its `DeviceId`/`AppId` against the service's own last
-snapshot, never the backend, and an id that has just disappeared is `Refused`, not a panic.
-`set_app_volume` fans out through `Role::scaled` rather than one absolute write, so a group's
-streams keep their relative mix.
+the literal `set_default_sink`/`set_default_source` argument. **The service never calls
+`pulse::connect()` from `start`** — the connection is `Sub::stream(Watch::Pulse(generation), …)`,
+so a `Gone` bumps the generation and the runtime swaps in a fresh source; bumping only the
+receiver would leave the dead bridge thread in place and audio deaf until a restart. A command
+resolves its `DeviceId`/`AppId` against the service's own last snapshot, never the backend, and an
+id that has just disappeared is `Refused`, not a panic. `set_app_volume` fans out through
+`Role::scaled` rather than one absolute write, so a group's streams keep their relative mix.
 
 **removable** — mirrors UDisks2 into one drive-grouped state, enumerated once with
 `GetManagedObjects` and never polled; `mount`, `unmount` and `power_off` are thin pass-throughs.

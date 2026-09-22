@@ -30,6 +30,7 @@ mod network;
 mod night_light;
 mod notifications;
 mod places;
+mod printing;
 mod removable;
 mod session;
 mod session_actions;
@@ -78,6 +79,10 @@ pub use night_light::{
 pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
 pub use places::{
     Config as PlacesConfig, Kind as PlacesKind, Place, Places, PlacesHandle, PlacesState,
+};
+pub use printing::{
+    Config as PrintingConfig, Failure as PrintingFailure, JobState, PrintJob, Printer,
+    PrinterState, Printing, PrintingError, PrintingHandle, PrintingState,
 };
 pub use removable::{
     Busy as RemovableBusy, Capacity as RemovableCapacity, Config as RemovableConfig, Drive,

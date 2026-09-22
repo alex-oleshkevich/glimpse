@@ -458,6 +458,29 @@ are always there — one popover cannot honestly do both.
   open/mount target; a read-only volume gets a plain trailing icon instead, since there is nothing
   behind a chevron to unfold.
 
+## PrintingPopover
+
+Jobs are the primary section: `$Section`'s `empty` property switches between the row list and a bare
+icon `$Placeholder`, and `render_jobs` sets the hero's subtitle (`"No print jobs"` / an `ngettext`
+count) from the same job list — the count text lives in exactly one place, the hero, not repeated on
+the placeholder. Job and printer rows reuse the plain `$Row` template; its title label already caps
+its own width, which is what keeps a long job name from resizing the row.
+
+A job's second line reads `"{printer} · {status}"`, and page progress replaces the status word there
+(`"{printer} · Page {n} of {m}"`) rather than sitting in the row's value column, which job rows leave
+unset. `.printing-popover .row__subtitle` carries `font-variant-numeric: tabular-nums` in this
+widget's own `styles/glimpse.css` rule, because `.row__subtitle` (unlike `.row__value`) has no
+tabular figures by default.
+
+Each job row's pause/resume/cancel icon buttons are built exactly once, in `reconcile::by_key`'s
+`build` closure, keyed by job id; `dress_job` only ever flips their `visible` state from
+`Job.pausable`/`Job.resumable`/`Job.cancellable` on every render — never rebuilds them. A row keeps
+`activatable: true` whenever it carries a live trailing button, or GTK's hit-test never reaches into
+the trail. The widget emits `cancelled`/`paused`/`resumed`, each carrying the job id, the same shape
+as `BluetoothPopover`'s `connect_selected`. `Job.printer`, `Job.status` and `Printer.status` are
+caller-supplied, already-cleaned text — sanitizing raw CUPS text is the panel applet's job, not this
+widget's.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

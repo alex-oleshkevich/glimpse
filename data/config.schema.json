@@ -831,6 +831,13 @@
               "type": "string",
               "const": "printing"
             },
+            "jobs": {
+              "description": "Print jobs listed in the popover before older ones are hidden.",
+              "type": "integer",
+              "format": "uint",
+              "default": 8,
+              "minimum": 0
+            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -1939,6 +1946,13 @@
                 "type": "string",
                 "const": "printing"
               },
+              "jobs": {
+                "description": "Print jobs listed in the popover before older ones are hidden.",
+                "type": "integer",
+                "format": "uint",
+                "default": 8,
+                "minimum": 0
+              },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
                 "type": "array",
@@ -2406,6 +2420,13 @@
       "default": {
         "lock-before-sleep": true,
         "lock-on-request": true
+      }
+    },
+    "printing": {
+      "$ref": "#/$defs/Printing",
+      "default": {
+        "poll-active": 2,
+        "poll-idle": 30
       }
     },
     "regional": {
@@ -3285,6 +3306,34 @@
         "lock-on-request": {
           "type": "boolean",
           "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Printing": {
+      "description": "The printing service: how often it polls CUPS for job state, and which server it polls.",
+      "type": "object",
+      "properties": {
+        "poll-active": {
+          "description": "How often the service polls CUPS while a job is active, in seconds. Must be at least 1;\n`0` would leave the poll timer with no interval to tick on.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 2,
+          "minimum": 1
+        },
+        "poll-idle": {
+          "description": "How often the service polls CUPS while no job is active, in seconds. Must be at least 1,\nfor the same reason as `poll-active`.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 30,
+          "minimum": 1
+        },
+        "server-url": {
+          "description": "The CUPS server to poll, such as `http://localhost:631/`. Unset uses CUPS's own default\nserver.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "additionalProperties": false

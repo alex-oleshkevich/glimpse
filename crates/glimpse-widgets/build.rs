@@ -138,6 +138,10 @@ fn main() {
             "blueprints/popover_shell.blp",
             "resources/widgets/popover_shell.ui",
         ),
+        (
+            "blueprints/printing_popover.blp",
+            "resources/widgets/printing_popover.ui",
+        ),
         ("blueprints/readout.blp", "resources/widgets/readout.ui"),
         (
             "blueprints/clipboard_popover.blp",

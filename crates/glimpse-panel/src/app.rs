@@ -595,6 +595,7 @@ fn reconcile_panels(
                 clipboard: services.clipboard.clone(),
                 battery: services.battery.clone(),
                 places: services.places.clone(),
+                printing: services.printing.clone(),
                 removable: services.removable.clone(),
                 dialog: dialog.clone(),
             };

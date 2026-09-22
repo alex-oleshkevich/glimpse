@@ -264,8 +264,9 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
-        Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow, TransportAction, TrayChip,
-        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        PrintingJob, PrintingPopover, PrintingPrinter, Repeat, Row, Severity, Shape, Slot,
+        SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -325,6 +326,7 @@ mod fixtures {
             "tray" => tray(root),
             "tray_states" => tray_states(root),
             "inhibitor_list_states" => inhibitor_list_states(root),
+            "printing_states" => printing_popover_states(root),
             _ => {}
         }
         drawer_nav(root);
@@ -1994,6 +1996,82 @@ mod fixtures {
         }
     }
 
+    fn printing_popover_states(root: &gtk4::Widget) {
+        for popover in collect::<PrintingPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $PrintingPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            match case.as_str() {
+                "empty" => {
+                    popover.set_jobs(&[]);
+                    popover.set_printers(&[]);
+                }
+                "busy" => {
+                    popover.set_jobs(&[
+                        PrintingJob {
+                            id: "1".into(),
+                            name: "specs-004-panel-final-review-draft.pdf".into(),
+                            printer: "HP LaserJet 400".into(),
+                            status: "Printing".into(),
+                            progress: Some((3, 12)),
+                            busy: true,
+                            cancellable: true,
+                            pausable: true,
+                            resumable: false,
+                        },
+                        PrintingJob {
+                            id: "2".into(),
+                            name: "boarding-pass.pdf".into(),
+                            printer: "Kitchen".into(),
+                            status: "Queued".into(),
+                            progress: None,
+                            busy: false,
+                            cancellable: true,
+                            pausable: false,
+                            resumable: false,
+                        },
+                        PrintingJob {
+                            id: "3".into(),
+                            name: "invoice-final.pdf".into(),
+                            printer: "HP LaserJet 400".into(),
+                            status: "Held".into(),
+                            progress: None,
+                            busy: false,
+                            cancellable: true,
+                            pausable: false,
+                            resumable: true,
+                        },
+                    ]);
+                    popover.set_printers(&[
+                        PrintingPrinter {
+                            id: "laserjet".into(),
+                            name: "HP LaserJet 400".into(),
+                            status: "Default · paper jam".into(),
+                            network: false,
+                        },
+                        PrintingPrinter {
+                            id: "kitchen".into(),
+                            name: "Kitchen".into(),
+                            status: "IPP Everywhere · idle".into(),
+                            network: true,
+                        },
+                    ]);
+                }
+                _ => {
+                    eprintln!("{DEMO}{case} names no printing case");
+                    popover.set_jobs(&[]);
+                    popover.set_printers(&[]);
+                }
+            }
+        }
+    }
+
     fn tray(root: &gtk4::Widget) {
         let group = gio::SimpleActionGroup::new();
 
@@ -2455,9 +2533,9 @@ fn ensure_types() {
         IndicatorGroup, InhibitorList, KeyboardPopover, Notice, NotificationCard,
         NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
         NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, Placeholder,
-        PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber, Section,
-        SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
-        WeatherPopover, WorldClock,
+        PlayerList, PlayerRow, PopoverShell, PrintingPopover, RangeBar, Readout, Row, Scrubber,
+        Section, SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard, Transport,
+        TrayStrip, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -2513,6 +2591,7 @@ fn ensure_types() {
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
+        PrintingPopover::static_type(),
     ] {
         let _ = widget;
     }

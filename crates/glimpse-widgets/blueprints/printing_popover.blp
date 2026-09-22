@@ -1,0 +1,49 @@
+using Gtk 4.0;
+
+template $PrintingPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "printing-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "printer-symbolic";
+      title: _("Printers");
+      subtitle: _("No print jobs");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section jobs {
+        empty: true;
+
+        [placeholder]
+        $Placeholder empty_jobs {
+          icon-name: "printer-symbolic";
+        }
+
+        Gtk.Box job_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section printers {
+        visible: false;
+        title: _("Printers");
+
+        Gtk.Box printer_rows {
+          orientation: vertical;
+        }
+      }
+    }
+  }
+}

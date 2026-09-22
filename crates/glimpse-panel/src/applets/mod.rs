@@ -15,6 +15,7 @@ mod next_event;
 mod notifications;
 mod pager;
 mod places;
+mod printing;
 mod removable;
 mod session;
 mod tokens;
@@ -29,7 +30,7 @@ use glimpse_dbus::{
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
-    RemovableHandle, SessionActionsHandle, TrayHandle,
+    PrintingHandle, RemovableHandle, SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -73,6 +74,7 @@ pub fn build(
     battery: &BatteryHandle,
     clipboard: &ClipboardHandle,
     places: &PlacesHandle,
+    printing: &PrintingHandle,
     removable: &RemovableHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
@@ -231,6 +233,14 @@ pub fn build(
                 Box::new(places::Places::start(places))
             }))
         }
+        AppletKind::Printing(_) => {
+            let printing = printing.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(printing.subscribe());
+                Box::new(printing::Printing::start(printing, notifications))
+            }))
+        }
         AppletKind::Removable(_) => {
             let removable = removable.clone();
             let notifications = notifications.clone();
@@ -239,10 +249,7 @@ pub fn build(
                 Box::new(removable::Removable::start(removable, notifications))
             }))
         }
-        AppletKind::Command {}
-        | AppletKind::Exec {}
-        | AppletKind::Privacy {}
-        | AppletKind::Printing {} => None,
+        AppletKind::Command {} | AppletKind::Exec {} | AppletKind::Privacy {} => None,
     }
 }
 
@@ -338,11 +345,48 @@ mod tests {
     #[test]
     fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
         assert!(
-            AppletConfig::from_name("printing").is_some(),
-            "`printing` is a real applet, so skipping it is expected rather than a bad document"
+            AppletConfig::from_name("removable").is_some(),
+            "`removable` is a real applet, so skipping it is expected rather than a bad document"
         );
         assert!(AppletConfig::from_name("nonesuch").is_none());
         assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
+    }
+
+    #[tokio::test]
+    async fn the_printing_applet_now_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Printing(<_>::default()).into();
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.printing,
+            &services.removable,
+            None,
+        );
+        assert!(built.is_some(), "printing now has an implementation");
+
+        services.shutdown().await;
     }
 
     #[tokio::test]
@@ -373,6 +417,7 @@ mod tests {
             &services.battery,
             &services.clipboard,
             &services.places,
+            &services.printing,
             &services.removable,
             None,
         );
@@ -410,6 +455,7 @@ mod tests {
             &services.battery,
             &services.clipboard,
             &services.places,
+            &services.printing,
             &services.removable,
             None,
         );
@@ -447,6 +493,7 @@ mod tests {
             &services.battery,
             &services.clipboard,
             &services.places,
+            &services.printing,
             &services.removable,
             None,
         );
@@ -483,6 +530,7 @@ mod tests {
             &services.battery,
             &services.clipboard,
             &services.places,
+            &services.printing,
             &services.removable,
             None,
         );
@@ -521,6 +569,7 @@ mod tests {
                 &services.battery,
                 &services.clipboard,
                 &services.places,
+                &services.printing,
                 &services.removable,
                 None,
             )
@@ -548,6 +597,7 @@ mod tests {
                 &services.battery,
                 &services.clipboard,
                 &services.places,
+                &services.printing,
                 &services.removable,
                 Some(&dialog),
             )
@@ -595,6 +645,7 @@ mod tests {
                 &services.battery,
                 &services.clipboard,
                 &services.places,
+                &services.printing,
                 &services.removable,
                 None,
             );

@@ -16,6 +16,7 @@ mod notifications;
 mod panels;
 mod places;
 mod power;
+mod printing;
 mod regional;
 mod removable;
 mod wallpaper;
@@ -34,8 +35,8 @@ pub use applets::{
     Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
     NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
     PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
-    Removable as RemovableAppletConfig, Timezone as ClockTimezone, Tray as TrayAppletConfig,
-    Weather as WeatherAppletConfig,
+    Printing as PrintingAppletConfig, Removable as RemovableAppletConfig,
+    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
@@ -53,6 +54,7 @@ pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
 pub use power::Power;
+pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
 pub use wallpaper::{Backdrop, Fit, Transition, Wallpaper};
@@ -66,6 +68,7 @@ pub struct Config {
     pub monitors: Monitors,
     pub geolocation: Geolocation,
     pub bluetooth: Bluetooth,
+    pub printing: Printing,
     pub network: NetworkSettings,
     pub night_light: NightLight,
     pub brightness: Brightness,
@@ -95,6 +98,7 @@ impl Default for Config {
             monitors: Monitors::default(),
             geolocation: Geolocation::default(),
             bluetooth: Bluetooth::default(),
+            printing: Printing::default(),
             network: NetworkSettings::default(),
             night_light: NightLight::default(),
             brightness: Brightness::default(),
@@ -192,6 +196,22 @@ mod tests {
             }
             _ => {}
         }
+    }
+
+    #[test]
+    fn config_default_round_trips_losslessly() {
+        let mut config = Config::default();
+        config.printing.server_url = Some("http://localhost:631/".to_owned());
+        config.printing.poll_idle = 45;
+        config.applets.insert(
+            "printing".to_owned(),
+            Applet::from(AppletKind::Printing(applets::Printing::default())),
+        );
+
+        let written = toml::to_string(&config).expect("the document serializes");
+        let again: Config = toml::from_str(&written).expect("what was written parses again");
+
+        assert_eq!(config, again);
     }
 
     #[test]

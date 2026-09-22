@@ -357,6 +357,14 @@
     font-weight: 600;
 }
 
+.printing-popover .row__subtitle {
+    font-variant-numeric: tabular-nums;
+}
+
+.printing-popover .job-actions {
+    padding: 0.2rem 0.8rem 0.5rem 3rem;
+}
+
 .keyboard-popover {
     --gl-popover-min-width: 8rem;
 }
