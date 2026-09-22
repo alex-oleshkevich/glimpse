@@ -36,6 +36,7 @@ transition-minutes = 15
 
 [brightness]
 minimum = 3
+ddc = true
 
 [idle]
 enabled = true
@@ -100,7 +101,7 @@ max-items = 6
 
 [wallpaper]
 color = "#000000"
-image = "default.jpg"
+image = "/usr/share/glimpse/themes/adwaita/default.jpg"
 fit = "cover"
 transition = "fade"
 transition-ms = 500

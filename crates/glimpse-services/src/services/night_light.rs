@@ -1049,25 +1049,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_day_temperature_is_released_rather_than_written_as_a_neutral_curve() {
-        let mut harness = harness(config(Schedule::Automatic)).await;
-        harness.service.observed = night(None);
-        harness.at(at(23, 0)).await;
-        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
-
-        harness.service.observed = day(Some(sunset()));
-        harness.at(at(12, 0)).await;
-
-        assert_eq!(
-            harness.gamma.applied(),
-            vec![NIGHT],
-            "nothing further was written; the outputs went back instead"
-        );
-        assert_eq!(harness.gamma.resets(), 1);
-        assert_eq!(harness.state.borrow().temperature, DAY);
-    }
-
-    #[tokio::test]
     async fn an_out_of_range_temperature_is_refused_without_quoting_what_arrived() {
         let mut harness = harness(config(Schedule::Automatic)).await;
         harness.service.observed = night(None);

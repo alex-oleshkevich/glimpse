@@ -1,6 +1,5 @@
-.dark {
+:root {
     --gl-panel: black;
     --gl-panel-fg: white;
     --gl-surface: mix(var(--gl-panel, #000000), white, 0.07);
-    --gl-surface-fg: var(--gl-panel-fg);
 }

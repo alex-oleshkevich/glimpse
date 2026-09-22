@@ -37,7 +37,7 @@ pub enum Input {
 #[derive(Debug)]
 pub struct Decoded {
     key: RenderKey,
-    raster: Option<Raster>,
+    raster: anyhow::Result<Raster>,
 }
 
 pub struct Surface {
@@ -277,20 +277,26 @@ impl Surface {
         });
     }
 
-    fn decoded(&mut self, key: RenderKey, raster: Option<Raster>, sender: &ComponentSender<Self>) {
+    fn decoded(
+        &mut self,
+        key: RenderKey,
+        raster: anyhow::Result<Raster>,
+        sender: &ComponentSender<Self>,
+    ) {
         self.decoding = None;
 
         if self.wanted.as_ref() == Some(&key) {
             match raster {
-                Some(raster) => {
+                Ok(raster) => {
                     self.rendered = Some(RenderKey {
                         mtime: Some(raster.mtime),
                         ..key
                     });
                     self.apply(raster, sender);
                 }
-                None => {
-                    tracing::warn!(path = %key.image.display(), "wallpaper image failed to decode");
+                Err(err) => {
+                    tracing::warn!(path = %key.image.display(), "wallpaper image failed to decode: {err:#}");
+                    self.rendered = Some(key);
                 }
             }
         }

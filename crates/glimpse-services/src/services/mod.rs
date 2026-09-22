@@ -54,9 +54,10 @@ pub use bluetooth::{
     DeviceId, Failure, Hold, Prompt,
 };
 pub use brightness::{
-    Backlight, Brightness, BrightnessHandle, BrightnessState, Config as BrightnessConfig,
-    Dependencies as BrightnessDependencies, Entry as BacklightEntry, Kind as BrightnessKind,
-    Source as BrightnessSource, SysfsBacklight, UnavailableBacklight,
+    Backlight, Brightness, BrightnessHandle, BrightnessState, CompositeBacklight,
+    Config as BrightnessConfig, DdcBacklight, Dependencies as BrightnessDependencies,
+    Entry as BacklightEntry, Kind as BrightnessKind, Source as BrightnessSource, SysfsBacklight,
+    UnavailableBacklight,
 };
 pub use calendar::{Calendar, CalendarHandle};
 pub use clipboard::{
@@ -86,7 +87,7 @@ pub use printing::{
     PrinterState, Printing, PrintingError, PrintingHandle, PrintingState,
 };
 pub use privacy::{
-    Dependencies as PrivacyDependencies, Privacy, PrivacyError, PrivacyHandle, PrivacyState,
+    Dependencies as PrivacyDependencies, Privacy, PrivacyHandle, PrivacyState,
     Resource as PrivacyResource, Usage as PrivacyUsage,
 };
 pub use removable::{

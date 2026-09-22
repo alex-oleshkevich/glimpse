@@ -514,11 +514,33 @@ twice stacks every rule; `load()` replaces content in place.
 | --- | --- | --- |
 | `APPLICATION` | `styles/glimpse.css`, via `include_str!` | the token vocabulary and every component rule |
 | `USER` | the theme's sheet for this surface | token redefinitions |
-| `USER + 1` | the user's own `styles.css` | the last word |
+| `USER + 1` | the theme's `dark.css` | what the theme changes in dark |
+| `USER + 2` | the user's own `styles.css` | the last word in light |
+| `USER + 3` | the user's own `dark.css` | the last word in dark |
+
+**Each owner's dark sheet refines that owner's own base sheet and nothing above it**, so one
+precedence rule — user beats theme beats built-in — holds in both schemes.
+
+**A dark sheet is applied on `dark-notify`, with no file or config event behind it.** Under
+`ColorScheme::Default` the desktop preference arrives from the portal after `install()` returns, and
+a config change touching only `color-scheme` never reaches `load()`, so `Styles` keeps the two dark
+paths and re-points their providers from the handler. It is a convenience, not the only route:
+`@media (prefers-color-scheme: dark)` works in any sheet.
+
+`set_variant` puts `appearance.theme-variant` on every toplevel as a CSS class. It reads the live
+toplevel list rather than a window passed in, because each binary owns a different number of them —
+one hidden host for the lock screen, a bar per output for the panel — so re-running it after a
+window is created is what covers the new one.
 
 The built-in is compiled in rather than installed, because `load()` points the theme provider at
 **one** path: a component rule in a theme is one the first second theme deletes. The shipped
 `adwaita` theme is therefore empty, and that is the test.
+
+**`IndicatorSpec.class` is the one styling hook beside `severity`, and it exists because the
+severity classes colour the icon and the label together.** A chip that must colour them apart — the
+privacy applet's screen cast, a danger-red record glyph beside a timer that stays the bar's own
+foreground — names a class and `glimpse.css` decides both. It is not a second severity; a chip
+reporting a condition still uses `severity`.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with only
 a `Gtk-WARNING` on stderr. Hence two guards: every `var()` in the built-in carries a fallback, and

@@ -12,12 +12,12 @@ use glimpse_dbus::{
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothHandle, Brightness,
     BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
-    ClipboardDependencies, ClipboardHandle, Compositor, CompositorHandle, Heartbeat,
-    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
-    PrivacyHandle, Removable, RemovableHandle, Running, Selection, SessionActions,
-    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
-    UnavailableBacklight,
+    ClipboardDependencies, ClipboardHandle, CompositeBacklight, Compositor, CompositorHandle,
+    DdcBacklight, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
+    Mpris, MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle,
+    Privacy, PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle, Running, Selection,
+    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
+    TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -99,9 +99,17 @@ impl PanelServices {
             Running::<Bluetooth>::spawn(document, buses.clone(), ());
         let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
         let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
-        let backend: Arc<dyn Backlight> = match buses.system_bus() {
+        let sysfs: Arc<dyn Backlight> = match buses.system_bus() {
             Ok(bus) => Arc::new(SysfsBacklight::new(bus.clone())),
             Err(_) => Arc::new(UnavailableBacklight),
+        };
+        let backend: Arc<dyn Backlight> = if document.brightness.ddc {
+            Arc::new(CompositeBacklight::new(
+                sysfs,
+                Arc::new(DdcBacklight::new()),
+            ))
+        } else {
+            sysfs
         };
         let (brightness_service, brightness) = Running::<Brightness>::spawn(
             document,

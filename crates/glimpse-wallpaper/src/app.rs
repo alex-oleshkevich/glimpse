@@ -1,9 +1,10 @@
 use adw::gdk;
 use futures_util::StreamExt;
 use glimpse_config::{
-    Config, WALLPAPER_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
+    Config, DARK_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet, user_dark_stylesheet,
+    user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_widgets::Styles;
+use glimpse_widgets::{Sheets, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::prelude::*,
@@ -91,6 +92,9 @@ impl SimpleComponent for App {
             &model.config,
             model.dark,
         );
+        model
+            .styles
+            .set_variant(&model.config.appearance.theme_variant);
 
         let widgets = view_output!();
 
@@ -127,6 +131,8 @@ impl SimpleComponent for App {
             &self.config,
             self.dark,
         );
+        self.styles
+            .set_variant(&self.config.appearance.theme_variant);
     }
 }
 
@@ -140,9 +146,14 @@ fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
 
 impl App {
     fn reload_styles(&self) {
-        let theme = stylesheet(&self.config.appearance.theme, WALLPAPER_STYLESHEET);
-        self.styles
-            .load(theme.as_deref(), user_stylesheet().as_deref());
+        let appearance = &self.config.appearance;
+        self.styles.load(&Sheets {
+            theme: stylesheet(&appearance.theme, WALLPAPER_STYLESHEET),
+            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
+            dropin: user_stylesheet(),
+            dropin_dark: user_dark_stylesheet(),
+        });
+        self.styles.set_variant(&appearance.theme_variant);
     }
 }
 

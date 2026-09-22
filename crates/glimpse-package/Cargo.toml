@@ -20,7 +20,9 @@ A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, an
 # bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell, which $auto's scan
 # may not cover, so those are listed explicitly rather than trusted to auto-detect. Nothing links
 # libheif or PAM — `ldd` over every shipped binary finds neither, and no crate declares them —
-# so neither is listed here.
+# so neither is listed here. ddcutil is not linked either — glimpse talks DDC/CI itself over
+# /dev/i2c-* — but its own udev rule is what grants that access without root or a static group, so
+# it rides along as a dependency for that rule alone.
 depends = [
   "$auto",
   "libgtk-4-1",
@@ -29,6 +31,7 @@ depends = [
   "geoclue-2.0",
   "libpulse0",
   "libudev1",
+  "ddcutil",
 ]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
@@ -40,6 +43,7 @@ assets = [
   ["target/release/glimpse-weather", "usr/bin/", "755"],
   ["target/release/glimpse-idle", "usr/bin/", "755"],
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
+  ["../../data/config.commented.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../data/language-codes.json", "usr/share/glimpse/", "644"],
   ["../../data/themes/adwaita/*", "usr/share/glimpse/themes/adwaita/", "644"],
@@ -73,6 +77,7 @@ assets = [
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "data/config.commented.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/themes/adwaita/*", dest = "/usr/share/glimpse/themes/adwaita/", mode = "644" },
@@ -96,6 +101,7 @@ gtk4-layer-shell = "*"
 geoclue2 = "*"
 pulseaudio-libs = "*"
 systemd-libs = "*"
+ddcutil = "*"
 
 [dev-dependencies]
 toml.workspace = true

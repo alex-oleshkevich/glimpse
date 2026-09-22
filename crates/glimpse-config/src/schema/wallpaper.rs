@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
@@ -30,11 +30,18 @@ pub struct Wallpaper {
     pub outputs: Vec<WallpaperOutput>,
 }
 
+fn default_image() -> PathBuf {
+    Path::new(crate::load::DATA_DIR)
+        .join(crate::theme::THEMES_DIR)
+        .join(crate::theme::DEFAULT_THEME)
+        .join("default.jpg")
+}
+
 impl Default for Wallpaper {
     fn default() -> Self {
         Self {
             color: "#000000".to_owned(),
-            image: Some(PathBuf::from("default.jpg")),
+            image: Some(default_image()),
             image_dark: None,
             fit: Fit::Cover,
             transition: Transition::Fade,

@@ -34,6 +34,7 @@ pub struct IndicatorSpec {
     /// What the chip is reporting, when it is reporting a condition rather than a reading.
     /// `None` leaves it in the bar's own colour; `Info` is a state worth an icon and no colour.
     pub severity: Option<crate::Severity>,
+    pub class: Option<String>,
 }
 
 impl Default for Indicator {
@@ -63,6 +64,7 @@ impl Indicator {
         self.set_attention(spec.attention);
         self.set_notice(spec.notice);
         self.set_severity(spec.severity);
+        self.set_class(spec.class.as_deref());
     }
 
     pub fn set_icon(&self, icon: Option<&gio::Icon>) {
@@ -151,6 +153,19 @@ impl Indicator {
             Some(crate::Severity::Warning) => self.add_css_class(WARNING_CLASS),
             Some(crate::Severity::Error) => self.add_css_class(ERROR_CLASS),
             Some(crate::Severity::Info) | None => {}
+        }
+    }
+
+    pub fn set_class(&self, class: Option<&str>) {
+        let previous = self.imp().class.replace(class.map(str::to_owned));
+        if previous.as_deref() == class {
+            return;
+        }
+        if let Some(previous) = previous {
+            self.remove_css_class(&previous);
+        }
+        if let Some(class) = class {
+            self.add_css_class(class);
         }
     }
 }

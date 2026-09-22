@@ -6,7 +6,7 @@ use futures_util::{Stream, StreamExt, stream};
 use crate::load::{DATA_DIR, push, user_dir};
 use crate::watch::{Update, hangups, watch_all};
 
-const THEMES_DIR: &str = "themes";
+pub(crate) const THEMES_DIR: &str = "themes";
 const STYLES_FILE: &str = "styles.css";
 const THEMES_DIR_ENV: &str = "GLIMPSE_THEMES_DIR";
 const THEME_ENV: &str = "GLIMPSE_THEME";
@@ -15,6 +15,7 @@ pub const DEFAULT_THEME: &str = "adwaita";
 pub const PANEL_STYLESHEET: &str = "panel.css";
 pub const WALLPAPER_STYLESHEET: &str = "wallpaper.css";
 pub const LOCK_STYLESHEET: &str = "lock.css";
+pub const DARK_STYLESHEET: &str = "dark.css";
 
 fn themes_dir_from_env() -> Option<PathBuf> {
     match std::env::var(THEMES_DIR_ENV) {
@@ -100,9 +101,17 @@ pub fn stylesheet(theme: &str, name: &str) -> Option<PathBuf> {
     stylesheet_in(&theme_dirs(), &selected(theme), name)
 }
 
-pub fn user_stylesheet() -> Option<PathBuf> {
-    let path = user_dir()?.join(STYLES_FILE);
+fn user_sheet_in(dir: &Path, name: &str) -> Option<PathBuf> {
+    let path = dir.join(name);
     path.is_file().then_some(path)
+}
+
+pub fn user_stylesheet() -> Option<PathBuf> {
+    user_sheet_in(&user_dir()?, STYLES_FILE)
+}
+
+pub fn user_dark_stylesheet() -> Option<PathBuf> {
+    user_sheet_in(&user_dir()?, DARK_STYLESHEET)
 }
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
@@ -180,6 +189,48 @@ mod tests {
         assert_eq!(
             stylesheet_in(&roots(base.path()), "nord", "panel.css"),
             Some(base.path().join("data/adwaita/panel.css"))
+        );
+    }
+
+    #[test]
+    fn the_dark_sheet_comes_from_the_resolved_directory_only() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        sheet(base.path(), "user", "nord", "panel.css");
+        sheet(base.path(), "data", "nord", "dark.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "nord", "dark.css"),
+            None,
+            "the directory is the unit, so a dark sheet cannot arrive from the other root"
+        );
+    }
+
+    #[test]
+    fn the_users_dark_sheet_is_found_beside_their_light_one() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        std::fs::write(base.path().join(STYLES_FILE), "").expect("writes");
+        std::fs::write(base.path().join(DARK_STYLESHEET), "").expect("writes");
+
+        assert_eq!(
+            user_sheet_in(base.path(), STYLES_FILE),
+            Some(base.path().join(STYLES_FILE))
+        );
+        assert_eq!(
+            user_sheet_in(base.path(), DARK_STYLESHEET),
+            Some(base.path().join(DARK_STYLESHEET))
+        );
+    }
+
+    #[test]
+    fn a_dark_sheet_with_no_light_sheet_still_loads() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        std::fs::write(base.path().join(DARK_STYLESHEET), "").expect("writes");
+
+        assert_eq!(user_sheet_in(base.path(), STYLES_FILE), None);
+        assert_eq!(
+            user_sheet_in(base.path(), DARK_STYLESHEET),
+            Some(base.path().join(DARK_STYLESHEET)),
+            "a user who only tweaks dark never writes styles.css"
         );
     }
 

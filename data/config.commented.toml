@@ -1,0 +1,191 @@
+#:schema /usr/share/glimpse/config.schema.json
+# glimpse's configuration. Every setting that ships with a value is here at that value,
+# and all of them are commented out, so this file changes nothing until you uncomment a
+# line and edit it. Where the [table] header above a setting is commented out too,
+# uncomment both — a key on its own lands in whichever table precedes it. A setting with
+# no default is not listed; the schema named above has the complete set.
+#
+# With a TOML language server installed — taplo, or an editor extension built on it such
+# as "Even Better TOML" — the first line above gives you completion for every table and
+# key, the documentation for each setting on hover, and an error on a value the schema
+# refuses.
+#
+# /usr/share/glimpse/config.default.toml is this same document with nothing commented
+# out, and it is the copy that stays current across upgrades.
+
+[appearance]
+# theme = "adwaita"
+# theme-variant = ""
+# color-scheme = "auto"
+
+[regional]
+# language = ""
+# hour-format = "locale"
+# units = "locale"
+
+[monitors]
+
+# [geolocation]
+# provider = "geoclue"
+
+[bluetooth]
+# scan-timeout = 30
+# hide-unnamed = true
+
+[printing]
+# poll-active = 2
+# poll-idle = 30
+
+[network]
+# scan-timeout = 30
+# hide-unnamed = true
+# show-vpn = true
+
+[night-light]
+# schedule = "automatic"
+# temperature = 4200
+# transition-minutes = 15
+
+[brightness]
+# minimum = 3
+# ddc = true
+
+[idle]
+# enabled = true
+# respect-inhibitors = true
+
+# [[idle.profiles.ac.listeners]]
+# timeout = 900
+# on-idle = "loginctl lock-session"
+# on-resume = ""
+
+# [[idle.profiles.ac.listeners]]
+# timeout = 3600
+# on-idle = "systemctl suspend"
+# on-resume = ""
+
+# [[idle.profiles.battery.listeners]]
+# timeout = 900
+# on-idle = "loginctl lock-session"
+# on-resume = ""
+
+# [[idle.profiles.battery.listeners]]
+# timeout = 1800
+# on-idle = "systemctl suspend"
+# on-resume = ""
+
+[power]
+# lock-before-sleep = true
+# lock-on-request = true
+
+[keyboard]
+# remember = "window"
+
+[keyboard.labels]
+
+[calendar]
+# poll-interval = 600
+# sources = []
+
+[clipboard]
+# enabled = true
+# limit = 100
+# max-entry-kib = 2048
+# max-total-kib = 10240
+# capture-images = true
+
+[weather]
+# provider = "open-meteo"
+# poll-interval = 900
+# forecast-days = 7
+
+[mpris]
+# fetch-art = true
+# art-max-kib = 4096
+
+[notifications]
+# keep = 100
+# suppress = []
+# enabled = true
+# edge = "top-right"
+# hide-delay = 4
+# max-items = 6
+
+[wallpaper]
+# color = "#000000"
+# image = "/usr/share/glimpse/themes/adwaita/default.jpg"
+# fit = "cover"
+# transition = "fade"
+# transition-ms = 500
+# outputs = []
+
+[wallpaper.backdrop]
+# enabled = true
+# blur-radius = 24
+
+[lock]
+# pam-service = "glimpse-lock"
+# background = ""
+# background-dark = ""
+# dim = 1.0
+# dim-dark = 1.0
+
+[lock.clock]
+# enabled = true
+# time-format = "%H:%M"
+# date-format = "%A, %B %-d"
+
+[lock.controls]
+# buttons = [
+#     "wifi",
+#     "input",
+#     "weather",
+#     "battery",
+#     "power",
+# ]
+
+[places]
+# trash = true
+# network = true
+
+[removable]
+# capacity-interval = 10
+
+# [[panels]]
+# size = 36
+# position = "top"
+# left = [
+#     "pager",
+#     "places",
+#     "mpris",
+# ]
+# center = [
+#     "clock",
+#     "weather",
+#     "notifications",
+#     "privacy",
+# ]
+# right = [
+#     "next-event",
+#     "tray",
+#     "removable",
+#     "clipboard",
+#     "keyboard",
+#     "printing",
+#     "bluetooth",
+#     "network",
+#     "display",
+#     "brightness",
+#     "audio",
+#     "idle",
+#     "battery",
+#     "session",
+# ]
+
+# [panels.margin]
+# left = 0
+# right = 0
+# top = 0
+# bottom = 0
+
+[applets]

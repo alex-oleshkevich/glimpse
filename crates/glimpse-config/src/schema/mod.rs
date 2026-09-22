@@ -133,6 +133,13 @@ mod tests {
     }
 
     #[test]
+    fn the_commented_reference_file_matches_the_compiled_in_renderer() {
+        let checked_in = include_str!("../../../../data/config.commented.toml");
+
+        assert_eq!(checked_in, crate::commented_document());
+    }
+
+    #[test]
     fn the_json_schema_matches_the_compiled_in_types() {
         let checked_in = include_str!("../../../../data/config.schema.json");
 

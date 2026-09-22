@@ -218,3 +218,41 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
         .expect("session target");
     assert!(!target.contains("glimpse-weather.service"));
 }
+
+#[test]
+fn every_install_route_ships_the_commented_reference() {
+    let root = workspace_root();
+    assert!(root.join("data/config.commented.toml").is_file());
+
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        let text = fs::read_to_string(root.join(script)).expect(script);
+        assert!(text.contains("data/config.commented.toml"), "{script}");
+        assert!(
+            text.contains("usr/share/glimpse/config.commented.toml")
+                || text.contains("$sharedir/config.commented.toml"),
+            "{script}"
+        );
+    }
+
+    let manifest = manifest(&root);
+    for kind in ["deb", "generate-rpm"] {
+        assert!(
+            assets(&manifest, kind)
+                .iter()
+                .any(
+                    |(source, destination)| source.ends_with("data/config.commented.toml")
+                        && destination.contains("usr/share/glimpse")
+                ),
+            "{kind}"
+        );
+    }
+}
+
+#[test]
+fn the_seeded_user_config_is_the_commented_copy_and_not_the_defaults() {
+    let install = fs::read_to_string(workspace_root().join("scripts/install.sh"))
+        .expect("the install script");
+
+    assert!(install.contains("install -m644 data/config.commented.toml \"$config\""));
+    assert!(!install.contains("install -m644 data/config.default.toml \"$config\""));
+}

@@ -114,7 +114,8 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   is looked up in `user_dir()` first, then `DATA_DIR`.
 - One config file, `config.toml`, with a top-level table per owner: one per service, plus `[panel]`,
   `[wallpaper]` and `[lock]`. A binary reads only the tables it owns. Stylesheets stay separate:
-  `panel.css`, `lock.css`.
+  `panel.css`, `lock.css`, and one `dark.css` per theme that every surface loads while the effective
+  scheme is dark. `[appearance] theme-variant` is a CSS class on every window, not a file.
 
 **File placement**
 
@@ -177,6 +178,7 @@ just fmt-blueprints  # format blueprints; pass paths, or every one by default
 just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
 just check-units     # systemd-analyze verify on the shipped units
 just check-examples  # compile every blueprint in var/widget_examples/
+just gen-config-commented  # regenerate the seed installed into ~/.config/glimpse
 just net-guard arm   # restore connectivity automatically if a network test strands the machine
 ```
 
@@ -196,6 +198,12 @@ sets `GLIMPSE_CONFIG_PATH=var/config/config.toml` along with `GLIMPSE_PANEL_APP_
 `GLIMPSE_WALLPAPER_APP_ID`, so a binary launched from inside the working tree silently loads the
 dev document even when `HOME` points at a scratch directory. Override it explicitly, and read the
 `load config path=` line in the log before believing anything on screen.
+
+**Give every test panel its own `GLIMPSE_PANEL_APP_ID`, and never reuse one.** The application ID
+is a unique name on the session bus, so a second panel claiming an ID the previous run has not
+finished releasing hands off to that instance instead: it logs `load config path=`, never reaches
+`initializing app`, maps no window, and sits there looking like a hang. Measured — the same trap the
+preview host answers with `ApplicationFlags::NON_UNIQUE`. A fresh ID per run costs nothing.
 
 **`pkill -x glimpse-panel` kills the SESSION panel.** `-x` is the right answer to `-f` matching its
 own shell, but the session binary is also called `glimpse-panel`, so an exact-name kill takes the
@@ -280,8 +288,10 @@ whichever output is focused and previews scatter between runs. Layer-shell was t
 rendered nothing.
 
 **Fixtures and stylesheets.** A fixture name defaults to the blueprint's own stem, so `calendar.blp`
-shows sample events by being opened. `_shared.css` beside the example loads at `USER + 1` and
-`<name>.css` at `USER + 2`, both silently absent-tolerant; the checkerboard sits at `USER + 3`.
+shows sample events by being opened. The theme's `dark.css` loads at `USER + 1`, and only while the
+scheme is dark — any sheet named `dark.css` is gated that way. `_shared.css` beside the example loads
+at `USER + 2` and `<name>.css` at `USER + 3`, all silently absent-tolerant; the checkerboard sits at
+`USER + 4`.
 `_shared.css` holds the shared floors — `.column`, `.drawer-page`, `.block`, `.caption`, `.slider`,
 `.mute` — so demo-only rules stay out of the shipped `glimpse.css`; a name meaning something in
 exactly one example stays in that example's sheet.
@@ -462,6 +472,12 @@ the tree draws is "something happened" against "the watch is dead". Those paths 
 in `forward`, carried through the channel and filtered in `Watch::next` to build a value nobody
 reads.
 
+**`first-day` has no `locale` variant, and that is the convention working, September 2026.** GTK's
+translated `calendar:week_start:0` came back as the untranslated msgid — meaning Sunday — under an
+`LC_TIME` whose answer is Monday, and `_NL_TIME_FIRST_WEEKDAY` has never been measured here. A
+setting only gets `locale` when the system can actually be asked, so adding the variant needs that
+measurement first.
+
 **Translations, September 2026.** 45 msgids: 17 from 8 marked blueprints, 27 from 5 Rust files, one
 ("Play") in both. Measured end to end — under `LANGUAGE=ru` a `$Transport` built from its gresource
 template returns Russian tooltips. Scanning the whole tree costs **0.14s** and produces a
@@ -562,6 +578,34 @@ experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second 
   The scan timeout stops discovery and clears the service's own bookkeeping, and the popover's
   `unmap` then stops unconditionally, by design. The second stop is routine, so `classify` reads it
   as done rather than as a refusal.
+
+**Service hardening blinds the camera detector, September 2026.** `glimpse-panel.service` carried
+`ProtectKernelTunables`, `ProtectKernelModules` and `ProtectControlGroups`. Each implies
+`MountAPIVFS=yes`, which remounts `/proc` private — and inside that mount
+`readlink /proc/<other-pid>/fd/N` returns the **empty string** while the fd directory still lists its
+entries. The `/proc` scan therefore finds no holder, reports no camera, and logs nothing: `readlink`
+failing lands in `.unwrap_or(false)`. Measured against `ffmpeg` holding `/dev/video0`, with
+`uvcvideo`'s refcount at 1 throughout: a shell finds the holder, `systemd-run --user -p
+MountAPIVFS=yes` finds none, and `ProtectProc=default`, `PrivateMounts=no` and `ProcSubset=all` each
+fail to rescue it. The three options are dropped from the panel unit; the other units keep them,
+because only the panel hosts the privacy service. For a **user** service they buy little anyway — an
+unprivileged process has no `CAP_SYS_MODULE` and cannot write `/proc/sys` or the cgroup tree.
+
+**`RestrictSUIDSGID=` breaks every JPEG decode, September 2026.** gdk-pixbuf 2.44 hands JPEG to
+glycin, which starts a `bwrap --unshare-all` sandbox per image. Under `RestrictSUIDSGID=true`, bwrap
+exits with status 1, so `Pixbuf::file_info` and `from_file_at_scale` both fail. Bisected with
+`systemd-run --user -p <option>` over each option in `glimpse-wallpaper.service`: it was the only one
+that broke decoding. The wallpaper then showed its solid color, and before the `rendered` guard in
+`Surface::decoded` it re-spawned the decode forever: 1h28m CPU in 43 min wall, with three bwrap
+sandboxes per round, and niri sluggish throughout. The option is dropped from the wallpaper unit. The
+panel and notification units still carry it, so any decode that goes through glycin there fails the
+same way.
+
+**A long-running panel that has "stopped" reporting something is the first thing to disprove.** Both
+sides of this were `/usr/bin/glimpse-panel` with an identical environment and config; only one ran
+under systemd, and that was the whole difference. Compare a probe started from the shell against the
+session panel *at the same moment, with the same stimulus held* before believing the code is at
+fault — and give the probe a fresh `GLIMPSE_PANEL_APP_ID`.
 
 **Printing has two test harnesses and they are not interchangeable, September 2026.**
 `scripts/printing-mock-cups.py` **replaces** cups — it serves IPP itself and the panel is pointed at

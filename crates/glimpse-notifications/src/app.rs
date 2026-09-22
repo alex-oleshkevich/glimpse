@@ -10,8 +10,8 @@ use adw::prelude::*;
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use glimpse_config::{
-    Config, NotificationEdge, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config,
-    watch_theme,
+    Config, DARK_STYLESHEET, NotificationEdge, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet,
+    user_stylesheet, watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::{
@@ -19,7 +19,7 @@ use glimpse_services::{
 };
 use glimpse_services::{SessionStatus, WindowRef};
 use glimpse_widgets::{
-    Action, Body, Notification, NotificationCard, Styles, Urgency, notification_image,
+    Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_image,
 };
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -355,6 +355,8 @@ impl App {
         }
         let scheme = color_scheme(self.config.appearance.color_scheme);
         self.styles.set_color_scheme(scheme);
+        self.styles
+            .set_variant(&self.config.appearance.theme_variant);
         let delta = self.state.configure(self.config.notifications.clone());
         self.apply(delta, sender);
         if renamed {
@@ -621,9 +623,14 @@ impl App {
     }
 
     fn reload_styles(&self) {
-        let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
-        self.styles
-            .load(theme.as_deref(), user_stylesheet().as_deref());
+        let appearance = &self.config.appearance;
+        self.styles.load(&Sheets {
+            theme: stylesheet(&appearance.theme, PANEL_STYLESHEET),
+            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
+            dropin: user_stylesheet(),
+            dropin_dark: user_dark_stylesheet(),
+        });
+        self.styles.set_variant(&appearance.theme_variant);
         self.update_input_region();
     }
 

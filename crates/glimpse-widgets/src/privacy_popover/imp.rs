@@ -1,19 +1,10 @@
 #[cfg(test)]
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::sync::OnceLock;
 
-use gtk4::{
-    AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
-};
+use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 
-use crate::{Hero, Notice, Placeholder, PopoverShell, Section};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Action {
-    Mute,
-    StopSharing,
-}
+use crate::{Hero, Notice, Placeholder, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Usage {
@@ -21,11 +12,7 @@ pub struct Usage {
     pub icon: String,
     pub title: String,
     pub detail: Option<String>,
-    pub action: Option<Action>,
-    pub busy: bool,
 }
-
-pub(crate) type UsageKey = (String, Option<Action>);
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/privacy_popover.ui")]
@@ -44,7 +31,7 @@ pub struct PrivacyPopover {
     pub usage_rows: TemplateChild<gtk4::Box>,
 
     pub usage_data: RefCell<Vec<Usage>>,
-    pub usage_held: RefCell<Vec<(UsageKey, gtk4::Box)>>,
+    pub usage_held: RefCell<Vec<(String, Row)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }
@@ -66,20 +53,6 @@ impl ObjectSubclass for PrivacyPopover {
 }
 
 impl ObjectImpl for PrivacyPopover {
-    fn signals() -> &'static [glib::subclass::Signal] {
-        static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-        SIGNALS.get_or_init(|| {
-            vec![
-                glib::subclass::Signal::builder("muted")
-                    .param_types([String::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("stop-requested")
-                    .param_types([String::static_type()])
-                    .build(),
-            ]
-        })
-    }
-
     fn dispose(&self) {
         self.dispose_template();
     }

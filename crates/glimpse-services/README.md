@@ -125,6 +125,23 @@ A `backlight` uevent names a device to re-read, never a value to trust. The keyb
 `Kind::Keyboard` via UPower introspect, then `/sys/class/leds`; writes never go to sysfs. Keyboard
 ignores `[brightness] minimum`.
 
+`DdcBacklight` (under `brightness/`) talks DDC/CI natively over `/dev/i2c-*` for external monitors
+sysfs never sees — VCP 0x10 through `ddc`/`ddc-i2c`, never the `ddcutil` binary, which glimpse
+depends on only for the udev rule it installs. **A connector's `ddc` symlink is not where DDC/CI
+answers.** Measured on this machine's amdgpu: every DisplayPort connector carries DDC/CI over its
+AUX channel, exposed as a connector-owned `i2c-N` child directory whose device name contains
+"aux" — the `ddc` symlink instead names a legacy pin-based bus that answers nothing on a real DP
+link. Both are structural, neither is a guess, so both are tried, aux first since it is the one
+measured to work; a connector with no aux child (an older VGA/DVI/HDMI bus) only ever had the one.
+Nothing here is a probe of every `/dev/i2c-*` node, so an SMBus is never touched. Every call is a
+blocking ioctl with protocol-mandated delays and runs on `spawn_blocking`; there is no change signal
+for an out-of-band edit (a monitor's own buttons), only an explicit `brightness.refresh`.
+`CompositeBacklight` merges it with `SysfsBacklight` behind one `Arc<dyn Backlight>`, routing by a
+static `ddc:` id prefix — the two backends own disjoint id namespaces by construction — and its
+`type_name` sorts lowest in the
+same-connector preference, so a sysfs entry (from `ddcci-backlight`, say) always wins. `[brightness]
+ddc` turns it off.
+
 **compositor** — mirrors `glimpse-compositors` into one aggregate state and passes ten typed
 commands. **Disabling the last enabled output is refused from the service's own snapshot, not a
 round trip** — a disabled output stays listed so it can be switched back on. There is no separate
@@ -326,9 +343,10 @@ enforcing. **The camera source is a `/proc` fd scan gated on the `uvcvideo` refc
 PipeWire** — PipeWire is blind to raw V4L2 capture. **The mic source excludes a corked capture, a
 monitor source and an app on the volume-control blocklist by app id only**, since a name is
 attacker-controlled. **`app: None` is first-class on every resource, and always the case for
-location** — GeoClue exposes no per-client attribution. **A stop control is offered only for a
-PipeWire cast carrying a session id**: `WlrScreencopy` has none, and niri-ipc's own
-`Action::StopCast` says a wlr-screencopy cast cannot be stopped through it.
+location** — GeoClue exposes no per-client attribution. **The service takes no commands at all**
+(`type Command = Infallible`): it reports who is using a device and never intervenes. Muting a
+microphone belongs to the audio applet, which owns that state; a camera cannot be taken back from
+the process holding it, and a `WlrScreencopy` cast carries no session id to stop.
 
 ## Rules
 

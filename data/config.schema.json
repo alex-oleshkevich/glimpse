@@ -2270,6 +2270,7 @@
     "brightness": {
       "$ref": "#/$defs/Brightness",
       "default": {
+        "ddc": true,
         "minimum": 3
       }
     },
@@ -2492,7 +2493,7 @@
         },
         "color": "#000000",
         "fit": "cover",
-        "image": "default.jpg",
+        "image": "/usr/share/glimpse/themes/adwaita/default.jpg",
         "outputs": [],
         "transition": "fade",
         "transition-ms": 500
@@ -2521,6 +2522,7 @@
           "default": "adwaita"
         },
         "theme-variant": {
+          "description": "A CSS class added to every window, so one theme can ship several looks. Letters, digits,\n`-` and `_` only, not starting with a digit; anything else is ignored with a warning.",
           "type": "string",
           "default": ""
         }
@@ -2627,6 +2629,11 @@
     "Brightness": {
       "type": "object",
       "properties": {
+        "ddc": {
+          "description": "Whether to probe external displays for DDC/CI brightness control over `/dev/i2c-*`. DDC/CI\nis protocol-mandated slow (tens of milliseconds per read or write) and not every monitor\nimplements it correctly, so this stays a document-level escape hatch rather than something\na user has to diagnose by unplugging a display.",
+          "type": "boolean",
+          "default": true
+        },
         "minimum": {
           "description": "The lowest percent a display's backlight is allowed to reach; the keyboard backlight ignores\nit and may still go to 0. Every write glimpse makes to a display source is clamped here,\nbecause a screen driven all the way dark is indistinguishable from one that has failed.",
           "type": "integer",
@@ -3703,7 +3710,7 @@
             "string",
             "null"
           ],
-          "default": "default.jpg"
+          "default": "/usr/share/glimpse/themes/adwaita/default.jpg"
         },
         "image-dark": {
           "description": "The wallpaper image under the dark color scheme. Falls back to `image` when unset.",

@@ -140,6 +140,14 @@
     background-color: var(--gl-danger-text);
 }
 
+.indicator--recording .indicator__icon {
+    color: var(--gl-danger-text);
+}
+
+.indicator--recording .indicator__label {
+    color: var(--gl-panel-fg);
+}
+
 .indicator--attention .indicator__icon,
 .indicator--attention .indicator__label {
     color: inherit;

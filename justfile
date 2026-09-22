@@ -94,6 +94,10 @@ gen-config-default:
 gen-config-schema:
     cargo run -q -p glimpse-config --example gen_config_schema > data/config.schema.json
 
+[doc("regenerate data/config.commented.toml, the seed installed into ~/.config/glimpse")]
+gen-config-commented:
+    cargo run -q -p glimpse-config --example gen_config_commented > data/config.commented.toml
+
 [doc("headless tests")]
 test:
     cargo test --workspace

@@ -406,6 +406,21 @@ not from the one that opened the popover. Inhibitors are named only when they ap
 open windows are counted for log out, restart and shut down, never described as unsaved work.
 Updates appear only while PackageKit owns its name, as a status row, never a count.
 
+**privacy** — the applet reports and never intervenes: every row is informational and the popover
+has no controls, because the three it could offer are not symmetric. A microphone mute belongs to
+the audio applet, which owns that state; a camera cannot be handed back to the process holding it;
+and stopping a cast cannot be undone. A chip carries `Severity::Warning`, because a chip only exists
+while something is watching or listening; there is no calm state to distinguish it from. The screen cast is the
+exception: it takes `IndicatorSpec.class` instead, so `glimpse.css` can paint the record glyph in
+the danger colour while the timer beside it keeps the bar's foreground — severity colours icon and
+label together and cannot express that. A cast swaps the resource icon for `media-record-symbolic`
+and labels the chip with how long it has been running,
+which is the one privacy reading a user acts on. The clock counts from the **oldest** visible cast:
+several casts collapse onto one chip, and the screen has been shared continuously since the first
+began. `Usage.since` survives a refresh, so the count does not restart when the service re-reads its
+sources. The applet paces itself — a second while casting, a minute otherwise — and a `since` in the
+future, from a clock that jumped backwards, reads as `00:00` rather than panicking.
+
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in

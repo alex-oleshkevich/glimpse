@@ -122,7 +122,7 @@ pub use popover_shell::PopoverShell;
 pub use printing_popover::{
     Detail as PrintingDetail, Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover,
 };
-pub use privacy_popover::{Action as PrivacyAction, PrivacyPopover, Usage as PrivacyUsage};
+pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
@@ -136,7 +136,7 @@ pub use session_popover::{
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
 pub use switch_row::SwitchRow;
-pub use theme::Styles;
+pub use theme::{Sheets, Styles};
 pub use tooltip_card::TooltipCard;
 pub use transport::{Repeat, Transport, TransportAction};
 pub use tray_strip::{Edge, TrayChip, TrayStrip};

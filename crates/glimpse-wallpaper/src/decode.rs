@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::time::SystemTime;
 
+use anyhow::{Context, Result};
 use glimpse_config::Fit;
 use gtk4::gdk_pixbuf::{InterpType, Pixbuf};
 use gtk4::prelude::*;
@@ -104,18 +105,19 @@ fn clamp(target: Target) -> Target {
     }
 }
 
-pub fn raster(path: &Path, output: Target, fit: Fit, blur_radius: u32) -> Option<Raster> {
-    let mtime = std::fs::metadata(path).ok()?.modified().ok()?;
-    let (_, width, height) = Pixbuf::file_info(path)?;
-    let plan = plan(Target { width, height }, output, fit)?;
+pub fn raster(path: &Path, output: Target, fit: Fit, blur_radius: u32) -> Result<Raster> {
+    let mtime = std::fs::metadata(path)?.modified()?;
+    let (_, width, height) =
+        Pixbuf::file_info(path).context("no image loader could read the header")?;
+    let plan = plan(Target { width, height }, output, fit).context("image has no size")?;
 
-    let loaded = Pixbuf::from_file_at_scale(path, plan.load.width, plan.load.height, false).ok()?;
+    let loaded = Pixbuf::from_file_at_scale(path, plan.load.width, plan.load.height, false)?;
     let cropped = match plan.crop {
         Some(region) => loaded.new_subpixbuf(region.x, region.y, region.width, region.height),
         None => loaded,
     };
-    let blurred = blur(&cropped, blur_radius)?;
-    Some(Raster {
+    let blurred = blur(&cropped, blur_radius).context("blur failed")?;
+    Ok(Raster {
         bytes: blurred.read_pixel_bytes(),
         width: blurred.width(),
         height: blurred.height(),

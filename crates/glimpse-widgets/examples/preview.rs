@@ -23,6 +23,7 @@ window.preview > .preview__slot { background-color: transparent; }
 ";
 
 const SETTLE: Duration = Duration::from_millis(40);
+const DARK_SHEET: &str = "dark.css";
 
 #[derive(Parser)]
 #[command(about = "Render one blueprint with the real widgets, and reload it on every save.")]
@@ -97,6 +98,7 @@ fn activate(
     let sheets = vec![
         (resolve(&builtin_css()), provider()),
         (resolve(&theme_css()), provider()),
+        (resolve(&theme_dark_css()), provider()),
         (resolve(&shared), provider()),
         (resolve(&blueprint.with_extension("css")), provider()),
     ];
@@ -109,6 +111,7 @@ fn activate(
             gtk4::STYLE_PROVIDER_PRIORITY_USER,
             gtk4::STYLE_PROVIDER_PRIORITY_USER + 1,
             gtk4::STYLE_PROVIDER_PRIORITY_USER + 2,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 3,
         ];
         for ((_, provider), priority) in sheets.iter().zip(priorities) {
             gtk4::style_context_add_provider_for_display(&display, provider, priority);
@@ -116,7 +119,7 @@ fn activate(
         gtk4::style_context_add_provider_for_display(
             &display,
             &checkerboard,
-            gtk4::STYLE_PROVIDER_PRIORITY_USER + 3,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 4,
         );
     }
 
@@ -178,7 +181,12 @@ fn provider() -> gtk4::CssProvider {
 }
 
 fn load_styles(sheets: &[(PathBuf, gtk4::CssProvider)]) {
+    let dark = adw::StyleManager::default().is_dark();
     for (path, provider) in sheets {
+        if !dark && path.file_name().is_some_and(|name| name == DARK_SHEET) {
+            provider.load_from_string("");
+            continue;
+        }
         match std::fs::read_to_string(path) {
             Ok(css) => provider.load_from_string(&css),
             Err(_) if !path.exists() => provider.load_from_string(""),
@@ -264,10 +272,9 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
-        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyAction,
-        PrivacyPopover, PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow,
-        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
-        Ymd, Zone,
+        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
+        PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow, TransportAction,
+        TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -466,10 +473,7 @@ mod fixtures {
             } else {
                 "Dark theme"
             });
-            let providers = sheets
-                .iter()
-                .map(|(_, provider)| provider.clone())
-                .collect::<Vec<_>>();
+            let sheets = sheets.to_vec();
             button.connect_clicked(move |button| {
                 let manager = adw::StyleManager::default();
                 let dark = !manager.is_dark();
@@ -483,9 +487,10 @@ mod fixtures {
                 } else {
                     gtk4::InterfaceColorScheme::Light
                 };
-                for provider in &providers {
+                for (_, provider) in &sheets {
                     provider.set_prefers_color_scheme(scheme);
                 }
+                super::load_styles(&sheets);
                 button.set_label(if dark { "Light theme" } else { "Dark theme" });
             });
         }
@@ -2122,32 +2127,24 @@ mod fixtures {
                             icon: "camera-web-symbolic".into(),
                             title: "Camera".into(),
                             detail: Some("Zoom · since 14:02".into()),
-                            action: None,
-                            busy: false,
                         },
                         PrivacyUsage {
                             id: "microphone".into(),
                             icon: "audio-input-microphone-symbolic".into(),
                             title: "Microphone".into(),
                             detail: Some("Zoom · since 14:02".into()),
-                            action: Some(PrivacyAction::Mute),
-                            busy: false,
                         },
                         PrivacyUsage {
                             id: "screen".into(),
                             icon: "video-display-symbolic".into(),
                             title: "Screen".into(),
                             detail: Some("OBS Studio · sharing DP-1 since 13:41".into()),
-                            action: Some(PrivacyAction::StopSharing),
-                            busy: false,
                         },
                         PrivacyUsage {
                             id: "location".into(),
                             icon: "find-location-symbolic".into(),
                             title: "Location".into(),
                             detail: None,
-                            action: None,
-                            busy: false,
                         },
                     ]);
                     popover.set_screen_shared(Some("OBS Studio · sharing DP-1 since 13:41"));
@@ -2779,6 +2776,10 @@ fn error_label(message: &str) -> gtk4::Label {
 
 fn builtin_css() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("styles/glimpse.css")
+}
+
+fn theme_dark_css() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/themes/adwaita/dark.css")
 }
 
 fn theme_css() -> PathBuf {

@@ -3,15 +3,14 @@ mod screencast;
 mod source;
 
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::time::{Duration, SystemTime};
-
-use tokio::sync::oneshot;
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceError},
-    services::audio::{AudioError, AudioHandle, AudioState, Direction},
+    service::{Input, NoConfig, Service, ServiceError},
+    services::audio::{AudioHandle, AudioState},
     services::compositor::{CompositorHandle, CompositorPrivacy, CompositorState},
     subscription::Sub,
 };
@@ -86,21 +85,6 @@ pub enum Watch {
     Location,
 }
 
-type Reply = oneshot::Sender<Result<(), PrivacyError>>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum PrivacyError {
-    #[error(transparent)]
-    Audio(#[from] AudioError),
-    #[error(transparent)]
-    Service(#[from] CommandError),
-}
-
-pub enum Command {
-    MuteMicrophone { reply: Reply },
-    StopScreencast { session_id: u64, reply: Reply },
-}
-
 pub enum Event {
     Camera(Vec<Fact>),
     Audio(AudioState),
@@ -142,23 +126,6 @@ impl PrivacyHandle {
     pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
         self.0.health()
     }
-
-    pub async fn mute_microphone(&self) -> Result<(), PrivacyError> {
-        self.call(|reply| Command::MuteMicrophone { reply }).await
-    }
-
-    pub async fn stop_screencast(&self, session_id: u64) -> Result<(), PrivacyError> {
-        self.call(|reply| Command::StopScreencast { session_id, reply })
-            .await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), PrivacyError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("privacy stopped before completing the command".to_owned())
-        })?
-    }
 }
 
 impl Service for Privacy {
@@ -166,7 +133,7 @@ impl Service for Privacy {
     type Config = NoConfig;
     type State = PrivacyState;
     type Handle = PrivacyHandle;
-    type Command = Command;
+    type Command = Infallible;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
@@ -225,7 +192,7 @@ impl Service for Privacy {
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Command(command) => self.dispatch(ctx, command),
+            Input::Command(command) => match command {},
             Input::Config(NoConfig) => {}
             Input::Event(Event::Camera(facts)) => {
                 ctx.running();
@@ -298,43 +265,6 @@ impl Privacy {
         usages.extend(self.screen.iter().cloned());
         usages.extend(self.location.iter().cloned());
         self.state.set(PrivacyState { usages });
-    }
-
-    fn dispatch(&self, ctx: &Ctx<Self>, command: Command) {
-        match command {
-            Command::MuteMicrophone { reply } => self.mute_microphone(ctx, reply),
-            Command::StopScreencast { session_id, reply } => {
-                self.stop_screencast(ctx, session_id, reply)
-            }
-        }
-    }
-
-    fn mute_microphone(&self, ctx: &Ctx<Self>, reply: Reply) {
-        let Some(id) = self
-            .audio
-            .snapshot()
-            .default_input()
-            .map(|device| device.id.clone())
-        else {
-            let _ = reply.send(Err(CommandError::Unavailable(
-                "no default microphone".to_owned(),
-            )
-            .into()));
-            return;
-        };
-        let audio = self.audio.clone();
-        ctx.spawn_detached(move |_ctx| async move {
-            let outcome = audio.set_device_muted(Direction::Input, id, true).await;
-            let _ = reply.send(outcome.map_err(PrivacyError::from));
-        });
-    }
-
-    fn stop_screencast(&self, ctx: &Ctx<Self>, session_id: u64, reply: Reply) {
-        let compositor = self.compositor.clone();
-        ctx.spawn_detached(move |_ctx| async move {
-            let outcome = compositor.stop_screencast(session_id).await;
-            let _ = reply.send(outcome.map_err(PrivacyError::from));
-        });
     }
 }
 
@@ -485,53 +415,6 @@ mod tests {
             _inbox: inbox,
             _cancel: cancel,
         }
-    }
-
-    #[tokio::test]
-    async fn muting_the_microphone_without_a_default_input_is_refused_without_reaching_audio() {
-        let cancel = CancellationToken::new();
-        let audio = fake_audio(&cancel);
-        let compositor = fake_compositor(&cancel);
-        let mut harness = harness(audio, compositor).await;
-
-        let (reply, result) = oneshot::channel();
-        harness
-            .service
-            .handle(
-                &harness.ctx,
-                Input::Command(Command::MuteMicrophone { reply }),
-            )
-            .await;
-
-        assert!(matches!(
-            result.await,
-            Ok(Err(PrivacyError::Service(CommandError::Unavailable(_))))
-        ));
-    }
-
-    #[tokio::test]
-    async fn stop_screencast_is_routed_to_the_compositor_handle() {
-        let cancel = CancellationToken::new();
-        let audio = fake_audio(&cancel);
-        let compositor = fake_compositor(&cancel);
-        let mut harness = harness(audio, compositor).await;
-
-        let (reply, result) = oneshot::channel();
-        harness
-            .service
-            .handle(
-                &harness.ctx,
-                Input::Command(Command::StopScreencast {
-                    session_id: 2,
-                    reply,
-                }),
-            )
-            .await;
-
-        assert!(matches!(
-            result.await,
-            Ok(Err(PrivacyError::Service(CommandError::Unavailable(_))))
-        ));
     }
 
     fn capturing_app(name: &str) -> AudioState {

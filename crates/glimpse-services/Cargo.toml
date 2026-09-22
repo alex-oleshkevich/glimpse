@@ -8,6 +8,8 @@ license.workspace = true
 [dependencies]
 chrono-tz.workspace = true
 chrono.workspace = true
+ddc.workspace = true
+ddc-i2c.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
 gio-unix.workspace = true

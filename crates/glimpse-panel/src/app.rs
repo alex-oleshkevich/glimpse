@@ -7,7 +7,8 @@ use std::{collections::HashMap, path::PathBuf};
 use zeroize::Zeroizing;
 
 use glimpse_config::{
-    Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
+    Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
+    watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
@@ -15,7 +16,7 @@ use glimpse_services::{
 };
 use glimpse_widgets::{
     NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
-    SecretDialog, Styles,
+    SecretDialog, Sheets, Styles,
 };
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -213,6 +214,8 @@ impl SimpleComponent for App {
             self.services.as_ref(),
             sender.input_sender().clone(),
         );
+        self.styles
+            .set_variant(&self.config.appearance.theme_variant);
     }
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
@@ -356,9 +359,14 @@ impl App {
     }
 
     fn reload_styles(&self) {
-        let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
-        self.styles
-            .load(theme.as_deref(), user_stylesheet().as_deref());
+        let appearance = &self.config.appearance;
+        self.styles.load(&Sheets {
+            theme: stylesheet(&appearance.theme, PANEL_STYLESHEET),
+            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
+            dropin: user_stylesheet(),
+            dropin_dark: user_dark_stylesheet(),
+        });
+        self.styles.set_variant(&appearance.theme_variant);
     }
 }
 

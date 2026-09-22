@@ -25,17 +25,23 @@ file: what a caller joins onto it is that caller's business.
 **Merging is per key: tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
 
-`data/config.default.toml` is read by nothing at runtime, and kept honest the way `cargo fmt` keeps
-formatting honest: `default_document()` renders it from `Config::default()` and a test fails if the
-checked-in file differs. `data/config.schema.json` is generated the same way, for editor tooling.
+## Three generated references
 
-**`scripts/install.sh` seeds it to `user_dir()/config.toml` and never replaces it.** The moment that
-file exists it is the user's, so an upgrade that overwrote it would discard whatever they had
-written; the copy at `DATA_DIR/config.default.toml` is the reference that stays current. The seed is
-skipped entirely when `DESTDIR` is set, because a packaging build must not touch anybody's home, and
-under `sudo` the destination and the owner come from `SUDO_USER`'s passwd entry rather than from the
-environment — root's `$HOME` and `$XDG_CONFIG_HOME` name the wrong person, and a root-owned
-`config.toml` is one its owner cannot edit.
+None is read at runtime, and each is kept honest the way `cargo fmt` keeps formatting honest — a
+renderer builds it from the types and a test fails if the checked-in file differs.
+`default_document()` renders `data/config.default.toml`, every setting at the value it ships with;
+`json_schema_document()` renders `data/config.schema.json`, for editor tooling; and
+`commented_document()` renders `data/config.commented.toml`, the seed `seed_user_config` writes to
+`user_dir()/config.toml` once and never replaces. `glimpse-package` has the routes that carry it
+there; an explicit `--config` or `GLIMPSE_CONFIG_PATH` skips seeding, keeping a dev run out of the
+developer's own `~/.config/glimpse`.
+
+`commented_document()` comments out every value and leaves a `[table]` header live **only when an
+empty table under it means the same thing as no table at all**, so the seed contributes nothing to
+the merge until a line is uncommented. It proves that rather than assuming: each plain header is
+uncommented in turn and the document re-loaded through the builder `load` uses, and the header stays
+live only if the result is still `Config::default()`. An `[[array]]` header is never a candidate —
+an empty element is a *value* replacing a lower layer, where an empty table merges as nothing.
 
 ## Key naming
 
@@ -68,7 +74,7 @@ names the kebab spelling when the written one differs only by underscores.
 - **The descriptor is inspected after the open, never a path before it**: between a `stat` and an
   `open` the path can be replaced.
 - Regular files only, capped at 1 MiB. A FIFO is **not** defended against: the open is what blocks.
-- `config.d/` is read one level deep, one file at a time, at most 64 entries.
+- `config.d/` is read one level deep, one file at a time.
 - **A missing file is an absent layer everywhere in the stack.** A file that exists and is wrong —
   wrong type, too large, a syntax error — still fails the whole load.
 
@@ -117,11 +123,20 @@ sheet comes from it. The directory is the unit because CSS makes it one: GTK res
 `@import` against the importing file's own directory, so a theme assembled from two roots cannot
 import across them. A theme is all or nothing; copy the whole directory to customise one rule.
 
-The shipped `adwaita` theme is three empty files — component rules and the token vocabulary live in
-`glimpse-widgets`, so a theme that redefines nothing still renders correctly.
+The shipped `adwaita` theme redefines nothing — component rules and the token vocabulary live in
+`glimpse-widgets`, so an empty theme still renders correctly.
 
-`user_stylesheet()` locates the user's own `styles.css`, optional and not part of any theme, which
-always loads on top.
+`dark.css` is the fourth member of a theme directory, shared by every surface rather than split per
+binary, and loaded only while the effective color scheme is dark. It resolves through `stylesheet`
+like any other sheet, so it comes from the directory the theme resolved to. It is ergonomics, not
+capability — `@media (prefers-color-scheme: dark)` inside `panel.css` already works.
+
+`user_stylesheet()` locates the user's own `styles.css` and `user_dark_stylesheet()` its `dark.css`,
+both optional, neither part of any theme, and both loading above the theme.
+
+`appearance.theme-variant` is not a file but a CSS class added to every window, so one theme carries
+several looks behind `.<variant>`. A variant outside letters, digits, `-` and `_`, or starting with
+a digit, is dropped with a warning rather than written into the tree.
 
 `watch_theme(theme)` watches `user_dir()`, then every root and every `<root>/<theme>`, then the
 directory resolution chose. **The roots are not decoration**: `nearest_existing` walks up only as far
@@ -265,12 +280,6 @@ Two conditions keep the convention honest:
   separates the cases: `T_FMT_AMPM` returns `%I:%M:%S %p` even under `C`, because it reports whether
   a locale *has* a twelve-hour form rather than whether it prefers one, and `T_FMT` answers `%r` for
   `en_US`, which contains neither `%I` nor `%p`.
-
-`first-day` has **no** `locale` variant, and that is the convention working. GTK's translated
-`calendar:week_start:0` came back as the untranslated msgid — meaning Sunday — under an `LC_TIME`
-whose answer is Monday, and `_NL_TIME_FIRST_WEEKDAY` has never been measured here. The first
-condition forbids adding a variant on the strength of an assumption; measuring it is the work that
-would justify one.
 
 Two enums and this section are the entire mechanism. There is no `Localized<T>`.
 

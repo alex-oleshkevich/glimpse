@@ -1,3 +1,4 @@
+mod commented;
 mod environment;
 mod error;
 mod load;
@@ -5,13 +6,16 @@ mod schema;
 mod theme;
 mod watch;
 
+pub use commented::commented_document;
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
-pub use load::{DATA_DIR, load, named_applets_exist, resolved_files, user_dir, watch_dirs};
+pub use load::{
+    DATA_DIR, load, named_applets_exist, resolved_files, seed_user_config, user_dir, watch_dirs,
+};
 pub use schema::*;
 pub use theme::{
-    DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet,
-    theme_dir_for, user_stylesheet, watch_theme,
+    DARK_STYLESHEET, DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET,
+    stylesheet, theme_dir_for, user_dark_stylesheet, user_stylesheet, watch_theme,
 };
 pub use watch::{Update, watch, watch_all, watch_config};
 

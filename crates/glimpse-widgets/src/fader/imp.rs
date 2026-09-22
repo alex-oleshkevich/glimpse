@@ -46,7 +46,9 @@ impl Fader {
         if self.value() == value {
             return;
         }
+        self.quiet.set(true);
         self.track.set_value(value);
+        self.quiet.set(false);
     }
 
     fn muted(&self) -> bool {
@@ -176,6 +178,9 @@ impl ObjectImpl for Fader {
             #[weak]
             obj,
             move |adjustment| {
+                if obj.imp().quiet.get() {
+                    return;
+                }
                 obj.emit_by_name::<()>(MOVED, &[&adjustment.value()]);
             }
         ));

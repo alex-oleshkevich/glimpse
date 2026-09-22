@@ -19,6 +19,7 @@ Then regenerate both shipped documents:
 ```bash
 just gen-config-default
 just gen-config-schema
+just gen-config-commented
 ```
 
 `schema/mod.rs` asserts `data/config.default.toml` and `data/config.schema.json` equal the compiled

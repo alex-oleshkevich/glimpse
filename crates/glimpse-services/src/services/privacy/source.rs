@@ -40,7 +40,23 @@ fn scan(root: &Path) -> Result<Vec<Fact>, &'static str> {
     if refcount == 0 {
         return Ok(Vec::new());
     }
-    Ok(holders(root))
+    let holders = holders(root);
+    if holders.is_empty() {
+        unreadable_holder();
+    }
+    Ok(holders)
+}
+
+fn unreadable_holder() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        tracing::warn!(
+            "uvcvideo reports the camera in use but no readable process holds /dev/video*; the \
+             holder belongs to another user, or this process has a private /proc that hides fd \
+             links — systemd's ProtectKernelTunables, ProtectKernelModules and \
+             ProtectControlGroups each imply MountAPIVFS and cause exactly that"
+        );
+    });
 }
 
 fn uvcvideo_refcount(modules: &str) -> Option<u32> {

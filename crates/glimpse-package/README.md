@@ -80,6 +80,27 @@ broken install.
 split: the debug package comes out as nothing but `.build-id` links, and pacman does not remove it
 with its parent, so it lingers after an uninstall.
 
+## The user's own configuration
+
+The packages ship `/usr/share/glimpse/config.commented.toml` and seed nothing. A `.deb`, `.rpm` or
+pacman install runs as root and has no user to write a home directory for, which is why none of the
+three carries a `postinst`: the four UI binaries call `glimpse_config::seed_user_config` before
+`load`, and whichever starts first writes `~/.config/glimpse/config.toml`. It is written with
+`File::create_new`, so simultaneous starts cannot race and a symlink cannot be followed onto an
+existing file, and it returns nothing — a lock screen that refused to start over a template file is
+the worse bargain.
+
+`scripts/install.sh` seeds the same file for a source install, where the invoking user is known. It
+skips entirely under `DESTDIR`, because a packaging build must not touch anybody's home, and takes
+the destination and owner from `SUDO_USER`'s passwd entry — root's `$HOME` names the wrong person,
+and a root-owned `config.toml` is one its owner cannot edit.
+
+**What is seeded is the commented copy, and every value in it is inert.** A user uncomments what
+they want to change, so a later release's changed default still reaches them. Its first line is a
+`#:schema` directive pointing at the installed `config.schema.json`, which is what gives a TOML
+language server — taplo, or an editor extension built on it — completion for every table and key,
+each setting's documentation on hover, and a diagnostic on a value the schema refuses.
+
 ## Themes
 
 Themes are the one asset whose directory structure is load-bearing: `themes/<name>/panel.css` is

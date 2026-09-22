@@ -1,3 +1,6 @@
+mod composite;
+mod ddc;
+
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -9,6 +12,9 @@ use glimpse_dbus::login1::{self, Login1SessionProxy};
 use glimpse_dbus::upower;
 use tokio::sync::{oneshot, watch};
 use zbus::zvariant::OwnedObjectPath;
+
+pub use composite::CompositeBacklight;
+pub use ddc::DdcBacklight;
 
 use super::say;
 use crate::{
@@ -585,6 +591,53 @@ fn rescans_from(
         })
 }
 
+/// `backlight` uevents only cover the class this crate already reads through sysfs; a monitor
+/// changing ports, or being plugged or unplugged, is a `drm` subsystem event on the connector's
+/// own device and reaches neither `SysfsBacklight` nor `DdcBacklight` any other way. Unlike a
+/// `backlight` uevent, which names one device to re-read, `drm`'s `change` carries no reliable
+/// per-connector routing here, so every one re-runs a full `enumerate` — which is what a source
+/// appearing on a bus nothing has seen before actually needs, and which `Publisher::set`'s
+/// equality gate keeps cheap when nothing on the resulting list has changed.
+fn open_drm_monitor() -> std::io::Result<tokio_udev::AsyncMonitorSocket> {
+    tokio_udev::MonitorBuilder::new()?
+        .match_subsystem("drm")?
+        .listen()
+        .and_then(tokio_udev::AsyncMonitorSocket::new)
+}
+
+fn drm_hotplug_events(backend: Arc<dyn Backlight>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
+    match open_drm_monitor() {
+        Ok(socket) => Box::pin(reenumerate_on_hotplug(socket, backend)),
+        Err(error) => {
+            tracing::info!(%error, "no udev drm monitor; DDC/CI hotplug updates disabled");
+            Box::pin(stream::empty())
+        }
+    }
+}
+
+fn reenumerate_on_hotplug(
+    socket: tokio_udev::AsyncMonitorSocket,
+    backend: Arc<dyn Backlight>,
+) -> impl Stream<Item = Event> {
+    socket
+        .filter_map(|event| async move {
+            match event {
+                Ok(event) => Some(event),
+                Err(error) => {
+                    tracing::warn!(%error, "udev drm monitor read failed");
+                    None
+                }
+            }
+        })
+        .filter(|event| {
+            futures_util::future::ready(event.event_type() == tokio_udev::EventType::Change)
+        })
+        .then(move |_event| {
+            let backend = Arc::clone(&backend);
+            async move { Event::Enumerated(backend.enumerate().await) }
+        })
+}
+
 async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
     match keyboard_change_events(&ctx).await {
         Ok(events) => Box::pin(events),
@@ -752,6 +805,7 @@ pub enum Command {
 pub enum Watch {
     Enumerate,
     Udev,
+    DrmHotplug,
     Keyboard,
 }
 
@@ -831,12 +885,16 @@ impl Service for Brightness {
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let enumerate_backend = Arc::clone(&self.backend);
         let udev_backend = Arc::clone(&self.backend);
+        let drm_backend = Arc::clone(&self.backend);
         vec![
             Sub::stream(Watch::Enumerate, move |_ctx| async move {
                 stream::once(async move { Event::Enumerated(enumerate_backend.enumerate().await) })
             }),
             Sub::stream(Watch::Udev, move |_ctx| async move {
                 backlight_uevents(udev_backend)
+            }),
+            Sub::stream(Watch::DrmHotplug, move |_ctx| async move {
+                drm_hotplug_events(drm_backend)
             }),
             Sub::stream(Watch::Keyboard, keyboard_watch),
         ]
@@ -1446,6 +1504,7 @@ mod tests {
 
         assert!(subs.iter().any(|sub| *sub.key() == Watch::Enumerate));
         assert!(subs.iter().any(|sub| *sub.key() == Watch::Udev));
+        assert!(subs.iter().any(|sub| *sub.key() == Watch::DrmHotplug));
         assert!(subs.iter().any(|sub| *sub.key() == Watch::Keyboard));
     }
 
@@ -1643,6 +1702,29 @@ mod tests {
             .write(entry.id.clone(), entry.brightness)
             .await
             .expect("writing the current level back succeeds");
+    }
+
+    #[tokio::test]
+    #[ignore = "listens on the real drm udev subsystem and needs a `sudo udevadm trigger \
+                --subsystem-match=drm --action=change` run in another terminal while this test \
+                is running, since writing a uevent needs root; run under \
+                just test-crate-compositor"]
+    async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
+        let socket = open_drm_monitor().expect("a drm udev monitor for this session");
+        let backend: Arc<dyn Backlight> = Arc::new(FakeBacklight::new(vec![entry(
+            "panel", "raw", 50, 100, None,
+        )]));
+        let mut events = Box::pin(reenumerate_on_hotplug(socket, backend));
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(60), events.next())
+            .await
+            .expect(
+                "no drm change event arrived in 60s — run `sudo udevadm trigger \
+                 --subsystem-match=drm --action=change` in another terminal while this test runs",
+            )
+            .expect("the udev monitor stream stayed open");
+
+        assert!(matches!(event, Event::Enumerated(_)));
     }
 
     fn method_error(name: &str) -> zbus::Error {

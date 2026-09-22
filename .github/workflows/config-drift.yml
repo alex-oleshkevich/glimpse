@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   config-drift:
-    name: data/config.default.toml and config.schema.json match the Config types
+    name: the generated config references match the Config types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -21,11 +21,12 @@ jobs:
 
       - uses: extractions/setup-just@v4
 
-      - name: Regenerate and check data/config.default.toml and data/config.schema.json
+      - name: Regenerate and check the three generated config references
         run: |
           just gen-config-default
           just gen-config-schema
-          if ! git diff --exit-code -- data/config.default.toml data/config.schema.json; then
-            echo "::error::stale generated config file — run 'just gen-config-default' and 'just gen-config-schema' and commit the result"
+          just gen-config-commented
+          if ! git diff --exit-code -- data/config.default.toml data/config.schema.json data/config.commented.toml; then
+            echo "::error::stale generated config file — run 'just gen-config-default', 'just gen-config-schema' and 'just gen-config-commented' and commit the result"
             exit 1
           fi

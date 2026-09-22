@@ -3,9 +3,10 @@ use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use std::path::PathBuf;
 
 use glimpse_config::{
-    Config, LOCK_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
+    Config, DARK_STYLESHEET, LOCK_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
+    watch_config, watch_theme,
 };
-use glimpse_widgets::Styles;
+use glimpse_widgets::{Sheets, Styles};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use tokio::task::JoinHandle;
 
@@ -74,6 +75,8 @@ impl SimpleComponent for App {
                 self.config = config;
                 self.styles
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
+                self.styles
+                    .set_variant(&self.config.appearance.theme_variant);
                 if renamed {
                     self.theme_watch.abort();
                     self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
@@ -95,9 +98,14 @@ fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
 
 impl App {
     fn reload_styles(&self) {
-        let theme = stylesheet(&self.config.appearance.theme, LOCK_STYLESHEET);
-        self.styles
-            .load(theme.as_deref(), user_stylesheet().as_deref());
+        let appearance = &self.config.appearance;
+        self.styles.load(&Sheets {
+            theme: stylesheet(&appearance.theme, LOCK_STYLESHEET),
+            theme_dark: stylesheet(&appearance.theme, DARK_STYLESHEET),
+            dropin: user_stylesheet(),
+            dropin_dark: user_dark_stylesheet(),
+        });
+        self.styles.set_variant(&appearance.theme_variant);
     }
 }
 

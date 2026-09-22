@@ -108,6 +108,7 @@ matches the compiled-in types:
 ```bash
 just gen-config-default    # -> data/config.default.toml
 just gen-config-schema     # -> data/config.schema.json
+just gen-config-commented  # -> data/config.commented.toml
 ```
 
 ### 3. The config slice

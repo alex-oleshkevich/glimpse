@@ -30,6 +30,7 @@ for f in data/geoclue/conf.d/*.conf; do
 done
 
 install -Dm644 data/config.default.toml "$sharedir/config.default.toml"
+install -Dm644 data/config.commented.toml "$sharedir/config.commented.toml"
 install -Dm644 data/config.schema.json "$sharedir/config.schema.json"
 install -Dm644 data/language-codes.json "$sharedir/language-codes.json"
 install -Dm644 LICENSE "$sharedir/LICENSE"
@@ -47,7 +48,9 @@ done
 
 # Seed the user's own configuration, and never replace it: the moment that file exists it is
 # theirs, and an upgrade that overwrote it would discard everything they had written. The copy at
-# $sharedir/config.default.toml is the reference that stays current.
+# $sharedir/config.default.toml is the reference that stays current. What is seeded is the
+# commented copy: an inert document the user uncomments, so a later release's changed default
+# still reaches them.
 seed_user_config() {
     # A packaging build stages into DESTDIR and must not touch anybody's home directory.
     if [[ -n "$destdir" ]]; then
@@ -78,7 +81,7 @@ seed_user_config() {
     fi
 
     mkdir -p "$config_home/glimpse"
-    install -m644 data/config.default.toml "$config"
+    install -m644 data/config.commented.toml "$config"
     # Installed as root the file would be root-owned, and the user could not edit their own
     # configuration without sudo.
     if [[ -n "$owner" ]]; then

@@ -24,6 +24,7 @@ pub struct Indicator {
     pub attention: Cell<bool>,
     pub notice: Cell<bool>,
     pub severity: Cell<Option<crate::Severity>>,
+    pub class: RefCell<Option<String>>,
 }
 
 #[glib::object_subclass]

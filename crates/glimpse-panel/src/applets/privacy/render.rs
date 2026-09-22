@@ -1,14 +1,15 @@
-use std::collections::HashSet;
+use std::time::SystemTime;
 
 use gettextrs::gettext;
 use glimpse_services::{PrivacyResource, PrivacyState, PrivacyUsage as ServiceUsage};
-use glimpse_widgets::{PrivacyAction, PrivacyUsage};
+use glimpse_widgets::PrivacyUsage;
 
-pub const HERO: &str = "security-medium-symbolic";
 pub const CAMERA: &str = "camera-web-symbolic";
 pub const MICROPHONE: &str = "audio-input-microphone-symbolic";
 pub const SCREEN: &str = "video-display-symbolic";
 pub const LOCATION: &str = "find-location-symbolic";
+pub const RECORDING: &str = "media-record-symbolic";
+pub const RECORDING_CLASS: &str = "indicator--recording";
 
 const KINDS: [PrivacyResource; 4] = [
     PrivacyResource::Camera,
@@ -95,43 +96,13 @@ pub fn usage_id(usage: &ServiceUsage) -> String {
     }
 }
 
-/// A screen cast is only offered a stop control when it carries both a session id and a stream id:
-/// niri cannot stop a wlr-screencopy cast through IPC, and Hyprland's synthetic casts carry no
-/// session id at all, so offering the control there would report success while the recording
-/// continues. The stream id is refused too, on top of the session id, because `usage_id` keys a
-/// screen row on the stream id alone — two simultaneous casts with no stream id would collide onto
-/// the same widget id, and `session_for` would then resolve a click on either row to whichever
-/// usage it finds first. The microphone's mute is offered until it is already muted, so the row
-/// never shows a control that changes nothing. Neither the camera nor the location resource has a
-/// control at all. Whether a command is already in flight for this row is carried separately, on
-/// `PrivacyUsage::busy`, and does not change which action is offered.
-pub fn action(usage: &ServiceUsage, mic_muted: bool) -> Option<PrivacyAction> {
-    match usage.kind {
-        PrivacyResource::Microphone => (!mic_muted).then_some(PrivacyAction::Mute),
-        PrivacyResource::Screen => (usage.session.is_some() && usage.stream_id.is_some())
-            .then_some(PrivacyAction::StopSharing),
-        PrivacyResource::Camera | PrivacyResource::Location => None,
-    }
-}
-
-pub fn usages(
-    state: &PrivacyState,
-    filters: Filters,
-    mic_muted: bool,
-    pending: &HashSet<String>,
-) -> Vec<PrivacyUsage> {
+pub fn usages(state: &PrivacyState, filters: Filters) -> Vec<PrivacyUsage> {
     visible(state, filters)
-        .map(|usage| {
-            let id = usage_id(usage);
-            let busy = pending.contains(&id);
-            PrivacyUsage {
-                icon: icon(usage.kind).to_owned(),
-                title: title(usage.kind),
-                detail: detail(usage),
-                action: action(usage, mic_muted),
-                busy,
-                id,
-            }
+        .map(|usage| PrivacyUsage {
+            icon: icon(usage.kind).to_owned(),
+            title: title(usage.kind),
+            detail: detail(usage),
+            id: usage_id(usage),
         })
         .collect()
 }
@@ -152,12 +123,21 @@ pub fn screen_shared(state: &PrivacyState, filters: Filters) -> Option<String> {
     Some(details.join(", "))
 }
 
-pub fn session_for(state: &PrivacyState, id: &str) -> Option<u64> {
-    state
-        .usages
-        .iter()
-        .find(|usage| usage.kind == PrivacyResource::Screen && usage_id(usage) == id)
-        .and_then(|usage| usage.session)
+pub fn screencast_since(state: &PrivacyState, filters: Filters) -> Option<SystemTime> {
+    visible(state, filters)
+        .filter(|usage| usage.kind == PrivacyResource::Screen)
+        .map(|usage| usage.since)
+        .min()
+}
+
+pub fn elapsed(since: SystemTime, now: SystemTime) -> String {
+    let seconds = now.duration_since(since).unwrap_or_default().as_secs();
+    let (hours, minutes, seconds) = (seconds / 3600, (seconds % 3600) / 60, seconds % 60);
+    if hours > 0 {
+        format!("{hours}:{minutes:02}:{seconds:02}")
+    } else {
+        format!("{minutes:02}:{seconds:02}")
+    }
 }
 
 pub fn kinds_in_use(state: &PrivacyState, filters: Filters) -> Vec<PrivacyResource> {
@@ -206,6 +186,61 @@ mod tests {
     }
 
     #[test]
+    fn an_elapsed_cast_reads_mm_ss_until_it_passes_an_hour() {
+        let start = SystemTime::UNIX_EPOCH;
+        let at = |secs| elapsed(start, start + std::time::Duration::from_secs(secs));
+        assert_eq!(at(0), "00:00");
+        assert_eq!(at(12), "00:12");
+        assert_eq!(at(59), "00:59");
+        assert_eq!(at(60), "01:00");
+        assert_eq!(at(3599), "59:59");
+        assert_eq!(at(3600), "1:00:00");
+        assert_eq!(at(3672), "1:01:12");
+    }
+
+    #[test]
+    fn a_clock_that_jumped_backwards_reads_zero_rather_than_panicking() {
+        let now = SystemTime::UNIX_EPOCH;
+        let future = now + std::time::Duration::from_secs(90);
+        assert_eq!(elapsed(future, now), "00:00");
+    }
+
+    #[test]
+    fn several_casts_count_from_the_oldest_because_they_collapse_onto_one_chip() {
+        let old = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(100);
+        let new = old + std::time::Duration::from_secs(50);
+        let casts = state(vec![
+            ServiceUsage {
+                since: new,
+                stream_id: Some(2),
+                ..usage(PrivacyResource::Screen)
+            },
+            ServiceUsage {
+                since: old,
+                stream_id: Some(1),
+                ..usage(PrivacyResource::Screen)
+            },
+        ]);
+
+        assert_eq!(
+            screencast_since(&casts, Filters::default()),
+            Some(old),
+            "the screen has been shared continuously since the first cast began"
+        );
+    }
+
+    #[test]
+    fn a_hidden_screencast_starts_no_clock() {
+        let casts = state(vec![usage(PrivacyResource::Screen)]);
+        let filters = Filters {
+            screencast: false,
+            ..Filters::default()
+        };
+
+        assert_eq!(screencast_since(&casts, filters), None);
+    }
+
+    #[test]
     fn detail_joins_app_and_detail_when_both_are_known() {
         let usage = ServiceUsage {
             app: Some("chrome".to_owned()),
@@ -233,59 +268,6 @@ mod tests {
     #[test]
     fn a_location_usage_carries_neither_half_and_has_no_detail() {
         assert_eq!(detail(&usage(PrivacyResource::Location)), None);
-    }
-
-    #[test]
-    fn a_screen_usage_with_no_session_offers_no_stop_control() {
-        let stoppable = ServiceUsage {
-            session: Some(11),
-            stream_id: Some(3),
-            ..usage(PrivacyResource::Screen)
-        };
-        let unstoppable = ServiceUsage {
-            session: None,
-            stream_id: Some(3),
-            ..usage(PrivacyResource::Screen)
-        };
-        assert_eq!(action(&stoppable, false), Some(PrivacyAction::StopSharing));
-        assert_eq!(action(&unstoppable, false), None);
-    }
-
-    #[test]
-    fn a_screen_usage_with_no_stream_id_offers_no_stop_control() {
-        let stoppable = ServiceUsage {
-            session: Some(11),
-            stream_id: Some(3),
-            ..usage(PrivacyResource::Screen)
-        };
-        let unkeyed = ServiceUsage {
-            session: Some(11),
-            stream_id: None,
-            ..usage(PrivacyResource::Screen)
-        };
-        assert_eq!(action(&stoppable, false), Some(PrivacyAction::StopSharing));
-        assert_eq!(
-            action(&unkeyed, false),
-            None,
-            "two casts with no stream id would collide onto the same widget id, and stopping one \
-             could resolve to the other; refusing the control here is what keeps that structural \
-             rather than a matter of luck"
-        );
-    }
-
-    #[test]
-    fn an_already_muted_microphone_offers_no_mute_control() {
-        assert_eq!(
-            action(&usage(PrivacyResource::Microphone), false),
-            Some(PrivacyAction::Mute)
-        );
-        assert_eq!(action(&usage(PrivacyResource::Microphone), true), None);
-    }
-
-    #[test]
-    fn camera_and_location_never_offer_a_control() {
-        assert_eq!(action(&usage(PrivacyResource::Camera), false), None);
-        assert_eq!(action(&usage(PrivacyResource::Location), false), None);
     }
 
     #[test]
@@ -330,12 +312,7 @@ mod tests {
             camera: false,
             ..Filters::default()
         };
-        let usages = usages(
-            &state(vec![usage(PrivacyResource::Camera)]),
-            filters,
-            false,
-            &HashSet::new(),
-        );
+        let usages = usages(&state(vec![usage(PrivacyResource::Camera)]), filters);
         assert!(usages.is_empty());
     }
 
@@ -432,18 +409,6 @@ mod tests {
             screen_shared(&state(vec![usage(PrivacyResource::Screen)]), filters),
             None
         );
-    }
-
-    #[test]
-    fn session_for_looks_up_a_screen_row_by_its_widget_id() {
-        let usage = ServiceUsage {
-            stream_id: Some(3),
-            session: Some(42),
-            ..usage(PrivacyResource::Screen)
-        };
-        let id = usage_id(&usage);
-        assert_eq!(session_for(&state(vec![usage]), &id), Some(42));
-        assert_eq!(session_for(&state(Vec::new()), &id), None);
     }
 
     #[test]

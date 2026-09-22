@@ -48,6 +48,7 @@ for bin in "${binaries[@]}"; do
 done
 
 install -Dm644 data/config.default.toml "$pkgroot/usr/share/glimpse/config.default.toml"
+install -Dm644 data/config.commented.toml "$pkgroot/usr/share/glimpse/config.commented.toml"
 install -Dm644 data/config.schema.json "$pkgroot/usr/share/glimpse/config.schema.json"
 install -Dm644 data/language-codes.json "$pkgroot/usr/share/glimpse/language-codes.json"
 install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"

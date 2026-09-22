@@ -253,12 +253,9 @@ pub fn build(
         }
         AppletKind::Privacy(_) => {
             let privacy = privacy.clone();
-            let audio = audio.clone();
-            let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(privacy.subscribe());
-                ctx.watch(audio.subscribe());
-                Box::new(privacy::Privacy::start(privacy, audio, notifications))
+                Box::new(privacy::Privacy::start(privacy))
             }))
         }
         AppletKind::Command {} | AppletKind::Exec {} => None,

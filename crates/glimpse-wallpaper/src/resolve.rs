@@ -491,6 +491,7 @@ mod tests {
     #[test]
     fn backdrop_intent_is_none_when_enabled_but_no_image_resolves() {
         let wallpaper = Wallpaper {
+            image: None,
             backdrop: Backdrop {
                 enabled: true,
                 ..Backdrop::default()
@@ -740,6 +741,7 @@ mod tests {
                 }),
                 ..WallpaperOutput::default()
             }],
+            image: None,
             ..Wallpaper::default()
         };
         let mut warned = MissingWarned::default();

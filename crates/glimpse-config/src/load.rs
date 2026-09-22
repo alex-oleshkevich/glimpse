@@ -1,5 +1,5 @@
-use std::fs::File;
-use std::io::{self, Read};
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::error::{ConfigError, MAX_FILE_BYTES};
@@ -7,6 +7,7 @@ use crate::schema::{Applet, Config};
 
 const SYSTEM_DIR: &str = "/etc/glimpse";
 const FILE_NAME: &str = "config.toml";
+const COMMENTED_FILE_NAME: &str = "config.commented.toml";
 const DROPIN_DIR: &str = "config.d";
 const FOLDER_NAME: &str = "glimpse";
 
@@ -23,6 +24,51 @@ pub fn user_dir() -> Option<PathBuf> {
 
 pub fn load(config_path: Option<&Path>) -> Result<Config, ConfigError> {
     load_from(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
+}
+
+pub fn seed_user_config(config_path: Option<&Path>) {
+    let source = Path::new(DATA_DIR).join(COMMENTED_FILE_NAME);
+    match seed_from(&source, user_dir().as_deref(), config_path) {
+        Ok(Some(path)) => tracing::info!(path = %path.display(), "seeded a starting configuration"),
+        Ok(None) => {}
+        Err(error) => tracing::warn!(%error, "cannot seed a starting configuration"),
+    }
+}
+
+fn seed_from(
+    source: &Path,
+    user_dir: Option<&Path>,
+    config_path: Option<&Path>,
+) -> io::Result<Option<PathBuf>> {
+    if config_path.is_some() {
+        return Ok(None);
+    }
+    let Some(dir) = user_dir else {
+        return Ok(None);
+    };
+    let destination = dir.join(FILE_NAME);
+    if destination.try_exists()? {
+        return Ok(None);
+    }
+    let text = match fs::read(source) {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            tracing::debug!(path = %source.display(), "no shipped configuration to seed from");
+            return Ok(None);
+        }
+        Err(error) => return Err(error),
+    };
+    fs::create_dir_all(dir)?;
+    let mut file = match File::create_new(&destination) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if let Err(error) = file.write_all(&text).and_then(|()| file.flush()) {
+        let _ = fs::remove_file(&destination);
+        return Err(error);
+    }
+    Ok(Some(destination))
 }
 
 pub fn resolved_files(config_path: Option<&Path>) -> Result<Vec<PathBuf>, ConfigError> {
@@ -212,6 +258,115 @@ fn is_missing(error: &ConfigError) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn shipped(dir: &Path) -> PathBuf {
+        let source = dir.join(COMMENTED_FILE_NAME);
+        std::fs::write(&source, crate::commented_document()).expect("writes");
+        source
+    }
+
+    #[test]
+    fn a_first_run_seeds_the_user_config_from_the_shipped_file() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let source = shipped(dir.path());
+        let user = dir.path().join("config/glimpse");
+
+        let seeded = seed_from(&source, Some(&user), None)
+            .expect("seeding succeeds")
+            .expect("a first run writes the file");
+
+        assert_eq!(seeded, user.join(FILE_NAME));
+        assert_eq!(
+            std::fs::read_to_string(&seeded).expect("reads"),
+            crate::commented_document()
+        );
+    }
+
+    #[test]
+    fn an_existing_user_config_is_never_replaced() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let source = shipped(dir.path());
+        let user = dir.path().join("glimpse");
+        std::fs::create_dir_all(&user).expect("creates");
+        std::fs::write(user.join(FILE_NAME), "[appearance]\ntheme = \"mine\"\n").expect("writes");
+
+        assert_eq!(
+            seed_from(&source, Some(&user), None).expect("succeeds"),
+            None
+        );
+        assert_eq!(
+            std::fs::read_to_string(user.join(FILE_NAME)).expect("reads"),
+            "[appearance]\ntheme = \"mine\"\n"
+        );
+    }
+
+    #[test]
+    fn an_explicit_config_path_seeds_nothing() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let source = shipped(dir.path());
+        let user = dir.path().join("glimpse");
+        let explicit = dir.path().join("elsewhere.toml");
+
+        assert_eq!(
+            seed_from(&source, Some(&user), Some(&explicit)).expect("succeeds"),
+            None
+        );
+        assert!(!user.exists());
+    }
+
+    #[test]
+    fn a_missing_shipped_file_is_not_a_failure() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let user = dir.path().join("glimpse");
+
+        let source = dir.path().join(COMMENTED_FILE_NAME);
+        assert_eq!(
+            seed_from(&source, Some(&user), None).expect("succeeds"),
+            None
+        );
+        assert!(!user.exists());
+    }
+
+    #[test]
+    fn a_seeded_document_loads_to_the_shipped_defaults() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let source = shipped(dir.path());
+        let user = dir.path().join("glimpse");
+        let seeded = seed_from(&source, Some(&user), None)
+            .expect("succeeds")
+            .expect("writes");
+
+        let empty = dir.path().join("empty");
+        std::fs::create_dir_all(&empty).expect("creates");
+        assert_eq!(
+            load_from(&empty, Some(&user), None).expect("the seed loads"),
+            Config::default()
+        );
+        assert!(seeded.is_file());
+    }
+
+    #[test]
+    fn two_binaries_starting_at_once_seed_one_intact_file() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let source = shipped(dir.path());
+        let user = dir.path().join("glimpse");
+
+        let written = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| scope.spawn(|| seed_from(&source, Some(&user), None).expect("succeeds")))
+                .collect();
+            handles
+                .into_iter()
+                .filter_map(|handle| handle.join().expect("the thread finishes"))
+                .count()
+        });
+
+        assert_eq!(written, 1);
+        assert_eq!(
+            std::fs::read_to_string(user.join(FILE_NAME)).expect("reads"),
+            crate::commented_document()
+        );
+    }
 
     fn panel_naming(name: &str) -> Config {
         Config {

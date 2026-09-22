@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Appearance {
     pub theme: String,
+    /// A CSS class added to every window, so one theme can ship several looks. Letters, digits,
+    /// `-` and `_` only, not starting with a digit; anything else is ignored with a warning.
     pub theme_variant: String,
     pub color_scheme: ColorScheme,
 }

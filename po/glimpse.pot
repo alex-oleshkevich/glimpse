@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 17:18+0200\n"
+"POT-Creation-Date: 2026-09-22 20:12+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,20 +18,20 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-notifications/src/app.rs:441
+#: crates/glimpse-notifications/src/app.rs:443
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:261
+#: crates/glimpse-panel/src/app.rs:264
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:305
+#: crates/glimpse-panel/src/app.rs:308
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:318
+#: crates/glimpse-panel/src/app.rs:321
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
@@ -45,20 +45,20 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:378
+#: crates/glimpse-panel/src/app.rs:386
 #: crates/glimpse-panel/src/applets/session/mod.rs:90
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:380
+#: crates/glimpse-panel/src/app.rs:388
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:382
+#: crates/glimpse-panel/src/app.rs:390
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:481
+#: crates/glimpse-panel/src/app.rs:489
 msgid "this device"
 msgstr ""
 
@@ -1256,7 +1256,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:263
 #: crates/glimpse-panel/src/applets/printing/render.rs:144
-#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
 msgid "Location"
 msgstr ""
 
@@ -1426,36 +1426,15 @@ msgstr ""
 msgid "single-sided"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:92
-msgid "Could not mute the microphone"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:125
-msgid "Could not stop screen sharing"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
-#: crates/glimpse-widgets/blueprints/privacy_popover.blp:14
-msgid "Privacy"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:173
-msgid "The audio service could not complete that."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:175
-msgid "Privacy tracking is unreachable."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/privacy/render.rs:68
+#: crates/glimpse-panel/src/applets/privacy/render.rs:69
 msgid "Camera"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/render.rs:69
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
 msgid "Microphone"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
 msgid "Screen"
 msgstr ""
 
@@ -1903,7 +1882,6 @@ msgid "Any input wakes them again"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:134
 msgid "Mute"
 msgstr ""
 
@@ -2028,6 +2006,10 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:15
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:241
 msgid "No print jobs"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:14
+msgid "Privacy"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/privacy_popover.blp:28
@@ -2253,10 +2235,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:267
 msgid "Page {completed} of {total}"
-msgstr ""
-
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:137
-msgid "Stop sharing"
 msgstr ""
 
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:178
