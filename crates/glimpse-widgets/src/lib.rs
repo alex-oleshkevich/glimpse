@@ -118,7 +118,9 @@ pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
 pub use popover_shell::PopoverShell;
-pub use printing_popover::{Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover};
+pub use printing_popover::{
+    Detail as PrintingDetail, Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover,
+};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};

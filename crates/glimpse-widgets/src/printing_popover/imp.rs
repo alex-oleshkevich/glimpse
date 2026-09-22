@@ -22,12 +22,22 @@ pub struct Job {
     pub resumable: bool,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Printer {
     pub id: String,
     pub name: String,
     pub status: String,
     pub network: bool,
+    /// Rendered one `$Row` each in the printer's detail panel. The applet formats every label and
+    /// value; the widget only draws them, so nothing here is translated in this crate.
+    pub details: Vec<Detail>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Detail {
+    pub icon: String,
+    pub label: String,
+    pub value: String,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -51,7 +61,8 @@ pub struct PrintingPopover {
     pub job_data: RefCell<Vec<Job>>,
     pub printer_data: RefCell<Vec<Printer>>,
     pub job_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub printer_held: RefCell<Vec<(String, Row)>>,
+    pub printer_held: RefCell<Vec<(String, gtk4::Box)>>,
+    pub printer_lines: RefCell<Vec<(String, Row)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
     #[cfg(test)]

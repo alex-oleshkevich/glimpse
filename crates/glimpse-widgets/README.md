@@ -472,14 +472,23 @@ unset. `.printing-popover .row__subtitle` carries `font-variant-numeric: tabular
 widget's own `styles/glimpse.css` rule, because `.row__subtitle` (unlike `.row__value`) has no
 tabular figures by default.
 
-Each job row's pause/resume/cancel icon buttons are built exactly once, in `reconcile::by_key`'s
-`build` closure, keyed by job id; `dress_job` only ever flips their `visible` state from
-`Job.pausable`/`Job.resumable`/`Job.cancellable` on every render — never rebuilds them. A row keeps
-`activatable: true` whenever it carries a live trailing button, or GTK's hit-test never reaches into
-the trail. The widget emits `cancelled`/`paused`/`resumed`, each carrying the job id, the same shape
-as `BluetoothPopover`'s `connect_selected`. `Job.printer`, `Job.status` and `Printer.status` are
-caller-supplied, already-cleaned text — sanitizing raw CUPS text is the panel applet's job, not this
-widget's.
+**A job and a printer are the same shape: a `$SplitRow` head over its own `Gtk.Revealer`**, built
+with `drawer::holder` exactly as `BluetoothPopover` builds a device. The head carries the name, the
+status line and a spinner; the chevron opens a `detail-card` of plain `$Row`s. A job's card is its
+actions — Pause, Resume, Cancel — and a printer's is what the queue answered about itself.
+
+**An action is a row, never an icon button, and it cannot live in the head.** `Row` is a
+`Gtk.Button`, so a button placed inside one is a button inside a button: the outer gesture claims
+the press and the inner never emits `clicked`. A headless test cannot catch it — `emit_by_name`
+bypasses the gesture entirely — so the shape is the guard. `SplitRow` exists for this reason and
+keeps its own control a sibling.
+
+The chevron hides when there is nothing behind it, and the drawer is forced shut in the same pass,
+so it can never stand open on an empty card. The widget emits `cancelled`/`paused`/`resumed`, each
+carrying the job id, the same shape as `BluetoothPopover`'s `connect_selected`. `Job.printer`,
+`Job.status`, `Printer.status` and every `Detail` are caller-supplied, already-cleaned text —
+formatting and sanitizing raw CUPS text is the panel applet's job, not this widget's, which is why
+no detail label is translated here.
 
 ## Stylesheets
 

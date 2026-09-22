@@ -264,9 +264,9 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
-        PrintingJob, PrintingPopover, PrintingPrinter, Repeat, Row, Severity, Shape, Slot,
-        SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
-        WeatherPopover, WorldClock, Ymd, Zone,
+        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, Repeat, Row, Severity,
+        Shape, Slot, SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency,
+        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -2054,12 +2054,46 @@ mod fixtures {
                             name: "HP LaserJet 400".into(),
                             status: "Default · paper jam".into(),
                             network: false,
+                            details: vec![
+                                PrintingDetail {
+                                    icon: "mark-location-symbolic".into(),
+                                    label: "Location".into(),
+                                    value: "Study".into(),
+                                },
+                                PrintingDetail {
+                                    icon: "dialog-warning-symbolic".into(),
+                                    label: "Problem".into(),
+                                    value: "Paper jam in tray 2".into(),
+                                },
+                                PrintingDetail {
+                                    icon: "media-floppy-symbolic".into(),
+                                    label: "Paper loaded".into(),
+                                    value: "A4, Letter".into(),
+                                },
+                            ],
                         },
                         PrintingPrinter {
                             id: "kitchen".into(),
                             name: "Kitchen".into(),
                             status: "IPP Everywhere · idle".into(),
                             network: true,
+                            details: vec![
+                                PrintingDetail {
+                                    icon: "mark-location-symbolic".into(),
+                                    label: "Location".into(),
+                                    value: "Kitchen".into(),
+                                },
+                                PrintingDetail {
+                                    icon: "printer-symbolic".into(),
+                                    label: "Prints".into(),
+                                    value: "Black & white, single-sided".into(),
+                                },
+                                PrintingDetail {
+                                    icon: "preferences-desktop-display-symbolic".into(),
+                                    label: "Resolution".into(),
+                                    value: "600 dpi".into(),
+                                },
+                            ],
                         },
                     ]);
                 }

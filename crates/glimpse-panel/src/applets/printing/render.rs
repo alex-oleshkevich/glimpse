@@ -4,7 +4,7 @@ use gettextrs::{gettext, ngettext};
 use glimpse_services::{
     JobState, PrintJob, Printer as ServicePrinter, PrinterState, PrintingState,
 };
-use glimpse_widgets::{PrintingJob, PrintingPrinter};
+use glimpse_widgets::{PrintingDetail, PrintingJob, PrintingPrinter};
 
 pub const IDLE: &str = "printer-symbolic";
 pub const PRINTING: &str = "printer-printing-symbolic";
@@ -127,7 +127,77 @@ fn printer(printer: &ServicePrinter) -> PrintingPrinter {
         name: cap(&printer.name),
         status: printer_status(printer),
         network: false,
+        details: printer_details(printer),
     }
+}
+
+fn detail(icon: &str, label: String, value: String) -> PrintingDetail {
+    PrintingDetail {
+        icon: icon.to_owned(),
+        label,
+        value,
+    }
+}
+
+/// Only what the printer actually answered. A row reading "Location —" is worse than no row, and
+/// cups leaves most of these empty on a queue that never filled them in.
+fn printer_details(printer: &ServicePrinter) -> Vec<PrintingDetail> {
+    let mut details = Vec::new();
+
+    if !printer.location.is_empty() {
+        details.push(detail(
+            "mark-location-symbolic",
+            gettext("Location"),
+            printer.location.clone(),
+        ));
+    }
+    if !printer.state_message.is_empty() {
+        details.push(detail(
+            "dialog-information-symbolic",
+            gettext("Reported"),
+            printer.state_message.clone(),
+        ));
+    }
+    if !printer.accepting_jobs {
+        details.push(detail(
+            "dialog-warning-symbolic",
+            gettext("Accepting jobs"),
+            gettext("No"),
+        ));
+    }
+    details.push(detail(
+        "printer-symbolic",
+        gettext("Prints"),
+        prints_summary(printer),
+    ));
+    if !printer.media_ready.is_empty() {
+        details.push(detail(
+            "media-floppy-symbolic",
+            gettext("Paper loaded"),
+            printer.media_ready.join(", "),
+        ));
+    }
+    if !printer.resolution.is_empty() {
+        details.push(detail(
+            "preferences-desktop-display-symbolic",
+            gettext("Resolution"),
+            printer.resolution.clone(),
+        ));
+    }
+
+    details
+}
+
+fn prints_summary(printer: &ServicePrinter) -> String {
+    let color = match printer.color {
+        true => gettext("Color"),
+        false => gettext("Black & white"),
+    };
+    let sides = match printer.duplex {
+        true => gettext("double-sided"),
+        false => gettext("single-sided"),
+    };
+    format!("{color} · {sides}")
 }
 
 fn printer_status(printer: &ServicePrinter) -> String {
@@ -164,6 +234,13 @@ mod tests {
             make_model: "Office LaserJet".to_owned(),
             state,
             state_reasons: Vec::new(),
+            state_message: String::new(),
+            location: String::new(),
+            accepting_jobs: true,
+            color: false,
+            duplex: false,
+            media_ready: Vec::new(),
+            resolution: String::new(),
             job_count: 0,
         }
     }
@@ -319,6 +396,44 @@ mod tests {
             converted[0].progress, None,
             "a page count is never fabricated from one half of the pair"
         );
+    }
+
+    #[test]
+    fn a_printer_detail_is_only_rendered_when_the_printer_answered_it() {
+        let bare = printer_at("Office", PrinterState::Idle);
+        let bare_details = printer_details(&bare);
+        let labels: Vec<&str> = bare_details
+            .iter()
+            .map(|detail| detail.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec!["Prints"],
+            "an empty location or resolution renders no row at all, never one reading a dash"
+        );
+
+        let mut full = printer_at("Office", PrinterState::Stopped);
+        full.location = "Study".to_owned();
+        full.state_message = "Paper jam in tray 2".to_owned();
+        full.accepting_jobs = false;
+        full.color = true;
+        full.duplex = true;
+        full.media_ready = vec!["A4".to_owned(), "Letter".to_owned()];
+        full.resolution = "600 dpi".to_owned();
+
+        let details = printer_details(&full);
+        let by_label = |label: &str| {
+            details
+                .iter()
+                .find(|detail| detail.label == label)
+                .map(|detail| detail.value.clone())
+        };
+        assert_eq!(by_label("Location").as_deref(), Some("Study"));
+        assert_eq!(by_label("Reported").as_deref(), Some("Paper jam in tray 2"));
+        assert_eq!(by_label("Accepting jobs").as_deref(), Some("No"));
+        assert_eq!(by_label("Prints").as_deref(), Some("Color · double-sided"));
+        assert_eq!(by_label("Paper loaded").as_deref(), Some("A4, Letter"));
+        assert_eq!(by_label("Resolution").as_deref(), Some("600 dpi"));
     }
 
     #[test]

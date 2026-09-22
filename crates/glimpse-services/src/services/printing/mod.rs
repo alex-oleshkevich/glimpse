@@ -28,6 +28,13 @@ pub struct Printer {
     pub make_model: String,
     pub state: PrinterState,
     pub state_reasons: Vec<String>,
+    pub state_message: String,
+    pub location: String,
+    pub accepting_jobs: bool,
+    pub color: bool,
+    pub duplex: bool,
+    pub media_ready: Vec<String>,
+    pub resolution: String,
     pub job_count: u32,
 }
 

@@ -164,6 +164,18 @@ fn parse_printers(attributes: &IppAttributes) -> Vec<Printer> {
                 make_model,
                 state,
                 state_reasons,
+                state_message: cap(&str_attr(group, "printer-state-message").unwrap_or_default()),
+                location: cap(&str_attr(group, "printer-location").unwrap_or_default()),
+                accepting_jobs: bool_attr(group, "printer-is-accepting-jobs").unwrap_or(true),
+                color: bool_attr(group, "color-supported").unwrap_or(false),
+                duplex: str_list_attr(group, "sides-supported")
+                    .iter()
+                    .any(|side| side.starts_with("two-sided")),
+                media_ready: str_list_attr(group, "media-ready")
+                    .into_iter()
+                    .map(|media| cap(&media))
+                    .collect(),
+                resolution: resolution_attr(group).unwrap_or_default(),
                 job_count,
             }
         })
@@ -231,6 +243,36 @@ fn str_list_attr(group: &IppAttributeGroup, name: &str) -> Vec<String> {
     match attribute.value() {
         IppValue::Array(values) => values.iter().filter_map(ipp_str_value).collect(),
         single => ipp_str_value(single).into_iter().collect(),
+    }
+}
+
+fn bool_attr(group: &IppAttributeGroup, name: &str) -> Option<bool> {
+    match group.get(name)?.value() {
+        IppValue::Boolean(value) => Some(*value),
+        _ => None,
+    }
+}
+
+/// `printer-resolution-default` is a `resolution` value, not a string, so it has no `ipp_str_value`
+/// arm. Only the cross-feed figure is rendered: every printer this has been seen on reports a
+/// square resolution, and "600 dpi" reads better than "600x600".
+fn resolution_attr(group: &IppAttributeGroup) -> Option<String> {
+    match group.get("printer-resolution-default")?.value() {
+        IppValue::Resolution {
+            cross_feed,
+            feed,
+            units,
+        } => {
+            let unit = match units {
+                4 => "dpcm",
+                _ => "dpi",
+            };
+            Some(match cross_feed == feed {
+                true => format!("{cross_feed} {unit}"),
+                false => format!("{cross_feed}x{feed} {unit}"),
+            })
+        }
+        _ => None,
     }
 }
 

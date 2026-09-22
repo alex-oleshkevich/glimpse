@@ -1,11 +1,11 @@
 mod imp;
 
 use gettextrs::{gettext, ngettext};
-use gtk4::{accessible, glib, prelude::*, subclass::prelude::*};
+use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{Row, SplitRow, none_if_empty, reconcile};
 
-pub use imp::{Job, Printer};
+pub use imp::{Detail, Job, Printer};
 
 glib::wrapper! {
     pub struct PrintingPopover(ObjectSubclass<imp::PrintingPopover>)
@@ -97,10 +97,63 @@ impl PrintingPopover {
             &mut imp.printer_held.borrow_mut(),
             &printers,
             |printer| printer.id.clone(),
-            |_| Row::new(),
-            dress_printer,
+            |_| self.build_printer_row(),
+            |holder, printer| self.dress_printer(holder, printer),
         );
         imp.printers.set_visible(!printers.is_empty());
+    }
+
+    /// A printer is the same shape as a job: a `$SplitRow` head over its own panel. The panel is a
+    /// `detail-card` of plain rows, filled by `reconcile::by_key` so a changing value updates its
+    /// row rather than rebuilding the card.
+    fn build_printer_row(&self) -> gtk4::Box {
+        let split = SplitRow::new();
+        split.set_detail_icon("go-next-symbolic".to_owned());
+        split.set_detail_tooltip(Some(gettext("Show this printer's details")));
+
+        let holder = crate::drawer::holder(&split);
+        if let Some(drawer) = crate::drawer::panel(&holder) {
+            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            card.add_css_class("detail-card");
+            drawer.set_child(Some(&card));
+            split.connect_details(move |_| crate::drawer::toggle(&drawer));
+        }
+        holder
+    }
+
+    fn dress_printer(&self, holder: &gtk4::Box, printer: &Printer) {
+        let Some(split) = crate::drawer::head::<SplitRow>(holder) else {
+            return;
+        };
+        let row = split.row();
+        row.set_activatable(false);
+        row.set_title(none_if_empty(&printer.name));
+        row.set_subtitle(none_if_empty(&printer.status));
+        row.set_lead_icon(Some(match printer.network {
+            true => "printer-network-symbolic",
+            false => "printer-symbolic",
+        }));
+
+        split.detail().set_visible(!printer.details.is_empty());
+
+        let Some(drawer) = crate::drawer::panel(holder) else {
+            return;
+        };
+        if printer.details.is_empty() {
+            crate::drawer::set(&drawer, false);
+        }
+        let Some(card) = drawer.child().and_downcast::<gtk4::Box>() else {
+            return;
+        };
+        let key = printer.id.clone();
+        reconcile::by_key(
+            &card,
+            &mut self.imp().printer_lines.borrow_mut(),
+            &printer.details,
+            |detail| format!("{key}/{}", detail.label),
+            |_| Row::new(),
+            dress_detail,
+        );
     }
 
     /// A job is a `$SplitRow` head over its own `Gtk.Revealer`, exactly as `BluetoothPopover`
@@ -117,17 +170,26 @@ impl PrintingPopover {
 
         let holder = crate::drawer::holder(&split);
 
-        let panel = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-        panel.add_css_class("job-actions");
-        let pause = action_button("media-playback-pause-symbolic", gettext("Pause this job"));
-        let resume = action_button("media-playback-start-symbolic", gettext("Resume this job"));
-        let cancel = action_button("window-close-symbolic", gettext("Cancel this job"));
-        self.connect_action(&pause, &job.id, "paused");
-        self.connect_action(&resume, &job.id, "resumed");
-        self.connect_action(&cancel, &job.id, "cancelled");
-        panel.append(&pause);
-        panel.append(&resume);
-        panel.append(&cancel);
+        let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        panel.add_css_class("detail-card");
+        panel.append(&self.build_action_row(
+            &job.id,
+            "media-playback-pause-symbolic",
+            gettext("Pause"),
+            "paused",
+        ));
+        panel.append(&self.build_action_row(
+            &job.id,
+            "media-playback-start-symbolic",
+            gettext("Resume"),
+            "resumed",
+        ));
+        panel.append(&self.build_action_row(
+            &job.id,
+            "window-close-symbolic",
+            gettext("Cancel"),
+            "cancelled",
+        ));
 
         if let Some(drawer) = crate::drawer::panel(&holder) {
             drawer.set_child(Some(&panel));
@@ -137,13 +199,21 @@ impl PrintingPopover {
         holder
     }
 
-    fn connect_action(&self, button: &gtk4::Button, id: &str, signal: &'static str) {
+    /// An action in the panel is a `$Row`, the same as every other list entry in this shell — an
+    /// icon button would be a second grammar for the same thing, and `BluetoothPopover` already
+    /// settled this one: its device panel is a `detail-card` of plain activatable rows.
+    fn build_action_row(&self, id: &str, icon: &str, label: String, signal: &'static str) -> Row {
+        let row = Row::new();
+        row.set_lead_icon(Some(icon));
+        row.set_title(Some(label.as_str()));
+        row.set_activatable(true);
         let key = id.to_owned();
-        button.connect_clicked(glib::clone!(
+        row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>(signal, &[&key])
         ));
+        row
     }
 
     /// The head body activates nothing — every action is in the panel below — so the inner `Row`
@@ -170,33 +240,16 @@ impl PrintingPopover {
         let Some(panel) = drawer.child().and_downcast::<gtk4::Box>() else {
             return;
         };
-        let pause = panel.first_child();
-        let resume = pause
-            .as_ref()
-            .and_then(gtk4::prelude::WidgetExt::next_sibling);
-        let cancel = resume
-            .as_ref()
-            .and_then(gtk4::prelude::WidgetExt::next_sibling);
-        if let Some(button) = pause.and_downcast::<gtk4::Button>() {
-            button.set_visible(job.pausable);
-        }
-        if let Some(button) = resume.and_downcast::<gtk4::Button>() {
-            button.set_visible(job.resumable);
-        }
-        if let Some(button) = cancel.and_downcast::<gtk4::Button>() {
-            button.set_visible(job.cancellable);
+        let shown = [job.pausable, job.resumable, job.cancellable];
+        let mut child = panel.first_child();
+        for visible in shown {
+            let Some(row) = child else {
+                break;
+            };
+            child = row.next_sibling();
+            row.set_visible(visible);
         }
     }
-}
-
-fn action_button(icon: &str, tooltip: String) -> gtk4::Button {
-    let button = gtk4::Button::from_icon_name(icon);
-    button.set_has_frame(false);
-    button.add_css_class("mute");
-    button.set_valign(gtk4::Align::Center);
-    button.set_tooltip_text(Some(&tooltip));
-    button.update_property(&[accessible::Property::Label(&tooltip)]);
-    button
 }
 
 fn summary_text(count: usize) -> String {
@@ -207,15 +260,11 @@ fn summary_text(count: usize) -> String {
         .replace("{count}", &count.to_string())
 }
 
-fn dress_printer(row: &Row, printer: &Printer) {
+fn dress_detail(row: &Row, detail: &Detail) {
     row.set_activatable(false);
-    row.set_title(none_if_empty(&printer.name));
-    row.set_subtitle(none_if_empty(&printer.status));
-    let icon = match printer.network {
-        true => "printer-network-symbolic",
-        false => "printer-symbolic",
-    };
-    row.set_lead_icon(Some(icon));
+    row.set_lead_icon(none_if_empty(&detail.icon));
+    row.set_title(none_if_empty(&detail.label));
+    row.set_value(none_if_empty(&detail.value));
 }
 
 /// The second line reads "{printer} · {status}" normally, and "{printer} · Page {n} of {m}" while
@@ -430,6 +479,7 @@ mod tests {
             name: "Kitchen".into(),
             status: "Idle".into(),
             network: true,
+            ..Default::default()
         }]);
         assert!(imp.printers.get_visible());
         assert_eq!(imp.printer_renders.get(), printer_renders_before + 1);
@@ -440,6 +490,7 @@ mod tests {
             name: "Kitchen".into(),
             status: "Idle".into(),
             network: true,
+            ..Default::default()
         }]);
         assert_eq!(
             imp.printer_renders.get(),
