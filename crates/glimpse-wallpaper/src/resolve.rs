@@ -477,6 +477,10 @@ mod tests {
     fn backdrop_intent_is_none_when_disabled() {
         let wallpaper = Wallpaper {
             image: Some(PathBuf::from("city.jpg")),
+            backdrop: Backdrop {
+                enabled: false,
+                ..Backdrop::default()
+            },
             ..Wallpaper::default()
         };
         let mut warned = MissingWarned::default();

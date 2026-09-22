@@ -34,7 +34,7 @@ impl Default for Wallpaper {
     fn default() -> Self {
         Self {
             color: "#000000".to_owned(),
-            image: None,
+            image: Some(PathBuf::from("default.jpg")),
             image_dark: None,
             fit: Fit::Cover,
             transition: Transition::Fade,
@@ -142,7 +142,7 @@ pub struct Backdrop {
 impl Default for Backdrop {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             image: None,
             image_dark: None,
             blur_radius: 24,
