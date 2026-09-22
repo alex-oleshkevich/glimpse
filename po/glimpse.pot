@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 21:56+0200\n"
+"POT-Creation-Date: 2026-09-22 22:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -240,7 +240,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:247
+#: crates/glimpse-widgets/src/lib.rs:249
 msgid "{percent}%"
 msgstr ""
 
@@ -878,6 +878,7 @@ msgid "Could not blank the screens"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:128
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:178
 msgid "The compositor is unavailable."
 msgstr ""
 
@@ -1630,6 +1631,7 @@ msgid "No reading yet"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:75
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:27
 msgid "Clear"
 msgstr ""
 
@@ -1770,6 +1772,25 @@ msgstr ""
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Source"
 msgstr ""
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:174
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
+msgid "Workspaces"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:176
+msgid "Could not rename the workspace"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:28
+msgid "Workspace {number}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:32
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:75
 msgid "Applications"
@@ -1994,7 +2015,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:208
+#: crates/glimpse-widgets/src/lib.rs:210
 msgid "Play"
 msgstr ""
 
@@ -2052,8 +2073,12 @@ msgstr ""
 msgid "Repeat"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
-msgid "Workspaces"
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:24
+msgid "Workspace name"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:32
+msgid "Press Enter to rename. Leave it empty to clear the name."
 msgstr ""
 
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
@@ -2168,7 +2193,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:207
+#: crates/glimpse-widgets/src/lib.rs:209
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""

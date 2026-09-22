@@ -104,6 +104,8 @@ pub enum Kind {
     Tray(Tray),
     /// Current conditions, with the forecast in its popover.
     Weather(Weather),
+    /// The current workspace's name, renamed from its popover.
+    WorkspaceName {},
 }
 
 /// Settings for the tray applet. Which items exist is the applications' decision; this is only

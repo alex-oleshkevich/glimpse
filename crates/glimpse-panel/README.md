@@ -244,6 +244,16 @@ tick against the provider's thirty-minute lease.
 **keyboard** — the chip is the current layout's code, hidden under two layouts. The compositor owns
 the list; this applet only renders it and sends the switch command.
 
+**workspace-name** — the chip is the name of the workspace active on this bar's output, or its
+index when it has none, falling back to the focused workspace when the output is unknown. It shares
+`applets/workspace.rs` with the pager — `workspace_token` and the tooltip tokens — so the two never
+disagree about a workspace. The
+popover is one entry and asks for the keyboard with `Opener::typing` while it is up; Enter renames,
+an empty entry clears the name, and Esc closes. The chip takes the new name before the compositor
+answers and drops it on **any** answer, success included, re-reading the snapshot: niri refuses a
+name another workspace already holds and still replies `Ok`, so only the snapshot knows whether the
+rename happened.
+
 **notifications** — the chip is a bell, hidden until the list has arrived and kept afterwards even
 when empty so do-not-disturb stays reachable. A collapsed stack card is a preview, so its
 per-notification controls are hidden: left click opens the stack, right click clears that

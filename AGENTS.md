@@ -704,6 +704,12 @@ ran at all. Six tests are in this state today — bead `glimpse-9vjo`. Until it 
 add a seventh**: a new widget's assertions go at the end of `widgets()`, and the constraint is per
 *process*, so a separate test binary under `tests/` is the escape hatch if one is really needed.
 
+**niri refuses a workspace name another workspace holds, and says `Ok`, September 2026.** Measured
+on niri 26.04: `set-workspace-name` naming a second workspace after the first exits 0, changes
+nothing and emits no event. A client that updates optimistically must drop its guess on any reply
+and re-read the snapshot, or the refused name stays on screen with nothing to correct it — which is
+what the workspace-name applet does.
+
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.
 It cannot prove the **pointer** case: `Row` is a `Gtk.Button` and `Gtk.Switch` runs its own click

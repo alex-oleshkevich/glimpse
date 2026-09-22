@@ -23,6 +23,7 @@ mod tokens;
 mod tray;
 pub(crate) mod weather;
 mod workspace;
+mod workspace_name;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{
@@ -257,6 +258,17 @@ pub fn build(
             Some(Box::new(move |ctx| {
                 ctx.watch(privacy.subscribe());
                 Box::new(privacy::Privacy::start(privacy))
+            }))
+        }
+        AppletKind::WorkspaceName {} => {
+            let compositor = compositor.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(compositor.subscribe());
+                Box::new(workspace_name::WorkspaceName::start(
+                    compositor,
+                    notifications,
+                ))
             }))
         }
         AppletKind::Command {} | AppletKind::Exec {} => None,
