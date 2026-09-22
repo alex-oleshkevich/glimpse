@@ -1,5 +1,8 @@
 mod app;
 mod cli;
+mod decode;
+mod resolve;
+mod surface;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
@@ -38,7 +41,7 @@ fn run(cli: &Cli) -> Result<()> {
 
     let app_id =
         std::env::var("GLIMPSE_WALLPAPER_APP_ID").unwrap_or("me.aresa.GlimpseWallpaper".into());
-    let app = RelmApp::new(app_id.as_str());
+    let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
         config_path: cli.config.config.clone(),

@@ -57,7 +57,7 @@ pub use power::Power;
 pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
-pub use wallpaper::{Backdrop, Fit, Transition, Wallpaper};
+pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]

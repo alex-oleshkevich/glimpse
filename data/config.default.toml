@@ -103,6 +103,7 @@ color = "#000000"
 fit = "cover"
 transition = "fade"
 transition-ms = 500
+outputs = []
 
 [wallpaper.backdrop]
 enabled = false

@@ -1,14 +1,19 @@
+use adw::gdk;
 use futures_util::StreamExt;
-use gtk4::prelude::{GtkWindowExt, WidgetExt};
-use gtk4_layer_shell::LayerShell;
-use std::path::PathBuf;
-
 use glimpse_config::{
     Config, WALLPAPER_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
 use glimpse_widgets::Styles;
-use relm4::{ComponentParts, ComponentSender, SimpleComponent};
+use relm4::{
+    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    gtk::prelude::*,
+};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use tokio::task::JoinHandle;
+
+use crate::resolve::{self, Key, MissingWarned, Role};
+use crate::surface;
 
 pub struct AppInit {
     pub config: Config,
@@ -20,12 +25,22 @@ pub struct AppInit {
 pub enum AppInput {
     ConfigChanged(Config),
     ThemeChanged,
+    MonitorsChanged,
+    DarkFlipped,
+}
+
+struct SurfaceState {
+    key: Key,
+    controller: Controller<surface::Surface>,
 }
 
 pub struct App {
     config: Config,
     theme_watch: JoinHandle<()>,
     styles: Styles,
+    surfaces: Vec<SurfaceState>,
+    dark: bool,
+    missing_warned: MissingWarned,
 }
 
 #[relm4::component(pub)]
@@ -48,20 +63,34 @@ impl SimpleComponent for App {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        root.init_layer_shell();
-        root.set_layer(gtk4_layer_shell::Layer::Background);
-        root.set_namespace(Some("glimpse-wallpaper"));
-
+        watch_monitors(sender.clone());
+        watch_scheme(sender.clone());
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
+        tracing::info!(
+            "the backdrop surface is visible only where niri places it; add \
+             `layer-rule {{ match namespace=\"^glimpse-backdrop$\"; place-within-backdrop true; }}` \
+             to show it in the Overview"
+        );
+
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
-        let model = App {
+        let dark = adw::StyleManager::default().is_dark();
+        let mut model = App {
             config: init.config,
             theme_watch,
             styles,
+            surfaces: Vec::new(),
+            dark,
+            missing_warned: MissingWarned::default(),
         };
         model.reload_styles();
+        reconcile_surfaces(
+            &mut model.surfaces,
+            &mut model.missing_warned,
+            &model.config,
+            model.dark,
+        );
 
         let widgets = view_output!();
 
@@ -79,6 +108,7 @@ impl SimpleComponent for App {
                 self.config = config;
                 self.styles
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
+                self.dark = adw::StyleManager::default().is_dark();
                 if renamed {
                     self.theme_watch.abort();
                     self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
@@ -86,7 +116,17 @@ impl SimpleComponent for App {
                 }
             }
             AppInput::ThemeChanged => self.reload_styles(),
+            AppInput::MonitorsChanged => {}
+            AppInput::DarkFlipped => {
+                self.dark = adw::StyleManager::default().is_dark();
+            }
         }
+        reconcile_surfaces(
+            &mut self.surfaces,
+            &mut self.missing_warned,
+            &self.config,
+            self.dark,
+        );
     }
 }
 
@@ -123,4 +163,88 @@ fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentS
             sender.input(AppInput::ConfigChanged(config));
         }
     });
+}
+
+fn watch_monitors(sender: ComponentSender<App>) {
+    let Some(display) = gdk::Display::default() else {
+        return;
+    };
+    let monitor_sender = sender.input_sender().clone();
+    let _ = monitor_sender.send(AppInput::MonitorsChanged);
+    display.monitors().connect_items_changed(move |_, _, _, _| {
+        let _ = monitor_sender.send(AppInput::MonitorsChanged);
+    });
+}
+
+fn watch_scheme(sender: ComponentSender<App>) {
+    let scheme_sender = sender.input_sender().clone();
+    adw::StyleManager::default().connect_dark_notify(move |_| {
+        let _ = scheme_sender.send(AppInput::DarkFlipped);
+    });
+}
+
+fn reconcile_surfaces(
+    surfaces: &mut Vec<SurfaceState>,
+    missing_warned: &mut MissingWarned,
+    config: &Config,
+    dark: bool,
+) {
+    let mut existing: HashMap<Key, SurfaceState> = surfaces
+        .drain(..)
+        .map(|state| (state.key.clone(), state))
+        .collect();
+
+    for monitor in list_gdk_monitors() {
+        let Some(connector) = monitor.connector().map(String::from) else {
+            tracing::debug!("skipping monitor without a connector name");
+            continue;
+        };
+
+        for role in [Role::Wallpaper, Role::Backdrop] {
+            let Some(intent) =
+                resolve::intent(&config.wallpaper, &connector, role, dark, missing_warned)
+            else {
+                continue;
+            };
+
+            let key = Key {
+                connector: connector.clone(),
+                role,
+            };
+            let surface_config = surface::Config {
+                monitor: monitor.clone(),
+                role,
+                intent,
+            };
+            let state = match existing.remove(&key) {
+                Some(state) => {
+                    state
+                        .controller
+                        .emit(surface::Input::Configure(surface_config));
+                    state
+                }
+                None => SurfaceState {
+                    key,
+                    controller: surface::Surface::builder().launch(surface_config).detach(),
+                },
+            };
+            surfaces.push(state);
+        }
+    }
+
+    for (key, state) in existing {
+        state.controller.widget().destroy();
+        tracing::debug!(connector = %key.connector, role = ?key.role, "wallpaper surface removed");
+    }
+}
+
+fn list_gdk_monitors() -> Vec<gdk::Monitor> {
+    let Some(display) = gdk::Display::default() else {
+        return Vec::new();
+    };
+
+    let model = display.monitors();
+    (0..model.n_items())
+        .filter_map(|i| model.item(i).and_downcast::<gdk::Monitor>())
+        .collect()
 }

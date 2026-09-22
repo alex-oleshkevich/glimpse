@@ -2452,6 +2452,7 @@
         },
         "color": "#000000",
         "fit": "cover",
+        "outputs": [],
         "transition": "fade",
         "transition-ms": 500
       }
@@ -2494,6 +2495,7 @@
           "type": "integer",
           "format": "uint32",
           "default": 24,
+          "maximum": 128,
           "minimum": 0
         },
         "enabled": {
@@ -2509,6 +2511,44 @@
         },
         "image-dark": {
           "description": "Source image under the dark color scheme. Unset derives it from `[wallpaper] image-dark`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "BackdropOutput": {
+      "description": "A per-output override of `[wallpaper.backdrop]`. Every field is optional and falls back to\nthe corresponding value in `[wallpaper.backdrop]` when unset.",
+      "type": "object",
+      "properties": {
+        "blur-radius": {
+          "description": "Overrides `[wallpaper.backdrop] blur-radius` for this connector.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "maximum": 128,
+          "minimum": 0
+        },
+        "enabled": {
+          "description": "Overrides `[wallpaper.backdrop] enabled` for this connector.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "image": {
+          "description": "Overrides `[wallpaper.backdrop] image` for this connector.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image-dark": {
+          "description": "Overrides `[wallpaper.backdrop] image-dark` for this connector.",
           "type": [
             "string",
             "null"
@@ -2681,11 +2721,20 @@
       ]
     },
     "Fit": {
-      "type": "string",
-      "enum": [
-        "cover",
-        "contain",
-        "fill"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "cover",
+            "contain",
+            "fill"
+          ]
+        },
+        {
+          "description": "The image at its own size, centred on color, downscaled only when it exceeds the\noutput. contain enlarges a small image and looks soft; this is the honest option.",
+          "type": "string",
+          "const": "center"
+        }
       ]
     },
     "Geolocation": {
@@ -3621,6 +3670,14 @@
             "null"
           ]
         },
+        "outputs": {
+          "description": "Per-output overrides, matched against the connector `gdk::Monitor::connector()` returns\n(the same string `[[panels]].monitor` matches against). An output with no entry here\nrenders the values above. When two entries name the same connector, the first one wins.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/WallpaperOutput"
+          }
+        },
         "transition": {
           "description": "How one image replaces another.",
           "$ref": "#/$defs/Transition",
@@ -3631,10 +3688,89 @@
           "type": "integer",
           "format": "uint32",
           "default": 500,
+          "maximum": 5000,
           "minimum": 0
         }
       },
       "additionalProperties": false
+    },
+    "WallpaperOutput": {
+      "description": "A per-output override of the wallpaper (and backdrop) shown on one connector. Every field but\n`monitor` is optional and falls back to the corresponding value in `[wallpaper]`, or\n`[wallpaper.backdrop]` for the nested `backdrop` fields, when unset.",
+      "type": "object",
+      "properties": {
+        "backdrop": {
+          "description": "Overrides `[wallpaper.backdrop]` for this connector.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackdropOutput"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "description": "Overrides `[wallpaper] color` for this connector.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fit": {
+          "description": "Overrides `[wallpaper] fit` for this connector.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Fit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "image": {
+          "description": "Overrides `[wallpaper] image` for this connector.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image-dark": {
+          "description": "Overrides `[wallpaper] image-dark` for this connector.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "monitor": {
+          "description": "The connector this override applies to, e.g. `\"DP-2\"`.",
+          "type": "string"
+        },
+        "transition": {
+          "description": "Overrides `[wallpaper] transition` for this connector.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Transition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transition-ms": {
+          "description": "Overrides `[wallpaper] transition-ms` for this connector.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "monitor"
+      ]
     },
     "Weather": {
       "description": "How a forecast is fetched. There are no places here: a place is registered by whatever wants to\nsee it, through `WatchPlace`, and held for as long as it keeps asking. Nothing is fetched and\nno location is resolved until something does.",
