@@ -245,7 +245,7 @@ impl Surface {
         let output_target = decode::output_target(geometry.width(), geometry.height(), scale);
         let target = match self.role {
             Role::Wallpaper => output_target,
-            Role::Backdrop => decode::backdrop_target(output_target),
+            Role::Backdrop => decode::backdrop_target(output_target, self.intent.downscale_factor),
         };
 
         let mtime = self

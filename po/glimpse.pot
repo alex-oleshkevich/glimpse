@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 20:12+0200\n"
+"POT-Creation-Date: 2026-09-22 21:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -240,7 +240,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:245
+#: crates/glimpse-widgets/src/lib.rs:247
 msgid "{percent}%"
 msgstr ""
 
@@ -310,7 +310,7 @@ msgid "Technology"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:143
-#: crates/glimpse-widgets/src/display_list/mod.rs:273
+#: crates/glimpse-widgets/src/display_list/mod.rs:276
 msgid "Model"
 msgstr ""
 
@@ -1994,7 +1994,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:206
+#: crates/glimpse-widgets/src/lib.rs:208
 msgid "Play"
 msgstr ""
 
@@ -2088,43 +2088,43 @@ msgstr ""
 msgid "{kelvin} K"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:135
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:174
+#: crates/glimpse-widgets/src/display_list/mod.rs:177
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:267
+#: crates/glimpse-widgets/src/display_list/mod.rs:270
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:270
+#: crates/glimpse-widgets/src/display_list/mod.rs:273
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:276
+#: crates/glimpse-widgets/src/display_list/mod.rs:279
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:279
+#: crates/glimpse-widgets/src/display_list/mod.rs:282
 msgid "Current mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:282
+#: crates/glimpse-widgets/src/display_list/mod.rs:285
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:283
+#: crates/glimpse-widgets/src/display_list/mod.rs:286
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:294
+#: crates/glimpse-widgets/src/display_list/mod.rs:297
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:312
+#: crates/glimpse-widgets/src/display_list/mod.rs:315
 msgid "{x}, {y}"
 msgstr ""
 
@@ -2168,7 +2168,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:205
+#: crates/glimpse-widgets/src/lib.rs:207
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""

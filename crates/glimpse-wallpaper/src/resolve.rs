@@ -38,6 +38,7 @@ pub struct Intent {
     pub transition: Transition,
     pub transition_ms: u32,
     pub blur_radius: u32,
+    pub downscale_factor: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,6 +126,7 @@ fn wallpaper_intent(
         transition: effective.transition,
         transition_ms: effective.transition_ms,
         blur_radius: 0,
+        downscale_factor: 1,
     }
 }
 
@@ -172,6 +174,7 @@ fn backdrop_intent(
         transition: effective.transition,
         transition_ms: effective.transition_ms,
         blur_radius,
+        downscale_factor: backdrop.downscale_factor,
     })
 }
 

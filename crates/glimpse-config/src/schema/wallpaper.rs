@@ -144,6 +144,11 @@ pub struct Backdrop {
     #[serde(deserialize_with = "blur_radius")]
     #[schemars(range(min = 0, max = 128))]
     pub blur_radius: u32,
+    /// Divides the output's physical size to get the size the backdrop is decoded at; 1 decodes
+    /// at full size. The shorter side never drops below 256 pixels.
+    #[serde(deserialize_with = "downscale_factor")]
+    #[schemars(range(min = 1, max = 16))]
+    pub downscale_factor: u32,
 }
 
 impl Default for Backdrop {
@@ -153,6 +158,7 @@ impl Default for Backdrop {
             image: None,
             image_dark: None,
             blur_radius: 24,
+            downscale_factor: 4,
         }
     }
 }
@@ -177,6 +183,17 @@ where
         .contains(&value)
         .then_some(value)
         .ok_or_else(|| D::Error::custom("must be between 0 and 128 pixels"))
+}
+
+fn downscale_factor<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = u32::deserialize(deserializer)?;
+    (1..=16)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| D::Error::custom("must be between 1 and 16"))
 }
 
 fn optional_transition_ms<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
@@ -247,6 +264,22 @@ mod tests {
             error.contains("must be between 0 and 128 pixels"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn downscale_factor_defaults_to_four_and_refuses_zero() {
+        assert_eq!(
+            load("")
+                .expect("defaults")
+                .wallpaper
+                .backdrop
+                .downscale_factor,
+            4
+        );
+        let error = load("[wallpaper.backdrop]\ndownscale-factor = 0\n")
+            .expect_err("out of range")
+            .to_string();
+        assert!(error.contains("must be between 1 and 16"), "{error}");
     }
 
     #[test]

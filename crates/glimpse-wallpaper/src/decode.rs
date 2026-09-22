@@ -8,7 +8,6 @@ use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 
 pub const CEILING: i32 = 8192;
-const BACKDROP_DIVISOR: i32 = 4;
 const BACKDROP_FLOOR: i32 = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,10 +75,11 @@ pub fn plan(source: Target, output: Target, fit: Fit) -> Option<Plan> {
     Some(Plan { load, crop })
 }
 
-pub(crate) fn backdrop_target(output: Target) -> Target {
+pub(crate) fn backdrop_target(output: Target, downscale_factor: u32) -> Target {
+    let divisor = i32::try_from(downscale_factor).unwrap_or(i32::MAX).max(1);
     let divided = Target {
-        width: (output.width / BACKDROP_DIVISOR).max(1),
-        height: (output.height / BACKDROP_DIVISOR).max(1),
+        width: (output.width / divisor).max(1),
+        height: (output.height / divisor).max(1),
     };
     let shorter = divided.width.min(divided.height);
     if shorter >= BACKDROP_FLOOR {
@@ -402,25 +402,29 @@ mod tests {
 
     #[test]
     fn backdrop_target_divides_a_large_output_and_preserves_aspect() {
-        let target = backdrop_target(Target {
+        let output = Target {
             width: 3840,
             height: 2160,
-        });
+        };
         assert_eq!(
-            target,
+            backdrop_target(output, 4),
             Target {
                 width: 960,
                 height: 540
             }
         );
+        assert_eq!(backdrop_target(output, 1), output);
     }
 
     #[test]
     fn backdrop_target_floors_a_small_output_at_256_and_keeps_its_aspect() {
-        let target = backdrop_target(Target {
-            width: 800,
-            height: 600,
-        });
+        let target = backdrop_target(
+            Target {
+                width: 800,
+                height: 600,
+            },
+            4,
+        );
         assert!(target.width.min(target.height) == BACKDROP_FLOOR);
         let source_ratio = 800.0 / 600.0;
         let target_ratio = f64::from(target.width) / f64::from(target.height);

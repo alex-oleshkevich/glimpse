@@ -2489,6 +2489,7 @@
       "default": {
         "backdrop": {
           "blur-radius": 24,
+          "downscale-factor": 4,
           "enabled": true
         },
         "color": "#000000",
@@ -2540,6 +2541,14 @@
           "default": 24,
           "maximum": 128,
           "minimum": 0
+        },
+        "downscale-factor": {
+          "description": "Divides the output's physical size to get the size the backdrop is decoded at; 1 decodes\nat full size. The shorter side never drops below 256 pixels.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 4,
+          "maximum": 16,
+          "minimum": 1
         },
         "enabled": {
           "type": "boolean",
@@ -3691,6 +3700,7 @@
           "$ref": "#/$defs/Backdrop",
           "default": {
             "blur-radius": 24,
+            "downscale-factor": 4,
             "enabled": true
           }
         },

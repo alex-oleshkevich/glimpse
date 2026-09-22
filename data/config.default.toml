@@ -110,6 +110,7 @@ outputs = []
 [wallpaper.backdrop]
 enabled = true
 blur-radius = 24
+downscale-factor = 4
 
 [lock]
 pam-service = "glimpse-lock"

@@ -21,9 +21,9 @@ mod hero;
 mod idle_popover;
 mod indicator;
 mod indicator_group;
-mod monitors;
 mod inhibitor_list;
 mod keyboard_popover;
+mod monitors;
 mod mpris_popover;
 mod network_popover;
 mod network_secret_dialog;
@@ -67,7 +67,6 @@ mod workspaces_popover;
 mod world_clock;
 
 pub use artwork::{artwork, thumbnail};
-pub use monitors::watch_monitors;
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
@@ -99,6 +98,7 @@ pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
+pub use monitors::watch_monitors;
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
     Ask as NetworkAsk, Details as NetworkDetails, Entered as NetworkEntered, Entry as NetworkEntry,
