@@ -140,7 +140,6 @@ impl ClipboardList {
 
         let actions = self.imp().actions.borrow().clone();
         let pin = Row::new();
-        pin.set_lead_icon(Some("view-pin-symbolic"));
         pin.set_title(Some(match pinned {
             true => actions.unpin.as_str(),
             false => actions.pin.as_str(),
@@ -152,7 +151,6 @@ impl ClipboardList {
         ));
 
         let remove = Row::new();
-        remove.set_lead_icon(Some("user-trash-symbolic"));
         remove.set_title(Some(actions.forget.as_str()));
         remove.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]

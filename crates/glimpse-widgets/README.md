@@ -243,7 +243,9 @@ Per-popover rules that are traps rather than taste:
   insensitive under a hardware block**, which reads as refused, not merely off.
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
 its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
-open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **What
+open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **No
+card row carries a lead icon**: the head above it already names the thing, so a column of glyphs
+beside one-word labels is decoration the eye has to step over. **What
 recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
 **`IdlePopover`'s hold switch is a second master control, not a readout**, emitting `hold-toggled` the
 same as an indefinite preset does; its six preset buttons carry their durations hardcoded in

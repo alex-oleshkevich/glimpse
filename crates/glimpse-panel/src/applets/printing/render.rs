@@ -131,12 +131,8 @@ fn printer(printer: &ServicePrinter) -> PrintingPrinter {
     }
 }
 
-fn detail(icon: &str, label: String, value: String) -> PrintingDetail {
-    PrintingDetail {
-        icon: icon.to_owned(),
-        label,
-        value,
-    }
+fn detail(label: String, value: String) -> PrintingDetail {
+    PrintingDetail { label, value }
 }
 
 /// Only what the printer actually answered. A row reading "Location —" is worse than no row, and
@@ -145,44 +141,23 @@ fn printer_details(printer: &ServicePrinter) -> Vec<PrintingDetail> {
     let mut details = Vec::new();
 
     if !printer.location.is_empty() {
-        details.push(detail(
-            "mark-location-symbolic",
-            gettext("Location"),
-            printer.location.clone(),
-        ));
+        details.push(detail(gettext("Location"), printer.location.clone()));
     }
     if !printer.state_message.is_empty() {
-        details.push(detail(
-            "dialog-information-symbolic",
-            gettext("Reported"),
-            printer.state_message.clone(),
-        ));
+        details.push(detail(gettext("Reported"), printer.state_message.clone()));
     }
     if !printer.accepting_jobs {
-        details.push(detail(
-            "dialog-warning-symbolic",
-            gettext("Accepting jobs"),
-            gettext("No"),
-        ));
+        details.push(detail(gettext("Accepting jobs"), gettext("No")));
     }
-    details.push(detail(
-        "printer-symbolic",
-        gettext("Prints"),
-        prints_summary(printer),
-    ));
+    details.push(detail(gettext("Prints"), prints_summary(printer)));
     if !printer.media_ready.is_empty() {
         details.push(detail(
-            "media-floppy-symbolic",
             gettext("Paper loaded"),
             printer.media_ready.join(", "),
         ));
     }
     if !printer.resolution.is_empty() {
-        details.push(detail(
-            "preferences-desktop-display-symbolic",
-            gettext("Resolution"),
-            printer.resolution.clone(),
-        ));
+        details.push(detail(gettext("Resolution"), printer.resolution.clone()));
     }
 
     details

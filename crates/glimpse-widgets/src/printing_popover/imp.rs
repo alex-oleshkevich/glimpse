@@ -35,7 +35,6 @@ pub struct Printer {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Detail {
-    pub icon: String,
     pub label: String,
     pub value: String,
 }

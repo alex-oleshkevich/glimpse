@@ -2056,17 +2056,14 @@ mod fixtures {
                             network: false,
                             details: vec![
                                 PrintingDetail {
-                                    icon: "mark-location-symbolic".into(),
                                     label: "Location".into(),
                                     value: "Study".into(),
                                 },
                                 PrintingDetail {
-                                    icon: "dialog-warning-symbolic".into(),
                                     label: "Problem".into(),
                                     value: "Paper jam in tray 2".into(),
                                 },
                                 PrintingDetail {
-                                    icon: "media-floppy-symbolic".into(),
                                     label: "Paper loaded".into(),
                                     value: "A4, Letter".into(),
                                 },
@@ -2079,17 +2076,14 @@ mod fixtures {
                             network: true,
                             details: vec![
                                 PrintingDetail {
-                                    icon: "mark-location-symbolic".into(),
                                     label: "Location".into(),
                                     value: "Kitchen".into(),
                                 },
                                 PrintingDetail {
-                                    icon: "printer-symbolic".into(),
                                     label: "Prints".into(),
                                     value: "Black & white, single-sided".into(),
                                 },
                                 PrintingDetail {
-                                    icon: "preferences-desktop-display-symbolic".into(),
                                     label: "Resolution".into(),
                                     value: "600 dpi".into(),
                                 },

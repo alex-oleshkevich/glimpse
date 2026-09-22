@@ -172,24 +172,9 @@ impl PrintingPopover {
 
         let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         panel.add_css_class("detail-card");
-        panel.append(&self.build_action_row(
-            &job.id,
-            "media-playback-pause-symbolic",
-            gettext("Pause"),
-            "paused",
-        ));
-        panel.append(&self.build_action_row(
-            &job.id,
-            "media-playback-start-symbolic",
-            gettext("Resume"),
-            "resumed",
-        ));
-        panel.append(&self.build_action_row(
-            &job.id,
-            "window-close-symbolic",
-            gettext("Cancel"),
-            "cancelled",
-        ));
+        panel.append(&self.build_action_row(&job.id, gettext("Pause"), "paused"));
+        panel.append(&self.build_action_row(&job.id, gettext("Resume"), "resumed"));
+        panel.append(&self.build_action_row(&job.id, gettext("Cancel"), "cancelled"));
 
         if let Some(drawer) = crate::drawer::panel(&holder) {
             drawer.set_child(Some(&panel));
@@ -202,9 +187,8 @@ impl PrintingPopover {
     /// An action in the panel is a `$Row`, the same as every other list entry in this shell — an
     /// icon button would be a second grammar for the same thing, and `BluetoothPopover` already
     /// settled this one: its device panel is a `detail-card` of plain activatable rows.
-    fn build_action_row(&self, id: &str, icon: &str, label: String, signal: &'static str) -> Row {
+    fn build_action_row(&self, id: &str, label: String, signal: &'static str) -> Row {
         let row = Row::new();
-        row.set_lead_icon(Some(icon));
         row.set_title(Some(label.as_str()));
         row.set_activatable(true);
         let key = id.to_owned();
@@ -262,7 +246,6 @@ fn summary_text(count: usize) -> String {
 
 fn dress_detail(row: &Row, detail: &Detail) {
     row.set_activatable(false);
-    row.set_lead_icon(none_if_empty(&detail.icon));
     row.set_title(none_if_empty(&detail.label));
     row.set_value(none_if_empty(&detail.value));
 }

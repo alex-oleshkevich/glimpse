@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 13:53+0200\n"
+"POT-Creation-Date: 2026-09-22 14:05+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,7 +41,7 @@ msgstr ""
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:190
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:177
 msgid "Cancel"
 msgstr ""
 
@@ -895,7 +895,7 @@ msgid "The compositor is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/mod.rs:183
-#: crates/glimpse-panel/src/applets/printing/render.rs:205
+#: crates/glimpse-panel/src/applets/printing/render.rs:180
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:246
 msgid "Idle"
 msgstr ""
@@ -973,7 +973,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/mpris/render.rs:34
 #: crates/glimpse-panel/src/applets/printing/render.rs:113
-#: crates/glimpse-panel/src/applets/printing/render.rs:212
+#: crates/glimpse-panel/src/applets/printing/render.rs:187
 msgid "Stopped"
 msgstr ""
 
@@ -1264,7 +1264,7 @@ msgid "Calendar"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:263
-#: crates/glimpse-panel/src/applets/printing/render.rs:150
+#: crates/glimpse-panel/src/applets/printing/render.rs:144
 msgid "Location"
 msgstr ""
 
@@ -1355,7 +1355,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:164
 #: crates/glimpse-panel/src/applets/printing/render.rs:112
-#: crates/glimpse-panel/src/applets/printing/render.rs:206
+#: crates/glimpse-panel/src/applets/printing/render.rs:181
 msgid "Printing"
 msgstr ""
 
@@ -1368,7 +1368,7 @@ msgid "The print server is unreachable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:70
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:259
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:243
 msgid "{count} print job"
 msgid_plural "{count} print jobs"
 msgstr[0] ""
@@ -1394,43 +1394,43 @@ msgstr ""
 msgid "Aborted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:157
+#: crates/glimpse-panel/src/applets/printing/render.rs:147
 msgid "Reported"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:164
+#: crates/glimpse-panel/src/applets/printing/render.rs:150
 msgid "Accepting jobs"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render.rs:150
 msgid "No"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:170
+#: crates/glimpse-panel/src/applets/printing/render.rs:152
 msgid "Prints"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:176
+#: crates/glimpse-panel/src/applets/printing/render.rs:155
 msgid "Paper loaded"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:183
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
 msgid "Resolution"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:193
+#: crates/glimpse-panel/src/applets/printing/render.rs:168
 msgid "Color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:194
+#: crates/glimpse-panel/src/applets/printing/render.rs:169
 msgid "Black & white"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:197
+#: crates/glimpse-panel/src/applets/printing/render.rs:172
 msgid "double-sided"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:198
+#: crates/glimpse-panel/src/applets/printing/render.rs:173
 msgid "single-sided"
 msgstr ""
 
@@ -2000,7 +2000,7 @@ msgid "Printers"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:15
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:257
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:241
 msgid "No print jobs"
 msgstr ""
 
@@ -2149,7 +2149,7 @@ msgid "Hibernate key"
 msgstr ""
 
 #: crates/glimpse-widgets/src/lib.rs:203
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:178
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
 
@@ -2205,15 +2205,15 @@ msgstr ""
 msgid "Show what can be done with this job"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:184
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:176
 msgid "Resume"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:278
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:261
 msgid "{printer} · {status}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:284
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:267
 msgid "Page {completed} of {total}"
 msgstr ""
 
