@@ -3,8 +3,8 @@ use gettextrs::{gettext, ngettext};
 use glimpse_dbus::idle::{HealthKind, IdleInhibitorRecord, IdleProviderState, SourceKind};
 use glimpse_widgets::{InhibitorEntry, InhibitorSource, InhibitorTargets};
 
-pub const ICON_IDLE: &str = "alarm-symbolic";
-pub const ICON_ACTIVE: &str = "media-playback-pause-symbolic";
+pub const ICON_IDLE: &str = "view-conceal-symbolic";
+pub const ICON_ACTIVE: &str = "view-reveal-symbolic";
 const WHY_CAP: usize = 80;
 
 pub fn icon(active: bool) -> &'static str {

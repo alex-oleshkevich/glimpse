@@ -362,8 +362,9 @@ of both hides the chip.
   can neither leave the wheel silently dead nor move several times the display's own range in one
   notch. `render::native_step` converts and rounds away from zero.
 
-**display** — the chip is `video-display-symbolic` with one output, `video-joined-displays-symbolic`
-with more than one, and empty with none. The applet only maps `CompositorOutputs` into
+**display** — the chip is `video-display-symbolic` whatever the output count, and empty with none.
+**The glyph deliberately does not track the count**: a chip that changes shape when a monitor is
+plugged in reads as a different applet appearing, and the count is already in the popover. The applet only maps `CompositorOutputs` into
 `glimpse_widgets::Display` and wires `enable-requested` to `compositor.set_output_enabled` and
 `blanked` to `compositor.power_off_monitors` — never the other way around, since the first removes an
 output from the layout and the second is DPMS and wakes on input. The last-enabled-output lock and
@@ -372,7 +373,10 @@ its readable subtitle are `DisplayList`'s own; the service refuses the command u
 **idle** — the priority table behind the hero subtitle is documented by `render.rs`'s own test names,
 not restated here. The chip is never hidden while the daemon answers, unlike a notifier: it is the
 only way to reach the six fixed hold presets, so it must stay reachable even with nothing to report.
-`render::icon` carries that distinction instead.
+`render::icon` carries that distinction instead — **`view-conceal-symbolic` while idle is allowed,
+`view-reveal-symbolic` while something holds the session awake**. The two states are one glyph
+family on purpose: an open eye against a struck-through one reads as one thing changing, where the
+alarm-clock-becoming-a-pause-button it replaced read as two unrelated applets.
 
 - **A hold's id never reaches the applet directly** — `Hold()` is fire-and-forget, so
   `manual_hold_ids` derives the whole set from the next state by the daemon's own manual-hold
