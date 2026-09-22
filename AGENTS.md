@@ -136,7 +136,13 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 - The one sanctioned exception: **a settled pairing trusts and connects**, because BlueZ leaves a
   freshly bonded device bonded and not connected, and a user who pressed *Pair* meant *use this*.
   Nothing else may grow a policy on top of a backend without the same explicit note here.
-- The second, for the same reason: **an incoming service from a bonded device is authorized**.
+- The second, for the same reason: **eject unmounts first**. UDisks2's `Drive.Eject` refuses with
+  `DeviceBusy` while any filesystem on the drive is mounted and offers no option to unmount, so a
+  pass-through fails in the one case that matters — the drive the user has just finished using, which
+  this shell mounted itself. A failed unmount is reported as itself and the eject never runs;
+  `NotMounted` and `AlreadyUnmounting` are races, not failures, and are stepped over. Only the
+  drive's own volumes are touched, never another drive's.
+- The third, for the same reason: **an incoming service from a bonded device is authorized**.
   `Agent1.AuthorizeService` is BlueZ delegating rather than deciding, and it asks only about an
   *untrusted* device — so a blanket refusal strands every pairing made before glimpse, with no UI
   anywhere to explain it. The bond is the whole test; nothing else is consulted.
@@ -884,8 +890,18 @@ fallback is the only path. Load the module before concluding anything about mult
   excludes, so the applet never reaches an agent prompt.
 - **A loop device can never reach a removability filter.** It has **no `Drive` object at all**
   (`Block.Drive` is `/`) and `HintSystem` is true, so `udisksctl loop-setup` exercises UDisks2 but
-  never the applet. Testing removable media needs `scsi_debug removable=1` (root) or real hardware.
-  `mkfs.vfat` is **not installed** here; `mkfs.exfat` and `mkfs.ext4` are.
+  never the applet. Testing removable media needs `scsi_debug removable=1` (root) or real hardware,
+  which is what `scripts/removable-test.sh up|down|status` wraps — a RAM-backed removable drive with
+  two formatted partitions, plus `--optical` for the no-media state and `--readonly` for the
+  read-only icon; it stays out of the `justfile`, which is the build workflow rather than a wrapper
+  for fixtures. `mkfs.vfat` is **not installed** here; `mkfs.exfat` and `mkfs.ext4` are.
+- **`pkexec` cannot authenticate on this machine, and the on-screen failure is misleading.** No
+  polkit agent is registered for the session, so pkexec's textual fallback takes the password, PAM
+  accepts it, and polkitd then refuses with `No session for cookie` — which prints as
+  *"AUTHENTICATION FAILED ... Not authorized"* and reads exactly like a wrong password. The user is
+  in `wheel` and `50-default.rules` grants it, so authorization is not the problem. Become root with
+  `sudo` from a terminal, which is what the `justfile`'s `elevate` already defaults to and what
+  `scripts/removable-test.sh` uses.
 - **`glib::UserDirectory` is a closed enum of 8 against an open file format.** `user-dirs.dirs`
   accepts any `XDG_<NAME>_DIR`; this machine has **nine** keys, the ninth being `XDG_PROJECTS_DIR`,
   which `xdg-user-dir PROJECTS` resolves and `glib::user_special_dir` cannot see. Parse the file.

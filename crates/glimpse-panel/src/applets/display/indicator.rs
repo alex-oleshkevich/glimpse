@@ -122,7 +122,7 @@ fn tell<F, T>(
     let report = Report {
         notifications: notifications.clone(),
         app_name: gettext("Displays"),
-        icon: render::SINGLE_ICON.to_owned(),
+        icon: render::ICON.to_owned(),
         summary,
     };
     let unavailable = gettext("The compositor is unavailable.");

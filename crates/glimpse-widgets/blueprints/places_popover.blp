@@ -51,25 +51,6 @@ template $PlacesPopover: Gtk.Widget {
         }
       }
 
-      $Section devices {
-        visible: false;
-        title: _("Devices");
-
-        Gtk.Box {
-          orientation: vertical;
-
-          Gtk.Box devices_rows {
-            orientation: vertical;
-          }
-
-          $Row devices_more {
-            visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
-          }
-        }
-      }
-
       $Section network {
         visible: false;
         title: _("Network");

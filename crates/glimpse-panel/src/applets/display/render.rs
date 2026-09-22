@@ -1,15 +1,10 @@
 use glimpse_services::OutputInfo;
 
-pub const SINGLE_ICON: &str = "video-display-symbolic";
-pub const JOINED_ICON: &str = "video-joined-displays-symbolic";
+pub const ICON: &str = "video-display-symbolic";
 pub const NAME_CAP: usize = 32;
 
 pub fn chip(count: usize) -> Option<&'static str> {
-    match count {
-        0 => None,
-        1 => Some(SINGLE_ICON),
-        _ => Some(JOINED_ICON),
-    }
+    (count > 0).then_some(ICON)
 }
 
 pub fn heading(output: &OutputInfo) -> String {
@@ -53,14 +48,13 @@ mod tests {
     }
 
     #[test]
-    fn one_output_gets_the_single_display_icon() {
-        assert_eq!(chip(1), Some(SINGLE_ICON), "AC-12");
-    }
-
-    #[test]
-    fn more_than_one_output_gets_the_joined_icon() {
-        assert_eq!(chip(2), Some(JOINED_ICON), "AC-12");
-        assert_eq!(chip(3), Some(JOINED_ICON));
+    fn every_output_count_gets_the_same_single_display_icon() {
+        assert_eq!(chip(1), Some(ICON), "AC-12");
+        assert_eq!(
+            chip(3),
+            Some(ICON),
+            "the chip does not change glyph with the output count"
+        );
     }
 
     #[test]

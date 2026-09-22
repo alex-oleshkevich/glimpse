@@ -15,6 +15,7 @@ mod next_event;
 mod notifications;
 mod pager;
 mod places;
+mod removable;
 mod session;
 mod tokens;
 mod tray;
@@ -225,12 +226,17 @@ pub fn build(
         }
         AppletKind::Places(_) => {
             let places = places.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(places.subscribe());
+                Box::new(places::Places::start(places))
+            }))
+        }
+        AppletKind::Removable(_) => {
             let removable = removable.clone();
             let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
-                ctx.watch(places.subscribe());
                 ctx.watch(removable.subscribe());
-                Box::new(places::Places::start(places, removable, notifications))
+                Box::new(removable::Removable::start(removable, notifications))
             }))
         }
         AppletKind::Command {}
@@ -246,6 +252,17 @@ mod tests {
 
     fn custom(name: &str, extends: AppletConfig) -> BTreeMap<String, AppletConfig> {
         BTreeMap::from([(name.to_owned(), extends)])
+    }
+
+    #[test]
+    fn every_name_in_the_default_zones_resolves_to_a_kind() {
+        let panel = glimpse_config::Panel::default();
+        for name in panel.left.iter().chain(&panel.center).chain(&panel.right) {
+            assert!(
+                configured(name, &BTreeMap::new(), &Regional::default()).is_some(),
+                "`{name}` ships in a default zone, so an untouched installation must resolve it"
+            );
+        }
     }
 
     #[test]
@@ -397,6 +414,43 @@ mod tests {
             None,
         );
         assert!(built.is_some(), "places has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_removable_applet_is_built_from_its_own_name() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config = configured("removable", &BTreeMap::new(), &Regional::default())
+            .expect("`removable` is a known applet");
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.removable,
+            None,
+        );
+        assert!(built.is_some(), "removable has an implementation");
 
         services.shutdown().await;
     }

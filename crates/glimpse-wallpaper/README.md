@@ -25,5 +25,5 @@ request id so a stale decode cannot overwrite a newer image.
 It depends on no other glimpse process: the image and the theme mode come from the configuration it
 reads itself, so there is nothing whose absence leaves a black screen.
 
-Configuration is the `[wallpaper]` and `[backdrop]` tables of the shared `config.toml`. Tables owned by other
-binaries are ignored, not validated. Schema in.
+Configuration is the `[wallpaper]` table of the shared `config.toml`, including its nested
+`[wallpaper.backdrop]`. Tables owned by other binaries are ignored, not validated. Schema in.

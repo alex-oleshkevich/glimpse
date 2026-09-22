@@ -8,60 +8,57 @@ use gtk4::{
 use crate::{Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct Entry {
+pub struct Volume {
     pub id: String,
     pub title: String,
     pub subtitle: String,
     pub icon: String,
+    pub value: String,
+    pub fraction: Option<f64>,
+    pub activatable: bool,
     pub busy: bool,
+    pub read_only: bool,
+    pub mounted: bool,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct Trash {
-    pub items: u32,
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Drive {
+    pub id: String,
+    pub title: String,
+    pub subtitle: String,
+    pub icon: String,
+    pub value: String,
+    pub ejectable: bool,
+    pub busy: bool,
+    pub activatable: bool,
+    pub dimmed: bool,
+    pub volumes: Vec<Volume>,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
-#[template(resource = "/me/aresa/GlimpseShell/widgets/places_popover.ui")]
-pub struct PlacesPopover {
+#[template(resource = "/me/aresa/GlimpseShell/widgets/removable_popover.ui")]
+pub struct RemovablePopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub places: TemplateChild<Section>,
+    pub devices: TemplateChild<Section>,
     #[template_child]
-    pub places_rows: TemplateChild<gtk4::Box>,
+    pub devices_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub bookmarks: TemplateChild<Section>,
-    #[template_child]
-    pub bookmarks_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub bookmarks_more: TemplateChild<Row>,
-    #[template_child]
-    pub network: TemplateChild<Section>,
-    #[template_child]
-    pub network_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub trash: TemplateChild<Section>,
-    #[template_child]
-    pub trash_row: TemplateChild<Row>,
+    pub devices_more: TemplateChild<Row>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 
-    pub places_data: RefCell<Vec<Entry>>,
-    pub places_held: RefCell<Vec<(String, Row)>>,
-    pub bookmarks_data: RefCell<Vec<Entry>>,
-    pub bookmarks_held: RefCell<Vec<(String, Row)>>,
-    pub network_data: RefCell<Vec<Entry>>,
-    pub network_held: RefCell<Vec<(String, Row)>>,
-    pub trash_data: RefCell<Option<Trash>>,
+    pub devices_data: RefCell<Vec<Drive>>,
+    pub devices_held: RefCell<Vec<(String, gtk4::Box)>>,
 }
 
 #[glib::object_subclass]
-impl ObjectSubclass for PlacesPopover {
-    const NAME: &'static str = "PlacesPopover";
-    type Type = super::PlacesPopover;
+impl ObjectSubclass for RemovablePopover {
+    const NAME: &'static str = "RemovablePopover";
+    type Type = super::RemovablePopover;
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
@@ -74,7 +71,7 @@ impl ObjectSubclass for PlacesPopover {
     }
 }
 
-impl ObjectImpl for PlacesPopover {
+impl ObjectImpl for RemovablePopover {
     fn signals() -> &'static [glib::subclass::Signal] {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
@@ -83,6 +80,12 @@ impl ObjectImpl for PlacesPopover {
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("more").build(),
+                glib::subclass::Signal::builder("eject")
+                    .param_types([String::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder("unmount")
+                    .param_types([String::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
@@ -92,12 +95,7 @@ impl ObjectImpl for PlacesPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.trash_row.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("activated", &[&"trash".to_owned()])
-        ));
-        self.bookmarks_more.connect_clicked(glib::clone!(
+        self.devices_more.connect_clicked(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("more", &[])
@@ -114,4 +112,4 @@ impl ObjectImpl for PlacesPopover {
     }
 }
 
-impl WidgetImpl for PlacesPopover {}
+impl WidgetImpl for RemovablePopover {}

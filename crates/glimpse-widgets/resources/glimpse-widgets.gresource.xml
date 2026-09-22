@@ -35,6 +35,7 @@
         <file>widgets/panel.ui</file>
         <file>widgets/placeholder.ui</file>
         <file>widgets/places_popover.ui</file>
+        <file>widgets/removable_popover.ui</file>
         <file>widgets/player_row.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/readout.ui</file>

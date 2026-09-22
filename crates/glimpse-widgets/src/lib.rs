@@ -45,6 +45,7 @@ mod popover_shell;
 mod range_bar;
 mod readout;
 mod reconcile;
+mod removable_popover;
 pub(crate) mod row;
 mod scrubber;
 mod section;
@@ -113,14 +114,12 @@ pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
 pub use placeholder::Placeholder;
-pub use places_popover::{
-    Drive as PlacesDrive, Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash,
-    Volume as PlacesVolume,
-};
+pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
 pub use popover_shell::PopoverShell;
 pub use range_bar::RangeBar;
 pub use readout::Readout;
+pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
 pub use row::Row;
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
@@ -6641,7 +6640,6 @@ mod tests {
         assert!(
             !imp.places.get_visible()
                 && !imp.bookmarks.get_visible()
-                && !imp.devices.get_visible()
                 && !imp.network.get_visible()
                 && !imp.trash.get_visible(),
             "an untouched popover shows no section"
@@ -6655,13 +6653,11 @@ mod tests {
 
         popover.set_places(&[]);
         popover.set_bookmarks(&[]);
-        popover.set_devices(&[]);
         popover.set_network(&[]);
         popover.set_trash(None);
         assert!(
             !imp.places.get_visible()
                 && !imp.bookmarks.get_visible()
-                && !imp.devices.get_visible()
                 && !imp.network.get_visible()
                 && !imp.trash.get_visible(),
             "an empty section and one given nothing at all are the same: no section renders"
@@ -6725,26 +6721,83 @@ mod tests {
         popover.set_trash(None);
         assert!(!imp.trash.get_visible());
 
-        // Devices: AC-1, a drive with two volumes carries a real eject control on the drive row
-        // alone; AC-2, its mounted volume carries a real unmount control; AC-3, that mounted
-        // volume's body stays clickable.
-        popover.set_devices(&[PlacesDrive {
+        // A hostile multibyte label is capped by characters, not bytes, and the card holds its
+        // width. Both measurements keep the same sections visible, so the comparison isolates
+        // label length rather than a section appearing for the first time.
+        let width = |popover: &PlacesPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
+        popover.set_places(&[entry("a", "Home")]);
+        popover.set_bookmarks(&[entry("b", "Downloads")]);
+        popover.set_network(&[]);
+        popover.set_trash(None);
+        let floor = width(&popover);
+
+        let hostile = "\u{1f642}".repeat(400);
+        popover.set_bookmarks(&[entry("h", &hostile)]);
+        assert_eq!(
+            width(&popover),
+            floor,
+            "a 400-character bookmark label must not widen the card"
+        );
+
+        let more = Rc::new(Cell::new(false));
+        popover.connect_more({
+            let more = Rc::clone(&more);
+            move |_| more.set(true)
+        });
+        popover.set_overflow(Some("3 more"));
+        imp.bookmarks_more.emit_by_name::<()>("clicked", &[]);
+        assert!(more.get());
+
+        let footer_activated = Rc::new(Cell::new(false));
+        popover.connect_footer_activated({
+            let footer_activated = Rc::clone(&footer_activated);
+            move |_| footer_activated.set(true)
+        });
+        popover.set_footer(Some("Open file manager"));
+        assert!(imp.footer.get_visible());
+        imp.footer.emit_by_name::<()>("clicked", &[]);
+        assert!(footer_activated.get());
+    }
+
+    /// Separate from `widgets()` for the same reason as `places_popover_widgets`: one failure
+    /// earlier in that function must not hide every assertion written after it.
+    #[test]
+    #[ignore = "needs a display"]
+    fn removable_popover_widgets() {
+        if gtk4::init().is_err() {
+            return;
+        }
+        register_resources().expect("resources");
+        let _styles = Styles::install(adw::ColorScheme::Default);
+
+        let popover = RemovablePopover::new();
+        let imp = popover.imp();
+
+        assert!(
+            !imp.devices.get_visible(),
+            "an untouched popover lists no device"
+        );
+
+        // AC-1, a drive with two volumes carries a real eject control on the drive row alone; AC-2,
+        // its mounted volume carries a real unmount control; AC-3, that mounted volume's body stays
+        // clickable.
+        popover.set_devices(&[RemovableDrive {
             id: "cruzer".to_owned(),
             title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive · 2 volumes".to_owned(),
+            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
             ejectable: true,
             activatable: true,
             volumes: vec![
-                PlacesVolume {
+                RemovableVolume {
                     id: "photos".to_owned(),
                     title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB · exfat".to_owned(),
+                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
                     activatable: true,
                     fraction: Some(0.625),
                     mounted: true,
                     ..Default::default()
                 },
-                PlacesVolume {
+                RemovableVolume {
                     id: "backup".to_owned(),
                     title: "Backup".to_owned(),
                     subtitle: "Not mounted".to_owned(),
@@ -6848,23 +6901,23 @@ mod tests {
         // down and rebuilding the trailing control on every dress.
         let header_widget = cells[0].first_child();
         let photos_widget = cells[1].first_child();
-        popover.set_devices(&[PlacesDrive {
+        popover.set_devices(&[RemovableDrive {
             id: "cruzer".to_owned(),
             title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive · 2 volumes".to_owned(),
+            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
             ejectable: true,
             activatable: true,
             volumes: vec![
-                PlacesVolume {
+                RemovableVolume {
                     id: "photos".to_owned(),
                     title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB · exfat".to_owned(),
+                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
                     activatable: true,
                     fraction: Some(0.625),
                     mounted: true,
                     ..Default::default()
                 },
-                PlacesVolume {
+                RemovableVolume {
                     id: "backup".to_owned(),
                     title: "Backup".to_owned(),
                     subtitle: "Not mounted".to_owned(),
@@ -6888,15 +6941,15 @@ mod tests {
         );
 
         // AC-5: work in flight is a spinner, never a word, and it suppresses the trailing control.
-        popover.set_devices(&[PlacesDrive {
+        popover.set_devices(&[RemovableDrive {
             id: "busy".to_owned(),
             title: "External SSD".to_owned(),
             busy: true,
             activatable: true,
-            volumes: vec![PlacesVolume {
+            volumes: vec![RemovableVolume {
                 id: "vol".to_owned(),
                 title: "External SSD".to_owned(),
-                subtitle: "210 GB free of 500 GB · ext4".to_owned(),
+                subtitle: "210 GB free of 500 GB \u{b7} ext4".to_owned(),
                 activatable: true,
                 busy: true,
                 mounted: true,
@@ -6909,7 +6962,7 @@ mod tests {
         assert!(busy_row.busy());
         assert_eq!(
             busy_row.subtitle().as_deref(),
-            Some("210 GB free of 500 GB · ext4")
+            Some("210 GB free of 500 GB \u{b7} ext4")
         );
         assert!(
             split_of(&busy_cells[0]).is_none(),
@@ -6917,14 +6970,14 @@ mod tests {
         );
 
         // AC-7: a hostile multibyte label is capped by characters, not bytes, and the card holds
-        // its width. Both measurements keep the same sections visible, so the comparison isolates
-        // label length rather than a section appearing for the first time.
-        let width = |popover: &PlacesPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
-        let drive = |id: &str, label: &str| PlacesDrive {
+        // its width.
+        let width =
+            |popover: &RemovablePopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
+        let drive = |id: &str, label: &str| RemovableDrive {
             id: id.to_owned(),
             title: label.to_owned(),
             activatable: true,
-            volumes: vec![PlacesVolume {
+            volumes: vec![RemovableVolume {
                 id: "v".to_owned(),
                 title: label.to_owned(),
                 subtitle: label.to_owned(),
@@ -6933,33 +6986,25 @@ mod tests {
             }],
             ..Default::default()
         };
-        popover.set_places(&[entry("a", "Home")]);
-        popover.set_bookmarks(&[entry("b", "Downloads")]);
         popover.set_devices(&[drive("d", "Backup")]);
-        popover.set_network(&[]);
-        popover.set_trash(None);
         let floor = width(&popover);
 
-        let hostile = "🙂".repeat(400);
-        popover.set_bookmarks(&[entry("h", &hostile)]);
+        let hostile = "\u{1f642}".repeat(400);
         popover.set_devices(&[drive("d", &hostile)]);
         assert_eq!(
             width(&popover),
             floor,
-            "a 400-character volume or bookmark label must not widen the card"
+            "a 400-character volume label must not widen the card"
         );
 
-        // AC-1 / registration: the footer and overflow rows are reachable and fire their signals.
-        let more = Rc::new(RefCell::new(None));
+        let more = Rc::new(Cell::new(false));
         popover.connect_more({
             let more = Rc::clone(&more);
-            move |_, place| {
-                more.replace(Some(place.to_owned()));
-            }
+            move |_| more.set(true)
         });
-        popover.set_overflow(Some("3 more"), None);
-        imp.bookmarks_more.emit_by_name::<()>("clicked", &[]);
-        assert_eq!(more.borrow().as_deref(), Some("bookmarks"));
+        popover.set_overflow(Some("3 more"));
+        imp.devices_more.emit_by_name::<()>("clicked", &[]);
+        assert!(more.get());
 
         let footer_activated = Rc::new(Cell::new(false));
         popover.connect_footer_activated({

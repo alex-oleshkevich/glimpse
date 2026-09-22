@@ -460,7 +460,15 @@ impl Removable {
             }
             Command::Eject { id, reply } => {
                 let path = id.as_str().to_owned();
+                let mounted = self.mounted_on(&path);
                 self.spawned_drive(ctx, id, Busy::Ejecting, Action::Eject, reply, async move {
+                    for volume in mounted {
+                        if let Err(error) = call::unmount(&connection, &volume).await
+                            && classify(Action::Unmount, &error).is_err()
+                        {
+                            return Err(error);
+                        }
+                    }
                     call::eject(&connection, &path).await
                 });
             }
@@ -566,6 +574,21 @@ impl Removable {
                 .and_then(|fs| fs.mount_points.as_ref())
                 .is_some_and(|points| !points.is_empty())
         })
+    }
+
+    fn mounted_on(&self, drive: &str) -> Vec<String> {
+        self.blocks
+            .iter()
+            .filter(|(_, record)| {
+                record.block.as_ref().and_then(|b| b.drive.as_deref()) == Some(drive)
+                    && record
+                        .filesystem
+                        .as_ref()
+                        .and_then(|fs| fs.mount_points.as_ref())
+                        .is_some_and(|points| !points.is_empty())
+            })
+            .map(|(path, _)| path.clone())
+            .collect()
     }
 
     fn mounted_paths(&self) -> Vec<(VolumeId, PathBuf)> {
@@ -1126,6 +1149,35 @@ mod tests {
             .volume(&VolumeId(RESERVE.to_owned()))
             .expect("the unmounted volume");
         assert_eq!(unmounted.mount, None);
+    }
+
+    #[tokio::test]
+    async fn eject_unmounts_only_this_drives_mounted_volumes_first() {
+        let (mut service, ctx, _state, _health) = removable().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        assert_eq!(
+            service.mounted_on(DRIVE),
+            vec![DATA.to_owned()],
+            "eject unmounts the mounted volume and leaves the unmounted one alone"
+        );
+        assert!(
+            service.mounted_on(FIXED_DRIVE).is_empty(),
+            "a volume belonging to another drive is never unmounted by this drive's eject"
+        );
+
+        service
+            .blocks
+            .get_mut(DATA)
+            .expect("the volume")
+            .filesystem
+            .as_mut()
+            .expect("a filesystem")
+            .mount_points = Some(Vec::new());
+        assert!(
+            service.mounted_on(DRIVE).is_empty(),
+            "a drive with nothing mounted ejects straight through, unmounting nothing"
+        );
     }
 
     #[tokio::test]

@@ -1,0 +1,43 @@
+using Gtk 4.0;
+
+template $RemovablePopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "removable-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "drive-removable-media-symbolic";
+      title: _("Removable");
+      subtitle: _("Drives and volumes");
+    }
+
+    $Section devices {
+      styles [
+        "column",
+      ]
+
+      Gtk.Box {
+        orientation: vertical;
+
+        Gtk.Box devices_rows {
+          orientation: vertical;
+        }
+
+        $Row devices_more {
+          visible: false;
+          activatable: true;
+          lead-icon: "view-more-symbolic";
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

@@ -95,13 +95,13 @@ hide-delay = 4
 max-items = 6
 
 [wallpaper]
-fit = "fill"
 color = "#000000"
-background = ""
-background-dark = ""
+fit = "cover"
+transition = "fade"
+transition-ms = 500
 
-[backdrop]
-enabled = true
+[wallpaper.backdrop]
+enabled = false
 blur-radius = 24
 
 [lock]
@@ -137,6 +137,7 @@ size = 36
 position = "top"
 left = [
     "pager",
+    "places",
     "mpris",
 ]
 center = [
@@ -148,7 +149,7 @@ center = [
 right = [
     "next-event",
     "tray",
-    "places",
+    "removable",
     "clipboard",
     "keyboard",
     "printing",

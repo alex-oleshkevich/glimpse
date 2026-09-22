@@ -291,8 +291,12 @@ snapshot, never the backend, and an id that has just disappeared is `Refused`, n
 streams keep their relative mix.
 
 **removable** — mirrors UDisks2 into one drive-grouped state, enumerated once with
-`GetManagedObjects` and never polled; commands (`mount`, `unmount`, `eject`, `power_off`) are thin
-pass-throughs. **Capacity is a `statvfs` sample, not a UDisks2 property** — `Filesystem.Size` is 0
+`GetManagedObjects` and never polled; `mount`, `unmount` and `power_off` are thin pass-throughs.
+**`eject` is the one that is not: it unmounts this drive's mounted volumes first**, because
+`Drive.Eject` refuses with `DeviceBusy` while any filesystem is mounted and takes no option to
+unmount, so the pass-through fails on exactly the drive the user has finished with. A failed unmount
+is reported as itself and the eject never runs; `NotMounted` and `AlreadyUnmounting` are races and
+are stepped over. **Capacity is a `statvfs` sample, not a UDisks2 property** — `Filesystem.Size` is 0
 for vfat and exfat, the two commonest removable filesystems, so free space comes from
 `rustix::fs::statvfs` in `spawn_blocking`, on an interval declared only while something is mounted.
 

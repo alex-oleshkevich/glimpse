@@ -1,6 +1,5 @@
 mod appearance;
 mod applets;
-mod backdrop;
 mod bluetooth;
 mod brightness;
 mod calendar;
@@ -35,9 +34,9 @@ pub use applets::{
     Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
     NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
     PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
-    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
+    Removable as RemovableAppletConfig, Timezone as ClockTimezone, Tray as TrayAppletConfig,
+    Weather as WeatherAppletConfig,
 };
-pub use backdrop::Backdrop;
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
@@ -56,7 +55,7 @@ pub use places::Places;
 pub use power::Power;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
-pub use wallpaper::{Fit, Wallpaper};
+pub use wallpaper::{Backdrop, Fit, Transition, Wallpaper};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
@@ -79,7 +78,6 @@ pub struct Config {
     pub mpris: MprisConfig,
     pub notifications: Notifications,
     pub wallpaper: Wallpaper,
-    pub backdrop: Backdrop,
     pub lock: Lock,
     pub places: Places,
     pub removable: Removable,
@@ -109,7 +107,6 @@ impl Default for Config {
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),
             wallpaper: Wallpaper::default(),
-            backdrop: Backdrop::default(),
             lock: Lock::default(),
             places: Places::default(),
             removable: Removable::default(),

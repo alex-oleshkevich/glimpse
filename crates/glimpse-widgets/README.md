@@ -434,9 +434,16 @@ notification cannot — no data-control protocol at all; a refused command is a 
 
 ## PlacesPopover
 
-Five independent `$Section`s — bookmarks, places, devices, network, trash — each hiding when it has
-nothing, with no exception and no placeholder anywhere. A popover with nothing to list is a hero and
-a footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
+Four independent `$Section`s — bookmarks, places, network, trash — each hiding when it has nothing,
+with no exception and no placeholder anywhere. A popover with nothing to list is a hero and a
+footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
+Every row is a plain `Row` that opens a location, so the popover emits `activated` and nothing else.
+
+## RemovablePopover
+
+One titleless `$Section`, because the hero already says what the list is. Drives live here rather
+than in `PlacesPopover` because their applet appears and disappears with the hardware, while places
+are always there — one popover cannot honestly do both.
 
 - **A device row is the third reconcile shape.** Like `SourceList` and `DisplayList`, each drive or
   volume is a runtime-built `Gtk.Box`, not a template, keyed by id through `reconcile::by_key`; a

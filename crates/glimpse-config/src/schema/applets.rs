@@ -90,12 +90,14 @@ pub enum Kind {
     Notifications(Notifications),
     /// A strip of workspaces or windows, one slot each, that switches between them on a click.
     Pager(Pager),
-    /// Home and user directories, bookmarks, removable drives, network shares and the trash.
+    /// Home and user directories, bookmarks, network shares and the trash.
     Places(Places),
     /// Active print jobs.
     Printing {},
     /// Shows when the microphone, camera or screen is in use.
     Privacy {},
+    /// Removable drives and their volumes, with mount, unmount and eject in its popover.
+    Removable(Removable),
     /// Log out, suspend, restart and shut down.
     Session {},
     /// The system tray: icons from applications that ask for one.
@@ -293,16 +295,26 @@ impl Default for Bluetooth {
 pub struct Places {
     /// How many bookmarks the popover lists before the rest go behind a drawer.
     pub bookmarks: usize,
-    /// How many volumes the popover lists before the rest go behind a drawer.
-    pub volumes: usize,
 }
 
 impl Default for Places {
     fn default() -> Self {
-        Self {
-            bookmarks: 8,
-            volumes: 6,
-        }
+        Self { bookmarks: 8 }
+    }
+}
+
+/// The removable applet. How often free space is sampled is `[removable] capacity-interval`; this
+/// is only how the bar and its popover behave.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Removable {
+    /// How many drives the popover lists before the rest go behind a drawer.
+    pub volumes: usize,
+}
+
+impl Default for Removable {
+    fn default() -> Self {
+        Self { volumes: 6 }
     }
 }
 
@@ -842,10 +854,21 @@ mod tests {
                 .expect("the table loads");
         assert_eq!(
             configured.applets["pl"].kind,
-            Kind::Places(super::Places {
-                bookmarks: 4,
-                volumes: 6,
-            })
+            Kind::Places(super::Places { bookmarks: 4 })
+        );
+    }
+
+    #[test]
+    fn removable_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
+        let bare = super::Applet::from_name("removable").expect("a known applet name");
+        assert_eq!(bare.kind, Kind::Removable(super::Removable::default()));
+
+        let configured: crate::Config =
+            toml::from_str("[applets.rm]\nextends = \"removable\"\nvolumes = 4\n")
+                .expect("the table loads");
+        assert_eq!(
+            configured.applets["rm"].kind,
+            Kind::Removable(super::Removable { volumes: 4 })
         );
     }
 
