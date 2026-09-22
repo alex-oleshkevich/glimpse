@@ -22,6 +22,7 @@ mod session;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
+mod workspace;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{

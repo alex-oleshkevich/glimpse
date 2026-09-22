@@ -1,5 +1,3 @@
-mod label;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -16,7 +14,7 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
-use label::{Facts, render};
+use crate::applets::workspace::{Facts, render, workspace_token};
 
 pub struct Pager {
     strip: Strip,
@@ -273,15 +271,6 @@ fn window_slot(
         },
         occupied: true,
         urgent: window.urgent,
-    }
-}
-
-fn workspace_token(workspace: &WorkspaceInfo) -> String {
-    match workspace.name.as_deref() {
-        Some(name) if !name.is_empty() => name.to_owned(),
-        _ => workspace
-            .index
-            .map_or_else(|| workspace.id.to_string(), |index| index.to_string()),
     }
 }
 

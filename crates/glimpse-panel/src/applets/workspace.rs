@@ -1,3 +1,5 @@
+use glimpse_services::WorkspaceInfo;
+
 use crate::applets::tokens;
 
 pub struct Facts<'a> {
@@ -33,6 +35,15 @@ pub fn render(template: &str, facts: &Facts) -> String {
         "name" => Some(name),
         _ => None,
     })
+}
+
+pub fn workspace_token(workspace: &WorkspaceInfo) -> String {
+    match workspace.name.as_deref() {
+        Some(name) if !name.is_empty() => name.to_owned(),
+        _ => workspace
+            .index
+            .map_or_else(|| workspace.id.to_string(), |index| index.to_string()),
+    }
 }
 
 #[cfg(test)]
