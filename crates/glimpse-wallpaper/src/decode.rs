@@ -3,7 +3,7 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use glimpse_config::Fit;
-use gtk4::gdk_pixbuf::{InterpType, Pixbuf};
+use gtk4::gdk_pixbuf::Pixbuf;
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 
@@ -105,7 +105,7 @@ fn clamp(target: Target) -> Target {
     }
 }
 
-pub fn raster(path: &Path, output: Target, fit: Fit, blur_radius: u32) -> Result<Raster> {
+pub fn raster(path: &Path, output: Target, fit: Fit) -> Result<Raster> {
     let mtime = std::fs::metadata(path)?.modified()?;
     let (_, width, height) =
         Pixbuf::file_info(path).context("no image loader could read the header")?;
@@ -116,27 +116,14 @@ pub fn raster(path: &Path, output: Target, fit: Fit, blur_radius: u32) -> Result
         Some(region) => loaded.new_subpixbuf(region.x, region.y, region.width, region.height),
         None => loaded,
     };
-    let blurred = blur(&cropped, blur_radius).context("blur failed")?;
     Ok(Raster {
-        bytes: blurred.read_pixel_bytes(),
-        width: blurred.width(),
-        height: blurred.height(),
-        rowstride: blurred.rowstride().max(0) as usize,
-        has_alpha: blurred.has_alpha(),
+        bytes: cropped.read_pixel_bytes(),
+        width: cropped.width(),
+        height: cropped.height(),
+        rowstride: cropped.rowstride().max(0) as usize,
+        has_alpha: cropped.has_alpha(),
         mtime,
     })
-}
-
-fn blur(image: &Pixbuf, radius: u32) -> Option<Pixbuf> {
-    if radius == 0 {
-        return Some(image.clone());
-    }
-    let factor = (radius as i32).max(1) + 1;
-    let width = (image.width() / factor).max(1);
-    let height = (image.height() / factor).max(1);
-    image
-        .scale_simple(width, height, InterpType::Bilinear)?
-        .scale_simple(image.width(), image.height(), InterpType::Bilinear)
 }
 
 pub fn texture(raster: &Raster) -> gdk::Texture {

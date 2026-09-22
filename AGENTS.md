@@ -186,6 +186,14 @@ Binaries run through `just run-daemon`, `just run-panel`, `just run-wallpaper`, 
 and `just ctl <args>`. `just nested` opens a nested niri window for a dev loop that does not disturb
 the session.
 
+**A blueprint error naming a `.blp` that does not exist is a stale build script, not a broken tree.**
+Switching branches can leave `target/` holding a compiled `build.rs` from the other branch whose
+fingerprint cargo does not invalidate, so it re-runs the *old* list and fails on a blueprint the
+current `build.rs` never mentions — the give-away is that the missing name is absent from
+`crates/glimpse-widgets/build.rs` and sits one past its last entry in the `rerun-if-changed` output.
+`touch crates/glimpse-widgets/build.rs` forces the recompile. Read the failing name against
+`build.rs` before believing anything is actually missing.
+
 `just click output=DP-2 x=1200 y=540 button=left` resolves output-relative coordinates through
 `niri msg -j outputs` and injects with `ydotool`; buttons are `left`, `middle`, `right`. `ydotool`
 cannot read the pointer position, so pass `restore_x`/`restore_y` in virtual-desktop coordinates
@@ -678,13 +686,23 @@ window is wrong whenever a script or a clipboard tool wrote it.
 - **`ydotoold` is not running here**, so `just click` cannot drive the panel at all — clicking a
   popover row stays on the manual list.
 
-**The `#[ignore]`d GTK suite is not run by `just verify`, and is currently red, September 2026.**
-`just test` is `cargo test --workspace` with no `--include-ignored`, so `tests::widgets` — the single
-function holding nearly every widget assertion — only runs under `just test-compositor`. It fails at
-HEAD on a `DisplayList` render-gate assertion (bead `glimpse-cpr4`), reproduced in a clean worktree.
-Two consequences: the suite can rot unnoticed between compositor runs, and **one failure hides every
-assertion after it in that function** — new assertions appended to it may never execute. Put a new
-widget's assertions in their own `#[ignore]`d test rather than at the end of `widgets()`.
+**The `#[ignore]`d GTK suite is not run by `just verify`, September 2026.** `just test` is
+`cargo test --workspace` with no `--include-ignored`, so `tests::widgets` — the single function
+holding nearly every widget assertion — only runs under `just test-compositor`, and the suite can
+rot unnoticed between compositor runs. One failure there hides every assertion after it in the same
+function.
+
+**Splitting that function into more `#[ignore]`d tests does not fix it and is unsound, September
+2026.** `gtk4::init()` **panics** when GTK is already initialized on another thread — *"Attempted to
+initialize GTK from two different threads"*, `gtk4-0.11.4/src/rt.rs:138` — so the
+`if gtk4::init().is_err() { return; }` guard every one of them opens with can never fire. Cargo gives
+each `#[test]` its own thread **including under `--test-threads=1`**, so in one test process only the
+**first** GTK test can pass. Measured on the same tree: `--test-threads=1` gives 59 passed and 6
+failed, five of them on that panic; the default parallel run got lucky and all six ran. Which
+assertions execute is therefore decided by thread scheduling, and a green run is not evidence they
+ran at all. Six tests are in this state today — bead `glimpse-9vjo`. Until it is resolved, **do not
+add a seventh**: a new widget's assertions go at the end of `widgets()`, and the constraint is per
+*process*, so a separate test binary under `tests/` is the escape hatch if one is really needed.
 
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.
