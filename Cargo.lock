@@ -1274,6 +1274,7 @@ dependencies = [
  "reqwest",
  "reverse_geocoder",
  "rrule",
+ "rustix",
  "serde",
  "serde_json",
  "sunrise",

@@ -186,6 +186,17 @@ when the caller knows where to put it back.
 
 ### Never test against the live configuration
 
+**`direnv` exports `GLIMPSE_CONFIG_PATH` in this repo, and it beats a scratch `HOME`.** `.envrc`
+sets `GLIMPSE_CONFIG_PATH=var/config/config.toml` along with `GLIMPSE_PANEL_APP_ID` and
+`GLIMPSE_WALLPAPER_APP_ID`, so a binary launched from inside the working tree silently loads the
+dev document even when `HOME` points at a scratch directory. Override it explicitly, and read the
+`load config path=` line in the log before believing anything on screen.
+
+**`pkill -x glimpse-panel` kills the SESSION panel.** `-x` is the right answer to `-f` matching its
+own shell, but the session binary is also called `glimpse-panel`, so an exact-name kill takes the
+user's bar down with the test's. Kill by the pid you started, and if the session panel does go,
+`systemctl --user start glimpse-panel.service` brings it back.
+
 `~/.config/glimpse/config.toml` is the user's own and a binary started without `--config` both reads
 and watches it.
 
@@ -852,6 +863,49 @@ number. A percentage assertion is only meaningful against a maximum that is not 
 ever moves the built-in panel are both this, not applet bugs — `render::current_display` already
 prefers the focused connector and falls back to the internal display, and with one source the
 fallback is the only path. Load the module before concluding anything about multi-source brightness.
+
+**Places: five sources, measured September 2026.** Full account in `var/places/research.md`.
+
+- **UDisks2's `ObjectManager` is at `/org/freedesktop/UDisks2`** — a *third* location. BlueZ uses
+  `/`, NetworkManager `/org/freedesktop`, and `/` here answers *"Object does not exist at path"*. A
+  `path_namespace` copied from either sibling source in `glimpse-services` matches **nothing**: you
+  enumerate fine, never receive a signal, and every headless test still passes.
+- **`Filesystem.Size` is 0 for vfat and exfat** — the two commonest removable filesystems — while
+  ext4 and btrfs answer. So UDisks2 **cannot** supply a capacity readout for the devices this
+  applet exists to show. `Block.Size` is the total; free space is a `rustix::fs::statvfs` sample,
+  which is a blocking syscall and belongs in `spawn_blocking`. There is no D-Bus signal for free
+  space anywhere, so the interval poll is the only source; it is declared only while something is
+  mounted, so a machine with no stick attached runs no timer.
+- **`Drive.Media` is a closed 33-value vocabulary** (not 32 — counted programmatically out of
+  `udisksd`), and it is the whole icon map.
+- **Nothing needs a polkit policy.** `filesystem-mount`, `eject-media`, `power-off-drive` and
+  `encrypted-unlock` are all `implicit active: yes`. The two that are `auth_admin_keep` —
+  `filesystem-mount-system`, `filesystem-unmount-others` — are exactly what the `HintSystem` filter
+  excludes, so the applet never reaches an agent prompt.
+- **A loop device can never reach a removability filter.** It has **no `Drive` object at all**
+  (`Block.Drive` is `/`) and `HintSystem` is true, so `udisksctl loop-setup` exercises UDisks2 but
+  never the applet. Testing removable media needs `scsi_debug removable=1` (root) or real hardware.
+  `mkfs.vfat` is **not installed** here; `mkfs.exfat` and `mkfs.ext4` are.
+- **`glib::UserDirectory` is a closed enum of 8 against an open file format.** `user-dirs.dirs`
+  accepts any `XDG_<NAME>_DIR`; this machine has **nine** keys, the ninth being `XDG_PROJECTS_DIR`,
+  which `xdg-user-dir PROJECTS` resolves and `glib::user_special_dir` cannot see. Parse the file.
+  `g_get_user_special_dir` also caches — `glib::reload_user_special_dirs_cache()` exists because it
+  does — and `glimpse-services` declares no `glib` at all.
+- **GTK4 reads `~/.config/gtk-3.0/bookmarks`**, not a gtk-4.0 path; confirmed out of
+  `libgtk-4.so.1`, where `gtk-3.0` and `.gtk-bookmarks` sit adjacent in the bookmarks manager. The
+  format is `<URI> <optional label>`, one per line. **`GBookmarkFile` is the wrong API** — it parses
+  XBEL, a different format entirely.
+- **Count `Trash/files`, never `Trash/info`.** Measured here: 363 against 1028, of which 665 are
+  orphaned `.trashinfo`. Counting `info/` — which is what "read the .trashinfo files for the
+  original paths" invites — reports **2.8x the truth**, and one `read_dir` of `files/` is the count.
+- **`gio::VolumeMonitor` is unreachable from a service.** `glimpse-services` declares `gio-unix`
+  only, with no `gio` and no `glib`, and `VolumeMonitor` is a singleton emitting on a thread-default
+  main context — the opposite shape from the one-shot `DesktopAppInfo` lookup that is the existing
+  precedent. Reading `$XDG_RUNTIME_DIR/gvfs` directly needs no dependency.
+- **`ConnectionBus` is NOT verified on this machine.** Every drive answers `""` and `udevadm` shows
+  these NVMe drives carry no `ID_BUS`; only `ieee1394` and `scsi` appear as standalone strings in
+  `udisksd`. `usb` and `sdio` in the removability filter come from documentation, not measurement.
+  `Removable` and `MediaRemovable` are the two arms that are certain.
 
 ## Finishing
 

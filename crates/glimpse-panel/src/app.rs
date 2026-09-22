@@ -594,6 +594,8 @@ fn reconcile_panels(
                 session_actions: services.session_actions.clone(),
                 clipboard: services.clipboard.clone(),
                 battery: services.battery.clone(),
+                places: services.places.clone(),
+                removable: services.removable.clone(),
                 dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {

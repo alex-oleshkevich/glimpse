@@ -121,6 +121,14 @@ trip and a failure for every member it never implemented. `decode_item` takes th
 every field a default, which is also why `XAyatana*` needs no branch: extensions are just more keys.
 `Menu` is an `o` and no `&str` extraction reads one.
 
+**UDisks2's `ObjectManager` is at `/org/freedesktop/UDisks2`.** A third distinct path — not `/`,
+where BlueZ puts its own, and not `/org/freedesktop`, where NetworkManager puts its own — so a
+`path_namespace` copied from either matches nothing.
+
+**A UDisks2 object decodes from one `GetAll`-shaped map with defaults, the same shape as a tray item
+and a BlueZ device.** `Drive`, `Block`, `Filesystem` and `Partition` all share it, and `Media` is a
+closed 33-value vocabulary decoded to an enum with a catch-all rather than kept as a raw string.
+
 **Every BlueZ decoder returns an all-`Option` partial.** `GetManagedObjects`, `InterfacesAdded` and
 `PropertiesChanged` carry the identical `a{sv}` shape, and the last of the three carries a *subset* —
 so one decoder feeds all three only if absent means "unchanged" rather than "default". The service

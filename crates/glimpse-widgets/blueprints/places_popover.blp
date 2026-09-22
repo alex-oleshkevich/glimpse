@@ -1,0 +1,97 @@
+using Gtk 4.0;
+
+template $PlacesPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "places-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "folder-symbolic";
+      title: _("Places");
+      subtitle: _("Quick access");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section bookmarks {
+        visible: false;
+        title: _("Bookmarks");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box bookmarks_rows {
+            orientation: vertical;
+          }
+
+          $Row bookmarks_more {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Section places {
+        visible: false;
+        title: _("Places");
+
+        Gtk.Box places_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section devices {
+        visible: false;
+        title: _("Devices");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box devices_rows {
+            orientation: vertical;
+          }
+
+          $Row devices_more {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Section network {
+        visible: false;
+        title: _("Network");
+
+        Gtk.Box network_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section trash {
+        visible: false;
+        title: _("Trash");
+
+        $Row trash_row {
+          activatable: true;
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

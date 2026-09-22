@@ -790,6 +790,10 @@
     color: var(--gl-muted);
 }
 
+.row.dimmed {
+    opacity: var(--gl-disabled);
+}
+
 .weather-popover__alerts,
 .weather-popover__alerts > box + box {
     margin-top: 0.35rem;
@@ -965,6 +969,20 @@
 
 .notification__progress progress {
     background-color: var(--gl-accent);
+}
+
+.capacity-bar trough,
+.capacity-bar progress {
+    min-height: 0.3rem;
+    border-radius: 999px;
+}
+
+.capacity-bar trough {
+    background-color: var(--gl-faint);
+}
+
+.capacity-bar progress {
+    background-color: var(--gl-muted);
 }
 
 .notification__image {

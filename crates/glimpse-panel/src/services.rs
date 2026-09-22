@@ -14,8 +14,9 @@ use glimpse_services::{
     BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
     ClipboardDependencies, ClipboardHandle, Compositor, CompositorHandle, Heartbeat,
     HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Running, Selection, SessionActions, SessionActionsDependencies,
-    SessionActionsHandle, SysfsBacklight, Tray, TrayHandle, UnavailableBacklight,
+    NetworkHandle, Places, PlacesHandle, Removable, RemovableHandle, Running, Selection,
+    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
+    TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -32,6 +33,8 @@ pub struct PanelServices {
     pub session_actions: SessionActionsHandle,
     pub battery: BatteryHandle,
     pub clipboard: ClipboardHandle,
+    pub places: PlacesHandle,
+    pub removable: RemovableHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -45,6 +48,8 @@ pub struct PanelServices {
     session_actions_service: Running<SessionActions>,
     battery_service: Running<Battery>,
     clipboard_service: Running<Clipboard>,
+    places_service: Running<Places>,
+    removable_service: Running<Removable>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -111,7 +116,9 @@ impl PanelServices {
             buses.clone(),
             ClipboardDependencies { selection },
         );
-        let (battery_service, battery) = Running::<Battery>::spawn(document, buses, ());
+        let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
+        let (places_service, places) = Running::<Places>::spawn(document, buses.clone(), ());
+        let (removable_service, removable) = Running::<Removable>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -127,6 +134,8 @@ impl PanelServices {
             session_actions,
             battery,
             clipboard,
+            places,
+            removable,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -140,6 +149,8 @@ impl PanelServices {
             session_actions_service,
             battery_service,
             clipboard_service,
+            places_service,
+            removable_service,
             notifications,
             weather,
             night_light,
@@ -153,6 +164,8 @@ impl PanelServices {
         self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.night_light.shutdown().await;
+        self.removable_service.stop().await;
+        self.places_service.stop().await;
         self.clipboard_service.stop().await;
         self.brightness_service.stop().await;
         self.session_actions_service.stop().await;
@@ -182,6 +195,8 @@ impl PanelServices {
         self.clipboard_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
         self.battery_service.reconfigure(document);
+        self.places_service.reconfigure(document);
+        self.removable_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -201,6 +216,8 @@ impl PanelServices {
     }
 
     fn cancel(&self) {
+        self.removable_service.cancel();
+        self.places_service.cancel();
         self.clipboard_service.cancel();
         self.brightness_service.cancel();
         self.session_actions_service.cancel();

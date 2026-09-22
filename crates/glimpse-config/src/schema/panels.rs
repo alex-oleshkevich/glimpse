@@ -26,7 +26,7 @@ impl Default for Panel {
             right: names(&[
                 "next-event",
                 "tray",
-                "removable",
+                "places",
                 "clipboard",
                 "keyboard",
                 "printing",

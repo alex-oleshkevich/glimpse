@@ -783,6 +783,53 @@
           "additionalProperties": false,
           "required": []
         },
+        "places": {
+          "description": "Home and user directories, bookmarks, removable drives, network shares and the trash.",
+          "type": "object",
+          "properties": {
+            "bookmarks": {
+              "description": "How many bookmarks the popover lists before the rest go behind a drawer.",
+              "type": "integer",
+              "format": "uint",
+              "default": 8,
+              "minimum": 0
+            },
+            "extends": {
+              "type": "string",
+              "const": "places"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "volumes": {
+              "description": "How many volumes the popover lists before the rest go behind a drawer.",
+              "type": "integer",
+              "format": "uint",
+              "default": 6,
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "printing": {
           "description": "Active print jobs.",
           "type": "object",
@@ -823,39 +870,6 @@
             "extends": {
               "type": "string",
               "const": "privacy"
-            },
-            "settings-command": {
-              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "settings-label": {
-              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
-        "removable": {
-          "description": "Mounted removable drives, and unmounts them.",
-          "type": "object",
-          "properties": {
-            "extends": {
-              "type": "string",
-              "const": "removable"
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1843,6 +1857,55 @@
             ]
           },
           {
+            "description": "Home and user directories, bookmarks, removable drives, network shares and the trash.",
+            "type": "object",
+            "properties": {
+              "bookmarks": {
+                "description": "How many bookmarks the popover lists before the rest go behind a drawer.",
+                "type": "integer",
+                "format": "uint",
+                "default": 8,
+                "minimum": 0
+              },
+              "extends": {
+                "type": "string",
+                "const": "places"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "volumes": {
+                "description": "How many volumes the popover lists before the rest go behind a drawer.",
+                "type": "integer",
+                "format": "uint",
+                "default": 6,
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
             "description": "Active print jobs.",
             "type": "object",
             "properties": {
@@ -1884,41 +1947,6 @@
               "extends": {
                 "type": "string",
                 "const": "privacy"
-              },
-              "settings-command": {
-                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "settings-label": {
-                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "description": "Mounted removable drives, and unmounts them.",
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "removable"
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -2284,7 +2312,7 @@
           "right": [
             "next-event",
             "tray",
-            "removable",
+            "places",
             "clipboard",
             "keyboard",
             "printing",
@@ -2304,6 +2332,13 @@
         "$ref": "#/$defs/Panel"
       }
     },
+    "places": {
+      "$ref": "#/$defs/Places",
+      "default": {
+        "network": true,
+        "trash": true
+      }
+    },
     "power": {
       "$ref": "#/$defs/Power",
       "default": {
@@ -2317,6 +2352,12 @@
         "hour-format": "locale",
         "language": "",
         "units": "locale"
+      }
+    },
+    "removable": {
+      "$ref": "#/$defs/Removable",
+      "default": {
+        "capacity-interval": 10
       }
     },
     "wallpaper": {
@@ -3016,7 +3057,7 @@
           "default": [
             "next-event",
             "tray",
-            "removable",
+            "places",
             "clipboard",
             "keyboard",
             "printing",
@@ -3131,6 +3172,22 @@
           ]
         }
       ]
+    },
+    "Places": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "description": "Whether network shares are watched and listed. Turns off one directory read.",
+          "type": "boolean",
+          "default": true
+        },
+        "trash": {
+          "description": "Whether the trash is watched and listed. Turns off one persistent inotify watch.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
     },
     "Position": {
       "type": "string",
@@ -3252,6 +3309,19 @@
         "app",
         "window"
       ]
+    },
+    "Removable": {
+      "type": "object",
+      "properties": {
+        "capacity-interval": {
+          "description": "Seconds between free-space samples of mounted removable volumes. `0` turns the capacity\nreadout off and runs no timer.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 10,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     },
     "Schedule": {
       "type": "string",

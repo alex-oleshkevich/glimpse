@@ -139,6 +139,12 @@ The previous implementation shipped without that replacement, and without a pars
 lives at the widget, in `glimpse-widgets`, because it needs Pango and this crate takes no GTK
 dependency.
 
+## Size
+
+`size::bytes(u64) -> String` formats a byte count SI-style, base 1000, dropping a trailing `.0` —
+1,500,000 reads `"1.5 MB"`, never `"1.50 MB"`. A `u64` in, a `String` out, is a pure function like
+`clean`, so it lives here rather than in either of the two crates that need the same reading.
+
 ## Rules
 
 **Logs go to stderr, and the writer is set explicitly.** `tracing_subscriber::fmt()` defaults to

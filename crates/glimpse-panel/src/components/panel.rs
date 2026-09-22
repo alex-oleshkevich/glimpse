@@ -6,8 +6,8 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle,
-    SessionActionsHandle, TrayHandle,
+    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
+    RemovableHandle, SessionActionsHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -81,6 +81,8 @@ pub struct Config {
     pub session_actions: SessionActionsHandle,
     pub battery: BatteryHandle,
     pub clipboard: ClipboardHandle,
+    pub places: PlacesHandle,
+    pub removable: RemovableHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -278,6 +280,8 @@ impl Panel {
                                     &config.session_actions,
                                     &config.battery,
                                     &config.clipboard,
+                                    &config.places,
+                                    &config.removable,
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(

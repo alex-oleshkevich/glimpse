@@ -186,6 +186,22 @@ and is injected as `Arc<dyn Selection>`. **An image is decoded through `thumbnai
 count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
 to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.
 
+**places** — watches both the `places` and `removable` service handles; the chip and tooltip are
+`render::chip`/`render::tooltip` over the pair, so a machine with neither a home directory worth
+naming nor removable media renders no chip. A place, a bookmark or a mounted volume opens through
+`gio::AppInfo::launch_default_for_uri`, off the main loop; an unmounted volume is asked to mount
+first, and mount, eject and unmount all report a failure the way every applet does, through
+`spawn_reported` and a notification.
+
+- **Bookmark and volume labels are capped the same way a tray title is** — `render::cap` runs
+  `glimpse_utils::clean` before either reaches a row, because both come from another application: a
+  `gtk-3.0/bookmarks` entry, a filesystem label.
+- **Capacity is a free-of-total string, never a percentage.** `render::capacity_text` reads
+  `glimpse_utils::size::bytes` on both sides of "free of", and a volume with none left says so in
+  words rather than printing `0 B free`.
+- **Devices and bookmarks each end in their own overflow row**, on the same footing as bluetooth's
+  `more_paired`/`more_nearby`: expanding is `PopoverHandle` state keyed by section, not a scroll.
+
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
 

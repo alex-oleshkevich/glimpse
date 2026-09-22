@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-21 21:15+0200\n"
+"POT-Creation-Date: 2026-09-22 11:46+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -209,6 +209,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
 #: crates/glimpse-panel/src/applets/network/render.rs:290
 #: crates/glimpse-panel/src/applets/network/render.rs:789
+#: crates/glimpse-panel/src/applets/places/render.rs:59
 msgid "Show fewer"
 msgstr ""
 
@@ -237,7 +238,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:235
+#: crates/glimpse-widgets/src/lib.rs:240
 msgid "{percent}%"
 msgstr ""
 
@@ -348,6 +349,7 @@ msgid "Discharging"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:226
+#: crates/glimpse-widgets/src/places_popover/mod.rs:204
 msgid "Empty"
 msgstr ""
 
@@ -769,6 +771,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:524
 #: crates/glimpse-panel/src/applets/network/indicator.rs:115
+#: crates/glimpse-widgets/blueprints/places_popover.blp:75
 msgid "Network"
 msgstr ""
 
@@ -1319,6 +1322,93 @@ msgstr ""
 msgid "{count}d"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/places/indicator.rs:93
+msgid "Could not open that drive"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:111
+msgid "Could not eject that drive"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:126
+msgid "Could not unmount that drive"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:178
+#: crates/glimpse-panel/src/applets/places/render.rs:28
+#: crates/glimpse-widgets/blueprints/places_popover.blp:14
+#: crates/glimpse-widgets/blueprints/places_popover.blp:47
+msgid "Places"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:60
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:211
+msgid "No media"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:214
+msgid "{count} volume"
+msgid_plural "{count} volumes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:229
+msgid "{available} free of {total}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:241
+msgid "No space left"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:246
+msgid "Not mounted"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:321
+msgid "That drive is not mounted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:322
+msgid "The drive is busy with something else."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:323
+msgid "That drive is already mounted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:324
+msgid "This computer is not authorized to do that."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:325
+msgid "That is not supported for this drive."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:326
+msgid "That option is not permitted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:327
+msgid "The drive did not respond in time."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:328
+msgid "That would wake a sleeping drive."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:329
+msgid "The action was cancelled."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:330
+msgid "The drive could not complete that."
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/session/render.rs:24
 msgid "Blocked by an active inhibitor."
 msgstr ""
@@ -1585,6 +1675,7 @@ msgid "Power mode"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/battery_popover.blp:40
+#: crates/glimpse-widgets/blueprints/places_popover.blp:56
 msgid "Devices"
 msgstr ""
 
@@ -1780,9 +1871,22 @@ msgstr ""
 msgid "You are all caught up."
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/places_popover.blp:15
+msgid "Quick access"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:28
+msgid "Bookmarks"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:84
+#: crates/glimpse-widgets/src/places_popover/mod.rs:202
+msgid "Trash"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:196
+#: crates/glimpse-widgets/src/lib.rs:201
 msgid "Play"
 msgstr ""
 
@@ -1926,7 +2030,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:195
+#: crates/glimpse-widgets/src/lib.rs:200
 msgid "Pause"
 msgstr ""
 
@@ -1966,6 +2070,20 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/notifications_popover/mod.rs:111
 msgid "Clear these notifications"
+msgstr ""
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:205
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:291
+msgid "Eject"
+msgstr ""
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:301
+msgid "Unmount"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124

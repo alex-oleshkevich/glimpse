@@ -29,6 +29,8 @@ mod mpris;
 mod network;
 mod night_light;
 mod notifications;
+mod places;
+mod removable;
 mod session;
 mod session_actions;
 mod solar;
@@ -74,6 +76,15 @@ pub use night_light::{
     NightLight, NightLightHandle, NightLightState,
 };
 pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
+pub use places::{
+    Config as PlacesConfig, Kind as PlacesKind, Place, Places, PlacesHandle, PlacesState,
+};
+pub use removable::{
+    Busy as RemovableBusy, Capacity as RemovableCapacity, Config as RemovableConfig, Drive,
+    DriveId, Encryption as RemovableEncryption, Failure as RemovableFailure,
+    Mount as RemovableMount, Removable, RemovableError, RemovableHandle, RemovableState, Volume,
+    VolumeId,
+};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{
     Action as SessionAction, Capability as SessionCapability,

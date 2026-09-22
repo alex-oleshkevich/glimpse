@@ -14,6 +14,7 @@ pub mod network;
 mod next_event;
 mod notifications;
 mod pager;
+mod places;
 mod session;
 mod tokens;
 mod tray;
@@ -26,8 +27,8 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle,
-    SessionActionsHandle, TrayHandle,
+    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
+    RemovableHandle, SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -70,6 +71,8 @@ pub fn build(
     session_actions: &SessionActionsHandle,
     battery: &BatteryHandle,
     clipboard: &ClipboardHandle,
+    places: &PlacesHandle,
+    removable: &RemovableHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -220,11 +223,20 @@ pub fn build(
                 Box::new(clipboard::Clipboard::start(clipboard, notifications))
             }))
         }
+        AppletKind::Places(_) => {
+            let places = places.clone();
+            let removable = removable.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(places.subscribe());
+                ctx.watch(removable.subscribe());
+                Box::new(places::Places::start(places, removable, notifications))
+            }))
+        }
         AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Privacy {}
-        | AppletKind::Printing {}
-        | AppletKind::Removable {} => None,
+        | AppletKind::Printing {} => None,
     }
 }
 
@@ -343,9 +355,48 @@ mod tests {
             &services.session_actions,
             &services.battery,
             &services.clipboard,
+            &services.places,
+            &services.removable,
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_places_applet_is_built_and_renders_a_chip() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config = configured("places", &BTreeMap::new(), &Regional::default())
+            .expect("`places` is a known applet");
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.removable,
+            None,
+        );
+        assert!(built.is_some(), "places has an implementation");
 
         services.shutdown().await;
     }
@@ -377,6 +428,8 @@ mod tests {
             &services.session_actions,
             &services.battery,
             &services.clipboard,
+            &services.places,
+            &services.removable,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -413,6 +466,8 @@ mod tests {
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,
+                &services.places,
+                &services.removable,
                 None,
             )
             .is_none(),
@@ -438,6 +493,8 @@ mod tests {
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,
+                &services.places,
+                &services.removable,
                 Some(&dialog),
             )
             .is_some(),
@@ -483,6 +540,8 @@ mod tests {
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,
+                &services.places,
+                &services.removable,
                 None,
             );
             assert!(

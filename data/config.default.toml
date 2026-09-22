@@ -125,6 +125,13 @@ buttons = [
     "power",
 ]
 
+[places]
+trash = true
+network = true
+
+[removable]
+capacity-interval = 10
+
 [[panels]]
 size = 36
 position = "top"
@@ -141,7 +148,7 @@ center = [
 right = [
     "next-event",
     "tray",
-    "removable",
+    "places",
     "clipboard",
     "keyboard",
     "printing",

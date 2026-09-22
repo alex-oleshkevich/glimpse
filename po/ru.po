@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-18 02:56+0200\n"
+"POT-Creation-Date: 2026-09-22 11:46+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -24,77 +24,131 @@ msgstr ""
 msgid "now"
 msgstr "сейчас"
 
-#: crates/glimpse-panel/src/app.rs:224
+#: crates/glimpse-panel/src/app.rs:261
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:268
+#: crates/glimpse-panel/src/app.rs:305
 msgid "Network password"
 msgstr ""
 
+#: crates/glimpse-panel/src/app.rs:318
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
+#: crates/glimpse-widgets/blueprints/network_popover.blp:158
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+msgid "Cancel"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:378
+#: crates/glimpse-panel/src/applets/session/mod.rs:90
+msgid "Session"
+msgstr ""
+
 #: crates/glimpse-panel/src/app.rs:380
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not complete the session action"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/app.rs:382
+msgid "The session manager refused that action."
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:481
 msgid "this device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:54
+#: crates/glimpse-panel/src/applet/mod.rs:135
+msgid "That change was refused."
+msgstr ""
+
+#: crates/glimpse-panel/src/applet/mod.rs:136
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:318
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
+msgid "That is not supported."
+msgstr ""
+
+#: crates/glimpse-panel/src/applet/mod.rs:137
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:319
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
+msgid "That could not be completed."
+msgstr ""
+
+#: crates/glimpse-panel/src/applet/mod.rs:138
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:320
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
+#: crates/glimpse-panel/src/applets/network/render.rs:155
+msgid "That did not work."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:76
 msgid "All day · day {day} of {days}"
 msgstr "Весь день · день {day} из {days}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:57
+#: crates/glimpse-panel/src/applets/agenda.rs:79
 msgid "All day"
 msgstr "Весь день"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:65
+#: crates/glimpse-panel/src/applets/agenda.rs:87
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · до {weekday} {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:72
-#: crates/glimpse-panel/src/applets/agenda.rs:104
+#: crates/glimpse-panel/src/applets/agenda.rs:94
+#: crates/glimpse-panel/src/applets/agenda.rs:126
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:80
+#: crates/glimpse-panel/src/applets/agenda.rs:102
 msgid "{start} · over"
 msgstr "{start} · завершилось"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:81
+#: crates/glimpse-panel/src/applets/agenda.rs:103
 msgid "ended {length} ago"
 msgstr "закончилось {length} назад"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:88
+#: crates/glimpse-panel/src/applets/agenda.rs:110
 msgid "now · ends in {length}"
 msgstr "сейчас · закончится через {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:90
+#: crates/glimpse-panel/src/applets/agenda.rs:112
 msgid "now · ends {end}"
 msgstr "сейчас · до {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:97
+#: crates/glimpse-panel/src/applets/agenda.rs:119
 msgid "starting now · {length}"
 msgstr "начинается · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:100
+#: crates/glimpse-panel/src/applets/agenda.rs:122
 msgid "in {until} · {length}"
 msgstr "через {until} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:112
+#: crates/glimpse-panel/src/applets/agenda.rs:134
 msgid "{minutes} min"
 msgstr "{minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:118
+#: crates/glimpse-panel/src/applets/agenda.rs:140
+#: crates/glimpse-panel/src/applets/battery/render.rs:215
 msgid "{hours} h"
 msgstr "{hours} ч"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:119
+#: crates/glimpse-panel/src/applets/agenda.rs:141
 #: crates/glimpse-panel/src/applets/weather/render.rs:316
 msgid "{hours} h {minutes} min"
 msgstr "{hours} ч {minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:127
+#: crates/glimpse-panel/src/applets/agenda.rs:149
 msgid "{days} d"
 msgstr "{days} д"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:128
+#: crates/glimpse-panel/src/applets/agenda.rs:150
 msgid "{days} d {hours} h"
 msgstr "{days} д {hours} ч"
 
@@ -110,7 +164,7 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:130
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:197
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:256
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:257
 #: crates/glimpse-panel/src/applets/network/indicator.rs:512
 msgid "Could not change that setting"
 msgstr ""
@@ -145,29 +199,9 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:316
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:263
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
 msgid "That was not a valid value."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:318
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
-#: crates/glimpse-panel/src/applets/display/indicator.rs:139
-msgid "That is not supported."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:319
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
-#: crates/glimpse-panel/src/applets/display/indicator.rs:140
-msgid "That could not be completed."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:320
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
-#: crates/glimpse-panel/src/applets/display/indicator.rs:141
-#: crates/glimpse-panel/src/applets/network/render.rs:155
-msgid "That did not work."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:341
@@ -188,6 +222,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
 #: crates/glimpse-panel/src/applets/network/render.rs:290
 #: crates/glimpse-panel/src/applets/network/render.rs:789
+#: crates/glimpse-panel/src/applets/places/render.rs:59
 #, fuzzy
 #| msgid "Show the whole year"
 msgid "Show fewer"
@@ -230,13 +265,238 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:211
+#: crates/glimpse-widgets/src/lib.rs:240
 msgid "{percent}%"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:131
 #: crates/glimpse-panel/src/applets/audio/render.rs:332
 msgid "Unknown application"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/mod.rs:145
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not change the power mode"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/battery/mod.rs:167
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not change the charge limit"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/battery/mod.rs:195
+#: crates/glimpse-panel/src/applets/battery/render.rs:82
+#: crates/glimpse-panel/src/applets/battery/render.rs:83
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:377
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:14
+msgid "Battery"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/mod.rs:199
+msgid "The battery service is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:97
+msgid "Charge"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:102
+msgid "Time to full"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:103
+#, fuzzy
+#| msgid "min left"
+msgid "Time left"
+msgstr "мин осталось"
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:113
+msgid "Rate"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:117
+msgid "Energy"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:123
+msgid "Capacity when new"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:128
+msgid "Health"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:131
+msgid "Cycles"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:135
+msgid "Voltage"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:140
+msgid "Technology"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:143
+#: crates/glimpse-widgets/src/display_list/mod.rs:273
+msgid "Model"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:146
+msgid "Vendor"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:156
+msgid "Stops at {percent}% to slow wear"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:201
+msgid "{time} to full"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:204
+#, fuzzy
+#| msgid "min left"
+msgid "{time} left"
+msgstr "мин осталось"
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:213
+msgid "Less than a minute"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:214
+#, fuzzy
+#| msgid "{minutes} min"
+msgid "{minutes} m"
+msgstr "{minutes} мин"
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:216
+#, fuzzy
+#| msgid "{hours} h {minutes} min"
+msgid "{hours} h {minutes} m"
+msgstr "{hours} ч {minutes} мин"
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:224
+msgid "Charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:225
+msgid "Discharging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:226
+#: crates/glimpse-widgets/src/places_popover/mod.rs:204
+msgid "Empty"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:227
+msgid "Fully charged"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:228
+msgid "Not charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:267
+msgid "Power saver"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:268
+msgid "Balanced"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:269
+msgid "Performance"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:276
+msgid "Longer battery life, slower response"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:277
+msgid "The default trade-off"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:279
+msgid "Held back — on a lap"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:280
+msgid "Held back — too hot"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:297
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:493
+msgid "Mouse"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:298
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:492
+#: crates/glimpse-panel/src/applets/brightness/render.rs:63
+#: crates/glimpse-panel/src/applets/brightness/render.rs:339
+msgid "Keyboard"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:299
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:490
+msgid "Headphones"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:300
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:489
+msgid "Headset"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:301
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:496
+msgid "Phone"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:302
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:495
+msgid "Tablet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:303
+msgid "Controller"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:304
+msgid "UPS"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:305
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:500
+msgid "Device"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:324
+msgid "Li-ion"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:325
+msgid "Li-poly"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:326
+msgid "LiFePO4"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:327
+msgid "Lead acid"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:328
+msgid "NiCd"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:329
+msgid "NiMH"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:83
@@ -342,18 +602,8 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:163
 msgid "Forget"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
-#: crates/glimpse-widgets/blueprints/network_popover.blp:158
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-msgid "Cancel"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
@@ -438,10 +688,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:370
 msgid "Pair this device"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:377
-msgid "Battery"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
@@ -539,38 +785,12 @@ msgstr ""
 msgid "Bluetooth could not complete that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:489
-msgid "Headset"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:490
-msgid "Headphones"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:491
 msgid "Speaker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:492
-#: crates/glimpse-panel/src/applets/brightness/render.rs:63
-#: crates/glimpse-panel/src/applets/brightness/render.rs:339
-msgid "Keyboard"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:493
-msgid "Mouse"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:494
 msgid "Gamepad"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:495
-msgid "Tablet"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:496
-msgid "Phone"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:497
@@ -583,10 +803,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:499
 msgid "Printer"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:500
-msgid "Device"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:514
@@ -607,6 +823,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:524
 #: crates/glimpse-panel/src/applets/network/indicator.rs:115
+#: crates/glimpse-widgets/blueprints/places_popover.blp:75
 msgid "Network"
 msgstr ""
 
@@ -618,37 +835,37 @@ msgstr ""
 msgid "Contacts"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:240
-#: crates/glimpse-panel/src/applets/display/indicator.rs:128
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:241
+#: crates/glimpse-panel/src/applets/display/indicator.rs:124
 #: crates/glimpse-widgets/blueprints/display_popover.blp:15
 msgid "Displays"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:242
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:243
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not change the brightness"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:254
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:255
 #: crates/glimpse-widgets/blueprints/brightness_popover.blp:43
 msgid "Night light"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
 msgid "The brightness service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:273
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
 msgid "That was not a valid setting."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
 msgid "The night light is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
 msgid "That took too long."
 msgstr ""
 
@@ -656,29 +873,178 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:80
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:128
+msgid "Image · {size}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:161
+#, fuzzy
+#| msgid "min"
+msgid "Pin"
+msgstr "мин"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:162
+msgid "Unpin"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:173
+msgid "Clear history"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
+msgid "Clipboard"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:200
+msgid "The clipboard is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:214
+msgid "That entry is no longer in the history."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:222
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "{count} min ago"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:224
+#, fuzzy
+#| msgid "{count}h"
+msgid "{count} h ago"
+msgstr "{count} ч"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:234
+msgid "{count} items · {size}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:304
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not copy that entry"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:329
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not pin that entry"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:345
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not forget that entry"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:361
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not clear the history"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:79
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not change that display"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:100
+#: crates/glimpse-panel/src/applets/display/indicator.rs:95
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not blank the screens"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:137
-msgid "That change was refused."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/display/indicator.rs:138
+#: crates/glimpse-panel/src/applets/display/indicator.rs:128
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:356
+#: crates/glimpse-panel/src/applets/idle/mod.rs:183
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:246
+msgid "Idle"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:23
+#: crates/glimpse-panel/src/applets/idle/render.rs:37
+msgid "Idle daemon not running"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:28
+#: crates/glimpse-panel/src/applets/idle/render.rs:40
+msgid "The compositor is not reporting idle time"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:43
+#, fuzzy
+#| msgid "Nothing else scheduled"
+msgid "Nothing preventing idle"
+msgstr "Больше ничего не запланировано"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:57
+#: crates/glimpse-panel/src/applets/idle/render.rs:60
+#, fuzzy
+#| msgid "Silence notifications until you turn this off"
+msgid "Awake until you turn it off"
+msgstr "Отключить уведомления, пока вы не выключите этот режим"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
+msgid "{n} app preventing idle or sleep"
+msgid_plural "{n} apps preventing idle or sleep"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:78
+msgid "{n} app preventing idle"
+msgid_plural "{n} apps preventing idle"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
+msgid "Unknown"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
+msgid "(Flatpak via portal)"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
+msgid "(systemd-inhibit · pid {pid})"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
+msgid "Preventing idle"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:350
 msgid "Open {player}"
 msgstr ""
 
@@ -947,30 +1313,88 @@ msgstr ""
 msgid "{speed} Mb/s"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+#: crates/glimpse-panel/src/applets/next_event/render.rs:127
 msgid "ends in {value} {unit}"
 msgstr "закончится через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:126
+#: crates/glimpse-panel/src/applets/next_event/render.rs:128
 msgid "in {value} {unit}"
 msgstr "через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:143
-#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+#: crates/glimpse-panel/src/applets/next_event/render.rs:145
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
 msgid "min"
 msgstr "мин"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:144
+#: crates/glimpse-panel/src/applets/next_event/render.rs:146
 msgid "min left"
 msgstr "мин осталось"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+#: crates/glimpse-panel/src/applets/next_event/render.rs:154
 msgid "h"
 msgstr "ч"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+#: crates/glimpse-panel/src/applets/next_event/render.rs:155
 msgid "d"
 msgstr "д"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:210
+msgid "Clashes with {events}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:232
+msgid "Join Google Meet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:233
+msgid "Join Zoom"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:234
+msgid "Join Microsoft Teams"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:235
+msgid "Join Webex"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Join meeting"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:260
+msgid "Calendar"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:263
+#, fuzzy
+#| msgid "Notifications"
+msgid "Location"
+msgstr "Уведомления"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:266
+msgid "Organizer"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:272
+msgid "Guests"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:273
+msgid "{total} · {accepted} accepted"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:279
+msgid "Status"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:279
+msgid "Tentative"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:282
+msgid "Conflicts"
+msgstr ""
 
 #: crates/glimpse-panel/src/applets/notifications/indicator.rs:215
 msgid "Clear all"
@@ -1010,6 +1434,208 @@ msgstr "{count} ч"
 msgid "{count}d"
 msgstr "{count} д"
 
+#: crates/glimpse-panel/src/applets/places/indicator.rs:93
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not open that drive"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:111
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not eject that drive"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:126
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not unmount that drive"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:178
+#: crates/glimpse-panel/src/applets/places/render.rs:28
+#: crates/glimpse-widgets/blueprints/places_popover.blp:14
+#: crates/glimpse-widgets/blueprints/places_popover.blp:47
+msgid "Places"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:60
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "{count} рабочий стол"
+msgstr[1] "{count} рабочих стола"
+msgstr[2] "{count} рабочих столов"
+
+#: crates/glimpse-panel/src/applets/places/render.rs:211
+msgid "No media"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:214
+#, fuzzy
+#| msgid "{count}m"
+msgid "{count} volume"
+msgid_plural "{count} volumes"
+msgstr[0] "{count} мин"
+msgstr[1] "{count} мин"
+msgstr[2] "{count} мин"
+
+#: crates/glimpse-panel/src/applets/places/render.rs:229
+msgid "{available} free of {total}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:241
+msgid "No space left"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:246
+msgid "Not mounted"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:321
+msgid "That drive is not mounted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:322
+msgid "The drive is busy with something else."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:323
+msgid "That drive is already mounted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:324
+msgid "This computer is not authorized to do that."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:325
+msgid "That is not supported for this drive."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:326
+msgid "That option is not permitted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:327
+msgid "The drive did not respond in time."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:328
+msgid "That would wake a sleeping drive."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:329
+msgid "The action was cancelled."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/places/render.rs:330
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "The drive could not complete that."
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by an active inhibitor."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:52
+msgid "Updates available"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:53
+#, fuzzy
+#| msgid "Notifications are unavailable"
+msgid "No updates available"
+msgstr "Уведомления недоступны"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:247
+msgid "Suspend"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:76
+msgid "Suspend this session?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-widgets/blueprints/session_popover.blp:27
+msgid "Hibernate"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:81
+msgid "Hibernate this session?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:85
+#: crates/glimpse-panel/src/applets/session/render.rs:87
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+msgid "Log out"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:86
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:90
+#: crates/glimpse-panel/src/applets/session/render.rs:92
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Restart"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:91
+msgid "Restart this computer?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:95
+#: crates/glimpse-panel/src/applets/session/render.rs:97
+#: crates/glimpse-widgets/blueprints/session_popover.blp:48
+msgid "Shut down"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:96
+msgid "Shut down this computer?"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:121
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:144
+msgid "Wayland"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:145
+msgid "X11"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:146
+msgid "Terminal"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:153
+msgid "Signed in today"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:155
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 #: crates/glimpse-panel/src/applets/tray/mod.rs:284
 msgid "Show {count} hidden item"
 msgid_plural "Show {count} hidden items"
@@ -1021,12 +1647,12 @@ msgstr[2] ""
 msgid "The weather provider is not serving this place."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:231
+#: crates/glimpse-panel/src/applets/weather/mod.rs:228
 msgid "Here"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:248
-#: crates/glimpse-panel/src/applets/weather/mod.rs:284
+#: crates/glimpse-panel/src/applets/weather/mod.rs:245
+#: crates/glimpse-panel/src/applets/weather/mod.rs:281
 msgid "No reading yet"
 msgstr ""
 
@@ -1169,6 +1795,7 @@ msgid "Expires"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:377
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Source"
 msgstr ""
 
@@ -1183,6 +1810,25 @@ msgstr "Уведомления"
 #| msgid "Nothing else scheduled"
 msgid "Nothing is playing"
 msgstr "Больше ничего не запланировано"
+
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:33
+msgid "Power mode"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:40
+#: crates/glimpse-widgets/blueprints/places_popover.blp:56
+msgid "Devices"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:54
+#, fuzzy
+#| msgid "Details"
+msgid "Battery details"
+msgstr "Подробности"
+
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:82
+msgid "Charge limit"
+msgstr ""
 
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:47
 msgid "Paired"
@@ -1231,12 +1877,10 @@ msgid "Next"
 msgstr "Вперёд"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:43
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:14
 msgid "Nothing scheduled"
 msgstr "Ничего не запланировано"
 
 #: crates/glimpse-widgets/blueprints/calendar_popover.blp:44
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:36
 msgid "The rest of the day is yours."
 msgstr "Остаток дня — ваш."
 
@@ -1254,6 +1898,20 @@ msgstr ""
 msgid "World clock"
 msgstr "Мировые часы"
 
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:31
+msgid "Pinned"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:38
+msgid "Recent"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:45
+#, fuzzy
+#| msgid "Nothing scheduled"
+msgid "Nothing copied yet"
+msgstr "Ничего не запланировано"
+
 #: crates/glimpse-widgets/blueprints/display_popover.blp:36
 msgid "Blank the screens"
 msgstr ""
@@ -1264,6 +1922,46 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
 msgid "Mute"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:18
+msgid "Keep awake"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:35
+msgid "Keep awake for…"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:61
+#, fuzzy
+#| msgid "{minutes} min"
+msgid "15 minutes"
+msgstr "{minutes} мин"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:66
+#, fuzzy
+#| msgid "{minutes} min"
+msgid "30 minutes"
+msgstr "{minutes} мин"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:71
+msgid "1 hour"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:76
+#, fuzzy
+#| msgid "{hours} h"
+msgid "2 hours"
+msgstr "{hours} ч"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:81
+#, fuzzy
+#| msgid "{hours} h"
+msgid "4 hours"
+msgstr "{hours} ч"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:86
+msgid "Until you turn it off"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
@@ -1300,17 +1998,14 @@ msgstr ""
 msgid "Connect to a hidden network…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:15
-msgid "No calendar entry is coming up."
-msgstr "Ближайших записей в календаре нет."
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:37
+#: crates/glimpse-widgets/blueprints/split_row.blp:27
+msgid "Details"
+msgstr "Подробности"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:24
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:44
 msgid "Coming up"
 msgstr "Далее"
-
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:35
-msgid "Nothing else scheduled"
-msgstr "Больше ничего не запланировано"
 
 #: crates/glimpse-widgets/blueprints/notification_header.blp:56
 #: crates/glimpse-widgets/src/notification_card/imp.rs:183
@@ -1333,9 +2028,22 @@ msgstr "Ничего нового"
 msgid "You are all caught up."
 msgstr "Всё просмотрено."
 
+#: crates/glimpse-widgets/blueprints/places_popover.blp:15
+msgid "Quick access"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:28
+msgid "Bookmarks"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:84
+#: crates/glimpse-widgets/src/places_popover/mod.rs:202
+msgid "Trash"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:179
+#: crates/glimpse-widgets/src/lib.rs:201
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -1343,9 +2051,17 @@ msgstr "Воспроизвести"
 msgid "Seek"
 msgstr "Перемотка"
 
-#: crates/glimpse-widgets/blueprints/split_row.blp:27
-msgid "Details"
-msgstr "Подробности"
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+msgid "Lock"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:55
+msgid "Switch user"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:67
+msgid "Updates"
+msgstr ""
 
 #: crates/glimpse-widgets/blueprints/transport.blp:20
 msgid "Shuffle"
@@ -1387,53 +2103,95 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:193
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:189
 msgid "{kelvin} K"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:126
+#: crates/glimpse-widgets/src/display_list/mod.rs:135
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:161
+#: crates/glimpse-widgets/src/display_list/mod.rs:174
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:249
+#: crates/glimpse-widgets/src/display_list/mod.rs:267
+msgid "Connector"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:270
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:252
-msgid "Model"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:276
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:258
+#: crates/glimpse-widgets/src/display_list/mod.rs:279
 msgid "Current mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:261
+#: crates/glimpse-widgets/src/display_list/mod.rs:282
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:262
+#: crates/glimpse-widgets/src/display_list/mod.rs:283
 #, fuzzy
 #| msgid "Notification"
 msgid "Position"
 msgstr "Уведомление"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:273
+#: crates/glimpse-widgets/src/display_list/mod.rs:294
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:291
+#: crates/glimpse-widgets/src/display_list/mod.rs:312
 msgid "{x}, {y}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:178
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:29
+msgid "Screen saver"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:30
+msgid "Portal"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:31
+msgid "System"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:32
+msgid "Manual hold"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:142
+#, fuzzy
+#| msgid "Previous"
+msgid "Prevents"
+msgstr "Назад"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:248
+msgid "Shutdown"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:249
+msgid "Lid"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:250
+msgid "Power key"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:251
+msgid "Suspend key"
+msgstr ""
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:252
+msgid "Hibernate key"
+msgstr ""
+
+#: crates/glimpse-widgets/src/lib.rs:200
 msgid "Pause"
 msgstr "Пауза"
 
@@ -1476,6 +2234,21 @@ msgstr ""
 msgid "Clear these notifications"
 msgstr "Очистить эти уведомления"
 
+#: crates/glimpse-widgets/src/places_popover/mod.rs:205
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:291
+msgid "Eject"
+msgstr ""
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:301
+msgid "Unmount"
+msgstr ""
+
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124
 msgid "{workspaces} on {output}"
 msgstr "{workspaces} на {output}"
@@ -1498,15 +2271,5 @@ msgstr[2] "{count} рабочих столов"
 msgid "Yesterday"
 msgstr "Вчера"
 
-#~ msgid "Silence notifications until you turn this off"
-#~ msgstr "Отключить уведомления, пока вы не выключите этот режим"
-
-#, fuzzy
-#~| msgid "min"
-#~ msgid "in"
-#~ msgstr "мин"
-
-#, fuzzy
-#~| msgid "Details"
-#~ msgid "All details"
-#~ msgstr "Подробности"
+#~ msgid "No calendar entry is coming up."
+#~ msgstr "Ближайших записей в календаре нет."

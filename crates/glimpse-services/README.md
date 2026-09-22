@@ -290,6 +290,19 @@ snapshot, never the backend, and an id that has just disappeared is `Refused`, n
 `set_app_volume` fans out through `Role::scaled` rather than one absolute write, so a group's
 streams keep their relative mix.
 
+**removable** — mirrors UDisks2 into one drive-grouped state, enumerated once with
+`GetManagedObjects` and never polled; commands (`mount`, `unmount`, `eject`, `power_off`) are thin
+pass-throughs. **Capacity is a `statvfs` sample, not a UDisks2 property** — `Filesystem.Size` is 0
+for vfat and exfat, the two commonest removable filesystems, so free space comes from
+`rustix::fs::statvfs` in `spawn_blocking`, on an interval declared only while something is mounted.
+
+**places** — reads four filesystem sources with no bus at all: `user-dirs.dirs`,
+`gtk-3.0/bookmarks`, `$XDG_RUNTIME_DIR/gvfs`, `Trash/files`. **`user-dirs.dirs` is parsed, never
+read through `glib::user_special_dir`** — the key set is open, the enum is closed to eight, and the
+GLib function caches besides. **A source that fails to read publishes nothing for its section and
+reports through `ctx.degraded`** — health is orthogonal to state, and nothing downstream renders a
+degraded section differently from an absent one.
+
 **session actions** — logind capabilities, same-seat sessions and inhibitors on their own
 subscription, window count from the compositor, PackageKit updates only on `UpdatesChanged`. A
 window appearing does not re-query the package manager. Capability reasons are an enum; the applet

@@ -90,12 +90,12 @@ pub enum Kind {
     Notifications(Notifications),
     /// A strip of workspaces or windows, one slot each, that switches between them on a click.
     Pager(Pager),
+    /// Home and user directories, bookmarks, removable drives, network shares and the trash.
+    Places(Places),
     /// Active print jobs.
     Printing {},
     /// Shows when the microphone, camera or screen is in use.
     Privacy {},
-    /// Mounted removable drives, and unmounts them.
-    Removable {},
     /// Log out, suspend, restart and shut down.
     Session {},
     /// The system tray: icons from applications that ask for one.
@@ -283,6 +283,25 @@ impl Default for Bluetooth {
         Self {
             devices: 6,
             nearby: 8,
+        }
+    }
+}
+
+/// The places applet.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Places {
+    /// How many bookmarks the popover lists before the rest go behind a drawer.
+    pub bookmarks: usize,
+    /// How many volumes the popover lists before the rest go behind a drawer.
+    pub volumes: usize,
+}
+
+impl Default for Places {
+    fn default() -> Self {
+        Self {
+            bookmarks: 8,
+            volumes: 6,
         }
     }
 }
@@ -810,6 +829,23 @@ mod tests {
             COMMON.len(),
             declared.len(),
             "the splitter removes a key no common setting declares"
+        );
+    }
+
+    #[test]
+    fn places_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
+        let bare = super::Applet::from_name("places").expect("a known applet name");
+        assert_eq!(bare.kind, Kind::Places(super::Places::default()));
+
+        let configured: crate::Config =
+            toml::from_str("[applets.pl]\nextends = \"places\"\nbookmarks = 4\n")
+                .expect("the table loads");
+        assert_eq!(
+            configured.applets["pl"].kind,
+            Kind::Places(super::Places {
+                bookmarks: 4,
+                volumes: 6,
+            })
         );
     }
 

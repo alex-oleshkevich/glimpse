@@ -432,6 +432,25 @@ which live in the `.blp`.
 panel open while the other opens a second. Its `$Notice` carries only the standing condition a
 notification cannot — no data-control protocol at all; a refused command is a notification.
 
+## PlacesPopover
+
+Five independent `$Section`s — bookmarks, places, devices, network, trash — each hiding when it has
+nothing, with no exception and no placeholder anywhere. A popover with nothing to list is a hero and
+a footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
+
+- **A device row is the third reconcile shape.** Like `SourceList` and `DisplayList`, each drive or
+  volume is a runtime-built `Gtk.Box`, not a template, keyed by id through `reconcile::by_key`; a
+  row inside it is a plain `Row` or a `SplitRow` depending on whether it needs a click target beyond
+  the body, swapped in once and reused rather than rebuilt on every apply.
+- **A capacity readout is a `Gtk.ProgressBar` appended after the row, not a property of it** —
+  `apply_capacity_bar` builds one lazily on the first `Some(fraction)` and removes it again on
+  `None`, so a drive with no mounted filesystem carries no empty bar.
+- **`.row.dimmed` marks present-but-unusable, not absent** — a drive with no media and no volumes to
+  browse, still listed, greyed rather than hidden, since ejecting it is still a thing to do.
+- **`SplitRow`'s chevron is the eject or unmount control**, never the row body, which stays the
+  open/mount target; a read-only volume gets a plain trailing icon instead, since there is nothing
+  behind a chevron to unfold.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

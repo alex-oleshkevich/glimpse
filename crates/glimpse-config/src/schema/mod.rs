@@ -15,8 +15,10 @@ mod network;
 mod night_light;
 mod notifications;
 mod panels;
+mod places;
 mod power;
 mod regional;
+mod removable;
 mod wallpaper;
 mod weather;
 
@@ -32,8 +34,8 @@ pub use applets::{
     Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Common as AppletCommon, FirstDay,
     Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
     NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
-    PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Timezone as ClockTimezone,
-    Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
+    PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
+    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
 };
 pub use backdrop::Backdrop;
 pub use bluetooth::Bluetooth;
@@ -50,8 +52,10 @@ pub use network::Network as NetworkSettings;
 pub use night_light::{CLOCK, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
+pub use places::Places;
 pub use power::Power;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
+pub use removable::Removable;
 pub use wallpaper::{Fit, Wallpaper};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
@@ -77,6 +81,8 @@ pub struct Config {
     pub wallpaper: Wallpaper,
     pub backdrop: Backdrop,
     pub lock: Lock,
+    pub places: Places,
+    pub removable: Removable,
     pub panels: Vec<Panel>,
     #[serde(deserialize_with = "applets::deserialize")]
     #[schemars(schema_with = "applets::schema")]
@@ -105,6 +111,8 @@ impl Default for Config {
             wallpaper: Wallpaper::default(),
             backdrop: Backdrop::default(),
             lock: Lock::default(),
+            places: Places::default(),
+            removable: Removable::default(),
             panels: vec![Panel::default()],
             applets: BTreeMap::new(),
         }
