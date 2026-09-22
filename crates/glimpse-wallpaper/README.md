@@ -21,6 +21,11 @@ decode, and the outgoing texture held during a crossfade. The key is (image path
 fit, blur radius, mtime); dark mode is already resolved into which image path is used, so it plays
 no part in the key itself.
 
+The backdrop decodes at the output's physical size divided by `downscale-factor`, and is blurred
+once, on the GPU, when its texture is applied: a gaussian `GskBlurNode` rendered offscreen through
+the surface's own renderer. The radius is configured in output pixels and scaled to the texture.
+Never blur by shrinking and re-stretching: that is a thumbnail, not a blur.
+
 A crossfade loads into the hidden slot and clears the replaced one on a timer; every load carries a
 request id so a stale decode cannot overwrite a newer image.
 
