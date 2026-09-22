@@ -133,7 +133,10 @@ AUX channel, exposed as a connector-owned `i2c-N` child directory whose device n
 "aux" — the `ddc` symlink instead names a legacy pin-based bus that answers nothing on a real DP
 link. Both are structural, neither is a guess, so both are tried, aux first since it is the one
 measured to work; a connector with no aux child (an older VGA/DVI/HDMI bus) only ever had the one.
-Nothing here is a probe of every `/dev/i2c-*` node, so an SMBus is never touched. Every call is a
+Nothing here is a probe of every `/dev/i2c-*` node, so an SMBus is never touched. **A built-in
+panel connector (`eDP`, `LVDS`, `DSI`) is never probed at all**: its brightness belongs to the
+backlight, and a single DDC/CI transaction on an eDP link's bus freezes an amdgpu OLED panel on
+its last frame until the next modeset. Every call is a
 blocking ioctl with protocol-mandated delays and runs on `spawn_blocking`; there is no change signal
 for an out-of-band edit (a monitor's own buttons), only an explicit `brightness.refresh`.
 `CompositeBacklight` merges it with `SysfsBacklight` behind one `Arc<dyn Backlight>`, routing by a

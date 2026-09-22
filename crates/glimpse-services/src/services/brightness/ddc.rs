@@ -9,6 +9,7 @@ use super::{Backlight, Entry, Kind, ReadOutcome};
 const DRM_ROOT: &str = "/sys/class/drm";
 const BRIGHTNESS_FEATURE: FeatureCode = 0x10;
 const ID_PREFIX: &str = "ddc:";
+const BUILT_IN_CONNECTORS: [&str; 3] = ["eDP-", "LVDS-", "DSI-"];
 
 /// External-monitor brightness over DDC/CI, talked natively through `/dev/i2c-*` rather than
 /// through the `ddcutil` binary — glimpse only depends on that package for the udev rule it
@@ -67,7 +68,7 @@ fn enumerate_blocking() -> Vec<Entry> {
 }
 
 fn connector_entry(card_dir: &Path, name: &str) -> Option<Entry> {
-    if !name.starts_with("card") || !name.contains('-') {
+    if !name.starts_with("card") || !name.contains('-') || built_in(name) {
         return None;
     }
     let status = std::fs::read_to_string(card_dir.join("status")).ok()?;
@@ -77,6 +78,14 @@ fn connector_entry(card_dir: &Path, name: &str) -> Option<Entry> {
     let mut entry = candidate_buses(card_dir).find_map(probe)?;
     entry.device_link = Some(format!("../../{name}"));
     Some(entry)
+}
+
+fn built_in(name: &str) -> bool {
+    name.split_once('-').is_some_and(|(_, connector)| {
+        BUILT_IN_CONNECTORS
+            .iter()
+            .any(|prefix| connector.starts_with(prefix))
+    })
 }
 
 /// Which I2C bus actually carries DDC/CI for this connector is not settled by one symlink. A
@@ -150,6 +159,15 @@ fn write_blocking(bus: u32, value: u32) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_built_in_panel_is_never_a_ddc_candidate() {
+        assert!(built_in("card1-eDP-1"));
+        assert!(built_in("card0-LVDS-1"));
+        assert!(built_in("card0-DSI-1"));
+        assert!(!built_in("card1-DP-2"));
+        assert!(!built_in("card1-HDMI-A-1"));
+    }
 
     #[test]
     fn an_id_outside_the_ddc_prefix_is_not_a_bus() {

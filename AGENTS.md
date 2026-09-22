@@ -605,9 +605,19 @@ exits with status 1, so `Pixbuf::file_info` and `from_file_at_scale` both fail. 
 `systemd-run --user -p <option>` over each option in `glimpse-wallpaper.service`: it was the only one
 that broke decoding. The wallpaper then showed its solid color, and before the `rendered` guard in
 `Surface::decoded` it re-spawned the decode forever: 1h28m CPU in 43 min wall, with three bwrap
-sandboxes per round, and niri sluggish throughout. The option is dropped from the wallpaper unit. The
-panel and notification units still carry it, so any decode that goes through glycin there fails the
-same way.
+sandboxes per round, and niri sluggish throughout. The option is dropped from the wallpaper, panel and
+notification units — every unit whose process decodes an image.
+
+**One DDC/CI transaction on the built-in panel's bus freezes it, September 2026.** The eDP-1 OLED
+(Samsung ATNA60CL10, amdgpu) holds its last frame and ignores every flip until a modeset
+(`niri msg output eDP-1 off` then `on`, or a reconnect). niri keeps presenting at 120 fps
+throughout — a frame counter on eDP proved it — so nothing above the kernel looks wrong. Bisected by
+restarting one service at a time: only `glimpse-panel` froze it, because `DdcBacklight` probed every
+connected connector, eDP included. `ddcutil --bus 4 getvcp 10` (eDP's legacy `ddc` bus) alone
+reproduces it with no glimpse process running; the AUX bus `i2c-13` did not. It also fires with no
+restart, since brightness re-enumerates on display hotplug. For hours it read as a wallpaper bug and
+then as amdgpu PSR, because a restart is when the screen gets looked at. Built-in connectors are now
+never probed.
 
 **A long-running panel that has "stopped" reporting something is the first thing to disprove.** Both
 sides of this were `/usr/bin/glimpse-panel` with an identical environment and config; only one ran
