@@ -2,7 +2,6 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ClipboardAppletConfig};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
@@ -14,9 +13,6 @@ use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 
 use super::render;
-
-/// How often relative subtitles are restated.
-const MINUTE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// The side a row's thumbnail is decoded to. Bounding the decode rather than the bytes is what
 /// stops a small image that expands to an enormous bitmap.
@@ -97,8 +93,6 @@ impl Clipboard {
     }
 
     fn clips(&mut self, pinned: bool) -> Vec<Clip> {
-        let wording = wording();
-        let now = Utc::now();
         let entries: Vec<_> = self
             .state
             .entries
@@ -129,7 +123,6 @@ impl Clipboard {
                             .replace("{size}", &render::size(entry.data.len())),
                         ClipboardKind::Text => render::title(entry, self.preview_chars()),
                     },
-                    subtitle: render::when(now, entry.at, &wording),
                     icon: render::icon_for(entry.kind).to_owned(),
                     image,
                     pinned: entry.pinned,
@@ -217,14 +210,6 @@ fn wording_for(error: &CommandError, unavailable: &str) -> Option<String> {
     }
 }
 
-fn wording() -> render::Wording {
-    render::Wording {
-        just_now: gettext("just now"),
-        minutes: gettext("{count} min ago"),
-        hours: gettext("{count} h ago"),
-    }
-}
-
 /// Nothing when the history is empty: the placeholder in the card already says so, and a hero
 /// repeating it word for word makes the surface state it twice.
 fn summary(count: usize, bytes: usize) -> Option<String> {
@@ -239,7 +224,7 @@ fn summary(count: usize, bytes: usize) -> Option<String> {
 }
 
 impl Applet for Clipboard {
-    fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
+    fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Clipboard(settings) = &config.kind else {
             return;
         };
@@ -249,9 +234,6 @@ impl Applet for Clipboard {
             .common
             .settings()
             .map(|(label, command)| (label.to_owned(), command.to_vec()));
-        // Every row's subtitle is a relative time. Without a tick they freeze at whatever they said
-        // when the popover opened, and "just now" stays "just now" for as long as it is held open.
-        ctx.interval(MINUTE);
         self.refresh();
     }
 
@@ -273,9 +255,7 @@ impl Applet for Clipboard {
                     self.open = None;
                 }
             }
-            // The clock moved, so every relative subtitle is restated.
-            Input::Tick => {}
-            Input::Pointer(_) => return,
+            Input::Tick | Input::Pointer(_) => return,
         }
         self.refresh();
     }

@@ -6525,7 +6525,6 @@ mod tests {
         let clip = |id: u64, pinned: bool| Clip {
             id,
             title: "Марта🙂 a rather long clipboard entry that keeps going".to_owned(),
-            subtitle: "just now".to_owned(),
             icon: "text-x-generic-symbolic".to_owned(),
             image: None,
             pinned,

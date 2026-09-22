@@ -1,4 +1,3 @@
-use chrono::{DateTime, Local, Utc};
 use glimpse_services::{ClipboardEntry, ClipboardKind};
 use glimpse_utils::text::clean;
 
@@ -13,33 +12,6 @@ pub const IMAGE_ICON: &str = "image-x-generic-symbolic";
 /// for. An image has no preview to cap — the applet words that row from its size instead.
 pub fn title(entry: &ClipboardEntry, cap: usize) -> String {
     clean(&entry.preview, cap)
-}
-
-/// Relative for anything recent, then the clock, then the date. Formatted here because what a time
-/// says depends on `now`, which a widget has no business knowing.
-pub fn when(now: DateTime<Utc>, at: DateTime<Utc>, wording: &Wording) -> String {
-    let seconds = now.signed_duration_since(at).num_seconds().max(0);
-    match seconds {
-        0..=44 => wording.just_now.clone(),
-        45..=5399 => {
-            let minutes = ((seconds + 30) / 60).max(1);
-            wording.minutes.replace("{count}", &minutes.to_string())
-        }
-        5400..=86_399 => {
-            let hours = ((seconds + 1800) / 3600).max(1);
-            wording.hours.replace("{count}", &hours.to_string())
-        }
-        _ => at.with_timezone(&Local).format("%e %b %H:%M").to_string(),
-    }
-}
-
-/// Every user-visible string the applet hands over. Held together so a caller cannot format one of
-/// them and forget another, and so `render` needs no gettext of its own.
-#[derive(Debug, Clone, Default)]
-pub struct Wording {
-    pub just_now: String,
-    pub minutes: String,
-    pub hours: String,
 }
 
 pub fn size(bytes: usize) -> String {
@@ -80,42 +52,9 @@ pub fn icon_for(kind: ClipboardKind) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use chrono::DateTime;
+
     use super::*;
-
-    fn wording() -> Wording {
-        Wording {
-            just_now: "just now".to_owned(),
-            minutes: "{count} min ago".to_owned(),
-            hours: "{count} h ago".to_owned(),
-        }
-    }
-
-    fn at(seconds: i64) -> (DateTime<Utc>, DateTime<Utc>) {
-        let now = DateTime::from_timestamp(1_700_000_000, 0).expect("an instant");
-        (now, now - chrono::TimeDelta::seconds(seconds))
-    }
-
-    #[test]
-    fn a_fresh_entry_reads_as_just_copied() {
-        let (now, then) = at(3);
-        assert_eq!(when(now, then, &wording()), "just now");
-    }
-
-    #[test]
-    fn minutes_and_hours_are_rounded_to_the_nearest() {
-        let (now, then) = at(100);
-        assert_eq!(when(now, then, &wording()), "2 min ago");
-        let (now, then) = at(7200);
-        assert_eq!(when(now, then, &wording()), "2 h ago");
-    }
-
-    /// A clock that has not been set, or an entry from a future the panel has not reached, must not
-    /// render a negative age.
-    #[test]
-    fn an_entry_from_the_future_does_not_render_a_negative_age() {
-        let (now, then) = at(-500);
-        assert_eq!(when(now, then, &wording()), "just now");
-    }
 
     #[test]
     fn a_title_is_capped_by_character_and_survives_multi_byte_text() {

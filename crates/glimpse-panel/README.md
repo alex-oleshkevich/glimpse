@@ -178,6 +178,8 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
 
 **clipboard** — renders `ClipboardState` as two `$Section`s, pinned above recent, each a
 `$ClipboardList` of `$SplitRow`s: the body copies, the chevron unfolds Pin and Forget under it.
+**A row carries no timestamp, so the applet takes no tick** — a relative age is the only thing that
+would need one, and a minute timer redrawing unchanged rows is the cost of a line nobody reads.
 **Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
 history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
 not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection

@@ -23,13 +23,12 @@ glib::wrapper! {
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
-/// One row's worth of clipboard entry, already worded by the applet. The widget owns no formatting
-/// and no clock; `subtitle` arrives finished.
+/// One row's worth of clipboard entry, already worded by the applet. The widget owns no
+/// formatting; `title` arrives finished.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Clip {
     pub id: u64,
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     /// A decoded thumbnail for an image entry. `None` renders `icon` instead, which is also what a
     /// picture that would not decode falls back to.
@@ -90,7 +89,6 @@ impl ClipboardList {
             if let Some(split) = drawer::head::<SplitRow>(holder) {
                 let row = split.row();
                 row.set_title(none_if_empty(&clip.title));
-                row.set_subtitle(none_if_empty(&clip.subtitle));
                 match &clip.image {
                     // Reused rather than rebuilt: `fill_slot` compares by widget identity, so a
                     // fresh `Picture` replaces the slot on every render even for the same texture.
