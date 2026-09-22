@@ -91,10 +91,12 @@ transition window tears the slow timer down and builds the fast one; the ramp po
 the clock either way and the cadence only decides how often it is sampled. One tick a minute is
 correct and looks wrong — a 15-minute transition moves in steps of about 150 K. Daylight hands
 gamma control back; while serving a non-daylight schedule, each tick reapplies its selected
-temperature so a stolen output returns. A `transition-minutes` of zero never asks for the faster
-tick. Every reader goes through `effective()` — `forced.unwrap_or(config.schedule)` — so
-`SetSchedule` is complete rather than cosmetic; `forced` is not persisted and clears only when
-`[night-light]` changes.
+temperature so a stolen output returns. Release is decided on the solar phase itself, not on the
+computed value, since a night ramp can round to the same number as daylight and must not release
+early — a manual override is the one exception, since a value pinned by hand at exactly `DAY` is
+still a deliberate hold. A `transition-minutes` of zero never asks for the faster tick. Every reader
+goes through `effective()` — `forced.unwrap_or(config.schedule)` — so `SetSchedule` is complete
+rather than cosmetic; `forced` is not persisted and clears only when `[night-light]` changes.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals
 and charge-threshold details come from the real `BAT*` objects, because the composite omits them.

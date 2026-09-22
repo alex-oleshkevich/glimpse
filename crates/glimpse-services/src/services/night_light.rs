@@ -306,7 +306,7 @@ impl NightLight {
             Some((kelvin, _)) => kelvin,
             None => ramp(&phase, next_change, now, &self.config),
         };
-        if wanted == DAY {
+        if wanted == DAY && (self.manual.is_some() || phase == SolarPhase::Day) {
             return self.release(ctx);
         }
         match self.gamma.apply(wanted) {
@@ -776,6 +776,40 @@ mod tests {
 
         assert_eq!(harness.gamma.resets(), 1, "released once, not per tick");
         assert!(!harness.state.borrow().active());
+    }
+
+    #[tokio::test]
+    async fn a_day_temperature_is_released_rather_than_written_as_a_neutral_curve() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+
+        harness.service.observed = day(Some(sunset()));
+        harness.at(at(12, 0)).await;
+
+        assert_eq!(
+            harness.gamma.applied(),
+            vec![NIGHT],
+            "nothing further was written; the outputs went back instead"
+        );
+        assert_eq!(harness.gamma.resets(), 1);
+        assert_eq!(harness.state.borrow().temperature, DAY);
+    }
+
+    #[tokio::test]
+    async fn a_night_ramp_that_rounds_to_daylight_keeps_gamma_control_until_sunrise() {
+        let mut harness = harness(Config {
+            temperature: DAY - 1,
+            ..config(Schedule::Automatic)
+        })
+        .await;
+        harness.service.observed = night(Some(at(5, 0)));
+
+        harness.at(at(4, 59)).await;
+
+        assert_eq!(harness.gamma.applied(), vec![DAY]);
+        assert_eq!(harness.gamma.resets(), 0);
     }
 
     #[tokio::test]
