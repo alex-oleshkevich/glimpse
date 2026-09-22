@@ -51,5 +51,6 @@
         <file>widgets/transport.ui</file>
         <file>widgets/weather_popover.ui</file>
         <file>widgets/idle_popover.ui</file>
+        <file>widgets/workspace_name_popover.ui</file>
     </gresource>
 </gresources>

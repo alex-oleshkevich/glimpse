@@ -172,6 +172,10 @@ fn main() {
             "blueprints/idle_popover.blp",
             "resources/widgets/idle_popover.ui",
         ),
+        (
+            "blueprints/workspace_name_popover.blp",
+            "resources/widgets/workspace_name_popover.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

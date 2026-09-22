@@ -503,6 +503,13 @@ no detail label is translated here.
   its control rather than keeping a stale one — `by_key` matching on `id` only would reuse a `Row`
   that used to be a `SplitRow`, or the other way round, and leave the wrong widget in the cell.
 
+## WorkspaceNamePopover
+
+- **`set_name` writes the entry only while the user has not touched it.** A compositor event
+  arriving mid-edit would otherwise replace what is being typed.
+- **Esc is caught in the capture phase on the popover, not on the entry**, so it closes whatever has
+  focus; the entry is focused and its text selected on `map`, when it first has a root to focus in.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

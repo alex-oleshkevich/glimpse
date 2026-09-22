@@ -1,0 +1,48 @@
+using Gtk 4.0;
+
+template $WorkspaceNamePopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "workspace-name-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "view-grid-symbolic";
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+
+      styles [
+        "prompt",
+      ]
+
+      Gtk.Entry name {
+        placeholder-text: _("Workspace name");
+        max-length: 128;
+        secondary-icon-name: "edit-clear-symbolic";
+        secondary-icon-tooltip-text: _("Clear");
+        input-purpose: free_form;
+      }
+
+      Gtk.Label {
+        label: _("Press Enter to rename. Leave it empty to clear the name.");
+        xalign: 0;
+        wrap: true;
+        max-width-chars: 32;
+
+        styles [
+          "prompt__ask",
+        ]
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

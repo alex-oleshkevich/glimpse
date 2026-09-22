@@ -2620,7 +2620,7 @@ fn ensure_types() {
         NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, Placeholder,
         PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout,
         Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard,
-        Transport, TrayStrip, WeatherPopover, WorldClock,
+        Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -2678,6 +2678,7 @@ fn ensure_types() {
         ClipboardPopover::static_type(),
         PrintingPopover::static_type(),
         PrivacyPopover::static_type(),
+        WorkspaceNamePopover::static_type(),
     ] {
         let _ = widget;
     }
