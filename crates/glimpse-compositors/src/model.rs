@@ -89,6 +89,32 @@ pub struct KeyboardLayouts {
     pub current: Option<usize>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CastKind {
+    PipeWire,
+    Screencopy,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum CastTarget {
+    Output(String),
+    Window(WindowId),
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cast {
+    pub stream_id: u64,
+    pub session_id: Option<u64>,
+    pub kind: CastKind,
+    pub target: CastTarget,
+    pub pw_node_id: Option<u32>,
+    pub active: bool,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Snapshot {
     pub outputs: Vec<Output>,
@@ -97,7 +123,7 @@ pub struct Snapshot {
     pub keyboard: KeyboardLayouts,
     pub focused_window: Option<WindowId>,
     pub focused_output: Option<String>,
-    pub active_casts: std::collections::BTreeSet<u64>,
+    pub casts: Vec<Cast>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

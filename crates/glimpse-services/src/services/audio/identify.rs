@@ -149,6 +149,7 @@ fn build_role(streams: Vec<Stream>) -> Option<Role> {
         .map(|stream| StreamRef {
             index: stream.index,
             volume: stream.volume,
+            device: stream.device.clone(),
         })
         .collect();
 
@@ -362,6 +363,25 @@ mod tests {
         assert_eq!(apps.len(), 1);
         assert!(apps[0].playback.is_some());
         assert!(apps[0].capture.is_some());
+    }
+
+    #[test]
+    fn each_stream_keeps_its_own_device_even_when_they_differ() {
+        let mut monitor = stream(1, props(&[("application.id", "chrome")]));
+        monitor.device = DeviceId::new("bluez_output.monitor");
+        let mut mic = stream(2, props(&[("application.id", "chrome")]));
+        mic.device = DeviceId::new("mic");
+
+        let apps = group(Vec::new(), vec![monitor, mic]);
+
+        let streams = &apps[0].capture.as_ref().unwrap().streams;
+        assert_eq!(streams.len(), 2);
+        assert_eq!(
+            streams.iter().map(|s| s.device.clone()).collect::<Vec<_>>(),
+            vec![DeviceId::new("bluez_output.monitor"), DeviceId::new("mic")],
+            "Role.device picks one arbitrary stream, but each StreamRef must keep its own so a \
+             caller can tell a mixed monitor+mic app from a pure-monitor one"
+        );
     }
 
     #[test]

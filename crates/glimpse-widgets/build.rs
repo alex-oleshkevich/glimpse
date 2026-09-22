@@ -142,6 +142,10 @@ fn main() {
             "blueprints/printing_popover.blp",
             "resources/widgets/printing_popover.ui",
         ),
+        (
+            "blueprints/privacy_popover.blp",
+            "resources/widgets/privacy_popover.ui",
+        ),
         ("blueprints/readout.blp", "resources/widgets/readout.ui"),
         (
             "blueprints/clipboard_popover.blp",

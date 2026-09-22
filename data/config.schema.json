@@ -885,6 +885,26 @@
                 "null"
               ]
             },
+            "show-camera": {
+              "description": "Whether the camera is shown when in use.",
+              "type": "boolean",
+              "default": true
+            },
+            "show-location": {
+              "description": "Whether location access is shown when in use.",
+              "type": "boolean",
+              "default": true
+            },
+            "show-microphone": {
+              "description": "Whether the microphone is shown when in use.",
+              "type": "boolean",
+              "default": true
+            },
+            "show-screencast": {
+              "description": "Whether screen capture is shown when in use.",
+              "type": "boolean",
+              "default": true
+            },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
@@ -2001,6 +2021,26 @@
                   "string",
                   "null"
                 ]
+              },
+              "show-camera": {
+                "description": "Whether the camera is shown when in use.",
+                "type": "boolean",
+                "default": true
+              },
+              "show-location": {
+                "description": "Whether location access is shown when in use.",
+                "type": "boolean",
+                "default": true
+              },
+              "show-microphone": {
+                "description": "Whether the microphone is shown when in use.",
+                "type": "boolean",
+                "default": true
+              },
+              "show-screencast": {
+                "description": "Whether screen capture is shown when in use.",
+                "type": "boolean",
+                "default": true
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",

@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 #
-# Record audio via ALSA (bypassing PipeWire) for DURATION seconds (default
-# 10). Tests the privacy applet's mic detection path when PipeWire is not
-# the recorder. Requires `arecord` from alsa-utils.
+# Record audio via ALSA (nominally bypassing PipeWire) for DURATION seconds
+# (default 10). Tests the privacy applet's mic detection path when PipeWire
+# is not the recorder. Requires `arecord` from alsa-utils.
+#
+# Caveat, verified on this machine: pipewire-alsa is installed and
+# /etc/alsa/conf.d/99-pipewire-default.conf points the default ALSA PCM at
+# the pipewire plugin, so `arecord` with no `-D` device (as used here) does
+# not actually bypass PipeWire — it opens through it. A genuine bypass needs
+# an explicit hardware device, e.g. `arecord -D hw:0`, which this script
+# does not pass. Do not read a positive result here as proof of a non-
+# PipeWire detection path without checking which PCM was actually opened.
 #
 # Usage: ./scripts/privacy-test-mic-alsa [SECONDS]
 

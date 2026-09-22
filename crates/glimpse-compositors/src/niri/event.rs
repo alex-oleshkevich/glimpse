@@ -1,10 +1,12 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use crate::event::{Event, Resync};
 use crate::keyboard::layout_code;
-use crate::model::{KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId};
+use crate::model::{
+    Cast, CastKind, CastTarget, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId,
+};
 
 /// The little niri does not repeat in every event: which layouts exist, so a switch carrying only
 /// an index can be named, and which outputs the workspace list mentioned, because niri has no
@@ -72,10 +74,9 @@ impl EventState {
                 idx: usize::from(idx),
                 name: self.layout_names.get(usize::from(idx)).cloned(),
             }],
-            Wire::CastsChanged { casts } => vec![Event::CastsChanged(active_casts(casts))],
+            Wire::CastsChanged { casts } => vec![Event::CastsChanged(into_casts(casts))],
             Wire::CastStartedOrChanged { cast } => vec![Event::CastStartedOrChanged {
-                id: cast.stream_id,
-                active: cast.is_active,
+                cast: cast.into_model(),
             }],
             Wire::CastStopped { stream_id } => vec![Event::CastStopped(stream_id)],
             // Niri reloads its own configuration without restarting, and the layout list is the one
@@ -105,12 +106,8 @@ impl EventState {
     }
 }
 
-pub(crate) fn active_casts(casts: Vec<WireCast>) -> BTreeSet<u64> {
-    casts
-        .into_iter()
-        .filter(|cast| cast.is_active)
-        .map(|cast| cast.stream_id)
-        .collect()
+pub(crate) fn into_casts(casts: Vec<WireCast>) -> Vec<Cast> {
+    casts.into_iter().map(WireCast::into_model).collect()
 }
 
 #[derive(Deserialize)]
@@ -140,6 +137,58 @@ pub(crate) struct WireCast {
     stream_id: u64,
     #[serde(default)]
     is_active: bool,
+    #[serde(default)]
+    session_id: Option<u64>,
+    #[serde(default, deserialize_with = "cast_kind")]
+    kind: CastKind,
+    #[serde(default, deserialize_with = "cast_target")]
+    target: CastTarget,
+    #[serde(default)]
+    pw_node_id: Option<u32>,
+}
+
+impl WireCast {
+    pub(crate) fn into_model(self) -> Cast {
+        Cast {
+            stream_id: self.stream_id,
+            session_id: self.session_id,
+            kind: self.kind,
+            target: self.target,
+            pw_node_id: self.pw_node_id,
+            active: self.is_active,
+        }
+    }
+}
+
+fn cast_kind<'de, D: Deserializer<'de>>(input: D) -> Result<CastKind, D::Error> {
+    Ok(match serde_json::Value::deserialize(input)?.as_str() {
+        Some("PipeWire") => CastKind::PipeWire,
+        Some("WlrScreencopy") => CastKind::Screencopy,
+        _ => CastKind::Unknown,
+    })
+}
+
+fn cast_target<'de, D: Deserializer<'de>>(input: D) -> Result<CastTarget, D::Error> {
+    let value = serde_json::Value::deserialize(input)?;
+    let Some(object) = value.as_object() else {
+        return Ok(CastTarget::Unknown);
+    };
+
+    if let Some(name) = object
+        .get("Output")
+        .and_then(|output| output.get("name"))
+        .and_then(serde_json::Value::as_str)
+    {
+        return Ok(CastTarget::Output(name.to_owned()));
+    }
+    if let Some(id) = object
+        .get("Window")
+        .and_then(|window| window.get("id"))
+        .and_then(serde_json::Value::as_u64)
+    {
+        return Ok(CastTarget::Window(WindowId(id)));
+    }
+    Ok(CastTarget::Unknown)
 }
 
 impl WireLayout {

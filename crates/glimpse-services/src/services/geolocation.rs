@@ -1,10 +1,13 @@
 use std::pin::Pin;
+use std::time::Duration;
 
+use futures_util::stream::BoxStream;
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
 use glimpse_dbus::weather::GeoCoordinates;
 use tokio::sync::{oneshot, watch};
+use tokio::time::timeout;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::say;
@@ -34,6 +37,8 @@ const CITY_ACCURACY: u32 = 4;
 /// GeoClue parks `Location` at the root path until it has a fix.
 const NO_FIX: &str = "/";
 
+const FIX_TIMEOUT: Duration = Duration::from_secs(30);
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Provider {
     Geoclue,
@@ -49,6 +54,7 @@ pub enum Command {
     },
 }
 
+#[derive(Debug)]
 pub enum Event {
     Located(Option<GeoCoordinates>),
     Unavailable(String),
@@ -108,7 +114,7 @@ impl Geolocation {}
 
 /// `attempt` carries nothing but its own difference: `geolocation.refresh` has no parameter to
 /// change, and a key that does not move would leave the watch running untouched.
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Watch {
     Geoclue { attempt: u64 },
 }
@@ -228,14 +234,12 @@ fn coordinates(latitude: f64, longitude: f64) -> Option<GeoCoordinates> {
 
 async fn geoclue(ctx: Ctx<Geolocation>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
     match locations(&ctx).await {
-        Ok(locations) => Box::pin(locations),
+        Ok(event) => Box::pin(stream::iter(event)),
         Err(reason) => Box::pin(stream::once(async move { Event::Unavailable(reason) })),
     }
 }
 
-async fn locations(
-    ctx: &Ctx<Geolocation>,
-) -> Result<impl Stream<Item = Event> + Send + 'static, String> {
+async fn locations(ctx: &Ctx<Geolocation>) -> Result<Option<Event>, String> {
     let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
     let manager = GeoClueManagerProxy::new(&bus).await.map_err(say)?;
 
@@ -245,7 +249,7 @@ async fn locations(
         Err(_) => manager.create_client().await.map_err(say)?,
     };
     let client = GeoClueClientProxy::builder(&bus)
-        .path(path)
+        .path(path.clone())
         .map_err(say)?
         .build()
         .await
@@ -261,28 +265,40 @@ async fn locations(
         .map_err(say)?;
     client.start().await.map_err(say)?;
 
-    let known = client.location().await.ok();
-    let first = {
+    let decoded: BoxStream<'static, Result<Option<GeoCoordinates>, String>> = {
         let bus = bus.clone();
-        async move {
-            match known {
-                Some(path) => Event::Located(read(&bus, path).await),
-                None => Event::Located(None),
+        Box::pin(updates.then(move |change| {
+            let bus = bus.clone();
+            async move {
+                match change.get().await {
+                    Ok(path) => Ok(read(&bus, path).await),
+                    Err(error) => Err(error.to_string()),
+                }
             }
-        }
+        }))
     };
 
-    let following = updates.then(move |change| {
-        let bus = bus.clone();
-        async move {
-            match change.get().await {
-                Ok(path) => Event::Located(read(&bus, path).await),
-                Err(error) => Event::Unavailable(error.to_string()),
-            }
-        }
-    });
+    let event = timeout(FIX_TIMEOUT, first_fix(decoded))
+        .await
+        .ok()
+        .flatten();
 
-    Ok(stream::once(first).chain(following))
+    let _ = client.stop().await;
+    let _ = manager.delete_client(path).await;
+
+    Ok(event)
+}
+
+async fn first_fix(
+    mut updates: BoxStream<'static, Result<Option<GeoCoordinates>, String>>,
+) -> Option<Event> {
+    loop {
+        match updates.next().await? {
+            Ok(Some(coordinates)) => return Some(Event::Located(Some(coordinates))),
+            Ok(None) => continue,
+            Err(error) => return Some(Event::Unavailable(error)),
+        }
+    }
 }
 
 async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates> {
@@ -422,6 +438,90 @@ mod tests {
                 longitude: -0.1278,
             }),
             "the manual pair must survive the straggler"
+        );
+    }
+
+    fn boxed(
+        outcomes: Vec<Result<Option<GeoCoordinates>, String>>,
+    ) -> BoxStream<'static, Result<Option<GeoCoordinates>, String>> {
+        Box::pin(stream::iter(outcomes))
+    }
+
+    #[tokio::test]
+    async fn first_fix_skips_no_fix_updates_and_returns_the_first_real_one() {
+        let coordinates = GeoCoordinates {
+            latitude: 51.5074,
+            longitude: -0.1278,
+        };
+        let updates = boxed(vec![Ok(None), Ok(None), Ok(Some(coordinates.clone()))]);
+
+        match first_fix(updates).await {
+            Some(Event::Located(Some(got))) => assert_eq!(got, coordinates),
+            other => panic!("expected a fix, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn first_fix_surfaces_an_unreadable_change_instead_of_looping_on_it() {
+        let updates = boxed(vec![Err("permission denied".to_owned())]);
+
+        match first_fix(updates).await {
+            Some(Event::Unavailable(reason)) => assert_eq!(reason, "permission denied"),
+            other => panic!("expected an error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn first_fix_ends_quietly_once_the_signal_stream_is_gone() {
+        let updates = boxed(vec![Ok(None)]);
+        assert!(first_fix(updates).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_fix_that_never_arrives_is_bounded_rather_than_awaited_forever() {
+        let updates: BoxStream<'static, Result<Option<GeoCoordinates>, String>> =
+            Box::pin(stream::pending());
+
+        let outcome = timeout(Duration::from_millis(20), first_fix(updates)).await;
+        assert!(
+            outcome.is_err(),
+            "an unanswered request must not be awaited forever, or InUse would stay pinned"
+        );
+    }
+
+    #[test]
+    fn a_refresh_under_geoclue_advances_the_subscription_key_and_keeps_the_cache() {
+        let (sender, receiver) = watch::channel(GeolocationStatus::default());
+        let mut service = Geolocation {
+            status: Publisher::new(sender),
+            provider: Provider::Geoclue,
+            attempt: 0,
+        };
+        let fix = GeoCoordinates {
+            latitude: 48.8566,
+            longitude: 2.3522,
+        };
+        service.publish(Some(fix.clone()));
+
+        let before = service.subscriptions();
+        assert_eq!(before.len(), 1);
+        assert_eq!(*before[0].key(), Watch::Geoclue { attempt: 0 });
+
+        service.refresh();
+
+        let after = service.subscriptions();
+        assert_eq!(*after[0].key(), Watch::Geoclue { attempt: 1 });
+        assert_ne!(
+            before[0].key(),
+            after[0].key(),
+            "a refresh must change the subscription key, or the runtime leaves the old \
+             transient client running instead of releasing it and starting a fresh one"
+        );
+        assert_eq!(
+            receiver.borrow().coordinates,
+            Some(fix),
+            "the cached fix must survive a refresh, which is exactly when the previous \
+             client's transient lifetime ends"
         );
     }
 }

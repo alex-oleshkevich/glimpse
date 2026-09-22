@@ -16,6 +16,7 @@ mod notifications;
 mod pager;
 mod places;
 mod printing;
+mod privacy;
 mod removable;
 mod session;
 mod tokens;
@@ -30,7 +31,7 @@ use glimpse_dbus::{
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
-    PrintingHandle, RemovableHandle, SessionActionsHandle, TrayHandle,
+    PrintingHandle, PrivacyHandle, RemovableHandle, SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -76,6 +77,7 @@ pub fn build(
     places: &PlacesHandle,
     printing: &PrintingHandle,
     removable: &RemovableHandle,
+    privacy: &PrivacyHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -249,7 +251,17 @@ pub fn build(
                 Box::new(removable::Removable::start(removable, notifications))
             }))
         }
-        AppletKind::Command {} | AppletKind::Exec {} | AppletKind::Privacy {} => None,
+        AppletKind::Privacy(_) => {
+            let privacy = privacy.clone();
+            let audio = audio.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(privacy.subscribe());
+                ctx.watch(audio.subscribe());
+                Box::new(privacy::Privacy::start(privacy, audio, notifications))
+            }))
+        }
+        AppletKind::Command {} | AppletKind::Exec {} => None,
     }
 }
 
@@ -382,9 +394,48 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.privacy,
             None,
         );
         assert!(built.is_some(), "printing now has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_privacy_applet_now_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config: AppletConfig = AppletKind::Privacy(<_>::default()).into();
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.printing,
+            &services.removable,
+            &services.privacy,
+            None,
+        );
+        assert!(built.is_some(), "privacy now has an implementation");
 
         services.shutdown().await;
     }
@@ -419,6 +470,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.privacy,
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
@@ -457,6 +509,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.privacy,
             None,
         );
         assert!(built.is_some(), "places has an implementation");
@@ -495,6 +548,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.privacy,
             None,
         );
         assert!(built.is_some(), "removable has an implementation");
@@ -532,6 +586,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.privacy,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -571,6 +626,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.privacy,
                 None,
             )
             .is_none(),
@@ -599,6 +655,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.privacy,
                 Some(&dialog),
             )
             .is_some(),
@@ -647,6 +704,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.privacy,
                 None,
             );
             assert!(

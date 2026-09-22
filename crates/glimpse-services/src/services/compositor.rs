@@ -1,7 +1,8 @@
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
-    Capabilities, Compositor as Backend, CompositorError, Event as Change, Output, Resync,
-    Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, detect_compositor,
+    Capabilities, Cast, CastKind, CastTarget, Compositor as Backend, CompositorError,
+    Event as Change, Output, Resync, Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId,
+    WorkspaceTarget, detect_compositor,
 };
 use tokio::sync::oneshot;
 
@@ -114,9 +115,34 @@ pub struct CompositorOutputs {
     pub outputs: Vec<OutputInfo>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CastKindInfo {
+    PipeWire,
+    Screencopy,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CastTargetInfo {
+    Output(String),
+    Window(u64),
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CastInfo {
+    pub stream_id: u64,
+    pub session_id: Option<u64>,
+    pub kind: CastKindInfo,
+    pub target: CastTargetInfo,
+    pub pw_node_id: Option<u32>,
+    pub active: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompositorPrivacy {
     pub active: bool,
+    pub casts: Vec<CastInfo>,
 }
 
 pub enum Event {
@@ -169,6 +195,10 @@ pub enum Command {
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     PowerOffMonitors {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    StopScreencast {
+        session_id: u64,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
 }
@@ -276,6 +306,13 @@ impl CompositorHandle {
     pub async fn power_off_monitors(&self) -> Result<(), CommandError> {
         let (reply, result) = oneshot::channel();
         self.0.command(Command::PowerOffMonitors { reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn stop_screencast(&self, session_id: u64) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0
+            .command(Command::StopScreencast { session_id, reply })?;
         result.await.map_err(|_| stopped())?
     }
 }
@@ -425,13 +462,15 @@ impl Compositor {
         let workspaces = workspaces_of(state);
         let windows = windows_of(state);
         let outputs = outputs_of(state);
+        let casts = casts_of(state);
 
         self.state_publisher.update(|published| {
             published.workspaces = Some(CompositorWorkspaces { workspaces });
             published.windows = Some(CompositorWindows { windows });
             published.outputs = Some(CompositorOutputs { outputs });
             published.privacy = Some(CompositorPrivacy {
-                active: !state.active_casts.is_empty(),
+                active: !state.casts.is_empty(),
+                casts,
             });
         });
     }
@@ -534,6 +573,9 @@ impl Compositor {
                 };
                 (outcome, reply)
             }
+            Command::StopScreencast { session_id, reply } => {
+                (self.backend.stop_screencast(session_id).await, reply)
+            }
         };
 
         let outcome = outcome.map_err(|error| command_error(&error));
@@ -615,16 +657,19 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         Change::KeyboardLayoutsChanged(_)
         | Change::KeyboardLayoutSwitched { .. }
         | Change::Resync(Resync::Keyboard) => {}
-        Change::CastsChanged(casts) => state.active_casts = casts,
-        Change::CastStartedOrChanged { id, active } => {
-            if active {
-                state.active_casts.insert(id);
-            } else {
-                state.active_casts.remove(&id);
+        Change::CastsChanged(casts) => state.casts = casts,
+        Change::CastStartedOrChanged { cast } => {
+            match state
+                .casts
+                .iter_mut()
+                .find(|existing| existing.stream_id == cast.stream_id)
+            {
+                Some(existing) => *existing = cast,
+                None => state.casts.push(cast),
             }
         }
         Change::CastStopped(id) => {
-            state.active_casts.remove(&id);
+            state.casts.retain(|cast| cast.stream_id != id);
         }
         Change::Resync(Resync::Structure | Resync::Outputs) => return true,
     }
@@ -719,6 +764,29 @@ fn outputs_of(state: &Snapshot) -> Vec<OutputInfo> {
         .collect()
 }
 
+fn casts_of(state: &Snapshot) -> Vec<CastInfo> {
+    state.casts.iter().map(cast_info).collect()
+}
+
+fn cast_info(cast: &Cast) -> CastInfo {
+    CastInfo {
+        stream_id: cast.stream_id,
+        session_id: cast.session_id,
+        kind: match cast.kind {
+            CastKind::PipeWire => CastKindInfo::PipeWire,
+            CastKind::Screencopy => CastKindInfo::Screencopy,
+            CastKind::Unknown => CastKindInfo::Unknown,
+        },
+        target: match &cast.target {
+            CastTarget::Output(name) => CastTargetInfo::Output(name.clone()),
+            CastTarget::Window(id) => CastTargetInfo::Window(id.0),
+            CastTarget::Unknown => CastTargetInfo::Unknown,
+        },
+        pw_node_id: cast.pw_node_id,
+        active: cast.active,
+    }
+}
+
 fn label_of(output: &Output) -> Option<String> {
     let composed = match output.description.as_deref() {
         Some(description) => description.to_owned(),
@@ -787,7 +855,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
-    use glimpse_compositors::{Niri, Window};
+    use glimpse_compositors::{Cast, CastKind, CastTarget, Niri, Window};
     use glimpse_dbus::Buses;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixListener;
@@ -1130,22 +1198,115 @@ mod tests {
         );
     }
 
+    fn cast(stream_id: u64, active: bool) -> Cast {
+        Cast {
+            stream_id,
+            session_id: None,
+            kind: CastKind::Unknown,
+            target: CastTarget::Unknown,
+            pw_node_id: None,
+            active,
+        }
+    }
+
     #[test]
     fn casts_keep_privacy_active_until_the_last_stream_stops() {
         let mut state = Snapshot::default();
 
-        apply(&mut state, Change::CastsChanged([3_u64, 7_u64].into()));
+        apply(
+            &mut state,
+            Change::CastsChanged(vec![cast(3, true), cast(7, true)]),
+        );
         apply(&mut state, Change::CastStopped(3));
-        assert_eq!(state.active_casts, [7].into());
+        assert_eq!(
+            state
+                .casts
+                .iter()
+                .map(|cast| cast.stream_id)
+                .collect::<Vec<_>>(),
+            [7]
+        );
 
         apply(
             &mut state,
             Change::CastStartedOrChanged {
-                id: 7,
-                active: false,
+                cast: cast(7, false),
             },
         );
-        assert!(state.active_casts.is_empty());
+        assert_eq!(state.casts.len(), 1);
+        assert!(!state.casts[0].active);
+    }
+
+    #[tokio::test]
+    async fn a_snapshot_publishes_privacy_as_active_when_any_cast_is() {
+        let mut harness = harness(Backend::Unsupported);
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(Snapshot {
+                    casts: vec![cast(2, false), cast(7, true)],
+                    ..Snapshot::default()
+                }))),
+            )
+            .await;
+
+        let published = harness
+            .state
+            .borrow()
+            .privacy
+            .clone()
+            .expect("privacy published");
+        assert!(published.active);
+        assert_eq!(published.casts.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_paused_cast_still_publishes_privacy_as_active() {
+        let mut harness = harness(Backend::Unsupported);
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(Snapshot {
+                    casts: vec![cast(2, false), cast(7, false)],
+                    ..Snapshot::default()
+                }))),
+            )
+            .await;
+
+        let published = harness
+            .state
+            .borrow()
+            .privacy
+            .clone()
+            .expect("privacy published");
+        assert!(
+            published.active,
+            "OBS pauses every stream on a scene switch without ending the session, so a session \
+             with no currently-streaming cast is still one a portal will not prompt for again"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_casts_publishes_privacy_as_inactive() {
+        let mut harness = harness(Backend::Unsupported);
+
+        harness
+            .service
+            .handle(&harness.ctx, Input::Event(Event::Snapshot(Box::default())))
+            .await;
+
+        let published = harness
+            .state
+            .borrow()
+            .privacy
+            .clone()
+            .expect("privacy published");
+        assert!(!published.active);
+        assert!(published.casts.is_empty());
     }
 
     #[test]
@@ -1445,6 +1606,18 @@ mod tests {
         result.await.expect("service is running")
     }
 
+    async fn stop_screencast(harness: &mut Harness, session_id: u64) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Command(Command::StopScreencast { session_id, reply }),
+            )
+            .await;
+        result.await.expect("service is running")
+    }
+
     #[tokio::test]
     async fn disabling_the_only_enabled_output_is_refused_without_reaching_the_backend() {
         let fake = FakeNiri::spawn();
@@ -1542,6 +1715,32 @@ mod tests {
             fake.requests(),
             vec![r#"{"Action":{"PowerOffMonitors":{}}}"#]
         );
+    }
+
+    #[tokio::test]
+    async fn stop_screencast_reaches_the_backend_with_the_session_id() {
+        let fake = FakeNiri::spawn();
+        let mut harness = harness(Backend::Niri(Niri::at(fake.socket.clone())));
+
+        let result = stop_screencast(&mut harness, 2).await;
+
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            fake.requests(),
+            vec![r#"{"Action":{"StopCast":{"session_id":2}}}"#]
+        );
+    }
+
+    #[tokio::test]
+    async fn stop_screencast_is_unavailable_under_hyprland() {
+        let mut harness = harness(Backend::Hyprland(glimpse_compositors::Hyprland::at(
+            "/nonexistent",
+        )));
+
+        assert!(matches!(
+            stop_screencast(&mut harness, 2).await,
+            Err(CommandError::Unsupported(_))
+        ));
     }
 
     #[tokio::test]

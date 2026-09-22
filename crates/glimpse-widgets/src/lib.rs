@@ -43,6 +43,7 @@ mod places_popover;
 mod player_list;
 mod popover_shell;
 mod printing_popover;
+mod privacy_popover;
 mod range_bar;
 mod readout;
 mod reconcile;
@@ -121,6 +122,7 @@ pub use popover_shell::PopoverShell;
 pub use printing_popover::{
     Detail as PrintingDetail, Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover,
 };
+pub use privacy_popover::{Action as PrivacyAction, PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};

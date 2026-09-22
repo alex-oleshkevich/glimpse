@@ -5,6 +5,10 @@
 # while this runs, the panel should show the mic glyph in warning color, and
 # `pw-top` / `wpctl status` will list `pw-record` as an active source client.
 #
+# No-op if pw-record cannot reach the PipeWire daemon (connection refused):
+# nothing is recorded, no source-output appears, and the indicator is
+# correctly silent rather than wrong.
+#
 # Usage:   ./scripts/privacy-test-mic-pipewire [SECONDS]
 # Cleanup: SIGINT (^C) at any time; output is /tmp/glimpse-mic.wav.
 

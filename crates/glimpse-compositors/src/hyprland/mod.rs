@@ -92,7 +92,7 @@ impl Hyprland {
             keyboard: layouts,
             focused_window,
             focused_output,
-            active_casts: Default::default(),
+            casts: Vec::new(),
         })
     }
 
@@ -210,6 +210,10 @@ impl Hyprland {
 
     pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
         self.dispatch("dispatch dpms off").await
+    }
+
+    pub(crate) async fn stop_screencast(&self, _session_id: u64) -> Result<(), CompositorError> {
+        Err(CompositorError::Unavailable("stop a screencast"))
     }
 
     async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
@@ -603,7 +607,7 @@ mod tests {
     use super::testing::FakeHyprland;
     use super::*;
     use crate::event::Resync;
-    use crate::model::WindowId;
+    use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
     fn snapshot_server() -> FakeHyprland {
         FakeHyprland::spawn(
@@ -833,6 +837,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stopping_a_screencast_is_refused_rather_than_dispatched() {
+        let error = Hyprland::at("/nonexistent")
+            .stop_screencast(2)
+            .await
+            .expect_err("refused");
+
+        assert!(matches!(error, CompositorError::Unavailable(_)));
+    }
+
+    #[tokio::test]
     async fn power_off_monitors_dispatches_dpms_off() {
         let received: Arc<Mutex<Option<String>>> = Arc::default();
         let sink = received.clone();
@@ -1018,13 +1032,22 @@ mod tests {
         ])
         .await;
 
+        let active_cast = vec![Cast {
+            stream_id: 0,
+            session_id: None,
+            kind: CastKind::Unknown,
+            target: CastTarget::Unknown,
+            pw_node_id: None,
+            active: true,
+        }];
+
         assert_eq!(
             events,
             [
-                Event::CastsChanged([0].into()),
-                Event::CastsChanged([0].into()),
-                Event::CastsChanged([0].into()),
-                Event::CastsChanged(Default::default()),
+                Event::CastsChanged(active_cast.clone()),
+                Event::CastsChanged(active_cast.clone()),
+                Event::CastsChanged(active_cast),
+                Event::CastsChanged(Vec::new()),
             ]
         );
     }

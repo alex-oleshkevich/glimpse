@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#
+# Start a wayvnc VNC server for DURATION seconds (default 10), which drives
+# niri's damage-tracked wlr-screencopy path — the one producer this machine
+# has for it. `privacy-test-screencast-pipewire` reaches for wf-recorder,
+# which is not installed here, and `privacy-test-screencast-ffmpeg` is
+# X11-only; wayvnc (extra/wayvnc 0.10.1-1) is the cheapest thing that
+# actually drives wlr-screencopy with damage tracking, and it doubles as the
+# remote-desktop test. Nothing here installs wayvnc — if it is missing, this
+# script prints the install command and exits non-zero.
+#
+# What to observe while it runs:
+#   niri msg -j casts
+# should list a cast with `kind` = "WlrScreencopy" and `pw_node_id` = null —
+# wlr-screencopy casts never get a PipeWire node id (confirmed in niri-ipc
+# 26.4.0's own doc comment on `Cast::pw_node_id`). Connect a VNC client (for
+# example `vncviewer 127.0.0.1:5900`) and move the pointer inside it: this
+# must change NOTHING else in glimpse. Input injection over VNC has no
+# protocol signal to detect — it is undetectable by design, not a bug to
+# chase.
+#
+# Usage: ./scripts/privacy-test-screencast-wlr [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+wayvnc_pid=""
+sleep_pid=""
+
+stop_child() {
+    local pid="${1:-}"
+    [[ -n "$pid" ]] || return 0
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+}
+
+cleanup() {
+    if [[ -n "$sleep_pid" ]]; then
+        kill "$sleep_pid" 2>/dev/null || true
+        wait "$sleep_pid" 2>/dev/null || true
+        sleep_pid=""
+    fi
+    if [[ -n "$wayvnc_pid" ]]; then
+        stop_child "$wayvnc_pid"
+        wayvnc_pid=""
+    fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+command -v wayvnc >/dev/null || {
+    echo "wayvnc not found." >&2
+    echo "Install it with: sudo pacman -S wayvnc" >&2
+    exit 1
+}
+
+echo "Starting wayvnc on 127.0.0.1:5900 for ${duration}s"
+wayvnc 127.0.0.1 5900 &
+wayvnc_pid=$!
+sleep "$duration" &
+sleep_pid=$!
+wait "$sleep_pid"
+sleep_pid=""
+stop_child "$wayvnc_pid"
+wayvnc_pid=""
+echo "done"

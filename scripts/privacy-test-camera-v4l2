@@ -4,6 +4,13 @@
 # PipeWire). Reads raw frames into /dev/null for DURATION seconds.
 # Requires ffmpeg.
 #
+# This is the path glimpse's camera source actually watches (a /proc fd
+# scan, glimpse-ec4o.5) — chosen because PipeWire's own Video/Source node
+# stays `suspended` for a raw V4L2 opener like this or Chrome, so a
+# PipeWire-only detector would never see it (see
+# privacy-test-camera-pipewire). This script is never a no-op for that
+# reason; it is the one that should light up the panel indicator.
+#
 # Usage: ./scripts/privacy-test-camera-v4l2 [SECONDS] [DEVICE]
 
 set -euo pipefail

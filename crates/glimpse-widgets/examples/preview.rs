@@ -264,9 +264,10 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
-        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, Repeat, Row, Severity,
-        Shape, Slot, SourceList, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency,
-        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyAction,
+        PrivacyPopover, PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow,
+        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
+        Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -327,6 +328,7 @@ mod fixtures {
             "tray_states" => tray_states(root),
             "inhibitor_list_states" => inhibitor_list_states(root),
             "printing_states" => printing_popover_states(root),
+            "privacy_states" => privacy_popover_states(root),
             _ => {}
         }
         drawer_nav(root);
@@ -2100,6 +2102,64 @@ mod fixtures {
         }
     }
 
+    fn privacy_popover_states(root: &gtk4::Widget) {
+        for popover in collect::<PrivacyPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $PrivacyPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            match case.as_str() {
+                "empty" => popover.set_usages(&[]),
+                "in_use" => {
+                    popover.set_usages(&[
+                        PrivacyUsage {
+                            id: "camera".into(),
+                            icon: "camera-web-symbolic".into(),
+                            title: "Camera".into(),
+                            detail: Some("Zoom · since 14:02".into()),
+                            action: None,
+                            busy: false,
+                        },
+                        PrivacyUsage {
+                            id: "microphone".into(),
+                            icon: "audio-input-microphone-symbolic".into(),
+                            title: "Microphone".into(),
+                            detail: Some("Zoom · since 14:02".into()),
+                            action: Some(PrivacyAction::Mute),
+                            busy: false,
+                        },
+                        PrivacyUsage {
+                            id: "screen".into(),
+                            icon: "video-display-symbolic".into(),
+                            title: "Screen".into(),
+                            detail: Some("OBS Studio · sharing DP-1 since 13:41".into()),
+                            action: Some(PrivacyAction::StopSharing),
+                            busy: false,
+                        },
+                        PrivacyUsage {
+                            id: "location".into(),
+                            icon: "find-location-symbolic".into(),
+                            title: "Location".into(),
+                            detail: None,
+                            action: None,
+                            busy: false,
+                        },
+                    ]);
+                    popover.set_screen_shared(Some("OBS Studio · sharing DP-1 since 13:41"));
+                }
+                _ => {
+                    eprintln!("{DEMO}{case} names no privacy case");
+                    popover.set_usages(&[]);
+                }
+            }
+        }
+    }
+
     fn tray(root: &gtk4::Widget) {
         let group = gio::SimpleActionGroup::new();
 
@@ -2561,9 +2621,9 @@ fn ensure_types() {
         IndicatorGroup, InhibitorList, KeyboardPopover, Notice, NotificationCard,
         NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
         NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, Placeholder,
-        PlayerList, PlayerRow, PopoverShell, PrintingPopover, RangeBar, Readout, Row, Scrubber,
-        Section, SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard, Transport,
-        TrayStrip, WeatherPopover, WorldClock,
+        PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout,
+        Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard,
+        Transport, TrayStrip, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -2620,6 +2680,7 @@ fn ensure_types() {
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
         PrintingPopover::static_type(),
+        PrivacyPopover::static_type(),
     ] {
         let _ = widget;
     }

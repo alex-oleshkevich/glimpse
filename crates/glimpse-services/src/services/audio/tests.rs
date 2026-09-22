@@ -56,7 +56,11 @@ fn app(id: &str, streams: Vec<(u32, u32)>) -> App {
             corked: false,
             streams: streams
                 .into_iter()
-                .map(|(index, volume)| StreamRef { index, volume })
+                .map(|(index, volume)| StreamRef {
+                    index,
+                    volume,
+                    device: DeviceId::new("headset"),
+                })
                 .collect(),
         }),
         capture: None,

@@ -4,6 +4,12 @@
 # Depending on the compositor/backend, wf-recorder may use screencopy or a
 # portal-mediated path; glimpse-shell should see an active screencast session.
 #
+# wf-recorder is NOT installed on this machine (checked 2026-09-22, `command
+# -v wf-recorder` finds nothing), so this script is currently a no-op here —
+# it errors out before recording anything. Install wf-recorder to use it, or
+# use `privacy-test-screencast-wlr` instead, which wraps wayvnc for the same
+# damage-tracked wlr-screencopy path and needs no separate recorder binary.
+#
 # Usage: ./scripts/privacy-test-screencast-pipewire [SECONDS]
 
 set -euo pipefail

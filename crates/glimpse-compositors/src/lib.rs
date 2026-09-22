@@ -15,8 +15,8 @@ pub use event::{Event, Resync};
 pub use hyprland::Hyprland;
 pub use keyboard::layout_code;
 pub use model::{
-    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
-    Workspace, WorkspaceId, WorkspaceTarget,
+    Cast, CastKind, CastTarget, KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot,
+    Window, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget,
 };
 pub use niri::Niri;
 
@@ -176,6 +176,11 @@ impl Compositor {
         delegate!(self, "cannot power off monitors", |backend| backend
             .power_off_monitors())
     }
+
+    pub async fn stop_screencast(&self, session_id: u64) -> Result<(), CompositorError> {
+        delegate!(self, "cannot stop a screencast", |backend| backend
+            .stop_screencast(session_id))
+    }
 }
 
 #[cfg(test)]
@@ -218,6 +223,10 @@ mod tests {
         ));
         assert!(matches!(
             compositor.focus_output("eDP-1").await,
+            Err(CompositorError::Unsupported(_))
+        ));
+        assert!(matches!(
+            compositor.stop_screencast(2).await,
             Err(CompositorError::Unsupported(_))
         ));
     }

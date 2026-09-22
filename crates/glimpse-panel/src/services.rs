@@ -14,9 +14,10 @@ use glimpse_services::{
     BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
     ClipboardDependencies, ClipboardHandle, Compositor, CompositorHandle, Heartbeat,
     HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Removable, RemovableHandle,
-    Running, Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle,
-    SysfsBacklight, Tray, TrayHandle, UnavailableBacklight,
+    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
+    PrivacyHandle, Removable, RemovableHandle, Running, Selection, SessionActions,
+    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
+    UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -36,6 +37,7 @@ pub struct PanelServices {
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
+    pub privacy: PrivacyHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -52,6 +54,7 @@ pub struct PanelServices {
     places_service: Running<Places>,
     printing_service: Running<Printing>,
     removable_service: Running<Removable>,
+    privacy_service: Running<Privacy>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -121,6 +124,14 @@ impl PanelServices {
         let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
         let (places_service, places) = Running::<Places>::spawn(document, buses.clone(), ());
         let (printing_service, printing) = Running::<Printing>::spawn(document, buses.clone(), ());
+        let (privacy_service, privacy) = Running::<Privacy>::spawn(
+            document,
+            buses.clone(),
+            PrivacyDependencies {
+                audio: audio.clone(),
+                compositor: compositor.clone(),
+            },
+        );
         let (removable_service, removable) = Running::<Removable>::spawn(document, buses, ());
 
         Self {
@@ -140,6 +151,7 @@ impl PanelServices {
             places,
             printing,
             removable,
+            privacy,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -156,6 +168,7 @@ impl PanelServices {
             places_service,
             printing_service,
             removable_service,
+            privacy_service,
             notifications,
             weather,
             night_light,
@@ -176,6 +189,7 @@ impl PanelServices {
         self.brightness_service.stop().await;
         self.session_actions_service.stop().await;
         self.battery_service.stop().await;
+        self.privacy_service.stop().await;
         self.audio_service.stop().await;
         self.bluetooth_service.stop().await;
         self.network_service.stop().await;
@@ -204,6 +218,7 @@ impl PanelServices {
         self.places_service.reconfigure(document);
         self.printing_service.reconfigure(document);
         self.removable_service.reconfigure(document);
+        self.privacy_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -230,6 +245,7 @@ impl PanelServices {
         self.brightness_service.cancel();
         self.session_actions_service.cancel();
         self.battery_service.cancel();
+        self.privacy_service.cancel();
         self.audio_service.cancel();
         self.bluetooth_service.cancel();
         self.network_service.cancel();

@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 #
 # Hold a GeoClue client open for DURATION seconds (default 10) using the
-# geoclue-2.0 demo binary `where-am-i`. While it runs the privacy applet's
-# location indicator should light up.
+# geoclue-2.0 demo binary `where-am-i`. Exercises
+# org.freedesktop.GeoClue2.Manager.InUse, which the privacy applet's
+# location indicator watches; while this runs, InUse should read true.
+#
+# Caveat (glimpse-ec4o.1, open): InUse is a single boolean shared by every
+# GeoClue client, and the shared geolocation service both glimpse-weather
+# and glimpse-sunset depend on never releases its client once it takes a
+# fix — so InUse can already be stuck true before this
+# script runs, and this test cannot show the false-to-true transition in
+# that case. Check InUse via `gdbus call --system --dest
+# org.freedesktop.GeoClue2 --object-path /org/freedesktop/GeoClue2/Manager
+# --method org.freedesktop.DBus.Properties.Get
+# org.freedesktop.GeoClue2.Manager InUse` before trusting what this script
+# demonstrates.
 #
 # Usage: ./scripts/privacy-test-location [SECONDS]
 

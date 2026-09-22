@@ -17,7 +17,7 @@ use crate::model::{
     LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
     WorkspaceId, WorkspaceTarget, capped_edid_str, is_built_in,
 };
-use event::{EventState, WireCast, WireLayouts, active_casts};
+use event::{EventState, WireCast, WireLayouts, into_casts};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: false,
@@ -60,7 +60,7 @@ impl Niri {
             windows,
             keyboard: keyboard.into(),
             focused_output: focused_output.map(|output| output.name),
-            active_casts: active_casts(casts),
+            casts: into_casts(casts),
         })
     }
 
@@ -151,6 +151,10 @@ impl Niri {
 
     pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
         self.act(&power_off_monitors_action()).await
+    }
+
+    pub(crate) async fn stop_screencast(&self, session_id: u64) -> Result<(), CompositorError> {
+        self.act(&stop_cast_action(session_id)).await
     }
 
     async fn fetch<T: for<'de> Deserialize<'de>>(
@@ -361,6 +365,10 @@ fn power_off_monitors_action() -> Value {
     json!({ "PowerOffMonitors": {} })
 }
 
+fn stop_cast_action(session_id: u64) -> Value {
+    json!({ "StopCast": { "session_id": session_id } })
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -371,7 +379,7 @@ mod tests {
     use super::testing::FakeNiri;
     use super::*;
     use crate::event::Resync;
-    use crate::model::WindowId;
+    use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
     /// Captured from a live niri 26.04 and re-wrapped: `niri msg -j` prints the payload without the
     /// `{"Ok": …}` envelope the socket actually carries.
@@ -436,9 +444,14 @@ mod tests {
 
         assert_eq!(snapshot.focused_output.as_deref(), Some("eDP-1"));
         assert_eq!(
-            snapshot.active_casts.iter().copied().collect::<Vec<_>>(),
+            snapshot
+                .casts
+                .iter()
+                .map(|cast| cast.stream_id)
+                .collect::<Vec<_>>(),
             [8]
         );
+        assert!(snapshot.casts[0].active);
         assert_eq!(snapshot.focused_window, Some(WindowId(9)));
         assert_eq!(snapshot.workspaces[0].id, WorkspaceId(5));
         assert_eq!(snapshot.workspaces[0].idx, Some(1));
@@ -689,6 +702,11 @@ mod tests {
             power_off_monitors_action(),
             json!({ "PowerOffMonitors": {} })
         );
+
+        assert_eq!(
+            stop_cast_action(2),
+            json!({ "StopCast": { "session_id": 2 } })
+        );
     }
 
     #[tokio::test]
@@ -709,6 +727,88 @@ mod tests {
             received.lock().expect("lock").as_deref(),
             Some(r#"{"Action":{"PowerOffMonitors":{}}}"#)
         );
+    }
+
+    #[tokio::test]
+    async fn stop_screencast_sends_the_session_id() {
+        let received: Arc<Mutex<Option<String>>> = Arc::default();
+        let sink = received.clone();
+        let server = FakeNiri::spawn(move |request| {
+            *sink.lock().expect("lock") = Some(request.to_owned());
+            vec![json!({ "Ok": null }).to_string()]
+        });
+
+        Niri::at(&server.socket)
+            .stop_screencast(2)
+            .await
+            .expect("dispatched");
+
+        assert_eq!(
+            received.lock().expect("lock").as_deref(),
+            Some(r#"{"Action":{"StopCast":{"session_id":2}}}"#)
+        );
+    }
+
+    #[test]
+    fn a_live_chrome_cast_decodes_its_target_and_kind() {
+        let wire: WireCast = serde_json::from_value(json!({
+            "stream_id": 2, "session_id": 2, "kind": "PipeWire",
+            "target": { "Output": { "name": "DP-2" } },
+            "is_active": true, "pid": null, "pw_node_id": 107
+        }))
+        .expect("wire cast");
+
+        let cast = wire.into_model();
+
+        assert_eq!(cast.stream_id, 2);
+        assert_eq!(cast.session_id, Some(2));
+        assert_eq!(cast.kind, CastKind::PipeWire);
+        assert_eq!(cast.target, CastTarget::Output("DP-2".to_owned()));
+        assert_eq!(cast.pw_node_id, Some(107));
+        assert!(cast.active);
+    }
+
+    #[test]
+    fn a_wlr_screencopy_cast_decodes_with_no_app_attribution() {
+        let wire: WireCast = serde_json::from_value(json!({
+            "stream_id": 4, "is_active": true, "kind": "WlrScreencopy",
+        }))
+        .expect("wire cast");
+
+        let cast = wire.into_model();
+
+        assert_eq!(cast.kind, CastKind::Screencopy);
+        assert_eq!(cast.pw_node_id, None);
+    }
+
+    #[test]
+    fn a_cast_with_only_a_stream_id_decodes_as_unknown() {
+        let wire: WireCast = serde_json::from_value(json!({ "stream_id": 9 })).expect("wire cast");
+
+        let cast = wire.into_model();
+
+        assert_eq!(cast.kind, CastKind::Unknown);
+        assert_eq!(cast.target, CastTarget::Unknown);
+        assert_eq!(cast.session_id, None);
+        assert!(!cast.active);
+    }
+
+    #[test]
+    fn a_cast_kind_niri_added_later_decodes_as_unknown_instead_of_failing() {
+        let wire: WireCast =
+            serde_json::from_value(json!({ "stream_id": 1, "kind": "SomeFutureKind" }))
+                .expect("wire cast");
+
+        assert_eq!(wire.into_model().kind, CastKind::Unknown);
+    }
+
+    #[test]
+    fn a_cast_target_niri_added_later_decodes_as_unknown_instead_of_failing() {
+        let wire: WireCast =
+            serde_json::from_value(json!({ "stream_id": 1, "target": { "SomethingNew": {} } }))
+                .expect("wire cast");
+
+        assert_eq!(wire.into_model().target, CastTarget::Unknown);
     }
 
     async fn events_from(lines: Vec<Value>) -> Vec<Event> {
@@ -849,13 +949,21 @@ mod tests {
         ])
         .await;
 
+        let cast = |stream_id, active| Cast {
+            stream_id,
+            session_id: None,
+            kind: CastKind::Unknown,
+            target: CastTarget::Unknown,
+            pw_node_id: None,
+            active,
+        };
+
         assert_eq!(
             events,
             [
-                Event::CastsChanged([3].into()),
+                Event::CastsChanged(vec![cast(3, true), cast(5, false)]),
                 Event::CastStartedOrChanged {
-                    id: 7,
-                    active: true,
+                    cast: cast(7, true)
                 },
                 Event::CastStopped(3),
             ]

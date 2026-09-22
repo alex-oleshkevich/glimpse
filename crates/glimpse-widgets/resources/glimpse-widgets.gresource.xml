@@ -39,6 +39,7 @@
         <file>widgets/player_row.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/printing_popover.ui</file>
+        <file>widgets/privacy_popover.ui</file>
         <file>widgets/readout.ui</file>
         <file>widgets/clipboard_popover.ui</file>
         <file>widgets/row.ui</file>

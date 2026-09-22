@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 #
 # Open the default PipeWire video source for DURATION seconds (default 10).
-# Useful for the privacy applet's camera indicator.
+# Exercises PipeWire's own camera bookkeeping — not glimpse's camera source,
+# which reads a /proc fd scan instead (glimpse-ec4o.5), precisely because of
+# the caveat below.
 #
-# Caveat: a plain webcam usually shows up as a V4L2 device, not as a
-# PipeWire video source — PipeWire exposes cameras via libcamera / the
-# xdg-desktop-portal camera portal. If neither is configured, no PipeWire
-# video source exists and this script will error out. Use
-# `privacy-test-camera-v4l2` to test the V4L2 path directly.
+# A plain webcam DOES appear as a PipeWire Video/Source: PipeWire/WirePlumber
+# exposes it via built-in V4L2 support as a `v4l2_input.*` node, no libcamera
+# or portal configuration needed (measured on PipeWire 1.6.8, 2026-09-22:
+# both cameras on this machine show up this way — confirm with
+# `pw-dump | jq`). The node exists but sits in state `suspended` until a
+# PipeWire client actually consumes it, and a raw V4L2 capture (ffmpeg -f
+# v4l2, Chrome's V4L2 backend) never changes that state at all — PipeWire is
+# blind to it. This script is therefore a no-op for anything that opens the
+# camera through V4L2 directly; use `privacy-test-camera-v4l2` for that path.
 #
 # Usage: ./scripts/privacy-test-camera-pipewire [SECONDS]
 
@@ -59,8 +65,9 @@ if command -v pw-cli >/dev/null; then
         | grep 'id ' || true)
     if [[ -z "$video_nodes" ]]; then
         echo "No PipeWire Video/Source nodes present." >&2
-        echo "Cameras typically appear here only when libcamera support is" >&2
-        echo "enabled in PipeWire/Wireplumber, or via the camera portal." >&2
+        echo "PipeWire/WirePlumber normally exposes a webcam here via its" >&2
+        echo "built-in V4L2 support (a v4l2_input.* node), no extra" >&2
+        echo "configuration needed; none is visible right now." >&2
         echo "Use privacy-test-camera-v4l2 to test the V4L2 detection path." >&2
         exit 1
     fi

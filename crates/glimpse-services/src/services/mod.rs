@@ -31,6 +31,7 @@ mod night_light;
 mod notifications;
 mod places;
 mod printing;
+mod privacy;
 mod removable;
 mod session;
 mod session_actions;
@@ -84,6 +85,10 @@ pub use printing::{
     Config as PrintingConfig, Failure as PrintingFailure, JobState, PrintJob, Printer,
     PrinterState, Printing, PrintingError, PrintingHandle, PrintingState,
 };
+pub use privacy::{
+    Dependencies as PrivacyDependencies, Privacy, PrivacyError, PrivacyHandle, PrivacyState,
+    Resource as PrivacyResource, Usage as PrivacyUsage,
+};
 pub use removable::{
     Busy as RemovableBusy, Capacity as RemovableCapacity, Config as RemovableConfig, Drive,
     DriveId, Encryption as RemovableEncryption, Failure as RemovableFailure,
@@ -102,9 +107,9 @@ pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, Weather
 
 pub use calendar::{CalendarEvent, CalendarEvents, GuestCounts, Meeting, MeetingProvider, meeting};
 pub use compositor::{
-    CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
-    CompositorWindows, CompositorWorkspaces, OutputInfo, OutputLogical, OutputMode, WindowInfo,
-    WindowRef, WorkspaceInfo, WorkspaceRef,
+    CastInfo, CastKindInfo, CastTargetInfo, CompositorCapabilities, CompositorOutputs,
+    CompositorPrivacy, CompositorStatus, CompositorWindows, CompositorWorkspaces, OutputInfo,
+    OutputLogical, OutputMode, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
 };
 pub use geolocation::GeolocationStatus;
 pub use heartbeat::{HeartbeatInterval, HeartbeatTick};

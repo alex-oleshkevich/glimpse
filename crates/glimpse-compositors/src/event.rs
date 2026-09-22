@@ -1,6 +1,4 @@
-use std::collections::BTreeSet;
-
-use crate::model::{KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId};
+use crate::model::{Cast, KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
@@ -31,10 +29,9 @@ pub enum Event {
         idx: usize,
         name: Option<String>,
     },
-    CastsChanged(BTreeSet<u64>),
+    CastsChanged(Vec<Cast>),
     CastStartedOrChanged {
-        id: u64,
-        active: bool,
+        cast: Cast,
     },
     CastStopped(u64),
     /// The compositor said something changed without saying what. The caller re-fetches the named

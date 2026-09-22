@@ -1,6 +1,6 @@
 use crate::event::{Event, Resync};
 use crate::keyboard::layout_code;
-use crate::model::WindowId;
+use crate::model::{Cast, CastKind, CastTarget, WindowId};
 
 /// Hyprland says an address changed and little else, so the configured layout codes are cached here
 /// to turn `activelayout`'s display name back into an index. They are read once when the stream
@@ -78,9 +78,18 @@ impl EventState {
             Some("0") => self.active_casts = self.active_casts.saturating_sub(1),
             _ => return Vec::new(),
         }
-        vec![Event::CastsChanged(
-            (self.active_casts > 0).then_some(0).into_iter().collect(),
-        )]
+        let casts = match self.active_casts > 0 {
+            true => vec![Cast {
+                stream_id: 0,
+                session_id: None,
+                kind: CastKind::Unknown,
+                target: CastTarget::Unknown,
+                pw_node_id: None,
+                active: true,
+            }],
+            false => Vec::new(),
+        };
+        vec![Event::CastsChanged(casts)]
     }
 }
 

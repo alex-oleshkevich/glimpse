@@ -1,0 +1,47 @@
+using Gtk 4.0;
+
+template $PrivacyPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "privacy-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "security-medium-symbolic";
+      title: _("Privacy");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Notice screen_notice {
+        visible: false;
+        severity: warning;
+        title: _("Your screen is being shared");
+      }
+
+      $Section usages {
+        empty: true;
+        title: _("In use now");
+
+        [placeholder]
+        $Placeholder empty_usages {
+          icon-name: "security-medium-symbolic";
+          title: _("Nothing is using your camera, microphone or screen");
+        }
+
+        Gtk.Box usage_rows {
+          orientation: vertical;
+        }
+      }
+    }
+  }
+}

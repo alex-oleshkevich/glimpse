@@ -212,11 +212,16 @@ impl Service for Keyboard {
                 }
                 self.publish();
             }
-            Input::Event(Event::Changed(change)) => match apply_keyboard(&mut self.state, change) {
-                Apply::Publish => self.publish(),
-                Apply::Refetch => self.attempt += 1,
-                Apply::Ignore => {}
-            },
+            Input::Event(Event::Changed(change)) => {
+                if let Change::KeyboardLayoutSwitched { idx, .. } = &change {
+                    self.remember(*idx);
+                }
+                match apply_keyboard(&mut self.state, change) {
+                    Apply::Publish => self.publish(),
+                    Apply::Refetch => self.attempt += 1,
+                    Apply::Ignore => {}
+                }
+            }
             Input::Event(Event::Windows(Some(windows))) => self.windows_changed(windows).await,
             Input::Event(Event::Windows(None)) => self.focused = None,
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
@@ -237,6 +242,15 @@ impl Service for Keyboard {
 impl Keyboard {
     fn publish(&mut self) {
         self.layouts.set(payload(&self.state, &self.config.labels));
+    }
+
+    fn remember(&mut self, idx: usize) {
+        let Ok(index) = u8::try_from(idx) else {
+            return;
+        };
+        if let Some(key) = remember_key(self.config.remember, self.focused.as_ref()) {
+            self.store.insert(key, index);
+        }
     }
 
     async fn switch(

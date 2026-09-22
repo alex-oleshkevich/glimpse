@@ -35,8 +35,9 @@ pub use applets::{
     Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
     NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
     PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
-    Printing as PrintingAppletConfig, Removable as RemovableAppletConfig,
-    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
+    Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
+    Removable as RemovableAppletConfig, Timezone as ClockTimezone, Tray as TrayAppletConfig,
+    Weather as WeatherAppletConfig,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;

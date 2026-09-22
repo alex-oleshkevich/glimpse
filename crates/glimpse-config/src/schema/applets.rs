@@ -95,7 +95,7 @@ pub enum Kind {
     /// Active print jobs.
     Printing(Printing),
     /// Shows when the microphone, camera or screen is in use.
-    Privacy {},
+    Privacy(Privacy),
     /// Removable drives and their volumes, with mount, unmount and eject in its popover.
     Removable(Removable),
     /// Log out, suspend, restart and shut down.
@@ -329,6 +329,31 @@ pub struct Printing {
 impl Default for Printing {
     fn default() -> Self {
         Self { jobs: 8 }
+    }
+}
+
+/// The privacy applet's own settings: which of its sources it shows.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Privacy {
+    /// Whether the camera is shown when in use.
+    pub show_camera: bool,
+    /// Whether the microphone is shown when in use.
+    pub show_microphone: bool,
+    /// Whether screen capture is shown when in use.
+    pub show_screencast: bool,
+    /// Whether location access is shown when in use.
+    pub show_location: bool,
+}
+
+impl Default for Privacy {
+    fn default() -> Self {
+        Self {
+            show_camera: true,
+            show_microphone: true,
+            show_screencast: true,
+            show_location: true,
+        }
     }
 }
 
@@ -832,7 +857,7 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle, Printing,
+        BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle, Printing, Privacy,
     };
 
     #[test]
@@ -977,6 +1002,27 @@ mod tests {
         assert_eq!(settings.jobs, 3);
 
         toml::from_str::<crate::Config>("[applets.printing]\nbogus = 1\n")
+            .expect_err("a struct variant refuses keys that are not its own");
+    }
+
+    #[test]
+    fn privacy_defaults_and_refuses_an_unknown_key() {
+        let default: crate::Config =
+            toml::from_str("[applets.privacy]\n").expect("the built-in privacy applet loads");
+        assert_eq!(
+            default.applets["privacy"].kind,
+            Kind::Privacy(Privacy::default())
+        );
+
+        let configured: crate::Config =
+            toml::from_str("[applets.privacy]\nshow-location = false\n")
+                .expect("show-location is the privacy applet's own setting");
+        let Kind::Privacy(settings) = &configured.applets["privacy"].kind else {
+            panic!("the table names the privacy applet");
+        };
+        assert!(!settings.show_location);
+
+        toml::from_str::<crate::Config>("[applets.privacy]\nbogus = 1\n")
             .expect_err("a struct variant refuses keys that are not its own");
     }
 }

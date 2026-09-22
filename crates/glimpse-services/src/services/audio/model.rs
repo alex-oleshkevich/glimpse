@@ -44,10 +44,11 @@ pub struct Device {
     pub default: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StreamRef {
     pub index: u32,
     pub volume: u32,
+    pub device: DeviceId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -214,10 +215,12 @@ mod tests {
                 StreamRef {
                     index: 1,
                     volume: 20,
+                    device: DeviceId::new("headset"),
                 },
                 StreamRef {
                     index: 2,
                     volume: 80,
+                    device: DeviceId::new("headset"),
                 },
             ],
         };
@@ -236,6 +239,7 @@ mod tests {
             streams: vec![StreamRef {
                 index: 1,
                 volume: 0,
+                device: DeviceId::new("headset"),
             }],
         };
 

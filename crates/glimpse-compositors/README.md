@@ -50,6 +50,15 @@ first question a reader has, which is why it is the first section.
   that job, and doing it twice is how the previous implementation got to 3329 lines.
 - **`Compositor::Unsupported` is a value, not an error.** `detect_compositor()` cannot fail, so a
   daemon under GNOME degrades and keeps running instead of refusing to start.
+- **A paused cast is still a live session.** `Cast::active` goes `false` when the consumer switches
+  scenes — OBS does this on every scene change — but the portal grant behind it has not ended, and
+  niri keeps the cast in the list until it actually stops. A cast still in `Snapshot.casts` is a
+  session that will not prompt again; do not drop it, and do not read `active` as "is anyone
+  capturing right now".
+- **`StopCast` only ends a `CastKind::PipeWire` session.** niri's own documentation for
+  `Action::StopCast` says wlr-screencopy screencasts cannot currently be stopped through IPC, so a
+  `Screencopy` cast has no control that will act on it. Under Hyprland every cast is synthetic and
+  carries `session_id: None`, which is itself the gate: nothing to pass means nothing to send.
 
 ## The layout-code table is data, not code
 
