@@ -319,8 +319,7 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   down to it, never the maximum up to the floor. `SourceList` must not pre-clamp either value, or
   the fader's own clamp never fires.
 - Each fader is built with `toggleable: false` and `display-brightness-symbolic` as its icon: a
-  brightness source has nothing for a mute button to mute, the same reasoning `fader_states.blp`
-  already states for the identical pairing.
+  brightness source has nothing for a mute button to mute.
 - `Source.key` is read back when a fader reports `changed`, not captured when the row was built,
   for the reason `Player.key` documents: a reconcile reuses a row in place.
 
@@ -335,8 +334,8 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   already carries it.
 - The enable switch's own `locked` is set only when its own output is enabled **and** it is the sole
   one enabled — never on a disabled output, which would strand the user with no way to turn a
-  display back on. `DisplayList` sets the property; it no longer walks the switch's children for
-  its knob, the anti-pattern `Fader::floor` also replaced on `SourceList`.
+  display back on. `DisplayList` sets the property directly rather than walking the switch's
+  children for its knob.
 - **`set_output_power(false)` removes the switch from the row, rather than locking it.** `locked`
   answers "offered, but this is your last enabled display"; the gate answers "this compositor
   cannot do this at all", and the two never fight because nothing computes or applies a lock while
@@ -491,6 +490,18 @@ carrying the job id, the same shape as `BluetoothPopover`'s `connect_selected`. 
 `Job.status`, `Printer.status` and every `Detail` are caller-supplied, already-cleaned text —
 formatting and sanitizing raw CUPS text is the panel applet's job, not this widget's, which is why
 no detail label is translated here.
+
+## PrivacyPopover
+
+- **A resource with an action is a `$SplitRow`; a resource with none is a plain `Row`.** `Row` is a
+  `Gtk.Button`, so a button nested inside one never emits `clicked` — the shape is the guard, not a
+  test, the same reasoning `PrintingPopover` states above for its own actions.
+- **The banner is driven by `set_screen_shared`, never inferred from a usage's action.** A
+  `WlrScreencopy` capture carries no action at all, so inferring the banner from "some resource has
+  an action" would miss it and leave the screen indicator lit with no warning behind it.
+- **The reconcile key is `(id, action)`, not `id` alone.** A resource whose action changes rebuilds
+  its control rather than keeping a stale one — `by_key` matching on `id` only would reuse a `Row`
+  that used to be a `SplitRow`, or the other way round, and leave the wrong widget in the cell.
 
 ## Stylesheets
 

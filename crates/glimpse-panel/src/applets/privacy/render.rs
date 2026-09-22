@@ -95,21 +95,20 @@ pub fn usage_id(usage: &ServiceUsage) -> String {
     }
 }
 
-/// A screen cast is only offered a stop control when it carries a session id: niri cannot stop a
-/// wlr-screencopy cast through IPC, and Hyprland's synthetic casts carry no session id at all.
-/// Offering the control otherwise would report success while the recording continues. The
-/// microphone's mute is offered until it is already muted, so the row never shows a control that
-/// changes nothing. A row whose command is already in flight offers no control at all, and neither
-/// the camera nor the location resource has one.
-pub fn action(usage: &ServiceUsage, mic_muted: bool, busy: bool) -> Option<PrivacyAction> {
-    if busy {
-        return None;
-    }
+/// A screen cast is only offered a stop control when it carries both a session id and a stream id:
+/// niri cannot stop a wlr-screencopy cast through IPC, and Hyprland's synthetic casts carry no
+/// session id at all, so offering the control there would report success while the recording
+/// continues. The stream id is refused too, on top of the session id, because `usage_id` keys a
+/// screen row on the stream id alone — two simultaneous casts with no stream id would collide onto
+/// the same widget id, and `session_for` would then resolve a click on either row to whichever
+/// usage it finds first. The microphone's mute is offered until it is already muted, so the row
+/// never shows a control that changes nothing. Neither the camera nor the location resource has a
+/// control at all. Whether a command is already in flight for this row is carried separately, on
+/// `PrivacyUsage::busy`, and does not change which action is offered.
+pub fn action(usage: &ServiceUsage, mic_muted: bool) -> Option<PrivacyAction> {
     match usage.kind {
         PrivacyResource::Microphone => (!mic_muted).then_some(PrivacyAction::Mute),
-        PrivacyResource::Screen => usage
-            .session
-            .is_some()
+        PrivacyResource::Screen => (usage.session.is_some() && usage.stream_id.is_some())
             .then_some(PrivacyAction::StopSharing),
         PrivacyResource::Camera | PrivacyResource::Location => None,
     }
@@ -129,7 +128,7 @@ pub fn usages(
                 icon: icon(usage.kind).to_owned(),
                 title: title(usage.kind),
                 detail: detail(usage),
-                action: action(usage, mic_muted, busy),
+                action: action(usage, mic_muted),
                 busy,
                 id,
             }
@@ -139,12 +138,18 @@ pub fn usages(
 
 /// The banner is raised by the presence of any screen usage, whether or not it can be stopped: a
 /// wlr-screencopy or Hyprland cast still records, and the applet's job is to tell the truth about
-/// capture rather than only about what it can stop. The subtitle is the usage's own detail, empty
-/// when the compositor gave none.
+/// capture rather than only about what it can stop. The subtitle names every cast sharing the
+/// screen right now, joined the same way `tooltip` joins several usages of one resource, and is
+/// empty when none of them gave a detail.
 pub fn screen_shared(state: &PrivacyState, filters: Filters) -> Option<String> {
-    visible(state, filters)
-        .find(|usage| usage.kind == PrivacyResource::Screen)
-        .map(|usage| detail(usage).unwrap_or_default())
+    let screens: Vec<&ServiceUsage> = visible(state, filters)
+        .filter(|usage| usage.kind == PrivacyResource::Screen)
+        .collect();
+    if screens.is_empty() {
+        return None;
+    }
+    let details: Vec<String> = screens.iter().filter_map(|usage| detail(usage)).collect();
+    Some(details.join(", "))
 }
 
 pub fn session_for(state: &PrivacyState, id: &str) -> Option<u64> {
@@ -162,7 +167,15 @@ pub fn kinds_in_use(state: &PrivacyState, filters: Filters) -> Vec<PrivacyResour
         .collect()
 }
 
-pub fn tooltip(kind: PrivacyResource, usages: &[&ServiceUsage]) -> String {
+/// `format` is `[applets.privacy] tooltip-format`, honoured as a plain override: unlike every other
+/// applet's tooltip, a privacy chip's composed text has no natural per-resource token to
+/// substitute into it — camera, microphone, screen and location each carry a different shape of
+/// detail — so a configured format simply replaces the computed tooltip rather than filling a
+/// placeholder inside it.
+pub fn tooltip(kind: PrivacyResource, usages: &[&ServiceUsage], format: Option<&str>) -> String {
+    if let Some(format) = format {
+        return format.to_owned();
+    }
     let base = title(kind);
     let details: Vec<String> = usages.iter().filter_map(|usage| detail(usage)).collect();
     if details.is_empty() {
@@ -226,51 +239,53 @@ mod tests {
     fn a_screen_usage_with_no_session_offers_no_stop_control() {
         let stoppable = ServiceUsage {
             session: Some(11),
+            stream_id: Some(3),
             ..usage(PrivacyResource::Screen)
         };
         let unstoppable = ServiceUsage {
             session: None,
+            stream_id: Some(3),
             ..usage(PrivacyResource::Screen)
         };
+        assert_eq!(action(&stoppable, false), Some(PrivacyAction::StopSharing));
+        assert_eq!(action(&unstoppable, false), None);
+    }
+
+    #[test]
+    fn a_screen_usage_with_no_stream_id_offers_no_stop_control() {
+        let stoppable = ServiceUsage {
+            session: Some(11),
+            stream_id: Some(3),
+            ..usage(PrivacyResource::Screen)
+        };
+        let unkeyed = ServiceUsage {
+            session: Some(11),
+            stream_id: None,
+            ..usage(PrivacyResource::Screen)
+        };
+        assert_eq!(action(&stoppable, false), Some(PrivacyAction::StopSharing));
         assert_eq!(
-            action(&stoppable, false, false),
-            Some(PrivacyAction::StopSharing)
+            action(&unkeyed, false),
+            None,
+            "two casts with no stream id would collide onto the same widget id, and stopping one \
+             could resolve to the other; refusing the control here is what keeps that structural \
+             rather than a matter of luck"
         );
-        assert_eq!(action(&unstoppable, false, false), None);
     }
 
     #[test]
     fn an_already_muted_microphone_offers_no_mute_control() {
         assert_eq!(
-            action(&usage(PrivacyResource::Microphone), false, false),
+            action(&usage(PrivacyResource::Microphone), false),
             Some(PrivacyAction::Mute)
         );
-        assert_eq!(
-            action(&usage(PrivacyResource::Microphone), true, false),
-            None
-        );
-    }
-
-    #[test]
-    fn a_busy_row_offers_no_control_of_any_kind() {
-        let stoppable = ServiceUsage {
-            session: Some(11),
-            ..usage(PrivacyResource::Screen)
-        };
-        assert_eq!(action(&stoppable, false, true), None);
-        assert_eq!(
-            action(&usage(PrivacyResource::Microphone), false, true),
-            None
-        );
+        assert_eq!(action(&usage(PrivacyResource::Microphone), true), None);
     }
 
     #[test]
     fn camera_and_location_never_offer_a_control() {
-        assert_eq!(action(&usage(PrivacyResource::Camera), false, false), None);
-        assert_eq!(
-            action(&usage(PrivacyResource::Location), false, false),
-            None
-        );
+        assert_eq!(action(&usage(PrivacyResource::Camera), false), None);
+        assert_eq!(action(&usage(PrivacyResource::Location), false), None);
     }
 
     #[test]
@@ -378,6 +393,25 @@ mod tests {
     }
 
     #[test]
+    fn the_banner_names_every_cast_sharing_the_screen_at_once() {
+        let one = ServiceUsage {
+            stream_id: Some(1),
+            detail: Some("DP-1".to_owned()),
+            ..usage(PrivacyResource::Screen)
+        };
+        let two = ServiceUsage {
+            stream_id: Some(2),
+            detail: Some("DP-2".to_owned()),
+            ..usage(PrivacyResource::Screen)
+        };
+        assert_eq!(
+            screen_shared(&state(vec![one, two]), Filters::default()).as_deref(),
+            Some("DP-1, DP-2"),
+            "the subtitle is an incomplete truth if it names only the first of two active casts"
+        );
+    }
+
+    #[test]
     fn no_screen_usage_means_no_banner_at_all() {
         assert_eq!(
             screen_shared(
@@ -415,7 +449,10 @@ mod tests {
     #[test]
     fn the_tooltip_falls_back_to_the_title_with_no_detail_to_add() {
         let bare = usage(PrivacyResource::Location);
-        assert_eq!(tooltip(PrivacyResource::Location, &[&bare]), "Location");
+        assert_eq!(
+            tooltip(PrivacyResource::Location, &[&bare], None),
+            "Location"
+        );
     }
 
     #[test]
@@ -429,8 +466,21 @@ mod tests {
             ..usage(PrivacyResource::Microphone)
         };
         assert_eq!(
-            tooltip(PrivacyResource::Microphone, &[&chrome, &discord]),
+            tooltip(PrivacyResource::Microphone, &[&chrome, &discord], None),
             "Microphone — chrome, discord"
+        );
+    }
+
+    #[test]
+    fn a_configured_tooltip_format_replaces_the_composed_tooltip_outright() {
+        let chrome = ServiceUsage {
+            app: Some("chrome".to_owned()),
+            ..usage(PrivacyResource::Microphone)
+        };
+        assert_eq!(
+            tooltip(PrivacyResource::Microphone, &[&chrome], Some("Mic in use")),
+            "Mic in use",
+            "privacy has no per-resource token to fill, so a configured format is a plain override"
         );
     }
 }

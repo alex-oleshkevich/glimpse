@@ -46,6 +46,7 @@ libpulse-binding = "2.30.1"
 zeroize = { version = "1.9.0", features = ["zeroize_derive"] }
 notify = "8.2"
 owo-colors = "4"
+pipewire = "0.10.1"
 regex = "1"
 relm4 = { version = "0.11", features = ["gnome_50", "libadwaita"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }

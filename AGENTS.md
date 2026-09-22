@@ -954,6 +954,60 @@ fallback is the only path. Load the module before concluding anything about mult
   `udisksd`. `usb` and `sdio` in the removability filter come from documentation, not measurement.
   `Removable` and `MediaRemovable` are the two arms that are certain.
 
+**Privacy applet coverage, September 2026.** Every source was measured live against a real Chrome
+session holding the camera, two mic captures and a DP-2 screen share at once, plus a `/proc` census
+of 766 processes and a probe of niri's cast reporting against the `RemoteDesktop` portal.
+
+- **PipeWire is blind to raw V4L2 capture, and Chrome is the case that proves it.** With Chrome live
+  on the camera, the `Video/Source` node stayed `suspended` and no stream node appeared, while
+  `/proc` reported `comm=chrome` holding `/dev/video0`. `_old` shipped a PipeWire-only camera
+  detector and therefore could not see Chrome. **`libspa-v4l2.so` is mapped into the `pipewire` and
+  `wireplumber` processes only**, never a client, so the daemon opens `/dev/videoN` — which is why a
+  `/proc` fd scan also catches PipeWire-mediated capture, but names the holder `pipewire`. The scan
+  itself costs **28-33 ms**; an early 10 s figure was bash forking `readlink` 766 times, not the
+  syscall cost.
+- **A camera open is not a camera stream, and a root process is invisible.** Both `/proc` and the
+  `uvcvideo` refcount rise on a bare `open()` with no capture under way, which is why the wording is
+  "in use" and never "recording" — and 479 of the 766 processes on this machine belong to another
+  user and cannot be read, so a root process holding the camera is invisible outright.
+- **Chrome opens TWO mic source-outputs on the real mic, so usages are deduplicated by app.**
+  `application.name` arrives as `"Google Chrome input"`, not a display name, and
+  `application.process.binary` is `chrome` — but preferring the binary regresses the WebKit case,
+  where `identify.rs:263` asserts `name == "walz"` against a binary of `WebKitWebProcess`. **A
+  monitor source can be `RUNNING` with nothing capturing it** — a bluez monitor was, during
+  measurement — and capturing a monitor is system-audio recording, not microphone use, so it is
+  excluded; a corked capture and an app id on the volume-control blocklist are excluded the same way.
+- **`pipewire-alsa` is installed and the default ALSA PCM is `type pipewire`** —
+  `/etc/alsa/conf.d/99-pipewire-default.conf`, confirmed present on this machine — so
+  `scripts/privacy-test-mic-alsa`, which runs `arecord` with no `-D`, does NOT bypass PipeWire as its
+  name implies. A genuine bypass needs `arecord -D hw:0`; whether such a capture is visible to the
+  mic detector is unverified.
+- **niri reports `pid: null` on a real portal-mediated cast**, measured against a live Chrome share;
+  `target` and `session_id` are populated and reliable, and `pw_node_id` is the join key. It reports
+  two cast kinds, `PipeWire` and `WlrScreencopy`; screencopy without damage tracking is treated as a
+  screenshot and not reported, which is why `grim` does not light the indicator. **A `WlrScreencopy`
+  cast carries no app name** — there is no PipeWire node to attribute.
+- **Chrome tab sharing is invisible, and it is a known limitation, not a bug to chase.** Sharing a
+  tab rather than a screen or a window is captured inside Chrome and creates no portal session and
+  no compositor cast; `_old` hit this as a P1 and could not solve it either. Screen and window
+  sharing are unaffected.
+- **Remote-desktop input injection is undetectable, and is the same kind of limitation.** The screen
+  half is covered — wayvnc binds wlr-screencopy, which niri reports as an ordinary
+  `CastKind::WlrScreencopy` cast — but virtual pointer and keyboard are Wayland protocols with no IPC
+  reporting who bound them, a client cannot enumerate another client's bindings, and no service crate
+  may take a Wayland dependency. Measured: **niri owns `Mutter.ScreenCast` but NOT
+  `Mutter.RemoteDesktop`**, and xdg-desktop-portal-gnome exposes only `impl.portal.ScreenCast`, so
+  `RemoteDesktop.AvailableDeviceTypes` is 0.
+- **`GeoClue2.Manager.InUse` is a global boolean with no per-client attribution anywhere**, so
+  location never names an application — this is a property of GeoClue, not a gap in the service.
+- **At full service shutdown a detached GeoClue release can lose a race and skip `Stop`/
+  `DeleteClient`.** Harmless — the process is exiting and GeoClue detects the connection loss
+  itself. The two cases that matter, a config switch to Manual mid-wait and a refresh mid-wait, take
+  the hard-abort path instead and are covered by
+  `a_source_torn_down_mid_wait_still_runs_its_release_effect`.
+- **The privacy `show_*` flags are render filters only.** They do not stop the service's own
+  sources, so `show-location = false` still lets the service talk to GeoClue.
+
 ## Finishing
 
 Finishing is a pass over the work, not the moment the last edit compiles. Run it every time, before

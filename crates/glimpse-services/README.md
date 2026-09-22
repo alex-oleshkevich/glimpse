@@ -69,11 +69,18 @@ ignores one that no longer matches.
 
 ## The services
 
-**geolocation** — two providers behind one state. `manual` publishes the configured pair, `geoclue`
-follows GeoClue's `Location`, subscribed **before** `Start` because the first fix can arrive before
-that call returns. Accuracy is `CITY`. Authorization is a shipped file,
-`data/geoclue/conf.d/glimpse.conf`, whose section name and `DESKTOP_ID` must agree. A missing fix or
-refused request leaves the service `degraded` publishing `None`. **solar** publishes `phase` and
+**geolocation** — two providers behind one state. `manual` publishes the configured pair. `geoclue`
+runs one **transient** client per attempt: created, subscribed to `Location` **before** `Start`
+(a client GeoClue already had a fix for delivers it as that subscription's own first item, so
+nothing here reads `Location` up front), then always stopped and deleted again — on a fix, an
+unreadable change, `FIX_TIMEOUT` elapsing, or the attempt being torn down early by a config change
+or the next attempt starting. `Manager.InUse` is a global, session-wide flag, and this is what keeps
+it from outliving a single attempt. A tick retries the attempt: `NO_FIX_RETRY` while no fix has ever
+landed, `FIX_REFRESH` once one has, so a moving user's fix is retaken without polling while idle.
+Coordinates mean **last known**, not **current** — an unreadable change or a lost bus marks the
+service `degraded` without touching the cache; only a manual table or a fresh `geoclue` selection
+clears it. Accuracy is `CITY`; authorization is a shipped file, `data/geoclue/conf.d/glimpse.conf`,
+whose section name and `DESKTOP_ID` must agree. **solar** publishes `phase` and
 `next_change`, no color temperature (the night light's to decide); `next_change` is always still
 ahead, so a consumer needs no midnight special case. Above the polar circles a date has neither
 event: the phase falls back to the sign of the solar declination against the latitude, and
@@ -311,6 +318,15 @@ degraded section differently from an absent one.
 subscription, window count from the compositor, PackageKit updates only on `UpdatesChanged`. A
 window appearing does not re-query the package manager. Capability reasons are an enum; the applet
 formats them.
+
+**privacy** — camera, microphone, screen capture and location as one state, reporting rather than
+enforcing. **The camera source is a `/proc` fd scan gated on the `uvcvideo` refcount, never
+PipeWire** — PipeWire is blind to raw V4L2 capture. **The mic source excludes a corked capture, a
+monitor source and an app on the volume-control blocklist by app id only**, since a name is
+attacker-controlled. **`app: None` is first-class on every resource, and always the case for
+location** — GeoClue exposes no per-client attribution. **A stop control is offered only for a
+PipeWire cast carrying a session id**: `WlrScreencopy` has none, and niri-ipc's own
+`Action::StopCast` says a wlr-screencopy cast cannot be stopped through it.
 
 ## Rules
 

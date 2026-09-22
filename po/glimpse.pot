@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 14:26+0200\n"
+"POT-Creation-Date: 2026-09-22 17:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -240,7 +240,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:243
+#: crates/glimpse-widgets/src/lib.rs:245
 msgid "{percent}%"
 msgstr ""
 
@@ -1256,6 +1256,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:263
 #: crates/glimpse-panel/src/applets/printing/render.rs:144
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
 msgid "Location"
 msgstr ""
 
@@ -1423,6 +1424,39 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:173
 msgid "single-sided"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:92
+msgid "Could not mute the microphone"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:125
+msgid "Could not stop screen sharing"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:14
+msgid "Privacy"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:173
+msgid "The audio service could not complete that."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:175
+msgid "Privacy tracking is unreachable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:68
+msgid "Camera"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:69
+msgid "Microphone"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Screen"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:81
@@ -1869,6 +1903,7 @@ msgid "Any input wakes them again"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:134
 msgid "Mute"
 msgstr ""
 
@@ -1981,7 +2016,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:204
+#: crates/glimpse-widgets/src/lib.rs:206
 msgid "Play"
 msgstr ""
 
@@ -1993,6 +2028,18 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:15
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:241
 msgid "No print jobs"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:28
+msgid "Your screen is being shared"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "In use now"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:38
+msgid "Nothing is using your camera, microphone or screen"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:15
@@ -2139,7 +2186,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:203
+#: crates/glimpse-widgets/src/lib.rs:205
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
@@ -2206,6 +2253,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:267
 msgid "Page {completed} of {total}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:137
+msgid "Stop sharing"
 msgstr ""
 
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:178

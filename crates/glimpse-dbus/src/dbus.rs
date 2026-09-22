@@ -31,6 +31,16 @@ impl Buses {
         }
     }
 
+    /// A system connection of the test's own and no session bus, for a service whose backend is
+    /// a `PrivateBus` standing in for a system-bus service such as GeoClue2.
+    #[cfg(feature = "testing")]
+    pub fn for_system(connection: Connection) -> Self {
+        Self {
+            session: Err("no session bus in tests".to_owned()),
+            system: Ok(connection),
+        }
+    }
+
     /// Neither bus, for a test or for a caller that deliberately runs without D-Bus.
     pub fn unavailable(reason: impl Into<String>) -> Self {
         let reason = reason.into();

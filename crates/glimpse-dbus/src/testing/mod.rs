@@ -1,3 +1,4 @@
+pub mod geoclue;
 pub mod tray;
 
 use std::io::BufRead as _;

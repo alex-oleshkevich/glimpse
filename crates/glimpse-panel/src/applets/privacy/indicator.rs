@@ -24,6 +24,7 @@ pub struct Privacy {
     audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     filters: render::Filters,
+    tooltip_format: Option<String>,
     spec: Vec<IndicatorSpec>,
     pending: Rc<RefCell<HashSet<String>>>,
     shown: glib::WeakRef<PrivacyPopover>,
@@ -51,6 +52,7 @@ impl Applet for Privacy {
             screencast: cfg.show_screencast,
             location: cfg.show_location,
         };
+        self.tooltip_format = config.common.tooltip_format.clone();
         self.refresh();
     }
 
@@ -108,6 +110,10 @@ impl Applet for Privacy {
                 }
                 opener.wake();
                 let Some(session_id) = render::session_for(&privacy.snapshot(), &id) else {
+                    tracing::debug!(
+                        id = %id,
+                        "stop-sharing requested for a cast that no longer exists"
+                    );
                     pending.borrow_mut().remove(&id);
                     opener.wake();
                     return;
@@ -186,6 +192,7 @@ impl Privacy {
             audio,
             notifications,
             filters: render::Filters::default(),
+            tooltip_format: None,
             spec: Vec::new(),
             pending: Rc::new(RefCell::new(HashSet::new())),
             shown: glib::WeakRef::new(),
@@ -222,7 +229,11 @@ impl Privacy {
                     .collect();
                 IndicatorSpec {
                     icon: Some(themed(render::icon(kind))),
-                    tooltip: Some(render::tooltip(kind, &usages)),
+                    tooltip: Some(render::tooltip(
+                        kind,
+                        &usages,
+                        self.tooltip_format.as_deref(),
+                    )),
                     ..Default::default()
                 }
             })

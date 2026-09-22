@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 13:53+0200\n"
+"POT-Creation-Date: 2026-09-22 17:18+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -42,7 +42,7 @@ msgstr ""
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:190
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:177
 msgid "Cancel"
 msgstr ""
 
@@ -267,7 +267,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:243
+#: crates/glimpse-widgets/src/lib.rs:245
 msgid "{percent}%"
 msgstr ""
 
@@ -604,7 +604,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:163
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
 msgid "Forget"
 msgstr ""
 
@@ -875,81 +875,63 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:128
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:122
 msgid "Image · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:161
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:154
 #, fuzzy
 #| msgid "min"
 msgid "Pin"
 msgstr "мин"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:162
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
 msgid "Unpin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:173
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:166
 msgid "Clear history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:189
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
 msgid "Clipboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:200
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:193
 msgid "The clipboard is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:214
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:207
 msgid "That entry is no longer in the history."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:222
-#: crates/glimpse-panel/src/applets/idle/render.rs:136
-msgid "just now"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
-#, fuzzy
-#| msgid "{count} workspace"
-#| msgid_plural "{count} workspaces"
-msgid "{count} min ago"
-msgstr "{count} рабочий стол"
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:224
-#, fuzzy
-#| msgid "{count}h"
-msgid "{count} h ago"
-msgstr "{count} ч"
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:234
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
 msgid "{count} items · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:304
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:284
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not copy that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:329
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:309
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not pin that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:345
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:325
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not forget that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:361
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:341
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -975,7 +957,7 @@ msgid "The compositor is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/mod.rs:183
-#: crates/glimpse-panel/src/applets/printing/render.rs:205
+#: crates/glimpse-panel/src/applets/printing/render.rs:180
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:246
 msgid "Idle"
 msgstr ""
@@ -1019,6 +1001,10 @@ msgstr[2] ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:129
 msgid "Unknown"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:139
@@ -1065,7 +1051,7 @@ msgstr "Пауза"
 
 #: crates/glimpse-panel/src/applets/mpris/render.rs:34
 #: crates/glimpse-panel/src/applets/printing/render.rs:113
-#: crates/glimpse-panel/src/applets/printing/render.rs:212
+#: crates/glimpse-panel/src/applets/printing/render.rs:187
 msgid "Stopped"
 msgstr ""
 
@@ -1372,7 +1358,8 @@ msgid "Calendar"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:263
-#: crates/glimpse-panel/src/applets/printing/render.rs:150
+#: crates/glimpse-panel/src/applets/printing/render.rs:144
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
 #, fuzzy
 #| msgid "Notifications"
 msgid "Location"
@@ -1480,7 +1467,7 @@ msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:164
 #: crates/glimpse-panel/src/applets/printing/render.rs:112
-#: crates/glimpse-panel/src/applets/printing/render.rs:206
+#: crates/glimpse-panel/src/applets/printing/render.rs:181
 msgid "Printing"
 msgstr ""
 
@@ -1493,7 +1480,7 @@ msgid "The print server is unreachable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:70
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:259
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:243
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -1523,44 +1510,86 @@ msgstr ""
 msgid "Aborted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:157
+#: crates/glimpse-panel/src/applets/printing/render.rs:147
 msgid "Reported"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:164
+#: crates/glimpse-panel/src/applets/printing/render.rs:150
 msgid "Accepting jobs"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render.rs:150
 msgid "No"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:170
+#: crates/glimpse-panel/src/applets/printing/render.rs:152
 msgid "Prints"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:176
+#: crates/glimpse-panel/src/applets/printing/render.rs:155
 msgid "Paper loaded"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:183
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
 msgid "Resolution"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:193
+#: crates/glimpse-panel/src/applets/printing/render.rs:168
 msgid "Color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:194
+#: crates/glimpse-panel/src/applets/printing/render.rs:169
 msgid "Black & white"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:197
+#: crates/glimpse-panel/src/applets/printing/render.rs:172
 msgid "double-sided"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/printing/render.rs:198
+#: crates/glimpse-panel/src/applets/printing/render.rs:173
 msgid "single-sided"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:92
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not mute the microphone"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:125
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not stop screen sharing"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:14
+msgid "Privacy"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:173
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "The audio service could not complete that."
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:175
+msgid "Privacy tracking is unreachable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:68
+msgid "Camera"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:69
+msgid "Microphone"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Screen"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:81
@@ -2038,6 +2067,7 @@ msgid "Any input wakes them again"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:134
 msgid "Mute"
 msgstr ""
 
@@ -2160,7 +2190,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:204
+#: crates/glimpse-widgets/src/lib.rs:206
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -2170,8 +2200,20 @@ msgid "Printers"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:15
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:257
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:241
 msgid "No print jobs"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:28
+msgid "Your screen is being shared"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "In use now"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:38
+msgid "Nothing is using your camera, microphone or screen"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:15
@@ -2322,8 +2364,8 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:203
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:178
+#: crates/glimpse-widgets/src/lib.rs:205
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr "Пауза"
 
@@ -2381,16 +2423,20 @@ msgstr ""
 msgid "Show what can be done with this job"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:184
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:176
 msgid "Resume"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:278
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:261
 msgid "{printer} · {status}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:284
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:267
 msgid "Page {completed} of {total}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:137
+msgid "Stop sharing"
 msgstr ""
 
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:178
@@ -2422,6 +2468,17 @@ msgstr[2] "{count} рабочих столов"
 #: crates/glimpse-widgets/src/world_clock/mod.rs:152
 msgid "Yesterday"
 msgstr "Вчера"
+
+#, fuzzy
+#~| msgid "{count} workspace"
+#~| msgid_plural "{count} workspaces"
+#~ msgid "{count} min ago"
+#~ msgstr "{count} рабочий стол"
+
+#, fuzzy
+#~| msgid "{count}h"
+#~ msgid "{count} h ago"
+#~ msgstr "{count} ч"
 
 #~ msgid "No calendar entry is coming up."
 #~ msgstr "Ближайших записей в календаре нет."

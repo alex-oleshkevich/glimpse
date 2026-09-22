@@ -7,7 +7,7 @@ use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
 use glimpse_dbus::weather::GeoCoordinates;
 use tokio::sync::{oneshot, watch};
-use tokio::time::timeout;
+use tokio::time::{sleep, timeout};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::say;
@@ -38,6 +38,8 @@ const CITY_ACCURACY: u32 = 4;
 const NO_FIX: &str = "/";
 
 const FIX_TIMEOUT: Duration = Duration::from_secs(30);
+const NO_FIX_RETRY: Duration = Duration::from_secs(45);
+const FIX_REFRESH: Duration = Duration::from_secs(1800);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Provider {
@@ -58,6 +60,7 @@ pub enum Command {
 pub enum Event {
     Located(Option<GeoCoordinates>),
     Unavailable(String),
+    Retry,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +86,7 @@ pub struct Geolocation {
     status: Publisher<GeolocationStatus>,
     provider: Provider,
     attempt: u64,
+    has_fix: bool,
 }
 
 #[derive(Clone)]
@@ -117,6 +121,7 @@ impl Geolocation {}
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Watch {
     Geoclue { attempt: u64 },
+    Retry { fixed: bool },
 }
 
 impl Service for Geolocation {
@@ -140,12 +145,27 @@ impl Service for Geolocation {
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         match self.provider {
-            Provider::Geoclue => vec![Sub::stream(
-                Watch::Geoclue {
-                    attempt: self.attempt,
-                },
-                geoclue,
-            )],
+            Provider::Geoclue => {
+                let period = if self.has_fix {
+                    FIX_REFRESH
+                } else {
+                    NO_FIX_RETRY
+                };
+                vec![
+                    Sub::stream(
+                        Watch::Geoclue {
+                            attempt: self.attempt,
+                        },
+                        geoclue,
+                    ),
+                    Sub::stream(
+                        Watch::Retry {
+                            fixed: self.has_fix,
+                        },
+                        move |_ctx| async move { retry_ticks(period) },
+                    ),
+                ]
+            }
             Provider::Manual(_) => Vec::new(),
         }
     }
@@ -159,6 +179,7 @@ impl Service for Geolocation {
             status: ctx.publisher(),
             provider: Provider::Manual(None),
             attempt: 0,
+            has_fix: false,
         };
         service.apply(ctx, config.provider);
         Ok(service)
@@ -177,8 +198,8 @@ impl Service for Geolocation {
             // keeps running and a manual `[geolocation]` still works.
             Input::Event(Event::Unavailable(reason)) => {
                 ctx.degraded(reason);
-                self.publish(None);
             }
+            Input::Event(Event::Retry) => self.refresh(),
             Input::Config(config) => {
                 if config.provider != self.provider {
                     self.apply(ctx, config.provider);
@@ -216,6 +237,7 @@ impl Geolocation {
     }
 
     fn publish(&mut self, coordinates: Option<GeoCoordinates>) {
+        self.has_fix = coordinates.is_some();
         self.status.set(GeolocationStatus { coordinates });
     }
 }
@@ -241,6 +263,13 @@ async fn geoclue(ctx: Ctx<Geolocation>) -> Pin<Box<dyn Stream<Item = Event> + Se
 
 async fn locations(ctx: &Ctx<Geolocation>) -> Result<Option<Event>, String> {
     let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
+    match timeout(FIX_TIMEOUT, attempt(ctx.clone(), bus)).await {
+        Ok(outcome) => outcome,
+        Err(_) => Ok(None),
+    }
+}
+
+async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>, String> {
     let manager = GeoClueManagerProxy::new(&bus).await.map_err(say)?;
 
     // GeoClue hands a caller back the client it already has; only the first call needs a new one.
@@ -254,6 +283,15 @@ async fn locations(ctx: &Ctx<Geolocation>) -> Result<Option<Event>, String> {
         .build()
         .await
         .map_err(say)?;
+
+    let transient = {
+        let manager = manager.clone();
+        let client = client.clone();
+        TransientClient::new(ctx, move || async move {
+            let _ = client.stop().await;
+            let _ = manager.delete_client(path).await;
+        })
+    };
 
     // Subscribed before `Start`, because the first fix can arrive before it returns.
     let updates = client.receive_location_changed().await;
@@ -278,13 +316,8 @@ async fn locations(ctx: &Ctx<Geolocation>) -> Result<Option<Event>, String> {
         }))
     };
 
-    let event = timeout(FIX_TIMEOUT, first_fix(decoded))
-        .await
-        .ok()
-        .flatten();
-
-    let _ = client.stop().await;
-    let _ = manager.delete_client(path).await;
+    let event = first_fix(decoded).await;
+    transient.release().await;
 
     Ok(event)
 }
@@ -299,6 +332,47 @@ async fn first_fix(
             Err(error) => return Some(Event::Unavailable(error)),
         }
     }
+}
+
+type ReleaseEffect = Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>;
+
+struct TransientClient {
+    ctx: Ctx<Geolocation>,
+    release: Option<ReleaseEffect>,
+}
+
+impl TransientClient {
+    fn new<F, Fut>(ctx: Ctx<Geolocation>, release: F) -> Self
+    where
+        F: FnOnce() -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        Self {
+            ctx,
+            release: Some(Box::new(move || Box::pin(release()))),
+        }
+    }
+
+    async fn release(mut self) {
+        if let Some(release) = self.release.take() {
+            release().await;
+        }
+    }
+}
+
+impl Drop for TransientClient {
+    fn drop(&mut self) {
+        if let Some(release) = self.release.take() {
+            self.ctx.spawn_detached(move |_ctx| release());
+        }
+    }
+}
+
+fn retry_ticks(period: Duration) -> impl Stream<Item = Event> {
+    stream::unfold((), move |()| async move {
+        sleep(period).await;
+        Some((Event::Retry, ()))
+    })
 }
 
 async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates> {
@@ -321,9 +395,11 @@ async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates>
 #[cfg(test)]
 mod tests {
     use glimpse_dbus::Buses;
+    use tokio::sync::mpsc;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
+    use crate::ServiceState;
     use crate::service::ServiceRuntime;
 
     /// Built literally rather than through `coordinates`, which is the function under test: a
@@ -496,6 +572,7 @@ mod tests {
             status: Publisher::new(sender),
             provider: Provider::Geoclue,
             attempt: 0,
+            has_fix: false,
         };
         let fix = GeoCoordinates {
             latitude: 48.8566,
@@ -504,8 +581,9 @@ mod tests {
         service.publish(Some(fix.clone()));
 
         let before = service.subscriptions();
-        assert_eq!(before.len(), 1);
+        assert_eq!(before.len(), 2);
         assert_eq!(*before[0].key(), Watch::Geoclue { attempt: 0 });
+        assert_eq!(*before[1].key(), Watch::Retry { fixed: true });
 
         service.refresh();
 
@@ -518,10 +596,139 @@ mod tests {
              transient client running instead of releasing it and starting a fresh one"
         );
         assert_eq!(
+            *after[1].key(),
+            Watch::Retry { fixed: true },
+            "a refresh does not itself change whether a fix is held, so the retry cadence \
+             must not be disturbed by it"
+        );
+        assert_eq!(
             receiver.borrow().coordinates,
             Some(fix),
             "the cached fix must survive a refresh, which is exactly when the previous \
              client's transient lifetime ends"
         );
+    }
+
+    #[tokio::test]
+    async fn retry_ticks_re_arms_after_its_period_elapses() {
+        let mut ticks = std::pin::pin!(retry_ticks(Duration::from_millis(5)));
+        assert!(matches!(ticks.next().await, Some(Event::Retry)));
+        assert!(
+            matches!(ticks.next().await, Some(Event::Retry)),
+            "a retry ticker must re-arm rather than firing once"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_retry_event_advances_the_attempt_through_the_real_handler() {
+        let (events, _inbox) = mpsc::channel(8);
+        let (state, _state_rx) = watch::channel(GeolocationStatus::default());
+        let (health, _health_rx) = watch::channel(ServiceState::Starting);
+        let ctx = Ctx::<Geolocation>::new(
+            events,
+            &CancellationToken::new(),
+            state,
+            health,
+            Buses::unavailable("no bus in tests"),
+        );
+        let mut service = Geolocation {
+            status: ctx.publisher(),
+            provider: Provider::Geoclue,
+            attempt: 0,
+            has_fix: false,
+        };
+
+        service.handle(&ctx, Input::Event(Event::Retry)).await;
+
+        assert_eq!(
+            service.attempt, 1,
+            "a retry tick must reach `refresh` through the real handler, the same as an \
+             explicit `geolocation.refresh` command"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_source_torn_down_mid_wait_still_runs_its_release_effect() {
+        let (events, _inbox) = mpsc::channel(8);
+        let (state, _state_rx) = watch::channel(GeolocationStatus::default());
+        let (health, _health_rx) = watch::channel(ServiceState::Starting);
+        let ctx = Ctx::<Geolocation>::new(
+            events,
+            &CancellationToken::new(),
+            state,
+            health,
+            Buses::unavailable("no bus in tests"),
+        );
+
+        let (sender, confirmed) = oneshot::channel::<()>();
+
+        let guard = ctx.stream(move |ctx| async move {
+            let _transient = TransientClient::new(ctx, move || async move {
+                let _ = sender.send(());
+            });
+            std::future::pending::<BoxStream<'static, Event>>().await
+        });
+
+        tokio::task::yield_now().await;
+        drop(guard);
+
+        timeout(Duration::from_secs(1), confirmed)
+            .await
+            .expect(
+                "the release effect must still run when the source is hard-aborted mid-wait, \
+                 the same abort `Live::reconcile` uses when a subscription key stops being \
+                 declared",
+            )
+            .expect("the release sender must not be dropped without sending");
+    }
+
+    #[tokio::test]
+    async fn an_unavailable_geoclue_source_marks_degraded_without_erasing_the_cached_fix() {
+        let cancel = CancellationToken::new();
+        let (mut runtime, handle) = ServiceRuntime::<Geolocation>::new(
+            Config {
+                provider: Provider::Geoclue,
+            },
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+
+        let sender = runtime.sender();
+        sender
+            .send(Input::Event(Event::Located(Some(GeoCoordinates {
+                latitude: 41.9028,
+                longitude: 12.4964,
+            }))))
+            .await
+            .expect("queued");
+        sender
+            .send(Input::Event(Event::Unavailable(
+                "geoclued restarted".to_owned(),
+            )))
+            .await
+            .expect("queued");
+
+        let running = tokio::spawn(async move {
+            let _ = runtime.run(()).await;
+        });
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+
+        assert_eq!(
+            handle.snapshot().coordinates,
+            Some(GeoCoordinates {
+                latitude: 41.9028,
+                longitude: 12.4964,
+            }),
+            "an unavailable source means the fix is not current, not that it never happened"
+        );
+        assert!(
+            matches!(&*handle.health().borrow(), ServiceState::Degraded { .. }),
+            "the service must still report the trouble even though the cache is untouched"
+        );
+
+        cancel.cancel();
+        let _ = running.await;
     }
 }
