@@ -1,0 +1,47 @@
+using Gtk 4.0;
+
+template $StatusIsland: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 12;
+  };
+
+  styles [
+    "status-island",
+  ]
+
+  $Indicator weather {
+    visible: false;
+  }
+
+  $Indicator battery {
+    visible: false;
+  }
+
+  $Indicator layout {
+    visible: false;
+  }
+
+  $Indicator bluetooth {
+    visible: false;
+  }
+
+  $Indicator network {
+    visible: false;
+  }
+
+  Gtk.Button power_button {
+    tooltip-text: _("Power");
+
+    accessibility {
+      label: _("Power");
+    }
+
+    styles [
+      "flat",
+      "status-island__power",
+    ]
+
+    child: $Indicator power_indicator {};
+  }
+}
