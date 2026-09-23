@@ -4,7 +4,7 @@
 set shell := ["bash", "-uc"]
 set positional-arguments
 
-# Single source of truth for install/uninstall/package-binary, passed to those scripts as
+# Single source of truth for every script that walks the shipped binaries, passed to them as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it, as do the scripts' own no-just fallback defaults.
 # How a recipe that writes outside the tree becomes root. `sudo` because these are run from a
@@ -36,28 +36,11 @@ lint-rust:
 
 [doc("blueprint templates")]
 lint-blueprints:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    report=$(blueprint-compiler lint crates/*/blueprints/*.blp 2>&1)
-    clean=$(printf '%s\n' "$report" | sed -e 's/\x1b\[[0-9;]*m//g')
-    if printf '%s\n' "$clean" | grep -E '^(warning|error)' | grep -qv scrollable_parent; then
-        printf '%s\n' "$report"
-        exit 1
-    fi
+    scripts/lint-blueprints.sh
 
 [doc("compile every widget example blueprint; the preview does this one at a time")]
 check-examples:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    shopt -s nullglob
-    status=0
-    for blp in var/widget_examples/*.blp; do
-        if ! out=$(blueprint-compiler compile --output /dev/null "$blp" 2>&1); then
-            printf '%s\n%s\n' "$blp" "$out"
-            status=1
-        fi
-    done
-    exit "$status"
+    scripts/check-examples.sh
 
 [doc("clippy on one crate")]
 lint-crate CRATE:
@@ -77,14 +60,7 @@ fmt-check:
 
 [doc("format blueprints in place; pass paths, or all of them by default")]
 fmt-blueprints *PATHS:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    paths=({{ PATHS }})
-    if [ "${#paths[@]}" -eq 0 ]; then
-        shopt -s nullglob
-        paths=(crates/*/blueprints/*.blp var/widget_examples/*.blp)
-    fi
-    blueprint-compiler format -f "${paths[@]}"
+    scripts/fmt-blueprints.sh "$@"
 
 [doc("regenerate data/config.default.toml from Config::default()")]
 gen-config-default:
@@ -123,61 +99,7 @@ search QUERY:
 
 [doc("validate the shipped systemd units")]
 check-units:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    lock=data/systemd/glimpse-lock.service
-
-    noise='is not executable: No such file or directory|^Configuration file .* is marked'
-    if systemd-analyze --user verify data/systemd/*.service data/systemd/*.target 2>&1 | grep -Ev "$noise" | grep .; then
-        exit 1
-    fi
-
-    for f in data/systemd/*.service; do
-        bin=$(grep -m1 -oE '^ExecStart=[^ ]+' "$f" | sed 's|.*/||')
-        case " {{ binaries }} " in
-            *" $bin "*) ;;
-            *) echo "$f: ExecStart names '$bin', which is not a shipped binary"; exit 1 ;;
-        esac
-    done
-
-    for key in $(sed -n '/^\[Service\]/,/^\[/p' "$lock" | grep -oE '^[A-Za-z]+=' | tr -d '='); do
-        case " Type ExecStart ExecReload Restart RestartSec " in
-            *" $key "*) ;;
-            *) echo "$lock: [Service] carries $key= — sandboxing breaks PAM, see README"; exit 1 ;;
-        esac
-    done
-
-    if grep -qE '^(BindsTo|Conflicts|Requires|Requisite)=' "$lock"; then
-        echo "$lock: a Requires-class or Conflicts= edge can stop the locker mid-lock"; exit 1
-    fi
-    if grep -E '^PartOf=' "$lock" | grep -qv '^PartOf=graphical-session.target$'; then
-        echo "$lock: PartOf= anything but graphical-session.target can stop the locker mid-lock"; exit 1
-    fi
-    members="glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications"
-    target=data/systemd/glimpse-session.target
-    for member in $members; do
-        unit="data/systemd/$member.service"
-        grep -qx 'PartOf=glimpse-session.target' "$unit" || {
-            echo "$unit: missing PartOf=glimpse-session.target"; exit 1;
-        }
-        grep -Eq "^Wants=.*${member}\.service" "$target" || {
-            echo "$target: missing Wants=$member.service"; exit 1;
-        }
-        grep -Eq "^PropagatesReloadTo=.*${member}\.service" "$target" || {
-            echo "$target: missing PropagatesReloadTo=$member.service"; exit 1;
-        }
-    done
-    if grep -Eq '^(Wants|PropagatesReloadTo)=.*glimpse-lock\.service' "$target"; then
-        echo "$target: the on-demand locker must stay outside the suite lifecycle"; exit 1
-    fi
-    if grep -l '^WantedBy=graphical-session.target$' data/systemd/*.service | grep .; then
-        echo "member service is directly enabled by graphical-session.target"; exit 1
-    fi
-    grep -qx 'WantedBy=graphical-session.target' "$target" || {
-        echo "$target: not enabled by graphical-session.target"; exit 1;
-    }
-
-    echo "units ok"
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/check-units.sh
 
 # ---------------------------------------------------------------- run
 
@@ -253,19 +175,11 @@ build-crate CRATE:
 
 [doc("build the shipped binaries with symbols, for perf; output in target/profiling/")]
 build-profiling:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    args=()
-    for b in {{ binaries }}; do args+=(-p "$b"); done
-    cargo build --profile profiling "${args[@]}"
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/build-binaries.sh --profile profiling
 
 [doc("build only the shipped binaries, release — unlike build-release, doesn't need every workspace crate to compile")]
 build-release-binaries:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    args=()
-    for b in {{ binaries }}; do args+=(-p "$b"); done
-    cargo build --release "${args[@]}"
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/build-binaries.sh --release
 
 # ---------------------------------------------------------------- i18n
 
@@ -279,54 +193,21 @@ extract-strings:
 
 [doc("merge po/glimpse.pot into every catalog named by po/LINGUAS")]
 update-po: extract-strings
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for lang in {{ languages }}; do
-        msgmerge --update --backup=none --previous "po/$lang.po" po/glimpse.pot
-    done
+    GLIMPSE_LANGUAGES="{{ languages }}" scripts/i18n-update-po.sh
 
 [doc("compile po/*.po into target/locale/<lang>/LC_MESSAGES/glimpse.mo")]
 build-translations:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for lang in {{ languages }}; do
-        install -d "target/locale/$lang/LC_MESSAGES"
-        msgfmt --check --statistics -o "target/locale/$lang/LC_MESSAGES/glimpse.mo" "po/$lang.po"
-    done
+    GLIMPSE_LANGUAGES="{{ languages }}" scripts/i18n-build.sh
 
 [doc("fail if the .pot is stale, a catalog is broken, or a blueprint quotes a string xgettext cannot read")]
 check-strings:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    fresh="$(mktemp -d)"
-    trap 'rm -rf "$fresh"' EXIT
-    scripts/i18n-extract.sh "$fresh/glimpse.pot" > /dev/null
-    # POT-Creation-Date changes on every run and says nothing about the strings.
-    strip() { grep -v '^"POT-Creation-Date:' "$1"; }
-    if ! diff -u <(strip po/glimpse.pot) <(strip "$fresh/glimpse.pot"); then
-        echo "po/glimpse.pot is stale; run: just extract-strings" >&2
-        exit 1
-    fi
-    for lang in {{ languages }}; do
-        [[ -f "po/$lang.po" ]] || { echo "po/LINGUAS names $lang but po/$lang.po is missing" >&2; exit 1; }
-        msgfmt --check --output-file=/dev/null "po/$lang.po"
-    done
-    echo "translations: catalogs current and well-formed"
+    GLIMPSE_LANGUAGES="{{ languages }}" scripts/i18n-check.sh
 
 # ---------------------------------------------------------------- package
 
 [doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]
 release-verify TAG:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
-    raw_tag={{ quote(TAG) }}
-    tag="${raw_tag#v}"
-    if [ "$tag" != "$version" ]; then
-        echo "tag ${raw_tag} does not match Cargo.toml version $version" >&2
-        exit 1
-    fi
-    echo "tag ${raw_tag} matches Cargo.toml version $version"
+    scripts/release-verify.sh "$1"
 
 [doc("build a release tarball (glimpse-<version>-<arch>.tar.zst) under dist/ — builds its own binaries")]
 package-binary VERSION="": build-translations
@@ -342,19 +223,7 @@ package-rpm: build-release-binaries build-translations
 
 [doc("build an Arch package under dist/ (needs: base-devel) — builds its own binaries")]
 package-aur: package-binary
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
-    asset="glimpse-${version}-x86_64.tar.zst"
-    dest="$PWD/dist"
-    build="$dest/aur"
-    rm -rf "$build"
-    mkdir -p "$build"
-    cp "$dest/$asset" "$build/"
-    scripts/render-pkgbuild.sh --local "$version" > "$build/PKGBUILD"
-    # --nodeps: package() only copies an already-built tree, so the runtime
-    # dependencies are what the package declares, not what building it needs.
-    cd "$build" && PKGDEST="$dest" makepkg --force --nodeps --noconfirm
+    scripts/package-aur.sh
 
 [doc("render dist/PKGBUILD for the AUR: VERSION and the released tarball's b2sum")]
 release-pkgbuild VERSION B2SUM:
@@ -383,23 +252,8 @@ uninstall:
 
 [doc("build the Arch package and install it with pacman (elevate with $GLIMPSE_SUDO, default sudo)")]
 install-aur: package-aur
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
-    pkg="$PWD/dist/glimpse-desktop-bin-${version}-1-x86_64.pkg.tar.zst"
-    if [ ! -f "$pkg" ]; then
-        echo "no package at $pkg" >&2
-        exit 1
-    fi
-    {{ elevate }} pacman -U "$pkg"
-    echo "installed $pkg — 'just uninstall-aur' removes it"
+    GLIMPSE_ELEVATE="{{ elevate }}" scripts/install-aur.sh
 
 [doc("remove the installed Arch package (elevate with $GLIMPSE_SUDO, default sudo)")]
 uninstall-aur:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! pacman -Qq glimpse-desktop-bin >/dev/null 2>&1; then
-        echo "glimpse-desktop-bin is not installed"
-        exit 0
-    fi
-    {{ elevate }} pacman -R glimpse-desktop-bin
+    GLIMPSE_ELEVATE="{{ elevate }}" scripts/uninstall-aur.sh

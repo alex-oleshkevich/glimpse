@@ -169,6 +169,11 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 `just` is the only entry point; run it with no arguments to list recipes. A recipe that is missing
 or wrong gets fixed in the `justfile` — never worked around with a raw cargo invocation.
 
+**A recipe body is one command; anything that needs a shebang goes in `scripts/`.** No `#!` block
+lives in the `justfile`. A loop, a branch or a second line is a `scripts/<recipe>.sh` the recipe
+calls, and a justfile variable reaches it through the environment — `GLIMPSE_BINARIES`,
+`GLIMPSE_LANGUAGES`, `GLIMPSE_ELEVATE` — with arguments passed as `"$@"`, never interpolated.
+
 ```bash
 just verify          # fmt-check + check + lint + test — what CI runs
 just check           # type-check, fast
