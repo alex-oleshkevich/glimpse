@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use glimpse_config::Transition;
-use gtk4::{cairo, gdk, gio, glib, graphene};
+use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{Component, ComponentParts, ComponentSender, gtk};
 
@@ -247,14 +247,6 @@ impl Surface {
         ))
     }
 
-    fn blur_sigma(&self, texture_width: i32) -> Option<f32> {
-        if self.intent.blur_radius == 0 {
-            return None;
-        }
-        let output = self.output_target()?;
-        Some(self.intent.blur_radius as f32 * texture_width as f32 / output.width as f32)
-    }
-
     fn compute_wanted(&self) -> Option<RenderKey> {
         let output_target = self.output_target()?;
         let image = self.intent.image.clone()?;
@@ -327,10 +319,13 @@ impl Surface {
         self.over.set_opacity(1.0);
 
         let texture = raster::texture(&raster);
-        let texture = match self.blur_sigma(raster.width) {
-            Some(sigma) => raster::blurred(&self.window, &texture, sigma).unwrap_or(texture),
-            None => texture,
-        };
+        let sigma = self.output_target().and_then(|output| {
+            raster::blur_sigma(self.intent.blur_radius, raster.width, output.width)
+        });
+        let texture = sigma
+            .zip(self.window.renderer())
+            .and_then(|(sigma, renderer)| raster::blurred(&renderer, &texture, sigma))
+            .unwrap_or(texture);
         self.under.set_paintable(Some(&texture));
         self.under
             .set_content_fit(raster::content_fit(self.intent.fit));

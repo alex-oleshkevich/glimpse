@@ -272,11 +272,11 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player,
-        PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyAction,
-        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState,
-        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
-        SystemMonitorDetail, SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip,
-        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
+        PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState, SessionSheet, Severity,
+        Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail, SystemMonitorPopover,
+        SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};

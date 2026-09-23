@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 adw.workspace = true
+anyhow.workspace = true
 gettext-rs.workspace = true
 gio.workspace = true
 glib.workspace = true

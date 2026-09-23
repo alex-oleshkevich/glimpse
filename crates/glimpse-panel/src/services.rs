@@ -11,14 +11,15 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothDependencies,
-    BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle,
-    Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker, ColorPickerDependencies,
-    ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle, DdcBacklight, Heartbeat,
-    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkDependencies, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy,
-    PrivacyDependencies, PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running,
-    Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
-    SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
+    BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
+    CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker,
+    ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle,
+    DdcBacklight, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
+    Mpris, MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle,
+    Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker,
+    Removable, RemovableHandle, Running, Selection, SessionActions, SessionActionsDependencies,
+    SessionActionsHandle, SysfsBacklight, SystemMonitor, SystemMonitorHandle, Tray, TrayHandle,
+    UnavailableBacklight,
 };
 
 pub struct PanelServices {

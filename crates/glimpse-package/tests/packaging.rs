@@ -344,7 +344,7 @@ fn the_color_picker_ships_as_a_plain_binary() {
     let root = workspace_root();
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-picker").count(), 2);
+    assert_eq!(package.matches("target/release/glimpse-picker").count(), 3);
     assert!(!root.join("data/systemd/glimpse-picker.service").exists());
 
     let manifest =

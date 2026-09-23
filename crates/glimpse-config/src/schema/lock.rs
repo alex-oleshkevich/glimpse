@@ -44,6 +44,8 @@ impl Default for Lock {
 #[schemars(rename = "LockBackground")]
 pub struct Background {
     /// The background image, used as-is or under the light color scheme when `image-dark` is set.
+    /// With neither this nor `image-dark` set, the lock shows `[wallpaper]`'s `image` and
+    /// `image-dark`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<PathBuf>,
     /// The background image under the dark color scheme. Falls back to `image` when unset.

@@ -25,13 +25,14 @@ use glimpse_services::{
     MprisPlayers, Network, NetworkDependencies, NetworkState, PlayerAction, Running,
 };
 use glimpse_widgets::SessionActionState;
-use glimpse_widgets::{Sheets, Styles};
 use glimpse_widgets::TransportAction;
 use glimpse_widgets::raster::{self, Raster};
+use glimpse_widgets::{Sheets, Styles};
 use gtk4::prelude::{
-    ApplicationExt, Cast, CastNone, DisplayExt, GtkWindowExt, ListModelExt, MonitorExt, WidgetExt,
+    ApplicationExt, Cast, CastNone, DisplayExt, GskRendererExt, GtkWindowExt, ListModelExt,
+    MonitorExt, TextureExt, WidgetExt,
 };
-use gtk4::{gdk, glib};
+use gtk4::{gdk, glib, gsk};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch;
@@ -140,6 +141,7 @@ pub struct App {
     sleep_wait: Duration,
     surfaces: Option<Surfaces>,
     backgrounds: Cache<gdk::Texture>,
+    blur_renderer: Option<gsk::Renderer>,
     color: gdk::RGBA,
     display_name: Option<String>,
     session_answers: session::Answers,
@@ -250,6 +252,7 @@ impl SimpleComponent for App {
             sleep_wait: sleep_wait(None),
             surfaces: None,
             backgrounds: Cache::default(),
+            blur_renderer: None,
             color,
             display_name: None,
             session_answers: session::Answers::default(),
@@ -364,7 +367,9 @@ impl SimpleComponent for App {
             }
             AppInput::Decoded(key, raster) => {
                 let failed = raster.is_none().then(|| (key.connector.clone(), key.dark));
-                let texture = raster.as_ref().map(raster::texture);
+                let texture = raster
+                    .as_ref()
+                    .map(|raster| self.blurred(raster::texture(raster), key.target.width));
                 if !self.backgrounds.land(key, texture) {
                     return;
                 }
@@ -688,13 +693,18 @@ impl App {
         for key in self.backgrounds.due() {
             let image = background::image(light, dark, key.dark).map(ToOwned::to_owned);
             let fit = background.fit;
-            let blur_radius = background.blur_radius;
             let sender = sender.clone();
             relm4::spawn_blocking(move || {
                 let raster = image
                     .as_deref()
                     .and_then(glimpse_config::resolve_image)
-                    .and_then(|path| raster::raster(&path, key.target, fit, blur_radius));
+                    .and_then(|path| {
+                        raster::raster(&path, key.target, fit)
+                            .inspect_err(|error| {
+                                tracing::warn!(path = %path.display(), "lock background failed to decode: {error:#}")
+                            })
+                            .ok()
+                    });
                 sender.input(AppInput::Decoded(key, raster));
             });
         }
@@ -708,6 +718,20 @@ impl App {
         }
     }
 
+    fn blurred(&mut self, texture: gdk::Texture, output_width: i32) -> gdk::Texture {
+        let radius = self.config.lock.background.blur_radius;
+        let Some(sigma) = raster::blur_sigma(radius, texture.width(), output_width) else {
+            return texture;
+        };
+        if self.blur_renderer.is_none() {
+            self.blur_renderer = offscreen_renderer();
+        }
+        self.blur_renderer
+            .as_ref()
+            .and_then(|renderer| raster::blurred(renderer, &texture, sigma))
+            .unwrap_or(texture)
+    }
+
     fn reload_styles(&self) {
         let appearance = &self.config.appearance;
         self.styles.load(&Sheets {
@@ -718,6 +742,18 @@ impl App {
         });
         self.styles.set_variant(&appearance.theme_variant);
         self.styles.set_animation_speed(appearance.animation_speed);
+    }
+}
+
+fn offscreen_renderer() -> Option<gsk::Renderer> {
+    let display = gdk::Display::default()?;
+    let renderer = gsk::GLRenderer::new().upcast::<gsk::Renderer>();
+    match renderer.realize_for_display(&display) {
+        Ok(()) => Some(renderer),
+        Err(error) => {
+            tracing::warn!("no renderer for the lock background blur; showing it sharp: {error}");
+            None
+        }
     }
 }
 

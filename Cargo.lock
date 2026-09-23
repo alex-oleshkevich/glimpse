@@ -224,6 +224,9 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "block"
@@ -1308,19 +1311,29 @@ name = "glimpse-lock"
 version = "0.16.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "colorchoice-clap",
  "futures-util",
+ "gettext-rs",
  "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-services",
  "glimpse-utils",
  "glimpse-widgets",
  "gtk4",
+ "gtk4-session-lock",
  "libadwaita",
+ "pam-client2",
  "relm4",
+ "rustix",
  "shadow-rs",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "zbus",
+ "zeroize",
 ]
 
 [[package]]
@@ -1541,17 +1554,22 @@ dependencies = [
 name = "glimpse-widgets"
 version = "0.16.0"
 dependencies = [
+ "anyhow",
  "clap",
  "gettext-rs",
  "gio",
  "glib",
  "glib-build-tools",
+ "glimpse-config",
  "glimpse-utils",
  "gtk4",
  "libadwaita",
+ "libc",
  "tracing",
+ "tracing-subscriber",
  "wayland-client",
  "wayland-protocols",
+ "zeroize",
 ]
 
 [[package]]
@@ -1706,6 +1724,34 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "gtk4-session-lock"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26659c1334b67c91fc270ebb5ccfb6f20c92b169164b967bcf9f62d79d1f033f"
+dependencies = [
+ "gdk4",
+ "glib",
+ "glib-sys",
+ "gtk4",
+ "gtk4-session-lock-sys",
+ "libc",
+]
+
+[[package]]
+name = "gtk4-session-lock-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51b694670ce8c85cfdafeaec6faf1567bf6abe661be147ba9dab0059564522ba"
+dependencies = [
+ "gdk4-sys",
+ "glib-sys",
+ "gobject-sys",
+ "gtk4-sys",
+ "libc",
+ "system-deps 8.0.0",
 ]
 
 [[package]]
@@ -2794,6 +2840,27 @@ name = "palette_math"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e6eb142958d64335fb0e345c5b9ead2ecd6fc438c307e9d7d3c4fd428dbaf12"
+
+[[package]]
+name = "pam-client2"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "407daa00f98b05147dbbaa6d2f6bce574e76794fa4952a5b38764681a23dde5f"
+dependencies = [
+ "bitflags 2.13.1",
+ "libc",
+ "pam-sys2",
+ "rustversion",
+]
+
+[[package]]
+name = "pam-sys2"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63e07ea89c210813e1a48fc32cb358ba693aae8ca70163461e22d11f1884bf1d"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "pango"

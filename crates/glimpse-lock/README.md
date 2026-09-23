@@ -48,8 +48,9 @@ Exit codes: 0 ok, 1 failure, 3 configuration, 4 not locked in time, 5 a check fa
 ## Backgrounds
 
 `[lock.background]` `image` and `image-dark` are decoded off the UI thread, per output at its size,
-scale, fit and `blur-radius`, at start and whenever the configuration, the output set or an output's
-size changes — never at the lock. Naming neither inherits `[wallpaper]`'s top-level pair (not its
+scale and fit, at start and whenever the configuration, the output set or an output's size changes —
+never at the lock. `blur-radius` is a GPU gaussian applied as a texture lands, through one offscreen
+renderer realized for the display, since no lock window exists yet to lend its own. Naming neither inherits `[wallpaper]`'s top-level pair (not its
 per-output images); naming either takes the whole pair. The first frame is the cached texture, or
 `color` until one lands and whenever one fails. A stale decode is dropped, a failed one is retried
 only on an output or configuration change, and the old texture stays until its replacement lands.

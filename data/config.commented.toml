@@ -138,23 +138,36 @@
 
 [lock]
 # pam-service = "glimpse-lock"
-# background = ""
-# background-dark = ""
-# dim = 1.0
-# dim-dark = 1.0
+# prompt-output = "focused"
+
+[lock.background]
+# color = "#000000"
+# fit = "cover"
+# blur-radius = 0
+# dim = 0.35
+# dim-dark = 0.5
 
 [lock.clock]
 # enabled = true
 # time-format = "%H:%M"
-# date-format = "%A, %B %-d"
+# date-format = "%A, {day} %B"
 
-[lock.controls]
-# buttons = [
-#     "wifi",
-#     "input",
-#     "weather",
-#     "battery",
-#     "power",
+[lock.status]
+# enabled = true
+
+[lock.notifications]
+# enabled = true
+# privacy = "apps"
+
+[lock.media]
+# enabled = true
+
+[lock.session]
+# enabled = true
+# actions = [
+#     "suspend",
+#     "reboot",
+#     "power-off",
 # ]
 
 [places]
