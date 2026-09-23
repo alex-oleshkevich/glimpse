@@ -14,6 +14,9 @@ const RING: f32 = 2.0;
 const GRID_FROM_ZOOM: u32 = 6;
 const CROSSHAIR_MIN: f32 = 7.0;
 const PILL_GAP: f64 = 10.0;
+const RADIUS_STEP: f32 = 12.0;
+const RADIUS_MIN: f32 = 40.0;
+const RADIUS_MAX: f32 = 400.0;
 
 fn pixel_at(x: f64, y: f64, logical: (f64, f64), buffer: (u32, u32)) -> (u32, u32) {
     let column = (x / logical.0 * f64::from(buffer.0)).floor();
@@ -39,6 +42,17 @@ fn zoomed(zoom: u32, notches: f64, max: u32) -> u32 {
         current
     };
     (next.max(1.0) as u32).clamp(1, max.max(1))
+}
+
+fn resized(radius: f32, notches: f64) -> f32 {
+    let next = if notches < 0.0 {
+        radius + RADIUS_STEP
+    } else if notches > 0.0 {
+        radius - RADIUS_STEP
+    } else {
+        radius
+    };
+    next.clamp(RADIUS_MIN, RADIUS_MAX)
 }
 
 mod imp {
@@ -236,6 +250,12 @@ impl Lens {
         }
     }
 
+    fn set_radius(&self, radius: f32) {
+        if self.imp().radius.replace(radius) != radius {
+            self.queue_draw();
+        }
+    }
+
     fn hovered(&self) -> bool {
         self.imp().pointer.get().is_some()
     }
@@ -272,6 +292,7 @@ impl Session {
     ) -> Result<Self, String> {
         let display = gdk::Display::default().ok_or_else(|| "the display".to_owned())?;
         let zoom = Rc::new(Cell::new(DEFAULT_ZOOM.min(settings.max_zoom.max(1))));
+        let radius = Rc::new(Cell::new(settings.radius));
         let mut surfaces: Vec<Surface> = Vec::new();
         for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {
             let connector = monitor
@@ -304,7 +325,14 @@ impl Session {
         });
 
         for index in 0..surfaces.len() {
-            connect(&surfaces, index, zoom.clone(), settings, finish.clone());
+            connect(
+                &surfaces,
+                index,
+                zoom.clone(),
+                radius.clone(),
+                settings,
+                finish.clone(),
+            );
         }
         let mut invalidated = Vec::new();
         for surface in surfaces.iter() {
@@ -396,7 +424,7 @@ fn dress(surface: &Surface, settings: Settings) {
     }
     let (left, top) = pill_origin(
         (x, y),
-        f64::from(settings.radius),
+        f64::from(surface.lens.imp().radius.get()),
         surface.size.get(),
         (
             f64::from(surface.lens.width()),
@@ -420,6 +448,7 @@ fn connect(
     surfaces: &Rc<Vec<Surface>>,
     index: usize,
     zoom: Rc<Cell<u32>>,
+    radius: Rc<Cell<f32>>,
     settings: Settings,
     finish: Rc<dyn Fn(Outcome)>,
 ) {
@@ -476,10 +505,23 @@ fn connect(
     );
     scroll.connect_scroll({
         let weak = weak.clone();
-        move |_, _, dy| {
-            let next = zoomed(zoom.get(), dy, settings.max_zoom);
-            zoom.set(next);
-            if let Some(surfaces) = weak.upgrade() {
+        move |controller, _, dy| {
+            let Some(surfaces) = weak.upgrade() else {
+                return glib::Propagation::Stop;
+            };
+            if controller
+                .current_event_state()
+                .contains(gdk::ModifierType::SHIFT_MASK)
+            {
+                let next = resized(radius.get(), dy);
+                radius.set(next);
+                for surface in surfaces.iter() {
+                    surface.lens.set_radius(next);
+                    dress(surface, settings);
+                }
+            } else {
+                let next = zoomed(zoom.get(), dy, settings.max_zoom);
+                zoom.set(next);
                 for surface in surfaces.iter() {
                     surface.lens.set_zoom(next);
                 }
@@ -594,6 +636,15 @@ mod tests {
         assert_eq!(zoomed(1, 1.0, 30), 1);
         assert_eq!(zoomed(4, 0.0, 30), 4);
         assert_eq!(zoomed(8, -1.0, 5), 5);
+    }
+
+    #[test]
+    fn scrolling_resizes_the_lens_and_stays_within_bounds() {
+        assert_eq!(resized(100.0, -1.0), 112.0);
+        assert_eq!(resized(100.0, 1.0), 88.0);
+        assert_eq!(resized(100.0, 0.0), 100.0);
+        assert_eq!(resized(RADIUS_MIN, 1.0), RADIUS_MIN);
+        assert_eq!(resized(RADIUS_MAX, -1.0), RADIUS_MAX);
     }
 
     #[test]
