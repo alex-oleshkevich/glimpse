@@ -484,8 +484,10 @@ island, clock, prompt, chips and track card in a vertical `Gtk.CenterBox`, and t
 top-end. The background is a texture over a 1x1 base picture filled by `set_color`, which shows under
 an empty or letterboxed image; the base is the overlay's main child, so a 4K texture sets no size.
 `set_session_actions` writes every action first, then keeps the power button in step with
-`SessionSheet::has_actions` and closes a sheet left empty, so the outcome never depends on order. Escape (capture phase) closes the sheet, and every close focuses the prompt, or the
-power button on a mirrored stage. The look is scoped to `.lock-stage`.
+`SessionSheet::has_actions` and closes a sheet left empty, so the outcome never depends on order. Escape and a press anywhere but
+the sheet or the power button close the sheet, both in the capture phase so the press is consumed
+rather than reaching what lies under it; the power button is exempt because it toggles on its own.
+Every close focuses the prompt, or the power button on a mirrored stage. The look is scoped to `.lock-stage`.
 
 ## DisplayPopover
 

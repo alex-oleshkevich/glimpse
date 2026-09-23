@@ -42,6 +42,18 @@ impl LockStage {
         self.sheet.close();
         glib::Propagation::Stop
     }
+
+    pub(super) fn dismisses(&self, target: Option<&gtk4::Widget>) -> bool {
+        if !self.sheet.is_open() {
+            return false;
+        }
+        let Some(target) = target else {
+            return true;
+        };
+        let power = self.status.imp().power_button.get();
+        let inside = |owner: &gtk4::Widget| target == owner || target.is_ancestor(owner);
+        !(inside(self.sheet.upcast_ref()) || inside(power.upcast_ref()))
+    }
 }
 
 #[glib::object_subclass]
@@ -116,6 +128,23 @@ impl ObjectImpl for LockStage {
             move |_, key, _, _| stage.imp().key_pressed(key)
         ));
         stage.add_controller(keys);
+
+        let outside = gtk4::GestureClick::new();
+        outside.set_button(0);
+        outside.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        outside.connect_pressed(glib::clone!(
+            #[weak]
+            stage,
+            move |gesture, _, x, y| {
+                let imp = stage.imp();
+                let target = stage.pick(x, y, gtk4::PickFlags::DEFAULT);
+                if imp.dismisses(target.as_ref()) {
+                    gesture.set_state(gtk4::EventSequenceState::Claimed);
+                    imp.sheet.close();
+                }
+            }
+        ));
+        stage.add_controller(outside);
     }
 
     fn dispose(&self) {

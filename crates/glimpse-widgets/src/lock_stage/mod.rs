@@ -326,6 +326,39 @@ mod tests {
             "the power button toggles the sheet shut"
         );
 
+        let prompt = stage.prompt().upcast_ref::<gtk4::Widget>().clone();
+        let sheet_row = imp.sheet.imp().suspend.upcast_ref::<gtk4::Widget>().clone();
+        assert!(
+            !imp.dismisses(Some(&prompt)),
+            "a closed sheet has nothing to dismiss"
+        );
+        imp.status.emit_by_name::<()>("session-toggled", &[]);
+        assert!(
+            imp.dismisses(Some(&prompt)),
+            "a press elsewhere on the stage closes the sheet"
+        );
+        assert!(imp.dismisses(None), "a press on nothing closes it too");
+        assert!(
+            !imp.dismisses(Some(&sheet_row)),
+            "a press inside the sheet is the sheet's own"
+        );
+        assert!(
+            !imp.dismisses(Some(&power())),
+            "the power button toggles on its own; closing here too would reopen it"
+        );
+        let outside = stage
+            .observe_controllers()
+            .into_iter()
+            .filter_map(Result::ok)
+            .find_map(|controller| controller.downcast::<gtk4::GestureClick>().ok())
+            .expect("the stage carries a click gesture");
+        assert_eq!(
+            outside.propagation_phase(),
+            gtk4::PropagationPhase::Capture,
+            "the press is seen before the widget under it takes it"
+        );
+        imp.sheet.close();
+
         let actions = Rc::new(RefCell::new(Vec::new()));
         stage.connect_session_action({
             let actions = Rc::clone(&actions);
