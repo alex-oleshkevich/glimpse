@@ -1,5 +1,5 @@
 use crate::load::DATA_DIR;
-use crate::schema::Config;
+use crate::schema::{Applet, Config, Panel};
 
 pub fn commented_document() -> String {
     let header = format!(
@@ -16,7 +16,10 @@ pub fn commented_document() -> String {
          # refuses.\n\
          #\n\
          # {DATA_DIR}/config.default.toml is this same document with nothing commented\n\
-         # out, and it is the copy that stays current across upgrades.\n"
+         # out, and it is the copy that stays current across upgrades. `[applets.<name>]` below\n\
+         # is every applet the default panel carries, each at its own kind's defaults — an entry\n\
+         # here is always commented, because any applet at all differs from the shipped panel's\n\
+         # own list of names.\n"
     );
     let body = toml::to_string_pretty(&Config::default()).expect("Config::default() serializes");
     let mut lines: Vec<(&str, bool)> = body
@@ -35,12 +38,42 @@ pub fn commented_document() -> String {
         }
     }
 
-    let body = render(&lines);
+    let mut body = render(&lines);
     assert!(
         is_the_shipped_defaults(&body),
         "the commented document has to load to Config::default()"
     );
+    body.push_str(&applet_defaults());
     format!("{header}\n{body}")
+}
+
+/// The default panel's own applet names, each rendered as a fully commented `[applets.<name>]`
+/// block at that kind's defaults — the settings a user would otherwise only find in the schema.
+/// `command`, `exec` and `heartbeat` carry no sensible default (a program to run, a binary to
+/// host) and are absent from the default panel for the same reason, so neither appears here.
+fn applet_defaults() -> String {
+    let panel = Panel::default();
+    let mut rendered = String::new();
+    for name in panel.left.iter().chain(&panel.center).chain(&panel.right) {
+        let Some(applet) = Applet::from_name(name) else {
+            continue;
+        };
+        let block = toml::to_string_pretty(&applet).expect("an applet's defaults serialize");
+        rendered.push('\n');
+        rendered.push_str(&format!("# [applets.{name}]\n"));
+        for line in block.lines() {
+            if let Some(rest) = line.strip_prefix("[[") {
+                rendered.push_str(&format!("# [[applets.{name}.{rest}\n"));
+            } else if let Some(rest) = line.strip_prefix('[') {
+                rendered.push_str(&format!("# [applets.{name}.{rest}\n"));
+            } else if line.trim().is_empty() {
+                rendered.push('\n');
+            } else {
+                rendered.push_str(&format!("# {line}\n"));
+            }
+        }
+    }
+    rendered
 }
 
 fn render(lines: &[(&str, bool)]) -> String {
@@ -113,14 +146,64 @@ mod tests {
     #[test]
     fn stripping_the_comment_markers_restores_the_shipped_body() {
         let body = toml::to_string_pretty(&Config::default()).expect("serializes");
-        let restored: String = commented_document()
-            .lines()
-            .skip_while(|line| {
-                !line.starts_with("[appearance]") && !line.starts_with("# [appearance]")
-            })
-            .map(|line| format!("{}\n", line.strip_prefix("# ").unwrap_or(line)))
-            .collect();
+        let mut restored = String::new();
+        let mut started = false;
+        for line in commented_document().lines() {
+            if !started {
+                started = line.starts_with("[appearance]") || line.starts_with("# [appearance]");
+                if !started {
+                    continue;
+                }
+            }
+            restored.push_str(line.strip_prefix("# ").unwrap_or(line));
+            restored.push('\n');
+            if line == "[applets]" {
+                break;
+            }
+        }
         assert_eq!(restored, body);
+    }
+
+    #[test]
+    fn every_default_panel_applet_is_documented() {
+        let document = commented_document();
+        let panel = Panel::default();
+        for name in panel.left.iter().chain(&panel.center).chain(&panel.right) {
+            assert!(
+                document.contains(&format!("\n# [applets.{name}]\n")),
+                "{name}"
+            );
+        }
+        for absent in ["command", "exec", "heartbeat"] {
+            assert!(
+                !document.contains(&format!("[applets.{absent}]")),
+                "{absent} carries no sensible default and should not be documented"
+            );
+        }
+    }
+
+    #[test]
+    fn a_documented_applets_own_settings_strip_back_to_its_defaults() {
+        let document = commented_document();
+        let block = document
+            .split_once("# [applets.clock]\n")
+            .expect("the clock applet is documented")
+            .1
+            .split("\n\n")
+            .next()
+            .expect("a block ending at the next blank line");
+
+        let mut stripped = "[applets.clock]\n".to_owned();
+        for line in block.lines() {
+            stripped.push_str(line.strip_prefix("# ").unwrap_or(line));
+            stripped.push('\n');
+        }
+
+        let parsed: Config = toml::from_str(&stripped).expect("the documented defaults parse");
+        assert_eq!(
+            parsed.applets["clock"],
+            Applet::from_name("clock").expect("clock is a known kind")
+        );
     }
 
     #[test]

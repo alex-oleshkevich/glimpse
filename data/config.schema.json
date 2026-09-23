@@ -253,6 +253,11 @@
               "$ref": "#/$defs/FirstDay",
               "default": "monday"
             },
+            "hide-all-day": {
+              "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
+              "type": "boolean",
+              "default": false
+            },
             "label-format": {
               "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
               "type": "string",
@@ -1457,6 +1462,11 @@
                 "description": "Which day a calendar week starts on.",
                 "$ref": "#/$defs/FirstDay",
                 "default": "monday"
+              },
+              "hide-all-day": {
+                "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
+                "type": "boolean",
+                "default": false
               },
               "label-format": {
                 "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",

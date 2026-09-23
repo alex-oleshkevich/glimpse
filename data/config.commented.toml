@@ -11,7 +11,10 @@
 # refuses.
 #
 # /usr/share/glimpse/config.default.toml is this same document with nothing commented
-# out, and it is the copy that stays current across upgrades.
+# out, and it is the copy that stays current across upgrades. `[applets.<name>]` below
+# is every applet the default panel carries, each at its own kind's defaults — an entry
+# here is always commented, because any applet at all differs from the shipped panel's
+# own list of names.
 
 [appearance]
 # theme = "adwaita"
@@ -191,3 +194,114 @@
 # bottom = 0
 
 [applets]
+
+# [applets.workspace-name]
+# extends = "workspace-name"
+
+# [applets.pager]
+# extends = "pager"
+# mode = "workspaces"
+# shape = "dots"
+# scope = "output"
+# label = "{index}"
+
+# [applets.places]
+# extends = "places"
+# bookmarks = 8
+
+# [applets.mpris]
+# extends = "mpris"
+# label-format = "{title} — {artist}"
+# max-length = 40
+# show-others = true
+# show-art = true
+
+# [applets.clock]
+# extends = "clock"
+# label-format = "%a, %-d %b, %H:%M"
+# first-day = "monday"
+# week-numbers = true
+# hide-all-day = false
+
+# [applets.weather]
+# extends = "weather"
+# hours = 4
+# days = 6
+
+# [applets.weather.place]
+# at = "here"
+
+# [applets.notifications]
+# extends = "notifications"
+# indicator-style = "icon-dot"
+
+# [applets.privacy]
+# extends = "privacy"
+# show-camera = true
+# show-microphone = true
+# show-screencast = true
+# show-location = true
+
+# [applets.next-event]
+# extends = "next-event"
+# within = 60
+# countdown = 60
+# horizon = 720
+# all-day = false
+# upcoming = 5
+
+# [applets.tray]
+# extends = "tray"
+# hide = []
+# pin = []
+# max-visible = 0
+
+# [applets.removable]
+# extends = "removable"
+# volumes = 6
+
+# [applets.clipboard]
+# extends = "clipboard"
+# visible = 10
+# preview-chars = 72
+# show-when-empty = false
+
+# [applets.keyboard]
+# extends = "keyboard"
+
+# [applets.printing]
+# extends = "printing"
+# jobs = 8
+
+# [applets.bluetooth]
+# extends = "bluetooth"
+# devices = 6
+# nearby = 8
+
+# [applets.network]
+# extends = "network"
+# visible-networks = 8
+# vpn-chip = true
+# metered-in-tooltip = true
+
+# [applets.display]
+# extends = "display"
+
+# [applets.brightness]
+# extends = "brightness"
+# scroll-step = 5
+# show-keyboard = true
+
+# [applets.audio]
+# extends = "audio"
+
+# [applets.idle]
+# extends = "idle"
+
+# [applets.battery]
+# extends = "battery"
+# indicator-style = "icon-only"
+# label-format = "{percentage}"
+
+# [applets.session]
+# extends = "session"

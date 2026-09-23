@@ -42,6 +42,9 @@ the merge until a line is uncommented. It proves that rather than assuming: each
 uncommented in turn and the document re-loaded through the builder `load` uses, and the header stays
 live only if the result is still `Config::default()`. An `[[array]]` header is never a candidate —
 an empty element is a *value* replacing a lower layer, where an empty table merges as nothing.
+**`[applets]` never qualifies either**, so what follows it is documentation, not seed: one
+always-commented `[applets.<name>]` block per default-panel applet at its own defaults, skipping
+`command`, `exec` and `heartbeat`, which need a program or a binary nothing here can default to.
 
 ## Key naming
 
@@ -51,9 +54,8 @@ portal, niri's `config.kdl`, CSS — not from Rust.
 
 The attribute is easy to forget on a new table and forgetting it is silent, so
 `every_key_and_enum_value_is_kebab_case` walks the generated schema and fails on any underscore.
-
-`schemars` does not surface `#[serde(alias = ...)]` in the schema's enum values, so an alias parses
-but an editor flags it.
+`schemars` does not surface `#[serde(alias = ...)]` in the schema's enum values, though, so an alias
+parses but an editor flags it.
 
 ## One file, one schema
 
@@ -133,7 +135,6 @@ capability — `@media (prefers-color-scheme: dark)` inside `panel.css` already 
 
 `user_stylesheet()` locates the user's own `styles.css` and `user_dark_stylesheet()` its `dark.css`,
 both optional, neither part of any theme, and both loading above the theme.
-
 `appearance.theme-variant` is not a file but a CSS class added to every window, so one theme carries
 several looks behind `.<variant>`. A variant outside letters, digits, `-` and `_`, or starting with
 a digit, is dropped with a warning rather than written into the tree.
@@ -294,7 +295,6 @@ not written yet. `[geolocation]` needs none: the table is one internally tagged 
 half-filled table is a `missing field` from serde before any reader sees it. Where a rule can be
 expressed in the type it belongs there rather than in a pass that has to remember to run.
 
-`Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`,
-here because a mode named on a command line and a mode written in the document are the same
-vocabulary. `manual` stays a document-only alias: nothing prints it, so accepting it from a caller
-would add a spelling with no way back out.
+`Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`, a
+command line and the document sharing one vocabulary. `manual` stays a document-only alias — nothing
+prints it, so accepting it from a caller would add a spelling with no way back out.

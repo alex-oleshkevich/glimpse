@@ -66,20 +66,18 @@ impl Applet for NextEvent {
             let command = command.clone();
             shown.connect_footer_activated(move |_| run(&command));
         }
-        shown.connect_join_activated(|_, url| {
-            if url.starts_with("https://") || url.starts_with("http://") {
-                run(&["xdg-open".to_owned(), url]);
-            }
-        });
-        shown.connect_open_event_activated(|_, url| {
-            if url.starts_with("https://") || url.starts_with("http://") {
-                run(&["xdg-open".to_owned(), url]);
-            }
-        });
+        shown.connect_join_activated(|_, url| open_http(url));
+        shown.connect_open_event_activated(|_, url| open_http(url));
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
         Some(Box::new(shown))
+    }
+}
+
+fn open_http(url: String) {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        run(&["xdg-open".to_owned(), url]);
     }
 }
 
