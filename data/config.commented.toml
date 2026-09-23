@@ -181,7 +181,7 @@
 #     "tray",
 #     "removable",
 #     "clipboard",
-#     "keyboard",
+#     "color-picker",
 #     "printing",
 #     "bluetooth",
 #     "network",
@@ -190,6 +190,7 @@
 #     "audio",
 #     "idle",
 #     "battery",
+#     "keyboard",
 #     "session",
 # ]
 

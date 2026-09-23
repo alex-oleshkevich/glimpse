@@ -176,10 +176,7 @@ impl Service for ColorPicker {
                 };
                 let _ = reply.send(self.picked(outcome));
             }
-            Input::Config(config) => {
-                self.palette.set_limit(config.limit);
-                self.config = config;
-            }
+            Input::Config(_) => return,
         }
         self.publish();
     }
@@ -419,26 +416,5 @@ mod tests {
             result.await.unwrap(),
             Err(CommandError::InvalidArgument(_))
         ));
-    }
-
-    #[tokio::test]
-    async fn a_new_format_and_a_lower_limit_apply_on_reload() {
-        let mut harness = harness(vec![Ok(Some([1, 1, 1])), Ok(Some([2, 2, 2]))]).await;
-        for _ in 0..2 {
-            let _picked = harness.pick().await;
-            harness.settle().await;
-        }
-
-        harness
-            .feed(Input::Config(Config::from(&document(
-                glimpse_config::ColorFormat::Oklch,
-                1,
-            ))))
-            .await;
-
-        let state = harness.state.borrow().clone();
-        assert_eq!(state.format, ColorFormat::Oklch);
-        assert_eq!(state.colors.len(), 1);
-        assert_eq!(state.colors[0].rgb, [2, 2, 2]);
     }
 }

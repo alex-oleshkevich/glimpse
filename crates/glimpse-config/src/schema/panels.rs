@@ -28,7 +28,7 @@ impl Default for Panel {
                 "tray",
                 "removable",
                 "clipboard",
-                "keyboard",
+                "color-picker",
                 "printing",
                 "bluetooth",
                 "network",
@@ -37,6 +37,7 @@ impl Default for Panel {
                 "audio",
                 "idle",
                 "battery",
+                "keyboard",
                 "session",
             ]),
         }

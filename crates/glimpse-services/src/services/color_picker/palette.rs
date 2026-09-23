@@ -45,11 +45,6 @@ impl Palette {
         self.colors.truncate(self.limit);
         color
     }
-
-    pub fn set_limit(&mut self, limit: usize) {
-        self.limit = limit.clamp(1, MAX_LIMIT);
-        self.colors.truncate(self.limit);
-    }
 }
 
 #[cfg(test)]
@@ -102,14 +97,8 @@ mod tests {
     }
 
     #[test]
-    fn lowering_the_limit_trims_at_once_and_the_limit_is_clamped() {
-        let mut palette = Palette::new(8);
-        for value in 0..5 {
-            palette.push([value; 3]);
-        }
-        palette.set_limit(0);
-
-        assert_eq!(rgbs(&palette), [[4, 4, 4]]);
+    fn the_limit_is_clamped() {
+        assert_eq!(Palette::new(0).limit, 1);
         assert_eq!(Palette::new(1000).limit, MAX_LIMIT);
     }
 }

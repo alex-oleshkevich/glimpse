@@ -119,7 +119,8 @@ password was copied and when. Both budgets count only unpinned entries, or pins 
 
 **color_picker** — runs the `glimpse-picker` command through an injected `Picker`, one pick at a
 time, keeps the palette **in memory**, and copies through the same `Selection` the clipboard uses:
-the panel is resident, so the copy outlives the command. A cancel is not an error.
+the panel is resident, so the copy outlives the command. A cancel is not an error. It reads
+`[color-picker]` once, at start, and takes no reload.
 
 **brightness** — `SysfsBacklight` reads `/sys/class/backlight` with `tokio::fs` and writes through
 logind. **`current` moves when a command is accepted, `confirmed` when the write lands**; a failed

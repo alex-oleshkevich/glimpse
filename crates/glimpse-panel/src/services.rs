@@ -239,7 +239,6 @@ impl PanelServices {
         self.audio_service.reconfigure(document);
         self.brightness_service.reconfigure(document);
         self.clipboard_service.reconfigure(document);
-        self.color_picker_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
         self.battery_service.reconfigure(document);
         self.places_service.reconfigure(document);

@@ -166,7 +166,7 @@ right = [
     "tray",
     "removable",
     "clipboard",
-    "keyboard",
+    "color-picker",
     "printing",
     "bluetooth",
     "network",
@@ -175,6 +175,7 @@ right = [
     "audio",
     "idle",
     "battery",
+    "keyboard",
     "session",
 ]
 
