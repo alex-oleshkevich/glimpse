@@ -372,11 +372,14 @@ both of which belong to the tooltip. No managed device renders nothing.
 **audio** — needs a PulseAudio-protocol server, `pipewire-pulse` or PulseAudio proper, and renders
 nothing without one.
 
-- **Selection and the three expanded flags are `Rc` cells the popover's closures write and
-  `Input::Woken` reads back**, the same shape as bluetooth's. A held app id is filtered against
-  current state on every dress, since a stream's app is the common thing to vanish, not the rare
-  one. **`move_app` closes the detail on success; every volume, mute and default-device change
-  leaves it open.**
+- **Each direction is its fader, then one row naming the device in use, whose card lists every
+  device; an app's whole row opens its card**, a fader and where it plays per direction. There is
+  no readout and no device overflow: the header follows the output instead. A switch of the default
+  device or a `move_app` closes its card on success, through `collapse`; volume and mute leave it
+  open. The widget owns which card is open, so the applet passes every app's detail on each dress.
+- **Muted is the muted glyph in the warning colour, everywhere** — each fader, the header, and an
+  app row's trail — never a greyed icon or the word *Muted*. A capture fader and an app that only
+  records carry the microphone's glyphs, not the speaker's.
 - **A master fader carries no device id of its own**, so its `level-changed`/`level-toggled`
   resolve the current default device from a fresh `AudioHandle::snapshot()` at the moment the
   signal fires, never from a value captured when the popover was built.

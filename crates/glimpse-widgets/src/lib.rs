@@ -5214,8 +5214,15 @@ mod tests {
             "neither fader is accented; both take the default white track the brightness fader uses"
         );
 
-        audio.set_readout(Some("42%"));
-        assert_eq!(audio.imp().readout.value().as_deref(), Some("42%"));
+        audio.set_heading("audio-volume-muted-symbolic", Some("Speakers"), true);
+        assert!(
+            audio.imp().hero.subtitle().as_deref() == Some("Speakers")
+                && audio.imp().hero.has_css_class("audio-popover__hero--muted"),
+            "the header follows the output: its device, and the warning colour while muted"
+        );
+        audio.set_heading("audio-volume-high-symbolic", Some("Speakers"), false);
+        assert!(!audio.imp().hero.has_css_class("audio-popover__hero--muted"));
+
         audio.set_footer(Some("Sound settings"));
         assert!(audio.imp().footer.get_visible());
 
@@ -5234,50 +5241,46 @@ mod tests {
             },
         ];
         audio.set_outputs(&out_entries);
-        assert_eq!(
-            all_named(&audio, "audio-popover__device").len(),
-            2,
-            "one row per output device"
-        );
         assert!(audio.imp().outputs.get_visible());
-
-        let held = all_named(&audio, "audio-popover__device");
-        audio.set_outputs(&out_entries);
         assert_eq!(
-            all_named(&audio, "audio-popover__device"),
-            held,
-            "an unchanged slice is not re-applied"
+            audio.imp().output_current.title().as_deref(),
+            Some("Speakers"),
+            "one row names the device in use"
+        );
+        let listed = || children_of::<Row>(&audio.imp().output_rows.get());
+        assert_eq!(listed().len(), 2, "its card lists every output device");
+        assert!(
+            !audio.imp().output_device.expanded(),
+            "the list stays closed until the row opens it"
         );
 
+        let held = listed();
         let mut renamed = out_entries.clone();
         renamed[0].title = "Studio monitors".to_owned();
         audio.set_outputs(&renamed);
-        let again = all_named(&audio, "audio-popover__device");
         assert!(
-            held[0] == again[0],
+            held[0] == listed()[0],
             "a row whose content changed is updated in place, not replaced"
         );
         assert_eq!(
-            again[0]
-                .clone()
-                .downcast::<Row>()
-                .expect("a device row")
-                .title()
-                .map(|title| title.to_string()),
-            Some("Studio monitors".to_owned())
+            audio.imp().output_current.title().as_deref(),
+            Some("Studio monitors")
         );
 
+        audio.imp().output_current.emit_clicked();
+        assert!(audio.imp().output_device.expanded());
         let selected = Rc::new(RefCell::new(Vec::new()));
         audio.connect_device_selected({
             let selected = Rc::clone(&selected);
             move |_, dir, id| selected.borrow_mut().push(format!("{dir}/{id}"))
         });
-        again[1]
-            .clone()
-            .downcast::<Row>()
-            .expect("a device row")
-            .emit_clicked();
+        listed()[1].emit_clicked();
         assert_eq!(*selected.borrow(), ["output/sink-2"]);
+        audio.collapse("output");
+        assert!(
+            !audio.imp().output_device.expanded(),
+            "a switch that succeeded closes the card it was chosen from"
+        );
 
         audio.set_outputs(&[]);
         assert!(
@@ -5292,6 +5295,11 @@ mod tests {
             ..Default::default()
         }]);
         assert!(audio.imp().inputs.get_visible());
+        assert_eq!(
+            audio.imp().input_current.title().as_deref(),
+            Some("Microphone"),
+            "with no default reported the first device names the row"
+        );
 
         let levels = Rc::new(RefCell::new(Vec::new()));
         audio.connect_level_changed({
@@ -5319,7 +5327,7 @@ mod tests {
             AudioEntry {
                 id: "app-a".to_owned(),
                 title: "Firefox".to_owned(),
-                value: Some("64%".to_owned()),
+                muted_icon: Some("audio-volume-muted-symbolic".to_owned()),
                 ..Default::default()
             },
             AudioEntry {
@@ -5332,39 +5340,36 @@ mod tests {
         assert_eq!(all_named(&audio, "audio-popover__app").len(), 2);
         assert!(audio.imp().apps.get_visible());
 
-        let app_panel = |id: &str| -> gtk4::Revealer {
-            let imp = audio.imp();
-            let held = imp.app_held.borrow();
-            let (_, holder) = held.iter().find(|(key, _)| key == id).expect("a held app");
-            holder
-                .last_child()
-                .and_downcast::<gtk4::Revealer>()
-                .expect("an app row carries its own panel")
+        let app = |id: &str| -> Expandable {
+            audio
+                .imp()
+                .app_held
+                .borrow()
+                .iter()
+                .find(|(key, _)| key == id)
+                .map(|(_, holder)| holder.clone())
+                .expect("a held app")
         };
-        let app_head = |id: &str| -> gtk4::Widget {
-            let imp = audio.imp();
-            let held = imp.app_held.borrow();
-            let (_, holder) = held.iter().find(|(key, _)| key == id).expect("a held app");
-            holder.first_child().expect("a holder leads with its row")
+        let app_head = |id: &str| -> Row { app(id).head::<Row>().expect("an app row") };
+        let muted_glyph = |id: &str| -> gtk4::Image {
+            app_head(id)
+                .trail()
+                .and_then(|trail| trail.first_child())
+                .and_downcast::<gtk4::Image>()
+                .expect("an app row's trail leads with its muted glyph")
         };
-
         assert!(
-            !app_panel("app-a").reveals_child(),
-            "an application reveals nothing until it is selected"
+            muted_glyph("app-a").get_visible()
+                && muted_glyph("app-a").has_css_class("audio-popover__muted")
+                && !muted_glyph("app-b").get_visible(),
+            "a muted app shows the muted glyph, in the warning colour, instead of a word"
         );
 
-        let app_selected = Rc::new(RefCell::new(Vec::new()));
-        audio.connect_app_selected({
-            let app_selected = Rc::clone(&app_selected);
-            move |_, id| app_selected.borrow_mut().push(id.to_owned())
-        });
-        app_head("app-a")
-            .downcast::<Row>()
-            .expect("an app row")
-            .emit_clicked();
-        assert_eq!(*app_selected.borrow(), ["app-a"]);
-
-        audio.set_details(Some(&AudioDetails {
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+        let single_role = AudioDetails {
             id: "app-a".to_owned(),
             blocks: vec![AudioBlock {
                 dir: "output".to_owned(),
@@ -5378,34 +5383,57 @@ mod tests {
                 }],
                 ..Default::default()
             }],
-        }));
+        };
+        let two_roles = AudioDetails {
+            id: "app-b".to_owned(),
+            blocks: vec![
+                AudioBlock {
+                    dir: "output".to_owned(),
+                    heading: Some("Output".to_owned()),
+                    volume: 40.0,
+                    adjustable: true,
+                    ..Default::default()
+                },
+                AudioBlock {
+                    dir: "input".to_owned(),
+                    heading: Some("Input".to_owned()),
+                    muted: true,
+                    adjustable: false,
+                    devices: vec![AudioEntry {
+                        id: "source-1".to_owned(),
+                        title: "Microphone".to_owned(),
+                        selected: true,
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                },
+            ],
+        };
+        audio.set_details(&[single_role, two_roles.clone()]);
         assert!(
-            app_panel("app-a").reveals_child(),
+            !app("app-a").expanded(),
+            "handing the details over opens nothing; the row does"
+        );
+
+        app_head("app-a").emit_clicked();
+        assert!(
+            app("app-a").expanded() && app("app-a").has_css_class("open"),
             "the card belongs under the application it describes, not beside the list"
         );
         assert!(
-            app_head("app-a").has_css_class("open") && !app_head("app-a").has_css_class("receded"),
-            "recede marks exactly one row open"
+            dimmed(app_head("app-b").upcast_ref())
+                && dimmed(audio.imp().output.upcast_ref())
+                && dimmed(audio.imp().hero.upcast_ref())
+                && !dimmed(app_head("app-a").upcast_ref()),
+            "everything the card is read against recedes while it is open"
         );
-        assert!(
-            app_head("app-b").has_css_class("receded") && !app_head("app-b").has_css_class("open"),
-            "and every other application row recedes"
-        );
-        assert!(
-            audio.imp().output.has_css_class("receded")
-                && audio.imp().input.has_css_class("receded"),
-            "both master faders recede while a card is open"
-        );
-        assert!(audio.imp().hero.has_css_class("receded"));
-        assert!(audio.imp().footer.has_css_class("receded"));
 
         let card_blocks = |id: &str| -> Vec<gtk4::Box> {
-            let panel = app_panel(id);
-            let card = panel
-                .child()
-                .and_downcast::<gtk4::Box>()
-                .expect("an opened panel has a card");
-            children_of::<gtk4::Box>(&card)
+            children_of::<gtk4::Box>(
+                &app(id)
+                    .details::<gtk4::Box>()
+                    .expect("an opened app has a card"),
+            )
         };
         let heading_label = |block: &gtk4::Box| -> gtk4::Label {
             children_of::<gtk4::Label>(block)
@@ -5439,36 +5467,11 @@ mod tests {
         assert_eq!(block_fader(&single[0]).value(), 64.0);
         assert!(block_fader(&single[0]).is_sensitive());
 
-        audio.set_details(Some(&AudioDetails {
-            id: "app-b".to_owned(),
-            blocks: vec![
-                AudioBlock {
-                    dir: "output".to_owned(),
-                    heading: Some("Output".to_owned()),
-                    volume: 40.0,
-                    adjustable: true,
-                    ..Default::default()
-                },
-                AudioBlock {
-                    dir: "input".to_owned(),
-                    heading: Some("Input".to_owned()),
-                    muted: true,
-                    adjustable: false,
-                    devices: vec![AudioEntry {
-                        id: "source-1".to_owned(),
-                        title: "Microphone".to_owned(),
-                        selected: true,
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                },
-            ],
-        }));
+        app_head("app-b").emit_clicked();
         assert!(
-            !app_panel("app-a").reveals_child(),
+            !app("app-a").expanded() && app("app-b").expanded(),
             "opening one application closes the one that was open"
         );
-        assert!(app_panel("app-b").reveals_child());
 
         let pair = card_blocks("app-b");
         assert_eq!(
@@ -5491,6 +5494,11 @@ mod tests {
         let device_rows = children_of::<Row>(&block_devices_box(&pair[1]));
         assert_eq!(device_rows.len(), 1);
         assert!(device_rows[0].selected());
+        assert_eq!(
+            children_of::<Row>(&block_devices_box(&card_blocks("app-a")[0])).len(),
+            1,
+            "refreshing one app's card leaves another app's rows where they are"
+        );
 
         let moved = Rc::new(RefCell::new(Vec::new()));
         audio.connect_app_moved({
@@ -5520,24 +5528,17 @@ mod tests {
         block_fader(&pair[1]).emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(*app_toggles.borrow(), ["app-b/input/true"]);
 
-        audio.set_details(None);
+        audio.collapse("app-b");
         assert!(
-            !app_panel("app-a").reveals_child() && !app_panel("app-b").reveals_child(),
-            "set_details(None) closes every holder"
-        );
-        assert!(
-            !app_head("app-a").has_css_class("receded")
-                && !app_head("app-b").has_css_class("receded"),
-            "closing the card takes the dimming with it"
+            !app("app-b").expanded() && !dimmed(app_head("app-a").upcast_ref()),
+            "a move that succeeded closes the card, and takes the dimming with it"
         );
 
-        audio.set_details(Some(&AudioDetails {
-            id: "app-ghost".to_owned(),
-            blocks: Vec::new(),
-        }));
+        audio.set_details(&[two_roles]);
+        app_head("app-a").emit_clicked();
         assert!(
-            !app_panel("app-a").reveals_child() && !app_panel("app-b").reveals_child(),
-            "an id not in the list opens nothing"
+            !app("app-a").expanded(),
+            "an app whose detail is gone has no card to open"
         );
 
         audio.set_apps(&[]);
@@ -5547,20 +5548,17 @@ mod tests {
         );
         audio.set_apps(&apps);
 
-        audio.set_overflow(Some("2 more outputs"), None, Some("3 more apps"));
-        assert!(audio.imp().more_outputs.get_visible());
-        assert!(!audio.imp().more_inputs.get_visible());
+        audio.set_more_apps(Some("3 more apps"));
         assert!(audio.imp().more_apps.get_visible());
-
         let expanded = Rc::new(RefCell::new(Vec::new()));
         audio.connect_expanded({
             let expanded = Rc::clone(&expanded);
             move |_, place| expanded.borrow_mut().push(place.to_owned())
         });
-        audio.imp().more_outputs.emit_clicked();
-        assert_eq!(*expanded.borrow(), ["outputs"]);
-        audio.set_overflow(None, None, None);
-        assert!(!audio.imp().more_outputs.get_visible() && !audio.imp().more_apps.get_visible());
+        audio.imp().more_apps.emit_clicked();
+        assert_eq!(*expanded.borrow(), ["apps"]);
+        audio.set_more_apps(None);
+        assert!(!audio.imp().more_apps.get_visible());
 
         let footer_activated = Rc::new(Cell::new(0u32));
         audio.connect_footer_activated({
