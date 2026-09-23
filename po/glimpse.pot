@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 21:35+0200\n"
+"POT-Creation-Date: 2026-09-23 21:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -245,7 +245,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
-#: crates/glimpse-widgets/src/lib.rs:259
+#: crates/glimpse-widgets/src/lib.rs:264
 msgid "{percent}%"
 msgstr ""
 
@@ -778,6 +778,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:524
 #: crates/glimpse-panel/src/applets/network/indicator.rs:115
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:226
 #: crates/glimpse-widgets/blueprints/places_popover.blp:56
 msgid "Network"
 msgstr ""
@@ -1684,6 +1685,49 @@ msgid_plural "Signed in for {days} days"
 msgstr[0] ""
 msgstr[1] ""
 
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:77
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:124
+msgid "CPU"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:85
+msgid "RAM"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:90
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:142
+msgid "Swap"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:95
+msgid "Net"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:102
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:164
+msgid "GPU"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:133
+msgid "Memory"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:212
+msgid "Load average"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:219
+msgid "Uptime"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:237
+msgid "CPU temperature"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:244
+msgid "GPU temperature"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/tray/mod.rs:284
 msgid "Show {count} hidden item"
 msgid_plural "Show {count} hidden items"
@@ -2049,6 +2093,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:43
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:35
 msgid "Details"
 msgstr ""
 
@@ -2092,7 +2137,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:220
+#: crates/glimpse-widgets/src/lib.rs:225
 msgid "Play"
 msgstr ""
 
@@ -2136,6 +2181,14 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_popover.blp:67
 msgid "Updates"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:14
+msgid "System Monitor"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
+msgid "Usage"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/transport.blp:20
@@ -2266,7 +2319,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:219
+#: crates/glimpse-widgets/src/lib.rs:224
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""

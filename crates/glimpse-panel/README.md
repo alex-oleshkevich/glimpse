@@ -477,6 +477,21 @@ began. `Usage.since` survives a refresh, so the count does not restart when the 
 sources. The applet paces itself — a second while casting, a minute otherwise — and a `since` in the
 future, from a clock that jumped backwards, reads as `00:00` rather than panicking.
 
+**system-monitor** — opt-in, and its backing service samples nothing at all unless the applet is
+actually placed on a panel zone (`glimpse_config::placed_kinds`, the same table-then-`from_name`
+resolution a zone itself uses — not mere presence of an `[applets.system-monitor]` table). Chips are
+label-only, one per configured kind (CPU/RAM/Swap/Network/GPU), each skipped rather than shown empty
+when its backing reading is `None` — CPU and network read `None` on the first sample since the
+service last enabled, since a rate needs a delta the first sample cannot have. The popover stays
+live while open: `Input::Woken` re-reads the service snapshot and re-dresses the shown popover the
+same way every other applet with a popover does, so the numbers do not freeze the moment it opens.
+Usage tiles color their bar `Severity::Warning`/`Severity::Error` off `warn-percent`/
+`critical-percent`; a GPU tile is labeled "VRAM" or "GTT" by `Gpu.memory_kind`, which the service
+decides once at discovery, not the applet. **`chip-format` is the same token-substitution
+`applets::tokens::render` every applet's `tooltip-format` already uses** — `{name}` is the chip's
+own localized name, `{value}` its reading — so `"{value}"` drops the name and `"{value} ({name})"`
+reorders it, the same way a user already customizes a tooltip.
+
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in

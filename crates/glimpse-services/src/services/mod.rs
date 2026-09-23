@@ -37,6 +37,7 @@ mod removable;
 mod session;
 mod session_actions;
 mod solar;
+mod system_monitor;
 mod tray;
 mod weather;
 
@@ -109,6 +110,12 @@ pub use session_actions::{
     SessionActionsHandle, SessionActionsState, SessionEntry, Updates as SessionUpdates,
 };
 pub use solar::{Solar, SolarDependencies, SolarHandle};
+pub use system_monitor::{
+    Cpu as SystemMonitorCpu, DiskUsage as SystemMonitorDiskUsage, Gpu as SystemMonitorGpu,
+    GpuMemoryKind as SystemMonitorGpuMemoryKind, LoadAverage as SystemMonitorLoadAverage,
+    NetworkRate as SystemMonitorNetworkRate, SystemMonitor, SystemMonitorHandle,
+    SystemMonitorState, Usage as SystemMonitorUsage,
+};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 

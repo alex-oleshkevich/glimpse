@@ -163,6 +163,11 @@
 [removable]
 # capacity-interval = 10
 
+[system-monitor]
+# poll-interval = 2
+# disk-paths = ["/"]
+# gpu = true
+
 # [[panels]]
 # size = 36
 # position = "top"

@@ -1,0 +1,49 @@
+using Gtk 4.0;
+
+template $SystemMonitorPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "system-monitor-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "computer-symbolic";
+      title: _("System Monitor");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section usage {
+        title: _("Usage");
+        visible: false;
+
+        Gtk.Box usage_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section details {
+        title: _("Details");
+        visible: false;
+
+        Gtk.Box details_rows {
+          orientation: vertical;
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

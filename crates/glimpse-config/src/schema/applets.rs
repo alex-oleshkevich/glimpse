@@ -103,6 +103,9 @@ pub enum Kind {
     Removable(Removable),
     /// Log out, suspend, restart and shut down.
     Session {},
+    /// Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples
+    /// nothing at all unless this kind is actually placed on a panel — see `placed_kinds`.
+    SystemMonitor(SystemMonitor),
     /// The system tray: icons from applications that ask for one.
     Tray(Tray),
     /// Current conditions, with the forecast in its popover.
@@ -125,6 +128,53 @@ pub struct Tray {
     /// How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every
     /// icon on the bar and shows no chevron.
     pub max_visible: u8,
+}
+
+/// Settings for the system-monitor applet's chips and popover coloring. What the sampler itself
+/// reads lives in the top-level `[system-monitor]` table instead.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct SystemMonitor {
+    /// Chips shown on the bar, in order. Anything sampled but left out here still appears in the
+    /// popover — this list is panel real estate, not visibility. A repeated chip collapses to its
+    /// first occurrence.
+    #[serde(deserialize_with = "chips")]
+    pub chips: Vec<Chip>,
+    /// How each chip's own label reads. `{name}` is the chip's own localized name ("CPU", "RAM",
+    /// …); `{value}` is its reading ("42%" for a percentage chip, "↓1.2 MB/s" for network). An
+    /// unrecognized token is left as literal text rather than silently emptied.
+    pub chip_format: String,
+    /// Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns
+    /// `Severity::Warning`. Network has no percentage and is never colored.
+    #[schemars(range(min = 1, max = 100))]
+    pub warn_percent: u8,
+    /// Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`
+    /// enum has no "Critical" variant — it is `Info`/`Warning`/`Error` only.
+    #[schemars(range(min = 1, max = 100))]
+    pub critical_percent: u8,
+}
+
+/// One chip the system-monitor applet can show on the bar. Disk is deliberately not a variant —
+/// arbitrarily many configured paths don't reduce to one chip value, so disk stays popover-only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum Chip {
+    Cpu,
+    Ram,
+    Swap,
+    Network,
+    Gpu,
+}
+
+impl Default for SystemMonitor {
+    fn default() -> Self {
+        Self {
+            chips: vec![Chip::Cpu, Chip::Ram],
+            chip_format: "{name} {value}".to_owned(),
+            warn_percent: 85,
+            critical_percent: 95,
+        }
+    }
 }
 
 /// A chip the user defines: an icon, a label or both, and a program for each click and scroll
@@ -736,6 +786,7 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
     on_earth(&mut kind)?;
     runnable(&kind)?;
+    thresholds(&kind)?;
     Ok(Applet {
         common,
         kind,
@@ -787,6 +838,41 @@ fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
         Place::Here {} => {}
     }
     Ok(())
+}
+
+fn chips<'de, D>(deserializer: D) -> Result<Vec<Chip>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = Vec::<Chip>::deserialize(deserializer)?;
+    let mut seen = std::collections::HashSet::new();
+    Ok(raw.into_iter().filter(|chip| seen.insert(*chip)).collect())
+}
+
+/// `warn-percent` above `critical-percent` would make a reading skip straight from `None` to
+/// `Severity::Error` with no `Warning` in between — a document saying so at load names the table
+/// rather than leaving the popover to render a threshold ordering nobody chose.
+fn thresholds(kind: &Kind) -> Result<(), toml::de::Error> {
+    let Kind::SystemMonitor(settings) = kind else {
+        return Ok(());
+    };
+    if settings.warn_percent > settings.critical_percent {
+        return Err(toml::de::Error::custom(
+            "warn-percent must be less than or equal to critical-percent",
+        ));
+    }
+    Ok(())
+}
+
+/// Resolves one zone entry the same way every panel zone resolves a name: its own table entry
+/// first, `Applet::from_name` fallback second. The single source of truth behind both the panel's
+/// own `applets::configured` and a service's demand-gating `placed_kinds` — kept in one place so
+/// the two cannot drift apart.
+pub fn resolve_applet(name: &str, applets: &BTreeMap<String, Applet>) -> Option<Applet> {
+    applets
+        .get(name)
+        .cloned()
+        .or_else(|| Applet::from_name(name))
 }
 
 fn runnable(kind: &Kind) -> Result<(), toml::de::Error> {
@@ -936,7 +1022,8 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatteryIndicatorStyle, COMMON, Common, Kind, NotificationIndicatorStyle, Printing, Privacy,
+        BatteryIndicatorStyle, COMMON, Chip, Common, Kind, NotificationIndicatorStyle, Printing,
+        Privacy,
     };
 
     #[test]
@@ -1062,6 +1149,17 @@ mod tests {
             .expect_err("an undocumented spelling is refused");
         toml::from_str::<crate::Config>("[applets.battery]\nunknown = 1\n")
             .expect_err("a struct variant refuses keys that are not its own");
+    }
+
+    #[test]
+    fn a_repeated_chip_collapses_to_its_first_occurrence() {
+        let document: crate::Config =
+            toml::from_str("[applets.system-monitor]\nchips = [\"cpu\", \"cpu\", \"ram\"]\n")
+                .expect("chips is a key of this table");
+        let Kind::SystemMonitor(settings) = &document.applets["system-monitor"].kind else {
+            panic!("system-monitor resolves to its own kind");
+        };
+        assert_eq!(settings.chips, vec![Chip::Cpu, Chip::Ram]);
     }
 
     #[test]

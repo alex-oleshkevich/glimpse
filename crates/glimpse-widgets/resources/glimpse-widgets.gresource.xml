@@ -48,6 +48,7 @@
         <file>widgets/session_popover.ui</file>
         <file>widgets/split_row.ui</file>
         <file>widgets/switch_row.ui</file>
+        <file>widgets/system_monitor_popover.ui</file>
         <file>widgets/transport.ui</file>
         <file>widgets/weather_popover.ui</file>
         <file>widgets/idle_popover.ui</file>

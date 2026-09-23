@@ -341,6 +341,30 @@ GLib function caches besides. **A source that fails to read publishes nothing fo
 reports through `ctx.degraded`** — health is orthogonal to state, and nothing downstream renders a
 degraded section differently from an absent one.
 
+**system-monitor** — CPU, memory, swap, disk, network, load average, uptime and (amdgpu only) GPU.
+**`Config.enabled` reflects panel placement, not table presence** — `glimpse_config::placed_kinds`
+resolves every zone entry the same table-then-`Applet::from_name` way a panel itself does, so `right
+= ["system-monitor"]` with no `[applets.system-monitor]` table still counts as demand and a table
+nobody placed does not. **`subscriptions()` returns nothing at all while disabled**, discovery
+included — a GPU and CPU-temp probe are themselves sysfs reads, and the whole point of demand gating
+is that a service with no consumer does zero work. **Sampling runs inside the `Sub::interval` tick
+itself**, one `spawn_blocking` doing every `/proc` and sysfs read with `std::fs`, never behind
+`ctx.spawn_detached` — that would let a sample already in flight publish after the service goes
+disabled, and ten small `tokio::fs` reads would cost ten blocking-pool hops against this one.
+Disk sampling is its own interval, keyed on `(period, paths)` so either changing restarts it, and a
+hung network mount only stalls disk tiles. **GPU and CPU-temp discovery is lazy and cached**, run
+once through a generation-keyed one-shot stream on the disabled→enabled transition (and again on a
+live `gpu` flip), its result shared with the already-running sample interval through
+`Arc<Mutex<Discovery>>` so a discovery that lands after the interval was built still reaches the very
+next tick. **CPU and network read `None` until a delta exists** — the state published before the
+first tick since (re)enabling has no rate to report, never a fabricated zero. Every counter
+subtraction is `checked_sub`; a decrease (a reset, a vanished interface) yields no rate that tick,
+never a panic or an underflow wrap. **GPU memory reads GTT on an integrated card, VRAM on a discrete
+one** — classified once at discovery by comparing `mem_info_vram_total` against
+`mem_info_gtt_total`; an APU's VRAM is a small carve-out that reads misleadingly full at idle.
+`gpu_busy_percent` is skipped while `power/runtime_status` says `suspended`, so polling never itself
+wakes a runtime-suspended discrete GPU.
+
 **session actions** — logind capabilities, same-seat sessions and inhibitors on their own
 subscription, window count from the compositor, PackageKit updates only on `UpdatesChanged`. A
 window appearing does not re-query the package manager. Capability reasons are an enum; the applet

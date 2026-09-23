@@ -163,6 +163,10 @@ fn main() {
             "blueprints/switch_row.blp",
             "resources/widgets/switch_row.ui",
         ),
+        (
+            "blueprints/system_monitor_popover.blp",
+            "resources/widgets/system_monitor_popover.ui",
+        ),
         ("blueprints/transport.blp", "resources/widgets/transport.ui"),
         (
             "blueprints/weather_popover.blp",
