@@ -57,9 +57,6 @@ impl ObjectImpl for ColorPickerPopover {
                 glib::subclass::Signal::builder("activated")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("detailed")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("copied")
                     .param_types([u64::static_type(), String::static_type()])
                     .build(),
@@ -76,11 +73,6 @@ impl ObjectImpl for ColorPickerPopover {
             #[weak]
             obj,
             move |_, id| obj.emit_by_name::<()>("activated", &[&id])
-        ));
-        self.palette.connect_detailed(glib::clone!(
-            #[weak]
-            obj,
-            move |_, id| obj.emit_by_name::<()>("detailed", &[&id])
         ));
         self.palette.connect_copied(glib::clone!(
             #[weak]

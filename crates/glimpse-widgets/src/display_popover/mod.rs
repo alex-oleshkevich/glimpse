@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Display, drawer, set_footer_row};
+use crate::{Display, set_footer_row};
 
 const ENABLE_REQUESTED: &str = "enable-requested";
 const BLANKED: &str = "blanked";
@@ -85,12 +85,5 @@ impl DisplayPopover {
         imp.devices.set_output_power(power);
         imp.devices.set_displays(&displays);
         imp.blank.set_visible(power && !displays.is_empty());
-    }
-
-    fn set_details_open(&self, open: bool) {
-        let imp = self.imp();
-        crate::set_css_class(&*imp.hero, drawer::RECEDED, open);
-        crate::set_css_class(&*imp.blank, drawer::RECEDED, open);
-        crate::set_css_class(&*imp.footer, drawer::RECEDED, open);
     }
 }

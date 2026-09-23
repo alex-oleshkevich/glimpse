@@ -124,8 +124,10 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
   lit**: they are the frame, not content. A `SplitRow` is one leaf, so its own divider is not frame.
 - **A press on anything dimmed closes the detail and does nothing else.** The shell's capture-phase
   click claims it before any row sees it, so reaching past an open card never fires the row under
-  the pointer. Inside the card, and on its own head, presses go through. Hover is suppressed on
-  dimmed rows so they do not invite the click. Scrollbars are neither dimmed nor outside.
+  the pointer. Inside the card, and on its own head, presses go through — and so does a press on
+  another card's opener (a `SplitRow`'s chevron, a plain `Row` head), which switches cards in one
+  click. Hover is suppressed on dimmed rows except those openers, so what still works looks it.
+  Scrollbars are neither dimmed nor outside.
 - **Not yet moved:** a popover still on `crate::drawer::holder` writes its own recede loop and has
   none of the above. The trap there is a list with nothing open in it — `ForecastList::reveal(None)`
   *clears* receding, so a popover whose open item lives elsewhere must dim that list explicitly.

@@ -1,16 +1,15 @@
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
-use super::{Notation, Shade};
+use super::Shade;
+use crate::Expandable;
 
 #[derive(Debug, Default)]
 pub struct ColorList {
     pub shades: RefCell<Vec<Shade>>,
-    pub holders: RefCell<Vec<gtk4::Box>>,
-    pub open: Cell<Option<u64>>,
-    pub built: RefCell<Option<(u64, Vec<Notation>)>>,
+    pub holders: RefCell<Vec<(u64, Expandable)>>,
 }
 
 #[glib::object_subclass]
@@ -33,9 +32,6 @@ impl ObjectImpl for ColorList {
                 glib::subclass::Signal::builder("activated")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("detailed")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("copied")
                     .param_types([u64::static_type(), String::static_type()])
                     .build(),
@@ -53,7 +49,7 @@ impl ObjectImpl for ColorList {
     }
 
     fn dispose(&self) {
-        for holder in self.holders.borrow_mut().drain(..) {
+        for (_, holder) in self.holders.borrow_mut().drain(..) {
             holder.unparent();
         }
     }

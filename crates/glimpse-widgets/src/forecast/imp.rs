@@ -1,8 +1,8 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::RefCell;
-use std::sync::OnceLock;
 
-use super::{Day, ForecastDay, ForecastHour, Hour};
+use super::{Day, ForecastHour, Hour};
+use crate::Expandable;
 
 #[derive(Debug, Default)]
 pub struct ForecastStrip {
@@ -46,8 +46,7 @@ impl WidgetImpl for ForecastStrip {}
 #[derive(Debug, Default)]
 pub struct ForecastList {
     pub days: RefCell<Vec<Day>>,
-    pub rows: RefCell<Vec<ForecastDay>>,
-    pub holders: RefCell<Vec<gtk4::Box>>,
+    pub holders: RefCell<Vec<Expandable>>,
     pub unit: RefCell<String>,
 }
 
@@ -64,17 +63,6 @@ impl ObjectSubclass for ForecastList {
 }
 
 impl ObjectImpl for ForecastList {
-    fn signals() -> &'static [glib::subclass::Signal] {
-        static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-        SIGNALS.get_or_init(|| {
-            vec![
-                glib::subclass::Signal::builder("activated")
-                    .param_types([u32::static_type()])
-                    .build(),
-            ]
-        })
-    }
-
     fn constructed(&self) {
         self.parent_constructed();
         let list = self.obj();
@@ -86,7 +74,6 @@ impl ObjectImpl for ForecastList {
     }
 
     fn dispose(&self) {
-        self.rows.borrow_mut().clear();
         for holder in self.holders.borrow_mut().drain(..) {
             holder.unparent();
         }

@@ -63,9 +63,6 @@ impl ObjectImpl for ClipboardPopover {
                 glib::subclass::Signal::builder("restored")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("detailed")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("pinned")
                     .param_types([u64::static_type(), bool::static_type()])
                     .build(),
@@ -86,11 +83,6 @@ impl ObjectImpl for ClipboardPopover {
                 #[weak]
                 obj,
                 move |_, id| obj.emit_by_name::<()>("restored", &[&id])
-            ));
-            list.connect_detailed(glib::clone!(
-                #[weak]
-                obj,
-                move |_, id| obj.emit_by_name::<()>("detailed", &[&id])
             ));
             list.connect_pinned(glib::clone!(
                 #[weak]

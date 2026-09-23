@@ -199,45 +199,27 @@ fn describe(network: &Access, metered: bool) -> String {
     parts.join(" · ")
 }
 
+/// Other networks as the popover draws its disclosure: how many there are, whether the list is
+/// open, and the wording for the row an open list ends in when the cap cut it short.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Others {
+    pub count: usize,
+    pub open: bool,
+    pub rest: Option<String>,
+}
+
+/// Ethernet, VPN, then Wi-Fi: the network in use and every saved one in range, then the rest as
+/// Other networks. The rest are closed while a known network is in range, because that is where a
+/// person is and they rarely want a stranger's; with nothing known in range they open by
+/// themselves. `toggled` is the header pressed against that default, `all` lifts the cap an open
+/// list starts at. A saved network out of range is not listed.
 pub fn entries(
     state: &NetworkState,
     cap_at: usize,
-    expanded: bool,
-) -> (Vec<Entry>, Option<String>) {
+    toggled: bool,
+    all: bool,
+) -> (Vec<Entry>, Others) {
     let mut rows: Vec<Entry> = Vec::new();
-
-    let shown = match expanded || cap_at == 0 {
-        true => state.networks.len(),
-        false => cap_at.min(state.networks.len()),
-    };
-    for network in state.networks.iter().take(shown) {
-        rows.push(Entry {
-            id: network.id.as_str().to_owned(),
-            title: name_of(network),
-            subtitle: describe(network, state.metered.marked()),
-            icon: band_icon(network.strength).to_owned(),
-            place: Place::Networks,
-            secured: network.security.needs_a_secret(),
-            selected: network.active,
-            busy: network.busy.is_some(),
-        });
-    }
-
-    for saved in state.known.iter().filter(|saved| !saved.in_range) {
-        rows.push(Entry {
-            id: saved.id.as_str().to_owned(),
-            title: saved
-                .name
-                .clone()
-                .unwrap_or_else(|| gettext("Saved network")),
-            subtitle: gettext("Not in range"),
-            icon: "network-wireless-offline-symbolic".to_owned(),
-            place: Place::Known,
-            secured: false,
-            selected: false,
-            busy: saved.busy.is_some(),
-        });
-    }
 
     for wired in &state.wired {
         rows.push(Entry {
@@ -275,66 +257,106 @@ pub fn entries(
         });
     }
 
-    (rows, more(state.networks.len(), cap_at, expanded))
-}
-
-fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
-    let hidden = match cap {
-        0 => 0,
-        cap => total.saturating_sub(cap),
-    };
-    if hidden == 0 {
-        return None;
+    let (mut known, other): (Vec<&Access>, Vec<&Access>) = state
+        .networks
+        .iter()
+        .partition(|network| network.active || network.saved.is_some());
+    known.sort_by_key(|network| !network.active);
+    for network in known.iter().copied() {
+        rows.push(access_entry(state, network, Place::Wifi));
     }
-    Some(match expanded {
-        true => gettext("Show fewer"),
-        false => ngettext(
-            "{count} more network",
-            "{count} more networks",
-            hidden as u32,
-        )
-        .replace("{count}", &hidden.to_string()),
-    })
+
+    let open = known.is_empty() != toggled;
+    let shown = match (open, all || cap_at == 0) {
+        (false, _) => 0,
+        (true, true) => other.len(),
+        (true, false) => cap_at.min(other.len()),
+    };
+    for network in other.iter().take(shown).copied() {
+        rows.push(access_entry(state, network, Place::Other));
+    }
+
+    let hidden = match open {
+        true => other.len() - shown,
+        false => 0,
+    };
+    let others = Others {
+        count: other.len(),
+        open,
+        rest: (hidden > 0).then(|| {
+            ngettext(
+                "{count} more network",
+                "{count} more networks",
+                hidden as u32,
+            )
+            .replace("{count}", &hidden.to_string())
+        }),
+    };
+    (rows, others)
 }
 
+fn access_entry(state: &NetworkState, network: &Access, place: Place) -> Entry {
+    let subtitle = match place {
+        Place::Other => stranger(network.security),
+        _ => describe(network, state.metered.marked()),
+    };
+    Entry {
+        id: network.id.as_str().to_owned(),
+        title: name_of(network),
+        subtitle,
+        icon: band_icon(network.strength).to_owned(),
+        place,
+        secured: network.security.needs_a_secret(),
+        selected: network.active,
+        busy: network.busy.is_some(),
+    }
+}
+
+/// A stranger is one line: the padlock already says it is secured and the band helps nobody
+/// choose. Only what changes the decision to join is said — no encryption at all, or a network
+/// that asks for more than a password.
+fn stranger(security: nm::Security) -> String {
+    match security {
+        nm::Security::Open | nm::Security::Enterprise => self::security(security),
+        _ => String::new(),
+    }
+}
+
+/// The card under a row, or `None` for a row that has nothing to manage. A connection in use
+/// carries Disconnect and what describes it; a saved network carries how it joins and Forget. A
+/// stranger, and a wired or VPN connection not in use, has no card: its row's body is its one
+/// action, and Security and Signal would only repeat the subtitle and the icon.
 pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
+    let disconnect = |busy: bool| Line {
+        action: "disconnect".to_owned(),
+        title: gettext("Disconnect"),
+        activates: true,
+        busy,
+        ..Default::default()
+    };
+    let address = |address: &Option<String>| {
+        address.as_ref().map(|address| Line {
+            action: "address".to_owned(),
+            title: gettext("IP address"),
+            value: address.clone(),
+            ..Default::default()
+        })
+    };
+    let card = |lines: Vec<Line>| {
+        (!lines.is_empty()).then(|| Details {
+            id: id.to_owned(),
+            lines,
+        })
+    };
+
     if let Some(network) = state.networks.iter().find(|one| one.id.as_str() == id) {
         let mut lines = Vec::new();
-        match network.active {
-            true => lines.push(Line {
-                action: "disconnect".to_owned(),
-                title: gettext("Disconnect"),
-                activates: true,
-                busy: matches!(network.busy, Some(NetworkBusy::Disconnecting)),
-                ..Default::default()
-            }),
-            false => lines.push(Line {
-                action: "connect".to_owned(),
-                title: gettext("Connect"),
-                activates: true,
-                busy: matches!(network.busy, Some(NetworkBusy::Connecting)),
-                ..Default::default()
-            }),
-        }
-        lines.push(Line {
-            action: "security".to_owned(),
-            title: gettext("Security"),
-            value: security(network.security),
-            ..Default::default()
-        });
-        lines.push(Line {
-            action: "signal".to_owned(),
-            title: gettext("Signal"),
-            value: format!("{}%", network.strength),
-            ..Default::default()
-        });
-        if let Some(address) = &network.address {
-            lines.push(Line {
-                action: "address".to_owned(),
-                title: gettext("IP address"),
-                value: address.clone(),
-                ..Default::default()
-            });
+        if network.active {
+            lines.push(disconnect(matches!(
+                network.busy,
+                Some(NetworkBusy::Disconnecting)
+            )));
+            lines.extend(address(&network.address));
         }
         if let Some(saved) = &network.saved {
             let profile = state.known.iter().find(|one| &one.id == saved);
@@ -352,47 +374,14 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
                 ..Default::default()
             });
         }
-        return Some(Details {
-            id: id.to_owned(),
-            lines,
-        });
-    }
-
-    if let Some(saved) = state.known.iter().find(|one| one.id.as_str() == id) {
-        return Some(Details {
-            id: id.to_owned(),
-            lines: vec![
-                Line {
-                    action: "autoconnect".to_owned(),
-                    title: gettext("Connect automatically"),
-                    toggle: Some(saved.autoconnect),
-                    ..Default::default()
-                },
-                Line {
-                    action: "forget".to_owned(),
-                    title: gettext("Forget this network"),
-                    activates: true,
-                    busy: matches!(saved.busy, Some(NetworkBusy::Forgetting)),
-                    ..Default::default()
-                },
-            ],
-        });
+        return card(lines);
     }
 
     if let Some(wired) = state.wired.iter().find(|one| one.id.as_str() == id) {
-        let mut lines = vec![Line {
-            action: match wired.active {
-                true => "disconnect".to_owned(),
-                false => "connect".to_owned(),
-            },
-            title: match wired.active {
-                true => gettext("Disconnect"),
-                false => gettext("Connect"),
-            },
-            activates: wired.carrier,
-            busy: wired.busy.is_some(),
-            ..Default::default()
-        }];
+        if !wired.active {
+            return None;
+        }
+        let mut lines = vec![disconnect(wired.busy.is_some())];
         if let Some(speed) = wired.speed.filter(|speed| *speed > 0) {
             lines.push(Line {
                 action: "speed".to_owned(),
@@ -401,46 +390,20 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
                 ..Default::default()
             });
         }
-        if let Some(address) = &wired.address {
-            lines.push(Line {
-                action: "address".to_owned(),
-                title: gettext("IP address"),
-                value: address.clone(),
-                ..Default::default()
-            });
-        }
-        return Some(Details {
-            id: id.to_owned(),
-            lines,
-        });
+        lines.extend(address(&wired.address));
+        return card(lines);
     }
 
     if let Some(vpn) = state.vpn.iter().find(|one| one.id.as_str() == id) {
-        let mut lines = vec![Line {
-            action: match vpn.active {
-                true => "disconnect-vpn".to_owned(),
-                false => "connect-vpn".to_owned(),
-            },
-            title: match vpn.active {
-                true => gettext("Disconnect"),
-                false => gettext("Connect"),
-            },
-            activates: true,
-            busy: vpn.busy.is_some(),
-            ..Default::default()
-        }];
-        if let Some(address) = &vpn.address {
-            lines.push(Line {
-                action: "address".to_owned(),
-                title: gettext("IP address"),
-                value: address.clone(),
-                ..Default::default()
-            });
+        if !vpn.active {
+            return None;
         }
-        return Some(Details {
-            id: id.to_owned(),
-            lines,
-        });
+        let mut lines = vec![Line {
+            action: "disconnect-vpn".to_owned(),
+            ..disconnect(vpn.busy.is_some())
+        }];
+        lines.extend(address(&vpn.address));
+        return card(lines);
     }
     None
 }
@@ -623,8 +586,10 @@ mod tests {
         assert_eq!(address.value, "192.168.50.27/24");
 
         let other = state.networks[1].id.as_str().to_owned();
-        let card = details(&state, &other).expect("a detail card");
-        assert!(!card.lines.iter().any(|line| line.action == "address"));
+        assert!(
+            details(&state, &other).is_none(),
+            "a stranger has nothing to manage, so its row joins and carries no card"
+        );
     }
 
     #[test]
@@ -647,19 +612,14 @@ mod tests {
 
         state.vpn[0].active = false;
         state.vpn[0].address = None;
-        let card = details(&state, "/s/vpn").expect("a detail card");
-        assert_eq!(
-            card.lines
-                .iter()
-                .map(|line| line.action.as_str())
-                .collect::<Vec<_>>(),
-            ["connect-vpn"],
-            "an address the tunnel does not have is absent, not blank"
+        assert!(
+            details(&state, "/s/vpn").is_none(),
+            "a tunnel not in use connects from its row and has no card"
         );
     }
 
     #[test]
-    fn a_wired_row_has_a_card_that_connects_disconnects_and_names_its_address() {
+    fn a_wired_connection_in_use_has_a_card_that_disconnects_and_names_its_address() {
         let mut state = connected(70);
         state.wired = vec![glimpse_services::Wired {
             id: NetworkId::new("/org/freedesktop/NetworkManager/Devices/459"),
@@ -678,16 +638,9 @@ mod tests {
 
         state.wired[0].active = false;
         state.wired[0].address = None;
-        let card =
-            details(&state, "/org/freedesktop/NetworkManager/Devices/459").expect("a detail card");
-        assert_eq!(card.lines[0].action, "connect");
-
-        state.wired[0].carrier = false;
-        let card =
-            details(&state, "/org/freedesktop/NetworkManager/Devices/459").expect("a detail card");
         assert!(
-            !card.lines[0].activates,
-            "an unplugged cable has nothing to connect to"
+            details(&state, "/org/freedesktop/NetworkManager/Devices/459").is_none(),
+            "a cable not in use connects from its row and has no card"
         );
     }
 
@@ -698,7 +651,7 @@ mod tests {
             ..connected(70)
         };
 
-        let (rows, _) = entries(&state, 0, true);
+        let (rows, _) = entries(&state, 0, false, false);
         let row = rows
             .iter()
             .find(|row| row.selected)
@@ -712,7 +665,7 @@ mod tests {
             metered: nm::Metered::GuessNo,
             ..connected(70)
         };
-        let (rows, _) = entries(&unmetered, 0, true);
+        let (rows, _) = entries(&unmetered, 0, false, false);
         assert!(
             !rows
                 .iter()
@@ -760,40 +713,43 @@ mod tests {
 
     #[test]
     fn a_cap_of_zero_lists_every_network_and_offers_nothing_to_expand() {
-        let (rows, more) = entries(&listed(&["a", "b", "c", "d", "e"]), 0, false);
+        let (rows, others) = entries(&listed(&["a", "b", "c", "d", "e"]), 0, false, false);
         assert_eq!(rows.len(), 5);
         assert_eq!(
-            more, None,
+            others.rest, None,
             "nothing is behind a row that would show nothing new"
         );
     }
 
     #[test]
-    fn the_overflow_row_goes_both_ways() {
+    fn a_capped_list_ends_in_a_row_that_shows_the_rest() {
         let state = listed(&["a", "b", "c", "d", "e"]);
 
-        let (rows, more) = entries(&state, 3, false);
-        assert_eq!(rows.len(), 3, "the cap is what the list shows");
+        let (rows, others) = entries(&state, 3, false, false);
+        assert_eq!(rows.len(), 3, "the cap is what an open list starts at");
+        assert!(
+            others.open,
+            "with nothing known in range the strangers are the list"
+        );
         assert_eq!(
-            more,
+            others.rest,
             Some(
                 ngettext("{count} more network", "{count} more networks", 2)
                     .replace("{count}", "2")
             )
         );
 
-        let (rows, more) = entries(&state, 3, true);
-        assert_eq!(rows.len(), 5, "expanded shows every network");
+        let (rows, others) = entries(&state, 3, false, true);
+        assert_eq!(rows.len(), 5, "showing all lifts the cap");
         assert_eq!(
-            more,
-            Some(gettext("Show fewer")),
-            "a list that only ever expands strands the user at the bottom of it"
+            others.rest, None,
+            "and the header, not a second row, is what closes the list again"
         );
 
-        let (rows, more) = entries(&listed(&["a", "b"]), 3, false);
+        let (rows, others) = entries(&listed(&["a", "b"]), 3, false, false);
         assert_eq!(rows.len(), 2);
         assert_eq!(
-            more, None,
+            others.rest, None,
             "nothing is hidden, so there is nothing to offer"
         );
     }
@@ -821,25 +777,76 @@ mod tests {
             .collect();
         assert_eq!(
             actions,
-            ["connect", "security", "signal", "autoconnect", "forget"]
+            ["autoconnect", "forget"],
+            "the row joins; the card is only what a profile has, and nothing the row already says"
         );
         assert_eq!(
-            saved.lines[3].toggle,
+            saved.lines[0].toggle,
             Some(true),
             "the toggle reads the profile, not the access point"
         );
 
         state.networks[0].saved = None;
-        let fresh = details(&state, "/ap/0").expect("the network");
-        let actions: Vec<&str> = fresh
-            .lines
+        assert!(
+            details(&state, "/ap/0").is_none(),
+            "a network nothing is saved for has nothing to forget"
+        );
+    }
+
+    #[test]
+    fn a_known_network_in_range_collapses_the_strangers() {
+        let mut state = listed(&["Skylink", "Skylink 2G", "a", "b", "c"]);
+        state.networks[1].active = true;
+        state.networks[0].saved = Some(NetworkId::new("/s/0"));
+        state.known = vec![glimpse_services::Saved {
+            id: NetworkId::new("/s/far"),
+            name: Some("Far away".to_owned()),
+            kind: "802-11-wireless".to_owned(),
+            uuid: None,
+            autoconnect: true,
+            in_range: false,
+            active: false,
+            busy: None,
+        }];
+
+        let (rows, others) = entries(&state, 8, false, false);
+        let wifi: Vec<&str> = rows
             .iter()
-            .map(|line| line.action.as_str())
+            .filter(|row| row.place == Place::Wifi)
+            .map(|row| row.title.as_str())
             .collect();
         assert_eq!(
-            actions,
-            ["connect", "security", "signal"],
-            "a network nothing is saved for has nothing to forget"
+            wifi,
+            ["Skylink 2G", "Skylink"],
+            "the network in use leads, then every saved one in range"
+        );
+        assert!(
+            !rows.iter().any(|row| row.place == Place::Other),
+            "with a known network in range the strangers wait behind the header"
+        );
+        assert_eq!(
+            others,
+            Others {
+                count: 3,
+                open: false,
+                rest: None
+            }
+        );
+        assert!(
+            !rows.iter().any(|row| row.title == "Far away"),
+            "a saved network out of range is not listed at all"
+        );
+
+        let (rows, others) = entries(&state, 8, true, false);
+        let strangers: Vec<&Entry> = rows
+            .iter()
+            .filter(|row| row.place == Place::Other)
+            .collect();
+        assert_eq!(strangers.len(), 3);
+        assert!(others.open, "pressing the header opens it");
+        assert!(
+            strangers.iter().all(|row| row.subtitle.is_empty()),
+            "a secured stranger is one line: the padlock says secured, the band helps nobody"
         );
     }
 

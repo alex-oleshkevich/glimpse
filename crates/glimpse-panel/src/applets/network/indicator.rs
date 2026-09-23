@@ -134,8 +134,8 @@ pub struct Network {
     metered_in_tooltip: bool,
     visible_networks: usize,
     spec: Vec<IndicatorSpec>,
-    selected: Rc<RefCell<Option<String>>>,
     expanded: Rc<Cell<bool>>,
+    all: Rc<Cell<bool>>,
     asking: Rc<RefCell<Option<Asking>>>,
     opener: Option<Opener>,
     shown: glib::WeakRef<NetworkPopover>,
@@ -158,8 +158,8 @@ impl Network {
             metered_in_tooltip: true,
             visible_networks: 8,
             spec: Vec::new(),
-            selected: Rc::new(RefCell::new(None)),
             expanded: Rc::new(Cell::new(false)),
+            all: Rc::new(Cell::new(false)),
             asking: Rc::new(RefCell::new(None)),
             opener: None,
             shown: glib::WeakRef::new(),
@@ -206,16 +206,22 @@ impl Network {
             radio.is_some_and(|one| !one.blocked()),
         );
 
-        let (entries, more) =
-            render::entries(&self.state, self.visible_networks, self.expanded.get());
+        let (entries, others) = render::entries(
+            &self.state,
+            self.visible_networks,
+            self.expanded.get(),
+            self.all.get(),
+        );
         shown.set_entries(&entries);
-        shown.set_overflow(more.as_deref());
+        shown.set_others(others.count, others.open, others.rest.as_deref());
         shown.set_scanning(self.state.scanning);
         shown.set_hidden_entry(self.state.wifi.is_some_and(|one| one.enabled));
 
-        let selected = self.selected.borrow().clone();
-        let details = selected.and_then(|id| render::details(&self.state, &id));
-        shown.set_details(details.as_ref());
+        let details: Vec<_> = entries
+            .iter()
+            .filter_map(|entry| render::details(&self.state, &entry.id))
+            .collect();
+        shown.set_details(&details);
 
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
 
@@ -371,30 +377,11 @@ impl Applet for Network {
             let notifications = self.notifications.clone();
             let asking = Rc::clone(&self.asking);
             let opener = seat.opener();
-            move |_, id, active| {
+            move |_, id| {
                 let id = NetworkId::new(id);
                 let opener = opener.clone();
                 let state = network.snapshot();
                 let route = route(&state, &id);
-                if active {
-                    let network = network.clone();
-                    match route {
-                        Route::Vpn => tell(
-                            &notifications,
-                            "network.disconnect_vpn",
-                            gettext("Could not disconnect the VPN"),
-                            async move { network.disconnect_vpn(id).await },
-                        ),
-                        _ => tell(
-                            &notifications,
-                            "network.disconnect",
-                            gettext("Could not disconnect"),
-                            async move { network.disconnect(id).await },
-                        ),
-                    }
-                    opener.wake();
-                    return;
-                }
                 if let Some(name) = asks_first(&state, &id) {
                     asking.replace(Some(Asking::Joining { id, name }));
                     opener.wake();
@@ -431,42 +418,14 @@ impl Applet for Network {
             }
         });
 
-        shown.connect_selected({
-            let selected = Rc::clone(&self.selected);
-            let opener = seat.opener();
-            move |_, id| {
-                let mut held = selected.borrow_mut();
-                *held = match held.as_deref() == Some(id) {
-                    true => None,
-                    false => Some(id.to_owned()),
-                };
-                drop(held);
-                opener.wake();
-            }
-        });
-
         shown.connect_acted({
             let network = self.network.clone();
             let notifications = self.notifications.clone();
-            let asking = Rc::clone(&self.asking);
             let opener = seat.opener();
             move |_, id, action| {
                 let id = NetworkId::new(id);
                 let network = network.clone();
                 match action {
-                    "connect" => {
-                        if let Some(name) = asks_first(&network.snapshot(), &id) {
-                            asking.replace(Some(Asking::Joining { id, name }));
-                            opener.wake();
-                            return;
-                        }
-                        tell(
-                            &notifications,
-                            "network.connect_access_point",
-                            gettext("Could not connect"),
-                            async move { network.connect_access_point(id, None).await },
-                        )
-                    }
                     "disconnect" => tell(
                         &notifications,
                         "network.disconnect",
@@ -478,12 +437,6 @@ impl Applet for Network {
                         "network.forget",
                         gettext("Could not forget that network"),
                         async move { network.forget(id).await },
-                    ),
-                    "connect-vpn" => tell(
-                        &notifications,
-                        "network.connect_vpn",
-                        gettext("Could not connect the VPN"),
-                        async move { network.connect_vpn(id).await },
                     ),
                     "disconnect-vpn" => tell(
                         &notifications,
@@ -589,6 +542,15 @@ impl Applet for Network {
             }
         });
 
+        shown.connect_show_all({
+            let all = Rc::clone(&self.all);
+            let opener = seat.opener();
+            move |_| {
+                all.set(true);
+                opener.wake();
+            }
+        });
+
         shown.connect_footer_activated({
             let footer = self.footer.clone();
             move |_| {
@@ -599,7 +561,7 @@ impl Applet for Network {
         });
 
         self.expanded.set(false);
-        self.selected.replace(None);
+        self.all.set(false);
         if !survives_reopen(self.asking.borrow().as_ref()) {
             self.asking.replace(None);
         }

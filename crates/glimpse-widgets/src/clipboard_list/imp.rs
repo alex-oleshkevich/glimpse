@@ -4,17 +4,12 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::Clip;
+use crate::Expandable;
 
 #[derive(Debug, Default)]
 pub struct ClipboardList {
     pub clips: RefCell<Vec<Clip>>,
-    /// One holder per clip: the `$SplitRow` head plus its own detail `Gtk.Revealer`, built by
-    /// `crate::drawer::holder` so the shape is the one `BluetoothPopover` already uses.
-    pub holders: RefCell<Vec<gtk4::Box>>,
-    pub open: RefCell<Option<u64>>,
-    /// What the live detail panel was built for. A panel is rebuilt only when this changes, or a
-    /// press is swallowed: rebuilding unparents the `Row` mid-gesture and `clicked` never fires.
-    pub built: RefCell<Option<(u64, bool)>>,
+    pub holders: RefCell<Vec<(u64, Expandable)>>,
     /// Wording for the two action rows. A widget owns structure and no content, so these arrive
     /// from the applet rather than being written here.
     pub actions: RefCell<Actions>,
@@ -47,9 +42,6 @@ impl ObjectImpl for ClipboardList {
                 glib::subclass::Signal::builder("restored")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("detailed")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("pinned")
                     .param_types([u64::static_type(), bool::static_type()])
                     .build(),
@@ -70,7 +62,7 @@ impl ObjectImpl for ClipboardList {
     }
 
     fn dispose(&self) {
-        for holder in self.holders.borrow_mut().drain(..) {
+        for (_, holder) in self.holders.borrow_mut().drain(..) {
             holder.unparent();
         }
     }

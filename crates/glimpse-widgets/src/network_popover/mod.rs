@@ -2,12 +2,11 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row};
+use crate::{Expandable, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
 
 const NETWORK: &str = "network-popover__row";
-const DETAIL: &str = "detail-card";
 const NETWORKS_PAGE: &str = "networks";
 const PROMPT_PAGE: &str = "prompt";
 
@@ -51,7 +50,6 @@ impl NetworkPopover {
         }
         imp.entries.replace(entries.to_vec());
         self.render_entries();
-        self.render_details();
     }
 
     pub fn set_scanning(&self, scanning: bool) {
@@ -60,32 +58,65 @@ impl NetworkPopover {
             .entries
             .borrow()
             .iter()
-            .all(|e| e.place != Place::Networks);
-        let looking = scanning && empty;
-        if imp.networks.empty() == looking {
-            return;
+            .all(|e| !matches!(e.place, Place::Other | Place::Wifi));
+        let looking = scanning && empty && !imp.more.get_visible();
+        if imp.other.empty() != looking {
+            imp.other.set_empty(looking);
         }
-        imp.networks.set_empty(looking);
-        imp.networks.set_visible(!empty || looking);
+        self.settle_other();
     }
 
-    pub fn set_details(&self, details: Option<&Details>) {
+    /// Every listed entry's detail, keyed by `Details::id`. A card is built the first time its
+    /// chevron opens it and refreshed from here afterwards; an entry whose detail is gone closes.
+    pub fn set_details(&self, details: &[Details]) {
         let imp = self.imp();
-        if imp.details.borrow().as_ref() == details {
+        if imp.details.borrow().as_slice() == details {
             return;
         }
-        imp.details.replace(details.cloned());
-        self.render_details();
+        imp.details.replace(details.to_vec());
+        for (id, holder) in self.holders() {
+            if let Some(split) = holder.head::<SplitRow>() {
+                split.set_detail_visible(self.carded(&id));
+            }
+            if holder.details::<gtk4::Widget>().is_some() {
+                self.fill(&id, &holder);
+            }
+        }
     }
 
-    pub fn set_overflow(&self, more: Option<&str>) {
-        set_footer_row(&self.imp().more, more);
+    /// Other networks as a disclosure: the header turns its chevron while `open`, and `rest` is the row at the bottom of an open list that the cap has
+    /// cut short. No other network in range hides the header.
+    pub fn set_others(&self, count: usize, open: bool, rest: Option<&str>) {
+        let imp = self.imp();
+        let header = &imp.more;
+        if header.get_visible() != (count > 0) {
+            header.set_visible(count > 0);
+        }
+        crate::set_css_class(&**header, crate::drawer::OPEN, open);
+        set_footer_row(&imp.all, rest);
+        self.settle_other();
     }
 
     pub fn set_hidden_entry(&self, visible: bool) {
         let imp = self.imp();
         if imp.hidden.get_visible() != visible {
             imp.hidden.set_visible(visible);
+            imp.hidden_rule.set_visible(visible);
+        }
+    }
+
+    /// Other networks shows while it has a header or a scan to wait on. Collapsed, it is only the
+    /// header, which is why its visibility follows the header and not the entries.
+    fn settle_other(&self) {
+        let imp = self.imp();
+        let rows = imp
+            .entries
+            .borrow()
+            .iter()
+            .any(|entry| entry.place == Place::Other);
+        let visible = rows || imp.more.get_visible() || imp.other.empty();
+        if imp.other.get_visible() != visible {
+            imp.other.set_visible(visible);
         }
     }
 
@@ -192,6 +223,9 @@ impl NetworkPopover {
         }
         imp.revalidate();
 
+        for (_, holder) in self.holders() {
+            holder.set_expanded(false);
+        }
         imp.pages.set_visible_child_name(PROMPT_PAGE);
         imp.hero.set_sensitive(false);
         imp.footer.set_sensitive(false);
@@ -212,22 +246,11 @@ impl NetworkPopover {
         )
     }
 
-    pub fn connect_activated<F: Fn(&Self, &str, bool) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
+    /// A row that is not in use was pressed: join it. A row in use opens its card instead, and
+    /// never reports here.
+    pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
-            false,
-            glib::closure_local!(move |popover: Self, id: String, active: bool| {
-                f(&popover, &id, active)
-            }),
-        )
-    }
-
-    pub fn connect_selected<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "selected",
             false,
             glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
@@ -264,6 +287,14 @@ impl NetworkPopover {
         )
     }
 
+    pub fn connect_show_all<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "show-all",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
+        )
+    }
+
     pub fn connect_hidden_network<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "hidden-network",
@@ -280,13 +311,12 @@ impl NetworkPopover {
         )
     }
 
-    fn active(&self, id: &str) -> bool {
+    fn carded(&self, id: &str) -> bool {
         self.imp()
-            .entries
+            .details
             .borrow()
             .iter()
-            .find(|entry| entry.id == id)
-            .is_some_and(|entry| entry.selected)
+            .any(|details| details.id == id)
     }
 
     fn render_entries(&self) {
@@ -294,13 +324,13 @@ impl NetworkPopover {
         let entries = imp.entries.borrow().clone();
 
         for (place, section, parent, held) in [
+            (Place::Other, &imp.other, &imp.other_rows, &imp.other_held),
             (
-                Place::Networks,
-                &imp.networks,
-                &imp.network_rows,
-                &imp.network_held,
+                Place::Wifi,
+                &imp.wifi_section,
+                &imp.wifi_rows,
+                &imp.wifi_held,
             ),
-            (Place::Known, &imp.known, &imp.known_rows, &imp.known_held),
             (Place::Wired, &imp.wired, &imp.wired_rows, &imp.wired_held),
             (Place::Vpn, &imp.vpn, &imp.vpn_rows, &imp.vpn_held),
         ] {
@@ -314,18 +344,37 @@ impl NetworkPopover {
                 &mut held.borrow_mut(),
                 &wanted,
                 |entry| entry.id.clone(),
-                |entry| drawer::holder(&self.build_row(&entry.id)),
-                |holder, entry| {
-                    if let Some(split) = drawer::head::<SplitRow>(holder) {
-                        dress(&split, entry);
-                    }
-                },
+                |entry| Expandable::new(&self.head_for(entry)),
+                |holder, entry| self.apply(holder, entry),
             );
-            section.set_visible(!wanted.is_empty() || section.empty());
+            if place != Place::Other {
+                section.set_visible(!wanted.is_empty());
+            }
         }
+        self.settle_other();
+        let live: Vec<String> = entries.iter().map(|entry| entry.id.clone()).collect();
+        imp.lines.borrow_mut().retain(|id, _| live.contains(id));
     }
 
-    fn build_row(&self, id: &str) -> SplitRow {
+    /// A row in use is about that connection: the whole row opens its card, where Disconnect
+    /// lives. Every other row joins on its body, and its chevron shows only when it has a card.
+    fn head_for(&self, entry: &Entry) -> gtk4::Widget {
+        if entry.selected {
+            let row = Row::new();
+            row.add_css_class(NETWORK);
+            let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+            chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+            chevron.add_css_class("drawer-chevron");
+            row.set_trail(&chevron);
+            let key = entry.id.clone();
+            row.connect_clicked(glib::clone!(
+                #[weak(rename_to = popover)]
+                self,
+                move |_| popover.open(&key)
+            ));
+            return row.upcast();
+        }
+
         let split = SplitRow::new();
         split.add_css_class(NETWORK);
 
@@ -334,110 +383,84 @@ impl NetworkPopover {
         lock.set_visible(false);
         split.set_trail(&lock);
 
-        let key = id.to_owned();
+        let key = entry.id.clone();
         split.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| {
-                let active = popover.active(&key);
-                popover.emit_by_name::<()>("activated", &[&key, &active]);
-            }
+            move |_| popover.emit_by_name::<()>("activated", &[&key])
         ));
 
-        let key = id.to_owned();
+        let key = entry.id.clone();
         split.connect_details(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("selected", &[&key])
+            move |_| popover.open(&key)
         ));
-        split
+        split.upcast()
     }
 
-    fn render_details(&self) {
-        let details = self.imp().details.borrow().clone();
-        let wanted = details.as_ref().map(|details| details.id.as_str());
-        let open = self
-            .listed()
-            .into_iter()
-            .find(|(id, _)| wanted == Some(id.as_str()));
-
-        for (id, holder) in self.holders() {
-            if let Some(panel) = drawer::panel(&holder) {
-                drawer::set(&panel, open.as_ref().is_some_and(|(open, _)| *open == id));
+    fn apply(&self, holder: &Expandable, entry: &Entry) {
+        if entry.selected == holder.head::<SplitRow>().is_some() {
+            holder.set_head(&self.head_for(entry));
+        }
+        match holder.head::<SplitRow>() {
+            Some(split) => {
+                let row = split.row();
+                dress(&row, entry);
+                if let Some(lock) = row.trail() {
+                    lock.set_visible(entry.secured);
+                }
+                split.set_detail_visible(self.carded(&entry.id));
+            }
+            None => {
+                if let Some(row) = holder.head::<Row>() {
+                    dress(&row, entry);
+                }
             }
         }
-
-        if let (Some(details), Some((_, holder))) = (details.as_ref(), open.as_ref()) {
-            self.fill(holder, details);
-        }
-
-        self.recede(open.as_ref().map(|(id, _)| id.as_str()));
     }
 
-    fn fill(&self, holder: &gtk4::Box, details: &Details) {
-        let Some(panel) = drawer::panel(holder) else {
+    fn open(&self, id: &str) {
+        let holder = self.holders().find(|(held, _)| held == id);
+        if let Some((_, holder)) = holder
+            && holder.details::<gtk4::Widget>().is_none()
+        {
+            self.fill(id, &holder);
+        }
+    }
+
+    fn fill(&self, id: &str, holder: &Expandable) {
+        let imp = self.imp();
+        let Some(details) = imp
+            .details
+            .borrow()
+            .iter()
+            .find(|details| details.id == id)
+            .cloned()
+        else {
+            holder.set_details(None::<&gtk4::Widget>);
             return;
         };
-        let rows = match panel.child().and_downcast::<gtk4::Box>() {
-            Some(rows) => rows,
-            None => {
-                let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                rows.add_css_class(DETAIL);
-                panel.set_child(Some(&rows));
-                rows
-            }
-        };
-        let id = details.id.clone();
-        let key = id.clone();
+        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&rows));
+            rows
+        });
+        let mut lines = imp.lines.borrow_mut();
         reconcile::by_key(
             &rows,
-            &mut self.imp().lines.borrow_mut(),
+            lines.entry(id.to_owned()).or_default(),
             &details.lines,
-            |line| format!("{key}/{}", line.action),
-            |line| self.build_line(&id, line),
+            |line| line.action.clone(),
+            |line| self.build_line(id, line),
             dress_line,
         );
     }
 
-    fn recede(&self, open: Option<&str>) {
+    fn holders(&self) -> impl Iterator<Item = (String, Expandable)> + use<> {
         let imp = self.imp();
-        for (id, holder) in self.holders() {
-            let Some(head) = holder.first_child() else {
-                continue;
-            };
-            crate::set_css_class(&head, drawer::RECEDED, open.is_some_and(|open| open != id));
-            crate::set_css_class(&head, drawer::OPEN, open == Some(id.as_str()));
-        }
-        for widget in [
-            imp.more.upcast_ref::<gtk4::Widget>(),
-            imp.hidden.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, open.is_some());
-        }
-        crate::set_css_class(&*imp.hero, drawer::RECEDED, open.is_some());
-    }
-
-    fn listed(&self) -> Vec<(String, gtk4::Box)> {
-        let imp = self.imp();
-        let mut listed = Vec::new();
-        for (section, held) in [
-            (&imp.networks, &imp.network_held),
-            (&imp.known, &imp.known_held),
-            (&imp.wired, &imp.wired_held),
-            (&imp.vpn, &imp.vpn_held),
-        ] {
-            if section.get_visible() && !section.empty() {
-                listed.extend(held.borrow().iter().cloned());
-            }
-        }
-        listed
-    }
-
-    fn holders(&self) -> impl Iterator<Item = (String, gtk4::Box)> + use<> {
-        let imp = self.imp();
-        let mut all = imp.network_held.borrow().clone();
-        for held in [&imp.known_held, &imp.wired_held, &imp.vpn_held] {
+        let mut all = imp.other_held.borrow().clone();
+        for held in [&imp.wifi_held, &imp.wired_held, &imp.vpn_held] {
             all.extend(held.borrow().iter().cloned());
         }
         all.into_iter()
@@ -472,17 +495,12 @@ impl NetworkPopover {
     }
 }
 
-fn dress(split: &SplitRow, entry: &Entry) {
-    let row = split.row();
+fn dress(row: &Row, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.subtitle));
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_busy(entry.busy);
     row.set_selected(entry.selected);
-
-    if let Some(lock) = row.trail() {
-        lock.set_visible(entry.secured);
-    }
 }
 
 fn dress_line(row: &Row, line: &Line) {

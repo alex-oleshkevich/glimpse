@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Shade, drawer, none_if_empty};
+use crate::{Shade, none_if_empty};
 
 glib::wrapper! {
     pub struct ColorPickerPopover(ObjectSubclass<imp::ColorPickerPopover>)
@@ -39,17 +39,6 @@ impl ColorPickerPopover {
         imp.palette_section.set_empty(shades.is_empty());
     }
 
-    pub fn set_open(&self, open: Option<u64>) {
-        let imp = self.imp();
-        imp.palette.set_open(open);
-        for chrome in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(chrome, drawer::RECEDED, open.is_some());
-        }
-    }
-
     pub fn set_footer(&self, label: Option<&str>) {
         let row = &self.imp().footer;
         row.set_title(none_if_empty(label.unwrap_or_default()));
@@ -59,14 +48,6 @@ impl ColorPickerPopover {
     pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
-            false,
-            glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
-        )
-    }
-
-    pub fn connect_detailed<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "detailed",
             false,
             glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
         )

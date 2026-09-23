@@ -34,42 +34,9 @@ template $NetworkPopover: Gtk.Widget {
             "column",
           ]
 
-          $Section networks {
-            visible: false;
-
-            Gtk.Box {
-              orientation: vertical;
-
-              Gtk.Box network_rows {
-                orientation: vertical;
-              }
-
-              $Row more {
-                visible: false;
-                activatable: true;
-                lead-icon: "view-more-symbolic";
-              }
-            }
-
-            [placeholder]
-            $Placeholder looking {
-              icon-name: "network-wireless-acquiring-symbolic";
-              title: _("Looking for networks…");
-            }
-          }
-
-          $Section known {
-            visible: false;
-            title: _("Known networks");
-
-            Gtk.Box known_rows {
-              orientation: vertical;
-            }
-          }
-
           $Section wired {
             visible: false;
-            title: _("Wired");
+            title: _("Ethernet");
 
             Gtk.Box wired_rows {
               orientation: vertical;
@@ -85,11 +52,72 @@ template $NetworkPopover: Gtk.Widget {
             }
           }
 
+          $Section wifi_section {
+            visible: false;
+            title: _("Wi-Fi");
+
+            Gtk.Box wifi_rows {
+              orientation: vertical;
+            }
+          }
+
+          $Section other {
+            visible: false;
+
+            Gtk.Box {
+              orientation: vertical;
+
+              $Row more {
+                visible: false;
+                activatable: true;
+                title: _("Other networks");
+
+                [trail]
+                Gtk.Image {
+                  icon-name: "go-next-symbolic";
+                  accessible-role: presentation;
+
+                  styles [
+                    "drawer-chevron",
+                  ]
+                }
+
+                styles [
+                  "network-popover__others",
+                ]
+              }
+
+              Gtk.Box other_rows {
+                orientation: vertical;
+              }
+
+              $Row all {
+                visible: false;
+                activatable: true;
+                lead-icon: "view-more-symbolic";
+              }
+            }
+
+            [placeholder]
+            $Placeholder looking {
+              icon-name: "network-wireless-acquiring-symbolic";
+              title: _("Looking for networks…");
+            }
+          }
+
+          Gtk.Separator hidden_rule {
+            visible: false;
+
+            styles [
+              "network-popover__rule",
+            ]
+          }
+
           $Row hidden {
             visible: false;
             activatable: true;
             title: _("Connect to a hidden network…");
-            lead-icon: "network-wireless-encrypted-symbolic";
+            lead-icon: "list-add-symbolic";
           }
         };
       }

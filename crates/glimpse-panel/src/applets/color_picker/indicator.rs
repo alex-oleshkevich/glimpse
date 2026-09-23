@@ -23,8 +23,6 @@ pub struct ColorPicker {
     footer: Option<(String, Vec<String>)>,
     shown: glib::WeakRef<ColorPickerPopover>,
     spec: Vec<IndicatorSpec>,
-    open: Option<u64>,
-    pressed: Rc<Cell<Option<u64>>>,
     format: Rc<Cell<ColorFormat>>,
     swatch: Swatch,
     icon: gtk4::gio::Icon,
@@ -42,8 +40,6 @@ impl ColorPicker {
             footer: None,
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
-            open: None,
-            pressed: Rc::new(Cell::new(None)),
             swatch: Swatch::default(),
             icon: gtk4::gio::ThemedIcon::new(render::ICON).upcast(),
         };
@@ -79,7 +75,6 @@ impl ColorPicker {
         let title = latest.map(|color| format.render(color));
         shown.set_latest(title.as_deref().zip(latest.map(rgba)));
         shown.set_shades(&render::shades(&self.state.colors, format));
-        shown.set_open(self.open);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 
@@ -143,19 +138,7 @@ impl Applet for ColorPicker {
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Woken => {
-                if let Some(id) = self.pressed.take() {
-                    self.open = (self.open != Some(id)).then_some(id);
-                }
-                self.state = self.service.snapshot();
-                let colors = &self.state.colors;
-                if self
-                    .open
-                    .is_some_and(|open| !colors.iter().any(|color| u64::from(color.id) == open))
-                {
-                    self.open = None;
-                }
-            }
+            Input::Woken => self.state = self.service.snapshot(),
             Input::Pointer(Pointer::Press(Button::Right)) => {
                 if !self.state.picking {
                     self.pick();
@@ -172,7 +155,6 @@ impl Applet for ColorPicker {
     }
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
-        self.open = None;
         let shown = ColorPickerPopover::new();
         let opener = seat.opener();
 
@@ -195,14 +177,6 @@ impl Applet for ColorPicker {
                     copy(&service, report.clone(), id, format);
                 }
                 opener.close_popover();
-            }
-        });
-        shown.connect_detailed({
-            let opener = opener.clone();
-            let pressed = Rc::clone(&self.pressed);
-            move |_, id| {
-                pressed.set(Some(id));
-                opener.wake();
             }
         });
         if let Some((_, command)) = &self.footer {

@@ -85,9 +85,15 @@ impl PopoverShell {
     }
 
     pub(crate) fn dismiss_from(&self, target: &gtk4::Widget) -> bool {
-        let outside = std::iter::successors(Some(target.clone()), |widget| widget.parent())
-            .take_while(|widget| widget != self.upcast_ref::<gtk4::Widget>())
+        let mut ancestors = std::iter::successors(Some(target.clone()), |widget| widget.parent())
+            .take_while(|widget| widget != self.upcast_ref::<gtk4::Widget>());
+        let outside = ancestors
+            .clone()
             .any(|widget| widget.has_css_class(drawer::RECEDED));
+        let opener = ancestors
+            .find_map(|widget| widget.downcast::<Expandable>().ok())
+            .is_some_and(|expandable| expandable.opens_from(target));
+        let outside = outside && !opener;
         if outside {
             for expandable in descendants::<Expandable>(self.upcast_ref()) {
                 expandable.set_expanded(false);

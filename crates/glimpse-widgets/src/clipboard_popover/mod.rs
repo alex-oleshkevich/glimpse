@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Clip, ClipActions, Severity, drawer, none_if_empty};
+use crate::{Clip, ClipActions, Severity, none_if_empty};
 
 glib::wrapper! {
     pub struct ClipboardPopover(ObjectSubclass<imp::ClipboardPopover>)
@@ -59,24 +59,6 @@ impl ClipboardPopover {
         imp.recent_section.set_empty(clips.is_empty());
     }
 
-    /// Which entry has its actions unfolded, across both sections: one list must not keep a panel
-    /// open while the other opens a second.
-    pub fn set_open(&self, open: Option<u64>) {
-        let imp = self.imp();
-        imp.pinned.set_open(open);
-        imp.recent.set_open(open);
-        // Every piece of surrounding chrome recedes while a detail is open, or the card is read
-        // against a hero and two footer rows that still look pressable.
-        for chrome in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.trouble.upcast_ref(),
-            imp.clear.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(chrome, drawer::RECEDED, open.is_some());
-        }
-    }
-
     pub fn set_clear_label(&self, label: Option<&str>) {
         let row = &self.imp().clear;
         row.set_title(label);
@@ -92,14 +74,6 @@ impl ClipboardPopover {
     pub fn connect_restored<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "restored",
-            false,
-            glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
-        )
-    }
-
-    pub fn connect_detailed<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "detailed",
             false,
             glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
         )

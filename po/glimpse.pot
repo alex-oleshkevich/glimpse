@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 21:35+0200\n"
+"POT-Creation-Date: 2026-09-23 22:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -37,7 +37,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
-#: crates/glimpse-widgets/blueprints/network_popover.blp:158
+#: crates/glimpse-widgets/blueprints/network_popover.blp:186
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
@@ -84,7 +84,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:324
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:116
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:111
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:121
 msgid "That did not work."
@@ -164,7 +164,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:532
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:257
-#: crates/glimpse-panel/src/applets/network/indicator.rs:512
+#: crates/glimpse-panel/src/applets/network/indicator.rs:465
 msgid "Could not change that setting"
 msgstr ""
 
@@ -213,8 +213,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:394
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:683
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
-#: crates/glimpse-panel/src/applets/network/render.rs:290
-#: crates/glimpse-panel/src/applets/network/render.rs:789
 #: crates/glimpse-panel/src/applets/places/render.rs:53
 #: crates/glimpse-panel/src/applets/removable/render.rs:52
 msgid "Show fewer"
@@ -315,7 +313,7 @@ msgid "Technology"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:143
-#: crates/glimpse-widgets/src/display_list/mod.rs:276
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
 msgid "Model"
 msgstr ""
 
@@ -471,19 +469,17 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
-#: crates/glimpse-panel/src/applets/network/indicator.rs:391
-#: crates/glimpse-panel/src/applets/network/indicator.rs:473
+#: crates/glimpse-panel/src/applets/network/indicator.rs:432
 msgid "Could not disconnect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:111
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:147
-#: crates/glimpse-panel/src/applets/network/indicator.rs:414
-#: crates/glimpse-panel/src/applets/network/indicator.rs:420
-#: crates/glimpse-panel/src/applets/network/indicator.rs:426
-#: crates/glimpse-panel/src/applets/network/indicator.rs:466
-#: crates/glimpse-panel/src/applets/network/indicator.rs:552
-#: crates/glimpse-panel/src/applets/network/indicator.rs:561
+#: crates/glimpse-panel/src/applets/network/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/indicator.rs:407
+#: crates/glimpse-panel/src/applets/network/indicator.rs:413
+#: crates/glimpse-panel/src/applets/network/indicator.rs:505
+#: crates/glimpse-panel/src/applets/network/indicator.rs:514
 msgid "Could not connect"
 msgstr ""
 
@@ -561,7 +557,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:146
 msgid "Forget"
 msgstr ""
 
@@ -622,20 +618,15 @@ msgid "Pairing lost"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
-#: crates/glimpse-panel/src/applets/network/render.rs:306
-#: crates/glimpse-panel/src/applets/network/render.rs:389
-#: crates/glimpse-panel/src/applets/network/render.rs:425
+#: crates/glimpse-panel/src/applets/network/render.rs:332
 msgid "Disconnect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:365
-#: crates/glimpse-panel/src/applets/network/indicator.rs:259
-#: crates/glimpse-panel/src/applets/network/indicator.rs:268
-#: crates/glimpse-panel/src/applets/network/indicator.rs:287
-#: crates/glimpse-panel/src/applets/network/render.rs:313
-#: crates/glimpse-panel/src/applets/network/render.rs:390
-#: crates/glimpse-panel/src/applets/network/render.rs:426
-#: crates/glimpse-widgets/blueprints/network_popover.blp:162
+#: crates/glimpse-panel/src/applets/network/indicator.rs:265
+#: crates/glimpse-panel/src/applets/network/indicator.rs:274
+#: crates/glimpse-panel/src/applets/network/indicator.rs:293
+#: crates/glimpse-widgets/blueprints/network_popover.blp:190
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
 msgid "Connect"
@@ -650,8 +641,7 @@ msgid "Codec"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
-#: crates/glimpse-panel/src/applets/network/render.rs:343
-#: crates/glimpse-panel/src/applets/network/render.rs:367
+#: crates/glimpse-panel/src/applets/network/render.rs:365
 msgid "Connect automatically"
 msgstr ""
 
@@ -668,7 +658,6 @@ msgid "Will not survive a restart"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:403
-#: crates/glimpse-panel/src/applets/network/render.rs:327
 msgid "Signal"
 msgstr ""
 
@@ -825,74 +814,74 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:122
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:112
 msgid "Image · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:154
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:144
 msgid "Pin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:145
 msgid "Unpin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:166
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
 msgid "Clear history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:189
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
 msgid "Clipboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:193
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:182
 msgid "The clipboard is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:207
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
 msgid "That entry is no longer in the history."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:208
 msgid "{count} items · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:284
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:259
 msgid "Could not copy that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:309
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
 msgid "Could not pin that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:325
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:292
 msgid "Could not forget that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:341
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
 msgid "Could not clear the history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:89
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:84
 #: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
 msgid "Color picker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:99
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:94
 msgid "Could not pick a color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:110
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:105
 msgid "That color is no longer in the palette."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:113
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:108
 msgid "The picker could not start, capture the screen or reach the clipboard."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:191
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:163
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:173
 msgid "Could not copy that color"
 msgstr ""
 
@@ -1031,63 +1020,62 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:202
 #: crates/glimpse-widgets/blueprints/network_popover.blp:18
+#: crates/glimpse-widgets/blueprints/network_popover.blp:57
 msgid "Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:247
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
 msgid "Hidden network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:248
+#: crates/glimpse-panel/src/applets/network/indicator.rs:254
 msgid "Type the name the network broadcasts nothing about."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:250
+#: crates/glimpse-panel/src/applets/network/indicator.rs:256
 msgid "Continue"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:257
+#: crates/glimpse-panel/src/applets/network/indicator.rs:263
 msgid "Choose how the network is secured, then type its password."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:266
-#: crates/glimpse-panel/src/applets/network/indicator.rs:281
+#: crates/glimpse-panel/src/applets/network/indicator.rs:272
+#: crates/glimpse-panel/src/applets/network/indicator.rs:287
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
 msgid "The network needs a password before this computer can join it."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:278
+#: crates/glimpse-panel/src/applets/network/indicator.rs:284
 msgid "{network} refused that password. Check it and try again."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:286
+#: crates/glimpse-panel/src/applets/network/indicator.rs:292
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
 msgid "Try again"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:312
+#: crates/glimpse-panel/src/applets/network/indicator.rs:318
 msgid "VPN is connected"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:363
+#: crates/glimpse-panel/src/applets/network/indicator.rs:369
 msgid "Could not switch Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:385
-#: crates/glimpse-panel/src/applets/network/indicator.rs:491
-msgid "Could not disconnect the VPN"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:408
-#: crates/glimpse-panel/src/applets/network/indicator.rs:485
+#: crates/glimpse-panel/src/applets/network/indicator.rs:395
 msgid "Could not connect the VPN"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:479
+#: crates/glimpse-panel/src/applets/network/indicator.rs:438
 msgid "Could not forget that network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:573
+#: crates/glimpse-panel/src/applets/network/indicator.rs:444
+msgid "Could not disconnect the VPN"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:526
 msgid "Could not send that password"
 msgstr ""
 
@@ -1129,9 +1117,9 @@ msgid "Not connected"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:114
-#: crates/glimpse-panel/src/applets/network/render.rs:597
-#: crates/glimpse-panel/src/applets/network/render.rs:605
-#: crates/glimpse-panel/src/applets/network/render.rs:730
+#: crates/glimpse-panel/src/applets/network/render.rs:560
+#: crates/glimpse-panel/src/applets/network/render.rs:568
+#: crates/glimpse-panel/src/applets/network/render.rs:683
 msgid "Metered connection"
 msgstr ""
 
@@ -1192,57 +1180,42 @@ msgid "Open, encrypted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:194
-#: crates/glimpse-panel/src/applets/network/render.rs:247
-#: crates/glimpse-panel/src/applets/network/render.rs:248
+#: crates/glimpse-panel/src/applets/network/render.rs:229
+#: crates/glimpse-panel/src/applets/network/render.rs:230
 msgid "Connected"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:196
-#: crates/glimpse-panel/src/applets/network/render.rs:247
-#: crates/glimpse-panel/src/applets/network/render.rs:707
-#: crates/glimpse-panel/src/applets/network/render.rs:719
+#: crates/glimpse-panel/src/applets/network/render.rs:229
+#: crates/glimpse-panel/src/applets/network/render.rs:660
+#: crates/glimpse-panel/src/applets/network/render.rs:672
 msgid "Metered"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:232
-msgid "Saved network"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/render.rs:233
-msgid "Not in range"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/render.rs:249
+#: crates/glimpse-panel/src/applets/network/render.rs:231
 msgid "Cable unplugged"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:292
-#: crates/glimpse-panel/src/applets/network/render.rs:780
+#: crates/glimpse-panel/src/applets/network/render.rs:288
+#: crates/glimpse-panel/src/applets/network/render.rs:737
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:321
-msgid "Security"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/render.rs:334
-#: crates/glimpse-panel/src/applets/network/render.rs:407
-#: crates/glimpse-panel/src/applets/network/render.rs:435
+#: crates/glimpse-panel/src/applets/network/render.rs:340
 msgid "IP address"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:349
-#: crates/glimpse-panel/src/applets/network/render.rs:373
+#: crates/glimpse-panel/src/applets/network/render.rs:371
 msgid "Forget this network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:399
+#: crates/glimpse-panel/src/applets/network/render.rs:388
 msgid "Speed"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:400
+#: crates/glimpse-panel/src/applets/network/render.rs:389
 msgid "{speed} Mb/s"
 msgstr ""
 
@@ -2027,23 +2000,23 @@ msgstr ""
 msgid "Only one player is running."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:57
-msgid "Looking for networks…"
+#: crates/glimpse-widgets/blueprints/network_popover.blp:39
+msgid "Ethernet"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:63
-msgid "Known networks"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/network_popover.blp:72
-msgid "Wired"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/network_popover.blp:81
+#: crates/glimpse-widgets/blueprints/network_popover.blp:48
 msgid "VPN"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:91
+#: crates/glimpse-widgets/blueprints/network_popover.blp:73
+msgid "Other networks"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:104
+msgid "Looking for networks…"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:119
 msgid "Connect to a hidden network…"
 msgstr ""
 
@@ -2186,43 +2159,43 @@ msgstr ""
 msgid "{kelvin} K"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:138
-msgid "The last enabled display can't be turned off"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:177
+#: crates/glimpse-widgets/src/display_list/mod.rs:111
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:270
+#: crates/glimpse-widgets/src/display_list/mod.rs:146
+msgid "The last enabled display can't be turned off"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:160
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:273
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:279
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:282
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
 msgid "Current mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:285
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:286
+#: crates/glimpse-widgets/src/display_list/mod.rs:176
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:297
+#: crates/glimpse-widgets/src/display_list/mod.rs:187
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:315
+#: crates/glimpse-widgets/src/display_list/mod.rs:205
 msgid "{x}, {y}"
 msgstr ""
 

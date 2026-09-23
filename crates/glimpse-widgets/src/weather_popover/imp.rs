@@ -6,7 +6,9 @@ use gtk4::{
 };
 
 use super::Page;
-use crate::{ForecastList, ForecastStrip, Hero, Notice, PopoverShell, Readout, Row, Section};
+use crate::{
+    Expandable, ForecastList, ForecastStrip, Hero, Notice, PopoverShell, Readout, Row, Section,
+};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/weather_popover.ui")]
@@ -36,8 +38,7 @@ pub struct WeatherPopover {
     #[template_child]
     pub footer: TemplateChild<Row>,
 
-    pub notices: RefCell<Vec<Notice>>,
-    pub keys: RefCell<Vec<Option<String>>>,
+    pub notices: RefCell<Vec<Expandable>>,
     pub built: RefCell<Vec<Page>>,
 }
 
@@ -71,12 +72,6 @@ impl ObjectImpl for WeatherPopover {
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
-
-        self.days.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_, index| popover.open(&super::day_page(index))
         ));
     }
 

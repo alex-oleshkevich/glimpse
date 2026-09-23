@@ -22,7 +22,7 @@ impl Expandable {
     }
 
     fn set_expanded(&self, expanded: bool) {
-        if self.drawer.reveals_child() == expanded {
+        if self.drawer.reveals_child() == expanded || expanded && self.drawer.child().is_none() {
             return;
         }
         let obj = self.obj();
@@ -90,6 +90,13 @@ impl ObjectImpl for Expandable {
 }
 
 impl WidgetImpl for Expandable {
+    fn root(&self) {
+        self.parent_root();
+        if let Some(shell) = self.drawer.reveals_child().then(|| self.shell()).flatten() {
+            shell.focus(&self.obj());
+        }
+    }
+
     fn unroot(&self) {
         let shell = self.drawer.reveals_child().then(|| self.shell()).flatten();
         self.parent_unroot();

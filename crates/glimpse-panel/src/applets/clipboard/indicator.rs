@@ -1,6 +1,4 @@
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ClipboardAppletConfig};
@@ -29,12 +27,6 @@ pub struct Clipboard {
     footer: Option<(String, Vec<String>)>,
     shown: glib::WeakRef<ClipboardPopover>,
     spec: Vec<IndicatorSpec>,
-    /// Which entry has its actions unfolded. The applet's, not the widget's: a popover is rebuilt
-    /// on every open and anything that expands something would otherwise come back.
-    open: Option<ClipboardEntryId>,
-    /// A signal closure has no `&mut self`, so the row it pressed is left here and drained on the
-    /// wake it sends. Same shape as `Mpris`'s queued transport actions.
-    pressed: Rc<Cell<Option<ClipboardEntryId>>>,
     /// Decoded thumbnails, keyed by entry id. Decoding is the expensive half and an entry's bytes
     /// never change, so a texture is built once and pruned when its entry leaves.
     images: HashMap<ClipboardEntryId, Option<gdk::Texture>>,
@@ -52,8 +44,6 @@ impl Clipboard {
             footer: None,
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
-            open: None,
-            pressed: Rc::new(Cell::new(None)),
             images: HashMap::new(),
             icon: gtk4::gio::ThemedIcon::new(render::ICON).upcast(),
         }
@@ -159,7 +149,6 @@ impl Clipboard {
         shown.set_trouble(self.state.unavailable.as_deref());
         shown.set_pinned(&pinned);
         shown.set_recent(&recent);
-        shown.set_open(self.open);
         // `History::clear` keeps pins, so with nothing else held the row would succeed and change
         // nothing — a control that reports success and does not act.
         let clearable = self.state.entries.iter().filter(|e| !e.pinned).count();
@@ -240,20 +229,9 @@ impl Applet for Clipboard {
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
-                if let Some(id) = self.pressed.take() {
-                    // Pressing the open row's chevron again closes it: the control that opens a
-                    // drawer is the one that closes it.
-                    self.open = match self.open == Some(id) {
-                        true => None,
-                        false => Some(id),
-                    };
-                }
                 self.state = self.service.snapshot();
                 let live: Vec<_> = self.state.entries.iter().map(|entry| entry.id).collect();
                 self.images.retain(|id, _| live.contains(id));
-                if self.open.is_some_and(|open| !live.contains(&open)) {
-                    self.open = None;
-                }
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -265,9 +243,6 @@ impl Applet for Clipboard {
     }
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
-        // A fresh widget is not a fresh popover: the applet's own fields survive, so anything that
-        // expands something is reset here or it comes back under a row nobody pressed.
-        self.open = None;
         let shown = ClipboardPopover::new();
         let opener = seat.opener();
 
@@ -286,14 +261,6 @@ impl Applet for Clipboard {
                 );
                 // Copying is what the press meant, so the surface closes on it.
                 opener.close_popover();
-            }
-        });
-        shown.connect_detailed({
-            let opener = opener.clone();
-            let pressed = Rc::clone(&self.pressed);
-            move |_, id| {
-                pressed.set(Some(id));
-                opener.wake();
             }
         });
         shown.connect_pinned({

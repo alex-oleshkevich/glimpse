@@ -2,9 +2,8 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Day, Fact, FactList, Hour, Notice, Section, Severity, drawer};
+use crate::{Day, Expandable, Fact, FactList, Hour, Notice, Section, Severity};
 
-const DETAIL: &str = "detail-card";
 const DESCRIPTION: &str = "detail-card__description";
 
 pub fn day_page(index: u32) -> String {
@@ -91,31 +90,25 @@ impl WeatherPopover {
 
     pub fn set_alerts(&self, alerts: &[Advisory]) {
         let imp = self.imp();
-        let mut notices = imp.notices.borrow_mut();
-
-        imp.keys.replace(
-            alerts
-                .iter()
-                .map(|advisory| advisory.page.clone())
-                .collect(),
-        );
-
-        let before = notices.len();
+        let mut holders = imp.notices.borrow_mut();
+        let before = holders.len();
         for (index, advisory) in alerts.iter().enumerate() {
-            if notices.len() == index {
-                notices.push(self.build_notice(index));
+            if holders.len() == index {
+                let holder = Expandable::new(&Notice::new());
+                imp.alerts.append(&holder);
+                holders.push(holder);
             }
-            dress(&notices[index], advisory);
+            if let Some(notice) = holders[index].head::<Notice>() {
+                dress(&notice, advisory);
+            }
         }
-        for notice in notices.split_off(alerts.len()) {
-            if let Some(holder) = notice.parent().and_downcast::<gtk4::Box>() {
-                imp.alerts.remove(&holder);
-            }
+        for holder in holders.split_off(alerts.len()) {
+            imp.alerts.remove(&holder);
         }
         imp.alerts.set_visible(!alerts.is_empty());
 
-        let grew = notices.len() > before;
-        drop(notices);
+        let grew = holders.len() > before;
+        drop(holders);
         if grew {
             self.fill_alerts();
         }
@@ -140,87 +133,16 @@ impl WeatherPopover {
         }
         imp.days.set_details(&days);
         self.fill_alerts();
-
-        if !self
-            .is_open()
-            .is_some_and(|key| pages.iter().any(|page| page.key == key))
-        {
-            self.reveal(None);
-        }
-    }
-
-    /// A second activation of the detail already showing closes it, which is the only way back for
-    /// whoever opened it.
-    pub fn open(&self, key: &str) {
-        let Some(slot) = locate(key) else {
-            return;
-        };
-        match self.is_open().as_deref() == Some(key) {
-            true => self.reveal(None),
-            false => self.reveal(Some(slot)),
-        }
-    }
-
-    pub fn is_open(&self) -> Option<String> {
-        let imp = self.imp();
-        if let Some(index) = imp.days.revealed() {
-            return Some(day_page(index as u32));
-        }
-        imp.notices
-            .borrow()
-            .iter()
-            .position(|notice| panel_of(notice).is_some_and(|panel| panel.reveals_child()))
-            .map(alert_page)
     }
 
     fn fill_alerts(&self) {
         let imp = self.imp();
         let pages = imp.built.borrow();
-        for (index, notice) in imp.notices.borrow().iter().enumerate() {
-            let Some(panel) = panel_of(notice) else {
-                continue;
-            };
+        for (index, holder) in imp.notices.borrow().iter().enumerate() {
             let page = pages
                 .iter()
                 .find(|page| matches!(locate(&page.key), Some(Slot::Alert(at)) if at == index));
-            panel.set_child(page.map(build).as_ref());
-        }
-    }
-
-    fn reveal(&self, slot: Option<Slot>) {
-        let imp = self.imp();
-        let day = match slot {
-            Some(Slot::Day(index)) => Some(index),
-            _ => None,
-        };
-        imp.days.reveal(day);
-        if day.is_none() {
-            imp.days.recede(slot.is_some());
-        }
-
-        for (index, notice) in imp.notices.borrow().iter().enumerate() {
-            let Some(panel) = panel_of(notice) else {
-                continue;
-            };
-            let open =
-                matches!(slot, Some(Slot::Alert(at)) if at == index) && panel.child().is_some();
-            drawer::set(&panel, open);
-            crate::set_css_class(notice, drawer::OPEN, open);
-            crate::set_css_class(notice, drawer::RECEDED, slot.is_some() && !open);
-        }
-
-        self.recede(slot.is_some());
-    }
-
-    fn recede(&self, any: bool) {
-        let imp = self.imp();
-        for widget in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.hourly.upcast_ref(),
-            imp.nowcast.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, any);
+            holder.set_details(page.map(build).as_ref());
         }
     }
 
@@ -237,24 +159,6 @@ impl WeatherPopover {
             false,
             glib::closure_local!(move |popover: Self| handler(&popover)),
         )
-    }
-
-    /// The handler is connected once, when the notice is built, and reads the key back by
-    /// position. Connecting it while dressing would stack one handler per reconcile.
-    fn build_notice(&self, index: usize) -> Notice {
-        let notice = Notice::new();
-        notice.connect_clicked(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| {
-                let key = popover.imp().keys.borrow().get(index).cloned().flatten();
-                if let Some(key) = key {
-                    popover.open(&key);
-                }
-            }
-        ));
-        self.imp().alerts.append(&drawer::holder(&notice));
-        notice
     }
 }
 
@@ -274,7 +178,6 @@ fn show(section: &Section, rule: &gtk4::Separator, visible: bool) {
 
 fn build(page: &Page) -> gtk4::Widget {
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    card.add_css_class(DETAIL);
     card.update_property(&[gtk4::accessible::Property::Label(page.title.as_str())]);
 
     if let Some(description) = &page.description {
@@ -289,14 +192,6 @@ fn build(page: &Page) -> gtk4::Widget {
     facts.set_facts(&page.facts);
     card.append(&facts);
     card.upcast()
-}
-
-fn panel_of(notice: &Notice) -> Option<gtk4::Revealer> {
-    notice
-        .parent()
-        .and_downcast::<gtk4::Box>()
-        .as_ref()
-        .and_then(drawer::panel)
 }
 
 #[derive(Clone, Copy)]

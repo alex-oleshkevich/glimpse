@@ -3,11 +3,10 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Fact, FactList, Row, SwitchRow};
+use crate::reconcile::by_key;
+use crate::{Expandable, Fact, FactList, Row, SwitchRow};
 
 pub(crate) const ENABLE_REQUESTED: &str = "enable-requested";
-pub(crate) const DETAILS_OPEN_CHANGED: &str = "details-open-changed";
-const DETAIL: &str = "detail-card";
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct DisplayMode {
@@ -33,13 +32,6 @@ pub struct Display {
     pub current_mode: Option<DisplayMode>,
     pub logical: Option<DisplayLogical>,
     pub enabled: bool,
-}
-
-#[derive(Debug)]
-pub struct Detail {
-    facts: FactList,
-    body: gtk4::Box,
-    switch: SwitchRow,
 }
 
 glib::wrapper! {
@@ -90,172 +82,70 @@ impl DisplayList {
         )
     }
 
-    pub fn connect_details_open_changed<F: Fn(&Self, bool) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            DETAILS_OPEN_CHANGED,
-            false,
-            glib::closure_local!(move |list: Self, open: bool| f(&list, open)),
-        )
-    }
-
     fn render(&self) {
         let imp = self.imp();
         #[cfg(test)]
         imp.renders.set(imp.renders.get() + 1);
-        {
-            let displays = imp.displays.borrow();
-            let power = imp.output_power.get();
-            let last_enabled = displays.iter().filter(|display| display.enabled).count() == 1;
-            let mut rows = imp.rows.borrow_mut();
-            let mut holders = imp.holders.borrow_mut();
-            let mut details = imp.details.borrow_mut();
-
-            for (index, display) in displays.iter().enumerate() {
-                if rows.len() == index {
-                    let (row, holder, detail) = self.build_row(index as u32);
-                    holder.insert_after(self, holders.last());
-                    holders.push(holder);
-                    rows.push(row);
-                    details.push(detail);
-                }
-                let row = &rows[index];
-                row.set_title(Some(heading(display).as_str()));
-
-                let detail = &details[index];
-                detail.facts.set_facts(&facts(display));
-
-                match power {
-                    true => {
-                        if detail.switch.parent().is_none() {
-                            detail.body.append(&detail.switch);
-                        }
-                        let locked = display.enabled && last_enabled;
-                        let head: &Row = detail.switch.upcast_ref();
-                        head.set_subtitle(
-                            locked.then(|| gettext("The last enabled display can't be turned off")),
-                        );
-                        detail.switch.set_locked(locked);
-                        detail.switch.set_active(display.enabled);
-                    }
-                    false => {
-                        if detail.switch.parent().is_some() {
-                            detail.body.remove(&detail.switch);
-                        }
-                    }
-                }
-            }
-
-            rows.truncate(displays.len());
-            details.truncate(displays.len());
-            for holder in holders.split_off(displays.len()) {
-                holder.unparent();
-            }
-        }
-
-        self.apply_reveal();
+        let displays = imp.displays.borrow();
+        let power = imp.output_power.get();
+        let last_enabled = displays.iter().filter(|display| display.enabled).count() == 1;
+        by_key(
+            self,
+            &mut imp.holders.borrow_mut(),
+            &displays,
+            |display| display.connector.clone(),
+            |display| self.build(&display.connector),
+            |holder, display| apply(holder, display, power, last_enabled),
+        );
     }
 
-    fn build_row(&self, index: u32) -> (Row, gtk4::Box, Detail) {
+    fn build(&self, connector: &str) -> Expandable {
         let row = Row::new();
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
         chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
         chevron.add_css_class("drawer-chevron");
         row.set_trail(&chevron);
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| list.toggle(index)
-        ));
-
-        let facts = FactList::new();
 
         let switch = SwitchRow::new();
         let head: &Row = switch.upcast_ref();
         head.set_title(Some(gettext("Enabled")));
+        let connector = connector.to_owned();
         switch.connect_toggled(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_, on| list.report(index, on)
+            move |_, on| list.emit_by_name::<()>(ENABLE_REQUESTED, &[&connector, &on])
         ));
 
         let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        body.add_css_class(DETAIL);
-        body.append(&facts);
+        body.append(&FactList::new());
+        body.append(&switch);
 
-        let holder = crate::drawer::holder(&row);
-        if let Some(panel) = crate::drawer::panel(&holder) {
-            panel.set_child(Some(&body));
-        }
-
-        (
-            row,
-            holder,
-            Detail {
-                facts,
-                body,
-                switch,
-            },
-        )
+        let holder = Expandable::new(&row);
+        holder.set_details(Some(&body));
+        holder
     }
+}
 
-    fn toggle(&self, index: u32) {
-        let imp = self.imp();
-        {
-            let holders = imp.holders.borrow();
-            let target = index as usize;
-            let opening = holders
-                .get(target)
-                .and_then(crate::drawer::panel)
-                .is_some_and(|panel| !panel.reveals_child());
-
-            for (at, holder) in holders.iter().enumerate() {
-                if let Some(panel) = crate::drawer::panel(holder) {
-                    crate::drawer::set(&panel, at == target && opening);
-                }
-            }
-        }
-        self.apply_reveal();
+fn apply(holder: &Expandable, display: &Display, power: bool, last_enabled: bool) {
+    if let Some(row) = holder.head::<Row>() {
+        row.set_title(Some(heading(display).as_str()));
     }
-
-    fn apply_reveal(&self) {
-        let any_open = {
-            let holders = self.imp().holders.borrow();
-            let any_open = holders.iter().any(|holder| {
-                crate::drawer::panel(holder).is_some_and(|panel| panel.reveals_child())
-            });
-
-            for holder in holders.iter() {
-                let Some(panel) = crate::drawer::panel(holder) else {
-                    continue;
-                };
-                let open = panel.reveals_child();
-                if let Some(row) = crate::drawer::head::<Row>(holder) {
-                    crate::set_css_class(&row, crate::drawer::OPEN, open);
-                    crate::set_css_class(&row, crate::drawer::RECEDED, any_open && !open);
-                }
-            }
-            any_open
-        };
-
-        if self.imp().details_open.replace(any_open) != any_open {
-            self.emit_by_name::<()>(DETAILS_OPEN_CHANGED, &[&any_open]);
-        }
+    let Some(body) = holder.details::<gtk4::Box>() else {
+        return;
+    };
+    if let Some(facts) = body.first_child().and_downcast::<FactList>() {
+        facts.set_facts(&facts_of(display));
     }
-
-    fn report(&self, index: u32, enabled: bool) {
-        let connector = self
-            .imp()
-            .displays
-            .borrow()
-            .get(index as usize)
-            .map(|display| display.connector.clone());
-
-        if let Some(connector) = connector {
-            self.emit_by_name::<()>(ENABLE_REQUESTED, &[&connector, &enabled]);
-        }
+    let Some(switch) = body.last_child().and_downcast::<SwitchRow>() else {
+        return;
+    };
+    switch.set_visible(power);
+    if power {
+        let locked = display.enabled && last_enabled;
+        let head: &Row = switch.upcast_ref();
+        head.set_subtitle(locked.then(|| gettext("The last enabled display can't be turned off")));
+        switch.set_locked(locked);
+        switch.set_active(display.enabled);
     }
 }
 
@@ -266,7 +156,7 @@ fn heading(display: &Display) -> String {
     }
 }
 
-fn facts(display: &Display) -> Vec<Fact> {
+fn facts_of(display: &Display) -> Vec<Fact> {
     let mut facts = vec![Fact::new(gettext("Connector"), &display.connector)];
 
     if let Some(make) = non_empty(display.make.as_deref()) {

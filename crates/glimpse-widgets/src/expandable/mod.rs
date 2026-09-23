@@ -67,9 +67,24 @@ impl Expandable {
         if drawer.child().as_ref() != details {
             drawer.set_child(details);
         }
+        if details.is_none() {
+            self.set_expanded(false);
+        }
     }
 
     pub fn details<T: IsA<gtk4::Widget>>(&self) -> Option<T> {
         self.imp().drawer.child().and_downcast()
+    }
+
+    pub(crate) fn opens_from(&self, target: &gtk4::Widget) -> bool {
+        let Some(head) = self.head::<gtk4::Widget>() else {
+            return false;
+        };
+        let opener = match head.downcast_ref::<SplitRow>() {
+            Some(split) => split.detail().upcast(),
+            None if head.is::<gtk4::Button>() => head,
+            None => return false,
+        };
+        target == &opener || target.is_ancestor(&opener)
     }
 }

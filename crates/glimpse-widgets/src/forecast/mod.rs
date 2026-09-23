@@ -7,6 +7,8 @@ pub use hour::ForecastHour;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
+use crate::Expandable;
+
 pub(crate) const DEFAULT_UNIT: &str = "°";
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -136,48 +138,10 @@ impl ForecastList {
         }
     }
 
-    pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "activated",
-            false,
-            glib::closure_local!(move |list: Self, index: u32| f(&list, index)),
-        )
-    }
-
     pub fn set_details(&self, details: &[Option<gtk4::Widget>]) {
         for (index, holder) in self.imp().holders.borrow().iter().enumerate() {
-            if let Some(panel) = crate::drawer::panel(holder) {
-                panel.set_child(details.get(index).and_then(Option::as_ref));
-            }
+            holder.set_details(details.get(index).and_then(Option::as_ref));
         }
-    }
-
-    pub fn reveal(&self, index: Option<usize>) {
-        for (at, holder) in self.imp().holders.borrow().iter().enumerate() {
-            let Some(panel) = crate::drawer::panel(holder) else {
-                continue;
-            };
-            let open = index == Some(at) && panel.child().is_some();
-            crate::drawer::set(&panel, open);
-            if let Some(row) = crate::drawer::head::<ForecastDay>(holder) {
-                crate::set_css_class(&row, crate::drawer::OPEN, open);
-                crate::set_css_class(&row, crate::drawer::RECEDED, index.is_some() && !open);
-            }
-        }
-    }
-
-    pub fn recede(&self, dim: bool) {
-        for holder in self.imp().holders.borrow().iter() {
-            if let Some(row) = crate::drawer::head::<ForecastDay>(holder) {
-                crate::set_css_class(&row, crate::drawer::RECEDED, dim);
-            }
-        }
-    }
-
-    pub fn revealed(&self) -> Option<usize> {
-        self.imp().holders.borrow().iter().position(|holder| {
-            crate::drawer::panel(holder).is_some_and(|panel| panel.reveals_child())
-        })
     }
 
     fn render(&self) {
@@ -185,19 +149,17 @@ impl ForecastList {
         let (minimum, maximum) = self.scale();
         let days = imp.days.borrow();
         let unit = imp.unit.borrow();
-        let mut rows = imp.rows.borrow_mut();
-
         let mut holders = imp.holders.borrow_mut();
 
         for (index, day) in days.iter().enumerate() {
-            if rows.len() == index {
-                let row = self.build_row(index as u32);
-                let holder = crate::drawer::holder(&row);
+            if holders.len() == index {
+                let holder = Expandable::new(&ForecastDay::new());
                 holder.insert_after(self, holders.last());
                 holders.push(holder);
-                rows.push(row);
             }
-            let row = &rows[index];
+            let Some(row) = holders[index].head::<ForecastDay>() else {
+                continue;
+            };
             let item: &crate::Row = row.upcast_ref();
             item.set_title(Some(day.label.as_str()));
             item.set_lead_icon(Some(day.icon_name.as_str()));
@@ -212,20 +174,9 @@ impl ForecastList {
             row.bar().set_scale(minimum, maximum);
             row.bar().set_range(day.low, day.high);
         }
-        rows.truncate(days.len());
         for holder in holders.split_off(days.len()) {
             holder.unparent();
         }
-    }
-
-    fn build_row(&self, index: u32) -> ForecastDay {
-        let row = ForecastDay::new();
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| list.emit_by_name::<()>("activated", &[&index])
-        ));
-        row
     }
 }
 

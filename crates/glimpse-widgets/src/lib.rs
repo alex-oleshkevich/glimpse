@@ -2037,17 +2037,20 @@ mod tests {
             "a zero chance of rain says nothing, and neither does an unknown one"
         );
 
-        let chosen = Rc::new(RefCell::new(Vec::new()));
-        forecast.connect_activated({
-            let chosen = Rc::clone(&chosen);
-            move |_, index| chosen.borrow_mut().push(index)
-        });
         assert!(
             children_of::<Row>(&forecast).is_empty(),
             "a day is parented with the panel that unfolds under it, not directly"
         );
-        forecast.imp().rows.borrow()[1].emit_clicked();
-        assert_eq!(*chosen.borrow(), [1u32]);
+        let second = forecast.imp().holders.borrow()[1].clone();
+        let second_day = second.head::<ForecastDay>().expect("a day row");
+        second_day.emit_clicked();
+        assert!(!second.expanded(), "a day with no detail does not open");
+        forecast.set_details(&[None, Some(gtk4::Label::new(None).upcast())]);
+        second_day.emit_clicked();
+        assert!(
+            second.expanded(),
+            "a day with a detail opens under its own row"
+        );
 
         let ends = |class: &str| {
             all_named(&forecast, class)
@@ -3550,6 +3553,14 @@ mod tests {
             "a press on anything dimmed closes the card and is claimed, so the row never acts"
         );
         head(&holders[0]).emit_by_name::<()>("details", &[]);
+        assert!(
+            !popover
+                .imp()
+                .shell
+                .dismiss_from(head(&holders[1]).detail().upcast_ref())
+                && holders[0].expanded(),
+            "a press on another card's chevron goes through, so it switches cards in one click"
+        );
 
         let focused: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         popover.connect_window_activated({
@@ -3889,10 +3900,53 @@ mod tests {
                 .and_downcast::<gtk4::Revealer>()
         };
         let alert_notices = |weather: &WeatherPopover| -> Vec<Notice> {
-            children_of::<gtk4::Box>(&weather.imp().alerts.get())
+            children_of::<Expandable>(&weather.imp().alerts.get())
                 .iter()
-                .filter_map(|holder| holder.first_child().and_downcast::<Notice>())
+                .filter_map(Expandable::head::<Notice>)
                 .collect()
+        };
+        let opened = |weather: &WeatherPopover| -> Option<String> {
+            let imp = weather.imp();
+            if let Some(day) = imp
+                .days
+                .imp()
+                .holders
+                .borrow()
+                .iter()
+                .position(Expandable::expanded)
+            {
+                return Some(day_page(day as u32));
+            }
+            imp.notices
+                .borrow()
+                .iter()
+                .position(Expandable::expanded)
+                .map(alert_page)
+        };
+        let press = |weather: &WeatherPopover, key: &str| {
+            let imp = weather.imp();
+            if let Some(day) = key
+                .strip_prefix("day")
+                .and_then(|at| at.parse::<usize>().ok())
+            {
+                imp.days.imp().holders.borrow()[day]
+                    .head::<ForecastDay>()
+                    .expect("a day row")
+                    .emit_clicked();
+            }
+            if let Some(alert) = key
+                .strip_prefix("alert")
+                .and_then(|at| at.parse::<usize>().ok())
+            {
+                imp.notices.borrow()[alert]
+                    .head::<Notice>()
+                    .expect("a notice")
+                    .emit_by_name::<()>("clicked", &[]);
+            }
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
         };
 
         let page = |key: &str, title: &str| WeatherPage {
@@ -3926,10 +3980,10 @@ mod tests {
         }]);
         assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
 
-        assert_eq!(weather.is_open(), None);
-        weather.open("day0");
+        assert_eq!(opened(&weather), None);
+        press(&weather, "day0");
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "a detail nothing built cannot be opened"
         );
@@ -3951,8 +4005,8 @@ mod tests {
             },
         ]);
         weather.set_pages(&[page("day0", "Tomorrow"), page("day1", "Wednesday")]);
-        weather.open("day0");
-        assert_eq!(weather.is_open().as_deref(), Some("day0"));
+        press(&weather, "day0");
+        assert_eq!(opened(&weather).as_deref(), Some("day0"));
         assert!(
             day_panel(0).is_some_and(|panel| panel.is_ancestor(&weather.imp().days.get())),
             "a day's detail unfolds inside the list it belongs to, not beside the column"
@@ -3962,13 +4016,12 @@ mod tests {
             "every day travels with its own panel, so the list's children are holders"
         );
         assert!(
-            weather.imp().hero.has_css_class("receded")
-                && weather.imp().hourly.has_css_class("receded"),
+            dimmed(weather.imp().hero.upcast_ref()) && dimmed(weather.imp().hours.upcast_ref()),
             "an open detail is read against a quiet card, so everything else recedes"
         );
-        weather.open("day1");
+        press(&weather, "day1");
         assert_eq!(
-            weather.is_open().as_deref(),
+            opened(&weather).as_deref(),
             Some("day1"),
             "another day switches rather than closing"
         );
@@ -3976,22 +4029,22 @@ mod tests {
             day_panel(0).is_some_and(|panel| !panel.reveals_child()),
             "opening one day closes the one that was open"
         );
-        weather.open("day1");
+        press(&weather, "day1");
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "the control that opened the detail is the one that closes it"
         );
 
-        weather.open("day1");
+        press(&weather, "day1");
         weather.set_pages(&[page("day0", "Tomorrow")]);
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "a detail must not stand open on a page that has gone away"
         );
         assert!(
-            !weather.imp().hero.has_css_class("receded"),
+            !dimmed(weather.imp().hero.upcast_ref()),
             "and the card it was read against comes back up with it"
         );
 
@@ -4023,11 +4076,11 @@ mod tests {
         );
 
         raised[0].emit_by_name::<()>("clicked", &[]);
-        assert_eq!(weather.is_open().as_deref(), Some("alert0"));
+        assert_eq!(opened(&weather).as_deref(), Some("alert0"));
 
         raised[0].emit_by_name::<()>("clicked", &[]);
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "one handler, not one per reconcile: a second click closes rather than reopening"
         );
@@ -4039,9 +4092,9 @@ mod tests {
             Severity::Error,
         )]);
         ordered.set_pages(&[page("alert0", "Storm")]);
-        ordered.open("alert0");
+        press(&ordered, "alert0");
         assert_eq!(
-            ordered.is_open().as_deref(),
+            opened(&ordered).as_deref(),
             Some("alert0"),
             "a notice and its page arrive through different setters, and neither order may lose it"
         );
@@ -4812,15 +4865,15 @@ mod tests {
                 title: "Skylink".to_owned(),
                 subtitle: "WPA2 \u{b7} 5 GHz".to_owned(),
                 icon: "network-wireless-signal-good-symbolic".to_owned(),
-                place: NetworkPlace::Networks,
+                place: NetworkPlace::Other,
                 secured: true,
-                selected: true,
+                selected: false,
                 busy: false,
             },
             NetworkEntry {
                 id: "/s/1".to_owned(),
                 title: "Skylink 2G".to_owned(),
-                place: NetworkPlace::Known,
+                place: NetworkPlace::Wifi,
                 ..Default::default()
             },
         ];
@@ -4855,8 +4908,8 @@ mod tests {
         let net_panel = |id: &str| -> gtk4::Revealer {
             let imp = network.imp();
             for held in [
-                &imp.network_held,
-                &imp.known_held,
+                &imp.other_held,
+                &imp.wifi_held,
                 &imp.wired_held,
                 &imp.vpn_held,
             ] {
@@ -4872,8 +4925,8 @@ mod tests {
         let net_head = |id: &str| -> gtk4::Widget {
             let imp = network.imp();
             for held in [
-                &imp.network_held,
-                &imp.known_held,
+                &imp.other_held,
+                &imp.wifi_held,
                 &imp.wired_held,
                 &imp.vpn_held,
             ] {
@@ -4912,7 +4965,7 @@ mod tests {
 
         assert!(
             !net_panel("/ap/1").reveals_child(),
-            "a network reveals nothing until it is selected"
+            "a network reveals nothing until its chevron opens it"
         );
 
         let lines = vec![
@@ -4935,18 +4988,34 @@ mod tests {
                 ..Default::default()
             },
         ];
-        network.set_details(Some(&NetworkDetails {
-            id: "/ap/1".to_owned(),
+        let card = |id: &str| NetworkDetails {
+            id: id.to_owned(),
             lines: lines.clone(),
-        }));
+        };
+        let chevron = |id: &str| {
+            net_head(id)
+                .downcast::<SplitRow>()
+                .expect("a split row")
+                .emit_by_name::<()>("details", &[])
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+        network.set_details(&[card("/ap/1"), card("/s/1")]);
+        assert!(
+            !net_panel("/ap/1").reveals_child(),
+            "handing the details over opens nothing; the chevron does"
+        );
+        chevron("/ap/1");
         assert!(
             net_panel("/ap/1").reveals_child(),
             "the detail belongs under the network it describes, not beside the list"
         );
         assert!(
-            !net_head("/ap/1").has_css_class("receded")
-                && net_head("/s/1").has_css_class("receded")
-                && network.imp().hero.has_css_class("receded"),
+            !dimmed(&net_head("/ap/1"))
+                && dimmed(&net_head("/s/1"))
+                && dimmed(network.imp().hero.upcast_ref()),
             "everything the panel is read against recedes while it is open"
         );
         let opened = net_rows("/ap/1");
@@ -4961,10 +5030,7 @@ mod tests {
             let acted = Rc::clone(&acted);
             move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
         });
-        network.set_details(Some(&NetworkDetails {
-            id: "/s/1".to_owned(),
-            lines,
-        }));
+        chevron("/s/1");
         assert!(
             !net_panel("/ap/1").reveals_child() && net_panel("/s/1").reveals_child(),
             "opening one network closes the one that was open"
@@ -4976,22 +5042,48 @@ mod tests {
             "a row whose action key repeats across networks must not forget the one no longer shown"
         );
 
-        network.set_details(None);
+        network.set_details(&[card("/ap/1")]);
         assert!(
             !net_panel("/s/1").reveals_child()
-                && !net_head("/ap/1").has_css_class("receded")
-                && !network.imp().hero.has_css_class("receded"),
-            "closing the card takes the dimming with it"
+                && !dimmed(&net_head("/ap/1"))
+                && !dimmed(network.imp().hero.upcast_ref()),
+            "a network whose detail is gone closes, and takes the dimming with it"
+        );
+
+        let joined = Rc::new(RefCell::new(Vec::new()));
+        network.connect_activated({
+            let joined = Rc::clone(&joined);
+            move |_, id| joined.borrow_mut().push(id.to_owned())
+        });
+        let mut connected = entries.clone();
+        connected[0].selected = true;
+        network.set_entries(&connected);
+        let head = net_head("/ap/1");
+        assert!(
+            !head.is::<SplitRow>(),
+            "a network in use is one row with no join target, so a click cannot disconnect it"
+        );
+        head.downcast::<Row>()
+            .expect("a plain row")
+            .emit_by_name::<()>("clicked", &[]);
+        assert!(
+            net_panel("/ap/1").reveals_child() && joined.borrow().is_empty(),
+            "its whole row opens its card, where Disconnect lives, and reports nothing"
+        );
+        network.set_entries(&entries);
+        assert!(
+            net_head("/ap/1").is::<SplitRow>(),
+            "once it is no longer in use its row joins again"
         );
 
         network.set_entries(&[]);
         assert!(
-            !network.imp().networks.get_visible(),
+            !network.imp().other.get_visible(),
             "with no networks and no scan there is nothing to head"
         );
         network.set_scanning(true);
         assert!(
-            network.imp().networks.get_visible() && network.imp().networks.empty(),
+            network.imp().other.get_visible() && network.imp().other.empty(),
             "a scan that has found nothing yet is the whole reason the placeholder exists; a \
              hidden section shows it to nobody"
         );
@@ -5151,8 +5243,25 @@ mod tests {
             "the retry says the last password was refused"
         );
 
-        network.set_overflow(Some("3 more networks"));
-        network.set_overflow(None);
+        network.set_others(3, false, None);
+        let header = &network.imp().more;
+        assert!(
+            header.get_visible()
+                && header.value().is_none()
+                && !header.has_css_class("open")
+                && !network.imp().all.get_visible(),
+            "closed, Other networks is one header line, with no count beside it"
+        );
+        network.set_others(12, true, Some("4 more networks"));
+        assert!(
+            header.has_css_class("open") && network.imp().all.get_visible(),
+            "open and capped, the header turns and the list ends in a row that shows the rest"
+        );
+        network.set_others(0, false, None);
+        assert!(
+            !header.get_visible(),
+            "no stranger in range, no header to open"
+        );
 
         let audio = AudioPopover::new();
         assert_eq!(audio.imp().hero.title().as_deref(), Some("Sound"));
@@ -5664,10 +5773,8 @@ mod tests {
             enabled: true,
         };
 
-        let detail_of = |holder: &gtk4::Box| -> (FactList, SwitchRow) {
-            let body = crate::drawer::panel(holder)
-                .and_then(|panel| panel.child())
-                .expect("a detail body");
+        let detail_of = |holder: &Expandable| -> (FactList, SwitchRow) {
+            let body = holder.details::<gtk4::Box>().expect("a detail body");
             let facts = body
                 .first_child()
                 .and_downcast::<FactList>()
@@ -5678,13 +5785,13 @@ mod tests {
                 .expect("a switch row");
             (facts, switch)
         };
-        let heads_of = |holders: &[gtk4::Box]| -> Vec<Row> {
-            holders.iter().filter_map(crate::drawer::head).collect()
+        let heads_of = |holders: &[Expandable]| -> Vec<Row> {
+            holders.iter().filter_map(Expandable::head).collect()
         };
 
         displays.set_displays(&[built_in.clone(), external.clone()]);
         let heads: Vec<Row> = heads_of(&children_of(&displays));
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         assert_eq!(heads.len(), 2);
         assert_eq!(holders.len(), 2);
         for head in &heads {
@@ -5729,7 +5836,7 @@ mod tests {
         let mut off = external.clone();
         off.enabled = false;
         displays.set_displays(&[solo.clone(), off.clone()]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let (_, solo_switch) = detail_of(&holders[0]);
         let (_, off_switch) = detail_of(&holders[1]);
         assert!(
@@ -5764,38 +5871,25 @@ mod tests {
         );
 
         displays.set_displays(&[built_in.clone(), external.clone()]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let heads: Vec<Row> = heads_of(&holders);
-        let panel_of = |holder: &gtk4::Box| crate::drawer::panel(holder).expect("a revealer");
-
-        assert!(!panel_of(&holders[0]).reveals_child());
-        assert!(!heads[0].has_css_class(crate::drawer::OPEN));
+        assert!(!holders[0].expanded());
+        assert!(!holders[0].has_css_class(crate::drawer::OPEN));
 
         heads[0].emit_clicked();
         assert!(
-            panel_of(&holders[0]).reveals_child() && heads[0].has_css_class(crate::drawer::OPEN),
+            holders[0].expanded() && holders[0].has_css_class(crate::drawer::OPEN),
             "activating a head opens its own detail"
         );
-        assert!(
-            !panel_of(&holders[1]).reveals_child()
-                && heads[1].has_css_class(crate::drawer::RECEDED)
-                && !heads[1].has_css_class(crate::drawer::OPEN),
-            "every other holder recedes, derived from what is revealed rather than from \
-             remembered state"
-        );
 
         heads[0].emit_clicked();
         assert!(
-            !panel_of(&holders[0]).reveals_child() && !heads[0].has_css_class(crate::drawer::OPEN),
+            !holders[0].expanded() && !holders[0].has_css_class(crate::drawer::OPEN),
             "activating the open head again closes it"
         );
-        assert!(
-            !heads[1].has_css_class(crate::drawer::RECEDED),
-            "closing the only open detail lifts the receded state everywhere"
-        );
 
         heads[0].emit_clicked();
-        assert!(panel_of(&holders[0]).reveals_child());
+        assert!(holders[0].expanded());
         let kept_head = heads[0].clone();
         let renders_before = displays.imp().renders.get();
         displays.set_displays(&[built_in.clone(), external.clone()]);
@@ -5808,7 +5902,7 @@ mod tests {
         assert_eq!(heads_after.len(), 2);
         assert_eq!(heads_after[0], kept_head, "rows are reused, not rebuilt");
         assert!(
-            panel_of(&holders[0]).reveals_child(),
+            holders[0].expanded(),
             "an unchanged slice must not close a detail the user has open"
         );
 
@@ -5821,7 +5915,7 @@ mod tests {
             ..Display::default()
         };
         displays.set_displays(&[hostile]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let (hostile_facts, _) = detail_of(&holders[0]);
         assert!(
             children_of::<Row>(&hostile_facts).iter().all(|row| {
@@ -5842,12 +5936,12 @@ mod tests {
         let mut gate_off = external.clone();
         gate_off.enabled = false;
         gate.set_displays(&[built_in.clone(), gate_off.clone()]);
-        let gate_holders: Vec<gtk4::Box> = children_of(&gate);
+        let gate_holders: Vec<Expandable> = children_of(&gate);
         assert_eq!(gate_holders.len(), 2);
 
-        let facts_of = |holder: &gtk4::Box| -> FactList {
-            crate::drawer::panel(holder)
-                .and_then(|panel| panel.child())
+        let facts_of = |holder: &Expandable| -> FactList {
+            holder
+                .details::<gtk4::Box>()
                 .and_then(|body| body.first_child())
                 .and_downcast::<FactList>()
                 .expect("a fact list")
@@ -5861,26 +5955,28 @@ mod tests {
 
         let gate_heads: Vec<Row> = heads_of(&gate_holders);
         gate_heads[0].emit_clicked();
-        let gate_panel = crate::drawer::panel(&gate_holders[0]).expect("a revealer");
+        let gate_panel = gate_holders[0].clone();
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "the detail opens before the gate changes"
         );
 
         gate.set_output_power(false);
-        let gate_holders_off: Vec<gtk4::Box> = children_of(&gate);
+        let gate_holders_off: Vec<Expandable> = children_of(&gate);
         assert_eq!(
             gate_holders_off, gate_holders,
             "gating the switches off reuses the existing rows rather than rebuilding them"
         );
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "AC-6: closing the gate on a display that is not changing must not shut an open \
              detail under the user's hand"
         );
         for holder in &gate_holders_off {
             assert!(
-                facts_of(holder).next_sibling().is_none(),
+                facts_of(holder)
+                    .next_sibling()
+                    .is_none_or(|switch| !switch.get_visible()),
                 "AC-2/AC-5: output_power false omits the enable switch entirely, even on the \
                  sole enabled output, rather than leaving it present and locked"
             );
@@ -5898,7 +5994,7 @@ mod tests {
 
         gate.set_output_power(true);
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "AC-6: reopening the gate must not shut the detail either"
         );
         let (_, gate_built_in_switch_again) = detail_of(&gate_holders[0]);
@@ -6171,7 +6267,7 @@ mod tests {
             display_popover.imp().section.get_visible(),
             "AC-9: two outputs render the section"
         );
-        let popover_holders: Vec<gtk4::Box> = children_of(&*display_popover.imp().devices);
+        let popover_holders: Vec<Expandable> = children_of(&*display_popover.imp().devices);
         assert_eq!(
             heads_of(&popover_holders).len(),
             2,
@@ -6201,7 +6297,7 @@ mod tests {
              is unsupported"
         );
         assert_eq!(
-            children_of::<gtk4::Box>(&*display_popover.imp().devices).len(),
+            children_of::<Expandable>(&*display_popover.imp().devices).len(),
             2,
             "gating output power keeps both outputs listed"
         );
@@ -6645,14 +6741,18 @@ mod tests {
             let color_activated = Rc::clone(&color_activated);
             move |_, id| color_activated.set(Some(id))
         });
-        let second = drawer::head::<SplitRow>(&colors.imp().holders.borrow()[1]).unwrap();
-        second.emit_by_name::<()>("activated", &[]);
+        let second = colors.imp().holders.borrow()[1].1.clone();
+        let split = second
+            .head::<SplitRow>()
+            .expect("a shade leads with its row");
+        split.emit_by_name::<()>("activated", &[]);
         assert_eq!(color_activated.get(), Some(9));
 
-        colors.set_open(Some(9));
-        let panel = drawer::panel(&colors.imp().holders.borrow()[1]).unwrap();
-        assert!(panel.reveals_child());
-        let card = panel.child().and_downcast::<gtk4::Box>().unwrap();
+        split.emit_by_name::<()>("details", &[]);
+        assert!(second.expanded(), "the chevron opens its own shade");
+        let card = second
+            .details::<gtk4::Box>()
+            .expect("the notations are built on first open");
         let notation = card.last_child().and_downcast::<Row>().unwrap();
         assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
         let color_copied = Rc::new(RefCell::new(None));
@@ -6667,17 +6767,18 @@ mod tests {
             shade(7, "#070000"),
             shade(9, "#090000"),
         ]);
-        let moved = drawer::panel(&colors.imp().holders.borrow()[2]).unwrap();
-        assert!(moved.reveals_child());
-        assert!(
-            moved.child().is_some(),
-            "the open color moved a row down and its detail must follow it"
+        assert_eq!(
+            colors.imp().holders.borrow()[2].1,
+            second,
+            "a new color arriving above keeps the open one's row, so its card follows the shade"
         );
+        assert!(second.expanded() && second.details::<gtk4::Widget>().is_some());
         assert!(
-            drawer::panel(&colors.imp().holders.borrow()[1])
-                .unwrap()
-                .child()
-                .is_none()
+            colors.imp().holders.borrow()[0]
+                .1
+                .details::<gtk4::Widget>()
+                .is_none(),
+            "a shade nobody opened carries no card"
         );
 
         colors.set_shades(&[shade(7, "#070000")]);
@@ -6697,8 +6798,6 @@ mod tests {
         picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
         picker.set_shades(&[shade(7, "#070000")]);
         assert!(!picker.imp().palette_section.empty());
-        picker.set_open(Some(7));
-        assert!(picker.imp().hero.has_css_class(drawer::RECEDED));
 
         let built = gtk4::Builder::from_string(
             r#"<interface>
@@ -6779,19 +6878,11 @@ mod tests {
         clipboard.set_pinned(&[clip(1, true)]);
         clipboard.set_recent(&[clip(2, false), clip(3, false)]);
 
-        let rows = |list: &ClipboardList| {
-            let mut found = Vec::new();
-            let mut child = list.first_child();
-            while let Some(holder) = child {
-                child = holder.next_sibling();
-                if let Some(split) = holder
-                    .downcast_ref::<gtk4::Box>()
-                    .and_then(drawer::head::<SplitRow>)
-                {
-                    found.push(split);
-                }
-            }
-            found
+        let rows = |list: &ClipboardList| children_of::<Expandable>(list);
+        let head = |holder: &Expandable| {
+            holder
+                .head::<SplitRow>()
+                .expect("a clip leads with its row")
         };
         assert_eq!(rows(&clipboard.imp().recent).len(), 2);
         assert!(
@@ -6803,7 +6894,8 @@ mod tests {
             |popover: &ClipboardPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
         let floor = width(&clipboard);
 
-        clipboard.set_open(Some(2));
+        let opened = rows(&clipboard.imp().recent)[0].clone();
+        head(&opened).emit_by_name::<()>("details", &[]);
         assert!(
             clipboard.imp().hero.has_css_class("receded"),
             "the hero is read against the open panel and must recede with everything else"
@@ -6813,7 +6905,6 @@ mod tests {
                 && clipboard.imp().footer.has_css_class("receded"),
             "a footer row that stays lit still looks pressable while a card asks a question"
         );
-        let opened = &rows(&clipboard.imp().recent)[0];
         assert!(
             opened.has_css_class("open") && !opened.has_css_class("receded"),
             "the row that was opened is the one thing that must not recede"
@@ -6828,21 +6919,26 @@ mod tests {
             "opening a detail must not resize the card under the pointer that opened it"
         );
 
-        clipboard.set_open(None);
+        head(&opened).emit_by_name::<()>("details", &[]);
         assert!(!clipboard.imp().hero.has_css_class("receded"));
 
         // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
-        clipboard.set_open(Some(2));
-        let panel_of = |list: &ClipboardList, index: usize| {
-            let holder = list.observe_children().item(index as u32)?;
-            drawer::panel(holder.downcast_ref::<gtk4::Box>()?)?.child()
-        };
-        let before = panel_of(&clipboard.imp().recent, 0).expect("an open panel");
-        clipboard.set_recent(&[clip(2, false), clip(3, false)]);
+        head(&opened).emit_by_name::<()>("details", &[]);
+        let before = opened.details::<gtk4::Box>().expect("an open panel");
+        clipboard.set_recent(&[clip(2, true), clip(3, false)]);
         assert_eq!(
-            panel_of(&clipboard.imp().recent, 0).as_ref(),
+            opened.details::<gtk4::Box>().as_ref(),
             Some(&before),
-            "an unrelated republish must leave the open panel's buttons alone"
+            "a republish must leave the open panel's buttons alone, even one that changes them"
+        );
+        assert_eq!(
+            before
+                .first_child()
+                .and_downcast::<Row>()
+                .and_then(|pin| pin.title())
+                .as_deref(),
+            Some("Unpin"),
+            "and the pin row's wording follows the entry"
         );
 
         let cleared = Rc::new(Cell::new(false));
@@ -6858,7 +6954,7 @@ mod tests {
             let restored = Rc::clone(&restored);
             move |_, id| restored.set(Some(id))
         });
-        rows(&clipboard.imp().recent)[1].emit_by_name::<()>("activated", &[]);
+        head(&rows(&clipboard.imp().recent)[1]).emit_by_name::<()>("activated", &[]);
         assert_eq!(
             restored.get(),
             Some(3),

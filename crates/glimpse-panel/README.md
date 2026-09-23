@@ -350,11 +350,18 @@ both of which belong to the tooltip. No managed device renders nothing.
 - **The password is asked for before the join, on a page of the popover**, because NetworkManager
   drops the working connection the moment activation is requested. **A request NetworkManager raises
   survives the popover being shut**; one the user began does not.
-- **Strength is banded at render from the raw value**, which the tooltip prints exactly, and **the
-  connected network is placed first whatever its strength**. A failed command is a notification.
+- **Ethernet, VPN, Wi-Fi, Other networks, then the hidden-network row.** Wi-Fi is the network in
+  use, first whatever its strength, then every saved one in range; a saved network out of range is
+  not listed. **Other networks is a disclosure whose header is the toggle**, closed while anything
+  known is in range and open by itself when nothing is; an open list is capped at
+  `visible-networks` and ends in a row that shows the rest. A stranger is one line, saying only
+  *Open* or *Enterprise*, since the padlock already says secured. Strength is banded at render from the
+  raw value, which the tooltip prints exactly. A failed command is a notification.
+- **A connection in use is one row that opens its card; Disconnect lives only there**, so the row a
+  person clicks most never drops the connection. Every other row joins on its body. Only a
+  connection in use and a saved network have a card, and it repeats nothing the row already says.
 - **A wired row is a device, not a profile**, so it routes to `connect_device`; sent to
-  `connect_access_point` it is silently not found. Its card names speed and address, and **an
-  unplugged cable activates nothing**.
+  `connect_access_point` it is silently not found.
 
 **audio** — needs a PulseAudio-protocol server, `pipewire-pulse` or PulseAudio proper, and renders
 nothing without one.

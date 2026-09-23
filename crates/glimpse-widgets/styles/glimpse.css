@@ -616,18 +616,7 @@
 
 .clipboard-list .split-row,
 .color-list .split-row {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
-}
-
-.clipboard-list .split-row__detail image,
-.color-list .split-row__detail image {
-    transition: transform var(--gl-duration) var(--gl-ease);
-}
-
-.clipboard-list .split-row.open .split-row__detail image,
-.color-list .split-row.open .split-row__detail image {
-    transform: rotate(90deg);
 }
 
 .clipboard-list picture {
@@ -650,16 +639,11 @@
 }
 
 .network-popover__row {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.network-popover__row .split-row__detail image {
-    transition: transform var(--gl-duration) var(--gl-ease);
-}
-
-.network-popover__row.open .split-row__detail image {
-    transform: rotate(90deg);
+.network-popover__rule {
+    margin: 0.4rem 0;
 }
 
 .detail-card {
@@ -690,6 +674,13 @@ expandable {
 .popover-shell .row.receded:hover,
 .popover-shell .receded .split-row__detail:hover {
     background-color: transparent;
+}
+
+.popover-shell expandable.receded > .row:hover,
+.popover-shell .receded expandable > .row:hover,
+.popover-shell expandable.receded > .split-row .split-row__detail:hover,
+.popover-shell .receded expandable > .split-row .split-row__detail:hover {
+    background-color: var(--gl-hover);
 }
 
 expandable.card {
@@ -867,12 +858,8 @@ expandable > revealer .row {
 }
 
 .weather-popover__alerts,
-.weather-popover__alerts > box + box {
+.weather-popover__alerts > expandable + expandable {
     margin-top: 0.35rem;
-}
-
-.forecast-day.open {
-    background-color: var(--gl-hover);
 }
 
 .drawer-page {

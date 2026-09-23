@@ -1,17 +1,18 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, Placeholder, PopoverShell, Row, Section};
+use crate::{Expandable, Hero, Placeholder, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
     #[default]
-    Networks,
-    Known,
+    Other,
+    Wifi,
     Wired,
     Vpn,
 }
@@ -73,17 +74,19 @@ pub struct NetworkPopover {
     #[template_child]
     pub wifi: TemplateChild<gtk4::Switch>,
     #[template_child]
-    pub networks: TemplateChild<Section>,
+    pub other: TemplateChild<Section>,
     #[template_child]
-    pub network_rows: TemplateChild<gtk4::Box>,
+    pub other_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub more: TemplateChild<Row>,
     #[template_child]
+    pub all: TemplateChild<Row>,
+    #[template_child]
     pub looking: TemplateChild<Placeholder>,
     #[template_child]
-    pub known: TemplateChild<Section>,
+    pub wifi_section: TemplateChild<Section>,
     #[template_child]
-    pub known_rows: TemplateChild<gtk4::Box>,
+    pub wifi_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub wired: TemplateChild<Section>,
     #[template_child]
@@ -92,6 +95,8 @@ pub struct NetworkPopover {
     pub vpn: TemplateChild<Section>,
     #[template_child]
     pub vpn_rows: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub hidden_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
     pub hidden: TemplateChild<Row>,
     #[template_child]
@@ -115,12 +120,12 @@ pub struct NetworkPopover {
     pub footer: TemplateChild<Row>,
 
     pub entries: RefCell<Vec<Entry>>,
-    pub details: RefCell<Option<Details>>,
-    pub network_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub known_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub wired_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub vpn_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub lines: RefCell<Vec<(String, Row)>>,
+    pub details: RefCell<Vec<Details>>,
+    pub other_held: RefCell<Vec<(String, Expandable)>>,
+    pub wifi_held: RefCell<Vec<(String, Expandable)>>,
+    pub wired_held: RefCell<Vec<(String, Expandable)>>,
+    pub vpn_held: RefCell<Vec<(String, Expandable)>>,
+    pub lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
     pub prompt: RefCell<Option<Ask>>,
     pub quiet: std::cell::Cell<bool>,
 }
@@ -150,9 +155,6 @@ impl ObjectImpl for NetworkPopover {
                     .param_types([bool::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("activated")
-                    .param_types([String::static_type(), bool::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("selected")
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("acted")
@@ -166,6 +168,7 @@ impl ObjectImpl for NetworkPopover {
                     ])
                     .build(),
                 glib::subclass::Signal::builder("expanded").build(),
+                glib::subclass::Signal::builder("show-all").build(),
                 glib::subclass::Signal::builder("hidden-network").build(),
                 glib::subclass::Signal::builder("answered")
                     .param_types([bool::static_type(), String::static_type()])
@@ -196,6 +199,12 @@ impl ObjectImpl for NetworkPopover {
             #[weak]
             object,
             move |_| object.emit_by_name::<()>("expanded", &[])
+        ));
+
+        self.all.connect_clicked(glib::clone!(
+            #[weak]
+            object,
+            move |_| object.emit_by_name::<()>("show-all", &[])
         ));
 
         self.hidden.connect_clicked(glib::clone!(
