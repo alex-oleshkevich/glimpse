@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, SplitRow, none_if_empty, reconcile};
+use crate::{Expandable, Row, none_if_empty, reconcile};
 
 pub use imp::{Detail, Job, Printer};
 
@@ -103,90 +103,59 @@ impl PrintingPopover {
         imp.printers.set_visible(!printers.is_empty());
     }
 
-    /// A printer is the same shape as a job: a `$SplitRow` head over its own panel. The panel is a
-    /// `detail-card` of plain rows, filled by `reconcile::by_key` so a changing value updates its
-    /// row rather than rebuilding the card.
-    fn build_printer_row(&self) -> gtk4::Box {
-        let split = SplitRow::new();
-        split.set_detail_icon("go-next-symbolic".to_owned());
-        split.set_detail_tooltip(Some(gettext("Show this printer's details")));
-
-        let holder = crate::drawer::holder(&split);
-        if let Some(drawer) = crate::drawer::panel(&holder) {
-            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-            card.add_css_class("detail-card");
-            drawer.set_child(Some(&card));
-            split.connect_details(move |_| crate::drawer::toggle(&drawer));
-        }
-        holder
+    /// A printer's whole row opens its card of facts; a printer with none has no chevron and no
+    /// card, and its row does nothing.
+    fn build_printer_row(&self) -> Expandable {
+        Expandable::new(&opener_row(gettext("Show this printer's details")))
     }
 
-    fn dress_printer(&self, holder: &gtk4::Box, printer: &Printer) {
-        let Some(split) = crate::drawer::head::<SplitRow>(holder) else {
+    fn dress_printer(&self, holder: &Expandable, printer: &Printer) {
+        let Some(row) = holder.head::<Row>() else {
             return;
         };
-        let row = split.row();
-        row.set_activatable(false);
         row.set_title(none_if_empty(&printer.name));
         row.set_subtitle(none_if_empty(&printer.status));
         row.set_lead_icon(Some(match printer.network {
             true => "printer-network-symbolic",
             false => "printer-symbolic",
         }));
-
-        split.detail().set_visible(!printer.details.is_empty());
-
-        let Some(drawer) = crate::drawer::panel(holder) else {
+        let carded = !printer.details.is_empty();
+        set_opens(&row, carded);
+        if !carded {
+            holder.set_details(None::<&gtk4::Widget>);
             return;
-        };
-        if printer.details.is_empty() {
-            crate::drawer::set(&drawer, false);
         }
-        let Some(card) = drawer.child().and_downcast::<gtk4::Box>() else {
-            return;
-        };
-        let key = printer.id.clone();
+        let card = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&card));
+            card
+        });
+        let mut lines = self.imp().printer_lines.borrow_mut();
         reconcile::by_key(
             &card,
-            &mut self.imp().printer_lines.borrow_mut(),
+            lines.entry(printer.id.clone()).or_default(),
             &printer.details,
-            |detail| format!("{key}/{}", detail.label),
+            |detail| detail.label.clone(),
             |_| Row::new(),
             dress_detail,
         );
     }
 
-    /// A job is a `$SplitRow` head over its own `Gtk.Revealer`, exactly as `BluetoothPopover`
-    /// builds a device: the head carries the name and a spinner, the chevron opens the panel, and
-    /// the pause/resume/cancel buttons live in the panel rather than in the row.
-    ///
-    /// They cannot live in the row. `Row` is a `Gtk.Button`, so a button placed inside it is a
-    /// button inside a button — the outer gesture claims the press and the inner one never emits
-    /// `clicked`. `SplitRow` exists for exactly this reason and keeps its own control a sibling.
-    fn build_job_row(&self, job: &Job) -> gtk4::Box {
-        let split = SplitRow::new();
-        split.set_detail_icon("go-next-symbolic".to_owned());
-        split.set_detail_tooltip(Some(gettext("Show what can be done with this job")));
-
-        let holder = crate::drawer::holder(&split);
-
+    /// A job's whole row opens its card of Pause, Resume and Cancel, the same grammar as every other
+    /// popover's card: the row body does nothing else, so it is the opener. A job that can do none
+    /// of the three has no chevron and no card.
+    fn build_job_row(&self, job: &Job) -> Expandable {
+        let holder = Expandable::new(&opener_row(gettext("Show what can be done with this job")));
         let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        panel.add_css_class("detail-card");
         panel.append(&self.build_action_row(&job.id, gettext("Pause"), "paused"));
         panel.append(&self.build_action_row(&job.id, gettext("Resume"), "resumed"));
         panel.append(&self.build_action_row(&job.id, gettext("Cancel"), "cancelled"));
-
-        if let Some(drawer) = crate::drawer::panel(&holder) {
-            drawer.set_child(Some(&panel));
-            split.connect_details(move |_| crate::drawer::toggle(&drawer));
-        }
-
+        holder.set_details(Some(&panel));
         holder
     }
 
-    /// An action in the panel is a `$Row`, the same as every other list entry in this shell — an
-    /// icon button would be a second grammar for the same thing, and `BluetoothPopover` already
-    /// settled this one: its device panel is a `detail-card` of plain activatable rows.
+    /// An action in the card is a `$Row`, the same as every other list entry in this shell — an
+    /// icon button would be a second grammar for the same thing.
     fn build_action_row(&self, id: &str, label: String, signal: &'static str) -> Row {
         let row = Row::new();
         row.set_title(Some(label.as_str()));
@@ -200,28 +169,20 @@ impl PrintingPopover {
         row
     }
 
-    /// The head body activates nothing — every action is in the panel below — so the inner `Row`
-    /// stays non-activatable and the chevron is the only target.
-    fn dress_job(&self, holder: &gtk4::Box, job: &Job) {
-        let Some(split) = crate::drawer::head::<SplitRow>(holder) else {
+    fn dress_job(&self, holder: &Expandable, job: &Job) {
+        let Some(row) = holder.head::<Row>() else {
             return;
         };
-        let row = split.row();
         row.set_title(none_if_empty(&job.name));
         row.set_subtitle(none_if_empty(&job_subtitle(job)));
         row.set_busy(job.busy && job.progress.is_none());
-        row.set_activatable(false);
 
         let actionable = job.cancellable || job.pausable || job.resumable;
-        split.detail().set_visible(actionable);
-
-        let Some(drawer) = crate::drawer::panel(holder) else {
-            return;
-        };
+        set_opens(&row, actionable);
         if !actionable {
-            crate::drawer::set(&drawer, false);
+            holder.set_expanded(false);
         }
-        let Some(panel) = drawer.child().and_downcast::<gtk4::Box>() else {
+        let Some(panel) = holder.details::<gtk4::Box>() else {
             return;
         };
         let shown = [job.pausable, job.resumable, job.cancellable];
@@ -233,6 +194,27 @@ impl PrintingPopover {
             child = row.next_sibling();
             row.set_visible(visible);
         }
+    }
+}
+
+fn opener_row(tooltip: String) -> Row {
+    let row = Row::new();
+    let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+    chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+    chevron.add_css_class("drawer-chevron");
+    chevron.set_tooltip_text(Some(&tooltip));
+    row.set_trail(&chevron);
+    row
+}
+
+/// A row with a card to open is the opener; one without is a plain line of text with no chevron
+/// and nothing under the pointer.
+fn set_opens(row: &Row, opens: bool) {
+    row.set_activatable(opens);
+    if let Some(chevron) = row.trail()
+        && chevron.get_visible() != opens
+    {
+        chevron.set_visible(opens);
     }
 }
 
