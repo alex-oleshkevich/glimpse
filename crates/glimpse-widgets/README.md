@@ -254,7 +254,9 @@ finished closing. The head toggles it — a `SplitRow`'s chevron, a `Row`'s clic
 only fills the details. **Focus belongs to `PopoverShell`**: opening one closes every unrelated
 `Expandable` in the shell, and everything neither holding nor inside an open one takes `.receded`,
 derived from the tree on each change so nothing lists what dims. The largest subtree outside is
-dimmed, never its children too, because opacity compounds. **No
+dimmed, never its children too, because opacity compounds; section headers and separators stay lit
+as the frame. A press on anything dimmed closes the detail and is claimed in the capture phase, so
+the row under it never acts. **No
 card row carries a lead icon**: the head above it already names the thing, so a column of glyphs
 beside one-word labels is decoration the eye has to step over. **What
 recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
