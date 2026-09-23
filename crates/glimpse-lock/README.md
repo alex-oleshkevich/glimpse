@@ -50,10 +50,10 @@ Exit codes: 0 ok, 1 failure, 3 configuration, 4 not locked in time, 5 a check fa
 `[lock.background]` `image` and `image-dark` are decoded off the UI thread, per output at its size,
 scale and fit, at start and whenever the configuration, the output set or an output's size changes —
 never at the lock. `blur-radius` is a GPU gaussian applied as a texture lands, through one offscreen
-renderer realized for the display, since no lock window exists yet to lend its own. Naming neither inherits `[wallpaper]`'s top-level pair (not its
-per-output images); naming either takes the whole pair. The first frame is the cached texture, or
-`color` until one lands and whenever one fails. A stale decode is dropped, a failed one is retried
-only on an output or configuration change, and the old texture stays until its replacement lands.
+renderer realized for the display, since no lock window exists yet to lend its own. Naming neither
+image inherits `[wallpaper]`'s top-level pair; naming either takes the whole pair. The first frame
+is the cached texture, or `color` until one lands and whenever one fails. A stale decode is dropped,
+a failed one is retried only on an output or configuration change.
 
 Dark is `adw::StyleManager::is_dark` under `[appearance] color-scheme`: `image-dark` if set, else
 `image`, with `dim-dark`; light is `image` with `dim`. Both decode ahead, so a flip while locked
@@ -178,10 +178,11 @@ that monitor is still the interactive one and the entry is not empty; otherwise 
 reaching PAM, since interactivity moving between the submit and the attempt clears the entry and an
 empty password would still spend a faillock try.
 
-The username reaching PAM is resolved from `$USER`, then `/etc/passwd` by uid, and validated against
-the POSIX portable set (not starting with `-`, never `.` or `..`) before it is used — a later
-`/var/lib/AccountsService/users/<name>` lookup is a path traversal waiting for a separator. Failing
-to resolve one refuses the lock rather than authenticating against an account that does not exist.
+The username reaching PAM is `/etc/passwd`'s name for the uid, else `$USER` for a directory user
+passwd does not list, validated against the POSIX portable set (not starting with `-`, never `.`
+or `..`) — a later `/var/lib/AccountsService/users/<name>` lookup is a path traversal waiting for a
+separator. Failing to resolve one refuses the lock rather than authenticating against an account
+that does not exist.
 
 The conversation answers `echo-on` with that username and exactly one `echo-off` with the password;
 a second `echo-off` gets `CONV_ERR`. A module retrying its prompt is indistinguishable from a real
@@ -232,8 +233,8 @@ a shell outside the unit's sandbox passes its own probes while the service fails
 stack matters because PAM then falls through to `other`.
 
 A compositor without `ext-session-lock-v1`, or a `failed` lock, never ends the process: it stays
-alive and notifies per refused `Lock`. Exiting would be a restart loop that `StartLimitBurst=5`
-turns into a dead unit, and the next compositor would have no locker.
+alive and notifies per refused `Lock`, where exiting would loop. The unit sets
+`StartLimitIntervalSec=0` so a locker crashing while locked always returns: a stopped one strands it.
 
 ## The sleep handshake
 

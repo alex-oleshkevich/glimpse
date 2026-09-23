@@ -3,8 +3,7 @@ Description=Glimpse lock screen
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
 After=graphical-session.target
-StartLimitBurst=5
-StartLimitIntervalSec=60
+StartLimitIntervalSec=0
 
 [Service]
 Type=exec

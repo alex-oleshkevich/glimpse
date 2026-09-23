@@ -1,12 +1,14 @@
 const DISPLAY_NAME_MAX_CHARS: usize = 64;
 
 pub fn resolve(env_user: Option<&str>, uid: u32, passwd: Option<&str>) -> Result<String, String> {
-    let name = match env_user.filter(|user| !user.is_empty()) {
-        Some(user) => user.to_owned(),
-        None => passwd
-            .and_then(|passwd| name_of(passwd, uid))
-            .ok_or_else(|| format!("no $USER and no /etc/passwd entry for uid {uid}"))?,
-    };
+    let name = passwd
+        .and_then(|passwd| name_of(passwd, uid))
+        .or_else(|| {
+            env_user
+                .filter(|user| !user.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .ok_or_else(|| format!("no /etc/passwd entry for uid {uid} and no $USER"))?;
     if portable(&name) {
         Ok(name)
     } else {
@@ -58,11 +60,19 @@ mod tests {
         "root:x:0:0::/root:/usr/bin/bash\nalex:x:1000:1000:Alex:/home/alex:/usr/bin/fish\n";
 
     #[test]
-    fn user_comes_from_the_environment_first_then_passwd_by_uid() {
-        assert_eq!(resolve(Some("alex"), 0, Some(PASSWD)), Ok("alex".into()));
+    fn user_comes_from_passwd_by_uid_first_then_the_environment() {
+        assert_eq!(
+            resolve(Some("root"), 1000, Some(PASSWD)),
+            Ok("alex".into()),
+            "$USER cannot point the prompt at another account"
+        );
         assert_eq!(resolve(None, 1000, Some(PASSWD)), Ok("alex".into()));
-        assert_eq!(resolve(Some(""), 1000, Some(PASSWD)), Ok("alex".into()));
-        assert!(resolve(None, 1001, Some(PASSWD)).is_err());
+        assert_eq!(
+            resolve(Some("ldap-user"), 1001, Some(PASSWD)),
+            Ok("ldap-user".into()),
+            "an account passwd does not list, such as a directory user, falls back to $USER"
+        );
+        assert!(resolve(Some(""), 1001, Some(PASSWD)).is_err());
         assert!(resolve(None, 1000, None).is_err());
     }
 
@@ -91,7 +101,7 @@ mod tests {
                 "{name:?} must be refused"
             );
         }
-        assert!(resolve(Some("a/b"), 1000, Some(PASSWD)).is_err());
+        assert!(resolve(Some("a/b"), 1000, None).is_err());
         assert_eq!(resolve(Some("a.b_c-1"), 1000, None), Ok("a.b_c-1".into()));
     }
 }

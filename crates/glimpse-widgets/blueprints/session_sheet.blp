@@ -31,7 +31,7 @@ template $SessionSheet: Gtk.Widget {
 
           $Row suspend {
             visible: false;
-            title: _("Suspend");
+            title: _("Suspend…");
             lead-icon: "weather-clear-night-symbolic";
             activatable: true;
           }
@@ -59,6 +59,56 @@ template $SessionSheet: Gtk.Widget {
             styles [
               "session-sheet__error",
             ]
+          }
+        };
+      }
+
+      Gtk.StackPage {
+        name: "suspend";
+
+        child: Gtk.Box {
+          orientation: vertical;
+          spacing: 10;
+
+          styles [
+            "session-sheet__confirm",
+          ]
+
+          Gtk.Label {
+            label: _("Suspend now?");
+            xalign: 0;
+
+            styles [
+              "session-sheet__confirm-title",
+            ]
+          }
+
+          Gtk.Label {
+            label: _("The screen stays locked when it wakes.");
+            xalign: 0;
+            wrap: true;
+            max-width-chars: 28;
+
+            styles [
+              "caption",
+            ]
+          }
+
+          Gtk.Box {
+            spacing: 8;
+            halign: end;
+
+            Gtk.Button suspend_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button suspend_confirm {
+              label: _("Suspend");
+
+              styles [
+                "suggested-action",
+              ]
+            }
           }
         };
       }
