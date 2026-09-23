@@ -32,6 +32,7 @@ pub fn pick(document: &Config, settings: Settings) -> Result<[u8; 3]> {
         dropin_dark: user_dark_stylesheet(),
     });
     styles.set_variant(&appearance.theme_variant);
+    styles.set_animation_speed(appearance.animation_speed);
 
     let main = glib::MainLoop::new(None, false);
     let outcome = Rc::new(Cell::new(None));

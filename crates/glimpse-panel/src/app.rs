@@ -216,6 +216,8 @@ impl SimpleComponent for App {
         );
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
+        self.styles
+            .set_animation_speed(self.config.appearance.animation_speed);
     }
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
@@ -367,6 +369,7 @@ impl App {
             dropin_dark: user_dark_stylesheet(),
         });
         self.styles.set_variant(&appearance.theme_variant);
+        self.styles.set_animation_speed(appearance.animation_speed);
     }
 }
 
@@ -582,6 +585,7 @@ fn reconcile_panels(
                 right: cfg.right.clone(),
                 applets: config.applets.clone(),
                 regional: config.regional.clone(),
+                blur: config.appearance.blur.clone(),
                 compositor: services.compositor.clone(),
                 keyboard: services.keyboard.clone(),
                 calendar: services.calendar.clone(),

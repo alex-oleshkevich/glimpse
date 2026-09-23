@@ -6,6 +6,8 @@
     "appearance": {
       "$ref": "#/$defs/Appearance",
       "default": {
+        "animation-speed": 1.0,
+        "blur": [],
         "color-scheme": "auto",
         "theme": "adwaita",
         "theme-variant": ""
@@ -2797,6 +2799,22 @@
     "Appearance": {
       "type": "object",
       "properties": {
+        "animation-speed": {
+          "description": "How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,\nand `0` turns animations off. Anything else below `0.1` is refused, because a fade that\nlong keeps the full-screen popover catcher swallowing clicks. The popover and notification fades and every CSS transition\nthat reads `--gl-duration` follow it; the wallpaper keeps its own `transition-ms`.",
+          "type": "number",
+          "format": "double",
+          "default": 1.0,
+          "maximum": 10.0,
+          "minimum": 0.0
+        },
+        "blur": {
+          "description": "Surfaces that blur whatever lies behind them, where the compositor offers\next-background-effect-v1; elsewhere they stay opaque. The strength of the blur is the\ncompositor's setting, not glimpse's. niri blurs a layer surface in xray mode unless told\notherwise, which shows the wallpaper rather than the windows under a popover or a\nnotification; `layer-rule { match namespace=\"^glimpse-(popover|notifications)$\";\nbackground-effect { xray false; } }` in the niri config changes that.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BlurSurface"
+          }
+        },
         "color-scheme": {
           "$ref": "#/$defs/ColorScheme",
           "default": "auto"
@@ -2917,6 +2935,14 @@
         }
       },
       "additionalProperties": false
+    },
+    "BlurSurface": {
+      "type": "string",
+      "enum": [
+        "panel",
+        "popover",
+        "notification"
+      ]
     },
     "Brightness": {
       "type": "object",

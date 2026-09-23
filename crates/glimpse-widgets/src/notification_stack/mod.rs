@@ -328,11 +328,11 @@ impl NotificationStack {
         let imp = self.imp();
         let from = imp.progress.get();
         let to: f64 = if imp.collapsed.get() { 0.0 } else { 1.0 };
-        let duration = if imp.collapsed.get() {
+        let duration = crate::animation_ms(if imp.collapsed.get() {
             COLLAPSE_MILLIS
         } else {
             EXPAND_MILLIS
-        };
+        });
         let animation = self.animation();
         animation.reset();
         animation.set_value_from(from);
@@ -340,6 +340,9 @@ impl NotificationStack {
         animation.set_duration(((duration as f64 * (to - from).abs()).round() as u32).max(1));
         self.set_transition_progress(from);
         animation.play();
+        if duration == 0 {
+            animation.skip();
+        }
     }
 
     fn animation(&self) -> adw::TimedAnimation {

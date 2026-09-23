@@ -115,6 +115,9 @@ arrow.
 One catcher per panel, shared by every applet on it, so **one popover at a time is structural**.
 `KeyboardMode::None`, so nothing is taken from the focused window and `Escape` dismisses nothing.
 
+**Blur is a region, not the surface.** The catcher covers the whole output, so `[appearance] blur`
+hands `glimpse_widgets::blur` the body and the arrow, never the window; the bar hands it the `Panel`.
+
 **`open` takes the dismissal callback**, so only the applet owning the current popover hears about
 it, and one removed by a config change leaves no closure and no `Sender` behind. The runtime asks
 `Catcher::holds` first: a replaced applet holds its handle until `PopoverDismissed` is delivered.

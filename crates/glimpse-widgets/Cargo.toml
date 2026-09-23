@@ -12,6 +12,8 @@ gio.workspace = true
 glib.workspace = true
 gtk4.workspace = true
 tracing.workspace = true
+wayland-client.workspace = true
+wayland-protocols.workspace = true
 
 [dev-dependencies]
 clap.workspace = true

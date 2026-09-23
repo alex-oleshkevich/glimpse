@@ -3,11 +3,11 @@ use std::rc::Rc;
 
 use adw::prelude::AnimationExt;
 use glimpse_config::Position;
+use glimpse_widgets::blur::{Blur, Shape, Tip};
 use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-const DURATION: u32 = 150;
 const SIDEWAYS: &str = "applet-popover__arrow--sideways";
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +25,8 @@ pub struct Catcher {
     arrow: gtk4::DrawingArea,
     body: gtk4::Box,
     fade: adw::TimedAnimation,
-    side: Cell<Position>,
+    blur: Blur,
+    side: Rc<Cell<Position>>,
     state: Cell<State>,
     center: Cell<i32>,
     dismissed: RefCell<Option<Box<dyn Fn()>>>,
@@ -64,10 +65,23 @@ impl Catcher {
             &slot,
             0.0,
             1.0,
-            DURATION,
+            glimpse_widgets::duration_ms(),
             adw::PropertyAnimationTarget::new(&slot, "opacity"),
         );
         fade.set_easing(adw::Easing::EaseOutCubic);
+
+        let side = Rc::new(Cell::new(side));
+        let blur = Blur::attach(&window, {
+            let body = body.clone();
+            let arrow = arrow.clone();
+            let side = side.clone();
+            move || {
+                vec![
+                    Shape::Surface(body.clone().upcast()),
+                    Shape::Arrow(arrow.clone().upcast(), tip(side.get())),
+                ]
+            }
+        });
 
         let catcher = Rc::new(Self {
             window: window.clone(),
@@ -75,7 +89,8 @@ impl Catcher {
             arrow,
             body,
             fade,
-            side: Cell::new(side),
+            blur,
+            side: side.clone(),
             state: Cell::default(),
             center: Cell::default(),
             dismissed: RefCell::default(),
@@ -124,7 +139,7 @@ impl Catcher {
         });
         window.add_controller(press);
 
-        catcher.layout(side);
+        catcher.layout(side.get());
 
         catcher
     }
@@ -175,6 +190,7 @@ impl Catcher {
             if catcher.state.get() == State::Opening
                 && catcher.fade.state() != adw::AnimationState::Playing
             {
+                catcher.fade.set_duration(glimpse_widgets::duration_ms());
                 catcher.fade.set_value_from(0.0);
                 catcher.fade.set_value_to(1.0);
                 catcher.fade.play();
@@ -191,6 +207,7 @@ impl Catcher {
         let from = self.slot.opacity();
         self.state.set(State::Closing);
         self.fade.reset();
+        self.fade.set_duration(glimpse_widgets::duration_ms());
         self.fade.set_value_from(from);
         self.fade.set_value_to(0.0);
         self.fade.play();
@@ -223,7 +240,8 @@ impl Catcher {
         horizontal(self.side.get())
     }
 
-    pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position) {
+    pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position, blur: bool) {
+        self.blur.set_enabled(blur);
         if self.window.monitor().as_ref() != Some(monitor) {
             self.window.set_monitor(Some(monitor));
         }
@@ -336,6 +354,15 @@ fn placement(center: i32, extent: i32, room: i32, arrow: i32) -> (i32, i32) {
         .clamp(0, (room - extent).max(0));
     let offset = (center - start - arrow / 2).clamp(arrow, (extent - 2 * arrow).max(arrow));
     (start, offset)
+}
+
+fn tip(side: Position) -> Tip {
+    match side {
+        Position::Top => Tip::Up,
+        Position::Bottom => Tip::Down,
+        Position::Left => Tip::Left,
+        Position::Right => Tip::Right,
+    }
 }
 
 fn horizontal(side: Position) -> bool {

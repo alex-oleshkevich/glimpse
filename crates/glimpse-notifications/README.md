@@ -39,6 +39,9 @@ so the gutter and inter-card gaps remain click-through. Left click asks the comp
 sender process where one is known and dismisses the notification; right click hides only the popup;
 close dismisses it into history; named actions invoke the sender action and then dismiss.
 
+`[appearance] blur = ["notification"]` blurs behind each card rather than the surface, for the same
+reason the input region is narrowed: the gutter is not the card.
+
 The card owns the same `34rem` width in this surface and the notifications popover. The paint gutter
 is extra transparent window space for the shadow and does not change the card width.
 

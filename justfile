@@ -90,6 +90,10 @@ test-compositor:
 test-crate-compositor CRATE:
     cargo test -p {{ CRATE }} -- --include-ignored
 
+[doc("one test by its full path, ignored or not; a GTK test only proves anything run alone")]
+test-one CRATE TEST:
+    cargo test -p {{ CRATE }} --lib -- --include-ignored --exact {{ TEST }}
+
 [doc("everything CI runs")]
 verify: fmt-check check lint test check-strings
 

@@ -10,14 +10,15 @@ use adw::prelude::*;
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use glimpse_config::{
-    Config, DARK_STYLESHEET, NotificationEdge, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet,
-    user_stylesheet, watch_config, watch_theme,
+    BlurSurface, Config, DARK_STYLESHEET, NotificationEdge, PANEL_STYLESHEET, stylesheet,
+    user_dark_stylesheet, user_stylesheet, watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::{
     CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
 use glimpse_services::{SessionStatus, WindowRef};
+use glimpse_widgets::blur::{Blur, Shape};
 use glimpse_widgets::{
     Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_image,
 };
@@ -29,8 +30,6 @@ use tokio::{task::JoinHandle, time::Instant};
 use crate::services::NotificationServices;
 use crate::state::{Delta, PopupState};
 use glimpse_dbus::notifications::DEFAULT_ACTION;
-
-const ANIMATION_MILLIS: u32 = 150;
 
 pub struct Init {
     pub config: Config,
@@ -138,6 +137,7 @@ pub struct App {
     surface_edge: NotificationEdge,
     theme_watch: JoinHandle<()>,
     styles: Styles,
+    blur: Blur,
     input_region_pending: Rc<Cell<bool>>,
     input_region_cards: Rc<RefCell<Vec<NotificationCard>>>,
 }
@@ -187,6 +187,11 @@ impl SimpleComponent for App {
         let widgets = view_output!();
         let styles = Styles::install(scheme);
         let surface_edge = init.config.notifications.edge;
+        let blur = Blur::attach(&window, {
+            let stack = widgets.stack.clone();
+            move || cards(&stack)
+        });
+        blur.set_enabled(blurred(&init.config));
         let model = Self {
             root: window.clone(),
             stack: widgets.stack.clone(),
@@ -198,6 +203,7 @@ impl SimpleComponent for App {
             surface_edge,
             theme_watch,
             styles,
+            blur,
             input_region_pending: Rc::new(Cell::new(false)),
             input_region_cards: Rc::new(RefCell::new(Vec::new())),
         };
@@ -357,6 +363,9 @@ impl App {
         self.styles.set_color_scheme(scheme);
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
+        self.styles
+            .set_animation_speed(self.config.appearance.animation_speed);
+        self.blur.set_enabled(blurred(&self.config));
         let delta = self.state.configure(self.config.notifications.clone());
         self.apply(delta, sender);
         if renamed {
@@ -631,6 +640,7 @@ impl App {
             dropin_dark: user_dark_stylesheet(),
         });
         self.styles.set_variant(&appearance.theme_variant);
+        self.styles.set_animation_speed(appearance.animation_speed);
         self.update_input_region();
     }
 
@@ -725,7 +735,7 @@ fn animation(frame: &gtk4::Box) -> adw::TimedAnimation {
         frame,
         0.0,
         1.0,
-        ANIMATION_MILLIS,
+        glimpse_widgets::duration_ms(),
         adw::PropertyAnimationTarget::new(frame, "opacity"),
     );
     animation.set_easing(adw::Easing::EaseOutCubic);
@@ -795,6 +805,17 @@ fn anchors(edge: NotificationEdge) -> &'static [Edge] {
         NotificationEdge::BottomCenter => &[Edge::Bottom],
         NotificationEdge::BottomRight => &[Edge::Bottom, Edge::Right],
     }
+}
+
+fn blurred(config: &Config) -> bool {
+    config.appearance.blur.contains(&BlurSurface::Notification)
+}
+
+fn cards(stack: &gtk4::Box) -> Vec<Shape> {
+    std::iter::successors(stack.first_child(), |entry| entry.next_sibling())
+        .filter_map(|entry| entry.first_child())
+        .map(Shape::Surface)
+        .collect()
 }
 
 fn enclosing_rectangle(bounds: gtk4::graphene::Rect) -> cairo::RectangleInt {

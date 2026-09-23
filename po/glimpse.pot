@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 16:17+0200\n"
+"POT-Creation-Date: 2026-09-23 20:24+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,20 +18,20 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-notifications/src/app.rs:443
+#: crates/glimpse-notifications/src/app.rs:452
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:264
+#: crates/glimpse-panel/src/app.rs:266
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:308
+#: crates/glimpse-panel/src/app.rs:310
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:321
+#: crates/glimpse-panel/src/app.rs:323
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:170
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:195
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
@@ -45,20 +45,20 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:386
+#: crates/glimpse-panel/src/app.rs:389
 #: crates/glimpse-panel/src/applets/session/mod.rs:90
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:388
+#: crates/glimpse-panel/src/app.rs:391
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:390
+#: crates/glimpse-panel/src/app.rs:393
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:489
+#: crates/glimpse-panel/src/app.rs:492
 msgid "this device"
 msgstr ""
 
@@ -245,7 +245,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
-#: crates/glimpse-widgets/src/lib.rs:255
+#: crates/glimpse-widgets/src/lib.rs:257
 msgid "{percent}%"
 msgstr ""
 
@@ -2092,7 +2092,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:216
+#: crates/glimpse-widgets/src/lib.rs:218
 msgid "Play"
 msgstr ""
 
@@ -2266,7 +2266,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:215
+#: crates/glimpse-widgets/src/lib.rs:217
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
@@ -2295,7 +2295,7 @@ msgstr ""
 msgid "Collapse"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:453
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:456
 msgid "{count} notification"
 msgid_plural "{count} notifications"
 msgstr[0] ""

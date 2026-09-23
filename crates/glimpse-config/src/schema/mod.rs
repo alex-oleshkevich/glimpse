@@ -28,7 +28,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use appearance::{Appearance, ColorScheme};
+pub use appearance::{Appearance, BlurSurface, ColorScheme};
 pub use applets::{
     Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
     Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,

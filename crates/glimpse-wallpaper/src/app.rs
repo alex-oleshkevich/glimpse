@@ -95,6 +95,9 @@ impl SimpleComponent for App {
         model
             .styles
             .set_variant(&model.config.appearance.theme_variant);
+        model
+            .styles
+            .set_animation_speed(model.config.appearance.animation_speed);
 
         let widgets = view_output!();
 
@@ -133,6 +136,8 @@ impl SimpleComponent for App {
         );
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
+        self.styles
+            .set_animation_speed(self.config.appearance.animation_speed);
     }
 }
 
@@ -154,6 +159,7 @@ impl App {
             dropin_dark: user_dark_stylesheet(),
         });
         self.styles.set_variant(&appearance.theme_variant);
+        self.styles.set_animation_speed(appearance.animation_speed);
     }
 }
 

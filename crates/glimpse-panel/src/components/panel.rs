@@ -1,5 +1,5 @@
 use adw::gdk;
-use glimpse_config::{Applet as AppletConfig, Position, Regional};
+use glimpse_config::{Applet as AppletConfig, BlurSurface, Position, Regional};
 use glimpse_dbus::{
     idle::IdleProviderHandle, night_light::NightLightProviderHandle,
     notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
@@ -10,6 +10,7 @@ use glimpse_services::{
     NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
     SessionActionsHandle, TrayHandle,
 };
+use glimpse_widgets::blur::{Blur, Shape};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -30,6 +31,7 @@ pub struct Panel {
     bar: glimpse_widgets::Panel,
     applets: Vec<Slot>,
     catcher: Rc<Catcher>,
+    blur: Blur,
 }
 
 struct Slot {
@@ -65,6 +67,7 @@ pub struct Config {
     pub right: Vec<String>,
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
+    pub blur: Vec<BlurSurface>,
     pub compositor: CompositorHandle,
     pub keyboard: KeyboardHandle,
     pub calendar: CalendarHandle,
@@ -144,11 +147,13 @@ impl SimpleComponent for Panel {
 
         let window = root.clone();
         let widgets = view_output!();
+        let bar = widgets.bar.clone();
         let mut model = Panel {
             window: window.clone(),
-            bar: widgets.bar.clone(),
+            bar: bar.clone(),
             applets: Vec::new(),
             catcher: Catcher::new(Some(&config.monitor), config.position),
+            blur: Blur::attach(&window, move || vec![Shape::Surface(bar.clone().upcast())]),
         };
 
         model.apply(&config);
@@ -194,7 +199,13 @@ impl Panel {
         }
         self.bar.set_orientation(orientation);
         self.bar.set_thickness(config.size);
-        self.catcher.reconfigure(&config.monitor, config.position);
+        self.catcher.reconfigure(
+            &config.monitor,
+            config.position,
+            config.blur.contains(&BlurSurface::Popover),
+        );
+        self.blur
+            .set_enabled(config.blur.contains(&BlurSurface::Panel));
         self.reconcile_applets(config, orientation);
 
         tracing::debug!(

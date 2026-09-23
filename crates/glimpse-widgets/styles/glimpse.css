@@ -40,6 +40,7 @@
     --gl-text-display: 2.4rem;
 
     --gl-radius: 0.95rem;
+    --gl-blur-opacity: 60%;
     --gl-duration: 150ms;
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
@@ -1547,4 +1548,36 @@ picker-lens {
 .color-picker--picking {
     background-color: var(--gl-active);
     border-radius: 999px;
+}
+
+window.blurred {
+    background-color: transparent;
+}
+
+window.blurred .panel {
+    background-color: color-mix(in srgb, var(--gl-panel) var(--gl-blur-opacity), transparent);
+}
+
+window.blurred .applet-popover__body {
+    background-color: color-mix(in srgb, var(--gl-surface) var(--gl-blur-opacity), transparent);
+}
+
+window.blurred .applet-popover__arrow {
+    color: color-mix(in srgb, var(--gl-surface) var(--gl-blur-opacity), transparent);
+}
+
+window.blurred .popover-shell {
+    background-color: transparent;
+}
+
+window.notification-popup.blurred .notification {
+    background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
+}
+
+window.notification-popup.blurred .notification--activatable:hover {
+    background-color: color-mix(
+        in srgb,
+        mix(var(--gl-notification), var(--gl-surface-fg), 0.08) var(--gl-blur-opacity),
+        transparent
+    );
 }

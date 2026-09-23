@@ -14,6 +14,35 @@ const THEME_PRIORITY: u32 = gtk4::STYLE_PROVIDER_PRIORITY_USER;
 const THEME_DARK_PRIORITY: u32 = THEME_PRIORITY + 1;
 const DROPIN_PRIORITY: u32 = THEME_PRIORITY + 2;
 const DROPIN_DARK_PRIORITY: u32 = THEME_PRIORITY + 3;
+const SPEED_PRIORITY: u32 = THEME_PRIORITY + 4;
+
+const DURATION_MS: u32 = 150;
+
+thread_local! {
+    static SPEED: Cell<f64> = const { Cell::new(1.0) };
+}
+
+pub fn duration_ms() -> u32 {
+    animation_ms(DURATION_MS)
+}
+
+pub(crate) fn animation_ms(base: u32) -> u32 {
+    scaled(base, SPEED.get())
+}
+
+fn scaled(base: u32, speed: f64) -> u32 {
+    if speed <= 0.0 {
+        return 0;
+    }
+    (f64::from(base) / speed).round() as u32
+}
+
+fn speed_sheet(speed: f64) -> String {
+    format!(
+        ":root {{ --gl-duration: {}ms; }}",
+        scaled(DURATION_MS, speed)
+    )
+}
 
 pub struct Sheets {
     pub theme: Option<PathBuf>,
@@ -50,6 +79,7 @@ impl Dark {
 
 pub struct Styles {
     builtin: CssProvider,
+    speed: CssProvider,
     theme: CssProvider,
     dropin: CssProvider,
     dark: Rc<Dark>,
@@ -61,6 +91,7 @@ pub struct Styles {
 impl Styles {
     pub fn install(scheme: adw::ColorScheme) -> Self {
         let builtin = CssProvider::new();
+        let speed = CssProvider::new();
         let theme = CssProvider::new();
         let dropin = CssProvider::new();
         let dark = Rc::new(Dark {
@@ -70,10 +101,11 @@ impl Styles {
             dropin_path: RefCell::new(None),
             applied: Cell::new(false),
         });
-        for provider in [&builtin, &theme, &dropin, &dark.theme, &dark.dropin] {
+        for provider in [&builtin, &speed, &theme, &dropin, &dark.theme, &dark.dropin] {
             report_parsing_errors(provider);
         }
         builtin.load_from_string(BUILTIN);
+        speed.load_from_string(&speed_sheet(SPEED.get()));
 
         match gdk::Display::default() {
             Some(display) => {
@@ -90,6 +122,7 @@ impl Styles {
                     &dark.dropin,
                     DROPIN_DARK_PRIORITY,
                 );
+                gtk4::style_context_add_provider_for_display(&display, &speed, SPEED_PRIORITY);
             }
             None => tracing::error!("no display; stylesheets will not be applied"),
         }
@@ -108,10 +141,12 @@ impl Styles {
                     [&builtin, &theme, &dark.theme, &dropin, &dark.dropin],
                 );
                 dark.sync(is_dark, false);
+                crate::blur::restyle();
             }
         });
         let styles = Self {
             builtin,
+            speed,
             theme,
             dropin,
             dark,
@@ -134,11 +169,15 @@ impl Styles {
         self.dark.theme_path.replace(sheets.theme_dark.clone());
         self.dark.dropin_path.replace(sheets.dropin_dark.clone());
         self.dark.sync(self.style_manager.is_dark(), true);
+        crate::blur::restyle();
     }
 
     pub fn set_variant(&self, variant: &str) {
         let wanted = usable_variant(variant);
         let previous = self.variant.replace(wanted.clone());
+        if previous != wanted {
+            crate::blur::restyle();
+        }
         for window in gtk4::Window::list_toplevels() {
             if !previous.is_empty() && previous != wanted {
                 window.remove_css_class(&previous);
@@ -147,6 +186,13 @@ impl Styles {
                 window.add_css_class(&wanted);
             }
         }
+    }
+
+    pub fn set_animation_speed(&self, speed: f64) {
+        if SPEED.replace(speed) == speed {
+            return;
+        }
+        self.speed.load_from_string(&speed_sheet(speed));
     }
 
     pub fn set_color_scheme(&self, scheme: adw::ColorScheme) {
@@ -246,8 +292,9 @@ fn report_parsing_errors(provider: &CssProvider) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BUILTIN, BUILTIN_PRIORITY, DROPIN_DARK_PRIORITY, DROPIN_PRIORITY, THEME_DARK_PRIORITY,
-        THEME_PRIORITY, effective_scheme, provider_scheme, requested_scheme, usable_variant,
+        BUILTIN, BUILTIN_PRIORITY, DROPIN_DARK_PRIORITY, DROPIN_PRIORITY, DURATION_MS,
+        SPEED_PRIORITY, THEME_DARK_PRIORITY, THEME_PRIORITY, effective_scheme, provider_scheme,
+        requested_scheme, scaled, speed_sheet, usable_variant,
     };
 
     const OPEN: &str = ":root {";
@@ -404,7 +451,23 @@ mod tests {
             assert!(THEME_PRIORITY < THEME_DARK_PRIORITY);
             assert!(THEME_DARK_PRIORITY < DROPIN_PRIORITY);
             assert!(DROPIN_PRIORITY < DROPIN_DARK_PRIORITY);
+            assert!(DROPIN_DARK_PRIORITY < SPEED_PRIORITY);
         }
+    }
+
+    #[test]
+    fn the_stylesheet_duration_is_the_one_rust_scales() {
+        assert!(BUILTIN.contains(&format!("--gl-duration: {DURATION_MS}ms;")));
+        assert_eq!(speed_sheet(1.0), ":root { --gl-duration: 150ms; }");
+    }
+
+    #[test]
+    fn speed_divides_every_duration_and_zero_stops_them() {
+        assert_eq!(scaled(150, 1.0), 150);
+        assert_eq!(scaled(150, 2.0), 75);
+        assert_eq!(scaled(200, 0.5), 400);
+        assert_eq!(scaled(150, 0.0), 0);
+        assert_eq!(speed_sheet(0.0), ":root { --gl-duration: 0ms; }");
     }
 
     #[test]
@@ -420,7 +483,7 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 38);
+        assert_eq!(declared(block).len(), 39);
     }
 
     #[test]

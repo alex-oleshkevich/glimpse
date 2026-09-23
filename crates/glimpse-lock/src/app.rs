@@ -77,6 +77,8 @@ impl SimpleComponent for App {
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
                 self.styles
                     .set_variant(&self.config.appearance.theme_variant);
+                self.styles
+                    .set_animation_speed(self.config.appearance.animation_speed);
                 if renamed {
                     self.theme_watch.abort();
                     self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
@@ -106,6 +108,7 @@ impl App {
             dropin_dark: user_dark_stylesheet(),
         });
         self.styles.set_variant(&appearance.theme_variant);
+        self.styles.set_animation_speed(appearance.animation_speed);
     }
 }
 

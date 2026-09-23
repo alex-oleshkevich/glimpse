@@ -336,6 +336,7 @@ mod fixtures {
             "inhibitor_list_states" => inhibitor_list_states(root),
             "printing_states" => printing_popover_states(root),
             "privacy_states" => privacy_popover_states(root),
+            "expandable_row" => expandable_rows(root),
             _ => {}
         }
         drawer_nav(root);
@@ -2373,6 +2374,52 @@ mod fixtures {
                     recede(&host);
                 }
             });
+        }
+    }
+
+    fn expandable_rows(root: &gtk4::Widget) {
+        for host in collect::<gtk4::Box>(root) {
+            if !host.has_css_class("expandable") {
+                continue;
+            }
+            let Some(details) = host.last_child().and_downcast::<gtk4::Revealer>() else {
+                eprintln!("an .expandable box has no Gtk.Revealer as its last child");
+                continue;
+            };
+            details.connect_child_revealed_notify(glib::clone!(
+                #[weak]
+                host,
+                move |details| {
+                    if !details.reveals_child() && !details.is_child_revealed() {
+                        host.remove_css_class("card");
+                    }
+                }
+            ));
+            let toggle = glib::clone!(
+                #[weak]
+                host,
+                #[weak]
+                details,
+                move || {
+                    let open = !details.reveals_child();
+                    match open {
+                        true => {
+                            host.add_css_class("card");
+                            host.add_css_class(OPENED);
+                        }
+                        false => host.remove_css_class(OPENED),
+                    }
+                    details.set_reveal_child(open);
+                }
+            );
+            let head = host.first_child();
+            if let Some(split) = head.and_downcast_ref::<SplitRow>() {
+                split.connect_details(move |_| toggle());
+            } else if let Some(row) = head.and_downcast_ref::<gtk4::Button>() {
+                row.connect_clicked(move |_| toggle());
+            } else {
+                eprintln!("an .expandable box must open with a $Row or a $SplitRow");
+            }
         }
     }
 

@@ -33,7 +33,7 @@ glimpse/
 | `glimpse-config`        | layered TOML load, drop-ins, merge, validate, watch                               |
 | `glimpse-compositors`   | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
 | `glimpse-services`      | service framework and every service implementation                                |
-| `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS                               |
+| `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS, compositor blur              |
 | `glimpse-utils`         | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
 | `glimpse-panel`         | panel and applets                                                                 |
 | `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface        |
@@ -716,6 +716,64 @@ window is wrong whenever a script or a clipboard tool wrote it.
 - **`ydotoold` is not running here**, so `just click` cannot drive the panel at all — clicking a
   popover row stays on the manual list.
 
+**Compositor blur, September 2026.** niri 26.04 implements `ext-background-effect-v1` and advertises
+capability `0x1` (blur); `var/blur-probe` blurred a panel bar, a popover body inside a full-output
+catcher, and a notification stack, each through its own region; `glimpse_widgets::blur` is the
+shipped version, and its README carries the design.
+
+- **A niri `layer-rule` with `background-effect { blur true }` blurs the whole surface**, so it cannot
+  serve the popover: the catcher is anchored to all four edges and would blur the entire output. The
+  protocol region is the only route that blurs exactly what is painted.
+- **niri does not round a protocol region.** Rounded corners need stepped one-pixel rows per corner at
+  the CSS radius; a single rectangle shows blur past each corner.
+- **`compute_bounds` is the border box**, so a region built from it leaves `box-shadow` and margins
+  unblurred — measured, the wallpaper under the panel's shadow stays sharp.
+- **GTK's own connection is reachable without a new crate**: `gdk_wayland_display_get_wl_display` and
+  `gdk_wayland_surface_get_wl_surface` declared `extern "C"`, then `Backend::from_foreign_display` under
+  `wayland-client`'s `system` feature. That feature adds `dlib` and `scoped-tls` to the lockfile, and
+  through feature unification moves every `wayland-client` user in the workspace — sunset, idle, the
+  picker, the clipboard backend — onto libwayland's C backend.
+- **Create the effect on `map` and destroy it on `unmap`.** `set_blur_region` on a destroyed surface
+  is a protocol error, and on a borrowed connection that kills GTK's whole display.
+- **Update the region in the frame clock's `layout` phase.** It is double-buffered and then rides the
+  same commit as the new size, so a resizing popover never shows the old region for a frame.
+- **niri defaults a layer surface to xray** — the blur samples the wallpaper only, skipping the windows
+  between. Measured on the popover over a browser. `background-effect { xray false; }` in a
+  `layer-rule` is the only switch; the protocol carries a region and nothing else.
+- **`WidgetPaintable` does not draw the widget — it hands back the render node of its last paint**
+  (`gtkwidgetpaintable.c`, 4.22). A widget that has never painted reads as nothing, so corner radii are
+  read after its first paint; reading them in the first layout would cache square corners for good.
+  GTK 4.22 draws a rounded background as a `RoundedClipNode` around a color node
+  (`gtkrenderbackground.c:62-68`), which is what the radius is read from.
+- **A region sent outside GTK's frame is never committed unless glimpse commits it.** The region is
+  double-buffered; GTK commits only when it paints, and `queue_draw()` on a surface that has nothing
+  new to draw produced no commit. Measured under `WAYLAND_DEBUG=1`: the popover's region went out
+  200µs after the fade's last commit and reached niri 3s later, with the close — so the popover
+  showed no blur while open, then blurred wallpaper through its whole fade-out. Grep a trace for
+  `set_blur_region` and the next `wl_surface#N.commit` of the same surface before believing a
+  region took effect.
+- **A fading surface must drop out of the region.** Both the popover and the notification entries
+  animate the widget `opacity`, and a blur cannot fade: the first live run showed a blurred block
+  ahead of a card fading in and a ghost where one faded out. Opacity changes repaint without a
+  relayout, so the region is also rebuilt after every paint. Waiting for *full* opacity was wrong the
+  other way: a 120fps `wf-recorder` capture showed the finished content over a sharp background for
+  six frames before the blur arrived. At half opacity the blur arrives about 30ms into the 150ms
+  ease-out fade, while the content is still faint. `wf-recorder -o <output> -g <region> -r 120` and one frame at a time from
+  `ffmpeg` is how to judge any of this; `grim` in a loop is too slow to see a frame.
+
+**GTK 4.22 cannot hand a CSS value back to code, September 2026.** Read out of the installed
+headers and the 4.22 source, and probed. The only public getter for a computed style value is
+`gtk_widget_get_color`; nothing returns a length, a duration or a custom property. The deprecated
+`gtk_style_context_to_string(SHOW_STYLE)` looks like a way in and is not: a regular property such as
+`transition-duration` is printed only when the style kept its CSS section, which
+`gtkcssprovider.c` does only under `GTK_CSS_DEBUG` or the Inspector, and a custom property is
+printed as the text it was declared with, `var()` unresolved, and stale until the next restyle. A
+value Rust and CSS both need therefore lives in Rust and Rust writes it into a sheet: `[appearance]
+animation-speed` scales the base duration and `Styles` publishes the result as `--gl-duration`, the way
+KDE scales Kirigami's durations by `AnimationDurationFactor` and Cinnamon its window effects by
+`window-effect-speed`.
+Corner radii are the exception only because GTK draws them into render nodes.
+
 **The `#[ignore]`d GTK suite is not run by `just verify`, September 2026.** `just test` is
 `cargo test --workspace` with no `--include-ignored`, so `tests::widgets` — the single function
 holding nearly every widget assertion — only runs under `just test-compositor`, and the suite can
@@ -739,7 +797,7 @@ opens with `if gtk4::init().is_err() { return; }`, and cargo runs them on parall
 that initializes GTK first wins, and the rest return early and report `ok`. Measured on
 `workspace_name_popover_widgets` — a mutation that clobbers the entry passed inside
 `just test-crate-compositor glimpse-widgets` and failed when the test ran alone. A mutation check
-on a GTK test runs that test by itself (`cargo test -p <crate> --lib <name> -- --include-ignored`).
+on a GTK test runs that test by itself (`just test-one <crate> tests::<name>`).
 
 **niri refuses a workspace name another workspace holds, and says `Ok`, September 2026.** Measured
 on niri 26.04: `set-workspace-name` naming a second workspace after the first exits 0, changes

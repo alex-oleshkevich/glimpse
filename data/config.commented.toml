@@ -20,6 +20,8 @@
 # theme = "adwaita"
 # theme-variant = ""
 # color-scheme = "auto"
+# blur = []
+# animation-speed = 1.0
 
 [regional]
 # language = ""
