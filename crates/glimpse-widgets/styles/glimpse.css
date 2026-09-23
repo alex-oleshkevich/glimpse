@@ -601,26 +601,31 @@
     transform: rotate(90deg);
 }
 
-.clipboard-popover .popover-shell {
+.clipboard-popover .popover-shell,
+.color-picker-popover .popover-shell {
     border-radius: 1.5rem;
     padding: 1.1rem;
 }
 
-.clipboard-popover .hero__title {
+.clipboard-popover .hero__title,
+.color-picker-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
 }
 
-.clipboard-list .split-row {
+.clipboard-list .split-row,
+.color-list .split-row {
     border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.clipboard-list .split-row__detail image {
+.clipboard-list .split-row__detail image,
+.color-list .split-row__detail image {
     transition: transform var(--gl-duration) var(--gl-ease);
 }
 
-.clipboard-list .split-row.open .split-row__detail image {
+.clipboard-list .split-row.open .split-row__detail image,
+.color-list .split-row.open .split-row__detail image {
     transform: rotate(90deg);
 }
 
@@ -1473,4 +1478,73 @@ window.notification-popup {
 
 .audio-popover__block .section__title {
     padding: 0.3rem 0 0.3rem 0.05rem;
+}
+
+swatch {
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--gl-border);
+}
+
+.swatch--hero {
+    min-width: 2.6rem;
+    min-height: 2.6rem;
+    border-radius: 0.7rem;
+}
+
+window.picker {
+    background-color: transparent;
+}
+
+picker-lens {
+    color: var(--gl-surface);
+}
+
+.picker__pill {
+    min-height: 2.1rem;
+    padding: 0 0.75rem 0 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--gl-border);
+    background-color: var(--gl-surface);
+    color: var(--gl-surface-fg);
+    box-shadow: var(--gl-elevation-floating);
+}
+
+.picker__swatch {
+    min-width: 1.1rem;
+    min-height: 1.1rem;
+    border-radius: 999px;
+}
+
+.picker__value {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--gl-text-body);
+}
+
+.indicator__extension swatch {
+    min-width: 1.5rem;
+    min-height: 1rem;
+    border-radius: 0.3rem;
+    border: 1px solid alpha(var(--gl-panel-fg), 0.28);
+}
+
+.color-picker-popover .hero__title {
+    font-variant-numeric: tabular-nums;
+}
+
+.color-notation .row__title {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.color-notation .row__value {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.color-picker--picking {
+    background-color: var(--gl-active);
+    border-radius: 999px;
 }

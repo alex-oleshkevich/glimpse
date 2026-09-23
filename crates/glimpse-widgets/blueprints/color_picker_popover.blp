@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+template $ColorPickerPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "color-picker-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "color-select-symbolic";
+      title: _("Color picker");
+
+      [slot]
+      $Swatch latest {
+        visible: false;
+        valign: center;
+
+        styles [
+          "swatch--hero",
+        ]
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section palette_section {
+        title: _("Palette");
+
+        $ColorList palette {}
+
+        [placeholder]
+        $Placeholder nothing {
+          icon-name: "color-select-symbolic";
+          title: _("No colors picked yet");
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

@@ -191,7 +191,9 @@ would need one, and a minute timer redrawing unchanged rows is the cost of a lin
 **Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
 history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
 not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
-and is injected as `Arc<dyn Selection>`. **An image is decoded through `thumbnail`, never
+and is injected as `Arc<dyn Selection>` into both the clipboard and the color picker services. An
+offer keeps that connection up even with the clipboard disabled, because a selection lives only as
+long as the connection that set it. **An image is decoded through `thumbnail`, never
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
 count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
 to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.
@@ -200,6 +202,15 @@ to its icon and stays restorable. Textures are cached by entry id and pruned whe
 its full natural size in the row, widening it past a same-row icon; `max-width`/`max-height` in
 `glimpse.css` is what actually bounds it, with a small `margin` so it does not sit flush against the
 row's edge.
+
+**color-picker** — renders the `color_picker` service: a left click opens the palette, a right
+click runs `glimpse-picker`. The service owns the palette and the clipboard copy; the applet holds
+none of it. The chip is the latest pick as a `Swatch` in the indicator's extension slot, or the
+picker icon before the first. A row copies in the configured format, read when it is pressed rather
+than when the popover opened, and its chevron unfolds all six notations, each copying itself. A
+failed pick or copy is reported by notification. While a pick is open the chip carries
+`color-picker--picking` and a right click does nothing. The minute tick only re-dresses an open
+popover, to age its "4 minutes ago".
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
 through `gio::AppInfo::launch_default_for_uri`, off the main loop.

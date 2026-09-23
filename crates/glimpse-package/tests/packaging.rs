@@ -220,6 +220,22 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
 }
 
 #[test]
+fn the_color_picker_ships_as_a_plain_binary() {
+    let root = workspace_root();
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
+    assert_eq!(package.matches("target/release/glimpse-picker").count(), 2);
+    assert!(!root.join("data/systemd/glimpse-picker.service").exists());
+
+    let manifest =
+        fs::read_to_string(root.join("crates/glimpse-picker/Cargo.toml")).expect("picker manifest");
+    assert!(
+        !manifest.contains("zbus"),
+        "the picker is a command, not a D-Bus provider"
+    );
+}
+
+#[test]
 fn every_install_route_ships_the_commented_reference() {
     let root = workspace_root();
     assert!(root.join("data/config.commented.toml").is_file());

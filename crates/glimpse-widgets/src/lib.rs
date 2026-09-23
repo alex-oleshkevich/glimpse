@@ -9,6 +9,8 @@ mod calendar_popover;
 mod choice_list;
 mod clipboard_list;
 mod clipboard_popover;
+mod color_list;
+mod color_picker_popover;
 mod display_list;
 mod display_popover;
 mod dots;
@@ -55,6 +57,7 @@ mod section;
 mod session_popover;
 mod source_list;
 mod split_row;
+mod swatch;
 mod switch_row;
 mod theme;
 mod tooltip_card;
@@ -87,6 +90,8 @@ pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
 pub use clipboard_list::{Actions as ClipActions, Clip, ClipboardList};
 pub use clipboard_popover::ClipboardPopover;
+pub use color_list::{ColorList, Notation, Shade};
+pub use color_picker_popover::ColorPickerPopover;
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
 pub use event_list::{Event, EventList, EventRow};
@@ -138,6 +143,7 @@ pub use session_popover::{
 };
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
+pub use swatch::{Swatch, rgba};
 pub use switch_row::SwitchRow;
 pub use theme::{Sheets, Styles};
 pub use tooltip_card::TooltipCard;
@@ -6541,6 +6547,125 @@ mod tests {
             .charge_limit
             .emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(battery_limit.get(), Some(true));
+
+        let swatch = Swatch::default();
+        let swatch_notified = Rc::new(Cell::new(0));
+        swatch.connect_color_notify({
+            let swatch_notified = Rc::clone(&swatch_notified);
+            move |_| swatch_notified.set(swatch_notified.get() + 1)
+        });
+        swatch.set_color(Some(&rgba([224, 86, 63])));
+        swatch.set_color(Some(&rgba([224, 86, 63])));
+        assert_eq!(swatch_notified.get(), 1);
+        assert_eq!(swatch.color(), Some(rgba([224, 86, 63])));
+
+        let chip = Indicator::new();
+        let extension = Swatch::default();
+        let spec = IndicatorSpec {
+            extension: Some(extension.clone().upcast()),
+            ..Default::default()
+        };
+        chip.apply(&spec);
+        chip.apply(&spec);
+        assert!(chip.imp().extension.get_visible());
+        assert_eq!(
+            chip.imp().extension.first_child(),
+            Some(extension.clone().upcast())
+        );
+        assert!(
+            chip.imp()
+                .extension
+                .first_child()
+                .unwrap()
+                .next_sibling()
+                .is_none()
+        );
+        assert!(!chip.imp().icon_slot.get_visible());
+        chip.apply(&IndicatorSpec::default());
+        assert!(!chip.imp().extension.get_visible());
+        assert!(chip.imp().extension.first_child().is_none());
+        assert!(extension.parent().is_none());
+
+        let shade = |id: u64, title: &str| Shade {
+            id,
+            color: rgba([id as u8, 0, 0]),
+            title: title.to_owned(),
+            subtitle: "just now".to_owned(),
+            notations: vec![
+                Notation {
+                    key: "hex".to_owned(),
+                    label: "HEX".to_owned(),
+                    value: title.to_owned(),
+                },
+                Notation {
+                    key: "rgb".to_owned(),
+                    label: "RGB".to_owned(),
+                    value: format!("rgb({id} 0 0)"),
+                },
+            ],
+        };
+        let colors = ColorList::new();
+        colors.set_shades(&[shade(7, "#070000"), shade(9, "#090000")]);
+        assert_eq!(colors.imp().holders.borrow().len(), 2);
+        let color_activated = Rc::new(Cell::new(None));
+        colors.connect_activated({
+            let color_activated = Rc::clone(&color_activated);
+            move |_, id| color_activated.set(Some(id))
+        });
+        let second = drawer::head::<SplitRow>(&colors.imp().holders.borrow()[1]).unwrap();
+        second.emit_by_name::<()>("activated", &[]);
+        assert_eq!(color_activated.get(), Some(9));
+
+        colors.set_open(Some(9));
+        let panel = drawer::panel(&colors.imp().holders.borrow()[1]).unwrap();
+        assert!(panel.reveals_child());
+        let card = panel.child().and_downcast::<gtk4::Box>().unwrap();
+        let notation = card.last_child().and_downcast::<Row>().unwrap();
+        assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
+        let color_copied = Rc::new(RefCell::new(None));
+        colors.connect_copied({
+            let color_copied = Rc::clone(&color_copied);
+            move |_, id, key| *color_copied.borrow_mut() = Some((id, key.to_owned()))
+        });
+        notation.emit_clicked();
+        assert_eq!(*color_copied.borrow(), Some((9, "rgb".to_owned())));
+        colors.set_shades(&[
+            shade(3, "#030000"),
+            shade(7, "#070000"),
+            shade(9, "#090000"),
+        ]);
+        let moved = drawer::panel(&colors.imp().holders.borrow()[2]).unwrap();
+        assert!(moved.reveals_child());
+        assert!(
+            moved.child().is_some(),
+            "the open color moved a row down and its detail must follow it"
+        );
+        assert!(
+            drawer::panel(&colors.imp().holders.borrow()[1])
+                .unwrap()
+                .child()
+                .is_none()
+        );
+
+        colors.set_shades(&[shade(7, "#070000")]);
+        assert_eq!(colors.imp().holders.borrow().len(), 1);
+
+        let picker = ColorPickerPopover::new();
+        picker.set_shades(&[]);
+        assert!(picker.imp().palette_section.empty());
+        picker.set_latest(None);
+        assert!(!picker.imp().latest.get_visible());
+        let resting = picker.imp().hero.title();
+        picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
+        assert!(picker.imp().latest.get_visible());
+        assert_eq!(picker.imp().hero.title().as_deref(), Some("#070000"));
+        picker.set_latest(None);
+        assert_eq!(picker.imp().hero.title(), resting);
+        picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
+        picker.set_shades(&[shade(7, "#070000")]);
+        assert!(!picker.imp().palette_section.empty());
+        picker.set_open(Some(7));
+        assert!(picker.imp().hero.has_css_class(drawer::RECEDED));
     }
 
     /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these

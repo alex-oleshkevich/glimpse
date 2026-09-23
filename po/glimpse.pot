@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 22:52+0200\n"
+"POT-Creation-Date: 2026-09-23 15:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -62,26 +62,27 @@ msgstr ""
 msgid "this device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:135
+#: crates/glimpse-panel/src/applet/mod.rs:136
 msgid "That change was refused."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:136
+#: crates/glimpse-panel/src/applet/mod.rs:137
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:318
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
 msgid "That is not supported."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:137
+#: crates/glimpse-panel/src/applet/mod.rs:138
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:319
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
 msgid "That could not be completed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:138
+#: crates/glimpse-panel/src/applet/mod.rs:139
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:320
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:126
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 msgid "That did not work."
 msgstr ""
@@ -148,6 +149,16 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/agenda.rs:150
 msgid "{days} d {hours} h"
 msgstr ""
+
+#: crates/glimpse-panel/src/applets/ago.rs:5
+msgid "just now"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/ago.rs:7
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:100
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:179
@@ -240,7 +251,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:102
-#: crates/glimpse-widgets/src/lib.rs:249
+#: crates/glimpse-widgets/src/lib.rs:255
 msgid "{percent}%"
 msgstr ""
 
@@ -869,6 +880,36 @@ msgstr ""
 msgid "Could not clear the history"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:99
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
+msgid "Color picker"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:109
+msgid "Could not pick a color"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:120
+msgid "That color is no longer in the palette."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:123
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:199
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:209
+msgid "Could not copy that color"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:19
+msgid "yesterday"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:55
+msgid "Pick a color"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/command.rs:92
 msgid "Command"
 msgstr ""
@@ -935,31 +976,21 @@ msgstr[1] ""
 msgid "Unknown"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:136
-msgid "just now"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/idle/render.rs:139
-msgid "{n} minute ago"
-msgid_plural "{n} minutes ago"
-msgstr[0] ""
-msgstr[1] ""
-
-#: crates/glimpse-panel/src/applets/idle/render.rs:143
 msgid "{n} hour ago"
 msgid_plural "{n} hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:148
+#: crates/glimpse-panel/src/applets/idle/render.rs:144
 msgid "(Flatpak via portal)"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:150
+#: crates/glimpse-panel/src/applets/idle/render.rs:146
 msgid "(systemd-inhibit · pid {pid})"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:159
+#: crates/glimpse-panel/src/applets/idle/render.rs:155
 msgid "Preventing idle"
 msgstr ""
 
@@ -1906,6 +1937,14 @@ msgstr ""
 msgid "Nothing copied yet"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:36
+msgid "Palette"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:43
+msgid "No colors picked yet"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/display_popover.blp:36
 msgid "Blank the screens"
 msgstr ""
@@ -2027,7 +2066,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:210
+#: crates/glimpse-widgets/src/lib.rs:216
 msgid "Play"
 msgstr ""
 
@@ -2205,7 +2244,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:209
+#: crates/glimpse-widgets/src/lib.rs:215
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""

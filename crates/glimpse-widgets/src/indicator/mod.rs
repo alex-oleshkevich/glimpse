@@ -24,6 +24,7 @@ pub struct IndicatorSpec {
     /// An emblem on the icon's trailing corner, for a state the icon itself does not carry.
     pub overlay: Option<gio::Icon>,
     pub dot: Option<gtk4::gdk::RGBA>,
+    pub extension: Option<gtk4::Widget>,
     pub label: Option<String>,
     pub tooltip: Option<String>,
     pub badge: Option<String>,
@@ -59,6 +60,7 @@ impl Indicator {
         self.set_icon(spec.icon.as_ref());
         self.set_overlay(spec.overlay.as_ref());
         self.set_dot(spec.dot);
+        self.set_extension(spec.extension.as_ref());
         self.set_label(spec.label.as_deref());
         self.set_badge(spec.badge.as_deref());
         self.set_attention(spec.attention);
@@ -103,6 +105,23 @@ impl Indicator {
             None => imp.dot.set_colors(&[]),
         }
         imp.dot.set_visible(color.is_some());
+    }
+
+    pub fn set_extension(&self, widget: Option<&gtk4::Widget>) {
+        let slot = &self.imp().extension;
+        if slot.first_child().as_ref() == widget {
+            return;
+        }
+        while let Some(child) = slot.first_child() {
+            slot.remove(&child);
+        }
+        if let Some(widget) = widget {
+            if let Some(parent) = widget.parent().and_downcast::<gtk4::Box>() {
+                parent.remove(widget);
+            }
+            slot.append(widget);
+        }
+        slot.set_visible(widget.is_some());
     }
 
     pub fn set_label(&self, label: Option<&str>) {

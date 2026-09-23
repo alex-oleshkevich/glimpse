@@ -593,6 +593,7 @@ fn reconcile_panels(
                 audio: services.audio.clone(),
                 brightness: services.brightness.clone(),
                 night_light: services.night_light(),
+                color_picker: services.color_picker.clone(),
                 notifications: services.notifications(),
                 weather: services.weather(),
                 idle: services.idle(),

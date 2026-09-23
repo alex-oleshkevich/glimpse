@@ -52,5 +52,6 @@
         <file>widgets/weather_popover.ui</file>
         <file>widgets/idle_popover.ui</file>
         <file>widgets/workspace_name_popover.ui</file>
+        <file>widgets/color_picker_popover.ui</file>
     </gresource>
 </gresources>

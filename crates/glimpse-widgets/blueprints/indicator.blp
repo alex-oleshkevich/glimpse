@@ -19,6 +19,15 @@ template $Indicator: Gtk.Widget {
     ]
   }
 
+  Gtk.Box extension {
+    visible: false;
+    valign: center;
+
+    styles [
+      "indicator__extension",
+    ]
+  }
+
   Gtk.Overlay icon_slot {
     visible: false;
     accessible-role: presentation;

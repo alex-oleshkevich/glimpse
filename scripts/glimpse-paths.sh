@@ -22,4 +22,4 @@ localedir="$destdir$prefix/share/locale"
 
 # GLIMPSE_BINARIES is set by the justfile from its single source of truth; the fallback
 # here only matters for a direct, non-just invocation.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker}"

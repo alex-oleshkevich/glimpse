@@ -97,6 +97,12 @@
 # max-total-kib = 10240
 # capture-images = true
 
+[color-picker]
+# format = "hex"
+# limit = 8
+# lens-radius = 106
+# max-zoom = 30
+
 [weather]
 # provider = "open-meteo"
 # poll-interval = 900

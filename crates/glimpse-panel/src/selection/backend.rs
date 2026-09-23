@@ -62,12 +62,6 @@ pub enum Request {
 
 pub type Subscribers = Arc<Feeds>;
 
-/// The live `events()` streams, and a signal for when the first one appears.
-///
-/// **The Wayland connection follows demand.** `[clipboard] enabled = false` promises that no
-/// connection is opened and nothing is recorded, and the service declares no source when it is off
-/// — so with no subscriber there is nobody to record for, and opening a socket to read every copy
-/// the user makes would break exactly the promise someone turning this off is relying on.
 #[derive(Default)]
 pub struct Feeds {
     live: std::sync::Mutex<Vec<mpsc::UnboundedSender<SelectionEvent>>>,
@@ -128,6 +122,11 @@ pub struct Backend {
 #[derive(Debug)]
 struct Unsupported(String);
 
+enum Flow {
+    Idle,
+    Stop,
+}
+
 pub async fn run(
     subscribers: Subscribers,
     mut requests: mpsc::UnboundedReceiver<Request>,
@@ -139,9 +138,15 @@ pub async fn run(
     let mut connecting: Option<tokio::task::JoinHandle<anyhow::Result<Ready>>> = None;
 
     loop {
-        tokio::select! {
-            _ = cancel.cancelled() => return,
-            () = subscribers.awaited() => {}
+        if offering.is_none() {
+            tokio::select! {
+                _ = cancel.cancelled() => return,
+                () = subscribers.awaited() => {}
+                request = requests.recv() => match request {
+                    Some(Request::Offer(offer)) => offering = Some(offer),
+                    None => return,
+                },
+            }
         }
 
         match serve(
@@ -153,7 +158,8 @@ pub async fn run(
         )
         .await
         {
-            Ok(()) => return,
+            Ok(Flow::Idle) => {}
+            Ok(Flow::Stop) => return,
             Err(error) => {
                 if let Some(Unsupported(reason)) = error.downcast_ref::<Unsupported>() {
                     tracing::info!(
@@ -190,7 +196,7 @@ async fn serve(
     cancel: &tokio_util::sync::CancellationToken,
     offering: &mut Option<Offer>,
     connecting: &mut Option<tokio::task::JoinHandle<anyhow::Result<Ready>>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Flow> {
     let Ready {
         conn,
         mut queue,
@@ -199,7 +205,7 @@ async fn serve(
         device,
         mut backend,
     } = tokio::select! {
-        _ = cancel.cancelled() => return Ok(()),
+        _ = cancel.cancelled() => return Ok(Flow::Stop),
         setup = connect(connecting) => setup?,
     };
 
@@ -218,30 +224,32 @@ async fn serve(
 
     loop {
         queue.dispatch_pending(&mut backend)?;
+        offering.clone_from(&backend.offering);
         if let Some((offer, mimes)) = backend.incoming.take() {
-            read_selection(&conn, subscribers, offer, mimes)?;
+            match subscribers.any() {
+                true => read_selection(&conn, subscribers, offer, mimes)?,
+                false => offer.destroy(),
+            }
         }
         if backend.finished {
             anyhow::bail!("the compositor retired the data-control device");
         }
         conn.flush()?;
 
-        // The last stream went away, so there is nobody to record for. Dropping the connection is
-        // what makes `enabled = false` mean what its documentation says.
-        if !subscribers.any() {
+        if !subscribers.any() && offering.is_none() {
             tracing::info!("clipboard backend idle; releasing the compositor connection");
-            return Ok(());
+            return Ok(Flow::Idle);
         }
 
         tokio::select! {
-            _ = cancel.cancelled() => return Ok(()),
+            _ = cancel.cancelled() => return Ok(Flow::Stop),
             request = requests.recv() => match request {
                 Some(Request::Offer(offer)) => {
                     *offering = Some(offer.clone());
                     backend.publish(&manager, &device, &qh, offer);
                     conn.flush()?;
                 }
-                None => return Ok(()),
+                None => return Ok(Flow::Stop),
             },
             guard = readable.readable() => {
                 let mut guard = guard?;
@@ -359,7 +367,7 @@ fn read_selection(
     offer.destroy();
 
     let subscribers = Arc::clone(subscribers);
-    relm4::spawn(async move {
+    tokio::spawn(async move {
         let read = tokio::task::spawn_blocking(move || {
             let mut body = Vec::new();
             // One byte past the cap, so an oversize selection can be told from one that merely

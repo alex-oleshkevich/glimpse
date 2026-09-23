@@ -5,8 +5,6 @@ use futures_util::{Stream, stream};
 use tokio::sync::mpsc;
 
 /// Watching the compositor's clipboard and taking it back.
-/// Declared here and implemented in `glimpse-panel`, because this crate is linked into every
-/// binary and none of them may gain a Wayland dependency.
 /// Synchronous on purpose, like `Gamma`: `set_selection` carries no reply, so the only failure
 /// `offer` can report is that the backend has gone, and an `async` signature would be a promise
 /// the protocol cannot keep.

@@ -41,6 +41,7 @@ glimpse/
 | `glimpse-wallpaper`     | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`          | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`        | night-light service                                                               |
+| `glimpse-picker`        | color picker CLI: screencopy, lens overlay, prints the picked color               |
 | `glimpsectl`            | CLI and TUI                                                                       |
 | `glimpse-package`       | the suite's `.deb`/`.rpm` manifest; no code                                       |
 
@@ -655,6 +656,20 @@ active, and a queue appears within seconds.
 - **A backgrounded emulator dies with the shell that started it.** `scripts/printing-network-
   printer.sh run` owns it in the foreground and tears it down on `^C`, which is why that is the mode
   to use by hand; `up` is for scripted use and needs the caller to keep the shell alive.
+
+**Screencopy for the color picker, September 2026.** niri 26.04 offers `zwlr_screencopy_manager_v1`
+and no `ext_image_copy_capture`. Captured on this machine: DP-2 3840x2160 and eDP-1 2880x1800 (scale
+1.25), both `Xrgb8888`, `y_invert` false, transform `Normal`, two outputs in about half a second. A
+nested niri's winit output reports `Flipped180`, and the frame `Frame::upright` builds from it
+matched the live window — `magick compare -metric AE` of the two screenshots gave 0.07 — so the transform path is exercised by `just nested`; the
+quarter turns were never captured from a rotated output — the nested winit output ignores
+`niri msg output winit transform`, a nested Hyprland cannot map its window under niri
+(`must ack the initial configure before attaching buffer`), and no output here is rotated. Instead
+`every_transform_matches_the_mapping_grim_uses` checks all eight transforms, with and without
+`y_invert`, against a transcription of grim's own buffer-to-logical matrix (`render.c`: centre,
+`y_invert` scale, rotate by the output's angle, flip x); reverting `_90` to the first version fails
+it. A `Layer::Overlay` surface with
+`KeyboardMode::Exclusive` maps and lists under `niri msg layers` as exclusive.
 
 **Data-control and the clipboard, September 2026.** niri 26.04 implements **both**
 `ext_data_control_manager_v1` and `zwlr_data_control_manager_v1` (read out of the binary; smithay

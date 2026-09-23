@@ -104,6 +104,7 @@ pub fn app_id() -> String {
     std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or_else(|_| DEFAULT_APP_ID.to_owned())
 }
 
+#[derive(Clone)]
 pub struct Report {
     pub notifications: NotificationsProviderHandle,
     pub app_name: String,

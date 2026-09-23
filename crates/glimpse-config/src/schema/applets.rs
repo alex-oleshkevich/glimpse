@@ -67,6 +67,9 @@ pub enum Kind {
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
+    /// The latest picked color. A left click opens the lens to pick one from the screen, a right
+    /// click the palette of recent picks in every notation. Needs `glimpse-picker`.
+    ColorPicker {},
     /// A chip the user defines, running a program on a click or a scroll.
     Command(Box<Command>),
     /// Connected outputs, their modes and their arrangement.

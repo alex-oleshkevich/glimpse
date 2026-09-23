@@ -5,6 +5,7 @@ pub(crate) mod bluetooth;
 mod brightness;
 mod clipboard;
 mod clock;
+mod color_picker;
 mod command;
 mod display;
 mod heartbeat;
@@ -33,8 +34,9 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
-    PrintingHandle, PrivacyHandle, RemovableHandle, SessionActionsHandle, TrayHandle,
+    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    SessionActionsHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -74,6 +76,7 @@ pub fn build(
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
     idle: &IdleProviderHandle,
+    color_picker: &ColorPickerHandle,
     session_actions: &SessionActionsHandle,
     battery: &BatteryHandle,
     clipboard: &ClipboardHandle,
@@ -263,6 +266,17 @@ pub fn build(
                 Box::new(privacy::Privacy::start(privacy, compositor, notifications))
             }))
         }
+        AppletKind::ColorPicker {} => {
+            let color_picker = color_picker.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(color_picker.subscribe());
+                Box::new(color_picker::ColorPicker::start(
+                    color_picker,
+                    notifications,
+                ))
+            }))
+        }
         AppletKind::WorkspaceName {} => {
             let compositor = compositor.clone();
             let notifications = notifications.clone();
@@ -407,6 +421,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -445,6 +460,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -483,6 +499,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -522,6 +539,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -561,6 +579,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -599,6 +618,7 @@ mod tests {
             &services.notifications(),
             &services.weather(),
             &services.idle(),
+            &services.color_picker,
             &services.session_actions,
             &services.battery,
             &services.clipboard,
@@ -639,6 +659,7 @@ mod tests {
                 &services.notifications(),
                 &services.weather(),
                 &services.idle(),
+                &services.color_picker,
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,
@@ -668,6 +689,7 @@ mod tests {
                 &services.notifications(),
                 &services.weather(),
                 &services.idle(),
+                &services.color_picker,
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,
@@ -719,6 +741,7 @@ mod tests {
                 &services.notifications(),
                 &services.weather(),
                 &services.idle(),
+                &services.color_picker,
                 &services.session_actions,
                 &services.battery,
                 &services.clipboard,

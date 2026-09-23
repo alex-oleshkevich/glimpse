@@ -12,12 +12,13 @@ use glimpse_dbus::{
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothHandle, Brightness,
     BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
-    ClipboardDependencies, ClipboardHandle, CompositeBacklight, Compositor, CompositorHandle,
-    DdcBacklight, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
-    Mpris, MprisHandle, Network, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle,
-    Privacy, PrivacyDependencies, PrivacyHandle, Removable, RemovableHandle, Running, Selection,
-    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray,
-    TrayHandle, UnavailableBacklight,
+    ClipboardDependencies, ClipboardHandle, ColorPicker, ColorPickerDependencies,
+    ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle, DdcBacklight, Heartbeat,
+    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
+    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
+    PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running, Selection, SessionActions,
+    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
+    UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -34,6 +35,7 @@ pub struct PanelServices {
     pub session_actions: SessionActionsHandle,
     pub battery: BatteryHandle,
     pub clipboard: ClipboardHandle,
+    pub color_picker: ColorPickerHandle,
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
@@ -51,6 +53,7 @@ pub struct PanelServices {
     session_actions_service: Running<SessionActions>,
     battery_service: Running<Battery>,
     clipboard_service: Running<Clipboard>,
+    color_picker_service: Running<ColorPicker>,
     places_service: Running<Places>,
     printing_service: Running<Printing>,
     removable_service: Running<Removable>,
@@ -127,7 +130,19 @@ impl PanelServices {
         let (clipboard_service, clipboard) = Running::<Clipboard>::spawn(
             document,
             buses.clone(),
-            ClipboardDependencies { selection },
+            ClipboardDependencies {
+                selection: Arc::clone(&selection),
+            },
+        );
+        let program =
+            std::env::var("GLIMPSE_PICKER_BIN").unwrap_or_else(|_| "glimpse-picker".to_owned());
+        let (color_picker_service, color_picker) = Running::<ColorPicker>::spawn(
+            document,
+            buses.clone(),
+            ColorPickerDependencies {
+                selection,
+                picker: Arc::new(ProcessPicker::new(program)),
+            },
         );
         let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
         let (places_service, places) = Running::<Places>::spawn(document, buses.clone(), ());
@@ -156,6 +171,7 @@ impl PanelServices {
             session_actions,
             battery,
             clipboard,
+            color_picker,
             places,
             printing,
             removable,
@@ -173,6 +189,7 @@ impl PanelServices {
             session_actions_service,
             battery_service,
             clipboard_service,
+            color_picker_service,
             places_service,
             printing_service,
             removable_service,
@@ -193,6 +210,7 @@ impl PanelServices {
         self.removable_service.stop().await;
         self.printing_service.stop().await;
         self.places_service.stop().await;
+        self.color_picker_service.stop().await;
         self.clipboard_service.stop().await;
         self.brightness_service.stop().await;
         self.session_actions_service.stop().await;
@@ -221,6 +239,7 @@ impl PanelServices {
         self.audio_service.reconfigure(document);
         self.brightness_service.reconfigure(document);
         self.clipboard_service.reconfigure(document);
+        self.color_picker_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
         self.battery_service.reconfigure(document);
         self.places_service.reconfigure(document);
@@ -249,6 +268,7 @@ impl PanelServices {
         self.removable_service.cancel();
         self.printing_service.cancel();
         self.places_service.cancel();
+        self.color_picker_service.cancel();
         self.clipboard_service.cancel();
         self.brightness_service.cancel();
         self.session_actions_service.cancel();

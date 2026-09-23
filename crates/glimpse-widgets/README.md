@@ -40,6 +40,9 @@ themed name containing one. `IndicatorSpec` holds a `gio::Icon` and so is not `S
 - **The icon sits in a `Gtk.Overlay`, and `overlay` is an emblem on its trailing corner** — the
   Windows-taskbar idiom, for a state the application's own icon does not carry. The *slot* follows
   the base icon's presence, so an indicator with neither reserves no space.
+- **`extension` is any widget the applet owns**, placed in a box beside the icon slot. The
+  indicator compares by identity and only reparents on a change, so an applet keeps one widget —
+  the color picker's `Swatch` — and updates it in place.
 - **A badge hides the attention dot, and must not cancel attention itself.** Two marks for one fact
   is noise, so the dot yields while `indicator--attention` stays and colours the chip. Assert it from
   a clean spec — `set_attention` returns early on an unchanged flag.
@@ -502,6 +505,17 @@ no detail label is translated here.
 - **The reconcile key is `(id, action)`, not `id` alone.** A resource whose action changes rebuilds
   its control rather than keeping a stale one — `by_key` matching on `id` only would reuse a `Row`
   that used to be a `SplitRow`, or the other way round, and leave the wrong widget in the cell.
+
+## Swatch, ColorList and ColorPickerPopover
+
+- **`Swatch` paints its `color` property and nothing else.** Its CSS node is `swatch`, which is
+  how `.indicator__extension swatch` sizes it for the bar. CSS owns its size, radius and hairline;
+  `overflow: hidden` is what clips the fill to that radius. A color is data, so it is never a CSS
+  class per value. `color` is `explicit_notify`: GObject otherwise notifies on every write,
+  including an unchanged one.
+- **`ColorList` takes finished `Shade`s** — title, subtitle and every `Notation` already rendered by
+  the applet — and reports ids and notation keys, never a format it would have to understand.
+- **An open detail recedes the popover's hero and footer**, as `ClipboardPopover` does.
 
 ## WorkspaceNamePopover
 

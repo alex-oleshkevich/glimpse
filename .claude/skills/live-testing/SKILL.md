@@ -72,6 +72,14 @@ applied. Two private buses against one compositor is also how gamma *contention*
 installing `wlsunset` — the second provider finds every output `failed`, reports
 `another gamma client holds the outputs`, and takes over on its next tick once the first releases.
 
+**A `--session` private bus activates the installed providers onto the user's display.** It reads
+`/usr/share/dbus-1/services`, so the first proxy the test panel builds starts `/usr/bin/glimpse-
+notifications`, `glimpse-weather` and `glimpse-idle` with the bus daemon's environment — the
+launching shell's `WAYLAND_DISPLAY`, the user's session. Measured: all three came up on `wayland-1`
+behind a panel under test in a nested niri. Give the private bus its own `--config-file` with a
+`<servicedir>` holding only what the test should activate — which is also how D-Bus activation of a
+provider under test is exercised, through a `.service` whose `Exec` sets the nested socket.
+
 **Kill a test bus by its exact pid.** `pkill -f "dbus-daemon --session"` also matches a session bus
 started that way. This machine runs `dbus-broker`, so the user's session survived it; one that does
 not would lose the whole session to that command.

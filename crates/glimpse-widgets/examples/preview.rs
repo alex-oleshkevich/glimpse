@@ -2617,14 +2617,15 @@ mod fixtures {
 fn ensure_types() {
     use glimpse_widgets::{
         BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClipboardList,
-        ClipboardPopover, ClockRow, DisplayList, DisplayPopover, EventList, EventRow, FactList,
-        Fader, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator,
-        IndicatorGroup, InhibitorList, KeyboardPopover, Notice, NotificationCard,
-        NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
-        NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, Placeholder,
-        PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout,
-        Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, SwitchRow, TooltipCard,
-        Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
+        ClipboardPopover, ClockRow, ColorList, ColorPickerPopover, DisplayList, DisplayPopover,
+        EventList, EventRow, FactList, Fader, ForecastDay, ForecastHour, ForecastList,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, Notice,
+        NotificationCard, NotificationHeader, NotificationImageBody, NotificationList,
+        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
+        Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover,
+        RangeBar, Readout, Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, Swatch,
+        SwitchRow, TooltipCard, Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover,
+        WorldClock,
     };
 
     for widget in [
@@ -2634,6 +2635,9 @@ fn ensure_types() {
         CalendarPopover::static_type(),
         ChoiceList::static_type(),
         ClockRow::static_type(),
+        ColorList::static_type(),
+        ColorPickerPopover::static_type(),
+        Swatch::static_type(),
         DisplayList::static_type(),
         DisplayPopover::static_type(),
         SourceList::static_type(),

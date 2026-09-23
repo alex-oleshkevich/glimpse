@@ -6,8 +6,9 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle,
-    PrintingHandle, PrivacyHandle, RemovableHandle, SessionActionsHandle, TrayHandle,
+    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    SessionActionsHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -78,6 +79,7 @@ pub struct Config {
     pub notifications: NotificationsProviderHandle,
     pub weather: WeatherProviderHandle,
     pub idle: IdleProviderHandle,
+    pub color_picker: ColorPickerHandle,
     pub session_actions: SessionActionsHandle,
     pub battery: BatteryHandle,
     pub clipboard: ClipboardHandle,
@@ -279,6 +281,7 @@ impl Panel {
                                     &config.notifications,
                                     &config.weather,
                                     &config.idle,
+                                    &config.color_picker,
                                     &config.session_actions,
                                     &config.battery,
                                     &config.clipboard,

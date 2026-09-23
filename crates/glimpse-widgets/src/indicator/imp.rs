@@ -7,6 +7,8 @@ pub struct Indicator {
     #[template_child]
     pub dot: TemplateChild<crate::dots::Dots>,
     #[template_child]
+    pub extension: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub icon_slot: TemplateChild<gtk4::Overlay>,
     #[template_child]
     pub icon: TemplateChild<gtk4::Image>,

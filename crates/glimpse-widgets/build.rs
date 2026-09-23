@@ -176,6 +176,10 @@ fn main() {
             "blueprints/workspace_name_popover.blp",
             "resources/widgets/workspace_name_popover.ui",
         ),
+        (
+            "blueprints/color_picker_popover.blp",
+            "resources/widgets/color_picker_popover.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

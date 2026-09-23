@@ -307,6 +307,39 @@
           "additionalProperties": false,
           "required": []
         },
+        "color-picker": {
+          "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs `glimpse-picker`.",
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "color-picker"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "command": {
           "description": "A chip the user defines, running a program on a click or a scroll.",
           "type": "object",
@@ -1520,6 +1553,41 @@
             ]
           },
           {
+            "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs `glimpse-picker`.",
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "color-picker"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
             "description": "A chip the user defines, running a program on a click or a scroll.",
             "type": "object",
             "properties": {
@@ -2495,6 +2563,15 @@
         "max-total-kib": 10240
       }
     },
+    "color-picker": {
+      "$ref": "#/$defs/ColorPicker",
+      "default": {
+        "format": "hex",
+        "lens-radius": 106,
+        "limit": 8,
+        "max-zoom": 30
+      }
+    },
     "geolocation": {
       "$ref": "#/$defs/Geolocation",
       "default": {
@@ -2943,6 +3020,73 @@
         "time-format": {
           "type": "string",
           "default": "%H:%M"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ColorFormat": {
+      "oneOf": [
+        {
+          "description": "`#E0563F`",
+          "type": "string",
+          "const": "hex"
+        },
+        {
+          "description": "`rgb(224 86 63)`",
+          "type": "string",
+          "const": "rgb"
+        },
+        {
+          "description": "`hsl(9 72% 56%)`",
+          "type": "string",
+          "const": "hsl"
+        },
+        {
+          "description": "`hsv(9 72% 88%)`",
+          "type": "string",
+          "const": "hsv"
+        },
+        {
+          "description": "`oklch(0.63 0.18 32)`",
+          "type": "string",
+          "const": "oklch"
+        },
+        {
+          "description": "`cmyk(0% 62% 72% 12%)`, a naive conversion with no color profile.",
+          "type": "string",
+          "const": "cmyk"
+        }
+      ]
+    },
+    "ColorPicker": {
+      "description": "The screen color picker. `glimpse-picker` reads it for the lens and the notation it prints;\nthe panel reads it for the palette, which lives in the panel process and in memory only.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "The notation a picked color is copied in, and the one the palette shows it in. Every other\nnotation stays one click away in the palette.",
+          "$ref": "#/$defs/ColorFormat",
+          "default": "hex"
+        },
+        "lens-radius": {
+          "description": "The lens's radius in logical pixels. Clamped to 40..=400.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 106,
+          "minimum": 0
+        },
+        "limit": {
+          "description": "How many colors the palette keeps, newest first. A pick beyond it drops the oldest.\nClamped to 1..=64.",
+          "type": "integer",
+          "format": "uint",
+          "default": 8,
+          "minimum": 0
+        },
+        "max-zoom": {
+          "description": "How far the scroll wheel zooms the lens in, as a magnification: `30` shows one screen\npixel thirty logical pixels wide. The lens opens at x8, or at this if it is lower.\nClamped to 2..=64.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 30,
+          "minimum": 0
         }
       },
       "additionalProperties": false

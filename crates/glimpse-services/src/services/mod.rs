@@ -21,6 +21,7 @@ mod bluetooth;
 mod brightness;
 mod calendar;
 mod clipboard;
+mod color_picker;
 mod compositor;
 mod geolocation;
 mod heartbeat;
@@ -63,6 +64,11 @@ pub use calendar::{Calendar, CalendarHandle};
 pub use clipboard::{
     Clipboard, ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState,
     Config as ClipboardConfig, Dependencies as ClipboardDependencies,
+};
+pub use color_picker::{
+    ColorPicker, ColorPickerHandle, ColorPickerState, Config as ColorPickerConfig,
+    Dependencies as ColorPickerDependencies, PickRequest, Picked, PickedColor, Picker,
+    ProcessPicker,
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};

@@ -4,6 +4,7 @@ mod bluetooth;
 mod brightness;
 mod calendar;
 mod clipboard;
+mod color_picker;
 mod geolocation;
 mod idle;
 mod keyboard;
@@ -44,6 +45,7 @@ pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
 pub use clipboard::Clipboard;
+pub use color_picker::{ColorFormat, ColorPicker};
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
@@ -79,6 +81,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub calendar: Calendar,
     pub clipboard: Clipboard,
+    pub color_picker: ColorPicker,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
@@ -109,6 +112,7 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
             clipboard: Clipboard::default(),
+            color_picker: ColorPicker::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),

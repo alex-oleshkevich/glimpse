@@ -1,0 +1,30 @@
+[package]
+name = "glimpse-picker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+adw.workspace = true
+anstream.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+glib.workspace = true
+glimpse-config.workspace = true
+glimpse-utils.workspace = true
+glimpse-widgets.workspace = true
+gtk4.workspace = true
+gtk4-layer-shell.workspace = true
+rustix.workspace = true
+serde_json.workspace = true
+shadow-rs.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+wayland-client.workspace = true
+wayland-protocols-wlr.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true
