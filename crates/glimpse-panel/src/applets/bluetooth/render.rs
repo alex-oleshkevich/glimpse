@@ -265,17 +265,15 @@ pub struct Listing {
 
 pub fn entries(
     state: &BluetoothState,
-    selected: Option<&DeviceId>,
     devices: usize,
     nearby: usize,
     expanded: (bool, bool),
 ) -> Listing {
     let (all_paired, all_nearby) = expanded;
     let mut built = Vec::new();
-    let chosen = |device: &Device| selected.is_some_and(|id| id == &device.id);
 
     for device in state.devices.iter().filter(|device| device.connected) {
-        built.push(entry(device, Place::Connected, chosen(device)));
+        built.push(entry(device, Place::Connected));
     }
 
     let paired: Vec<&Device> = state
@@ -284,7 +282,7 @@ pub fn entries(
         .filter(|device| !device.connected && device.known())
         .collect();
     for device in paired.iter().take(shown(devices, all_paired)) {
-        built.push(entry(device, Place::Paired, chosen(device)));
+        built.push(entry(device, Place::Paired));
     }
 
     let found: Vec<&Device> = state
@@ -293,7 +291,7 @@ pub fn entries(
         .filter(|device| !device.connected && !device.known())
         .collect();
     for device in found.iter().take(shown(nearby, all_nearby)) {
-        built.push(entry(device, Place::Nearby, chosen(device)));
+        built.push(entry(device, Place::Nearby));
     }
 
     Listing {
@@ -322,7 +320,7 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
     })
 }
 
-fn entry(device: &Device, place: Place, selected: bool) -> Entry {
+fn entry(device: &Device, place: Place) -> Entry {
     Entry {
         id: device.id.as_str().to_owned(),
         title: cap(&device.name),
@@ -330,7 +328,6 @@ fn entry(device: &Device, place: Place, selected: bool) -> Entry {
         icon: icon(device.icon).to_owned(),
         place,
         value: state_of(device),
-        selected,
         busy: device.busy.is_some(),
     }
 }
@@ -678,7 +675,7 @@ mod tests {
         }
         let state = state(Power::On, true, devices);
 
-        let listing = entries(&state, None, 6, 8, (false, false));
+        let listing = entries(&state, 6, 8, (false, false));
         let counted = |place: Place| counted_in(&listing, place);
 
         assert_eq!(counted(Place::Connected), 1);
@@ -690,7 +687,7 @@ mod tests {
         assert_eq!(counted(Place::Nearby), 8);
         assert!(listing.more_paired.is_some());
         assert!(listing.more_nearby.is_some());
-        let opened = entries(&state, None, 6, 8, (true, true));
+        let opened = entries(&state, 6, 8, (true, true));
         assert_eq!(counted_in(&opened, Place::Paired), 10);
         assert_eq!(
             opened.more_paired.as_deref(),
@@ -713,7 +710,7 @@ mod tests {
         dropped.failure = Some(Failure::BondBroken);
         let state = state(Power::On, false, vec![dropped]);
 
-        let row = &entries(&state, None, 6, 8, (false, false)).entries[0];
+        let row = &entries(&state, 6, 8, (false, false)).entries[0];
 
         assert_eq!(
             row.value, "Pairing lost",
@@ -734,7 +731,7 @@ mod tests {
             busy.battery = Some(80);
             let state = state(Power::On, false, vec![busy]);
 
-            let row = &entries(&state, None, 6, 8, (false, false)).entries[0];
+            let row = &entries(&state, 6, 8, (false, false)).entries[0];
 
             assert!(row.busy, "{doing:?} must reach the row as a spinner");
             assert!(

@@ -28,7 +28,6 @@ pub struct Bluetooth {
     spec: Vec<IndicatorSpec>,
     devices: usize,
     nearby: usize,
-    selected: Rc<RefCell<Option<DeviceId>>>,
     expanded: Rc<Cell<(bool, bool)>>,
     asked: Rc<RefCell<Option<Asked>>>,
     raised: Option<Asked>,
@@ -89,7 +88,7 @@ impl Applet for Bluetooth {
         shown.connect_activated({
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
-            let selected = Rc::clone(&self.selected);
+            let shown = shown.downgrade();
             let opener = seat.opener();
             move |_, id, connected| {
                 let id = DeviceId::new(id);
@@ -100,7 +99,7 @@ impl Applet for Bluetooth {
                         &notifications,
                         "bluetooth.disconnect_device",
                         gettext("Could not disconnect"),
-                        &selected,
+                        &shown,
                         &opener,
                         key,
                         async move { bluetooth.disconnect(id).await },
@@ -109,7 +108,7 @@ impl Applet for Bluetooth {
                         &notifications,
                         "bluetooth.connect_device",
                         gettext("Could not connect"),
-                        &selected,
+                        &shown,
                         &opener,
                         key,
                         async move { bluetooth.connect(id).await },
@@ -118,22 +117,10 @@ impl Applet for Bluetooth {
             }
         });
 
-        shown.connect_selected({
-            let selected = Rc::clone(&self.selected);
-            let opener = seat.opener();
-            move |_, id| {
-                let id = DeviceId::new(id);
-                let mut held = selected.borrow_mut();
-                *held = (held.as_ref() != Some(&id)).then_some(id);
-                drop(held);
-                opener.wake();
-            }
-        });
-
         shown.connect_acted({
             let bluetooth = self.bluetooth.clone();
             let opener = seat.opener();
-            let selected = Rc::clone(&self.selected);
+            let shown = shown.downgrade();
             let notifications = self.notifications.clone();
             move |_, id, action| {
                 let id = DeviceId::new(id);
@@ -145,7 +132,7 @@ impl Applet for Bluetooth {
                             &notifications,
                             "bluetooth.connect_device",
                             gettext("Could not connect"),
-                            &selected,
+                            &shown,
                             &opener,
                             key,
                             async move { bluetooth.connect(id).await },
@@ -157,7 +144,7 @@ impl Applet for Bluetooth {
                             &notifications,
                             "bluetooth.disconnect_device",
                             gettext("Could not disconnect"),
-                            &selected,
+                            &shown,
                             &opener,
                             key,
                             async move { bluetooth.disconnect(id).await },
@@ -169,7 +156,7 @@ impl Applet for Bluetooth {
                             &notifications,
                             "bluetooth.pair_device",
                             gettext("Could not pair"),
-                            &selected,
+                            &shown,
                             &opener,
                             key,
                             async move { bluetooth.pair(id).await },
@@ -342,7 +329,6 @@ impl Applet for Bluetooth {
         }
 
         self.expanded.set((false, false));
-        self.selected.replace(None);
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
@@ -372,7 +358,7 @@ fn act(
     notifications: &NotificationsProviderHandle,
     operation: &'static str,
     summary: String,
-    selected: &Rc<RefCell<Option<DeviceId>>>,
+    shown: &glib::WeakRef<BluetoothPopover>,
     opener: &Opener,
     id: DeviceId,
     future: impl std::future::Future<Output = Result<(), BluetoothError>> + 'static,
@@ -383,14 +369,13 @@ fn act(
         icon: render::IDLE.to_owned(),
         summary,
     };
-    let selected = Rc::clone(selected);
+    let shown = shown.clone();
     let opener = opener.clone();
     relm4::spawn_local(async move {
         match future.await {
             Ok(()) => {
-                let mine = selected.borrow().as_ref() == Some(&id);
-                if mine {
-                    selected.replace(None);
+                if let Some(shown) = shown.upgrade() {
+                    shown.collapse(id.as_str());
                 }
             }
             Err(error) => report_failure(operation, report, wording(&error), error).await,
@@ -415,7 +400,6 @@ impl Bluetooth {
             spec: Vec::new(),
             devices: 6,
             nearby: 8,
-            selected: Rc::new(RefCell::new(None)),
             expanded: Rc::new(Cell::new((false, false))),
             asked: Rc::new(RefCell::new(None)),
             raised: None,
@@ -455,27 +439,18 @@ impl Bluetooth {
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         shown.set_scanning(self.state.scanning());
 
-        let selected = self.selected.borrow();
-        let selected = selected
-            .as_ref()
-            .filter(|id| self.state.device(id).is_some());
-        let listing = render::entries(
-            &self.state,
-            selected,
-            self.devices,
-            self.nearby,
-            self.expanded.get(),
-        );
+        let listing = render::entries(&self.state, self.devices, self.nearby, self.expanded.get());
         shown.set_entries(&listing.entries);
         shown.set_overflow(
             listing.more_paired.as_deref(),
             listing.more_nearby.as_deref(),
         );
-        shown.set_details(
-            selected
-                .and_then(|id| render::details(&self.state, id))
-                .as_ref(),
-        );
+        let details: Vec<_> = listing
+            .entries
+            .iter()
+            .filter_map(|entry| render::details(&self.state, &DeviceId::new(&entry.id)))
+            .collect();
+        shown.set_details(&details);
         shown.set_prompt(render::prompt(&self.state).as_ref());
         self.asked.replace(render::asked(&self.state));
     }

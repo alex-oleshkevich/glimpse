@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row};
+use crate::{Expandable, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Ask, Details, Entry, Line, Place};
 
@@ -52,7 +52,6 @@ impl BluetoothPopover {
         }
         imp.entries.replace(entries.to_vec());
         self.render_entries();
-        self.render_details();
     }
 
     pub fn set_scanning(&self, scanning: bool) {
@@ -62,16 +61,33 @@ impl BluetoothPopover {
             return;
         }
         imp.nearby.set_visible(scanning);
-        self.render_details();
+        if !scanning {
+            for (_, holder) in imp.nearby_held.borrow().iter() {
+                holder.set_expanded(false);
+            }
+        }
     }
 
-    pub fn set_details(&self, details: Option<&Details>) {
+    /// Every listed device's detail, keyed by `Details::id`. A card is built the first time its
+    /// device is opened and refreshed from here afterwards; a device whose detail is gone closes.
+    pub fn set_details(&self, details: &[Details]) {
         let imp = self.imp();
-        if imp.details.borrow().as_ref() == details {
+        if imp.details.borrow().as_slice() == details {
             return;
         }
-        imp.details.replace(details.cloned());
-        self.render_details();
+        imp.details.replace(details.to_vec());
+        for (id, holder) in self.holders() {
+            if holder.details::<gtk4::Widget>().is_some() {
+                self.fill(&id, &holder);
+            }
+        }
+    }
+
+    /// Closes one device's card: what an applet calls once the action taken from it succeeded.
+    pub fn collapse(&self, id: &str) {
+        if let Some((_, holder)) = self.holders().find(|(held, _)| held == id) {
+            holder.set_expanded(false);
+        }
     }
 
     pub fn set_prompt(&self, ask: Option<&Ask>) {
@@ -150,14 +166,6 @@ impl BluetoothPopover {
             glib::closure_local!(move |popover: Self, id: String, connected: bool| f(
                 &popover, &id, connected
             )),
-        )
-    }
-
-    pub fn connect_selected<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "selected",
-            false,
-            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
 
@@ -240,6 +248,9 @@ impl BluetoothPopover {
         crate::set_css_class(&*imp.prompt_accept, DESTRUCTIVE, ask.destructive);
         crate::set_css_class(&*imp.prompt_actions, BARE, ask.code.is_empty());
 
+        for (_, holder) in self.holders() {
+            holder.set_expanded(false);
+        }
         imp.pages.set_visible_child_name(PROMPT_PAGE);
         imp.hero.set_sensitive(false);
         imp.footer.set_sensitive(false);
@@ -273,9 +284,9 @@ impl BluetoothPopover {
                 &mut held.borrow_mut(),
                 &wanted,
                 |entry| entry.id.clone(),
-                |entry| drawer::holder(&self.build_split(&entry.id)),
+                |entry| Expandable::new(&self.build_split(&entry.id)),
                 |holder, entry| {
-                    if let Some(split) = drawer::head::<SplitRow>(holder) {
+                    if let Some(split) = holder.head::<SplitRow>() {
                         dress_row(&split.row(), entry);
                     }
                 },
@@ -293,104 +304,62 @@ impl BluetoothPopover {
             &mut imp.nearby_held.borrow_mut(),
             &nearby,
             |entry| entry.id.clone(),
-            |entry| drawer::holder(&self.build_nearby(&entry.id)),
+            |entry| Expandable::new(&self.build_nearby(&entry.id)),
             |holder, entry| {
-                if let Some(row) = drawer::head::<Row>(holder) {
+                if let Some(row) = holder.head::<Row>() {
                     dress_row(&row, entry);
                 }
             },
         );
+        drop(entries);
+        let live: Vec<String> = imp
+            .entries
+            .borrow()
+            .iter()
+            .map(|entry| entry.id.clone())
+            .collect();
+        imp.lines.borrow_mut().retain(|id, _| live.contains(id));
         imp.nearby.set_visible(imp.search.active());
         imp.nearby.set_empty(nearby.is_empty());
     }
 
-    fn render_details(&self) {
-        let details = self.imp().details.borrow().clone();
-        let wanted = details.as_ref().map(|details| details.id.as_str());
-        let open = self
-            .listed()
-            .into_iter()
-            .find(|(id, _)| wanted == Some(id.as_str()));
-
-        for (id, holder) in self.holders() {
-            if let Some(panel) = drawer::panel(&holder) {
-                drawer::set(&panel, open.as_ref().is_some_and(|(open, _)| *open == id));
-            }
+    fn open(&self, id: &str) {
+        if let Some((_, holder)) = self.holders().find(|(held, _)| held == id)
+            && holder.details::<gtk4::Widget>().is_none()
+        {
+            self.fill(id, &holder);
         }
-
-        if let (Some(details), Some((_, holder))) = (details.as_ref(), open.as_ref()) {
-            self.fill(holder, details);
-        }
-
-        self.recede(open.as_ref().map(|(id, _)| id.as_str()));
     }
 
-    /// The panel is built the first time its device is opened: a list of fourteen devices would
-    /// otherwise carry fourteen row boxes that nothing has asked to see.
-    fn fill(&self, holder: &gtk4::Box, details: &Details) {
-        let Some(panel) = drawer::panel(holder) else {
+    fn fill(&self, id: &str, holder: &Expandable) {
+        let imp = self.imp();
+        let Some(details) = imp
+            .details
+            .borrow()
+            .iter()
+            .find(|details| details.id == id)
+            .cloned()
+        else {
+            holder.set_details(None::<&gtk4::Widget>);
             return;
         };
-        let rows = match panel.child().and_downcast::<gtk4::Box>() {
-            Some(rows) => rows,
-            None => {
-                let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                rows.add_css_class(DETAIL);
-                panel.set_child(Some(&rows));
-                rows
-            }
-        };
-        let id = details.id.clone();
-        let key = id.clone();
+        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&rows));
+            rows
+        });
+        let mut lines = imp.lines.borrow_mut();
         reconcile::by_key(
             &rows,
-            &mut self.imp().lines.borrow_mut(),
+            lines.entry(id.to_owned()).or_default(),
             &details.lines,
-            |line| format!("{key}/{}", line.action),
-            |line| self.build_line(&id, line),
+            |line| line.action.clone(),
+            |line| self.build_line(id, line),
             |row, line| self.dress_line(row, line),
         );
     }
 
-    /// Everything but the open device recedes, so the panel is read against a quiet card rather
-    /// than against a list that still looks clickable.
-    fn recede(&self, open: Option<&str>) {
-        let imp = self.imp();
-        for (id, holder) in self.holders() {
-            let Some(head) = holder.first_child() else {
-                continue;
-            };
-            crate::set_css_class(&head, drawer::RECEDED, open.is_some_and(|open| open != id));
-            crate::set_css_class(&head, drawer::OPEN, open == Some(id.as_str()));
-        }
-        for widget in [
-            imp.search.upcast_ref::<gtk4::Widget>(),
-            imp.discoverable.upcast_ref(),
-            imp.more_paired.upcast_ref(),
-            imp.more_nearby.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, open.is_some());
-        }
-        crate::set_css_class(&*imp.hero, drawer::RECEDED, open.is_some());
-    }
-
-    fn listed(&self) -> Vec<(String, gtk4::Box)> {
-        let imp = self.imp();
-        let mut listed = Vec::new();
-        for (section, held) in [
-            (&imp.connected, &imp.connected_held),
-            (&imp.paired, &imp.paired_held),
-            (&imp.nearby, &imp.nearby_held),
-        ] {
-            if section.get_visible() && !section.empty() {
-                listed.extend(held.borrow().iter().cloned());
-            }
-        }
-        listed
-    }
-
-    fn holders(&self) -> impl Iterator<Item = (String, gtk4::Box)> + use<> {
+    fn holders(&self) -> impl Iterator<Item = (String, Expandable)> + use<> {
         let imp = self.imp();
         let mut all = imp.connected_held.borrow().clone();
         all.extend(imp.paired_held.borrow().iter().cloned());
@@ -414,7 +383,7 @@ impl BluetoothPopover {
         split.connect_details(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("selected", &[&key])
+            move |_| popover.open(&key)
         ));
         split
     }
@@ -427,7 +396,7 @@ impl BluetoothPopover {
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("selected", &[&key])
+            move |_| popover.open(&key)
         ));
         row
     }
@@ -475,7 +444,6 @@ impl BluetoothPopover {
     }
 }
 
-const DETAIL: &str = "detail-card";
 const DEVICE: &str = "bluetooth-popover__device";
 
 fn set_button(button: &gtk4::Button, label: &str) {
@@ -492,5 +460,4 @@ fn dress_row(row: &Row, entry: &Entry) {
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_value(none_if_empty(&entry.value));
     row.set_busy(entry.busy);
-    row.set_selected(entry.selected);
 }

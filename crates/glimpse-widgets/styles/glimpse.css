@@ -590,16 +590,7 @@
 }
 
 .bluetooth-popover__device {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
-}
-
-.bluetooth-popover__device .split-row__detail image {
-    transition: transform var(--gl-duration) var(--gl-ease);
-}
-
-.bluetooth-popover__device.open .split-row__detail image {
-    transform: rotate(90deg);
 }
 
 .clipboard-popover .popover-shell,

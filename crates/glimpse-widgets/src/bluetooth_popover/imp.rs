@@ -1,11 +1,12 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, Placeholder, PopoverShell, Row, Section, SwitchRow};
+use crate::{Expandable, Hero, Placeholder, PopoverShell, Row, Section, SwitchRow};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -23,7 +24,6 @@ pub struct Entry {
     pub icon: String,
     pub place: Place,
     pub value: String,
-    pub selected: bool,
     pub busy: bool,
 }
 
@@ -106,12 +106,12 @@ pub struct BluetoothPopover {
     pub footer: TemplateChild<Row>,
 
     pub entries: RefCell<Vec<Entry>>,
-    pub details: RefCell<Option<Details>>,
+    pub details: RefCell<Vec<Details>>,
     pub prompt: RefCell<Option<Ask>>,
-    pub connected_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub paired_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub nearby_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub lines: RefCell<Vec<(String, Row)>>,
+    pub connected_held: RefCell<Vec<(String, Expandable)>>,
+    pub paired_held: RefCell<Vec<(String, Expandable)>>,
+    pub nearby_held: RefCell<Vec<(String, Expandable)>>,
+    pub lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
     pub quiet: std::cell::Cell<bool>,
 }
 
@@ -141,9 +141,6 @@ impl ObjectImpl for BluetoothPopover {
                     .build(),
                 glib::subclass::Signal::builder("activated")
                     .param_types([String::static_type(), bool::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("selected")
-                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("acted")
                     .param_types([String::static_type(), String::static_type()])
