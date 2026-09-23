@@ -1653,11 +1653,11 @@ window.blurred .popover-shell {
     background-color: transparent;
 }
 
-window.notification-popup.blurred .notification {
+window.blurred .notification {
     background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
 }
 
-window.notification-popup.blurred .notification--activatable:hover {
+window.blurred .notification--activatable:hover {
     background-color: color-mix(
         in srgb,
         mix(var(--gl-notification), var(--gl-surface-fg), 0.08) var(--gl-blur-opacity),

@@ -226,6 +226,7 @@ struct Inner {
     uncommitted: Cell<bool>,
     corners: RefCell<Vec<(gtk4::Widget, Corners)>>,
     stale: Cell<bool>,
+    syncing: Cell<bool>,
 }
 
 thread_local! {
@@ -250,6 +251,7 @@ impl Blur {
             uncommitted: Cell::new(false),
             corners: RefCell::default(),
             stale: Cell::new(false),
+            syncing: Cell::new(false),
         });
         let mapped = window.connect_map(glib::clone!(
             #[weak]
@@ -298,8 +300,26 @@ pub(crate) fn restyle() {
     });
 }
 
+/// `map`/`unmap` and a config reload can each ask `Inner::sync` to run, and GTK is free to nest
+/// one inside the other — a monitor change applied while a popover is presenting, say. `attach`
+/// and `detach` are reachable only through `sync`, so this guard is what stops a nested call from
+/// taking a second `RefCell` borrow the outer call already holds and aborting the process; GTK
+/// invokes this from a `g_signal_emit` trampoline that cannot unwind a Rust panic.
+struct SyncGuard<'a>(&'a Cell<bool>);
+
+impl Drop for SyncGuard<'_> {
+    fn drop(&mut self) {
+        self.0.set(false);
+    }
+}
+
 impl Inner {
     fn sync(self: &Rc<Self>) {
+        if self.syncing.replace(true) {
+            return;
+        }
+        let _guard = SyncGuard(&self.syncing);
+
         let protocol = Protocol::get();
         let blurs = protocol.as_ref().is_some_and(|protocol| protocol.blurs());
         let active = self.enabled.get() && blurs;

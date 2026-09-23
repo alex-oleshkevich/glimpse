@@ -196,6 +196,12 @@ hover, focus and any pending press. The key can therefore be captured when the r
 
 - **`set_cap` hides rows rather than dropping them**, so expanding is a visibility flip and a row
   mid-hover survives it.
+- **A row dropped from the target list fades before it is unparented**, rather than vanishing on the
+  next `by_key` pass. `set_notifications` keeps a fading row's last known `Notification` in
+  `removals` and folds it back into the list handed to `by_key`, so the row is neither re-dressed away
+  nor rebuilt mid-fade; `by_key` itself stays untouched, since animating its removal generically would
+  reach every other list built on it. A key that reappears while still fading cancels the fade instead
+  of queuing a second one.
 
 - **It has no `BoxLayout`, and could not have one.** The cards behind must overlap the front one and
   sit against its *measured* height; a box cannot overlap children, and `Gtk.Overlay` takes its size
@@ -636,6 +642,11 @@ compositor, an older niri — the class never appears and the surfaces stay opaq
 - **niri blurs a layer surface in xray mode** — the wallpaper, not the windows between — unless a
   `layer-rule` sets `background-effect { xray false; }` for `glimpse-popover` and
   `glimpse-notifications`. That rule is the user's; nothing here installs it.
+- **`.notification`'s blur tint is keyed on `window.blurred` alone, not `window.notification-popup`.**
+  The same `NotificationCard` renders inside two different blurred windows — the standalone toast
+  popup and any applet popover that shows notification history — and both carry the `blurred` class
+  from `Blur::attach`; only the popup also carries `notification-popup`. Scoping the tint to the
+  narrower pair left the popover's cards solid while the rest of that popover went transparent.
 
 ## Rules
 

@@ -111,6 +111,7 @@
 # forecast-days = 7
 
 [mpris]
+# ignore = []
 # fetch-art = true
 # art-max-kib = 4096
 

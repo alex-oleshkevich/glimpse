@@ -20,7 +20,6 @@ pub struct Mpris {
     /// `mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash
     /// reaches the regex instead of being read as a string escape:
     /// `ignore = ['^chromium', '(?i)firefox']`.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ignore: Vec<String>,
     /// Whether artwork named by an `http` or `https` URL is downloaded. Players that name a local
     /// file are unaffected, and turning this off leaves those working. Downloads go to

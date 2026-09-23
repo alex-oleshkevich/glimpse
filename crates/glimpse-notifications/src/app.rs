@@ -379,11 +379,7 @@ impl App {
     fn apply(&mut self, delta: Delta, sender: &ComponentSender<Self>) {
         self.place();
         for id in delta.removed {
-            if delta.immediate {
-                self.discard(id);
-            } else {
-                self.remove(id);
-            }
+            self.remove(id);
         }
         for id in delta.appeared {
             self.insert(id, sender);
@@ -513,15 +509,6 @@ impl App {
         }
         animate_out(&entry.frame, &entry.animation, edge);
         self.update_input_region();
-    }
-
-    fn discard(&mut self, id: u32) {
-        if let Some(mut entry) = self.rows.remove(&id) {
-            if let Some(task) = entry.timer.task.take() {
-                task.abort();
-            }
-            self.stack.remove(&entry.frame);
-        }
     }
 
     fn settle(&mut self, id: u32, sender: &ComponentSender<Self>) {

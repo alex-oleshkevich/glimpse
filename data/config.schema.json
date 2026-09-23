@@ -2788,7 +2788,8 @@
       "$ref": "#/$defs/Mpris",
       "default": {
         "art-max-kib": 4096,
-        "fetch-art": true
+        "fetch-art": true,
+        "ignore": []
       }
     },
     "network": {
@@ -3581,6 +3582,7 @@
         "ignore": {
           "description": "Regular expressions matched against a player's bus-name suffix (`spotify`,\n`kdeconnect.mpris_desktop_1`) and its `Identity` (`Spotify`, `Firefox`). A player matching\nany of them is never shown. Patterns are unanchored and case-sensitive; write `(?i)` for\ncase-insensitive and `^…$` to anchor. A pattern that does not compile is skipped with a\nwarning and the rest keep working. `playerctld` and KDE Connect mirrors are already\nhandled without this.\n\nTo start from: `'^chromium'` hides every Chromium tab, whose bus names carry an instance\nnumber after the application (`chromium.instance4181`); `'(?i)firefox'` hides Firefox\nhowever it happens to capitalize its `Identity`; `'^mpv$'` hides exactly `mpv` and leaves\n`mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash\nreaches the regex instead of being read as a string escape:\n`ignore = ['^chromium', '(?i)firefox']`.",
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
