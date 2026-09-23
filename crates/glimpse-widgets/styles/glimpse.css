@@ -1672,6 +1672,7 @@ window.blurred .notification--activatable:hover {
         mix(var(--gl-notification), var(--gl-surface-fg), 0.08) var(--gl-blur-opacity),
         transparent
     );
+}
 
 .password-prompt__user {
     font-size: var(--gl-text-title);

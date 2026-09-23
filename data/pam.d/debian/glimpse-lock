@@ -1,0 +1,4 @@
+@include common-auth
+@include common-account
+password  required  pam_deny.so
+session   required  pam_deny.so
