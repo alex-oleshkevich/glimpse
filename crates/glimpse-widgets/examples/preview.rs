@@ -2060,6 +2060,7 @@ mod fixtures {
                             id: "laserjet".into(),
                             name: "HP LaserJet 400".into(),
                             status: "Default · paper jam".into(),
+                            warning: true,
                             network: false,
                             details: vec![
                                 PrintingDetail {
@@ -2080,6 +2081,7 @@ mod fixtures {
                             id: "kitchen".into(),
                             name: "Kitchen".into(),
                             status: "IPP Everywhere · idle".into(),
+                            warning: false,
                             network: true,
                             details: vec![
                                 PrintingDetail {

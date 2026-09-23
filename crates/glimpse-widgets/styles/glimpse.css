@@ -1506,6 +1506,14 @@ window.notification-popup {
     min-height: 3.2rem;
 }
 
+.printing-popover__printer--warning .row__subtitle {
+    color: var(--gl-warning-text);
+}
+
+.row--destructive .row__title {
+    color: var(--gl-danger-text);
+}
+
 .audio-popover__hero--muted .hero__icon,
 .audio-popover__muted {
     color: var(--gl-warning-text);

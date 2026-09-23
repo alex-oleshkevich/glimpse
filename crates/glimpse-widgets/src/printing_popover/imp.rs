@@ -8,7 +8,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, Placeholder, PopoverShell, Row, Section};
+use crate::{Expandable, Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Job {
@@ -29,6 +29,9 @@ pub struct Printer {
     pub name: String,
     pub status: String,
     pub network: bool,
+    /// The status is a problem — stopped, refusing jobs, or reporting a message — and the row says
+    /// so in the warning colour rather than behind its card.
+    pub warning: bool,
     /// Rendered one `$Row` each in the printer's detail panel. The applet formats every label and
     /// value; the widget only draws them, so nothing here is translated in this crate.
     pub details: Vec<Detail>,
@@ -49,8 +52,6 @@ pub struct PrintingPopover {
     pub hero: TemplateChild<Hero>,
     #[template_child]
     pub jobs: TemplateChild<Section>,
-    #[template_child]
-    pub empty_jobs: TemplateChild<Placeholder>,
     #[template_child]
     pub job_rows: TemplateChild<gtk4::Box>,
     #[template_child]

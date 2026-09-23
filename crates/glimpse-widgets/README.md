@@ -475,10 +475,9 @@ are always there — one popover cannot honestly do both.
 
 ## PrintingPopover
 
-Jobs are the primary section: `$Section`'s `empty` property switches between the row list and a bare
-icon `$Placeholder`, and `render_jobs` sets the hero's subtitle (`"No print jobs"` / an `ngettext`
-count) from the same job list — the count text lives in exactly one place, the hero, not repeated on
-the placeholder. Job and printer rows reuse the plain `$Row` template; its title label already caps
+Print jobs come first and the section is absent with no jobs — there is no empty state, because
+`render_jobs` sets the hero's subtitle (`"No print jobs"` / an `ngettext` count) from the same list
+and the count text lives in exactly one place. Job and printer rows reuse the plain `$Row` template; its title label already caps
 its own width, which is what keeps a long job name from resizing the row.
 
 A job's second line reads `"{printer} · {status}"`, and page progress replaces the status word there
@@ -487,16 +486,16 @@ unset. `.printing-popover .row__subtitle` carries `font-variant-numeric: tabular
 widget's own `styles/glimpse.css` rule, because `.row__subtitle` (unlike `.row__value`) has no
 tabular figures by default.
 
-**A job and a printer are the same shape: a `$SplitRow` head over its own `Gtk.Revealer`**, built
-with `drawer::holder` exactly as `BluetoothPopover` builds a device. The head carries the name, the
-status line and a spinner; the chevron opens a `detail-card` of plain `$Row`s. A job's card is its
-actions — Pause, Resume, Cancel — and a printer's is what the queue answered about itself.
+**A job and a printer are the same shape: an `Expandable` whose whole row opens its card**, since the
+row body does nothing else. A job's card is its actions — Pause, Resume, and Cancel as a
+destructive row — and it closes once the action succeeds; a printer's is its location alone. A row
+with nothing to show has no chevron and is not activatable. A printer's problem — its own message,
+a refusal to take jobs, a stopped queue — is the row's subtitle in the warning colour.
 
 **An action is a row, never an icon button, and it cannot live in the head.** `Row` is a
 `Gtk.Button`, so a button placed inside one is a button inside a button: the outer gesture claims
 the press and the inner never emits `clicked`. A headless test cannot catch it — `emit_by_name`
-bypasses the gesture entirely — so the shape is the guard. `SplitRow` exists for this reason and
-keeps its own control a sibling.
+bypasses the gesture entirely — so the shape is the guard.
 
 The chevron hides when there is nothing behind it, and the drawer is forced shut in the same pass,
 so it can never stand open on an empty card. The widget emits `cancelled`/`paused`/`resumed`, each
