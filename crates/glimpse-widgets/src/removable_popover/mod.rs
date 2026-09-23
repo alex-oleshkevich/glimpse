@@ -154,7 +154,7 @@ impl RemovablePopover {
             }
         }
 
-        apply_capacity_bar(cell, spec.fraction);
+        crate::progress::apply_bar(cell, spec.fraction, CAPACITY_BAR);
     }
 
     fn ensure_device_body(&self, cell: &gtk4::Box, spec: &DeviceRow, split: bool) -> Row {
@@ -217,33 +217,6 @@ impl RemovablePopover {
             ));
             cell.prepend(&row);
             row
-        }
-    }
-}
-
-fn apply_capacity_bar(cell: &gtk4::Box, fraction: Option<f64>) {
-    match fraction {
-        Some(fraction) => {
-            let bar = match cell.last_child().and_downcast::<gtk4::ProgressBar>() {
-                Some(bar) => bar,
-                None => {
-                    let bar = gtk4::ProgressBar::new();
-                    bar.add_css_class(CAPACITY_BAR);
-                    bar.set_margin_start(44);
-                    bar.set_margin_end(12);
-                    bar.set_margin_bottom(6);
-                    cell.append(&bar);
-                    bar
-                }
-            };
-            if bar.fraction() != fraction {
-                bar.set_fraction(fraction);
-            }
-        }
-        None => {
-            if let Some(bar) = cell.last_child().and_downcast::<gtk4::ProgressBar>() {
-                bar.unparent();
-            }
         }
     }
 }

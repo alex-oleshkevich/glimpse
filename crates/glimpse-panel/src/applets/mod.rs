@@ -21,6 +21,7 @@ mod printing;
 mod privacy;
 mod removable;
 mod session;
+mod system_monitor;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
@@ -36,7 +37,7 @@ use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
     NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    SessionActionsHandle, TrayHandle,
+    SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -47,11 +48,7 @@ pub fn configured(
     configured: &BTreeMap<String, AppletConfig>,
     regional: &Regional,
 ) -> Option<AppletConfig> {
-    let config = configured
-        .get(name)
-        .cloned()
-        .or_else(|| AppletConfig::from_name(name));
-    let Some(mut config) = config else {
+    let Some(mut config) = glimpse_config::resolve_applet(name, configured) else {
         tracing::warn!(applet = name, "unknown applet, skipping");
         return None;
     };
@@ -84,6 +81,7 @@ pub fn build(
     printing: &PrintingHandle,
     removable: &RemovableHandle,
     privacy: &PrivacyHandle,
+    system_monitor: &SystemMonitorHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -294,6 +292,13 @@ pub fn build(
                 Box::new(command::Command::start(notifications))
             }))
         }
+        AppletKind::SystemMonitor(_) => {
+            let system_monitor = system_monitor.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(system_monitor.subscribe());
+                Box::new(system_monitor::SystemMonitor::start(system_monitor))
+            }))
+        }
         AppletKind::Exec {} => None,
     }
 }
@@ -429,6 +434,7 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "printing now has an implementation");
@@ -468,6 +474,7 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "privacy now has an implementation");
@@ -507,6 +514,7 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
@@ -547,6 +555,7 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "places has an implementation");
@@ -587,9 +596,51 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "removable has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_system_monitor_applet_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config = configured("system-monitor", &BTreeMap::new(), &Regional::default())
+            .expect("`system-monitor` is a known applet");
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.color_picker,
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.printing,
+            &services.removable,
+            &services.privacy,
+            &services.system_monitor,
+            None,
+        );
+        assert!(built.is_some(), "system-monitor has an implementation");
 
         services.shutdown().await;
     }
@@ -626,6 +677,7 @@ mod tests {
             &services.printing,
             &services.removable,
             &services.privacy,
+            &services.system_monitor,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -667,6 +719,7 @@ mod tests {
                 &services.printing,
                 &services.removable,
                 &services.privacy,
+                &services.system_monitor,
                 None,
             )
             .is_none(),
@@ -697,6 +750,7 @@ mod tests {
                 &services.printing,
                 &services.removable,
                 &services.privacy,
+                &services.system_monitor,
                 Some(&dialog),
             )
             .is_some(),
@@ -749,6 +803,7 @@ mod tests {
                 &services.printing,
                 &services.removable,
                 &services.privacy,
+                &services.system_monitor,
                 None,
             );
             assert!(

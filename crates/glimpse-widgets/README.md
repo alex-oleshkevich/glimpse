@@ -454,13 +454,21 @@ are always there — one popover cannot honestly do both.
   row inside it is a plain `Row` or a `SplitRow` depending on whether it needs a click target beyond
   the body, swapped in once and reused rather than rebuilt on every apply.
 - **A capacity readout is a `Gtk.ProgressBar` appended after the row, not a property of it** —
-  `apply_capacity_bar` builds one lazily on the first `Some(fraction)` and removes it again on
-  `None`, so a drive with no mounted filesystem carries no empty bar.
+  `progress::apply_bar(cell, fraction, class)` builds one lazily on the first `Some(fraction)` and
+  removes it again on `None`, so a drive with no mounted filesystem carries no empty bar. The `class`
+  argument is the caller's own CSS class, so each caller's margins live in `glimpse.css` under its
+  own class rather than as pixel values in Rust; `system_monitor_popover` shares the same function
+  under its own class and adds its warning/error coloring as a second class on top.
 - **`.row.dimmed` marks present-but-unusable, not absent** — a drive with no media and no volumes to
   browse, still listed, greyed rather than hidden, since ejecting it is still a thing to do.
 - **`SplitRow`'s chevron is the eject or unmount control**, never the row body, which stays the
   open/mount target; a read-only volume gets a plain trailing icon instead, since there is nothing
   behind a chevron to unfold.
+- **`SystemMonitorPopover` is the same composite-widget shape as `RemovablePopover`**, minus the
+  split-row eject/unmount controls it has no equivalent for: two `Section`s (usage tiles, plain
+  detail rows) reconciled by key, a usage tile's `Gtk.ProgressBar` shared through
+  `progress::apply_bar`, and a `warning`/`error` modifier class layered on top of that bar for
+  threshold coloring — the shared function itself knows nothing about severity.
 
 ## PrintingPopover
 

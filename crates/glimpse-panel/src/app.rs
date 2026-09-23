@@ -604,6 +604,7 @@ fn reconcile_panels(
                 printing: services.printing.clone(),
                 removable: services.removable.clone(),
                 privacy: services.privacy.clone(),
+                system_monitor: services.system_monitor.clone(),
                 dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {

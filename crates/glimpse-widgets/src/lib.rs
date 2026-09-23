@@ -47,6 +47,7 @@ mod player_list;
 mod popover_shell;
 mod printing_popover;
 mod privacy_popover;
+mod progress;
 mod range_bar;
 mod readout;
 mod reconcile;
@@ -59,6 +60,7 @@ mod source_list;
 mod split_row;
 mod swatch;
 mod switch_row;
+mod system_monitor_popover;
 mod theme;
 mod tooltip_card;
 mod transport;
@@ -145,6 +147,9 @@ pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
 pub use swatch::{Swatch, rgba};
 pub use switch_row::SwitchRow;
+pub use system_monitor_popover::{
+    DetailTile as SystemMonitorDetail, SystemMonitorPopover, UsageTile as SystemMonitorUsage,
+};
 pub use theme::{Sheets, Styles};
 pub use tooltip_card::TooltipCard;
 pub use transport::{Repeat, Transport, TransportAction};
@@ -6665,6 +6670,33 @@ mod tests {
         assert!(!picker.imp().palette_section.empty());
         picker.set_open(Some(7));
         assert!(picker.imp().hero.has_css_class(drawer::RECEDED));
+
+        let system_monitor = SystemMonitorPopover::new();
+        let tile = |id: &str, fraction| SystemMonitorUsage {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            value: "1".to_owned(),
+            fraction,
+            severity: None,
+        };
+        system_monitor.set_usage(&[tile("a", Some(0.5)), tile("b", None)]);
+        assert_eq!(children(&*system_monitor.imp().usage_rows), 2);
+        system_monitor.set_usage(&[tile("a", Some(0.5))]);
+        assert_eq!(
+            children(&*system_monitor.imp().usage_rows),
+            1,
+            "a tile whose key stops being passed must not remain"
+        );
+    }
+
+    fn children(parent: &impl IsA<gtk4::Widget>) -> usize {
+        let mut count = 0;
+        let mut child = parent.upcast_ref::<gtk4::Widget>().first_child();
+        while let Some(widget) = child {
+            count += 1;
+            child = widget.next_sibling();
+        }
+        count
     }
 
     /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these

@@ -991,6 +991,10 @@
     background-color: var(--gl-accent);
 }
 
+.capacity-bar {
+    margin: 0 0.75rem 0.375rem 2.75rem;
+}
+
 .capacity-bar trough,
 .capacity-bar progress {
     min-height: 0.3rem;
@@ -1003,6 +1007,32 @@
 
 .capacity-bar progress {
     background-color: var(--gl-muted);
+}
+
+.system-monitor-usage-bar {
+    margin: 0 0.8rem 0.6rem;
+}
+
+.system-monitor-usage-bar trough,
+.system-monitor-usage-bar progress {
+    min-height: 0.3rem;
+    border-radius: 999px;
+}
+
+.system-monitor-usage-bar trough {
+    background-color: var(--gl-faint);
+}
+
+.system-monitor-usage-bar progress {
+    background-color: var(--gl-muted);
+}
+
+.system-monitor-usage-bar--warning progress {
+    background-color: var(--gl-warning-text);
+}
+
+.system-monitor-usage-bar--error progress {
+    background-color: var(--gl-danger-text);
 }
 
 .notification__image {

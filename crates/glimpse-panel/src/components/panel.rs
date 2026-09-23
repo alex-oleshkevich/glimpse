@@ -8,7 +8,7 @@ use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
     NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    SessionActionsHandle, TrayHandle,
+    SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -87,6 +87,7 @@ pub struct Config {
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
     pub privacy: PrivacyHandle,
+    pub system_monitor: SystemMonitorHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -289,6 +290,7 @@ impl Panel {
                                     &config.printing,
                                     &config.removable,
                                     &config.privacy,
+                                    &config.system_monitor,
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(

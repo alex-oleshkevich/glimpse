@@ -1090,6 +1090,71 @@
           "additionalProperties": false,
           "required": []
         },
+        "system-monitor": {
+          "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+          "type": "object",
+          "properties": {
+            "chip-format": {
+              "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+              "type": "string",
+              "default": "{name} {value}"
+            },
+            "chips": {
+              "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+              "type": "array",
+              "default": [
+                "cpu",
+                "ram"
+              ],
+              "items": {
+                "$ref": "#/$defs/Chip"
+              }
+            },
+            "critical-percent": {
+              "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 95,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "extends": {
+              "type": "string",
+              "const": "system-monitor"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "warn-percent": {
+              "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 85,
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "tray": {
           "description": "The system tray: icons from applications that ask for one.",
           "type": "object",
@@ -2370,6 +2435,73 @@
             ]
           },
           {
+            "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+            "type": "object",
+            "properties": {
+              "chip-format": {
+                "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+                "type": "string",
+                "default": "{name} {value}"
+              },
+              "chips": {
+                "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+                "type": "array",
+                "default": [
+                  "cpu",
+                  "ram"
+                ],
+                "items": {
+                  "$ref": "#/$defs/Chip"
+                }
+              },
+              "critical-percent": {
+                "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 95,
+                "maximum": 100,
+                "minimum": 1
+              },
+              "extends": {
+                "type": "string",
+                "const": "system-monitor"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "warn-percent": {
+                "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 85,
+                "maximum": 100,
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
             "description": "The system tray: icons from applications that ask for one.",
             "type": "object",
             "properties": {
@@ -2767,6 +2899,16 @@
         "capacity-interval": 10
       }
     },
+    "system-monitor": {
+      "$ref": "#/$defs/SystemMonitor",
+      "default": {
+        "disk-paths": [
+          "/"
+        ],
+        "gpu": true,
+        "poll-interval": 2
+      }
+    },
     "wallpaper": {
       "$ref": "#/$defs/Wallpaper",
       "default": {
@@ -2968,6 +3110,17 @@
         }
       },
       "additionalProperties": false
+    },
+    "Chip": {
+      "description": "One chip the system-monitor applet can show on the bar. Disk is deliberately not a variant —\narbitrarily many configured paths don't reduce to one chip value, so disk stays popover-only.",
+      "type": "string",
+      "enum": [
+        "cpu",
+        "ram",
+        "swap",
+        "network",
+        "gpu"
+      ]
     },
     "Clipboard": {
       "description": "What the panel remembers of the clipboard. The history lives in the panel process and in memory\nonly: it survives nothing, which is deliberate for a buffer that routinely holds passwords.",
@@ -3976,6 +4129,36 @@
           "const": "directory"
         }
       ]
+    },
+    "SystemMonitor": {
+      "description": "The system-monitor service: what it samples and how often. Whether it samples at all is not a\nkey here — it is derived from panel placement (see `placed_kinds`), because a poll interval\nonly means something once something is actually placed to consume it.",
+      "type": "object",
+      "properties": {
+        "disk-paths": {
+          "description": "Filesystem paths sampled for free space, each becoming its own popover tile. A path that\ndoes not exist is skipped. An unmounted-but-present path still resolves — `statvfs` reports\nwhichever filesystem currently owns the directory, the same way `df` would — accepted, not\na bug. Each entry must be absolute; duplicates (after stripping a trailing `/`) collapse to\ntheir first occurrence.",
+          "type": "array",
+          "default": [
+            "/"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "gpu": {
+          "description": "Whether to probe for an amdgpu GPU at all.",
+          "type": "boolean",
+          "default": true
+        },
+        "poll-interval": {
+          "description": "Seconds between samples of every reading this service publishes. Must be between 1 and 60.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 2,
+          "maximum": 60,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
     },
     "Timezone": {
       "description": "One zone in the clock popover's world clock.",

@@ -273,8 +273,9 @@ mod fixtures {
         Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
         NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
         PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
-        PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow, TransportAction,
-        TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow,
+        SystemMonitorDetail, SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip,
+        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -333,6 +334,8 @@ mod fixtures {
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
             "tray_states" => tray_states(root),
+            "system_monitor" => system_monitor(root),
+            "system_monitor_indicator_states" => system_monitor_indicator_states(builder),
             "inhibitor_list_states" => inhibitor_list_states(root),
             "printing_states" => printing_popover_states(root),
             "privacy_states" => privacy_popover_states(root),
@@ -1920,6 +1923,104 @@ mod fixtures {
         }
     }
 
+    fn system_monitor(root: &gtk4::Widget) {
+        let usage = |id: &str, title: &str, value: &str, fraction: Option<f64>, severity| {
+            SystemMonitorUsage {
+                id: id.to_owned(),
+                title: title.to_owned(),
+                value: value.to_owned(),
+                fraction,
+                severity,
+            }
+        };
+        let detail = |id: &str, title: &str, value: &str| SystemMonitorDetail {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            value: value.to_owned(),
+        };
+
+        for popover in collect::<SystemMonitorPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $SystemMonitorPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            let mut tiles = vec![
+                usage("cpu", "CPU", "42%", Some(0.42), None),
+                usage("ram", "Memory", "6.1 / 16.3 GB", Some(0.37), None),
+                usage(
+                    "disk-home",
+                    "/home",
+                    "870 / 1000 GB",
+                    Some(0.87),
+                    Some(Severity::Warning),
+                ),
+                usage(
+                    "disk-var",
+                    "/var",
+                    "970 / 1000 GB",
+                    Some(0.97),
+                    Some(Severity::Error),
+                ),
+            ];
+            let mut details = vec![
+                detail("load", "Load average", "1.24, 0.98, 0.87"),
+                detail("uptime", "Uptime", "2d 4h"),
+                detail("network", "Network", "↓ 1.2 MB/s ↑ 84 KB/s"),
+                detail("cpu-temp", "CPU temperature", "62°C"),
+            ];
+
+            if case == "full" {
+                tiles.insert(2, usage("swap", "Swap", "1.1 / 8.0 GB", Some(0.14), None));
+                tiles.push(usage("gpu-usage", "GPU", "18%", Some(0.18), None));
+                tiles.push(usage(
+                    "gpu-memory",
+                    "GTT",
+                    "6.7 / 16.3 GB",
+                    Some(0.41),
+                    None,
+                ));
+                details.push(detail("gpu-temp", "GPU temperature", "54°C"));
+            }
+
+            popover.set_usage(&tiles);
+            popover.set_details(&details);
+            popover.set_footer(Some("System Monitor settings"));
+        }
+    }
+
+    fn system_monitor_indicator_states(builder: &gtk4::Builder) {
+        let cases: &[(&str, &str, Option<Severity>)] = &[
+            ("cpu_normal", "CPU 42%", None),
+            ("cpu_warning", "CPU 88%", Some(Severity::Warning)),
+            ("cpu_error", "CPU 97%", Some(Severity::Error)),
+            ("ram_normal", "RAM 51%", None),
+            ("ram_warning", "RAM 88%", Some(Severity::Warning)),
+            ("ram_error", "RAM 97%", Some(Severity::Error)),
+            ("swap_normal", "Swap 12%", None),
+            ("swap_warning", "Swap 88%", Some(Severity::Warning)),
+            ("swap_error", "Swap 97%", Some(Severity::Error)),
+            ("network_normal", "↓ 1.2 MB/s", None),
+            ("network_warning", "↓ 1.2 MB/s", Some(Severity::Warning)),
+            ("network_error", "↓ 1.2 MB/s", Some(Severity::Error)),
+            ("gpu_normal", "GPU 18%", None),
+            ("gpu_warning", "GPU 88%", Some(Severity::Warning)),
+            ("gpu_error", "GPU 97%", Some(Severity::Error)),
+        ];
+        for (id, label, severity) in cases {
+            let Some(indicator) = builder.object::<Indicator>(*id) else {
+                eprintln!("{id} names no $Indicator in this file");
+                continue;
+            };
+            indicator.set_label(Some(label));
+            indicator.set_severity(*severity);
+        }
+    }
+
     fn inhibitor_list_states(root: &gtk4::Widget) {
         let entry = |id: u64,
                      source: InhibitorSource,
@@ -2624,8 +2725,8 @@ fn ensure_types() {
         NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
         Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover,
         RangeBar, Readout, Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, Swatch,
-        SwitchRow, TooltipCard, Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover,
-        WorldClock,
+        SwitchRow, SystemMonitorPopover, TooltipCard, Transport, TrayStrip, WeatherPopover,
+        WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -2684,6 +2785,7 @@ fn ensure_types() {
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
+        SystemMonitorPopover::static_type(),
         PrintingPopover::static_type(),
         PrivacyPopover::static_type(),
         WorkspaceNamePopover::static_type(),

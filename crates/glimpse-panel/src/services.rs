@@ -17,8 +17,8 @@ use glimpse_services::{
     HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
     NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
     PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running, Selection, SessionActions,
-    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
-    UnavailableBacklight,
+    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, SystemMonitor,
+    SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -40,6 +40,7 @@ pub struct PanelServices {
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
     pub privacy: PrivacyHandle,
+    pub system_monitor: SystemMonitorHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -58,6 +59,7 @@ pub struct PanelServices {
     printing_service: Running<Printing>,
     removable_service: Running<Removable>,
     privacy_service: Running<Privacy>,
+    system_monitor_service: Running<SystemMonitor>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -155,6 +157,8 @@ impl PanelServices {
                 compositor: compositor.clone(),
             },
         );
+        let (system_monitor_service, system_monitor) =
+            Running::<SystemMonitor>::spawn(document, buses.clone(), ());
         let (removable_service, removable) = Running::<Removable>::spawn(document, buses, ());
 
         Self {
@@ -176,6 +180,7 @@ impl PanelServices {
             printing,
             removable,
             privacy,
+            system_monitor,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -194,6 +199,7 @@ impl PanelServices {
             printing_service,
             removable_service,
             privacy_service,
+            system_monitor_service,
             notifications,
             weather,
             night_light,
@@ -207,6 +213,7 @@ impl PanelServices {
         self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.night_light.shutdown().await;
+        self.system_monitor_service.stop().await;
         self.removable_service.stop().await;
         self.printing_service.stop().await;
         self.places_service.stop().await;
@@ -245,6 +252,7 @@ impl PanelServices {
         self.printing_service.reconfigure(document);
         self.removable_service.reconfigure(document);
         self.privacy_service.reconfigure(document);
+        self.system_monitor_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -264,6 +272,7 @@ impl PanelServices {
     }
 
     fn cancel(&self) {
+        self.system_monitor_service.cancel();
         self.removable_service.cancel();
         self.printing_service.cancel();
         self.places_service.cancel();
