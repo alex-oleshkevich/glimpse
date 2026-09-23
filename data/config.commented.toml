@@ -273,8 +273,8 @@
 # preview-chars = 72
 # show-when-empty = false
 
-# [applets.keyboard]
-# extends = "keyboard"
+# [applets.color-picker]
+# extends = "color-picker"
 
 # [applets.printing]
 # extends = "printing"
@@ -309,6 +309,9 @@
 # extends = "battery"
 # indicator-style = "icon-only"
 # label-format = "{percentage}"
+
+# [applets.keyboard]
+# extends = "keyboard"
 
 # [applets.session]
 # extends = "session"
