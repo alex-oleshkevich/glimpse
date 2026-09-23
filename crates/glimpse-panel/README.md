@@ -9,7 +9,8 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `services.rs` — the panel-local composition root and its explicit service dependencies
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::run`, which launches the `settings-command` every footer row offers
+  `popover::launch`, which spawns an argv with no shell; `popover::run` is the `settings-command`
+  every footer row offers, launched and logged on failure
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
   and next-event applets both need to say about a calendar entry
 
@@ -408,6 +409,12 @@ device list. `indicator-style` is icon-only by default; `label-format` substitut
 UPower's `IconName` is the chip icon; the level ladder is only its fallback. A failed profile or
 charge-limit command is a notification. Battery
 details is the last row in the column and unfolds in place.
+
+**command** — a user-defined chip: `icon` (a theme name or an absolute image path) and/or `label`,
+and one argv per gesture (`on-click`, `on-middle-click`, `on-right-click`, `on-scroll-up|down|left|
+right`), run once per scroll notch with no shell. A program that cannot start is one notification
+per program per five seconds; its exit status is not watched. `popover::launch` hands the child an
+activation token and drops a `LANGUAGE` only `[regional]` set.
 
 **session** — icon-only, and the hero names the session type beside how long the user has been
 signed in. Power actions confirm on the app host after the popover closes; lock and session switch

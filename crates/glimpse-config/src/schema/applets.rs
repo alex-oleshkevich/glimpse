@@ -67,8 +67,8 @@ pub enum Kind {
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
-    /// Runs a command and renders its output on the bar.
-    Command {},
+    /// A chip the user defines, running a program on a click or a scroll.
+    Command(Box<Command>),
     /// Connected outputs, their modes and their arrangement.
     Display {},
     /// Hosts a third-party applet binary that draws its own popover.
@@ -122,6 +122,43 @@ pub struct Tray {
     /// How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every
     /// icon on the bar and shows no chevron.
     pub max_visible: u8,
+}
+
+/// A chip the user defines: an icon, a label or both, and a program for each click and scroll
+/// notch. Several sit side by side as `[applets.<name>]` tables with `extends = "command"`. Every
+/// program is a command and its arguments, `["grim", "-g", "0,0 640x480"]`, with no shell between
+/// here and the program. A gesture with no program does nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Command {
+    /// A themed icon name, or the absolute path to an image. Prefer a `-symbolic` name, which
+    /// follows the bar's color.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    /// Text beside the icon. With neither an icon nor a label the chip takes no room.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// What a left click runs.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_click: Vec<String>,
+    /// What a middle click runs.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_middle_click: Vec<String>,
+    /// What a right click runs.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_right_click: Vec<String>,
+    /// What each notch of scrolling up runs, once per notch.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_scroll_up: Vec<String>,
+    /// What each notch of scrolling down runs, once per notch.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_scroll_down: Vec<String>,
+    /// What each notch of scrolling left runs, once per notch.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_scroll_left: Vec<String>,
+    /// What each notch of scrolling right runs, once per notch.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub on_scroll_right: Vec<String>,
 }
 
 /// The clipboard applet's own settings.
@@ -691,6 +728,7 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     let mut kind =
         Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
     on_earth(&mut kind)?;
+    runnable(&kind)?;
     Ok(Applet {
         common,
         kind,
@@ -744,6 +782,47 @@ fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
     Ok(())
 }
 
+fn runnable(kind: &Kind) -> Result<(), toml::de::Error> {
+    let Kind::Command(command) = kind else {
+        return Ok(());
+    };
+    let gestures = [
+        ("on-click", &command.on_click),
+        ("on-middle-click", &command.on_middle_click),
+        ("on-right-click", &command.on_right_click),
+        ("on-scroll-up", &command.on_scroll_up),
+        ("on-scroll-down", &command.on_scroll_down),
+        ("on-scroll-left", &command.on_scroll_left),
+        ("on-scroll-right", &command.on_scroll_right),
+    ];
+    for (key, argv) in gestures {
+        names_a_program(key, argv)?;
+    }
+    if let Some(icon) = command.icon.as_deref()
+        && icon.contains('/')
+        && !icon.starts_with('/')
+    {
+        return Err(toml::de::Error::custom(
+            "icon is a theme name or an absolute path to an image; a relative path would resolve \
+             against wherever the panel happened to start",
+        ));
+    }
+    Ok(())
+}
+
+fn names_a_program(key: &str, argv: &[String]) -> Result<(), toml::de::Error> {
+    if argv
+        .first()
+        .is_some_and(|program| program.trim().is_empty())
+    {
+        return Err(toml::de::Error::custom(format!(
+            "{key} names no program: its first element is what runs, and the rest are that \
+             program's arguments"
+        )));
+    }
+    Ok(())
+}
+
 fn name_the_common_settings(error: toml::de::Error, keys: &[String]) -> toml::de::Error {
     let message = error.to_string();
     let message = message.trim_end();
@@ -775,16 +854,7 @@ fn take_common(table: &mut toml::Table) -> Result<Common, toml::de::Error> {
              row that does nothing, and a command with no label is a row nobody can see",
         ));
     }
-    if common
-        .settings_command
-        .first()
-        .is_some_and(|program| program.trim().is_empty())
-    {
-        return Err(toml::de::Error::custom(
-            "settings-command names no program: its first element is what runs, and the rest are \
-             that program's arguments",
-        ));
-    }
+    names_a_program("settings-command", &common.settings_command)?;
     Ok(common)
 }
 

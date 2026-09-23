@@ -303,12 +303,75 @@
           "required": []
         },
         "command": {
-          "description": "Runs a command and renders its output on the bar.",
+          "description": "A chip the user defines, running a program on a click or a scroll.",
           "type": "object",
           "properties": {
             "extends": {
               "type": "string",
               "const": "command"
+            },
+            "icon": {
+              "description": "A themed icon name, or the absolute path to an image. Prefer a `-symbolic` name, which\nfollows the bar's color.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "label": {
+              "description": "Text beside the icon. With neither an icon nor a label the chip takes no room.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "on-click": {
+              "description": "What a left click runs.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-middle-click": {
+              "description": "What a middle click runs.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-right-click": {
+              "description": "What a right click runs.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-scroll-down": {
+              "description": "What each notch of scrolling down runs, once per notch.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-scroll-left": {
+              "description": "What each notch of scrolling left runs, once per notch.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-scroll-right": {
+              "description": "What each notch of scrolling right runs, once per notch.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "on-scroll-up": {
+              "description": "What each notch of scrolling up runs, once per notch.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1447,12 +1510,75 @@
             ]
           },
           {
-            "description": "Runs a command and renders its output on the bar.",
+            "description": "A chip the user defines, running a program on a click or a scroll.",
             "type": "object",
             "properties": {
               "extends": {
                 "type": "string",
                 "const": "command"
+              },
+              "icon": {
+                "description": "A themed icon name, or the absolute path to an image. Prefer a `-symbolic` name, which\nfollows the bar's color.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "label": {
+                "description": "Text beside the icon. With neither an icon nor a label the chip takes no room.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "on-click": {
+                "description": "What a left click runs.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-middle-click": {
+                "description": "What a middle click runs.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-right-click": {
+                "description": "What a right click runs.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-scroll-down": {
+                "description": "What each notch of scrolling down runs, once per notch.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-scroll-left": {
+                "description": "What each notch of scrolling left runs, once per notch.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-scroll-right": {
+                "description": "What each notch of scrolling right runs, once per notch.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "on-scroll-up": {
+                "description": "What each notch of scrolling up runs, once per notch.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",

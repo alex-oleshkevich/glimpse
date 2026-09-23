@@ -31,10 +31,11 @@ pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
     Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
     Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,
-    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Common as AppletCommon, FirstDay,
-    Kind as AppletKind, Mpris as MprisAppletConfig, NextEvent as NextEventConfig,
-    NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, Pager as PagerConfig,
-    PagerMode, PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
+    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
+    Common as AppletCommon, FirstDay, Kind as AppletKind, Mpris as MprisAppletConfig,
+    NextEvent as NextEventConfig, NotificationIndicatorStyle,
+    Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
+    PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
     Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
     Removable as RemovableAppletConfig, Timezone as ClockTimezone, Tray as TrayAppletConfig,
     Weather as WeatherAppletConfig,
@@ -517,6 +518,49 @@ mod tests {
             "[applets.clock]\nsettings-label = \"Open\"\nsettings-command = [\"\"]\n",
         );
         assert!(parsed.is_err(), "an empty program name was accepted");
+    }
+
+    #[test]
+    fn a_command_applet_carries_a_program_per_gesture() {
+        let parsed = toml::from_str::<Config>(
+            "[applets.shot]\nextends = \"command\"\nicon = \"camera-photo-symbolic\"\non-click = [\"grim\"]\non-scroll-up = [\"pamixer\", \"-i\", \"5\"]\n",
+        )
+        .expect("a command applet with programs parses");
+        let AppletKind::Command(command) = &parsed.applets["shot"].kind else {
+            panic!("`extends = \"command\"` names the kind");
+        };
+        assert_eq!(command.on_click, ["grim"]);
+        assert_eq!(command.on_scroll_up, ["pamixer", "-i", "5"]);
+    }
+
+    #[test]
+    fn a_command_gesture_that_names_no_program_is_refused_by_key() {
+        let error = toml::from_str::<Config>(
+            "[applets.shot]\nextends = \"command\"\non-scroll-up = [\" \"]\n",
+        )
+        .expect_err("an empty program name was accepted")
+        .to_string();
+        assert!(
+            error.contains("[applets.shot]") && error.contains("on-scroll-up"),
+            "the error names the table and the key: {error}"
+        );
+    }
+
+    #[test]
+    fn a_command_icon_path_must_be_absolute() {
+        let relative = "[applets.shot]\nextends = \"command\"\nicon = \"icons/shot.png\"\n";
+        let absolute = "[applets.shot]\nextends = \"command\"\nicon = \"/usr/share/shot.png\"\n";
+        assert!(toml::from_str::<Config>(relative).is_err());
+        assert!(toml::from_str::<Config>(absolute).is_ok());
+    }
+
+    #[test]
+    fn a_command_applet_refuses_a_key_it_does_not_have() {
+        assert!(
+            toml::from_str::<Config>("[applets.shot]\nextends = \"command\"\non-clik = [\"x\"]\n")
+                .is_err(),
+            "a unit variant would swallow the misspelling"
+        );
     }
 
     #[test]

@@ -5,6 +5,7 @@ pub(crate) mod bluetooth;
 mod brightness;
 mod clipboard;
 mod clock;
+mod command;
 mod display;
 mod heartbeat;
 pub(crate) mod idle;
@@ -271,7 +272,13 @@ pub fn build(
                 ))
             }))
         }
-        AppletKind::Command {} | AppletKind::Exec {} => None,
+        AppletKind::Command(_) => {
+            let notifications = notifications.clone();
+            Some(Box::new(move |_ctx| {
+                Box::new(command::Command::start(notifications))
+            }))
+        }
+        AppletKind::Exec {} => None,
     }
 }
 
@@ -685,12 +692,14 @@ mod tests {
         let display_config: AppletConfig = AppletKind::Display {}.into();
         let idle_config: AppletConfig = AppletKind::Idle {}.into();
         let battery_config: AppletConfig = AppletKind::Battery(<_>::default()).into();
+        let command_config: AppletConfig = AppletKind::Command(<_>::default()).into();
 
         for config in [
             &brightness_config,
             &display_config,
             &idle_config,
             &battery_config,
+            &command_config,
         ] {
             let built = build(
                 config,

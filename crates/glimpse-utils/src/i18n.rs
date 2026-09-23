@@ -36,6 +36,10 @@ pub fn report_language_change(previous: Option<&str>, current: Option<&str>) {
     }
 }
 
+pub fn language_was_inherited() -> bool {
+    !DOCUMENT_DECIDES.get().copied().unwrap_or(false)
+}
+
 pub fn init_locale() {
     if unsafe { setlocale(LocaleCategory::LcAll, "") }.is_none() {
         tracing::warn!(

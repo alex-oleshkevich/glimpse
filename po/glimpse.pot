@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-22 22:18+0200\n"
+"POT-Creation-Date: 2026-09-22 22:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -867,6 +867,18 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:341
 msgid "Could not clear the history"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/command.rs:92
+msgid "Command"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/command.rs:94
+msgid "Could not run a command"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/command.rs:96
+msgid "{program} could not be started."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:79
