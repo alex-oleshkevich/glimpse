@@ -620,6 +620,14 @@ closure returning `Shape::Surface` for a card and `Shape::Arrow` for a triangle,
 time the region is rebuilt, so a stack that gains a card needs no call. With no protocol — another
 compositor, an older niri — the class never appears and the surfaces stay opaque.
 
+- **`sync` guards against its own reentrancy**, because `attach` and `detach` are reachable only
+  through it and each takes a `RefCell` borrow. GTK can invoke it nested — a config reload's
+  `set_enabled` landing while a `map` signal for the same window is still being dispatched, say —
+  and a `g_signal_emit` trampoline cannot unwind a Rust panic, so a double borrow there is a whole
+  process abort, not a caught error, and hit the shipped panel in production with no local
+  reproduction — `journalctl`'s `thread 'main' panicked ... RefCell already borrowed` against a
+  stripped release build was the only evidence, which is why the fix is a structural guard rather
+  than a fix at the specific call site that happened to be caught.
 - **It borrows GTK's own Wayland connection.** The display and each surface come from
   `gdk_wayland_*_get_*` declared `extern "C"`, wrapped by `wayland-client`'s `system` backend. On a
   borrowed connection a protocol error kills GTK, so the effect object and both frame-clock handlers

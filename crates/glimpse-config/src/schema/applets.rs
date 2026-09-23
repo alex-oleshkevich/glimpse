@@ -358,7 +358,6 @@ pub struct Clock {
     /// Whether the popover names the ISO week the shown month belongs to.
     pub week_numbers: bool,
     /// The other zones the popover lists under its world clock. Empty hides the section.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub timezones: Vec<Timezone>,
     /// Whether an all-day entry is left out of the calendar popover's day list entirely, rather
     /// than shown alongside the day's timed events.

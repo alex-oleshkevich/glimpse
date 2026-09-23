@@ -236,6 +236,7 @@
 # label-format = "%a, %-d %b, %H:%M"
 # first-day = "monday"
 # week-numbers = true
+# timezones = []
 # hide-all-day = false
 
 # [applets.weather]

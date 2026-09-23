@@ -289,6 +289,7 @@
             "timezones": {
               "description": "The other zones the popover lists under its world clock. Empty hides the section.",
               "type": "array",
+              "default": [],
               "items": {
                 "$ref": "#/$defs/Timezone"
               }
@@ -1597,6 +1598,7 @@
               "timezones": {
                 "description": "The other zones the popover lists under its world clock. Empty hides the section.",
                 "type": "array",
+                "default": [],
                 "items": {
                   "$ref": "#/$defs/Timezone"
                 }
