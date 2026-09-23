@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, Placeholder, PopoverShell, Row, Section, SwitchRow};
+use crate::{Expandable, Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -25,6 +25,7 @@ pub struct Entry {
     pub place: Place,
     pub value: String,
     pub busy: bool,
+    pub warning: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -81,13 +82,9 @@ pub struct BluetoothPopover {
     #[template_child]
     pub prompt_accept: TemplateChild<gtk4::Button>,
     #[template_child]
-    pub connected: TemplateChild<Section>,
+    pub devices: TemplateChild<Section>,
     #[template_child]
-    pub connected_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub paired: TemplateChild<Section>,
-    #[template_child]
-    pub paired_rows: TemplateChild<gtk4::Box>,
+    pub device_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub more_paired: TemplateChild<Row>,
     #[template_child]
@@ -97,19 +94,16 @@ pub struct BluetoothPopover {
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub looking: TemplateChild<Placeholder>,
+    pub search: TemplateChild<Row>,
     #[template_child]
-    pub search: TemplateChild<SwitchRow>,
-    #[template_child]
-    pub discoverable: TemplateChild<SwitchRow>,
+    pub nearby_list: TemplateChild<gtk4::Box>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
     pub prompt: RefCell<Option<Ask>>,
-    pub connected_held: RefCell<Vec<(String, Expandable)>>,
-    pub paired_held: RefCell<Vec<(String, Expandable)>>,
+    pub devices_held: RefCell<Vec<(String, Expandable)>>,
     pub nearby_held: RefCell<Vec<(String, Expandable)>>,
     pub lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
     pub quiet: std::cell::Cell<bool>,
@@ -140,7 +134,7 @@ impl ObjectImpl for BluetoothPopover {
                     .param_types([bool::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("activated")
-                    .param_types([String::static_type(), bool::static_type()])
+                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("acted")
                     .param_types([String::static_type(), String::static_type()])
@@ -152,12 +146,7 @@ impl ObjectImpl for BluetoothPopover {
                         bool::static_type(),
                     ])
                     .build(),
-                glib::subclass::Signal::builder("scanning")
-                    .param_types([bool::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("discoverable")
-                    .param_types([bool::static_type()])
-                    .build(),
+                glib::subclass::Signal::builder("nearby-toggled").build(),
                 glib::subclass::Signal::builder("expanded")
                     .param_types([String::static_type()])
                     .build(),
@@ -183,15 +172,10 @@ impl ObjectImpl for BluetoothPopover {
                 popover.emit_by_name::<()>("powered", &[&switch.is_active()]);
             }
         ));
-        self.search.connect_toggled(glib::clone!(
+        self.search.connect_clicked(glib::clone!(
             #[weak]
             popover,
-            move |_, on| popover.emit_by_name::<()>("scanning", &[&on])
-        ));
-        self.discoverable.connect_toggled(glib::clone!(
-            #[weak]
-            popover,
-            move |_, on| popover.emit_by_name::<()>("discoverable", &[&on])
+            move |_| popover.emit_by_name::<()>("nearby-toggled", &[])
         ));
         self.more_paired.connect_clicked(glib::clone!(
             #[weak]

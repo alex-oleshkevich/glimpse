@@ -4292,10 +4292,6 @@ mod tests {
         );
 
         let popover = BluetoothPopover::new();
-        assert!(
-            popover.imp().nearby.property::<bool>("empty"),
-            "a section with no rows starts empty, or the first scan draws a heading over nothing"
-        );
         popover.set_adapter(
             "Bluetooth",
             "No device connected",
@@ -4304,7 +4300,7 @@ mod tests {
             true,
         );
         assert!(popover.imp().power.is_active());
-        assert!(!popover.imp().connected.get_visible());
+        assert!(!popover.imp().devices.get_visible());
 
         let entry = |id: &str, place: BluetoothPlace| BluetoothEntry {
             id: id.to_owned(),
@@ -4313,42 +4309,61 @@ mod tests {
             icon: "audio-headset-symbolic".to_owned(),
             place,
             value: String::new(),
-            selected: false,
             busy: false,
+            warning: false,
         };
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
             entry("c", BluetoothPlace::Paired),
         ]);
-        assert!(popover.imp().connected.get_visible());
-        assert_eq!(popover.imp().paired_held.borrow().len(), 2);
-        assert!(
-            !popover.imp().nearby.get_visible(),
-            "nearby is a scan, not a resting state"
+        assert!(popover.imp().devices.get_visible());
+        assert_eq!(
+            popover.imp().devices_held.borrow().len(),
+            3,
+            "connected and paired devices are one list"
         );
 
-        let first = popover
-            .imp()
-            .connected_held
-            .borrow()
-            .first()
-            .cloned()
-            .expect("a connected row")
-            .1;
+        let holder = |id: &str| -> Expandable {
+            let imp = popover.imp();
+            for held in [&imp.devices_held, &imp.nearby_held] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder.clone();
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+        let rows_of = |id: &str| -> Vec<Row> {
+            children_of::<Row>(
+                &holder(id)
+                    .details::<gtk4::Box>()
+                    .expect("an opened device has a card"),
+            )
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+
+        let first = holder("a");
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
         ]);
         assert_eq!(
-            popover
-                .imp()
-                .connected_held
-                .borrow()
-                .first()
-                .map(|(_, holder)| holder.clone()),
-            Some(first),
-            "a key that stays keeps its widget, and its panel with it"
+            holder("a"),
+            first,
+            "a key that stays keeps its widget, and its card with it"
+        );
+        assert!(
+            holder("a").head::<SplitRow>().is_none(),
+            "a device in use opens its card from the whole row, so a click can never disconnect it"
+        );
+        assert!(
+            holder("b")
+                .head::<SplitRow>()
+                .is_some_and(|split| split.detail().get_visible()),
+            "a paired device connects on its body and opens its card from the chevron"
         );
 
         let acted = Rc::new(RefCell::new(Vec::new()));
@@ -4356,51 +4371,25 @@ mod tests {
             let acted = Rc::clone(&acted);
             move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
         });
+        let activated = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id.to_owned())
+        });
 
-        let panel = |id: &str| -> gtk4::Revealer {
-            let imp = popover.imp();
-            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
-                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                    return holder
-                        .last_child()
-                        .and_downcast::<gtk4::Revealer>()
-                        .expect("a device row carries its own panel");
-                }
-            }
-            panic!("no row is holding {id}");
+        let trust = |on: bool| BluetoothLine {
+            action: "trust".to_owned(),
+            title: "Connect automatically".to_owned(),
+            toggle: Some(on),
+            ..Default::default()
         };
-        let panel_rows = |id: &str| -> Vec<Row> {
-            let page = panel(id)
-                .child()
-                .and_downcast::<gtk4::Box>()
-                .expect("an opened panel has a page");
-            children_of::<Row>(&page)
+        let forget = BluetoothLine {
+            action: "forget".to_owned(),
+            title: "Forget this device".to_owned(),
+            activates: true,
+            ..Default::default()
         };
-        let head = |id: &str| -> gtk4::Widget {
-            let imp = popover.imp();
-            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
-                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                    return holder.first_child().expect("a holder leads with its row");
-                }
-            }
-            panic!("no row is holding {id}");
-        };
-
-        assert!(
-            popover
-                .imp()
-                .paired_held
-                .borrow()
-                .iter()
-                .all(|(_, holder)| {
-                    holder
-                        .last_child()
-                        .and_downcast::<gtk4::Revealer>()
-                        .is_some_and(|panel| !panel.reveals_child())
-                }),
-            "a device reveals nothing until it is selected"
-        );
-        popover.set_details(Some(&BluetoothDetails {
+        let in_use = |on: bool| BluetoothDetails {
             id: "a".to_owned(),
             lines: vec![
                 BluetoothLine {
@@ -4409,40 +4398,42 @@ mod tests {
                     activates: true,
                     ..Default::default()
                 },
+                trust(on),
                 BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(false),
+                    action: "battery".to_owned(),
+                    title: "Battery".to_owned(),
+                    value: "72%".to_owned(),
                     ..Default::default()
                 },
-                BluetoothLine {
-                    action: "address".to_owned(),
-                    title: "Address".to_owned(),
-                    value: "F8:4E:17:BC:EE:D5".to_owned(),
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "forget".to_owned(),
-                    title: "Forget this device".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
+                forget.clone(),
             ],
-        }));
+        };
+        let paired = BluetoothDetails {
+            id: "b".to_owned(),
+            lines: vec![trust(true), forget.clone()],
+        };
+        popover.set_details(&[in_use(false), paired.clone()]);
         assert!(
-            panel("a").reveals_child(),
-            "the detail belongs under the device it describes, not beside the list"
-        );
-        assert!(
-            !head("a").has_css_class("receded"),
-            "the device that was opened is the one thing that must not recede"
-        );
-        assert!(
-            head("b").has_css_class("receded") && popover.imp().hero.has_css_class("receded"),
-            "everything the panel is read against recedes while it is open"
+            !holder("a").expanded(),
+            "handing the details over opens nothing"
         );
 
-        let lines = panel_rows("a");
+        holder("a")
+            .head::<Row>()
+            .expect("a plain row")
+            .emit_clicked();
+        assert!(
+            holder("a").expanded() && activated.borrow().is_empty(),
+            "the whole row of a device in use opens its card and reports nothing"
+        );
+        let a_head = holder("a").head::<gtk4::Widget>().expect("a head");
+        let b_head = holder("b").head::<gtk4::Widget>().expect("a head");
+        assert!(
+            !dimmed(&a_head) && dimmed(&b_head) && dimmed(popover.imp().hero.upcast_ref()),
+            "everything the card is read against recedes while it is open"
+        );
+
+        let lines = rows_of("a");
         assert_eq!(lines.len(), 4);
         assert!(
             lines[1].clone().downcast::<SwitchRow>().is_ok(),
@@ -4476,29 +4467,7 @@ mod tests {
             .and_downcast::<gtk4::Switch>()
             .expect("a toggle row carries a switch");
         assert!(!switch.is_active());
-        popover.set_details(Some(&BluetoothDetails {
-            id: "a".to_owned(),
-            lines: vec![
-                BluetoothLine {
-                    action: "disconnect".to_owned(),
-                    title: "Disconnect".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(true),
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "address".to_owned(),
-                    title: "Address".to_owned(),
-                    value: "F8:4E:17:BC:EE:D5".to_owned(),
-                    ..Default::default()
-                },
-            ],
-        }));
+        popover.set_details(&[in_use(true), paired.clone()]);
         assert!(
             switch.is_active(),
             "a reused row must follow the backend, not the last click"
@@ -4509,66 +4478,98 @@ mod tests {
             "redressing the switch is not the user toggling it"
         );
 
-        popover.set_details(Some(&BluetoothDetails {
-            id: "b".to_owned(),
-            lines: vec![
-                BluetoothLine {
-                    action: "disconnect".to_owned(),
-                    title: "Disconnect".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(false),
-                    ..Default::default()
-                },
-            ],
-        }));
+        holder("b")
+            .head::<SplitRow>()
+            .expect("a split row")
+            .emit_by_name::<()>("details", &[]);
         assert!(
-            !panel("a").reveals_child() && panel("b").reveals_child(),
+            !holder("a").expanded() && holder("b").expanded(),
             "opening one device closes the one that was open"
         );
         acted.borrow_mut().clear();
-        panel_rows("b")[0].emit_by_name::<()>("clicked", &[]);
+        rows_of("b")[1].emit_by_name::<()>("clicked", &[]);
         assert_eq!(
             *acted.borrow(),
-            ["b/disconnect"],
+            ["b/forget"],
             "a row whose action key repeats across devices must not act on the one no longer shown"
         );
+        popover.collapse("b");
+        assert!(
+            !holder("b").expanded(),
+            "an action that succeeded closes the card it was taken from"
+        );
+        holder("b")
+            .head::<SplitRow>()
+            .expect("a split row")
+            .emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            *activated.borrow(),
+            ["b"],
+            "a paired device's body connects"
+        );
 
-        popover.set_scanning(true);
+        let mut fragile = entry("b", BluetoothPlace::Paired);
+        fragile.warning = true;
+        popover.set_entries(&[entry("a", BluetoothPlace::Connected), fragile]);
+        assert!(
+            holder("b").head::<SplitRow>().is_some_and(|split| split
+                .row()
+                .has_css_class("bluetooth-popover__device--warning")),
+            "a pairing that will not survive a restart is marked on the row itself"
+        );
+
+        let pressed = Rc::new(Cell::new(0u32));
+        popover.connect_nearby_toggled({
+            let pressed = Rc::clone(&pressed);
+            move |_| pressed.set(pressed.get() + 1)
+        });
+
+        popover.set_nearby(0, true);
+        assert!(
+            !popover.imp().nearby.get_visible(),
+            "nothing found is no header at all, never an open list over nothing"
+        );
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
             entry("n", BluetoothPlace::Nearby),
         ]);
-        popover.set_details(Some(&BluetoothDetails {
-            id: "n".to_owned(),
-            lines: vec![BluetoothLine {
-                action: "pair".to_owned(),
-                title: "Pair this device".to_owned(),
-                activates: true,
-                ..Default::default()
-            }],
-        }));
+        popover.set_nearby(1, false);
         assert!(
-            panel("n").reveals_child() && popover.imp().hero.has_css_class("receded"),
-            "a nearby device opens like any other"
+            popover.imp().nearby.get_visible()
+                && !popover.imp().nearby_list.get_visible()
+                && !popover.imp().search.has_css_class("open"),
+            "closed, Nearby devices is one header line, the same as Other networks"
         );
-        popover.set_scanning(false);
+        popover.set_nearby(1, true);
         assert!(
-            !popover.imp().hero.has_css_class("receded")
-                && !head("a").has_css_class("receded")
-                && !panel("n").reveals_child(),
-            "the scan ending takes the nearby card away, so nothing may stay dimmed against it"
+            popover.imp().nearby_list.get_visible() && popover.imp().search.has_css_class("open"),
+            "open, its chevron turns and the list shows"
         );
-        popover.set_details(None);
-        popover.set_entries(&[
-            entry("a", BluetoothPlace::Connected),
-            entry("b", BluetoothPlace::Paired),
-        ]);
+        let nearby = holder("n").head::<SplitRow>().expect("a split row");
+        assert!(
+            !nearby.detail().get_visible(),
+            "a nearby device has nothing to manage, so it has no chevron"
+        );
+        nearby.emit_by_name::<()>("details", &[]);
+        assert!(!holder("n").expanded(), "and no card to open");
+        nearby.emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            *activated.borrow(),
+            ["b", "n"],
+            "its body is the one action: pair it"
+        );
+        assert_eq!(
+            pressed.get(),
+            0,
+            "redressing the header is not the user pressing it"
+        );
+        popover.imp().search.emit_clicked();
+        assert_eq!(pressed.get(), 1, "the header is the toggle");
+
+        popover.set_controls_sensitive(false);
+        assert!(!popover.imp().search.get_sensitive());
+        popover.set_controls_sensitive(true);
 
         let width =
             |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
@@ -4597,15 +4598,24 @@ mod tests {
                 "a hero subtitle that grows with the device list widened the whole card"
             );
 
-            probe.set_details(Some(&BluetoothDetails {
+            probe.set_details(&[BluetoothDetails {
                 id: "a".to_owned(),
                 lines: vec![BluetoothLine {
-                    action: "services".to_owned(),
-                    title: "Services".to_owned(),
+                    action: "codec".to_owned(),
+                    title: "Codec".to_owned(),
                     value: "Audio, Calls, Remote control, Network, File transfer".to_owned(),
                     ..Default::default()
                 }],
-            }));
+            }]);
+            let opened = probe
+                .imp()
+                .devices_held
+                .borrow()
+                .first()
+                .map(|(_, holder)| holder.clone())
+                .expect("the device");
+            opened.head::<Row>().expect("a plain row").emit_clicked();
+            assert!(opened.expanded());
             assert_eq!(
                 width(&probe),
                 floor,
@@ -4613,7 +4623,6 @@ mod tests {
                  resizes the card under the pointer that opened it"
             );
 
-            probe.set_details(None);
             let answers = Rc::new(RefCell::new(Vec::new()));
             probe.connect_answered({
                 let answers = Rc::clone(&answers);
@@ -4630,6 +4639,10 @@ mod tests {
                 cancel: "Cancel".to_owned(),
                 destructive: false,
             }));
+            assert!(
+                !opened.expanded(),
+                "a prompt takes the card over, so a device card left open behind it would dim it"
+            );
             assert_eq!(
                 width(&probe),
                 floor,
@@ -4696,76 +4709,6 @@ mod tests {
             );
             assert!(probe.imp().hero.get_sensitive() && probe.imp().footer.get_sensitive());
         }
-        popover.set_details(None);
-        let closed = width(&popover);
-        popover.set_details(Some(&BluetoothDetails {
-            id: "a".to_owned(),
-            lines: vec![BluetoothLine {
-                action: "address".to_owned(),
-                title: "Address".to_owned(),
-                value: "F8:4E:17:BC:EE:D5".to_owned(),
-                ..Default::default()
-            }],
-        }));
-        assert_eq!(
-            width(&popover),
-            closed,
-            "a card that widens when a device opens moves every row under the pointer that opened it"
-        );
-
-        popover.set_details(None);
-        assert!(!panel("a").reveals_child() && !panel("b").reveals_child());
-        assert!(
-            !head("a").has_css_class("receded") && !popover.imp().hero.has_css_class("receded"),
-            "closing the panel gives the card back"
-        );
-
-        let flips = Rc::new(RefCell::new(Vec::new()));
-        popover.connect_scanning({
-            let flips = Rc::clone(&flips);
-            move |_, on| flips.borrow_mut().push(("search", on))
-        });
-        popover.connect_discoverable({
-            let flips = Rc::clone(&flips);
-            move |_, on| flips.borrow_mut().push(("discoverable", on))
-        });
-
-        assert!(!popover.imp().search.active());
-        popover.set_scanning(true);
-        assert!(popover.imp().search.active());
-        assert!(popover.imp().nearby.get_visible());
-        assert!(
-            popover.imp().nearby.property::<bool>("empty"),
-            "a scan with nothing found yet shows the placeholder, not a header over nothing"
-        );
-        popover.set_scanning(false);
-        assert!(!popover.imp().search.active());
-
-        popover.set_discoverable(true);
-        assert!(popover.imp().discoverable.active());
-        popover.set_discoverable(false);
-        assert!(
-            flips.borrow().is_empty(),
-            "reconciling a switch from the adapter must not look like the user flipping it, or \
-             every published state would fire a command back at bluez"
-        );
-
-        popover.set_discoverable(true);
-        flips.borrow_mut().clear();
-        popover.imp().search.emit_clicked();
-        popover.imp().discoverable.emit_clicked();
-        assert_eq!(
-            *flips.borrow(),
-            [("search", true), ("discoverable", false)],
-            "a press moves the knob, and the knob's notify is the one emitter"
-        );
-        assert!(popover.imp().search.active() && !popover.imp().discoverable.active());
-
-        popover.set_controls_sensitive(false);
-        assert!(
-            !popover.imp().search.get_sensitive() && !popover.imp().discoverable.get_sensitive()
-        );
-        popover.set_controls_sensitive(true);
 
         let dialog = PairingDialog::new();
         let answers = Rc::new(RefCell::new(Vec::new()));

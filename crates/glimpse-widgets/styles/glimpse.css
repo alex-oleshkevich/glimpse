@@ -593,6 +593,10 @@
     min-height: 3.2rem;
 }
 
+.bluetooth-popover__device--warning .row__subtitle {
+    color: var(--gl-warning-text);
+}
+
 .clipboard-popover .popover-shell,
 .color-picker-popover .popover-shell {
     border-radius: 1.5rem;
@@ -1412,7 +1416,12 @@ window.notification-popup {
 }
 
 .fader__mute:checked {
-    color: var(--gl-dim);
+    color: var(--gl-warning-text);
+    background-color: transparent;
+}
+
+.fader__mute:checked:hover {
+    background-color: var(--gl-hover);
 }
 
 .fader__icon {
@@ -1489,17 +1498,17 @@ window.notification-popup {
     font-weight: 700;
 }
 
-.audio-popover .column > .fader {
+.audio-popover__level {
     margin: 0.3rem 0.65rem 0.5rem 0.65rem;
 }
 
 .audio-popover__device {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.audio-popover__app.open {
-    background-color: var(--gl-hover);
+.audio-popover__hero--muted .hero__icon,
+.audio-popover__muted {
+    color: var(--gl-warning-text);
 }
 
 .audio-popover__block + .audio-popover__block {

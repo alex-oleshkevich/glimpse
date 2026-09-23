@@ -2,7 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row};
+use crate::{
+    Expandable, Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row,
+};
 
 pub use imp::{Ask, Details, Entry, Line, Place};
 
@@ -52,20 +54,6 @@ impl BluetoothPopover {
         }
         imp.entries.replace(entries.to_vec());
         self.render_entries();
-    }
-
-    pub fn set_scanning(&self, scanning: bool) {
-        let imp = self.imp();
-        imp.search.set_active(scanning);
-        if imp.nearby.get_visible() == scanning {
-            return;
-        }
-        imp.nearby.set_visible(scanning);
-        if !scanning {
-            for (_, holder) in imp.nearby_held.borrow().iter() {
-                holder.set_expanded(false);
-            }
-        }
     }
 
     /// Every listed device's detail, keyed by `Details::id`. A card is built the first time its
@@ -123,25 +111,30 @@ impl BluetoothPopover {
         )
     }
 
-    pub fn set_discoverable(&self, on: bool) {
-        self.imp().discoverable.set_active(on);
+    /// Nearby devices, the same disclosure as the network popover's Other networks: the header
+    /// shows once anything has been found and turns its chevron while `open`.
+    pub fn set_nearby(&self, count: usize, open: bool) {
+        let imp = self.imp();
+        if imp.nearby.get_visible() != (count > 0) {
+            imp.nearby.set_visible(count > 0);
+        }
+        crate::set_css_class(&*imp.search, drawer::OPEN, open);
+        if imp.nearby_list.get_visible() != open {
+            imp.nearby_list.set_visible(open);
+        }
+    }
+
+    pub fn connect_nearby_toggled<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "nearby-toggled",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
+        )
     }
 
     pub fn set_controls_sensitive(&self, on: bool) {
         let imp = self.imp();
         imp.search.set_sensitive(on);
-        imp.discoverable.set_sensitive(on);
-    }
-
-    pub fn connect_discoverable<F: Fn(&Self, bool) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "discoverable",
-            false,
-            glib::closure_local!(move |popover: Self, on: bool| f(&popover, on)),
-        )
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -156,16 +149,13 @@ impl BluetoothPopover {
         )
     }
 
-    pub fn connect_activated<F: Fn(&Self, &str, bool) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
+    /// A device not in use was pressed: connect it if it is paired, pair it if it is not. A device
+    /// in use opens its card instead, and never reports here.
+    pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
             false,
-            glib::closure_local!(move |popover: Self, id: String, connected: bool| f(
-                &popover, &id, connected
-            )),
+            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
 
@@ -194,14 +184,6 @@ impl BluetoothPopover {
         )
     }
 
-    pub fn connect_scanning<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "scanning",
-            false,
-            glib::closure_local!(move |popover: Self, wanted: bool| f(&popover, wanted)),
-        )
-    }
-
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
         &self,
         handler: F,
@@ -211,15 +193,6 @@ impl BluetoothPopover {
             false,
             glib::closure_local!(move |popover: Self| handler(&popover)),
         )
-    }
-
-    fn place(&self, id: &str) -> Option<Place> {
-        self.imp()
-            .entries
-            .borrow()
-            .iter()
-            .find(|entry| entry.id == id)
-            .map(|entry| entry.place)
     }
 
     fn render_prompt(&self, switched: bool) {
@@ -258,41 +231,22 @@ impl BluetoothPopover {
 
     fn render_entries(&self) {
         let imp = self.imp();
-        let entries = imp.entries.borrow();
+        let entries = imp.entries.borrow().clone();
 
-        for (place, section, parent, held) in [
-            (
-                Place::Connected,
-                &imp.connected,
-                &imp.connected_rows,
-                &imp.connected_held,
-            ),
-            (
-                Place::Paired,
-                &imp.paired,
-                &imp.paired_rows,
-                &imp.paired_held,
-            ),
-        ] {
-            let wanted: Vec<Entry> = entries
-                .iter()
-                .filter(|entry| entry.place == place)
-                .cloned()
-                .collect();
-            reconcile::by_key(
-                &**parent,
-                &mut held.borrow_mut(),
-                &wanted,
-                |entry| entry.id.clone(),
-                |entry| Expandable::new(&self.build_split(&entry.id)),
-                |holder, entry| {
-                    if let Some(split) = holder.head::<SplitRow>() {
-                        dress_row(&split.row(), entry);
-                    }
-                },
-            );
-            section.set_visible(!wanted.is_empty());
-        }
+        let devices: Vec<Entry> = entries
+            .iter()
+            .filter(|entry| entry.place != Place::Nearby)
+            .cloned()
+            .collect();
+        reconcile::by_key(
+            &*imp.device_rows,
+            &mut imp.devices_held.borrow_mut(),
+            &devices,
+            |entry| entry.id.clone(),
+            |entry| Expandable::new(&self.head_for(entry)),
+            |holder, entry| self.apply(holder, entry),
+        );
+        imp.devices.set_visible(!devices.is_empty());
 
         let nearby: Vec<Entry> = entries
             .iter()
@@ -304,23 +258,68 @@ impl BluetoothPopover {
             &mut imp.nearby_held.borrow_mut(),
             &nearby,
             |entry| entry.id.clone(),
-            |entry| Expandable::new(&self.build_nearby(&entry.id)),
-            |holder, entry| {
+            |entry| Expandable::new(&self.head_for(entry)),
+            |holder, entry| self.apply(holder, entry),
+        );
+
+        let live: Vec<String> = entries.iter().map(|entry| entry.id.clone()).collect();
+        imp.lines.borrow_mut().retain(|id, _| live.contains(id));
+    }
+
+    /// A device in use is about that connection: the whole row opens its card, where Disconnect
+    /// lives. A paired device connects on its body and opens its card from the chevron; a nearby
+    /// one pairs on its body and has no card, because there is nothing to manage before it pairs.
+    fn head_for(&self, entry: &Entry) -> gtk4::Widget {
+        if entry.place == Place::Connected {
+            let row = Row::new();
+            row.add_css_class(DEVICE);
+            let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+            chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+            chevron.add_css_class("drawer-chevron");
+            row.set_trail(&chevron);
+            let key = entry.id.clone();
+            row.connect_clicked(glib::clone!(
+                #[weak(rename_to = popover)]
+                self,
+                move |_| popover.open(&key)
+            ));
+            return row.upcast();
+        }
+
+        let split = SplitRow::new();
+        split.add_css_class(DEVICE);
+        split.set_detail_visible(entry.place == Place::Paired);
+        let key = entry.id.clone();
+        split.connect_activated(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            move |_| popover.emit_by_name::<()>("activated", &[&key])
+        ));
+        let key = entry.id.clone();
+        split.connect_details(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            move |_| popover.open(&key)
+        ));
+        split.upcast()
+    }
+
+    fn apply(&self, holder: &Expandable, entry: &Entry) {
+        let connected = entry.place == Place::Connected;
+        if connected == holder.head::<SplitRow>().is_some() {
+            holder.set_head(&self.head_for(entry));
+        }
+        match holder.head::<SplitRow>() {
+            Some(split) => {
+                dress_row(&split.row(), entry);
+                split.set_detail_visible(entry.place == Place::Paired);
+            }
+            None => {
                 if let Some(row) = holder.head::<Row>() {
                     dress_row(&row, entry);
                 }
-            },
-        );
-        drop(entries);
-        let live: Vec<String> = imp
-            .entries
-            .borrow()
-            .iter()
-            .map(|entry| entry.id.clone())
-            .collect();
-        imp.lines.borrow_mut().retain(|id, _| live.contains(id));
-        imp.nearby.set_visible(imp.search.active());
-        imp.nearby.set_empty(nearby.is_empty());
+            }
+        }
     }
 
     fn open(&self, id: &str) {
@@ -361,44 +360,9 @@ impl BluetoothPopover {
 
     fn holders(&self) -> impl Iterator<Item = (String, Expandable)> + use<> {
         let imp = self.imp();
-        let mut all = imp.connected_held.borrow().clone();
-        all.extend(imp.paired_held.borrow().iter().cloned());
+        let mut all = imp.devices_held.borrow().clone();
         all.extend(imp.nearby_held.borrow().iter().cloned());
         all.into_iter()
-    }
-
-    fn build_split(&self, id: &str) -> SplitRow {
-        let split = SplitRow::new();
-        split.add_css_class(DEVICE);
-        let key = id.to_owned();
-        split.connect_activated(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| {
-                let connected = popover.place(&key) == Some(Place::Connected);
-                popover.emit_by_name::<()>("activated", &[&key, &connected]);
-            }
-        ));
-        let key = id.to_owned();
-        split.connect_details(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| popover.open(&key)
-        ));
-        split
-    }
-
-    fn build_nearby(&self, id: &str) -> Row {
-        let row = Row::new();
-        row.add_css_class(DEVICE);
-        row.set_activatable(true);
-        let key = id.to_owned();
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| popover.open(&key)
-        ));
-        row
     }
 
     fn dress_line(&self, row: &Row, line: &Line) {
@@ -445,6 +409,7 @@ impl BluetoothPopover {
 }
 
 const DEVICE: &str = "bluetooth-popover__device";
+const WARNING: &str = "bluetooth-popover__device--warning";
 
 fn set_button(button: &gtk4::Button, label: &str) {
     button.set_visible(!label.is_empty());
@@ -460,4 +425,5 @@ fn dress_row(row: &Row, entry: &Entry) {
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_value(none_if_empty(&entry.value));
     row.set_busy(entry.busy);
+    crate::set_css_class(row, WARNING, entry.warning);
 }

@@ -80,6 +80,9 @@ wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
 wl-clipboard-rs = "0.9"
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 
+[profile.dev.package.libpulse-binding]
+debug-assertions = false
+
 [profile.release]
 strip = true
 lto = "thin"

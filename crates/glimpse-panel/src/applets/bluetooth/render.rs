@@ -1,5 +1,5 @@
 use gettextrs::{gettext, ngettext};
-use glimpse_dbus::bluez::{Codec, DeviceIcon, Power, Profile};
+use glimpse_dbus::bluez::{Codec, DeviceIcon, Power};
 use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure, Prompt};
 use glimpse_widgets::{
     BluetoothAsk as Ask, BluetoothDetails as Details, BluetoothEntry as Entry,
@@ -13,7 +13,6 @@ pub const OFF: &str = "bluetooth-disabled-symbolic";
 pub const BLOCKED: &str = "bluetooth-hardware-disabled-symbolic";
 
 pub const NAME_CAP: usize = 24;
-const PROFILES_SHOWN: usize = 3;
 
 pub fn chip(state: &BluetoothState) -> Option<&'static str> {
     let adapter = state.adapter.as_ref()?;
@@ -67,18 +66,6 @@ fn status(power: Power, discovering: bool, connected: usize) -> String {
     }
 }
 
-fn services(profiles: &[Profile]) -> String {
-    let shown: Vec<String> = profiles
-        .iter()
-        .take(PROFILES_SHOWN)
-        .map(|profile| profile_name(*profile))
-        .collect();
-    match profiles.len() > PROFILES_SHOWN {
-        true => format!("{}…", shown.join(", ")),
-        false => shown.join(", "),
-    }
-}
-
 pub fn cap(name: &str) -> String {
     glimpse_utils::clean(name, NAME_CAP)
 }
@@ -96,7 +83,6 @@ pub fn hero(state: &BluetoothState) -> Hero {
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
         controls: powered(state),
-        discoverable: adapter.is_some_and(|adapter| adapter.discoverable),
     }
 }
 
@@ -252,7 +238,6 @@ pub struct Hero {
     pub subtitle: String,
     pub icon: String,
     pub controls: bool,
-    pub discoverable: bool,
     pub on: bool,
     pub settable: bool,
 }
@@ -261,13 +246,20 @@ pub struct Listing {
     pub entries: Vec<Entry>,
     pub more_paired: Option<String>,
     pub more_nearby: Option<String>,
+    pub nearby_count: usize,
+    pub nearby_open: bool,
 }
 
+/// Devices, then Nearby devices as the same disclosure the network popover gives Other networks:
+/// closed while anything is paired, because that is what a person reaches for, and open by itself
+/// when nothing is. `toggled` is the header pressed against that default. The popover's own timed
+/// scan fills it; the list never waits on one, so it is never shown empty.
 pub fn entries(
     state: &BluetoothState,
     devices: usize,
     nearby: usize,
     expanded: (bool, bool),
+    toggled: bool,
 ) -> Listing {
     let (all_paired, all_nearby) = expanded;
     let mut built = Vec::new();
@@ -290,14 +282,23 @@ pub fn entries(
         .iter()
         .filter(|device| !device.connected && !device.known())
         .collect();
-    for device in found.iter().take(shown(nearby, all_nearby)) {
-        built.push(entry(device, Place::Nearby));
+    let open = built.is_empty() != toggled;
+    if open {
+        for device in found.iter().take(shown(nearby, all_nearby)) {
+            built.push(entry(device, Place::Nearby));
+        }
     }
+    let hidden = found.len().saturating_sub(shown(nearby, all_nearby));
 
     Listing {
         entries: built,
         more_paired: more(paired.len(), devices, all_paired),
-        more_nearby: more(found.len(), nearby, all_nearby),
+        more_nearby: (open && hidden > 0).then(|| {
+            ngettext("{count} more device", "{count} more devices", hidden as u32)
+                .replace("{count}", &hidden.to_string())
+        }),
+        nearby_count: found.len(),
+        nearby_open: open,
     }
 }
 
@@ -321,10 +322,15 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
 }
 
 fn entry(device: &Device, place: Place) -> Entry {
+    let fragile = device.paired != device.bonded;
     Entry {
         id: device.id.as_str().to_owned(),
         title: cap(&device.name),
-        subtitle: kind(device.icon),
+        subtitle: match fragile {
+            true => gettext("Pairing will not survive a restart"),
+            false => kind(device.icon),
+        },
+        warning: fragile,
         icon: icon(device.icon).to_owned(),
         place,
         value: state_of(device),
@@ -351,24 +357,22 @@ fn state_of(device: &Device) -> String {
     String::new()
 }
 
+/// The card under a paired device, or `None` for a nearby one, which has nothing to manage before
+/// it pairs. A device in use carries Disconnect; every paired one carries what a person acts on —
+/// its battery and codec when BlueZ has them, how it reconnects, and Forget. Address, signal and
+/// services are diagnostics, and a pairing that will not survive a restart is on the row itself.
 pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     let device = state.device(id)?;
+    if !device.known() {
+        return None;
+    }
     let mut lines = Vec::new();
 
-    if device.known() {
-        let mut act = acts(if device.connected {
-            ("disconnect", gettext("Disconnect"))
-        } else {
-            ("connect", gettext("Connect"))
-        });
-        act.busy = matches!(device.busy, Some(Busy::Connecting | Busy::Disconnecting));
+    if device.connected {
+        let mut act = acts(("disconnect", gettext("Disconnect")));
+        act.busy = matches!(device.busy, Some(Busy::Disconnecting));
         lines.push(act);
-    } else {
-        let mut pair = acts(("pair", gettext("Pair this device")));
-        pair.busy = matches!(device.busy, Some(Busy::Pairing));
-        lines.push(pair);
     }
-
     if let Some(level) = device.battery {
         lines.push(line(
             ("battery", gettext("Battery")),
@@ -378,42 +382,19 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     if let Some(codec) = device.codec.filter(|_| device.connected) {
         lines.push(line(("codec", gettext("Codec")), codec_name(codec)));
     }
-    if device.known() {
-        lines.push(Line {
-            action: "trust".to_owned(),
-            title: gettext("Connect automatically"),
-            toggle: Some(device.trusted),
-            ..Default::default()
-        });
-    }
-    lines.push(line(
-        ("address", gettext("Address")),
-        device.address.clone(),
-    ));
-    if device.paired != device.bonded {
-        lines.push(line(
-            ("pairing", gettext("Pairing")),
-            gettext("Will not survive a restart"),
-        ));
-    }
-    if let Some(rssi) = device.rssi {
-        lines.push(line(("signal", gettext("Signal")), format!("{rssi} dBm")));
-    }
-    if !device.profiles.is_empty() {
-        lines.push(line(
-            ("services", gettext("Services")),
-            services(&device.profiles),
-        ));
-    }
-    if device.known() {
-        lines.push(Line {
-            action: "forget".to_owned(),
-            title: gettext("Forget this device"),
-            activates: true,
-            busy: matches!(device.busy, Some(Busy::Forgetting)),
-            ..Default::default()
-        });
-    }
+    lines.push(Line {
+        action: "trust".to_owned(),
+        title: gettext("Connect automatically"),
+        toggle: Some(device.trusted),
+        ..Default::default()
+    });
+    lines.push(Line {
+        action: "forget".to_owned(),
+        title: gettext("Forget this device"),
+        activates: true,
+        busy: matches!(device.busy, Some(Busy::Forgetting)),
+        ..Default::default()
+    });
 
     Some(Details {
         id: device.id.as_str().to_owned(),
@@ -509,18 +490,6 @@ fn codec_name(codec: Codec) -> String {
         Codec::AptXHd => "aptX HD".to_owned(),
         Codec::Lhdc => "LHDC".to_owned(),
         Codec::Vendor => gettext("Vendor codec"),
-    }
-}
-
-fn profile_name(profile: Profile) -> String {
-    match profile {
-        Profile::Audio => gettext("Audio"),
-        Profile::Calls => gettext("Calls"),
-        Profile::RemoteControl => gettext("Remote control"),
-        Profile::Input => gettext("Input"),
-        Profile::Network => gettext("Network"),
-        Profile::FileTransfer => gettext("File transfer"),
-        Profile::PhoneBook => gettext("Contacts"),
     }
 }
 
@@ -640,25 +609,6 @@ mod tests {
     }
 
     #[test]
-    fn a_long_profile_list_is_cut_rather_than_eating_the_row_title() {
-        assert_eq!(
-            services(&[Profile::Audio, Profile::Calls, Profile::RemoteControl]),
-            "Audio, Calls, Remote control"
-        );
-        assert_eq!(
-            services(&[
-                Profile::Audio,
-                Profile::Calls,
-                Profile::RemoteControl,
-                Profile::Network,
-                Profile::FileTransfer,
-            ]),
-            "Audio, Calls, Remote control…",
-            "a row's value has no ellipsize, so an unbounded one squeezes the title to nothing"
-        );
-    }
-
-    #[test]
     fn devices_are_placed_by_what_they_are_and_bounded_by_the_config() {
         let mut devices = vec![device("Buds", true)];
         for index in 0..10 {
@@ -675,7 +625,7 @@ mod tests {
         }
         let state = state(Power::On, true, devices);
 
-        let listing = entries(&state, 6, 8, (false, false));
+        let listing = entries(&state, 6, 8, (false, false), false);
         let counted = |place: Place| counted_in(&listing, place);
 
         assert_eq!(counted(Place::Connected), 1);
@@ -684,10 +634,23 @@ mod tests {
             6,
             "the rest go behind an overflow row, not onto a popover nothing scrolls"
         );
-        assert_eq!(counted(Place::Nearby), 8);
         assert!(listing.more_paired.is_some());
-        assert!(listing.more_nearby.is_some());
-        let opened = entries(&state, 6, 8, (true, true));
+        assert_eq!(
+            (
+                counted(Place::Nearby),
+                listing.nearby_count,
+                listing.nearby_open
+            ),
+            (0, 10, false),
+            "with devices of its own a person rarely wants a stranger's, so Nearby starts closed"
+        );
+        assert!(listing.more_nearby.is_none());
+
+        let toggled = entries(&state, 6, 8, (false, false), true);
+        assert_eq!(counted_in(&toggled, Place::Nearby), 8);
+        assert!(toggled.nearby_open && toggled.more_nearby.is_some());
+
+        let opened = entries(&state, 6, 8, (true, true), false);
         assert_eq!(counted_in(&opened, Place::Paired), 10);
         assert_eq!(
             opened.more_paired.as_deref(),
@@ -710,7 +673,7 @@ mod tests {
         dropped.failure = Some(Failure::BondBroken);
         let state = state(Power::On, false, vec![dropped]);
 
-        let row = &entries(&state, 6, 8, (false, false)).entries[0];
+        let row = &entries(&state, 6, 8, (false, false), false).entries[0];
 
         assert_eq!(
             row.value, "Pairing lost",
@@ -731,7 +694,7 @@ mod tests {
             busy.battery = Some(80);
             let state = state(Power::On, false, vec![busy]);
 
-            let row = &entries(&state, 6, 8, (false, false)).entries[0];
+            let row = &entries(&state, 6, 8, (false, false), false).entries[0];
 
             assert!(row.busy, "{doing:?} must reach the row as a spinner");
             assert!(
@@ -742,26 +705,24 @@ mod tests {
     }
 
     #[test]
-    fn the_action_row_that_started_the_work_is_the_one_that_spins() {
+    fn a_device_that_is_pairing_spins_on_its_own_row() {
         let mut pairing = device("Buds", false);
         pairing.paired = false;
         pairing.bonded = false;
         pairing.trusted = false;
         pairing.busy = Some(Busy::Pairing);
         let id = pairing.id.clone();
-        let state = state(Power::On, false, vec![pairing]);
+        let state = state(Power::On, true, vec![pairing]);
 
-        let lines = details(&state, &id).expect("the device").lines;
-        let spinning: Vec<&str> = lines
-            .iter()
-            .filter(|line| line.busy)
-            .map(|line| line.action.as_str())
-            .collect();
-
-        assert_eq!(
-            spinning,
-            ["pair"],
-            "progress belongs to the row that was pressed and to no other"
+        let row = entries(&state, 6, 8, (false, false), false)
+            .entries
+            .into_iter()
+            .find(|entry| entry.id == id.as_str())
+            .expect("the device is listed");
+        assert_eq!(row.place, Place::Nearby);
+        assert!(
+            row.busy,
+            "pairing is started from the row, so the row is what spins"
         );
     }
 
@@ -788,7 +749,7 @@ mod tests {
     }
 
     #[test]
-    fn an_unpaired_device_is_offered_pairing_and_nothing_to_forget() {
+    fn a_nearby_device_has_no_card() {
         let mut found = device("Bose", false);
         found.paired = false;
         found.bonded = false;
@@ -797,17 +758,10 @@ mod tests {
         let id = found.id.clone();
         let state = state(Power::On, true, vec![found]);
 
-        let details = details(&state, &id).expect("the device");
-        let actions: Vec<&str> = details
-            .lines
-            .iter()
-            .map(|line| line.action.as_str())
-            .collect();
-
-        assert!(actions.contains(&"pair"));
-        assert!(!actions.contains(&"forget"));
-        assert!(!actions.contains(&"trust"));
-        assert!(actions.contains(&"signal"));
+        assert!(
+            details(&state, &id).is_none(),
+            "nothing is managed before a device pairs, so its row pairs and carries no card"
+        );
     }
 
     #[test]
@@ -826,18 +780,29 @@ mod tests {
     }
 
     #[test]
-    fn a_pairing_row_appears_only_when_paired_and_bonded_disagree() {
+    fn a_pairing_that_will_not_survive_a_restart_is_said_on_the_row() {
         let mut fragile = device("Buds", false);
         fragile.bonded = false;
         let id = fragile.id.clone();
-        let state = state(Power::On, false, vec![fragile]);
+        let mut sound = device("Keys", false);
+        sound.id = DeviceId::new("/org/bluez/hci0/dev_11_22_33_44_55_66");
+        let state = state(Power::On, false, vec![fragile, sound]);
 
+        let rows = entries(&state, 6, 8, (false, false), false).entries;
+        let (warned, calm): (Vec<Entry>, Vec<Entry>) =
+            rows.into_iter().partition(|entry| entry.id == id.as_str());
         assert!(
-            details(&state, &id)
+            warned[0].warning && !warned[0].subtitle.is_empty(),
+            "a problem is seen without opening anything"
+        );
+        assert!(calm.iter().all(|entry| !entry.warning));
+        assert!(
+            !details(&state, &id)
                 .expect("the device")
                 .lines
                 .iter()
-                .any(|line| line.action == "pairing")
+                .any(|line| line.action == "pairing"),
+            "and the card does not repeat it"
         );
     }
 

@@ -21,8 +21,6 @@ use crate::applet::{
 use super::render;
 
 const ICON: &str = "audio-volume-high-symbolic";
-const OUTPUTS_SHOWN: usize = 4;
-const INPUTS_SHOWN: usize = 4;
 const APPS_SHOWN: usize = 6;
 const SCROLL_STEP: i32 = 5;
 
@@ -33,8 +31,7 @@ pub struct Audio {
     tooltip_format: Option<String>,
     footer: Option<(String, Vec<String>)>,
     spec: Vec<IndicatorSpec>,
-    selected: Rc<RefCell<Option<AudioAppId>>>,
-    expanded: Rc<Cell<(bool, bool, bool)>>,
+    expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<AudioPopover>,
 }
 
@@ -57,13 +54,7 @@ impl Applet for Audio {
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Woken => {
-                self.state = self.audio.snapshot();
-                let mut held = self.selected.borrow_mut();
-                if held.as_ref().is_some_and(|id| self.state.app(id).is_none()) {
-                    *held = None;
-                }
-            }
+            Input::Woken => self.state = self.audio.snapshot(),
             Input::Pointer(Pointer::Scroll(direction)) => {
                 self.nudge(*direction);
                 return;
@@ -107,14 +98,6 @@ impl Applet for Audio {
             }
         });
 
-        shown.connect_level_moved({
-            move |popover: &AudioPopover, dir: &str, value: f64| {
-                if dir == "output" {
-                    popover.set_readout(Some(&render::output_status(value.round() as u32, false)));
-                }
-            }
-        });
-
         shown.connect_level_toggled({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
@@ -140,30 +123,23 @@ impl Applet for Audio {
         shown.connect_device_selected({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
+            let shown = shown.downgrade();
+            let opener = seat.opener();
             move |_, dir, id| {
                 let Some(direction) = direction_of(dir) else {
                     return;
                 };
                 let audio = audio.clone();
                 let id = AudioDeviceId::new(id);
-                tell(
+                act(
                     &notifications,
                     "audio.set_default",
                     gettext("Could not switch device"),
+                    &shown,
+                    &opener,
+                    dir.to_owned(),
                     async move { audio.set_default(direction, id).await },
                 );
-            }
-        });
-
-        shown.connect_app_selected({
-            let selected = Rc::clone(&self.selected);
-            let opener = seat.opener();
-            move |_, id| {
-                let id = AudioAppId::new(id);
-                let mut held = selected.borrow_mut();
-                *held = (held.as_ref() != Some(&id)).then_some(id);
-                drop(held);
-                opener.wake();
             }
         });
 
@@ -207,21 +183,21 @@ impl Applet for Audio {
         shown.connect_app_moved({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
-            let selected = Rc::clone(&self.selected);
+            let shown = shown.downgrade();
             let opener = seat.opener();
             move |_, app, dir, device| {
                 let Some(direction) = direction_of(dir) else {
                     return;
                 };
                 let audio = audio.clone();
+                let key = app.to_owned();
                 let app = AudioAppId::new(app);
-                let key = app.clone();
                 let device = AudioDeviceId::new(device);
                 act(
                     &notifications,
                     "audio.move_app",
                     gettext("Could not move the application"),
-                    &selected,
+                    &shown,
                     &opener,
                     key,
                     async move { audio.move_app(direction, app, device).await },
@@ -233,13 +209,10 @@ impl Applet for Audio {
             let expanded = Rc::clone(&self.expanded);
             let opener = seat.opener();
             move |_, place| {
-                let (outputs, inputs, apps) = expanded.get();
-                match place {
-                    "outputs" => expanded.set((!outputs, inputs, apps)),
-                    "inputs" => expanded.set((outputs, !inputs, apps)),
-                    "apps" => expanded.set((outputs, inputs, !apps)),
-                    _ => return,
+                if place != "apps" {
+                    return;
                 }
+                expanded.set(!expanded.get());
                 opener.wake();
             }
         });
@@ -249,8 +222,7 @@ impl Applet for Audio {
             shown.connect_footer_activated(move |_| run(&command));
         }
 
-        self.expanded.set((false, false, false));
-        self.selected.replace(None);
+        self.expanded.set(false);
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
@@ -280,9 +252,9 @@ fn act(
     notifications: &NotificationsProviderHandle,
     operation: &'static str,
     summary: String,
-    selected: &Rc<RefCell<Option<AudioAppId>>>,
+    shown: &glib::WeakRef<AudioPopover>,
     opener: &Opener,
-    id: AudioAppId,
+    card: String,
     future: impl std::future::Future<Output = Result<(), AudioError>> + 'static,
 ) {
     let report = Report {
@@ -291,14 +263,13 @@ fn act(
         icon: ICON.to_owned(),
         summary,
     };
-    let selected = Rc::clone(selected);
+    let shown = shown.clone();
     let opener = opener.clone();
     relm4::spawn_local(async move {
         match future.await {
             Ok(()) => {
-                let mine = selected.borrow().as_ref() == Some(&id);
-                if mine {
-                    selected.replace(None);
+                if let Some(shown) = shown.upgrade() {
+                    shown.collapse(&card);
                 }
             }
             Err(error) => report_failure(operation, report, wording(&error), error).await,
@@ -361,30 +332,6 @@ fn shown_count(cap: usize, expanded: bool) -> usize {
     }
 }
 
-fn more_outputs(total: usize, cap: usize, expanded: bool) -> Option<String> {
-    let hidden = total.saturating_sub(cap);
-    if hidden == 0 {
-        return None;
-    }
-    Some(match expanded {
-        true => gettext("Show fewer"),
-        false => ngettext("{count} more output", "{count} more outputs", hidden as u32)
-            .replace("{count}", &hidden.to_string()),
-    })
-}
-
-fn more_inputs(total: usize, cap: usize, expanded: bool) -> Option<String> {
-    let hidden = total.saturating_sub(cap);
-    if hidden == 0 {
-        return None;
-    }
-    Some(match expanded {
-        true => gettext("Show fewer"),
-        false => ngettext("{count} more input", "{count} more inputs", hidden as u32)
-            .replace("{count}", &hidden.to_string()),
-    })
-}
-
 fn more_apps(total: usize, cap: usize, expanded: bool) -> Option<String> {
     let hidden = total.saturating_sub(cap);
     if hidden == 0 {
@@ -404,48 +351,48 @@ fn device_entry(device: &AudioDevice, dir: AudioDirection) -> AudioEntry {
         icon: Some(render::device_icon(device, dir).to_owned()),
         value: None,
         selected: device.default,
+        muted_icon: None,
     }
 }
 
-fn device_entries(
-    devices: &[AudioDevice],
-    dir: AudioDirection,
-    cap: usize,
-    expanded: bool,
-) -> Vec<AudioEntry> {
+/// Every device of one direction, the default first: they live in the card under the current
+/// device's row, which is only opened to switch, so nothing caps them.
+fn device_entries(devices: &[AudioDevice], dir: AudioDirection) -> Vec<AudioEntry> {
     let mut ordered: Vec<&AudioDevice> = devices.iter().collect();
     ordered.sort_by_key(|device| !device.default);
     ordered
         .into_iter()
-        .take(shown_count(cap, expanded))
         .map(|device| device_entry(device, dir))
         .collect()
 }
 
-fn app_level_text(app: &AudioApp) -> Option<String> {
-    let role = app.playback.as_ref().or(app.capture.as_ref())?;
-    role.muted.then(|| render::output_status(0, true))
+/// A muted app carries the same muted glyph its fader would — a speaker for playback, a
+/// microphone for an app that only records — which the popover draws in the warning colour.
+fn muted_glyph(app: &AudioApp) -> Option<&'static str> {
+    let (direction, role) = match (&app.playback, &app.capture) {
+        (Some(role), _) => (AudioDirection::Output, role),
+        (None, Some(role)) => (AudioDirection::Input, role),
+        (None, None) => return None,
+    };
+    role.muted
+        .then(|| render::fader_icon(direction, role.volume, true))
 }
 
-fn app_entry(app: &AudioApp, selected: Option<&AudioAppId>) -> AudioEntry {
+fn app_entry(app: &AudioApp) -> AudioEntry {
     AudioEntry {
         id: app.id.as_str().to_owned(),
         title: render::app_name(app),
         icon: Some(render::app_icon(app)),
-        value: app_level_text(app),
-        selected: selected == Some(&app.id),
+        value: None,
+        selected: false,
+        muted_icon: muted_glyph(app).map(str::to_owned),
     }
 }
 
-fn app_entries(
-    apps: &[AudioApp],
-    cap: usize,
-    expanded: bool,
-    selected: Option<&AudioAppId>,
-) -> Vec<AudioEntry> {
+fn app_entries(apps: &[AudioApp], cap: usize, expanded: bool) -> Vec<AudioEntry> {
     apps.iter()
         .take(shown_count(cap, expanded))
-        .map(|app| app_entry(app, selected))
+        .map(app_entry)
         .collect()
 }
 
@@ -460,7 +407,7 @@ fn block(
         heading: with_heading.then(|| direction_label(dir)),
         volume: role.volume as f64,
         muted: role.muted,
-        icon: Some(render::level_icon(role.volume, role.muted).to_owned()),
+        icon: Some(render::fader_icon(dir, role.volume, role.muted).to_owned()),
         adjustable: role.adjustable,
         devices: state
             .devices(dir)
@@ -471,6 +418,7 @@ fn block(
                 icon: Some(render::device_icon(device, dir).to_owned()),
                 value: None,
                 selected: device.id == role.device,
+                muted_icon: None,
             })
             .collect(),
     }
@@ -547,8 +495,7 @@ impl Audio {
             tooltip_format: None,
             footer: None,
             spec: Vec::new(),
-            selected: Rc::new(RefCell::new(None)),
-            expanded: Rc::new(Cell::new((false, false, false))),
+            expanded: Rc::new(Cell::new(false)),
             shown: glib::WeakRef::new(),
         }
     }
@@ -564,49 +511,44 @@ impl Audio {
         let output = self.state.default_output();
         let input = self.state.default_input();
 
-        shown.set_readout(render::tooltip(&self.state, None).as_deref());
+        shown.set_heading(
+            render::fader_icon(
+                AudioDirection::Output,
+                output.map_or(0, |device| device.volume),
+                output.is_none_or(|device| device.muted),
+            ),
+            output.map(|device| device.name.as_str()),
+            output.is_some_and(|device| device.muted),
+        );
 
         shown.set_output_level(
             output.map_or(0.0, |device| device.volume as f64),
             output.is_some_and(|device| device.muted),
-            output.map(|device| render::level_icon(device.volume, device.muted)),
+            output.map(|device| {
+                render::fader_icon(AudioDirection::Output, device.volume, device.muted)
+            }),
         );
         shown.set_input_level(
             input.map_or(0.0, |device| device.volume as f64),
             input.is_some_and(|device| device.muted),
-            input.map(|device| render::level_icon(device.volume, device.muted)),
+            input.map(|device| {
+                render::fader_icon(AudioDirection::Input, device.volume, device.muted)
+            }),
         );
 
-        let (outputs_expanded, inputs_expanded, apps_expanded) = self.expanded.get();
-        shown.set_outputs(&device_entries(
-            &self.state.outputs,
-            AudioDirection::Output,
-            OUTPUTS_SHOWN,
-            outputs_expanded,
-        ));
-        shown.set_inputs(&device_entries(
-            &self.state.inputs,
-            AudioDirection::Input,
-            INPUTS_SHOWN,
-            inputs_expanded,
-        ));
+        shown.set_outputs(&device_entries(&self.state.outputs, AudioDirection::Output));
+        shown.set_inputs(&device_entries(&self.state.inputs, AudioDirection::Input));
 
-        let selected = self.selected.borrow();
-        let selected = selected.as_ref();
-        shown.set_apps(&app_entries(
-            &self.state.apps,
-            APPS_SHOWN,
-            apps_expanded,
-            selected,
-        ));
-
-        shown.set_overflow(
-            more_outputs(self.state.outputs.len(), OUTPUTS_SHOWN, outputs_expanded).as_deref(),
-            more_inputs(self.state.inputs.len(), INPUTS_SHOWN, inputs_expanded).as_deref(),
-            more_apps(self.state.apps.len(), APPS_SHOWN, apps_expanded).as_deref(),
-        );
-
-        shown.set_details(selected.and_then(|id| details(&self.state, id)).as_ref());
+        let apps_expanded = self.expanded.get();
+        shown.set_apps(&app_entries(&self.state.apps, APPS_SHOWN, apps_expanded));
+        shown.set_more_apps(more_apps(self.state.apps.len(), APPS_SHOWN, apps_expanded).as_deref());
+        let details: Vec<_> = self
+            .state
+            .apps
+            .iter()
+            .filter_map(|app| details(&self.state, &app.id))
+            .collect();
+        shown.set_details(&details);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 
@@ -668,29 +610,13 @@ mod tests {
     }
 
     #[test]
-    fn more_outputs_is_none_when_nothing_is_hidden() {
-        assert_eq!(more_outputs(3, 4, false), None);
-    }
-
-    #[test]
-    fn more_outputs_counts_what_is_hidden() {
-        let text = more_outputs(6, 4, false).expect("something is hidden");
-        assert!(text.contains('2'));
-    }
-
-    #[test]
-    fn more_outputs_offers_to_collapse_once_expanded() {
-        assert_eq!(more_outputs(6, 4, true), Some(gettext("Show fewer")));
-    }
-
-    #[test]
     fn device_entry_is_selected_only_for_the_default_device() {
         assert!(device_entry(&device("dev", 50, false, true), AudioDirection::Output).selected);
         assert!(!device_entry(&device("dev", 50, false, false), AudioDirection::Output).selected);
     }
 
     #[test]
-    fn device_entries_puts_the_default_first_before_capping() {
+    fn device_entries_lists_every_device_with_the_default_first() {
         let devices = vec![
             device("onboard", 40, false, false),
             device("hdmi", 40, false, false),
@@ -698,11 +624,11 @@ mod tests {
             device("headset", 40, false, false),
             device("speakers", 40, false, true),
         ];
-        let shown = device_entries(&devices, AudioDirection::Output, 4, false);
-        assert_eq!(shown.len(), 4);
-        assert!(
-            shown.iter().any(|entry| entry.id == "speakers"),
-            "the default device must survive capping even when it enumerates last"
+        let shown = device_entries(&devices, AudioDirection::Output);
+        assert_eq!(
+            shown.len(),
+            5,
+            "the devices live in a card opened only to switch, so nothing caps them"
         );
         assert!(shown[0].selected, "the default sorts to the front");
     }
@@ -722,11 +648,22 @@ mod tests {
     }
 
     #[test]
-    fn app_entry_is_selected_only_when_it_matches_the_held_id() {
-        let firefox = app("firefox", Some(role("dev", 80, false, true)), None);
-        let id = AudioAppId::new("firefox");
-        assert!(app_entry(&firefox, Some(&id)).selected);
-        assert!(!app_entry(&firefox, None).selected);
+    fn a_muted_app_carries_the_muted_glyph_of_its_own_direction() {
+        let playing = app("firefox", Some(role("dev", 80, false, true)), None);
+        assert_eq!(app_entry(&playing).muted_icon, None);
+
+        let silenced = app("firefox", Some(role("dev", 80, true, true)), None);
+        assert_eq!(
+            app_entry(&silenced).muted_icon.as_deref(),
+            Some(render::fader_icon(AudioDirection::Output, 80, true))
+        );
+
+        let recording = app("obs", None, Some(role("mic", 40, true, true)));
+        assert_eq!(
+            app_entry(&recording).muted_icon.as_deref(),
+            Some(render::fader_icon(AudioDirection::Input, 40, true)),
+            "an app that only records is muted as a microphone, not a speaker"
+        );
     }
 
     #[test]

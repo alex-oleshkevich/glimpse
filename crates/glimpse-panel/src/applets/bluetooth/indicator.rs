@@ -28,6 +28,7 @@ pub struct Bluetooth {
     spec: Vec<IndicatorSpec>,
     devices: usize,
     nearby: usize,
+    nearby_toggled: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
     asked: Rc<RefCell<Option<Asked>>>,
     raised: Option<Asked>,
@@ -90,21 +91,16 @@ impl Applet for Bluetooth {
             let notifications = self.notifications.clone();
             let shown = shown.downgrade();
             let opener = seat.opener();
-            move |_, id, connected| {
+            move |_, id| {
                 let id = DeviceId::new(id);
                 let key = id.clone();
+                let known = bluetooth
+                    .snapshot()
+                    .device(&id)
+                    .is_some_and(|device| device.known());
                 let bluetooth = bluetooth.clone();
-                match connected {
+                match known {
                     true => act(
-                        &notifications,
-                        "bluetooth.disconnect_device",
-                        gettext("Could not disconnect"),
-                        &shown,
-                        &opener,
-                        key,
-                        async move { bluetooth.disconnect(id).await },
-                    ),
-                    false => act(
                         &notifications,
                         "bluetooth.connect_device",
                         gettext("Could not connect"),
@@ -112,6 +108,15 @@ impl Applet for Bluetooth {
                         &opener,
                         key,
                         async move { bluetooth.connect(id).await },
+                    ),
+                    false => act(
+                        &notifications,
+                        "bluetooth.pair_device",
+                        gettext("Could not pair"),
+                        &shown,
+                        &opener,
+                        key,
+                        async move { bluetooth.pair(id).await },
                     ),
                 }
             }
@@ -126,18 +131,6 @@ impl Applet for Bluetooth {
                 let id = DeviceId::new(id);
                 let bluetooth = bluetooth.clone();
                 match action {
-                    "connect" => {
-                        let key = id.clone();
-                        act(
-                            &notifications,
-                            "bluetooth.connect_device",
-                            gettext("Could not connect"),
-                            &shown,
-                            &opener,
-                            key,
-                            async move { bluetooth.connect(id).await },
-                        );
-                    }
                     "disconnect" => {
                         let key = id.clone();
                         act(
@@ -148,18 +141,6 @@ impl Applet for Bluetooth {
                             &opener,
                             key,
                             async move { bluetooth.disconnect(id).await },
-                        );
-                    }
-                    "pair" => {
-                        let key = id.clone();
-                        act(
-                            &notifications,
-                            "bluetooth.pair_device",
-                            gettext("Could not pair"),
-                            &shown,
-                            &opener,
-                            key,
-                            async move { bluetooth.pair(id).await },
                         );
                     }
                     "forget" => tell(
@@ -228,40 +209,12 @@ impl Applet for Bluetooth {
             }
         });
 
-        shown.connect_scanning({
-            let bluetooth = self.bluetooth.clone();
-            let notifications = self.notifications.clone();
-            move |_, wanted| {
-                let bluetooth = bluetooth.clone();
-                let operation = match wanted {
-                    true => "bluetooth.start_scan",
-                    false => "bluetooth.stop_scan",
-                };
-                tell(
-                    &notifications,
-                    operation,
-                    gettext("Could not look for devices"),
-                    async move {
-                        match wanted {
-                            true => bluetooth.start_scan(Hold::Held).await,
-                            false => bluetooth.stop_scan().await,
-                        }
-                    },
-                );
-            }
-        });
-
-        shown.connect_discoverable({
-            let bluetooth = self.bluetooth.clone();
-            let notifications = self.notifications.clone();
-            move |_, wanted| {
-                let bluetooth = bluetooth.clone();
-                tell(
-                    &notifications,
-                    "bluetooth.set_discoverable",
-                    gettext("Could not change visibility"),
-                    async move { bluetooth.set_discoverable(wanted).await },
-                );
+        shown.connect_nearby_toggled({
+            let toggled = Rc::clone(&self.nearby_toggled);
+            let opener = seat.opener();
+            move |_| {
+                toggled.set(!toggled.get());
+                opener.wake();
             }
         });
 
@@ -287,16 +240,16 @@ impl Applet for Bluetooth {
                 if !powered {
                     return;
                 }
-                let visible = bluetooth.clone();
-                let scan = bluetooth.clone();
-                spawn_command("bluetooth.set_discoverable", async move {
-                    visible.set_discoverable(true).await
-                });
-                if prompting {
-                    return;
-                }
+                let bluetooth = bluetooth.clone();
                 spawn_command("bluetooth.start_scan", async move {
-                    scan.start_scan(Hold::Timed).await
+                    let scanned = match prompting {
+                        true => Ok(()),
+                        false => bluetooth.start_scan(Hold::Timed).await,
+                    };
+                    if let Err(error) = bluetooth.set_discoverable(true).await {
+                        tracing::warn!(%error, "could not make the adapter visible");
+                    }
+                    scanned
                 });
             }
         });
@@ -311,15 +264,14 @@ impl Applet for Bluetooth {
                         bluetooth.dismiss_confirmation().await
                     });
                 }
-                let stop = bluetooth.clone();
-                spawn_command("bluetooth.set_discoverable", async move {
-                    stop.set_discoverable(false).await
-                });
                 let bluetooth = bluetooth.clone();
-                spawn_command(
-                    "bluetooth.stop_scan",
-                    async move { bluetooth.stop_scan().await },
-                );
+                spawn_command("bluetooth.stop_scan", async move {
+                    let stopped = bluetooth.stop_scan().await;
+                    if let Err(error) = bluetooth.set_discoverable(false).await {
+                        tracing::warn!(%error, "could not hide the adapter again");
+                    }
+                    stopped
+                });
             }
         });
 
@@ -329,6 +281,7 @@ impl Applet for Bluetooth {
         }
 
         self.expanded.set((false, false));
+        self.nearby_toggled.set(false);
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
@@ -401,6 +354,7 @@ impl Bluetooth {
             devices: 6,
             nearby: 8,
             expanded: Rc::new(Cell::new((false, false))),
+            nearby_toggled: Rc::new(Cell::new(false)),
             asked: Rc::new(RefCell::new(None)),
             raised: None,
             shown: glib::WeakRef::new(),
@@ -435,12 +389,17 @@ impl Bluetooth {
             hero.settable,
         );
         shown.set_controls_sensitive(hero.controls);
-        shown.set_discoverable(hero.discoverable);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
-        shown.set_scanning(self.state.scanning());
 
-        let listing = render::entries(&self.state, self.devices, self.nearby, self.expanded.get());
+        let listing = render::entries(
+            &self.state,
+            self.devices,
+            self.nearby,
+            self.expanded.get(),
+            self.nearby_toggled.get(),
+        );
         shown.set_entries(&listing.entries);
+        shown.set_nearby(listing.nearby_count, listing.nearby_open);
         shown.set_overflow(
             listing.more_paired.as_deref(),
             listing.more_nearby.as_deref(),

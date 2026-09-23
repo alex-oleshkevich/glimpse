@@ -323,11 +323,17 @@ the icon theme and `notify::scale-factor` are connected **once, in the applet**,
 name or a count; what is connected belongs to the tooltip. No adapter renders **nothing**, so a
 machine with no radio carries no dead chip.
 
-- **Selection and the two expanded flags are `Rc` cells the popover's closures write and
-  `Input::Woken` reads back**, since a signal closure has no `&mut self`. `unmap` stops a scan
-  unconditionally: any gate on published state loses a held one started in the last round trip.
-  **An overflow row toggles to *Show fewer***: nothing scrolls, so one that only expands pushes the
-  switches off the output.
+- **Devices is one list, the device in use first; Nearby devices is the same disclosure as Other
+  networks** — no header until something is found, closed while anything is paired, open by
+  itself when nothing is, and never an empty list or a spinner. A device in use is one row that opens its card, where Disconnect lives; a paired
+  one connects on its body; a nearby one pairs on its body and has no card. A card closes when the
+  action taken from it succeeds, through `collapse`. The two expanded flags are `Rc` cells the
+  popover's closures write and `Input::Woken` reads back. `unmap` stops a scan unconditionally: any
+  gate on published state loses a held one started in the last round trip. **An overflow row
+  toggles to *Show fewer***: nothing scrolls, so one that only expands pushes the switch off the
+  output.
+- **A card holds only what a person acts on** — Disconnect, battery, codec, Connect automatically,
+  Forget. A pairing that will not survive a restart is the row's own amber subtitle.
 - **A pairing prompt is a page; `raised` keys its auto-open on the device id**, since BlueZ
   escalates mid-flow and a boolean would re-open one just dismissed. The dialog clears its entry on
   a change of **device** rather than of name, because BlueZ re-asks as a name resolves.
@@ -337,10 +343,10 @@ machine with no radio carries no dead chip.
 - **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed`, so one the
   popover draws never trips `close_popovers`. Those that do close every popover, then title, size
   and **show** the host before `present`.
-- **Two switch rows own discovery and visibility**, set on open, cleared on unmap, **never
-  re-asserted between** — a wake that re-asked fights the timeout that just lapsed. Both go
-  insensitive while the radio is off, and `chip` reads `state.held()`, so a popover's own scan never
-  lights the bar.
+- **The popover being open is the scan and the visibility**, set on map, cleared on unmap, **never
+  re-asserted between** — a wake that re-asked fights the timeout that just lapsed. There is no
+  switch for either: a computer is visible exactly while someone is looking at its Bluetooth, and
+  `chip` reads `state.held()`, so a popover's own scan never lights the bar.
 
 **network** — the chip is the connection's own icon and **nothing else**: no SSID and no percentage,
 both of which belong to the tooltip. No managed device renders nothing.

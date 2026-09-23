@@ -968,6 +968,17 @@ unguarded `cancel()` into a heap double free, and the workspace pin (`libpulse-b
 is a caret requirement, so a routine dependency update could pull the fix out from under the guard
 with no warning of its own.
 
+**libpulse-binding 2.30.1 builds a sink's and a source's state with an unchecked `transmute`, and
+pipewire-pulse sends a value outside the enum, September 2026.** Measured: power-cycling the
+Bluetooth adapter with headphones connected made pipewire-pulse report a sink state of −3
+(`0xfffffffd`) while the headphones' sink was torn down. `SinkInfo` and `SourceInfo` convert the raw
+state inside the binding (`introspect.rs:451` and `:881`), on every info callback, whether or not
+anything reads it — glimpse never does. A debug build's enum check aborts, and because it fires
+inside a C callback it cannot unwind, so the whole panel dies; a release build carries the invalid
+value as undefined behaviour. `[profile.dev.package.libpulse-binding] debug-assertions = false` in
+the root `Cargo.toml` is the stopgap that makes a debug panel behave like the shipped one. 2.30.1 is
+the newest release; delete the profile entry once a release converts the state fallibly.
+
 Adwaita's `audio-volume-*` and `microphone-*` symbolics are all plain `#2e3436` with no baked
 accent, unlike `network-error-symbolic` above. But **`.indicator--notice` paints an accent pill
 behind the icon, so it cannot mark a quiet state such as muted, and `.indicator--info` does not
