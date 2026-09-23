@@ -400,7 +400,9 @@ mod tests {
             };
             let value = value.trim();
             assert!(
-                value.starts_with("inset ") || value.starts_with("var(--gl-elevation-"),
+                value == "none;"
+                    || value.starts_with("inset ")
+                    || value.starts_with("var(--gl-elevation-"),
                 "a surface invents its own depth; read an elevation token: {line}"
             );
         }

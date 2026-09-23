@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 20:24+0200\n"
+"POT-Creation-Date: 2026-09-23 21:24+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -245,7 +245,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
-#: crates/glimpse-widgets/src/lib.rs:257
+#: crates/glimpse-widgets/src/lib.rs:259
 msgid "{percent}%"
 msgstr ""
 
@@ -2092,7 +2092,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:218
+#: crates/glimpse-widgets/src/lib.rs:220
 msgid "Play"
 msgstr ""
 
@@ -2266,7 +2266,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:217
+#: crates/glimpse-widgets/src/lib.rs:219
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
@@ -2347,17 +2347,17 @@ msgstr ""
 msgid "Unmount"
 msgstr ""
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:167
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:117
 msgid "{workspaces} on {output}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:171
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:121
 msgid "{workspaces} across {displays} display"
 msgid_plural "{workspaces} across {displays} displays"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:181
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:131
 msgid "{count} workspace"
 msgid_plural "{count} workspaces"
 msgstr[0] ""

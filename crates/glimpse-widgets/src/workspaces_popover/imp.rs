@@ -15,7 +15,6 @@ pub struct WorkspacesPopover {
     pub hero: TemplateChild<Hero>,
     #[template_child]
     pub list: TemplateChild<WorkspaceList>,
-    pub opened: std::cell::Cell<Option<u64>>,
     pub rows: std::cell::RefCell<Vec<(u64, crate::Row)>>,
     pub workspaces: std::cell::RefCell<Vec<crate::Workspace>>,
 }
@@ -54,7 +53,7 @@ impl ObjectImpl for WorkspacesPopover {
         self.list.connect_details(glib::clone!(
             #[weak]
             popover,
-            move |_, id| popover.toggle_detail(id)
+            move |_, id| popover.fill(id)
         ));
     }
 

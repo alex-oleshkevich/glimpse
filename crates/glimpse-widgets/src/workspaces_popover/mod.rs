@@ -4,9 +4,7 @@ use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Row, SplitRow, Workspace, WorkspaceWindow, drawer};
-
-const DETAIL: &str = "detail-card";
+use crate::{Row, Workspace};
 
 glib::wrapper! {
     pub struct WorkspacesPopover(ObjectSubclass<imp::WorkspacesPopover>)
@@ -34,54 +32,41 @@ impl WorkspacesPopover {
         imp.list.set_workspaces(workspaces);
         imp.hero.set_subtitle(summary(workspaces).as_deref());
 
-        if let Some(opened) = imp.opened.get() {
-            self.reveal(opened);
+        let open = imp
+            .list
+            .holders()
+            .into_iter()
+            .find(|(_, holder)| holder.expanded());
+        if let Some((id, _)) = open {
+            self.fill(id);
         }
-    }
-
-    fn reveal(&self, id: u64) {
-        let imp = self.imp();
-        let workspaces = imp.workspaces.borrow();
-        let Some(workspace) = workspaces.iter().find(|workspace| workspace.id == id) else {
-            drop(workspaces);
-            return self.close_drawer();
-        };
-        let windows = workspace.windows.clone();
-        drop(workspaces);
-
-        imp.opened.set(Some(id));
-        self.fill(id, &windows);
-        self.recede();
     }
 
     /// The panel is built the first time its workspace is opened: a list of a dozen workspaces
     /// would otherwise carry a dozen row boxes nothing has asked to see.
-    fn fill(&self, id: u64, windows: &[WorkspaceWindow]) {
-        let Some((_, holder)) = self
-            .imp()
-            .list
-            .holders()
-            .into_iter()
-            .find(|(held, _)| *held == id)
+    pub(crate) fn fill(&self, id: u64) {
+        let imp = self.imp();
+        let Some(windows) = imp
+            .workspaces
+            .borrow()
+            .iter()
+            .find(|workspace| workspace.id == id)
+            .map(|workspace| workspace.windows.clone())
         else {
             return;
         };
-        let Some(panel) = drawer::panel(&holder) else {
+        let Some((_, holder)) = imp.list.holders().into_iter().find(|(held, _)| *held == id) else {
             return;
         };
-        let rows = match panel.child().and_downcast::<gtk4::Box>() {
-            Some(rows) => rows,
-            None => {
-                let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                rows.add_css_class(DETAIL);
-                panel.set_child(Some(&rows));
-                rows
-            }
-        };
+        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&rows));
+            rows
+        });
         by_key(
             &rows,
-            &mut self.imp().rows.borrow_mut(),
-            windows,
+            &mut imp.rows.borrow_mut(),
+            &windows,
             |window| window.id,
             |window| self.row_for(window.id),
             |row, window| {
@@ -103,43 +88,8 @@ impl WorkspacesPopover {
         row
     }
 
-    /// Every row but the open one recedes, and every panel but the open one closes — derived from
-    /// `opened` rather than remembered per row, so two holders can never disagree about which one
-    /// the card belongs to.
-    fn recede(&self) {
-        let imp = self.imp();
-        let opened = imp.opened.get();
-        for (id, holder) in imp.list.holders() {
-            let wanted = opened == Some(id);
-            if let Some(split) = drawer::head::<SplitRow>(&holder) {
-                crate::set_css_class(&split, drawer::OPEN, wanted);
-                crate::set_css_class(&split, drawer::RECEDED, opened.is_some() && !wanted);
-            }
-            if let Some(panel) = drawer::panel(&holder) {
-                drawer::set(&panel, wanted);
-            }
-        }
-        crate::set_css_class(&*imp.hero, drawer::RECEDED, opened.is_some());
-    }
-
-    fn close_drawer(&self) {
-        self.imp().opened.set(None);
-        self.recede();
-    }
-
-    pub fn toggle_detail(&self, id: u64) {
-        match self.imp().opened.get() {
-            Some(open) if open == id => self.close_drawer(),
-            _ => self.reveal(id),
-        }
-    }
-
     pub fn connect_activated<F: Fn(u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.imp().list.connect_activated(move |_, id| f(id))
-    }
-
-    pub fn connect_details<F: Fn(u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.imp().list.connect_details(move |_, id| f(id))
     }
 
     pub fn connect_window_activated<F: Fn(u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {

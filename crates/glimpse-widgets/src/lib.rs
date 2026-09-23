@@ -17,6 +17,7 @@ mod display_popover;
 mod dots;
 pub mod drawer;
 mod event_list;
+mod expandable;
 mod fact_list;
 mod fader;
 mod forecast;
@@ -96,6 +97,7 @@ pub use color_picker_popover::ColorPickerPopover;
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
 pub use event_list::{Event, EventList, EventRow};
+pub use expandable::Expandable;
 pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
@@ -3457,16 +3459,15 @@ mod tests {
             .first_child()
             .and_downcast::<gtk4::Box>()
             .expect("a section holds one column of rows");
-        let holders = children_of::<gtk4::Box>(&column);
+        let holders = children_of::<Expandable>(&column);
         assert_eq!(holders.len(), 2, "DP-2 carries two of the three workspaces");
 
-        let head = |holder: &gtk4::Box| {
+        let head = |holder: &Expandable| {
             holder
-                .first_child()
-                .and_downcast::<SplitRow>()
+                .head::<SplitRow>()
                 .expect("a holder leads with its row")
         };
-        let panel = |holder: &gtk4::Box| {
+        let panel = |holder: &Expandable| {
             holder
                 .last_child()
                 .and_downcast::<gtk4::Revealer>()
@@ -3497,18 +3498,35 @@ mod tests {
              row's panel"
         );
         assert!(
-            head(&holders[0]).has_css_class("open") && !head(&holders[0]).has_css_class("receded"),
-            "the open row keeps full weight"
+            holders[0].has_css_class("open")
+                && holders[0].has_css_class("card")
+                && !head(&holders[0]).has_css_class("receded"),
+            "the open row keeps full weight, and it and its windows become one card"
         );
         assert!(
-            head(&holders[1]).has_css_class("receded") && !head(&holders[1]).has_css_class("open"),
+            holders[1].has_css_class("receded") && !holders[1].has_css_class("open"),
             "and every other row recedes"
         );
+        assert!(
+            popover
+                .imp()
+                .hero
+                .parent()
+                .is_some_and(|hero| hero.has_css_class("receded")),
+            "the shell dims everything outside the open card, the hero included, with no list \
+             of what to dim"
+        );
+        let other = child_named::<gtk4::Box>(&sections[1], "section__header");
+        assert!(
+            !other.has_css_class("receded")
+                && child_named::<gtk4::Box>(&sections[1], "section__content")
+                    .has_css_class("receded"),
+            "another display's rows dim, its header stays lit: headers are the frame"
+        );
 
-        let rows_box = |holder: &gtk4::Box| {
-            panel(holder)
-                .child()
-                .and_downcast::<gtk4::Box>()
+        let rows_box = |holder: &Expandable| {
+            holder
+                .details::<gtk4::Box>()
                 .expect("the panel holds a rows box once it has been filled")
         };
         let windows = children_of::<Row>(&rows_box(&holders[0]));
@@ -3518,6 +3536,20 @@ mod tests {
             "the panel lists the windows of the workspace whose chevron was pressed"
         );
         assert_eq!(windows[0].title().as_deref(), Some("a terminal"));
+        assert!(
+            !popover.imp().shell.dismiss_from(windows[0].upcast_ref()),
+            "a press inside the open card belongs to the card"
+        );
+        assert!(
+            popover
+                .imp()
+                .shell
+                .dismiss_from(head(&holders[1]).upcast_ref())
+                && !holders[0].expanded()
+                && !holders[1].expanded(),
+            "a press on anything dimmed closes the card and is claimed, so the row never acts"
+        );
+        head(&holders[0]).emit_by_name::<()>("details", &[]);
 
         let focused: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         popover.connect_window_activated({
@@ -3541,7 +3573,7 @@ mod tests {
                 .first_child()
                 .and_downcast::<gtk4::Box>()
                 .expect("a section holds one column of rows");
-            children_of::<gtk4::Box>(&column)[0].clone()
+            children_of::<Expandable>(&column)[0].clone()
         };
 
         let standing = first_row();
@@ -6667,6 +6699,57 @@ mod tests {
         assert!(!picker.imp().palette_section.empty());
         picker.set_open(Some(7));
         assert!(picker.imp().hero.has_css_class(drawer::RECEDED));
+
+        let built = gtk4::Builder::from_string(
+            r#"<interface>
+                 <object class="Expandable" id="expandable">
+                   <child><object class="Row" id="head"/></child>
+                   <child type="details"><object class="GtkLabel" id="details"/></child>
+                 </object>
+               </interface>"#,
+        );
+        let expandable: Expandable = built.object("expandable").expect("an Expandable");
+        assert_eq!(
+            expandable.head::<Row>(),
+            built.object::<Row>("head"),
+            "an unnamed child is the row that opens it"
+        );
+        assert_eq!(
+            expandable.details::<gtk4::Label>(),
+            built.object::<gtk4::Label>("details"),
+            "and [details] is what it reveals"
+        );
+        assert_eq!(
+            expandable
+                .last_child()
+                .and_downcast::<gtk4::Revealer>()
+                .map(|r| r.transition_type()),
+            Some(gtk4::RevealerTransitionType::SlideDown),
+            "the row stays first and the details unfold under it"
+        );
+
+        let notified = Rc::new(Cell::new(0));
+        expandable.connect_expanded_notify({
+            let notified = Rc::clone(&notified);
+            move |_| notified.set(notified.get() + 1)
+        });
+        expandable.set_expanded(true);
+        assert!(
+            expandable.has_css_class("card") && expandable.has_css_class("open"),
+            "opening makes the row and its details one card"
+        );
+        expandable.set_expanded(true);
+        assert_eq!(notified.get(), 1, "an unchanged expanded writes nothing");
+        expandable.set_expanded(false);
+        assert!(
+            !expandable.has_css_class("card") && !expandable.has_css_class("open"),
+            "an unmapped drawer closes at once, so the card goes with it"
+        );
+        let head: Row = built.object("head").expect("a head row");
+        head.emit_by_name::<()>("clicked", &[]);
+        assert!(expandable.expanded(), "a plain row opens its own details");
+        head.emit_by_name::<()>("clicked", &[]);
+        assert!(!expandable.expanded(), "and the same row closes them");
     }
 
     /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these

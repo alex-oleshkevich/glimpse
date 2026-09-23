@@ -38,6 +38,24 @@ impl ObjectSubclass for PopoverShell {
 }
 
 impl ObjectImpl for PopoverShell {
+    fn constructed(&self) {
+        self.parent_constructed();
+        let shell = self.obj();
+        let press = gtk4::GestureClick::new();
+        press.set_button(0);
+        press.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        press.connect_pressed(glib::clone!(
+            #[weak]
+            shell,
+            move |press, _, x, y| {
+                if shell.dismiss(x, y) {
+                    press.set_state(gtk4::EventSequenceState::Claimed);
+                }
+            }
+        ));
+        shell.add_controller(press);
+    }
+
     fn dispose(&self) {
         self.dispose_template();
     }

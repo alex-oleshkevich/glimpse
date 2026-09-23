@@ -246,7 +246,15 @@ Per-popover rules that are traps rather than taste:
   insensitive under a hardware block**, which reads as refused, not merely off.
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
 its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
-open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **No
+open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row.
+**`Expandable` is the holder as a widget**, and where `WorkspacesPopover` has moved: a `$Row` or
+`$SplitRow` head, a `[details]` child, and `expanded` making the whole of it one `.card`. Only
+paint changes between the two states, so the head never moves; the card stays until the drawer has
+finished closing. The head toggles it — a `SplitRow`'s chevron, a `Row`'s click — and the owner
+only fills the details. **Focus belongs to `PopoverShell`**: opening one closes every unrelated
+`Expandable` in the shell, and everything neither holding nor inside an open one takes `.receded`,
+derived from the tree on each change so nothing lists what dims. The largest subtree outside is
+dimmed, never its children too, because opacity compounds. **No
 card row carries a lead icon**: the head above it already names the thing, so a column of glyphs
 beside one-word labels is decoration the eye has to step over. **What
 recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.

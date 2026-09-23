@@ -674,6 +674,57 @@
     border-radius: 0.75rem;
 }
 
+expandable {
+    border: 1px solid transparent;
+    border-radius: 0.9rem;
+    transition: background-color var(--gl-duration) var(--gl-ease),
+        border-color var(--gl-duration) var(--gl-ease),
+        opacity var(--gl-duration) var(--gl-ease);
+}
+
+.popover-shell .recedes:not(expandable) {
+    transition: opacity var(--gl-duration) var(--gl-ease);
+}
+
+.popover-shell .receded .row:hover,
+.popover-shell .row.receded:hover,
+.popover-shell .receded .split-row__detail:hover {
+    background-color: transparent;
+}
+
+expandable.card {
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
+    border-color: var(--gl-border);
+    border-radius: 0.9rem;
+    box-shadow: none;
+}
+
+expandable > .row {
+    border-radius: 0.9rem;
+}
+
+expandable > .split-row {
+    --gl-split-radius: 0.9rem;
+}
+
+expandable > .split-row .split-row__detail image,
+expandable > .row .drawer-chevron {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+expandable.open > .split-row .split-row__detail image,
+expandable.open > .row .drawer-chevron {
+    transform: rotate(90deg);
+}
+
+expandable > revealer > * {
+    padding: 0.15rem 0.3rem 0.3rem 0.3rem;
+}
+
+expandable > revealer .row {
+    border-radius: 0.7rem;
+}
+
 .drawer-chevron {
     transition: transform var(--gl-duration) var(--gl-ease);
 }

@@ -3,7 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{SplitRow, Workspace, drawer};
+use crate::{Expandable, SplitRow, Workspace};
 
 const URGENT: &str = "workspace-row--urgent";
 
@@ -57,14 +57,14 @@ impl WorkspaceSection {
         )
     }
 
-    /// Every workspace row's holder, `(id, holder)`, for a caller that must reach across every
-    /// section's rows at once — reveal and recede are a property of the whole popover, not of one
-    /// output's section.
-    pub(crate) fn holders(&self) -> Vec<(u64, gtk4::Box)> {
+    /// Every workspace row, `(id, row)`, for a caller that must reach across every section's rows
+    /// at once — reveal and recede are a property of the whole popover, not of one output's
+    /// section.
+    pub(crate) fn holders(&self) -> Vec<(u64, Expandable)> {
         self.imp().held.borrow().clone()
     }
 
-    fn row_for(&self, id: u64) -> gtk4::Box {
+    fn row_for(&self, id: u64) -> Expandable {
         let split = SplitRow::new();
         split.connect_activated(glib::clone!(
             #[weak(rename_to = section)]
@@ -76,12 +76,12 @@ impl WorkspaceSection {
             self,
             move |_| section.emit_by_name::<()>("details", &[&id])
         ));
-        drawer::holder(&split)
+        Expandable::new(&split)
     }
 }
 
-fn apply(holder: &gtk4::Box, workspace: &Workspace) {
-    let Some(split) = drawer::head::<SplitRow>(holder) else {
+fn apply(holder: &Expandable, workspace: &Workspace) {
+    let Some(split) = holder.head::<SplitRow>() else {
         return;
     };
     let row = split.row();

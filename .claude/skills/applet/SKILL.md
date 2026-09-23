@@ -141,10 +141,11 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    shipping a hardcoded one; `IconTheme::has_icon` only guards the names chosen at runtime.
 
    **A row that expands says so.** Its chevron rotates over `--gl-duration` / `--gl-ease` — the icon
-   has to be directional, because a rotated symmetrical glyph reads as nothing — the open row keeps
-   full opacity while everything it is read against recedes, and the receding is opt-in, since the
-   same expander also reveals an audio stream's volume slider, where dimming the popover around it
-   would be wrong.
+   has to be directional, because a rotated symmetrical glyph reads as nothing — and the open row
+   keeps full opacity while everything it is read against recedes. A row's detail is an
+   `$Expandable`, and `PopoverShell` does the receding, the accordion and click-outside-to-close
+   for it; see `references/popovers.md`. An audio stream's volume slider is not a detail and stays a
+   plain revealer, because dimming the popover around a slider would be wrong.
 
 9. **`ctx.interval(period)` is the only timer, and it aligns to the wall clock.** It delivers
    `Input::Tick`. The wait is the time since the epoch modulo the period, so a minute-long period

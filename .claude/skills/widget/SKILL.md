@@ -72,6 +72,11 @@ A binary that constructs one of these must have called `register_resources()` fi
    back. `crate::drawer::toggle` and `crate::drawer::set` are the single definition, and a drawer
    also closes when its content goes away — a list that stops overflowing must not leave its drawer
    standing open on nothing. Assert both directions: firing the trigger twice opens then closes.
+   **A row's own detail is an `Expandable`**, never a hand-built holder: it owns the revealer, its
+   head (`Row` click or `SplitRow` chevron) toggles it, and `expanded` is the one state. Focus —
+   one open at a time, everything else `.receded`, a press on anything dimmed closing it — belongs
+   to the enclosing `PopoverShell` and is derived from the tree, so a widget holding `Expandable`s
+   writes no open-state, accordion or recede code at all.
 
 9. **A slot with no visible content renders nothing — including its hairline.** An empty footer
    still costs its padding and leaves a stray border that reads as a broken edge. `PopoverShell`

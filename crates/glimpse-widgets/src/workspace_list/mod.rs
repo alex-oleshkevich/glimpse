@@ -81,7 +81,7 @@ impl WorkspaceList {
 
     /// Every workspace row's holder across every output's section, for the popover to reveal and
     /// recede as one surface rather than one section at a time.
-    pub(crate) fn holders(&self) -> Vec<(u64, gtk4::Box)> {
+    pub(crate) fn holders(&self) -> Vec<(u64, crate::Expandable)> {
         self.imp()
             .sections
             .borrow()

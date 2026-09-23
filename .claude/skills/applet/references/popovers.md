@@ -110,21 +110,25 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
 | Situation | Shape | Worked example |
 | --- | --- | --- |
 | A list, flat | `$Section`s in one `.column`, a `$Row` each | `BluetoothPopover`, `KeyboardPopover` |
-| A row has detail | a holder `Gtk.Box` per item: the `$Row` head, then its own `Gtk.Revealer` — `crate::drawer::holder` builds it | `BluetoothPopover` devices, `ForecastList` days, `WorkspacesPopover` windows |
+| A row has detail | an `$Expandable` per item: the `$Row` or `$SplitRow` head, then `[details]` | `WorkspacesPopover` windows |
 | More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover` |
 | Empty has variants | a `Gtk.Stack` in `$Section`'s `[placeholder]` slot, one `$Placeholder` per page | `CalendarPopover` `nothing` / `truncated` |
 | One question owns the card | a `Gtk.Stack` **around** the `.column`, `vhomogeneous: false`, the other page carrying the question | `BluetoothPopover` pairing prompts |
 
-- **An open detail dims everything it is read against. This is not optional.** The moment anything
-  unfolds, every *other* item in the list and every piece of surrounding chrome — hero, footer,
-  overflow rows, captions, and any list the open item is not in — takes `drawer::RECEDED`; the open
-  one takes `drawer::OPEN` and keeps full weight. A popover that expands without receding reads as a
-  list that grew rather than one item opened, and the viewer cannot tell which row the card belongs
-  to. Derive it from **what is revealed**, never from remembered state, or two panels open at once
-  fight over the dimming. Section headers and separators stay lit: they are the frame, not content.
-  The trap is a list that has nothing open in it — `ForecastList::reveal(None)` *clears* receding, so
-  a popover whose open item lives elsewhere must dim that list explicitly (`ForecastList::recede`),
-  or an alert's card is read against a fully lit week.
+- **An open detail dims everything it is read against. This is not optional, and it is not the
+  popover's code.** Opening an `Expandable` tells its `PopoverShell`, which closes every unrelated
+  one and gives `drawer::RECEDED` to the largest subtree outside the open card — hero, footer, other
+  rows, other sections' content — derived from the tree on each change, so nothing lists what dims
+  and a widget added later is covered. The open card takes `.open` and `.card` and keeps full
+  weight; its head never moves, because only paint changes. **Section headers and separators stay
+  lit**: they are the frame, not content. A `SplitRow` is one leaf, so its own divider is not frame.
+- **A press on anything dimmed closes the detail and does nothing else.** The shell's capture-phase
+  click claims it before any row sees it, so reaching past an open card never fires the row under
+  the pointer. Inside the card, and on its own head, presses go through. Hover is suppressed on
+  dimmed rows so they do not invite the click. Scrollbars are neither dimmed nor outside.
+- **Not yet moved:** a popover still on `crate::drawer::holder` writes its own recede loop and has
+  none of the above. The trap there is a list with nothing open in it — `ForecastList::reveal(None)`
+  *clears* receding, so a popover whose open item lives elsewhere must dim that list explicitly.
 - **The overflow row is a `$Row` with `view-more-symbolic`**, inside the section it belongs to, and
   it toggles — `crate::drawer::toggle`, never `set_reveal_child` at a call site. A list that stops
   overflowing must close its drawer rather than leave it open on nothing.
@@ -213,10 +217,10 @@ What actually moves:
 | --- | --- | --- |
 | The popover fading in | `adw::TimedAnimation` on the catcher slot's `opacity`, 150ms, `Easing::EaseOutCubic` | `applet/catcher.rs` |
 | A drawer opening sideways | `Gtk.Revealer`, `transition-type: slide_right` | calendar, workspaces |
-| A detail unfolding under its row | `Gtk.Revealer`, `RevealerTransitionType::SlideDown`, from `crate::drawer::holder` | `BluetoothPopover`, `ForecastList` |
+| A detail unfolding under its row | `$Expandable`'s own `Gtk.Revealer`, `SlideDown`; the row and details become one `.card` | `WorkspacesPopover` |
 | A drawer page changing | `Gtk.Stack`, `transition-type: crossfade` **plus `interpolate-size: true`** | calendar |
 | A chevron turning | `transform: rotate(…)` on the image, transitioned | `.split-row__detail` 90°, `.tray-strip__chevron` 180° |
-| Everything but the open row dimming | `opacity` on `.receded` | `BluetoothPopover` |
+| Everything but the open row dimming | `opacity` on `.receded`, set by `PopoverShell`; the fade rides the permanent `.recedes` marker | `WorkspacesPopover` |
 | A notification popup arriving | `opacity` + `transform: translate` by `--gl-popup-motion` | `glimpse-notifications` |
 
 - **The fade is driven from the tick callback, not from `open`.** It starts once the body has been
@@ -476,15 +480,37 @@ A surface that can grow with the data and has no cap will run off the monitor.
 device list, a scan's results — and has never caused a placement bug, because a popover grows away
 from the bar. Width is the constrained axis: a card that grows sideways near an output edge leaves
 the screen, and re-placing it slides the row out from under the pointer that just opened it. **A
-detail therefore unfolds under its own row, not beside the list.** `BluetoothPopover` and
-`WeatherPopover` both reconcile each item inside a holder box carrying its own `Gtk.Revealer`, and
-`crate::drawer` owns `holder` / `head` / `panel` so neither invents its own shape.
+detail therefore unfolds under its own row, not beside the list.** Each item is an `Expandable`,
+reconciled by key like any row; the popovers still on `crate::drawer::holder` are being moved one at
+a time, by the checklist below.
 
 **A drawer is what is left when the content is not a row's own detail.** `CalendarPopover`'s month
 overflow still slides one out, because what it reveals belongs to the whole popover rather than to a
 line in it. Weather had one for a day's facts and those facts belong to the day, which is why it lost
 the drawer rather than kept it — the same reason `WorkspacesPopover`'s window list moved off the side
 drawer it was first built with: a workspace's windows are that row's own detail, not overflow.
+
+## Moving a popover onto `Expandable`
+
+One popover per change, verified live before the next. `WorkspacesPopover` is the finished example.
+
+1. **Holders become `Expandable::new(&head)`.** `drawer::head::<T>(&holder)` becomes
+   `holder.head::<T>()`, `drawer::panel(&holder)` becomes `holder.details::<T>()` /
+   `set_details`, and `by_key`'s widget type becomes `Expandable`.
+2. **Delete the open state.** The `opened`/`open` cell, `toggle_detail`, `reveal`, `close_drawer`
+   and the recede loop all go, and so does the `split.connect_details(... toggle ...)` wiring — the
+   head toggles its own `Expandable`. What stays is data: fill the details on the head's signal
+   (lazily, the first time) and refresh the one that is `expanded()` when new state arrives.
+3. **Delete the card styling.** No `.detail-card` on the details box and no `OPEN` class on the
+   head — `expandable.open` and `expandable.card` carry both, and the chevron rotation is shared.
+4. **Keep what is not a row's detail.** An overflow drawer, a sideways page, an audio slider — none
+   of them are `Expandable`s.
+5. **A forced close is `set_expanded(false)`** — a detail that closes on success, a device that
+   vanished. Removing an open `Expandable` from the tree releases the shell's dimming by itself.
+6. **Tests assert on the `Expandable`**, not the head: `.open`, `.card` and `.receded` sit on it,
+   and `PopoverShell::dismiss_from(&widget)` is the headless stand-in for a press.
+7. **Convert the popover's board** in `var/widget_examples/` to `$Expandable { … [details] … }` in
+   the same change, and drop any `expander` / `open` / `receded` classes it baked in.
 
 ## A popover's width is a promise
 
@@ -513,8 +539,9 @@ a discussion, and `just preview` is faster than the panel for it.
   `overflow: hidden`, a fixed `width-request`, a bar across the top and a chip at its right edge.
   A card that runs past that frame is a card that would run off a real screen, which is the whole
   point — a candidate that looks fine floating on a checkerboard can still be broken.
-- **Drive it with the fixtures that already run for every example.** `expanders` binds every
-  `.expander` row to its next-sibling `Gtk.Revealer`; `drawer_nav` binds `nav__<page>` rows, but
+- **Drive it with the fixtures that already run for every example.** An `$Expandable` needs none —
+  it toggles itself, and its `PopoverShell` dims and dismisses as it does on the bar. `expanders`
+  binds every `.expander` row to its next-sibling `Gtk.Revealer`; `drawer_nav` binds `nav__<page>` rows, but
   only to the *first* `Gtk.Revealer` holding a `Gtk.Stack`, so a board with several frames can only
   make one of them live.
 - **Iterate in `var/widget_examples/_shared.css`**, which hot-reloads, then port the settled values
