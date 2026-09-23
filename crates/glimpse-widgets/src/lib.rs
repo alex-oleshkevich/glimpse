@@ -27,6 +27,8 @@ mod indicator;
 mod indicator_group;
 mod inhibitor_list;
 mod keyboard_popover;
+mod lock_clock;
+mod lock_stage;
 mod monitors;
 mod mpris_popover;
 mod network_popover;
@@ -34,6 +36,7 @@ mod network_secret_dialog;
 mod next_event_popover;
 mod notice;
 mod notification_card;
+mod notification_chips;
 mod notification_header;
 mod notification_image_body;
 mod notification_list;
@@ -43,6 +46,7 @@ mod notifications_popover;
 mod now_playing;
 mod pager;
 mod panel;
+mod password_prompt;
 mod placeholder;
 mod places_popover;
 mod player_list;
@@ -51,6 +55,7 @@ mod printing_popover;
 mod privacy_popover;
 mod progress;
 mod range_bar;
+pub mod raster;
 mod readout;
 mod reconcile;
 mod removable_popover;
@@ -58,13 +63,16 @@ pub(crate) mod row;
 mod scrubber;
 mod section;
 mod session_popover;
+mod session_sheet;
 mod source_list;
 mod split_row;
+mod status_island;
 mod swatch;
 mod switch_row;
 mod system_monitor_popover;
 mod theme;
 mod tooltip_card;
+mod track_card;
 mod transport;
 mod tray_strip;
 mod weather_popover;
@@ -109,6 +117,8 @@ pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
+pub use lock_clock::LockClock;
+pub use lock_stage::LockStage;
 pub use monitors::watch_monitors;
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
@@ -119,6 +129,7 @@ pub use network_secret_dialog::{SecretAnswer, SecretDialog};
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_card::{Action, NotificationCard, Urgency};
+pub use notification_chips::{ChipGroup, NotificationChips};
 pub use notification_header::NotificationHeader;
 pub use notification_image_body::{NotificationImageBody, notification_image};
 pub use notification_list::{Body, Notification, NotificationList};
@@ -128,6 +139,7 @@ pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
+pub use password_prompt::{MessageKind, PasswordPrompt};
 pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
@@ -146,8 +158,10 @@ pub use session_popover::{
     ActionState as SessionActionState, HIBERNATE, LOCK, LOG_OUT, POWER_OFF, REBOOT, SUSPEND,
     SessionChoice, SessionPopover,
 };
+pub use session_sheet::SessionSheet;
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
+pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
 pub use switch_row::SwitchRow;
 pub use system_monitor_popover::{
@@ -156,6 +170,7 @@ pub use system_monitor_popover::{
 pub(crate) use theme::animation_ms;
 pub use theme::{Sheets, Styles, duration_ms};
 pub use tooltip_card::TooltipCard;
+pub use track_card::{Track, TrackCard};
 pub use transport::{Repeat, Transport, TransportAction};
 pub use tray_strip::{Edge, TrayChip, TrayStrip};
 pub use weather_popover::{Advisory, Page as WeatherPage, WeatherPopover, alert_page, day_page};
@@ -1855,7 +1870,7 @@ mod tests {
         assert!(!popover_imp.notifications.is_active());
         assert_eq!(
             *toggles.borrow(),
-            [],
+            Vec::<bool>::new(),
             "showing the state the caller already knows about must not report it back, or the \
              two ends chase each other"
         );

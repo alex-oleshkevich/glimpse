@@ -420,6 +420,73 @@ Lock, sleep and power rows are template children; other sessions and the updates
 that hide when empty. Static labels live in the blueprint. The widget emits `action-requested` and
 `activate-session` and does not know logind.
 
+## PasswordPrompt
+
+The lock screen's name, entry and message line. It knows nothing about PAM: `submitted` and
+`edited` never carry the text.
+
+- **The password leaves the entry exactly once.** `take_text` copies the entry's own buffer into a
+  `Zeroizing<String>`, clears it and undoes a peek. Never `EditableExt::text`: a `GString` is
+  immutable and cannot be wiped, which is also why the emptiness check reads the length.
+- `set_busy` makes the entry non-editable and swaps the peek icon for a spinner, never
+  `set_sensitive`, which drops focus mid-attempt. A peek is undone first, or GTK logs two criticals.
+- The message line and the Caps Lock note keep their space through `child-visible`, never
+  `visible`, so nothing moves the prompt. The message goes through `glimpse_utils::clean` to one
+  paragraph of 120 characters; a line limit would not bound it, since Pango applies one per
+  paragraph. An error is announced as it appears.
+- `set_interactive(false)` (a mirrored output) and `set_available(false)` (passwords cannot be
+  verified) both clear the entry and move focus off it, so nothing is typed blind.
+- A busy, mirrored or unavailable prompt, or an empty entry, never emits `submitted`.
+
+## LockClock
+
+`set_formats(time, date)` takes strftime patterns; the date's literal `{day}` is expanded before
+`glib::DateTime::format`. **The suffix follows `LC_TIME`, not the catalog**, as the month and weekday
+names do: an English, `C` or `C.<codeset>` time locale gets `1st`, anything else the plain number. An
+empty formatted string keeps its label hidden; a pattern GLib cannot format hides it too and warns
+once per pattern.
+
+## SessionSheet
+
+The in-surface session menu, since a lock surface cannot parent a popover. Rows start hidden until
+`set_action` shows one, and `toggle()` refuses an empty sheet. Suspend emits `action-requested`
+directly; restart and power off go through a confirm page that focuses Cancel, returns focus to the
+opening row, and re-checks the row before emitting, since `set_action` can revoke it mid-page. The
+look lives on the `Gtk.Stack`, so a closed sheet paints nothing. `set_error(Some(..))` is ignored
+while closed — `grab_focus` succeeds inside an unrevealed `Gtk.Revealer` and would steal focus; open,
+it returns to the menu, shows the error and focuses the first enabled row. `set_error(None)` never
+changes the page.
+
+## StatusIsland
+
+Five fixed `$Indicator` slots — weather, battery, layout, bluetooth, network — then the power button,
+with no popovers. `set_*(None)` hides a slot and `Some` calls `Indicator::apply`. Only the power
+button is focusable; its icon is set in `constructed`, since `$Indicator` has no properties.
+
+## TrackCard and NotificationChips
+
+`TrackCard::set_track(None)` hides the card. Title and artist go through `glimpse_utils::clean`, which
+hides an empty artist line and appends `…` past the cap, so a capped assertion is `cap + 1` chars.
+Both labels carry `width-chars` beside `max-width-chars`, and `.track-card` a fixed `min-width`, so a
+track change never resizes the footer. Play/pause and next are the card's own buttons reusing
+`TransportAction`, because `Transport` cannot hide its previous button.
+
+`NotificationChips` has no template: a `BoxLayout` and plain `Gtk.Box` chips reconciled by
+`reconcile::by_key`, built with `accessible-role: Img` through `glib::Object::builder`, since the role
+is construct-only. Zero-count groups never reach the reconcile, and an absent icon reserves nothing.
+The visible label is only the count; the tooltip and accessible label are `chip_label`, from
+`gettext("{app}: {notifications}")` with the app cleaned first.
+
+## LockStage
+
+One output's surface: a `Gtk.Picture` under a black scrim (`set_dim`, NaN dropped before GTK), the
+island, clock, prompt, chips and track card in a vertical `Gtk.CenterBox`, and the `SessionSheet`
+top-end. The background is a texture over a 1x1 base picture filled by `set_color`, which shows under
+an empty or letterboxed image; the base is the overlay's main child, so a 4K texture sets no size.
+`set_session_actions` writes every action first, then keeps the power button in step with
+`SessionSheet::has_actions` and closes a sheet left empty, so the outcome never depends on order. Escape (capture phase) closes the sheet, and every close focuses the prompt, or the
+power button on a mirrored stage. The look is scoped to `.lock-stage`.
+
 ## DisplayPopover
 
 - Display rows carry a chevron that rotates down while their detail drawer is open.

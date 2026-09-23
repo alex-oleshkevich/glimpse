@@ -67,6 +67,28 @@ pub fn relevant(changed: &Properties, invalidated: &[String]) -> bool {
             .any(|key| WATCHED.contains(&key.as_str()))
 }
 
+const WIFI_BANDS: [&str; 5] = [
+    "network-wireless-signal-none-symbolic",
+    "network-wireless-signal-weak-symbolic",
+    "network-wireless-signal-ok-symbolic",
+    "network-wireless-signal-good-symbolic",
+    "network-wireless-signal-excellent-symbolic",
+];
+
+const ACQUIRING: &str = "network-wireless-acquiring-symbolic";
+const DISABLED: &str = "network-wireless-disabled-symbolic";
+const BLOCKED: &str = "network-wireless-hardware-disabled-symbolic";
+const OFFLINE: &str = "network-offline-symbolic";
+const NO_ROUTE: &str = "network-wireless-no-route-symbolic";
+const WIRED: &str = "network-wired-symbolic";
+const WIRED_NO_ROUTE: &str = "network-wired-no-route-symbolic";
+const VPN: &str = "network-vpn-symbolic";
+const NOT_CONNECTED: &str = "network-wireless-offline-symbolic";
+
+fn band_icon(strength: u8) -> &'static str {
+    WIFI_BANDS[nm::Strength::band(strength) as usize]
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NetworkId(String);
 
@@ -121,6 +143,10 @@ impl Access {
 
     pub fn band_of(&self) -> nm::Strength {
         nm::Strength::band(self.strength)
+    }
+
+    pub fn icon_name(&self) -> &'static str {
+        band_icon(self.strength)
     }
 }
 
@@ -181,6 +207,42 @@ impl NetworkState {
 
     pub fn reaches_the_internet(&self) -> bool {
         self.connectivity.reaches_the_internet()
+    }
+
+    pub fn icon_name(&self) -> Option<&'static str> {
+        if !self.networking {
+            return Some(OFFLINE);
+        }
+
+        if self.wired.iter().any(|one| one.active) {
+            return Some(match self.reaches_the_internet() {
+                true => WIRED,
+                false => WIRED_NO_ROUTE,
+            });
+        }
+
+        let radio = self.wifi?;
+        if radio.blocked() {
+            return Some(BLOCKED);
+        }
+        if !radio.enabled {
+            return Some(DISABLED);
+        }
+        if self.networks.iter().any(|one| one.busy.is_some()) {
+            return Some(ACQUIRING);
+        }
+
+        match self.connected() {
+            Some(network) => Some(match self.reaches_the_internet() {
+                true => band_icon(network.strength),
+                false => NO_ROUTE,
+            }),
+            None => Some(NOT_CONNECTED),
+        }
+    }
+
+    pub fn vpn_icon_name(&self, enabled: bool) -> Option<&'static str> {
+        (enabled && self.vpn.iter().any(|one| one.active)).then_some(VPN)
     }
 }
 
@@ -357,6 +419,10 @@ struct DeviceRecord {
     wired: nm::WiredProperties,
 }
 
+pub struct Dependencies {
+    pub agent: bool,
+}
+
 pub struct Network {
     state: Publisher<NetworkState>,
     config: Config,
@@ -376,6 +442,9 @@ pub struct Network {
     scan: Option<u64>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
+    agent_enabled: bool,
+    #[cfg(test)]
+    register_attempts: std::cell::Cell<u32>,
     agent: bool,
     secret: Option<(Request, oneshot::Sender<Answer>)>,
 }
@@ -536,7 +605,7 @@ impl Service for Network {
     type Handle = NetworkHandle;
     type Command = Command;
     type Event = Event;
-    type Dependencies = ();
+    type Dependencies = Dependencies;
     type SubKey = Watch;
 
     fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
@@ -572,7 +641,7 @@ impl Service for Network {
     async fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
-        _: Self::Dependencies,
+        dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
         let _ = ctx;
         Ok(Self {
@@ -594,6 +663,9 @@ impl Service for Network {
             scan: None,
             scans: 0,
             deadline: None,
+            agent_enabled: dependencies.agent,
+            #[cfg(test)]
+            register_attempts: std::cell::Cell::new(0),
             agent: false,
             secret: None,
         })
@@ -797,6 +869,12 @@ impl Network {
     }
 
     fn reregister(&self, ctx: &Ctx<Self>) {
+        if !self.agent_enabled {
+            return;
+        }
+        #[cfg(test)]
+        self.register_attempts.set(self.register_attempts.get() + 1);
+
         let Ok(connection) = ctx.system_bus().cloned() else {
             return;
         };

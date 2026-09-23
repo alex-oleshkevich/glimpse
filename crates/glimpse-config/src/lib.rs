@@ -10,7 +10,8 @@ pub use commented::commented_document;
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{
-    DATA_DIR, load, named_applets_exist, resolved_files, seed_user_config, user_dir, watch_dirs,
+    DATA_DIR, load, named_applets_exist, resolve_image, resolved_files, seed_user_config, user_dir,
+    watch_dirs,
 };
 pub use schema::*;
 pub use theme::{

@@ -201,7 +201,7 @@ impl Network {
         shown.set_radio(
             &gettext("Wi-Fi"),
             &render::status(&self.state),
-            render::chip(&self.state).unwrap_or(IDLE),
+            self.state.icon_name().unwrap_or(IDLE),
             radio.is_some_and(|one| one.enabled),
             radio.is_some_and(|one| !one.blocked()),
         );
@@ -291,7 +291,7 @@ impl Network {
     }
 
     fn indicator(&self) -> Vec<IndicatorSpec> {
-        let Some(icon) = render::chip(&self.state) else {
+        let Some(icon) = self.state.icon_name() else {
             return Vec::new();
         };
         let tooltip = render::tooltip(
@@ -306,7 +306,7 @@ impl Network {
             ..Default::default()
         }];
 
-        if let Some(vpn) = render::vpn_chip(&self.state, self.vpn_chip) {
+        if let Some(vpn) = self.state.vpn_icon_name(self.vpn_chip) {
             chips.push(IndicatorSpec {
                 icon: Some(themed(vpn)),
                 tooltip: Some(gettext("VPN is connected")),
@@ -817,7 +817,7 @@ mod tests {
             networking: true,
             ..NetworkState::default()
         };
-        assert!(render::chip(&bare).is_none());
+        assert!(bare.icon_name().is_none());
     }
 
     #[test]
@@ -834,7 +834,7 @@ mod tests {
             busy: None,
         }];
 
-        assert_eq!(render::chip(&with_vpn), render::chip(&state(70)));
-        assert!(render::vpn_chip(&with_vpn, true).is_some());
+        assert_eq!(with_vpn.icon_name(), state(70).icon_name());
+        assert!(with_vpn.vpn_icon_name(true).is_some());
     }
 }

@@ -18,11 +18,10 @@ A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, an
 
 # $auto scans this crate's own linked libraries via dpkg-shlibdeps; the other binaries
 # bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell, which $auto's scan
-# may not cover, so those are listed explicitly rather than trusted to auto-detect. Nothing links
-# libheif or PAM — `ldd` over every shipped binary finds neither, and no crate declares them —
-# so neither is listed here. ddcutil is not linked either — glimpse talks DDC/CI itself over
-# /dev/i2c-* — but its own udev rule is what grants that access without root or a static group, so
-# it rides along as a dependency for that rule alone.
+# may not cover, so those are listed explicitly rather than trusted to auto-detect. glimpse-lock
+# links libpam; nothing links libheif — `ldd` over every shipped binary is the check. ddcutil is not
+# linked — glimpse talks DDC/CI itself over /dev/i2c-* — but its own udev rule is what grants that
+# access without root or a static group, so it rides along as a dependency for that rule alone.
 depends = [
   "$auto",
   "libgtk-4-1",
@@ -32,6 +31,7 @@ depends = [
   "libpulse0",
   "libudev1",
   "ddcutil",
+  "libpam0g",
 ]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
@@ -54,14 +54,15 @@ assets = [
   ["../../data/portals/*.portal", "usr/share/xdg-desktop-portal/portals/", "644"],
   ["../../data/portals/*-portals.conf", "usr/share/xdg-desktop-portal/", "644"],
   ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
+  ["../../data/pam.d/debian/glimpse-lock", "etc/pam.d/glimpse-lock", "644"],
   ["../../LICENSE", "usr/share/glimpse/", "644"],
   # One line per language, never a glob — see README, "Translation catalogs".
   ["../../target/locale/ru/LC_MESSAGES/glimpse.mo", "usr/share/locale/ru/LC_MESSAGES/", "644"],
 ]
 
-# Marked as a conffile so dpkg preserves an edited allowlist across upgrades rather than
-# overwriting it, which is the whole point of it living under /etc.
-conf-files = ["/etc/geoclue/conf.d/glimpse.conf"]
+# Marked as conffiles so dpkg preserves an edited allowlist or PAM stack across upgrades rather
+# than overwriting it, which is the whole point of them living under /etc.
+conf-files = ["/etc/geoclue/conf.d/glimpse.conf", "/etc/pam.d/glimpse-lock"]
 
 # `cargo generate-rpm -p crates/glimpse-package` is run from the workspace root, so these `source` paths
 # resolve there directly (unlike cargo-deb's crate-manifest-relative resolution above).
@@ -89,8 +90,37 @@ assets = [
   { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
   { source = "data/portals/*-portals.conf", dest = "/usr/share/xdg-desktop-portal/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
+  { source = "data/pam.d/fedora/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
   # One line per language here too, so the two lists stay comparable — see README.
+  { source = "target/locale/ru/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/ru/LC_MESSAGES/glimpse.mo", mode = "644" },
+]
+
+# A variant replaces `assets` whole rather than merging it, so this is the list above with only the
+# PAM stack swapped; tests/packaging.rs fails when the two drift apart.
+[package.metadata.generate-rpm.variants.opensuse]
+release = "1.opensuse"
+assets = [
+  { source = "target/release/glimpsectl", dest = "/usr/bin/glimpsectl", mode = "755" },
+  { source = "target/release/glimpse-panel", dest = "/usr/bin/glimpse-panel", mode = "755" },
+  { source = "target/release/glimpse-lock", dest = "/usr/bin/glimpse-lock", mode = "755" },
+  { source = "target/release/glimpse-wallpaper", dest = "/usr/bin/glimpse-wallpaper", mode = "755" },
+  { source = "target/release/glimpse-sunset", dest = "/usr/bin/glimpse-sunset", mode = "755" },
+  { source = "target/release/glimpse-notifications", dest = "/usr/bin/glimpse-notifications", mode = "755" },
+  { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
+  { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
+  { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "data/themes/adwaita/*", dest = "/usr/share/glimpse/themes/adwaita/", mode = "644" },
+  { source = "data/systemd/*.service", dest = "/usr/lib/systemd/user/", mode = "644" },
+  { source = "data/systemd/*.target", dest = "/usr/lib/systemd/user/", mode = "644" },
+  { source = "data/dbus-1/services/*.service", dest = "/usr/share/dbus-1/services/", mode = "644" },
+  { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
+  { source = "data/portals/*-portals.conf", dest = "/usr/share/xdg-desktop-portal/", mode = "644" },
+  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
+  { source = "data/pam.d/debian/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
+  { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "target/locale/ru/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/ru/LC_MESSAGES/glimpse.mo", mode = "644" },
 ]
 
@@ -104,6 +134,15 @@ geoclue2 = "*"
 pulseaudio-libs = "*"
 systemd-libs = "*"
 ddcutil = "*"
+pam = "*"
+
+# Replaces the table above rather than merging into it. Those are Fedora names; openSUSE's differ for
+# every linked library, which auto-req already requires by soname, so only names that match stay.
+# openSUSE splits ddcutil's udev rule into its own package, and the rule is all glimpse wants.
+[package.metadata.generate-rpm.variants.opensuse.requires]
+geoclue2 = "*"
+pam = "*"
+ddcutil-i2c-udev-rules = "*"
 
 [dev-dependencies]
 toml.workspace = true

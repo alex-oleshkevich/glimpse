@@ -45,6 +45,15 @@
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
     --gl-disabled: var(--disabled-opacity, 0.5);
+
+    --gl-lock-fg: #ffffff;
+    --gl-lock-dim: #000000;
+    --gl-lock-field: rgb(255 255 255 / 0.16);
+    --gl-lock-glass-hover: rgb(255 255 255 / 0.18);
+    --gl-lock-shade: rgb(0 0 0 / 0.55);
+    --gl-lock-text-shadow: 0 1px 3px var(--gl-lock-shade);
+    --gl-lock-error: #ffc4bf;
+    --gl-lock-warning: #ffda97;
 }
 
 .panel {
@@ -1663,4 +1672,220 @@ window.blurred .notification--activatable:hover {
         mix(var(--gl-notification), var(--gl-surface-fg), 0.08) var(--gl-blur-opacity),
         transparent
     );
+
+.password-prompt__user {
+    font-size: var(--gl-text-title);
+    font-weight: 600;
+}
+
+.password-prompt__entry {
+    min-height: 2.6rem;
+    min-width: 16rem;
+    border-radius: 999px;
+    padding: 0 0.9rem;
+    font-size: var(--gl-text-body);
+}
+
+.password-prompt__spinner {
+    margin-right: 0.9rem;
+}
+
+.password-prompt__message {
+    min-height: 2.3rem;
+    font-size: var(--gl-text-body);
+    font-weight: 600;
+}
+
+.password-prompt__message--error {
+    color: var(--gl-danger-text);
+}
+
+.password-prompt__caps {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-warning-text);
+}
+
+@keyframes password-prompt-shake {
+    0% { transform: none; }
+    20% { transform: translateX(0.5rem); }
+    40% { transform: translateX(-0.5rem); }
+    60% { transform: translateX(0.3rem); }
+    80% { transform: translateX(-0.3rem); }
+    100% { transform: none; }
+}
+
+.password-prompt--shake .password-prompt__entry {
+    animation: password-prompt-shake 400ms var(--gl-ease);
+}
+
+.lock-clock__time {
+    font-size: calc(var(--gl-text-display) * 3.2);
+    font-weight: 200;
+    font-variant-numeric: tabular-nums;
+}
+
+.lock-clock__date {
+    font-size: var(--gl-text-title);
+    opacity: 0.9;
+}
+
+.session-sheet__panel {
+    background-color: var(--gl-surface);
+    color: var(--gl-surface-fg);
+    border-radius: var(--gl-radius);
+    box-shadow: var(--gl-elevation-floating);
+    padding: 0.4rem;
+    min-width: 15rem;
+}
+
+.session-sheet__menu {
+    padding: 0.2rem;
+}
+
+.session-sheet__confirm {
+    padding: 0.6rem;
+}
+
+.session-sheet__confirm-title {
+    font-size: var(--gl-text-title);
+    font-weight: 600;
+}
+
+.session-sheet__error {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-danger-text);
+    padding: 0.2rem 0.6rem;
+}
+
+.status-island {
+    padding: 0.3rem 0.4rem 0.3rem 1rem;
+}
+
+.status-island__power {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 999px;
+}
+
+.status-island__power:hover {
+    background-color: var(--gl-hover);
+}
+
+.track-card {
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+    min-width: 18rem;
+}
+
+.track-card__title {
+    font-weight: 600;
+}
+
+.track-card__artist {
+    opacity: 0.8;
+    font-size: var(--gl-text-caption);
+}
+
+.track-card__play,
+.track-card__next {
+    min-width: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0;
+    border-radius: 999px;
+    color: var(--gl-surface-fg);
+    background-color: transparent;
+}
+
+.track-card__play:hover,
+.track-card__next:hover {
+    background-color: var(--gl-hover);
+}
+
+.track-card__play:disabled,
+.track-card__next:disabled {
+    opacity: var(--gl-disabled);
+}
+
+.notification-chip {
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem 0.45rem 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.lock-stage {
+    color: var(--gl-lock-fg);
+    font-family: var(--gl-font-family);
+}
+
+.lock-stage__scrim {
+    background-color: var(--gl-lock-dim);
+}
+
+.lock-stage label {
+    text-shadow: var(--gl-lock-text-shadow);
+}
+
+.lock-stage__edge {
+    margin: 1rem;
+}
+
+.lock-stage__prompt {
+    margin-top: 3.5rem;
+}
+
+.lock-stage__sheet {
+    margin-top: 3.6rem;
+    margin-right: 1rem;
+}
+
+.lock-stage__sheet label {
+    text-shadow: none;
+}
+
+.lock-stage .password-prompt__entry {
+    background-color: var(--gl-lock-field);
+    color: var(--gl-lock-fg);
+}
+
+.lock-stage .password-prompt__message--error {
+    color: var(--gl-lock-error);
+    background-color: var(--gl-lock-shade);
+    padding: 0.25rem 0.9rem;
+    border-radius: 1rem;
+    text-shadow: none;
+}
+
+.lock-stage .password-prompt__caps {
+    color: var(--gl-lock-warning);
+    background-color: var(--gl-lock-shade);
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.4rem;
+    text-shadow: none;
+}
+
+.lock-stage .indicator__label {
+    font-feature-settings: "tnum";
+}
+
+.lock-stage .indicator--warning .indicator__icon,
+.lock-stage .indicator--warning .indicator__label {
+    color: var(--gl-lock-warning);
+}
+
+.lock-stage .indicator--error .indicator__icon,
+.lock-stage .indicator--error .indicator__label {
+    color: var(--gl-lock-error);
+}
+
+.lock-stage .status-island__power,
+.lock-stage .track-card__play,
+.lock-stage .track-card__next {
+    color: inherit;
+}
+
+.lock-stage .status-island__power:hover,
+.lock-stage .track-card__play:hover,
+.lock-stage .track-card__next:hover {
+    background-color: var(--gl-lock-glass-hover);
 }

@@ -62,6 +62,57 @@ pub enum Condition {
     Unknown,
 }
 
+pub const DEGREE: &str = "°";
+
+impl Condition {
+    pub fn icon_name(self, is_day: bool) -> &'static str {
+        match (self, is_day) {
+            (Condition::ClearSky, true) => "weather-clear-symbolic",
+            (Condition::ClearSky, false) => "weather-clear-night-symbolic",
+            (Condition::MainlyClear | Condition::PartlyCloudy, true) => {
+                "weather-few-clouds-symbolic"
+            }
+            (Condition::MainlyClear | Condition::PartlyCloudy, false) => {
+                "weather-few-clouds-night-symbolic"
+            }
+            (Condition::Overcast, _) => "weather-overcast-symbolic",
+            (Condition::Fog, _) => "weather-fog-symbolic",
+            (Condition::Drizzle | Condition::FreezingDrizzle | Condition::LightRain, _) => {
+                "weather-showers-scattered-symbolic"
+            }
+            (
+                Condition::Rain
+                | Condition::HeavyRain
+                | Condition::FreezingRain
+                | Condition::RainShowers,
+                _,
+            ) => "weather-showers-symbolic",
+            (
+                Condition::LightSnow
+                | Condition::Snow
+                | Condition::HeavySnow
+                | Condition::SnowGrains
+                | Condition::SnowShowers
+                | Condition::Sleet,
+                _,
+            ) => "weather-snow-symbolic",
+            (Condition::Thunderstorm | Condition::ThunderstormWithHail, _) => {
+                "weather-storm-symbolic"
+            }
+            (Condition::Unknown, _) => "weather-severe-alert-symbolic",
+        }
+    }
+}
+
+/// The one rounding site. The bar and the hero both read it, so they cannot disagree by a degree.
+pub fn rounded(value: f64) -> String {
+    format!("{}", value.round() as i64)
+}
+
+pub fn reading(value: f64) -> String {
+    format!("{}{DEGREE}", rounded(value))
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlaceWeather {
     pub place: WatchedPlace,
@@ -1013,6 +1064,54 @@ mod tests {
     use super::*;
     use chrono::TimeZone as _;
     use zbus::zvariant::Type;
+
+    const EVERY: [Condition; 21] = [
+        Condition::ClearSky,
+        Condition::MainlyClear,
+        Condition::PartlyCloudy,
+        Condition::Overcast,
+        Condition::Fog,
+        Condition::Drizzle,
+        Condition::FreezingDrizzle,
+        Condition::LightRain,
+        Condition::Rain,
+        Condition::HeavyRain,
+        Condition::FreezingRain,
+        Condition::LightSnow,
+        Condition::Snow,
+        Condition::HeavySnow,
+        Condition::SnowGrains,
+        Condition::Sleet,
+        Condition::RainShowers,
+        Condition::SnowShowers,
+        Condition::Thunderstorm,
+        Condition::ThunderstormWithHail,
+        Condition::Unknown,
+    ];
+
+    /// `Condition` has no `_` arm in `icon_name`, so a new variant is a compile error there; this
+    /// is what catches an arm that compiles and answers with nothing.
+    #[test]
+    fn every_condition_maps_to_a_day_and_a_night_icon() {
+        for condition in EVERY {
+            for is_day in [true, false] {
+                let name = condition.icon_name(is_day);
+                assert!(
+                    name.ends_with("-symbolic") && name.len() > "-symbolic".len(),
+                    "{condition:?} at is_day={is_day} named {name:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_bar_and_the_hero_round_the_same_way() {
+        for value in [18.4, 18.5, -0.4, -3.6, 0.0] {
+            assert_eq!(reading(value), format!("{}{DEGREE}", rounded(value)));
+        }
+        assert_eq!(rounded(18.5), "19");
+        assert_eq!(rounded(-0.4), "0");
+    }
 
     #[test]
     fn wire_signatures_match_the_versioned_contract() {

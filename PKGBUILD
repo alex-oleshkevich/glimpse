@@ -5,7 +5,7 @@ pkgdesc="Desktop shell suite for Wayland compositors: panel, wallpaper, lock scr
 arch=('x86_64')
 url="https://github.com/alex-oleshkevich/glimpse"
 license=('BSD-3-Clause')
-depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'geoclue' 'libpulse')
+depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'geoclue' 'libpulse' 'pam')
 optdepends=(
     'upower: battery level and peripheral charge'
     'power-profiles-daemon: power modes in the battery popover'
@@ -17,7 +17,7 @@ optdepends=(
 # cargo already strips (profile.release strip = true), so splitting debug symbols yields a
 # package of nothing but .build-id links that pacman will not remove with its parent.
 options=('!debug')
-backup=('etc/geoclue/conf.d/glimpse.conf')
+backup=('etc/geoclue/conf.d/glimpse.conf' 'etc/pam.d/glimpse-lock')
 provides=('glimpse-desktop')
 conflicts=('glimpse-desktop')
 source_x86_64=("glimpse-$pkgver-x86_64.tar.zst::$url/releases/download/v$pkgver/glimpse-$pkgver-x86_64.tar.zst")

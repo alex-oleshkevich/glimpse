@@ -10,14 +10,18 @@ adw.workspace = true
 gettext-rs.workspace = true
 gio.workspace = true
 glib.workspace = true
+glimpse-config.workspace = true
+glimpse-utils.workspace = true
 gtk4.workspace = true
+libc.workspace = true
 tracing.workspace = true
 wayland-client.workspace = true
 wayland-protocols.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 clap.workspace = true
-glimpse-utils.workspace = true
+tracing-subscriber.workspace = true
 
 [build-dependencies]
 glib-build-tools.workspace = true

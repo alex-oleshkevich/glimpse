@@ -51,7 +51,10 @@ pub use color_picker::{ColorFormat, ColorPicker};
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
-pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
+pub use lock::{
+    Background as LockBackground, Lock, Privacy as LockPrivacy, Session as LockSession,
+    SessionAction as LockSessionAction,
+};
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;

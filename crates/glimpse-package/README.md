@@ -70,8 +70,8 @@ is worth reading first.
 activation rather than by hand.
 
 **A dependency is declared because something links it, not because it sounds right.** `ldd` over
-every shipped binary is the check; it is what retired `libheif` and `pam` from all three manifests,
-both of them left over from an implementation that did link them. Everything the applets merely
+every shipped binary is the check; it is what retired `libheif` from all three manifests, left over
+from an implementation that did link it. `glimpse-lock` links `libpam`, so `pam` is declared. Everything the applets merely
 *talk to* over D-Bus — UPower, power-profiles-daemon, NetworkManager, BlueZ, PackageKit,
 xdg-desktop-portal — is an `optdepends`, because each one absent is a degraded applet rather than a
 broken install.
@@ -110,5 +110,19 @@ rebuild `<name>/` from the source path, and generalise to any number of themes; 
 lists cannot compute a destination, so each shipped theme needs its own line in both. Only `adwaita`
 ships today.
 
-`data/pam.d` is still an empty placeholder, so its contents are not in the asset lists yet; add them
-once something real lands there.
+`data/pam.d/glimpse-lock` is the locker's PAM stack for Arch and the binary tarball, built on
+`system-auth`. Every package installs its own stack at the same `/etc/pam.d/glimpse-lock`:
+
+- the rpm ships `data/pam.d/fedora/glimpse-lock`, built on `password-auth`, because authselect can
+  put `pam_fprintd` in Fedora's `system-auth` and the prompt only ever sends a password;
+- the deb ships `data/pam.d/debian/glimpse-lock`, built on `common-auth` and `common-account`;
+- the `opensuse` rpm variant ships that same Debian stack, since openSUSE has neither `system-auth`
+  nor `password-auth` and `@include` is upstream Linux-PAM syntax. A variant replaces `assets` and
+  `requires` whole, so its asset list repeats the base one and its `requires` names only `geoclue2`
+  and `pam`, the two Fedora names openSUSE shares; auto-req covers the linked libraries by soname.
+  `just package-rpm` builds both rpms, and the variant's `1.opensuse` release keeps their file names
+  apart.
+
+Every manifest marks the stack a configuration file, so an edited stack survives an upgrade. The
+install scripts copy regular files out of `data/pam.d/` only, so the per-distribution directories
+never land in `/etc/pam.d`.

@@ -2761,25 +2761,38 @@
     "lock": {
       "$ref": "#/$defs/Lock",
       "default": {
-        "background": "",
-        "background-dark": "",
+        "background": {
+          "blur-radius": 0,
+          "color": "#000000",
+          "dim": 0.35,
+          "dim-dark": 0.5,
+          "fit": "cover"
+        },
         "clock": {
-          "date-format": "%A, %B %-d",
+          "date-format": "%A, {day} %B",
           "enabled": true,
           "time-format": "%H:%M"
         },
-        "controls": {
-          "buttons": [
-            "wifi",
-            "input",
-            "weather",
-            "battery",
-            "power"
-          ]
+        "media": {
+          "enabled": true
         },
-        "dim": 1.0,
-        "dim-dark": 1.0,
-        "pam-service": "glimpse-lock"
+        "notifications": {
+          "enabled": true,
+          "privacy": "apps"
+        },
+        "pam-service": "glimpse-lock",
+        "prompt-output": "focused",
+        "session": {
+          "actions": [
+            "suspend",
+            "reboot",
+            "power-off"
+          ],
+          "enabled": true
+        },
+        "status": {
+          "enabled": true
+        }
       }
     },
     "monitors": {
@@ -3108,16 +3121,6 @@
       },
       "additionalProperties": false
     },
-    "Button": {
-      "type": "string",
-      "enum": [
-        "wifi",
-        "input",
-        "weather",
-        "battery",
-        "power"
-      ]
-    },
     "Calendar": {
       "description": "Where calendar events come from. One list, read by every surface that shows an event: the\nclock popover, the day markers on its grid, and the `next-event` applet.",
       "type": "object",
@@ -3193,8 +3196,9 @@
       "type": "object",
       "properties": {
         "date-format": {
+          "description": "`{day}` is the day of the month with its ordinal suffix, e.g. \"3rd\".",
           "type": "string",
-          "default": "%A, %B %-d"
+          "default": "%A, {day} %B"
         },
         "enabled": {
           "type": "boolean",
@@ -3281,25 +3285,6 @@
         "dark",
         "auto"
       ]
-    },
-    "Controls": {
-      "type": "object",
-      "properties": {
-        "buttons": {
-          "type": "array",
-          "default": [
-            "wifi",
-            "input",
-            "weather",
-            "battery",
-            "power"
-          ],
-          "items": {
-            "$ref": "#/$defs/Button"
-          }
-        }
-      },
-      "additionalProperties": false
     },
     "FirstDay": {
       "description": "Which day a calendar week starts on. There is deliberately no `locale` here, unlike\n`hour-format`: the two ways to ask the system are GTK's translated `calendar:week_start:0`,\nwhich came back untranslated when it was measured and would have answered Sunday under an\n`LC_TIME` that means Monday, and glibc's `_NL_TIME_FIRST_WEEKDAY`, which is not portable. A\n`locale` that quietly answers wrong is worse than a default that says what it is.",
@@ -3479,49 +3464,211 @@
       "type": "object",
       "properties": {
         "background": {
-          "type": "string",
-          "default": ""
-        },
-        "background-dark": {
-          "type": "string",
-          "default": ""
+          "$ref": "#/$defs/LockBackground",
+          "default": {
+            "blur-radius": 0,
+            "color": "#000000",
+            "dim": 0.35,
+            "dim-dark": 0.5,
+            "fit": "cover"
+          }
         },
         "clock": {
           "$ref": "#/$defs/Clock",
           "default": {
-            "date-format": "%A, %B %-d",
+            "date-format": "%A, {day} %B",
             "enabled": true,
             "time-format": "%H:%M"
           }
         },
-        "controls": {
-          "$ref": "#/$defs/Controls",
+        "media": {
+          "description": "The now-playing transport, when something is playing.",
+          "$ref": "#/$defs/LockSection",
           "default": {
-            "buttons": [
-              "wifi",
-              "input",
-              "weather",
-              "battery",
-              "power"
-            ]
+            "enabled": true
           }
         },
-        "dim": {
-          "type": "number",
-          "format": "float",
-          "default": 1.0
-        },
-        "dim-dark": {
-          "type": "number",
-          "format": "float",
-          "default": 1.0
+        "notifications": {
+          "description": "Notifications received while the screen is locked.",
+          "$ref": "#/$defs/LockNotifications",
+          "default": {
+            "enabled": true,
+            "privacy": "apps"
+          }
         },
         "pam-service": {
           "type": "string",
           "default": "glimpse-lock"
+        },
+        "prompt-output": {
+          "description": "`\"focused\"` follows the compositor's focused output; anything else is a connector name.",
+          "type": "string",
+          "default": "focused"
+        },
+        "session": {
+          "description": "The suspend, reboot and power-off actions offered from the lock stage.",
+          "$ref": "#/$defs/LockSession",
+          "default": {
+            "actions": [
+              "suspend",
+              "reboot",
+              "power-off"
+            ],
+            "enabled": true
+          }
+        },
+        "status": {
+          "description": "The status island: weather, battery, keyboard layout, bluetooth and network.",
+          "$ref": "#/$defs/LockSection",
+          "default": {
+            "enabled": true
+          }
         }
       },
       "additionalProperties": false
+    },
+    "LockBackground": {
+      "description": "The lock stage's background: an image over a color, blurred and dimmed.",
+      "type": "object",
+      "properties": {
+        "blur-radius": {
+          "description": "Gaussian blur radius in output pixels; 0 blurs nothing.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "maximum": 128,
+          "minimum": 0
+        },
+        "color": {
+          "description": "Painted under everything: the whole background when no image resolves, and what shows\nthrough `contain`'s letterbox.",
+          "type": "string",
+          "default": "#000000"
+        },
+        "dim": {
+          "description": "How much the background is darkened, from 0 (untouched) to 1 (black).",
+          "type": "number",
+          "format": "double",
+          "default": 0.35,
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "dim-dark": {
+          "description": "Overrides `dim` under the dark color scheme.",
+          "type": "number",
+          "format": "double",
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "fit": {
+          "description": "How the image meets an output of a different aspect ratio.",
+          "$ref": "#/$defs/Fit",
+          "default": "cover"
+        },
+        "image": {
+          "description": "The background image, used as-is or under the light color scheme when `image-dark` is set.\nWith neither this nor `image-dark` set, the lock shows `[wallpaper]`'s `image` and\n`image-dark`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image-dark": {
+          "description": "The background image under the dark color scheme. Falls back to `image` when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockNotifications": {
+      "description": "Which notifications reach the lock stage, and how much of each one is shown.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether notifications show on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        },
+        "privacy": {
+          "description": "A locked screen never shows a notification's body. `count` shows only a total; `apps`\nalso names which applications sent them.",
+          "$ref": "#/$defs/LockPrivacy",
+          "default": "apps"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockPrivacy": {
+      "description": "How much of a notification's own content shows on the lock stage.",
+      "oneOf": [
+        {
+          "description": "Only a total count, naming nothing about any individual notification.",
+          "type": "string",
+          "const": "count"
+        },
+        {
+          "description": "Also names which application each notification came from, never a summary or body.",
+          "type": "string",
+          "const": "apps"
+        }
+      ]
+    },
+    "LockSection": {
+      "description": "A lock stage element with nothing to configure besides whether it shows at all.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether this element shows on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockSession": {
+      "description": "The session actions offered from the lock stage.",
+      "type": "object",
+      "properties": {
+        "actions": {
+          "description": "Every action here is also gated by logind: one it refuses does not appear even when listed.",
+          "type": "array",
+          "default": [
+            "suspend",
+            "reboot",
+            "power-off"
+          ],
+          "items": {
+            "$ref": "#/$defs/LockSessionAction"
+          }
+        },
+        "enabled": {
+          "description": "Whether the session actions show on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockSessionAction": {
+      "description": "One system action offered from the lock stage.",
+      "oneOf": [
+        {
+          "description": "Suspend the system.",
+          "type": "string",
+          "const": "suspend"
+        },
+        {
+          "description": "Reboot the system.",
+          "type": "string",
+          "const": "reboot"
+        },
+        {
+          "description": "Power the system off.",
+          "type": "string",
+          "const": "power-off"
+        }
+      ]
     },
     "Margin": {
       "type": "object",

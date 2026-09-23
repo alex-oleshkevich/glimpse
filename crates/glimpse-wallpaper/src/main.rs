@@ -1,6 +1,5 @@
 mod app;
 mod cli;
-mod decode;
 mod resolve;
 mod surface;
 use anyhow::Result;

@@ -10,15 +10,15 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothHandle, Brightness,
-    BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
-    ClipboardDependencies, ClipboardHandle, ColorPicker, ColorPickerDependencies,
+    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothDependencies,
+    BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle,
+    Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker, ColorPickerDependencies,
     ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle, DdcBacklight, Heartbeat,
     HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
-    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
-    PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running, Selection, SessionActions,
-    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, SystemMonitor,
-    SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
+    NetworkDependencies, NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy,
+    PrivacyDependencies, PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running,
+    Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
+    SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -100,9 +100,13 @@ impl PanelServices {
         let (heartbeat_service, heartbeat) =
             Running::<Heartbeat>::spawn(document, buses.clone(), ());
         let (tray_service, tray) = Running::<Tray>::spawn(document, buses.clone(), ());
-        let (bluetooth_service, bluetooth) =
-            Running::<Bluetooth>::spawn(document, buses.clone(), ());
-        let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
+        let (bluetooth_service, bluetooth) = Running::<Bluetooth>::spawn(
+            document,
+            buses.clone(),
+            BluetoothDependencies { agent: true },
+        );
+        let (network_service, network) =
+            Running::<Network>::spawn(document, buses.clone(), NetworkDependencies { agent: true });
         let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
         let sysfs: Arc<dyn Backlight> = match buses.system_bus() {
             Ok(bus) => Arc::new(SysfsBacklight::new(bus.clone())),

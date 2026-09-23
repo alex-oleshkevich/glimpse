@@ -81,7 +81,17 @@ async fn download(client: &reqwest::Client, url: &str, max_kib: u32) -> Result<S
 
     let parent = target.parent().ok_or("no cache directory")?;
     tokio::fs::create_dir_all(parent).await.map_err(say)?;
-    tokio::fs::write(&target, &body).await.map_err(say)?;
+
+    let name = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("a cache path with no file name")?;
+    let tmp = parent.join(format!("{name}.tmp-{}", std::process::id()));
+    tokio::fs::write(&tmp, &body).await.map_err(say)?;
+    if let Err(error) = tokio::fs::rename(&tmp, &target).await {
+        let _ = tokio::fs::remove_file(&tmp).await;
+        return Err(say(error));
+    }
 
     keep(target)
 }

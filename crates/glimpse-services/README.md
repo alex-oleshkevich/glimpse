@@ -311,7 +311,8 @@ no secret and **802.1X is refused rather than a PSK profile**. **Commands go thr
 carrying the connection**, **an active connection answers for its devices** so a wired row
 disconnects, and **a wired row activates by device**, NetworkManager choosing the profile. **A VPN
 reads its state under the active path**, **an address comes from the device's `IP4Config`**, **a
-radio write publishes once taken** and **busy is cleared by `Settled`**.
+radio write publishes once taken** and **busy is cleared by `Settled`**. **Both take
+`Dependencies { agent }`: `agent: false` is mirror-only mode, and neither agent ever registers.**
 
 **audio** — the libpulse bridge (`services/audio/pulse.rs`) owns one OS thread: lock, create the
 `Operation`, unlock, await the oneshot its callback completes off the lock, since a Pulse callback

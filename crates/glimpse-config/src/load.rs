@@ -79,6 +79,51 @@ pub fn watch_dirs(config_path: Option<&Path>) -> Vec<PathBuf> {
     watch_dirs_from(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
+pub fn resolve_image(path: &Path) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    resolve_in(
+        path,
+        home.as_deref(),
+        user_dir().as_deref(),
+        Path::new(DATA_DIR),
+    )
+}
+
+fn resolve_in(
+    path: &Path,
+    home: Option<&Path>,
+    user: Option<&Path>,
+    data: &Path,
+) -> Option<PathBuf> {
+    let expanded = expand_tilde(path, home);
+
+    if expanded.is_absolute() {
+        return expanded.is_file().then_some(expanded);
+    }
+
+    if let Some(user) = user {
+        let candidate = user.join(&expanded);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    let candidate = data.join("wallpapers").join(&expanded);
+    candidate.is_file().then_some(candidate)
+}
+
+fn expand_tilde(path: &Path, home: Option<&Path>) -> PathBuf {
+    let Some(home) = home else {
+        return path.to_path_buf();
+    };
+    let text = path.to_string_lossy();
+    match text.strip_prefix("~/") {
+        Some(rest) => home.join(rest),
+        None if text == "~" => home.to_path_buf(),
+        None => path.to_path_buf(),
+    }
+}
+
 fn watch_dirs_from(
     system_dir: &Path,
     user_dir: Option<&Path>,
@@ -497,5 +542,73 @@ mod tests {
             },
             "the drop-in overrides one key and leaves the other standing"
         );
+    }
+
+    #[test]
+    fn a_tilde_prefixed_path_expands_against_home() {
+        let home = Path::new("/home/u");
+        let resolved = expand_tilde(Path::new("~/wallpapers/city.jpg"), Some(home));
+        assert_eq!(resolved, PathBuf::from("/home/u/wallpapers/city.jpg"));
+    }
+
+    #[test]
+    fn an_absolute_path_that_exists_is_used_as_is() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let file = dir.path().join("city.jpg");
+        std::fs::write(&file, b"").expect("writes");
+
+        let resolved = resolve_in(&file, None, None, Path::new("/nonexistent"));
+        assert_eq!(resolved.as_deref(), Some(file.as_path()));
+    }
+
+    #[test]
+    fn an_absolute_path_that_is_missing_resolves_to_nothing() {
+        let resolved = resolve_in(
+            Path::new("/nonexistent/city.jpg"),
+            None,
+            None,
+            Path::new("/nonexistent"),
+        );
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn a_relative_path_prefers_the_user_root() {
+        let root = tempfile::tempdir().expect("a temp dir");
+        let user = root.path().join("user");
+        let data = root.path().join("data");
+        std::fs::create_dir_all(&user).expect("creates");
+        std::fs::create_dir_all(data.join("wallpapers")).expect("creates");
+        std::fs::write(user.join("city.jpg"), b"user").expect("writes");
+        std::fs::write(data.join("wallpapers").join("city.jpg"), b"data").expect("writes");
+
+        let resolved = resolve_in(Path::new("city.jpg"), None, Some(&user), &data)
+            .expect("the user copy resolves");
+        assert_eq!(resolved, user.join("city.jpg"));
+    }
+
+    #[test]
+    fn a_relative_path_falls_through_to_the_data_root() {
+        let root = tempfile::tempdir().expect("a temp dir");
+        let user = root.path().join("user");
+        let data = root.path().join("data");
+        std::fs::create_dir_all(&user).expect("creates");
+        std::fs::create_dir_all(data.join("wallpapers")).expect("creates");
+        std::fs::write(data.join("wallpapers").join("city.jpg"), b"data").expect("writes");
+
+        let resolved = resolve_in(Path::new("city.jpg"), None, Some(&user), &data)
+            .expect("the data copy resolves");
+        assert_eq!(resolved, data.join("wallpapers").join("city.jpg"));
+    }
+
+    #[test]
+    fn a_relative_path_resolving_nowhere_is_a_miss() {
+        let root = tempfile::tempdir().expect("a temp dir");
+        let user = root.path().join("user");
+        let data = root.path().join("data");
+        std::fs::create_dir_all(&user).expect("creates");
+
+        let resolved = resolve_in(Path::new("city.jpg"), None, Some(&user), &data);
+        assert_eq!(resolved, None);
     }
 }

@@ -82,13 +82,61 @@ test:
 test-crate CRATE:
     cargo test -p {{ CRATE }}
 
-[doc("all tests including those needing a compositor")]
+[doc("all tests including those needing a compositor; each ignored test runs in its own process")]
 test-compositor:
-    cargo test --workspace -- --include-ignored
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
+        echo "test-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would return early and pass without running" >&2
+        exit 1
+    fi
+    cargo test --workspace
+    failed=()
+    for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+        names=$(cargo test -p "$crate" -- --list --ignored 2>/dev/null | grep -E ': test$' | sed 's/: test$//') || true
+        [ -z "$names" ] && continue
+        while IFS= read -r name; do
+            [ -z "$name" ] && continue
+            echo "==> $crate :: $name"
+            if ! cargo test -p "$crate" "$name" -- --ignored --exact; then
+                failed+=("$crate :: $name")
+            fi
+        done <<< "$names"
+    done
+    if [ "${#failed[@]}" -gt 0 ]; then
+        echo "test-compositor: failed ignored tests:" >&2
+        printf '  %s\n' "${failed[@]}" >&2
+        exit 1
+    fi
 
-[doc("one crate's tests including those needing a compositor")]
-test-crate-compositor CRATE:
-    cargo test -p {{ CRATE }} -- --include-ignored
+[doc("one crate's tests including those needing a compositor; each ignored test runs in its own process; FILTER runs only the matching ignored tests")]
+test-crate-compositor CRATE FILTER="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
+        echo "test-crate-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would return early and pass without running" >&2
+        exit 1
+    fi
+    if [ -z "{{ FILTER }}" ]; then
+        cargo test -p {{ CRATE }}
+    fi
+    names=$(cargo test -p {{ CRATE }} -- --list --ignored 2>/dev/null | grep -E ': test$' | sed 's/: test$//') || true
+    if [ -n "{{ FILTER }}" ]; then
+        names=$(printf '%s\n' "$names" | grep -F -- "{{ FILTER }}") || true
+    fi
+    failed=()
+    while IFS= read -r name; do
+        [ -z "$name" ] && continue
+        echo "==> {{ CRATE }} :: $name"
+        if ! cargo test -p {{ CRATE }} "$name" -- --ignored --exact; then
+            failed+=("$name")
+        fi
+    done <<< "$names"
+    if [ "${#failed[@]}" -gt 0 ]; then
+        echo "test-crate-compositor: failed ignored tests:" >&2
+        printf '  %s\n' "${failed[@]}" >&2
+        exit 1
+    fi
 
 [doc("one test by its full path, ignored or not; a GTK test only proves anything run alone")]
 test-one CRATE TEST:
@@ -221,9 +269,10 @@ package-binary VERSION="": build-translations
 package-deb: build-release-binaries build-translations
     cargo deb -p glimpse-package --no-build
 
-[doc("build a .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
+[doc("build the Fedora and openSUSE .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
 package-rpm: build-release-binaries build-translations
     cargo generate-rpm -p crates/glimpse-package
+    cargo generate-rpm -p crates/glimpse-package --variant opensuse
 
 [doc("build an Arch package under dist/ (needs: base-devel) — builds its own binaries")]
 package-aur: package-binary

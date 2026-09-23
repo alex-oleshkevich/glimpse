@@ -8,67 +8,8 @@ use glimpse_widgets::{
 
 const LABEL_MAX_CHARS: usize = 32;
 
-const WIFI_BANDS: [&str; 5] = [
-    "network-wireless-signal-none-symbolic",
-    "network-wireless-signal-weak-symbolic",
-    "network-wireless-signal-ok-symbolic",
-    "network-wireless-signal-good-symbolic",
-    "network-wireless-signal-excellent-symbolic",
-];
-
-const ACQUIRING: &str = "network-wireless-acquiring-symbolic";
-const DISABLED: &str = "network-wireless-disabled-symbolic";
-const BLOCKED: &str = "network-wireless-hardware-disabled-symbolic";
-const OFFLINE: &str = "network-offline-symbolic";
-const NO_ROUTE: &str = "network-wireless-no-route-symbolic";
-const WIRED: &str = "network-wired-symbolic";
-const WIRED_NO_ROUTE: &str = "network-wired-no-route-symbolic";
-const VPN: &str = "network-vpn-symbolic";
-const NOT_CONNECTED: &str = "network-wireless-offline-symbolic";
-
 pub fn cap(name: &str) -> String {
     glimpse_utils::clean(name, LABEL_MAX_CHARS)
-}
-
-fn band_icon(strength: u8) -> &'static str {
-    WIFI_BANDS[nm::Strength::band(strength) as usize]
-}
-
-pub fn chip(state: &NetworkState) -> Option<&'static str> {
-    if !state.networking {
-        return Some(OFFLINE);
-    }
-
-    if let Some(wired) = state.wired.iter().find(|one| one.active) {
-        let _ = wired;
-        return Some(match state.reaches_the_internet() {
-            true => WIRED,
-            false => WIRED_NO_ROUTE,
-        });
-    }
-
-    let radio = state.wifi?;
-    if radio.blocked() {
-        return Some(BLOCKED);
-    }
-    if !radio.enabled {
-        return Some(DISABLED);
-    }
-    if state.networks.iter().any(|one| one.busy.is_some()) {
-        return Some(ACQUIRING);
-    }
-
-    match state.connected() {
-        Some(network) => Some(match state.reaches_the_internet() {
-            true => band_icon(network.strength),
-            false => NO_ROUTE,
-        }),
-        None => Some(NOT_CONNECTED),
-    }
-}
-
-pub fn vpn_chip(state: &NetworkState, enabled: bool) -> Option<&'static str> {
-    (enabled && state.vpn.iter().any(|one| one.active)).then_some(VPN)
 }
 
 pub fn status(state: &NetworkState) -> String {
@@ -215,7 +156,7 @@ pub fn entries(
             id: network.id.as_str().to_owned(),
             title: name_of(network),
             subtitle: describe(network, state.metered.marked()),
-            icon: band_icon(network.strength).to_owned(),
+            icon: network.icon_name().to_owned(),
             place: Place::Networks,
             secured: network.security.needs_a_secret(),
             selected: network.active,
@@ -480,109 +421,17 @@ mod tests {
     }
 
     #[test]
-    fn no_managed_device_renders_no_chip_at_all() {
-        let bare = NetworkState {
-            networking: true,
-            ..NetworkState::default()
-        };
-        assert_eq!(
-            chip(&bare),
-            None,
-            "the group hides itself rather than showing a placeholder"
-        );
-    }
-
-    #[test]
-    fn each_of_the_five_bands_has_its_own_icon() {
-        let icons: Vec<&str> = [0u8, 20, 42, 70, 94]
-            .into_iter()
-            .map(|strength| chip(&connected(strength)).expect("a chip"))
-            .collect();
-        let unique: std::collections::BTreeSet<&&str> = icons.iter().collect();
-
-        assert_eq!(unique.len(), 5, "got {icons:?}");
-        assert_eq!(icons[4], "network-wireless-signal-excellent-symbolic");
-        assert_eq!(icons[0], "network-wireless-signal-none-symbolic");
-    }
-
-    #[test]
-    fn hard_blocked_and_soft_off_are_different_icons() {
-        let soft = NetworkState {
-            wifi: Some(Radio {
-                enabled: false,
-                hardware_enabled: true,
-            }),
-            ..connected(70)
-        };
-        let hard = NetworkState {
-            wifi: Some(Radio {
-                enabled: false,
-                hardware_enabled: false,
-            }),
-            ..connected(70)
-        };
-
-        assert_eq!(chip(&soft), Some(DISABLED));
-        assert_eq!(chip(&hard), Some(BLOCKED));
-        assert_ne!(chip(&soft), chip(&hard));
-    }
-
-    #[test]
-    fn no_internet_replaces_the_strength_icon_rather_than_tinting_it() {
-        let portal = NetworkState {
-            connectivity: nm::Connectivity::Portal,
-            ..connected(94)
-        };
-        assert_eq!(chip(&portal), Some(NO_ROUTE));
-
-        let unchecked = NetworkState {
-            connectivity: nm::Connectivity::Unknown,
-            ..connected(94)
-        };
-        assert_eq!(
-            chip(&unchecked),
-            Some("network-wireless-signal-excellent-symbolic"),
-            "a disabled connectivity check is not a portal"
-        );
-    }
-
-    #[test]
     fn a_busy_network_shows_the_acquiring_icon_and_never_a_word() {
         let mut busy = connected(70);
         busy.networks[0].busy = Some(glimpse_services::NetworkBusy::Connecting);
 
-        assert_eq!(chip(&busy), Some(ACQUIRING));
+        assert_eq!(
+            busy.icon_name(),
+            Some("network-wireless-acquiring-symbolic")
+        );
         assert!(
             !status(&busy).contains("onnecting"),
             "the spinner says it is working; the text must not"
-        );
-    }
-
-    #[test]
-    fn vpn_is_a_separate_chip_and_only_when_it_is_up() {
-        let mut state = connected(70);
-        assert_eq!(vpn_chip(&state, true), None);
-
-        state.vpn = vec![glimpse_services::Vpn {
-            id: NetworkId::new("/s/1"),
-            name: "Mullvad".to_owned(),
-            kind: "wireguard".to_owned(),
-            state: nm::VpnState::Activated,
-            address: None,
-            active: true,
-            failure: None,
-            busy: None,
-        }];
-        assert_eq!(vpn_chip(&state, true), Some(VPN));
-        assert_eq!(
-            vpn_chip(&state, false),
-            None,
-            "the config can turn the second chip off"
-        );
-        assert_eq!(
-            chip(&state),
-            Some("network-wireless-signal-good-symbolic"),
-            "the Wi-Fi chip is unchanged; the VPN does not overlay it"
         );
     }
 
@@ -596,7 +445,7 @@ mod tests {
         let tip = tooltip(&state, None, true).expect("a tooltip");
         assert!(tip.contains(&gettext("Metered connection")));
         assert_eq!(
-            chip(&state),
+            state.icon_name(),
             Some("network-wireless-signal-good-symbolic"),
             "metered must not change the icon"
         );
@@ -841,14 +690,5 @@ mod tests {
             ["connect", "security", "signal"],
             "a network nothing is saved for has nothing to forget"
         );
-    }
-
-    #[test]
-    fn networking_off_outranks_everything_else() {
-        let state = NetworkState {
-            networking: false,
-            ..connected(94)
-        };
-        assert_eq!(chip(&state), Some(OFFLINE));
     }
 }

@@ -52,8 +52,8 @@ pub use battery::{
 };
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{
-    Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
-    DeviceId, Failure, Hold, Prompt,
+    Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation,
+    Dependencies as BluetoothDependencies, Device, DeviceId, Failure, Hold, Prompt, icon_for,
 };
 pub use brightness::{
     Backlight, Brightness, BrightnessHandle, BrightnessState, CompositeBacklight,
@@ -77,9 +77,9 @@ pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle};
 pub use network::{
-    Access, Answer as SecretAnswer, Busy as NetworkBusy, Failure as NetworkFailure, Network,
-    NetworkError, NetworkHandle, NetworkId, NetworkState, Radio, Request as SecretRequest, Saved,
-    Secret as NetworkSecret, Vpn, Wired,
+    Access, Answer as SecretAnswer, Busy as NetworkBusy, Dependencies as NetworkDependencies,
+    Failure as NetworkFailure, Network, NetworkError, NetworkHandle, NetworkId, NetworkState,
+    Radio, Request as SecretRequest, Saved, Secret as NetworkSecret, Vpn, Wired,
 };
 pub use night_light::{
     Config as NightLightConfig, DAY as NEUTRAL_KELVIN, Dependencies as NightLightDependencies,

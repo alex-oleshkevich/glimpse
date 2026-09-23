@@ -174,7 +174,7 @@ where
         .ok_or_else(|| D::Error::custom("must be between 0 and 5000 milliseconds"))
 }
 
-fn blur_radius<'de, D>(deserializer: D) -> Result<u32, D::Error>
+pub(crate) fn blur_radius<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {

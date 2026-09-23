@@ -22,8 +22,14 @@ done
 for f in data/portals/*-portals.conf; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$portalconfdir/$(basename "$f")"
 done
+debian_pam=false
+[[ -e /etc/pam.d/common-auth && ! -e /etc/pam.d/system-auth ]] && debian_pam=true
 for f in data/pam.d/*; do
-    [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] && install -Dm644 "$f" "$pamdir/$(basename "$f")"
+    [[ -f "$f" && "$(basename "$f")" != .gitkeep ]] || continue
+    if $debian_pam && [[ -f "data/pam.d/debian/$(basename "$f")" ]]; then
+        f="data/pam.d/debian/$(basename "$f")"
+    fi
+    install -Dm644 "$f" "$pamdir/$(basename "$f")"
 done
 for f in data/geoclue/conf.d/*.conf; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$geocluedir/$(basename "$f")"

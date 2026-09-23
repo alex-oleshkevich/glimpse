@@ -16,7 +16,7 @@ pub fn clean(text: &str, cap: usize) -> String {
             spaced = length > 0;
             continue;
         }
-        if length >= cap {
+        if length + usize::from(spaced) >= cap {
             cleaned.push('…');
             break;
         }
@@ -56,6 +56,12 @@ mod tests {
             "ééé…",
             "the cap counts characters, and slicing bytes would panic here"
         );
+        assert_eq!(
+            clean("ab cd", 3),
+            "ab…",
+            "a space pending at the cap counts toward it, so the result never runs past cap plus the ellipsis"
+        );
+        assert_eq!(clean("ab cd", 4), "ab c…");
         assert_eq!(clean("   ", 120), "");
     }
 }

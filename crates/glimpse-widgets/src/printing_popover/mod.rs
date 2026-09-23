@@ -289,16 +289,30 @@ mod tests {
         }
     }
 
-    fn trail_button(row: &Row, index: usize) -> gtk4::Button {
-        let actions = row
-            .trail()
-            .and_downcast::<gtk4::Box>()
-            .expect("actions box");
-        let mut child = actions.first_child();
+    /// A job row is `$SplitRow`-over-drawer, per `build_job_row`'s own doc comment: the actions
+    /// cannot live in the row's trail, because `Row` is a `Gtk.Button` and a button nested inside
+    /// one never receives `clicked`. So a job's holder in `job_rows` is the drawer's `gtk4::Box`,
+    /// not the row itself, and the row is reached through it.
+    fn job_holder(job_rows: &gtk4::Box, index: usize) -> gtk4::Box {
+        let mut child = job_rows.first_child();
         for _ in 0..index {
             child = child.and_then(|widget| widget.next_sibling());
         }
-        child.and_downcast::<gtk4::Button>().expect("trail button")
+        child.and_downcast::<gtk4::Box>().expect("job holder")
+    }
+
+    /// The pause/resume/cancel actions are plain `$Row`s in the drawer panel, in that order, as
+    /// `build_job_row` appends them and `dress_job` shows or hides them by the same order.
+    fn action_row(holder: &gtk4::Box, index: usize) -> Row {
+        let panel = crate::drawer::panel(holder)
+            .and_then(|revealer| revealer.child())
+            .and_downcast::<gtk4::Box>()
+            .expect("actions panel");
+        let mut child = panel.first_child();
+        for _ in 0..index {
+            child = child.and_then(|widget| widget.next_sibling());
+        }
+        child.and_downcast::<Row>().expect("action row")
     }
 
     #[test]
@@ -323,11 +337,9 @@ mod tests {
         assert!(!imp.empty_jobs.is_visible());
         assert!(imp.job_rows.is_visible());
         assert_eq!(imp.hero.subtitle().as_deref(), Some("1 print job"));
-        let row = imp
-            .job_rows
-            .first_child()
-            .and_downcast::<Row>()
-            .expect("job row");
+        let holder = job_holder(&imp.job_rows, 0);
+        let split = crate::drawer::head::<SplitRow>(&holder).expect("split row");
+        let row = split.row();
         assert_eq!(
             row.subtitle().as_deref(),
             Some("HP LaserJet 400 · Page 3 of 12"),
@@ -336,11 +348,15 @@ mod tests {
         assert_eq!(
             row.value(),
             None,
-            "the value slot is not used for job rows; actions live in the trail instead"
+            "the value slot is not used for job rows; actions live in the drawer panel instead"
         );
         assert!(
-            row.activatable(),
-            "a row carrying a cancel button must stay targetable, or the button is unreachable"
+            !row.activatable(),
+            "the head body activates nothing; only the chevron opens the actions panel"
+        );
+        assert!(
+            split.detail().get_visible(),
+            "a cancellable job shows the chevron that opens its actions"
         );
 
         let renders_after_first = imp.renders.get();
@@ -350,13 +366,9 @@ mod tests {
             renders_after_first,
             "an unchanged job list must never re-enter render_jobs at all"
         );
-        let same = imp
-            .job_rows
-            .first_child()
-            .and_downcast::<Row>()
-            .expect("job row");
+        let same_holder = job_holder(&imp.job_rows, 0);
         assert_eq!(
-            row, same,
+            holder, same_holder,
             "an unchanged job list reuses its row rather than rebuilding it"
         );
 
@@ -365,32 +377,28 @@ mod tests {
             let cancelled = Rc::clone(&cancelled);
             move |_, id| cancelled.borrow_mut().push(id.to_owned())
         });
-        trail_button(&row, 2).emit_clicked();
+        action_row(&holder, 2).emit_by_name::<()>("clicked", &[]);
         assert_eq!(
             *cancelled.borrow(),
             ["1".to_owned()],
-            "clicking the trailing button must reach it and report the row's own id"
+            "clicking the cancel action must reach it and report the job's own id"
         );
         assert!(
-            row.activatable(),
-            "cancelling must not leave the row unable to report a future click"
+            action_row(&holder, 2).activatable(),
+            "cancelling must not leave the action row unable to report a future click"
         );
 
         popover.set_jobs(&[Job {
             pausable: true,
             ..job("2", None)
         }]);
-        let processing = imp
-            .job_rows
-            .first_child()
-            .and_downcast::<Row>()
-            .expect("job row");
+        let processing = job_holder(&imp.job_rows, 0);
         assert!(
-            trail_button(&processing, 0).is_visible(),
+            action_row(&processing, 0).get_visible(),
             "a pausable job shows Pause"
         );
         assert!(
-            !trail_button(&processing, 1).is_visible(),
+            !action_row(&processing, 1).get_visible(),
             "a job that is not resumable hides Resume"
         );
 
@@ -399,7 +407,7 @@ mod tests {
             let paused = Rc::clone(&paused);
             move |_, id| paused.borrow_mut().push(id.to_owned())
         });
-        trail_button(&processing, 0).emit_clicked();
+        action_row(&processing, 0).emit_by_name::<()>("clicked", &[]);
         assert_eq!(*paused.borrow(), ["2".to_owned()]);
 
         popover.set_jobs(&[Job {
@@ -407,21 +415,17 @@ mod tests {
             cancellable: false,
             ..job("3", None)
         }]);
-        let held = imp
-            .job_rows
-            .first_child()
-            .and_downcast::<Row>()
-            .expect("job row");
+        let held = job_holder(&imp.job_rows, 0);
         assert!(
-            !trail_button(&held, 0).is_visible(),
+            !action_row(&held, 0).get_visible(),
             "not pausable while held"
         );
         assert!(
-            trail_button(&held, 1).is_visible(),
+            action_row(&held, 1).get_visible(),
             "a resumable job shows Resume"
         );
         assert!(
-            !trail_button(&held, 2).is_visible(),
+            !action_row(&held, 2).get_visible(),
             "a job that is not cancellable hides Cancel"
         );
 
@@ -430,7 +434,7 @@ mod tests {
             let resumed = Rc::clone(&resumed);
             move |_, id| resumed.borrow_mut().push(id.to_owned())
         });
-        trail_button(&held, 1).emit_clicked();
+        action_row(&held, 1).emit_by_name::<()>("clicked", &[]);
         assert_eq!(*resumed.borrow(), ["3".to_owned()]);
 
         popover.set_jobs(&[

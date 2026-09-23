@@ -178,14 +178,14 @@ impl Weather {
         }
         let name = match severity.is_some() {
             true => render::ALERT_ICON,
-            false => render::icon(current.condition, current.is_day),
+            false => current.condition.icon_name(current.is_day),
         };
         let icon = self.themed(name);
         let label = self.label();
 
         Some(IndicatorSpec {
             icon: Some(icon),
-            label: Some(render::reading(current.temperature)),
+            label: Some(glimpse_dbus::weather::reading(current.temperature)),
             tooltip: self.trouble.clone().or_else(|| {
                 self.tooltip_format
                     .as_deref()
@@ -202,7 +202,7 @@ impl Weather {
                 .then(|| gettext("The weather provider is not serving this place."))
         })?;
         Some(IndicatorSpec {
-            icon: Some(self.themed(render::icon(Condition::Unknown, true))),
+            icon: Some(self.themed(Condition::Unknown.icon_name(true))),
             tooltip: Some(reason),
             severity: Some(Severity::Warning),
             ..Default::default()
@@ -240,7 +240,7 @@ impl Weather {
 
         let Some(place) = self.place.as_ref() else {
             shown.set_heading(
-                render::icon(Condition::Unknown, true),
+                Condition::Unknown.icon_name(true),
                 &self.label(),
                 self.trouble.as_deref().or(Some(&gettext("No reading yet"))),
             );
@@ -263,20 +263,20 @@ impl Weather {
         match place.current.as_ref() {
             Some(current) => {
                 shown.set_heading(
-                    render::icon(current.condition, current.is_day),
+                    current.condition.icon_name(current.is_day),
                     &self.label(),
                     self.trouble
                         .as_deref()
                         .or(render::subtitle(current).as_deref()),
                 );
                 shown.set_reading(Some((
-                    &render::rounded(current.temperature),
-                    render::DEGREE,
+                    &glimpse_dbus::weather::rounded(current.temperature),
+                    glimpse_dbus::weather::DEGREE,
                 )));
             }
             None => {
                 shown.set_heading(
-                    render::icon(Condition::Unknown, true),
+                    Condition::Unknown.icon_name(true),
                     &self.label(),
                     self.trouble.as_deref().or(Some(&gettext("No reading yet"))),
                 );

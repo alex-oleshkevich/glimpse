@@ -114,7 +114,9 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. A user-overridable file
   is looked up in `user_dir()` first, then `DATA_DIR`.
 - One config file, `config.toml`, with a top-level table per owner: one per service, plus `[panel]`,
-  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns. Stylesheets stay separate:
+  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns — except that the lock
+  inherits `[wallpaper]`'s `image` and `image-dark` while `[lock.background]` names neither, because
+  a lock screen that differs from the desktop by default reads as a bug. Stylesheets stay separate:
   `panel.css`, `lock.css`, and one `dark.css` per theme that every surface loads while the effective
   scheme is dark. `[appearance] theme-variant` is a CSS class on every window, not a file.
 
@@ -435,10 +437,15 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
   compositor crate — `glimpse-services` reaches a compositor only through `trait Gamma` and
   `glimpse-compositors` — while pointer injection belongs in a script.
 - **`_old/` and `var/glimpse2` are reference only.** Never edit, build, or copy code out of them.
-- **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
-  `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
-  `AUTHINFO_UNAVAIL` and the correct password is rejected, which looks like a wrong password and is
-  expensive to diagnose.
+- **Never sandbox `glimpse-lock.service` — no systemd sandboxing option of any kind.** All 14
+  measured in `var/lock/research.md` break PAM through one of two mechanisms: namespace options
+  (`PrivateTmp=`, `ProtectSystem=`, `ProtectKernelTunables=`, …) put a user service in a user
+  namespace where root is unmapped and `unix_chkpwd`'s setuid bit is not honoured, and
+  seccomp-family options (`SystemCallFilter=`, `LockPersonality=`, `RestrictSUIDSGID=`, …) imply
+  `NoNewPrivileges`. PAM then returns `AUTHINFO_UNAVAIL` and the correct password is rejected, which
+  looks like a wrong password and is expensive to diagnose. The daemon probes itself at start and
+  refuses to lock when either mechanism is present, except when `LockedHint` is already true at
+  start, where it locks behind a prompt that sends the user to a text console.
 - **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
   is a locked session with nothing to authenticate against. `PartOf=` on anything but
   `graphical-session.target`, `BindsTo=`, or someone else's `Conflicts=` all reach that state;
@@ -804,6 +811,20 @@ on niri 26.04: `set-workspace-name` naming a second workspace after the first ex
 nothing and emits no event. A client that updates optimistically must drop its guess on any reply
 and re-read the snapshot, or the refused name stays on screen with nothing to correct it — which is
 what the workspace-name applet does.
+
+**A GTK test run beside another GTK test passes without running, September 2026.** libtest gives
+every test its own thread, and `gtk4::init()` answers `Err` on any thread but the first one to
+initialize, so every `if gtk4::init().is_err() { return; }` after the first reports `ok` having
+asserted nothing. Measured on `glimpse-widgets`: under `just test-crate-compositor glimpse-widgets`,
+four deliberate mutations of `PasswordPrompt` all passed, and the failing tests changed from run to
+run (`widgets`, `clipboard_widgets`, `removable_popover_widgets`, `printing_popover_states`); run
+alone, all four mutations failed. `just test-compositor` and `just test-crate-compositor` now run
+the non-ignored suite once and then run every `#[ignore]`d test in its own `cargo test` process —
+listed with `cargo test -p <crate> -- --list --ignored`, each invoked as `cargo test -p <crate>
+<name> -- --ignored --exact` — so a green run is evidence every one of them actually ran, not a
+single survivor reporting for the rest. Both recipes refuse to start when neither
+`WAYLAND_DISPLAY` nor `DISPLAY` is set, since without a display every GTK test would return early
+and pass the same vacuous way.
 
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.

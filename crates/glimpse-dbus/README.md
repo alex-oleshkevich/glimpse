@@ -29,6 +29,7 @@ connections they run on.
 | `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
 | `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
 | `idle`                    | session | the Glimpse idle-inhibitor provider      |
+| `freedesktop_notifications` | session | `Notify` on any notification daemon   |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 | `night_light`             | session | the Glimpse night light provider         |
