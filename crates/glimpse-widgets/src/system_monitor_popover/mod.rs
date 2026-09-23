@@ -7,8 +7,8 @@ use crate::{Row, Severity, none_if_empty, reconcile, set_css_class, set_footer_r
 pub use imp::{DetailTile, UsageTile};
 
 const USAGE_BAR: &str = "system-monitor-usage-bar";
-const WARNING: &str = "system-monitor-usage-bar--warning";
-const ERROR: &str = "system-monitor-usage-bar--error";
+const WARNING: &str = "usage-row--warning";
+const ERROR: &str = "usage-row--error";
 
 glib::wrapper! {
     pub struct SystemMonitorPopover(ObjectSubclass<imp::SystemMonitorPopover>)
@@ -90,13 +90,7 @@ fn apply_usage_cell(cell: &gtk4::Box, tile: &UsageTile) {
     row.set_activatable(false);
     row.set_title(none_if_empty(&tile.title));
     row.set_value(none_if_empty(&tile.value));
-    apply_usage_bar(cell, tile.fraction, tile.severity);
-}
-
-fn apply_usage_bar(cell: &gtk4::Box, fraction: Option<f64>, severity: Option<Severity>) {
-    crate::progress::apply_bar(cell, fraction, USAGE_BAR);
-    if let Some(bar) = cell.last_child().and_downcast::<gtk4::ProgressBar>() {
-        set_css_class(&bar, WARNING, severity == Some(Severity::Warning));
-        set_css_class(&bar, ERROR, severity == Some(Severity::Error));
-    }
+    set_css_class(&row, WARNING, tile.severity == Some(Severity::Warning));
+    set_css_class(&row, ERROR, tile.severity == Some(Severity::Error));
+    crate::progress::apply_bar(cell, tile.fraction, USAGE_BAR);
 }

@@ -1027,12 +1027,14 @@
     background-color: var(--gl-muted);
 }
 
-.system-monitor-usage-bar--warning progress {
-    background-color: var(--gl-warning-text);
+.usage-row--warning .row__title,
+.usage-row--warning .row__value {
+    color: var(--gl-warning-text);
 }
 
-.system-monitor-usage-bar--error progress {
-    background-color: var(--gl-danger-text);
+.usage-row--error .row__title,
+.usage-row--error .row__value {
+    color: var(--gl-danger-text);
 }
 
 .notification__image {
