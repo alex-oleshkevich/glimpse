@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 use crate::{Row, SessionActionState};
 
 const MENU_PAGE: &str = "menu";
+const SUSPEND_PAGE: &str = "suspend";
 const REBOOT_PAGE: &str = "reboot";
 const POWER_OFF_PAGE: &str = "power-off";
 
@@ -25,6 +26,10 @@ pub struct SessionSheet {
     pub power_off: TemplateChild<Row>,
     #[template_child]
     pub error: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub suspend_cancel: TemplateChild<gtk4::Button>,
+    #[template_child]
+    pub suspend_confirm: TemplateChild<gtk4::Button>,
     #[template_child]
     pub reboot_cancel: TemplateChild<gtk4::Button>,
     #[template_child]
@@ -59,6 +64,7 @@ impl SessionSheet {
 
     pub(super) fn close_confirm_if_unavailable(&self, action: &str, state: &SessionActionState) {
         let page = match action {
+            crate::SUSPEND => SUSPEND_PAGE,
             crate::REBOOT => REBOOT_PAGE,
             crate::POWER_OFF => POWER_OFF_PAGE,
             _ => return,
@@ -117,6 +123,28 @@ impl ObjectImpl for SessionSheet {
             sheet,
             move |row| {
                 if !row.is_sensitive() {
+                    return;
+                }
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(SUSPEND_PAGE);
+                imp.suspend_cancel.grab_focus();
+            }
+        ));
+        self.suspend_cancel.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                imp.stack.set_visible_child_name(MENU_PAGE);
+                imp.suspend.grab_focus();
+            }
+        ));
+        self.suspend_confirm.connect_clicked(glib::clone!(
+            #[weak]
+            sheet,
+            move |_| {
+                let imp = sheet.imp();
+                if !(imp.suspend.get_visible() && imp.suspend.is_sensitive()) {
                     return;
                 }
                 sheet.emit_by_name::<()>("action-requested", &[&crate::SUSPEND]);

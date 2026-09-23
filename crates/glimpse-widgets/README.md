@@ -449,10 +449,10 @@ once per pattern.
 ## SessionSheet
 
 The in-surface session menu, since a lock surface cannot parent a popover. Rows start hidden until
-`set_action` shows one, and `toggle()` refuses an empty sheet. Suspend emits `action-requested`
-directly; restart and power off go through a confirm page that focuses Cancel, returns focus to the
-opening row, and re-checks the row before emitting, since `set_action` can revoke it mid-page. The
-look lives on the `Gtk.Stack`, so a closed sheet paints nothing. `set_error(Some(..))` is ignored
+`set_action` shows one, and `toggle()` refuses an empty sheet. Every action goes through a confirm
+page that focuses Cancel, returns focus to the opening row, and re-checks the row before emitting,
+since `set_action` can revoke it mid-page. The look lives on the `Gtk.Stack`, so a closed sheet
+paints nothing. `set_error(Some(..))` is ignored
 while closed — `grab_focus` succeeds inside an unrevealed `Gtk.Revealer` and would steal focus; open,
 it returns to the menu, shows the error and focuses the first enabled row. `set_error(None)` never
 changes the page.

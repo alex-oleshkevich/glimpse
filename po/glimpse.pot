@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 22:00+0200\n"
+"POT-Creation-Date: 2026-09-23 22:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -125,6 +125,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/network_popover.blp:158
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:102
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:152
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:202
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
@@ -1696,7 +1697,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:75
 #: crates/glimpse-panel/src/applets/session/render.rs:77
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:247
 msgid "Suspend"
 msgstr ""
@@ -1729,7 +1730,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:90
 #: crates/glimpse-panel/src/applets/session/render.rs:92
 #: crates/glimpse-widgets/blueprints/session_popover.blp:43
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
 msgid "Restart"
 msgstr ""
 
@@ -2279,6 +2280,10 @@ msgstr ""
 msgid "Updates"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+msgid "Suspend…"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:41
 msgid "Restart…"
 msgstr ""
@@ -2288,19 +2293,27 @@ msgid "Power Off…"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:78
-msgid "Restart now?"
+msgid "Suspend now?"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:87
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:137
-msgid "Open sessions may lose unsaved work."
+msgid "The screen stays locked when it wakes."
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:128
+msgid "Restart now?"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:137
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:187
+msgid "Open sessions may lose unsaved work."
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:178
 msgid "Power off now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:206
 msgid "Power Off"
 msgstr ""
 

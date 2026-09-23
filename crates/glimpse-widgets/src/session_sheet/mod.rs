@@ -206,7 +206,26 @@ mod tests {
 
         sheet.toggle();
         imp.suspend.emit_clicked();
+        assert!(
+            requested.borrow().is_empty(),
+            "the suspend row alone emits nothing"
+        );
+        assert_eq!(imp.stack.visible_child_name().as_deref(), Some("suspend"));
+        assert!(exact_focus(&window, &*imp.suspend_cancel));
+        imp.suspend_cancel.emit_clicked();
+        assert_eq!(imp.stack.visible_child_name().as_deref(), Some("menu"));
+        assert!(exact_focus(&window, &*imp.suspend));
+        assert!(requested.borrow().is_empty(), "cancel emits nothing");
+        imp.suspend.emit_clicked();
+        imp.suspend_confirm.emit_clicked();
         assert_eq!(*requested.borrow(), ["suspend"]);
+        sheet.set_action(crate::SUSPEND, &state(true, false, None));
+        assert_eq!(
+            imp.stack.visible_child_name().as_deref(),
+            Some("menu"),
+            "disabling suspend while its confirm page is open returns to the menu"
+        );
+        sheet.set_action(crate::SUSPEND, &state(true, true, None));
 
         imp.reboot.emit_clicked();
         assert!(
