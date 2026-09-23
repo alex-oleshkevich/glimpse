@@ -3,7 +3,6 @@ mod picker;
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use glimpse_config::ColorFormat;
 use tokio::sync::{oneshot, watch};
 
@@ -191,7 +190,7 @@ impl ColorPicker {
         let Some(rgb) = outcome.map_err(CommandError::Unavailable)? else {
             return Ok(());
         };
-        let color = self.palette.push(rgb, Utc::now());
+        let color = self.palette.push(rgb);
         self.offer(self.config.request.format.render(color.rgb))
     }
 

@@ -209,8 +209,8 @@ none of it. The chip is the latest pick as a `Swatch` in the indicator's extensi
 picker icon before the first. A row copies in the configured format, read when it is pressed rather
 than when the popover opened, and its chevron unfolds all six notations, each copying itself. A
 failed pick or copy is reported by notification. While a pick is open the chip carries
-`color-picker--picking` and a right click does nothing. The minute tick only re-dresses an open
-popover, to age its "4 minutes ago".
+`color-picker--picking` and a right click does nothing. A row carries no time, so the applet takes
+no tick.
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
 through `gio::AppInfo::launch_default_for_uri`, off the main loop.

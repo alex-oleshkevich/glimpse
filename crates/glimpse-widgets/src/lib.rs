@@ -6590,7 +6590,6 @@ mod tests {
             id,
             color: rgba([id as u8, 0, 0]),
             title: title.to_owned(),
-            subtitle: "just now".to_owned(),
             notations: vec![
                 Notation {
                     key: "hex".to_owned(),

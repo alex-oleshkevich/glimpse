@@ -15,7 +15,6 @@ pub struct Shade {
     pub id: u64,
     pub color: gdk::RGBA,
     pub title: String,
-    pub subtitle: String,
     pub notations: Vec<Notation>,
 }
 
@@ -66,7 +65,6 @@ impl ColorList {
             if let Some(split) = drawer::head::<SplitRow>(&holders[index]) {
                 let row = split.row();
                 row.set_title(none_if_empty(&shade.title));
-                row.set_subtitle(none_if_empty(&shade.subtitle));
                 match row.lead().and_downcast::<Swatch>() {
                     Some(swatch) => swatch.set_color(Some(&shade.color)),
                     None => {

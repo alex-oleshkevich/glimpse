@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 15:47+0200\n"
+"POT-Creation-Date: 2026-09-23 15:53+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -82,7 +82,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:320
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:126
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:116
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 msgid "That did not work."
 msgstr ""
@@ -149,16 +149,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/agenda.rs:150
 msgid "{days} d {hours} h"
 msgstr ""
-
-#: crates/glimpse-panel/src/applets/ago.rs:5
-msgid "just now"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/ago.rs:7
-msgid "{n} minute ago"
-msgid_plural "{n} minutes ago"
-msgstr[0] ""
-msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:100
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:179
@@ -880,33 +870,29 @@ msgstr ""
 msgid "Could not clear the history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:99
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:89
 #: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
 msgid "Color picker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:109
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:99
 msgid "Could not pick a color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:120
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:110
 msgid "That color is no longer in the palette."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:123
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:113
 msgid "The picker could not start, capture the screen or reach the clipboard."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:199
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:209
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:191
 msgid "Could not copy that color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/render.rs:19
-msgid "yesterday"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/render.rs:55
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
 msgid "Pick a color"
 msgstr ""
 
@@ -976,21 +962,31 @@ msgstr[1] ""
 msgid "Unknown"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
 msgid "{n} hour ago"
 msgid_plural "{n} hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:144
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
 msgid "(Flatpak via portal)"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:146
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
 msgid "(systemd-inhibit · pid {pid})"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:155
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
 msgid "Preventing idle"
 msgstr ""
 

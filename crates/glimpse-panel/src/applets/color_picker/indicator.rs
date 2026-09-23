@@ -1,8 +1,6 @@
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Duration;
 
-use chrono::Local;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ColorFormat};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
@@ -15,7 +13,6 @@ use super::render;
 use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{Applet, Button, Ctx, Input, Pointer, Report, spawn_reported};
 
-const REFRESH: Duration = Duration::from_secs(60);
 const PICKING: &str = "color-picker--picking";
 
 pub struct ColorPicker {
@@ -24,7 +21,6 @@ pub struct ColorPicker {
     state: ColorPickerState,
     tooltip_format: Option<String>,
     footer: Option<(String, Vec<String>)>,
-    twelve_hour: bool,
     shown: glib::WeakRef<ColorPickerPopover>,
     spec: Vec<IndicatorSpec>,
     open: Option<u64>,
@@ -44,7 +40,6 @@ impl ColorPicker {
             notifications,
             tooltip_format: None,
             footer: None,
-            twelve_hour: false,
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             open: None,
@@ -83,12 +78,7 @@ impl ColorPicker {
         let latest = self.state.colors.first().map(|color| color.rgb);
         let title = latest.map(|color| format.render(color));
         shown.set_latest(title.as_deref().zip(latest.map(rgba)));
-        shown.set_shades(&render::shades(
-            &self.state.colors,
-            format,
-            Local::now(),
-            self.twelve_hour,
-        ));
+        shown.set_shades(&render::shades(&self.state.colors, format));
         shown.set_open(self.open);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
@@ -139,7 +129,7 @@ fn copy(service: &ColorPickerHandle, report: Report, id: u64, format: ColorForma
 }
 
 impl Applet for ColorPicker {
-    fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
+    fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::ColorPicker {} = &config.kind else {
             return;
         };
@@ -148,8 +138,6 @@ impl Applet for ColorPicker {
             .common
             .settings()
             .map(|(label, command)| (label.to_owned(), command.to_vec()));
-        self.twelve_hour = config.regional.twelve_hour();
-        ctx.interval(REFRESH);
         self.refresh();
     }
 
@@ -168,19 +156,13 @@ impl Applet for ColorPicker {
                     self.open = None;
                 }
             }
-            Input::Tick => {
-                if let Some(shown) = self.shown.upgrade() {
-                    self.dress(&shown);
-                }
-                return;
-            }
             Input::Pointer(Pointer::Press(Button::Right)) => {
                 if !self.state.picking {
                     self.pick();
                 }
                 return;
             }
-            Input::Pointer(_) => return,
+            Input::Tick | Input::Pointer(_) => return,
         }
         self.refresh();
     }
