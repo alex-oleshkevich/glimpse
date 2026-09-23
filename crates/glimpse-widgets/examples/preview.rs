@@ -297,6 +297,7 @@ mod fixtures {
     const BUSY: &str = "busy";
     const ICON: &str = "icon__";
     const OVERLAY: &str = "overlay__";
+    const LABEL: &str = "label__";
     const SEVERITY: &str = "severity__";
     const ATTENTION: &str = "state__attention";
     const NOTICE: &str = "state__notice";
@@ -3311,17 +3312,24 @@ mod fixtures {
 
             let icon = named(ICON);
             let overlay = named(OVERLAY);
+            let label = named(LABEL);
             let severity = named(SEVERITY);
             let attention = flagged(ATTENTION);
             let notice = flagged(NOTICE);
 
-            if icon.is_none() && overlay.is_none() && severity.is_none() && !attention && !notice {
+            if icon.is_none()
+                && overlay.is_none()
+                && label.is_none()
+                && severity.is_none()
+                && !attention
+                && !notice
+            {
                 continue;
             }
 
             match icon {
                 Some(icon) => indicator.set_icon(Some(&themed_icon(&icon))),
-                None if overlay.is_none() && !attention && !notice => {
+                None if overlay.is_none() && label.is_none() && !attention && !notice => {
                     eprintln!("an $Indicator carries no {ICON} class and nothing else to draw")
                 }
                 None => {}
@@ -3329,6 +3337,10 @@ mod fixtures {
 
             if let Some(overlay) = overlay {
                 indicator.set_overlay(Some(&themed_icon(&overlay)));
+            }
+
+            if let Some(label) = label {
+                indicator.set_label(Some(&label));
             }
 
             match severity.as_deref() {
