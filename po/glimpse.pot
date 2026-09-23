@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 00:11+0200\n"
+"POT-Creation-Date: 2026-09-24 00:24+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -39,7 +39,6 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:156
 #: crates/glimpse-widgets/blueprints/network_popover.blp:186
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:175
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:166
 msgid "Cancel"
@@ -833,72 +832,75 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/mod.rs:183
+#: crates/glimpse-panel/src/applets/idle/mod.rs:221
 #: crates/glimpse-panel/src/applets/printing/render.rs:165
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:246
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:168
 msgid "Idle"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:23
-#: crates/glimpse-panel/src/applets/idle/render.rs:37
+#: crates/glimpse-panel/src/applets/idle/render.rs:41
 msgid "Idle daemon not running"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:28
-#: crates/glimpse-panel/src/applets/idle/render.rs:40
+#: crates/glimpse-panel/src/applets/idle/render.rs:44
 msgid "The compositor is not reporting idle time"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:43
+#: crates/glimpse-panel/src/applets/idle/render.rs:36
+msgid "Awake until {time}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:47
 msgid "Nothing preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:57
-#: crates/glimpse-panel/src/applets/idle/render.rs:60
+#: crates/glimpse-panel/src/applets/idle/render.rs:62
 msgid "Awake until you turn it off"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:73
+#: crates/glimpse-panel/src/applets/idle/render.rs:77
 msgid "{n} app preventing idle or sleep"
 msgid_plural "{n} apps preventing idle or sleep"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:78
+#: crates/glimpse-panel/src/applets/idle/render.rs:82
 msgid "{n} app preventing idle"
 msgid_plural "{n} apps preventing idle"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:129
+#: crates/glimpse-panel/src/applets/idle/render.rs:134
 msgid "Unknown"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:136
+#: crates/glimpse-panel/src/applets/idle/render.rs:141
 msgid "just now"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:139
+#: crates/glimpse-panel/src/applets/idle/render.rs:144
 msgid "{n} minute ago"
 msgid_plural "{n} minutes ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:143
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
 msgid "{n} hour ago"
 msgid_plural "{n} hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:148
+#: crates/glimpse-panel/src/applets/idle/render.rs:153
 msgid "(Flatpak via portal)"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:150
+#: crates/glimpse-panel/src/applets/idle/render.rs:155
 msgid "(systemd-inhibit · pid {pid})"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:159
+#: crates/glimpse-panel/src/applets/idle/render.rs:164
 msgid "Preventing idle"
 msgstr ""
 
@@ -1478,7 +1480,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:75
 #: crates/glimpse-panel/src/applets/session/render.rs:77
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:247
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:169
 msgid "Suspend"
 msgstr ""
 
@@ -1713,7 +1715,6 @@ msgid "Expires"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:377
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Source"
 msgstr ""
 
@@ -1843,32 +1844,33 @@ msgstr ""
 msgid "Keep awake"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:35
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/src/idle_popover/mod.rs:64
 msgid "Keep awake for…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:61
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:51
 msgid "15 minutes"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:66
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:56
 msgid "30 minutes"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:71
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:61
 msgid "1 hour"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:76
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:66
 msgid "2 hours"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:81
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:71
 msgid "4 hours"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/idle_popover.blp:86
-msgid "Until you turn it off"
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:78
+msgid "Kept awake by"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
@@ -2085,43 +2087,31 @@ msgstr ""
 msgid "{x}, {y}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:29
-msgid "Screen saver"
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:107
+msgid "Release"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:30
-msgid "Portal"
-msgstr ""
-
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:31
-msgid "System"
-msgstr ""
-
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:32
-msgid "Manual hold"
-msgstr ""
-
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:142
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Prevents"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:248
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:170
 msgid "Shutdown"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:249
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:171
 msgid "Lid"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:250
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:172
 msgid "Power key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:251
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:173
 msgid "Suspend key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:252
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:174
 msgid "Hibernate key"
 msgstr ""
 

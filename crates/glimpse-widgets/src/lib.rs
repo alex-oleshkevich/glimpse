@@ -712,7 +712,7 @@ mod tests {
         );
 
         let inhibitor_list = InhibitorList::new();
-        assert!(children_of::<gtk4::Box>(&inhibitor_list).is_empty());
+        assert!(children_of::<Expandable>(&inhibitor_list).is_empty());
         assert_eq!(
             inhibitor_list.measure(gtk4::Orientation::Vertical, -1).1,
             0,
@@ -734,28 +734,24 @@ mod tests {
         }
 
         inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let holders = children_of::<gtk4::Box>(&inhibitor_list);
+        let holders = children_of::<Expandable>(&inhibitor_list);
         assert_eq!(holders.len(), 2);
-        let first = holders[0].first_child().unwrap().downcast::<Row>().unwrap();
+        let first = holders[0].head::<Row>().expect("an inhibitor row");
+        let second = holders[1].head::<Row>().expect("an inhibitor row");
         let _chevron = child_named::<gtk4::Image>(&first, "drawer-chevron");
-        let first_panel = holders[0]
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let second_panel = holders[1]
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let card = first_panel
-            .child()
-            .unwrap()
-            .downcast::<gtk4::Box>()
-            .unwrap();
-        let cancel = children_of::<Row>(&card).remove(0);
-        assert!(cancel.activatable());
-        assert!(!first_panel.reveals_child());
+        let release_of = |holder: &Expandable| -> Row {
+            holder
+                .details::<gtk4::Box>()
+                .and_then(|card| card.last_child())
+                .and_downcast::<Row>()
+                .expect("a card ends with Release")
+        };
+        let release = release_of(&holders[0]);
+        assert!(
+            release.activatable() && release.has_css_class("row--destructive"),
+            "Release ends another app's hold, so it reads as destructive"
+        );
+        assert!(!holders[0].expanded());
 
         let touched_row = first.clone();
         touched_row.set_title(Some("Touched by hand"));
@@ -789,47 +785,26 @@ mod tests {
             move |_, id| reported.borrow_mut().push(id)
         });
         first.emit_clicked();
-        assert!(first_panel.reveals_child());
-        assert!(inhibitor_list.is_open());
-        assert!(cancel.get_visible());
+        assert!(holders[0].expanded());
         assert!(
             reported.borrow().is_empty(),
-            "opening details does not cancel"
+            "opening details does not release"
         );
-        let second = holders[1].first_child().unwrap().downcast::<Row>().unwrap();
-        second.emit_clicked();
-        assert!(!first_panel.reveals_child());
-        assert!(second_panel.reveals_child());
-        let second_card = second_panel
-            .child()
-            .unwrap()
-            .downcast::<gtk4::Box>()
-            .unwrap();
-        let second_cancel = children_of::<Row>(&second_card).remove(0);
-        assert!(!second_cancel.get_visible());
-        second.emit_clicked();
-        assert!(!second_panel.reveals_child());
-        first.emit_clicked();
-        cancel.emit_clicked();
+        assert!(
+            !second.activatable() && !holders[1].expanded(),
+            "a hold that prevents only idle and cannot be released has nothing to open"
+        );
+        release.emit_clicked();
         assert_eq!(*reported.borrow(), vec![1]);
 
         inhibitor_list.set_inhibitors(&[inhibitor(9, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let reused = children_of::<gtk4::Box>(&inhibitor_list);
-        assert_eq!(
+        let reused = children_of::<Expandable>(&inhibitor_list);
+        assert_ne!(
             reused[0], holders[0],
-            "row 0 is reused in place, not rebuilt"
+            "another hold is another row, so a release can only ever name its own id"
         );
-        assert!(
-            !inhibitor_list.is_open(),
-            "a removed inhibitor closes its details"
-        );
-        cancel.emit_clicked();
-        assert_eq!(
-            *reported.borrow(),
-            vec![1, 9],
-            "the same action row now reports the id its row currently represents, not the id \
-             captured when the row was first built"
-        );
+        release_of(&reused[0]).emit_clicked();
+        assert_eq!(*reported.borrow(), vec![1, 9]);
 
         let entry_without_tabs = InhibitorEntry {
             id: 5,
@@ -845,36 +820,34 @@ mod tests {
             can_release: false,
         };
         inhibitor_list.set_inhibitors(&[entry_without_tabs]);
-        let holder_without_tabs = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
-        let row_without_tabs = holder_without_tabs
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap();
+        let holder_without_tabs = children_of::<Expandable>(&inhibitor_list).remove(0);
+        let row_without_tabs = holder_without_tabs.head::<Row>().expect("a row");
         let chip_icon = child_named::<gtk4::Image>(&row_without_tabs, "row__icon");
         assert_eq!(
             chip_icon.icon_name().as_deref(),
             Some("system-run-symbolic")
         );
-        let panel = holder_without_tabs
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        let cancel = children_of::<Row>(&card).remove(0);
         row_without_tabs.emit_clicked();
-        assert!(panel.reveals_child());
         assert!(
-            !cancel.get_visible(),
-            "an external inhibitor cannot be canceled"
+            holder_without_tabs.expanded(),
+            "a hold that prevents more than idle opens to say what, even when it cannot be released"
         );
+        assert!(
+            !release_of(&holder_without_tabs).get_visible(),
+            "an external inhibitor cannot be released"
+        );
+        let card = holder_without_tabs.details::<gtk4::Box>().expect("a card");
         let facts = children_of::<FactList>(&card).remove(0);
         let values = children_of::<Row>(&facts)
             .iter()
             .filter_map(Row::value)
             .collect::<Vec<_>>();
-        assert!(values.iter().any(|value| value.contains("Shutdown")));
+        assert_eq!(
+            values.len(),
+            1,
+            "the card says what it prevents and nothing the row says"
+        );
+        assert!(values[0].contains("Shutdown"));
         let hostile = "ё".repeat(TEXT_MAX_CHARS * 2);
         inhibitor_list.set_inhibitors(&[InhibitorEntry {
             id: 7,
@@ -884,12 +857,10 @@ mod tests {
             targets: InhibitorTargets::default(),
             can_release: false,
         }]);
-        let hostile_holder = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
-        let hostile_row = hostile_holder
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap();
+        let hostile_row = children_of::<Expandable>(&inhibitor_list)
+            .remove(0)
+            .head::<Row>()
+            .expect("a row");
         let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
         let hostile_subtitle = child_named::<gtk4::Label>(&hostile_row, "row__subtitle");
         assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
@@ -6332,12 +6303,11 @@ mod tests {
         let idle = IdlePopover::new();
         let idle_hold = idle.imp().hold.clone();
         let idle_hold_row = idle.imp().hold_row.clone();
+        let idle_hold_card = idle.imp().hold_card.clone();
         let _hold_chevron = child_named::<gtk4::Image>(&idle_hold_row, "drawer-chevron");
-        let idle_hold_panel = idle.imp().hold_panel.clone();
-        let idle_list_rule = idle.imp().list_rule.clone();
         assert!(
-            !idle_list_rule.get_visible(),
-            "no entries yet, so the hairline above the list shows nothing"
+            !idle.imp().others.get_visible(),
+            "no other app holding means no \"Kept awake by\" section at all"
         );
 
         idle.set_heading("preferences-desktop-screensaver-symbolic", "Idle", None);
@@ -6358,59 +6328,36 @@ mod tests {
         assert_eq!(*idle_toggled.borrow(), [true]);
 
         assert!(
-            !idle_hold_panel.reveals_child(),
+            !idle_hold_card.expanded(),
             "the duration choices start closed"
         );
-        assert!(
-            idle_hold_panel
-                .child()
-                .is_some_and(|card| card.has_css_class("detail-card")),
-            "duration choices use the same detail card as other drawers"
+        assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+        idle.set_hold_label(Some("Awake until 15:40"));
+        assert_eq!(
+            idle_hold_row.title().as_deref(),
+            Some("Awake until 15:40"),
+            "while a timed hold runs, the row names what a preset would replace"
         );
+        idle.set_hold_label(None);
+        assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
         idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
         idle.set_footer(Some("Idle settings"));
         idle_hold_row.emit_clicked();
         assert!(
-            idle_hold_panel.reveals_child()
-                && idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
-                && idle.imp().hero.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().footer.has_css_class(crate::drawer::RECEDED)
-                && idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .hero_rule
-                    .has_css_class(crate::drawer::RECEDED)
-                && idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .footer_rule
-                    .has_css_class(crate::drawer::RECEDED),
-            "the duration row opens its choices and dims the resting popover"
+            idle_hold_card.expanded()
+                && dimmed(idle.imp().hero.upcast_ref())
+                && dimmed(idle.imp().list.upcast_ref())
+                && dimmed(idle.imp().footer.upcast_ref()),
+            "the duration row opens its choices and dims the rest of the popover"
         );
         idle_hold_row.emit_clicked();
         assert!(
-            !idle_hold_panel.reveals_child()
-                && !idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
-                && !idle.imp().hero.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().footer.has_css_class(crate::drawer::RECEDED)
-                && !idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .hero_rule
-                    .has_css_class(crate::drawer::RECEDED)
-                && !idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .footer_rule
-                    .has_css_class(crate::drawer::RECEDED),
+            !idle_hold_card.expanded() && !dimmed(idle.imp().hero.upcast_ref()),
             "the same duration row closes its choices and restores the popover"
         );
 
@@ -6425,7 +6372,6 @@ mod tests {
             (&idle.imp().preset_1h, 3600),
             (&idle.imp().preset_2h, 7200),
             (&idle.imp().preset_4h, 14400),
-            (&idle.imp().preset_indefinite, 0),
         ] {
             button.emit_clicked();
             assert_eq!(
@@ -6434,36 +6380,40 @@ mod tests {
                 "each preset button must ask for its own duration, not a neighbour's"
             );
         }
-        assert_eq!(*idle_requested.borrow(), [900, 1800, 3600, 7200, 14400, 0]);
+        assert_eq!(
+            *idle_requested.borrow(),
+            [900, 1800, 3600, 7200, 14400],
+            "no preset asks for an indefinite hold: the switch is that"
+        );
+        idle_hold_row.emit_clicked();
+        idle.collapse_hold();
+        assert!(
+            !idle_hold_card.expanded(),
+            "a hold that was set closes the choices it was picked from"
+        );
 
         idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
-        assert!(
-            idle_list_rule.get_visible(),
-            "an entry pulls the hairline above the list back in"
-        );
+        assert!(idle.imp().others.get_visible());
         let idle_released = Rc::new(RefCell::new(Vec::<u64>::new()));
         idle.connect_release_requested({
             let idle_released = Rc::clone(&idle_released);
             move |_, id| idle_released.borrow_mut().push(id)
         });
-        let holder = children_of::<gtk4::Box>(&*idle.imp().list).remove(0);
-        let tile = holder.first_child().unwrap().downcast::<Row>().unwrap();
-        let panel = holder
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        tile.emit_clicked();
-        assert!(panel.reveals_child());
-        assert!(idle.imp().hero.has_css_class(crate::drawer::RECEDED));
-        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        children_of::<Row>(&card).remove(0).emit_clicked();
+        let holder = children_of::<Expandable>(&*idle.imp().list).remove(0);
+        holder.head::<Row>().expect("a row").emit_clicked();
+        assert!(holder.expanded() && dimmed(idle.imp().hero.upcast_ref()));
+        holder
+            .details::<gtk4::Box>()
+            .and_then(|card| card.last_child())
+            .and_downcast::<Row>()
+            .expect("Release")
+            .emit_clicked();
         assert_eq!(*idle_released.borrow(), [1]);
 
         idle.set_inhibitors(&[]);
         assert!(
-            !idle_list_rule.get_visible() && !idle.imp().hero.has_css_class(crate::drawer::RECEDED),
-            "the hairline and dimming clear when the list empties"
+            !idle.imp().others.get_visible() && !dimmed(idle.imp().hero.upcast_ref()),
+            "the section and the dimming clear when the list empties"
         );
 
         let idle_footer_activated = Rc::new(Cell::new(0u32));

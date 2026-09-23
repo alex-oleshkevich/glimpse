@@ -1,8 +1,10 @@
 pub(crate) mod render;
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Local, Utc};
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::idle::{IdleProviderHandle, IdleProviderState};
@@ -20,6 +22,8 @@ pub struct Idle {
     tooltip_format: Option<String>,
     state: IdleProviderState,
     manual_hold: Vec<u64>,
+    until: Rc<Cell<Option<DateTime<Local>>>>,
+    twelve: bool,
     icon: Option<(&'static str, gio::Icon)>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<IdlePopover>,
@@ -31,6 +35,7 @@ impl Applet for Idle {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
+        self.twelve = config.regional.twelve_hour();
         self.footer = config
             .common
             .settings()
@@ -60,11 +65,26 @@ impl Applet for Idle {
         shown.connect_hold_requested({
             let idle = self.idle.clone();
             let opener = seat.opener();
+            let until = Rc::clone(&self.until);
             move |popover, seconds| {
                 popover.set_hold_active(true);
                 let idle = idle.clone();
-                settling("idle.hold", opener.clone(), async move {
-                    idle.hold(seconds).await
+                let opener = opener.clone();
+                let until = Rc::clone(&until);
+                let popover = popover.downgrade();
+                relm4::spawn_local(async move {
+                    match idle.hold(seconds).await {
+                        Ok(_) => {
+                            until.set(Some(Local::now() + Duration::from_secs(seconds.into())));
+                            if let Some(popover) = popover.upgrade() {
+                                popover.collapse_hold();
+                            }
+                        }
+                        Err(error) => {
+                            tracing::warn!(operation = "idle.hold", %error, "service command failed");
+                        }
+                    }
+                    opener.wake();
                 });
             }
         });
@@ -72,7 +92,9 @@ impl Applet for Idle {
         shown.connect_hold_toggled({
             let idle = self.idle.clone();
             let opener = seat.opener();
+            let until = Rc::clone(&self.until);
             move |_, on| {
+                until.set(None);
                 if on {
                     let idle = idle.clone();
                     settling(
@@ -123,6 +145,8 @@ impl Idle {
             tooltip_format: None,
             state,
             manual_hold,
+            until: Rc::new(Cell::new(None)),
+            twelve: false,
             icon: None,
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
@@ -132,6 +156,17 @@ impl Idle {
     fn sync(&mut self) {
         self.state = self.idle.snapshot();
         self.manual_hold = render::manual_hold_ids(&self.state.inhibitors);
+        if self.manual_hold.is_empty() || self.until.get().is_some_and(|at| at <= Local::now()) {
+            self.until.set(None);
+        }
+    }
+
+    /// When the hold glimpse set will end, formatted with the configured clock. The service keeps
+    /// no end time, so this is what the applet remembers of the preset it asked for.
+    fn ends(&self) -> Option<String> {
+        self.until
+            .get()
+            .map(|at| at.format(glimpse_config::clock(self.twelve)).to_string())
     }
 
     fn refresh(&mut self) {
@@ -158,6 +193,7 @@ impl Idle {
             tooltip: render::tooltip(
                 &self.state,
                 &self.manual_hold,
+                self.ends().as_deref(),
                 self.tooltip_format.as_deref(),
             ),
             severity: active.then_some(Severity::Warning),
@@ -178,12 +214,19 @@ impl Idle {
 
     fn dress(&self, shown: &IdlePopover) {
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        let held = !self.manual_hold.is_empty();
+        let ends = self.ends();
         shown.set_heading(
-            render::ICON_IDLE,
+            render::icon(held),
             &gettext("Idle"),
-            Some(&render::hero_subtitle(&self.state, &self.manual_hold)),
+            Some(&render::hero_subtitle(
+                &self.state,
+                &self.manual_hold,
+                ends.as_deref(),
+            )),
         );
-        shown.set_hold_active(!self.manual_hold.is_empty());
+        shown.set_hold_active(held);
+        shown.set_hold_label(ends.map(|at| render::awake_until(&at)).as_deref());
         shown.set_inhibitors(&render::to_inhibitor_entries(
             &self.state.inhibitors,
             &self.manual_hold,

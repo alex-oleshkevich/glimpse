@@ -437,7 +437,10 @@ its readable subtitle are `DisplayList`'s own; the service refuses the command u
 
 **idle** — the priority table behind the hero subtitle is documented by `render.rs`'s own test names,
 not restated here. The chip is never hidden while the daemon answers, unlike a notifier: it is the
-only way to reach the six fixed hold presets, so it must stay reachable even with nothing to report.
+only way to reach the five hold presets, so it must stay reachable even with nothing to report. The
+switch is the indefinite hold, so no preset repeats it, and glimpse's own hold is never a row under
+"Kept awake by". **The daemon keeps no end time**, so the applet remembers the one it asked for and
+the hero and hold row read "Awake until 15:40" in the configured clock; a restart forgets it.
 `render::icon` carries that distinction instead — **`view-conceal-symbolic` while idle is allowed,
 `view-reveal-symbolic` while something holds the session awake**. The two states are one glyph
 family on purpose: an open eye against a struck-through one reads as one thing changing, where the

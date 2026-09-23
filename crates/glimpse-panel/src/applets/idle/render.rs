@@ -32,7 +32,11 @@ pub fn unusable(state: &IdleProviderState) -> Option<String> {
     }
 }
 
-pub fn hero_subtitle(state: &IdleProviderState, manual_hold: &[u64]) -> String {
+pub fn awake_until(time: &str) -> String {
+    gettext("Awake until {time}").replace("{time}", time)
+}
+
+pub fn hero_subtitle(state: &IdleProviderState, manual_hold: &[u64], ends: Option<&str>) -> String {
     if !state.available {
         return gettext("Idle daemon not running");
     }
@@ -53,13 +57,13 @@ pub fn hero_subtitle(state: &IdleProviderState, manual_hold: &[u64]) -> String {
         .filter(|record| !manual_hold.contains(&record.id))
         .collect();
 
+    let held = match ends {
+        Some(time) => awake_until(time),
+        None => gettext("Awake until you turn it off"),
+    };
     match (mine, others.len()) {
-        (true, 0) => gettext("Awake until you turn it off"),
-        (true, n) => format!(
-            "{} · {}",
-            gettext("Awake until you turn it off"),
-            apps_wording(&others, n)
-        ),
+        (true, 0) => held,
+        (true, n) => format!("{held} · {}", apps_wording(&others, n)),
         (false, n) => apps_wording(&others, n),
     }
 }
@@ -86,12 +90,13 @@ fn apps_wording(records: &[&IdleInhibitorRecord], count: usize) -> String {
 pub fn tooltip(
     state: &IdleProviderState,
     manual_hold: &[u64],
+    ends: Option<&str>,
     format: Option<&str>,
 ) -> Option<String> {
     if !state.available {
         return state.reason.clone();
     }
-    let status = hero_subtitle(state, manual_hold);
+    let status = hero_subtitle(state, manual_hold, ends);
     Some(match format {
         None => status,
         Some(format) => crate::applets::tokens::render(format, |token| match token {
@@ -154,22 +159,19 @@ fn source_suffix(record: &IdleInhibitorRecord) -> Option<String> {
     }
 }
 
-fn row_status(record: &IdleInhibitorRecord, mine: bool, now: DateTime<Utc>) -> String {
+fn row_status(record: &IdleInhibitorRecord, now: DateTime<Utc>) -> String {
     let why = match record.why.is_empty() {
         true => gettext("Preventing idle"),
         false => glimpse_utils::clean(&record.why, WHY_CAP),
     };
     let mut status = format!("{why} · {}", relative(now, record.added_at_unix));
-    if !mine && let Some(suffix) = source_suffix(record) {
+    if let Some(suffix) = source_suffix(record) {
         status = format!("{status} {suffix}");
     }
     status
 }
 
-fn row_source(kind: SourceKind, mine: bool) -> InhibitorSource {
-    if mine {
-        return InhibitorSource::ManualHold;
-    }
+fn row_source(kind: SourceKind) -> InhibitorSource {
     match kind {
         SourceKind::ScreenSaver => InhibitorSource::ScreenSaver,
         SourceKind::Portal => InhibitorSource::Portal,
@@ -189,6 +191,8 @@ fn row_targets(record: &IdleInhibitorRecord) -> InhibitorTargets {
     }
 }
 
+/// Other apps' holds only: glimpse's own is the header switch and the hold row, and listing it
+/// again under "Kept awake by" would say the same thing twice.
 pub fn to_inhibitor_entries(
     records: &[IdleInhibitorRecord],
     manual_hold: &[u64],
@@ -196,16 +200,14 @@ pub fn to_inhibitor_entries(
 ) -> Vec<InhibitorEntry> {
     records
         .iter()
-        .map(|record| {
-            let mine = manual_hold.contains(&record.id);
-            InhibitorEntry {
-                id: record.id,
-                source: row_source(record.source.kind, mine),
-                label: row_label(record),
-                status: row_status(record, mine, now),
-                targets: row_targets(record),
-                can_release: record.can_release,
-            }
+        .filter(|record| !manual_hold.contains(&record.id))
+        .map(|record| InhibitorEntry {
+            id: record.id,
+            source: row_source(record.source.kind),
+            label: row_label(record),
+            status: row_status(record, now),
+            targets: row_targets(record),
+            can_release: record.can_release,
         })
         .collect()
 }
@@ -287,13 +289,13 @@ mod tests {
     fn a_daemon_with_no_owner_reports_itself_first() {
         let mut down = state(vec![screen_saver_record(1)]);
         down.available = false;
-        assert_eq!(hero_subtitle(&down, &[]), "Idle daemon not running");
+        assert_eq!(hero_subtitle(&down, &[], None), "Idle daemon not running");
     }
 
     #[test]
     fn no_inhibitors_at_all_reads_as_nothing_preventing_idle() {
         assert_eq!(
-            hero_subtitle(&state(vec![]), &[]),
+            hero_subtitle(&state(vec![]), &[], None),
             "Nothing preventing idle"
         );
     }
@@ -301,20 +303,23 @@ mod tests {
     #[test]
     fn a_lone_manual_hold_says_it_is_the_reason() {
         let held = state(vec![manual_hold_record(9)]);
-        assert_eq!(hero_subtitle(&held, &[9]), "Awake until you turn it off");
+        assert_eq!(
+            hero_subtitle(&held, &[9], None),
+            "Awake until you turn it off"
+        );
     }
 
     #[test]
     fn a_hold_id_not_present_any_more_is_not_trusted() {
         let held = state(vec![screen_saver_record(1)]);
-        assert_eq!(hero_subtitle(&held, &[999]), "1 app preventing idle");
+        assert_eq!(hero_subtitle(&held, &[999], None), "1 app preventing idle");
     }
 
     #[test]
     fn two_holds_of_our_own_still_read_as_one_awake_clause() {
         let held = state(vec![manual_hold_record(9), manual_hold_record(10)]);
         assert_eq!(
-            hero_subtitle(&held, &[9, 10]),
+            hero_subtitle(&held, &[9, 10], None),
             "Awake until you turn it off"
         );
     }
@@ -322,7 +327,7 @@ mod tests {
     #[test]
     fn idle_only_apps_say_idle_and_nothing_about_sleep() {
         let held = state(vec![screen_saver_record(1), screen_saver_record(2)]);
-        assert_eq!(hero_subtitle(&held, &[]), "2 apps preventing idle");
+        assert_eq!(hero_subtitle(&held, &[], None), "2 apps preventing idle");
     }
 
     #[test]
@@ -337,7 +342,10 @@ mod tests {
             IdleInhibitorSource::portal("/req/1", "org.videolan.VLC"),
         );
         let held = state(vec![screen_saver_record(1), sleepy]);
-        assert_eq!(hero_subtitle(&held, &[]), "2 apps preventing idle or sleep");
+        assert_eq!(
+            hero_subtitle(&held, &[], None),
+            "2 apps preventing idle or sleep"
+        );
     }
 
     #[test]
@@ -352,7 +360,7 @@ mod tests {
             IdleInhibitorSource::login1(4400, 0, Login1Mode::Block),
         );
         assert_eq!(
-            hero_subtitle(&state(vec![record]), &[]),
+            hero_subtitle(&state(vec![record]), &[], None),
             "1 app preventing idle or sleep"
         );
     }
@@ -361,7 +369,7 @@ mod tests {
     fn manual_hold_plus_others_combines_both_clauses() {
         let held = state(vec![manual_hold_record(9), screen_saver_record(1)]);
         assert_eq!(
-            hero_subtitle(&held, &[9]),
+            hero_subtitle(&held, &[9], None),
             "Awake until you turn it off · 1 app preventing idle"
         );
     }
@@ -407,7 +415,7 @@ mod tests {
              nothing to report"
         );
         assert_eq!(
-            hero_subtitle(&broken, &[]),
+            hero_subtitle(&broken, &[], None),
             "The compositor is not reporting idle time"
         );
         assert!(
@@ -451,26 +459,35 @@ mod tests {
     }
 
     #[test]
-    fn the_manual_holds_own_row_carries_no_source_suffix() {
-        let now = Utc.with_ymd_and_hms(2026, 9, 18, 12, 0, 0).unwrap();
-        let entries = to_inhibitor_entries(&[manual_hold_record(9)], &[9], now);
-        assert_eq!(entries[0].source, InhibitorSource::ManualHold);
-        assert!(!entries[0].status.contains("pid"));
-    }
-
-    #[test]
-    fn a_second_hold_of_our_own_is_recognised_as_ours_too() {
+    fn glimpses_own_holds_are_not_listed_among_the_others() {
         let now = Utc.with_ymd_and_hms(2026, 9, 18, 12, 0, 0).unwrap();
         let entries = to_inhibitor_entries(
-            &[manual_hold_record(9), manual_hold_record(10)],
+            &[
+                manual_hold_record(9),
+                manual_hold_record(10),
+                screen_saver_record(1),
+            ],
             &[9, 10],
             now,
         );
-        assert!(
-            entries
-                .iter()
-                .all(|entry| entry.source == InhibitorSource::ManualHold),
-            "a hold pressed while already holding must not render as a stranger"
+        assert_eq!(
+            entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            [1],
+            "the hold glimpse set is the switch and the hold row, never a second row, even when \
+             pressed while already holding"
+        );
+    }
+
+    #[test]
+    fn a_timed_hold_says_when_it_ends() {
+        let held = state(vec![manual_hold_record(9)]);
+        assert_eq!(
+            hero_subtitle(&held, &[9], Some("15:40")),
+            awake_until("15:40")
+        );
+        assert_eq!(
+            hero_subtitle(&held, &[9], None),
+            "Awake until you turn it off"
         );
     }
 
@@ -512,7 +529,7 @@ mod tests {
         down.available = false;
         down.reason = Some("provider has no bus owner".to_owned());
         assert_eq!(
-            tooltip(&down, &[], None).as_deref(),
+            tooltip(&down, &[], None, None).as_deref(),
             Some("provider has no bus owner")
         );
     }
@@ -520,7 +537,7 @@ mod tests {
     #[test]
     fn tooltip_always_reports_something_while_the_daemon_is_up() {
         assert_eq!(
-            tooltip(&state(vec![]), &[], None).as_deref(),
+            tooltip(&state(vec![]), &[], None, None).as_deref(),
             Some("Nothing preventing idle"),
             "the chip is always shown while the daemon is up, so its tooltip always has content"
         );
@@ -530,7 +547,7 @@ mod tests {
     fn a_tooltip_format_fills_the_status_token() {
         let held = state(vec![screen_saver_record(1)]);
         assert_eq!(
-            tooltip(&held, &[], Some("Idle: {status}")).as_deref(),
+            tooltip(&held, &[], None, Some("Idle: {status}")).as_deref(),
             Some("Idle: 1 app preventing idle")
         );
     }

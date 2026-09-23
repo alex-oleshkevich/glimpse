@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Fact, FactList, Row, drawer};
+use crate::{Expandable, Fact, FactList, Row, reconcile};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InhibitorSource {
@@ -11,7 +11,6 @@ pub enum InhibitorSource {
     ScreenSaver,
     Portal,
     Login1,
-    ManualHold,
 }
 
 impl InhibitorSource {
@@ -20,16 +19,6 @@ impl InhibitorSource {
             Self::ScreenSaver => "preferences-desktop-screensaver-symbolic",
             Self::Portal => "package-x-generic-symbolic",
             Self::Login1 => "system-run-symbolic",
-            Self::ManualHold => "alarm-symbolic",
-        }
-    }
-
-    fn label(self) -> String {
-        match self {
-            Self::ScreenSaver => gettext("Screen saver"),
-            Self::Portal => gettext("Portal"),
-            Self::Login1 => gettext("System"),
-            Self::ManualHold => gettext("Manual hold"),
         }
     }
 }
@@ -79,34 +68,6 @@ impl InhibitorList {
         }
         imp.entries.replace(entries.to_vec());
         self.render();
-        if imp
-            .opened
-            .get()
-            .is_some_and(|id| !entries.iter().any(|entry| entry.id == id))
-        {
-            self.set_open(None);
-        } else {
-            self.reveal();
-        }
-    }
-
-    pub fn is_open(&self) -> bool {
-        self.imp().opened.get().is_some()
-    }
-
-    pub fn close_detail(&self) {
-        self.set_open(None);
-    }
-
-    pub fn connect_detail_toggled<F: Fn(&Self, bool) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "detail-toggled",
-            false,
-            glib::closure_local!(move |list: Self, open: bool| f(&list, open)),
-        )
     }
 
     pub fn connect_release_requested<F: Fn(&Self, u64) + 'static>(
@@ -123,121 +84,82 @@ impl InhibitorList {
     fn render(&self) {
         let imp = self.imp();
         let entries = imp.entries.borrow().clone();
-        let mut items = imp.items.borrow_mut();
-
-        for (index, entry) in entries.iter().enumerate() {
-            if items.len() == index {
-                let item = self.build_item(index);
-                item.holder
-                    .insert_after(self, items.last().map(|item| &item.holder));
-                items.push(item);
-            }
-            let item = &items[index];
-            item.row.set_title(crate::none_if_empty(&entry.label));
-            item.row.set_subtitle(crate::none_if_empty(&entry.status));
-            item.row.set_lead_icon(Some(entry.source.icon_name()));
-            crate::set_text(&item.description, Some(&entry.status));
-            item.facts.set_facts(&[
-                Fact::new(gettext("Source"), entry.source.label()),
-                Fact::new(gettext("Prevents"), targets(&entry.targets)),
-            ]);
-            item.cancel.set_visible(entry.can_release);
-        }
-
-        for item in items.split_off(entries.len()) {
-            item.holder.unparent();
-        }
+        reconcile::by_key(
+            self,
+            &mut imp.items.borrow_mut(),
+            &entries,
+            |entry| entry.id,
+            |entry| self.build_item(entry.id),
+            dress,
+        );
     }
 
-    fn build_item(&self, index: usize) -> imp::Item {
+    /// An app's whole row opens a card of what it prevents and, when it may be ended, a
+    /// destructive Release: it ends another app's hold, which is not what "Cancel" reads as.
+    fn build_item(&self, id: u64) -> Expandable {
         let row = Row::new();
-        let arrow = gtk4::Image::from_icon_name("go-next-symbolic");
-        arrow.set_accessible_role(gtk4::AccessibleRole::Presentation);
-        arrow.add_css_class("drawer-chevron");
-        row.set_trail(&arrow);
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| {
-                let id = list.imp().entries.borrow().get(index).map(|entry| entry.id);
-                if let Some(id) = id {
-                    list.toggle_detail(id);
-                }
-            }
-        ));
+        let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        chevron.add_css_class("drawer-chevron");
+        row.set_trail(&chevron);
 
-        let description = gtk4::Label::new(None);
-        description.set_wrap(true);
-        description.set_xalign(0.0);
-        description.add_css_class("detail-card__description");
-        let facts = FactList::new();
-        let cancel = Row::new();
-        cancel.set_title(Some(gettext("Cancel")));
-        cancel.set_activatable(true);
-        cancel.connect_clicked(glib::clone!(
+        let release = Row::new();
+        release.set_title(Some(gettext("Release").as_str()));
+        release.set_activatable(true);
+        release.add_css_class("row--destructive");
+        release.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_| {
-                let target = list
-                    .imp()
-                    .entries
-                    .borrow()
-                    .get(index)
-                    .filter(|entry| entry.can_release)
-                    .map(|entry| entry.id);
-                if let Some(id) = target {
-                    list.emit_by_name::<()>("release-requested", &[&id]);
-                }
-            }
+            move |_| list.emit_by_name::<()>("release-requested", &[&id])
         ));
 
         let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        card.add_css_class("detail-card");
-        card.append(&description);
-        card.append(&facts);
-        card.append(&cancel);
+        card.append(&FactList::new());
+        card.append(&release);
 
-        let panel = gtk4::Revealer::builder()
-            .transition_type(gtk4::RevealerTransitionType::SlideDown)
-            .build();
-        panel.set_child(Some(&card));
-        let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        holder.append(&row);
-        holder.append(&panel);
+        let holder = Expandable::new(&row);
+        holder.set_details(Some(&card));
+        holder
+    }
+}
 
-        imp::Item {
-            holder,
-            row,
-            panel,
-            description,
-            facts,
-            cancel,
-        }
+/// The card repeats nothing the row says: the reason is the subtitle and the source is the icon,
+/// so it holds what the hold prevents and Release. One that prevents only idle and cannot be
+/// released has nothing left to show, and its row is plain text.
+fn dress(holder: &Expandable, entry: &InhibitorEntry) {
+    let Some(row) = holder.head::<Row>() else {
+        return;
+    };
+    row.set_title(crate::none_if_empty(&entry.label));
+    row.set_subtitle(crate::none_if_empty(&entry.status));
+    row.set_lead_icon(Some(entry.source.icon_name()));
+
+    let Some(card) = holder.details::<gtk4::Box>() else {
+        return;
+    };
+    if let Some(facts) = card.first_child().and_downcast::<FactList>() {
+        facts.set_facts(&[Fact::new(gettext("Prevents"), targets(&entry.targets))]);
+    }
+    if let Some(release) = card.last_child()
+        && release.get_visible() != entry.can_release
+    {
+        release.set_visible(entry.can_release);
     }
 
-    fn toggle_detail(&self, id: u64) {
-        let open = (self.imp().opened.get() != Some(id)).then_some(id);
-        self.set_open(open);
+    let only_idle = entry.targets
+        == InhibitorTargets {
+            idle: true,
+            ..InhibitorTargets::default()
+        };
+    let carded = entry.can_release || !only_idle;
+    row.set_activatable(carded);
+    if let Some(chevron) = row.trail()
+        && chevron.get_visible() != carded
+    {
+        chevron.set_visible(carded);
     }
-
-    fn set_open(&self, open: Option<u64>) {
-        let imp = self.imp();
-        if imp.opened.replace(open) == open {
-            return;
-        }
-        self.reveal();
-        self.emit_by_name::<()>("detail-toggled", &[&open.is_some()]);
-    }
-
-    fn reveal(&self) {
-        let imp = self.imp();
-        let open = imp.opened.get();
-        for (entry, item) in imp.entries.borrow().iter().zip(imp.items.borrow().iter()) {
-            let selected = open == Some(entry.id);
-            drawer::set(&item.panel, selected);
-            crate::set_css_class(&item.row, drawer::OPEN, selected);
-            crate::set_css_class(&item.row, drawer::RECEDED, open.is_some() && !selected);
-        }
+    if !carded {
+        holder.set_expanded(false);
     }
 }
 

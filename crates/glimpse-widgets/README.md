@@ -132,14 +132,14 @@ string, and loses its icon and its title/body split the moment it is flattened i
 
 ## InhibitorList
 
-Each inhibitor is a regular `Row`. Clicking it opens a drawer with its source and targets. A
-releasable inhibitor has a clickable Cancel row inside the drawer. Drawer chevrons rotate downward
-when their rows open.
+Each inhibitor is an `Expandable` whose whole row opens a card of what it prevents and, when it can
+be released, a destructive Release — it ends another app's hold, which "Cancel" does not say. The
+card repeats nothing the row shows: the reason is the subtitle, the source the icon. A hold that
+prevents only idle and cannot be released has nothing to show and is plain text with no chevron.
 
 - **`InhibitorEntry`/`InhibitorSource`/`InhibitorTargets` are local to this crate**, per the widget
   boundary rule above; `InhibitorSource` maps to a lead icon internally, not carried as a string.
-- **The Cancel row hides when `can_release` is false.** The handler reads the current entry by
-  position, because rows are reused across updates and an id captured at construction can go stale.
+- **Rows reconcile by inhibitor id**, so a Release row only ever names the hold it was built for.
 - **A states board declares `$InhibitorList` and feeds real data through `set_inhibitors`**, the same
   way `tray_states` tags each `TrayStrip` with a `demo__<case>` class.
 
@@ -261,11 +261,11 @@ switches cards in one click; dimmed openers keep their hover to say so. **No
 card row carries a lead icon**: the head above it already names the thing, so a column of glyphs
 beside one-word labels is decoration the eye has to step over. **What
 recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
-**`IdlePopover`'s hold switch is a second master control, not a readout**, emitting `hold-toggled` the
-same as an indefinite preset does; its six preset buttons carry their durations hardcoded in
+**`IdlePopover`'s hold switch is the indefinite hold, not a readout**, emitting `hold-toggled`; its
+five timed presets are an `Expandable` card under the hold row, their durations hardcoded in
 `imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
-Its duration choices use a detail card and dim the rest of the popover while open. Its inhibitor and
-footer separators stay hidden until an inhibitor row exists.
+Other apps' holds sit under a "Kept awake by" section, and it and the footer separator stay hidden
+until one exists.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
 wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal

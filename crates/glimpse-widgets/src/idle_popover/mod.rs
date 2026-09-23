@@ -2,7 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{InhibitorEntry, drawer};
+use gettextrs::gettext;
+
+use crate::InhibitorEntry;
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)
@@ -38,38 +40,36 @@ impl IdlePopover {
         imp.quiet.set(false);
     }
 
+    /// Other apps' holds, under "Kept awake by"; glimpse's own is the header switch and the hold
+    /// row, never a row here.
     pub fn set_inhibitors(&self, entries: &[InhibitorEntry]) {
         let imp = self.imp();
         imp.list.set_inhibitors(entries);
-        imp.list_rule.set_visible(!entries.is_empty());
+        if imp.others.get_visible() == entries.is_empty() {
+            imp.others.set_visible(!entries.is_empty());
+        }
         imp.shell.set_footer_separated(!entries.is_empty());
-        self.sync_dimming();
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
         crate::set_footer_row(&self.imp().footer, label);
     }
 
-    fn sync_dimming(&self) {
-        let imp = self.imp();
-        let hold_open = imp.hold_panel.reveals_child();
-        let detail_open = imp.list.is_open();
-        crate::set_css_class(&*imp.hold_row, drawer::OPEN, hold_open);
-        crate::set_css_class(&*imp.hold_row, drawer::RECEDED, detail_open);
-        for widget in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.footer.upcast_ref(),
-            imp.shell.imp().hero_rule.upcast_ref(),
-            imp.shell.imp().footer_rule.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, hold_open || detail_open);
+    /// The hold row names what a preset will replace — "Awake until 15:40" while a timed hold
+    /// runs — and falls back to its own "Keep awake for…" with `None`.
+    pub fn set_hold_label(&self, label: Option<&str>) {
+        let row = &self.imp().hold_row;
+        let wanted = label
+            .map(str::to_owned)
+            .unwrap_or_else(|| gettext("Keep awake for…"));
+        if row.title().as_deref() != Some(wanted.as_str()) {
+            row.set_title(Some(wanted.as_str()));
         }
-        for widget in [
-            imp.list_rule.upcast_ref::<gtk4::Widget>(),
-            imp.list.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, hold_open);
-        }
+    }
+
+    /// Closes the presets once the hold chosen from them is set.
+    pub fn collapse_hold(&self) {
+        self.imp().hold_card.set_expanded(false);
     }
 
     pub fn connect_hold_toggled<F: Fn(&Self, bool) + 'static>(

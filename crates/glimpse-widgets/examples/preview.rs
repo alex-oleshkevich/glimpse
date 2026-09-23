@@ -1985,18 +1985,6 @@ mod fixtures {
                         },
                         true,
                     ),
-                    entry(
-                        4,
-                        InhibitorSource::ManualHold,
-                        "Keep awake",
-                        "manual hold · until 16:24",
-                        InhibitorTargets {
-                            idle: true,
-                            suspend: true,
-                            ..InhibitorTargets::default()
-                        },
-                        true,
-                    ),
                 ]),
                 _ => {}
             }

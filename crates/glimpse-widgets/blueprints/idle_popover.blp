@@ -27,11 +27,8 @@ template $IdlePopover: Gtk.Widget {
         "column",
       ]
 
-      Gtk.Box hold_holder {
-        orientation: vertical;
-
+      $Expandable hold_card {
         $Row hold_row {
-          activatable: true;
           title: _("Keep awake for…");
 
           [trail]
@@ -45,56 +42,43 @@ template $IdlePopover: Gtk.Widget {
           }
         }
 
-        Gtk.Revealer hold_panel {
-          transition-type: slide_down;
-          reveal-child: false;
+        [details]
+        Gtk.Box {
+          orientation: vertical;
 
-          Gtk.Box {
-            orientation: vertical;
+          $Row preset_15m {
+            activatable: true;
+            title: _("15 minutes");
+          }
 
-            styles [
-              "detail-card",
-            ]
+          $Row preset_30m {
+            activatable: true;
+            title: _("30 minutes");
+          }
 
-            $Row preset_15m {
-              activatable: true;
-              title: _("15 minutes");
-            }
+          $Row preset_1h {
+            activatable: true;
+            title: _("1 hour");
+          }
 
-            $Row preset_30m {
-              activatable: true;
-              title: _("30 minutes");
-            }
+          $Row preset_2h {
+            activatable: true;
+            title: _("2 hours");
+          }
 
-            $Row preset_1h {
-              activatable: true;
-              title: _("1 hour");
-            }
-
-            $Row preset_2h {
-              activatable: true;
-              title: _("2 hours");
-            }
-
-            $Row preset_4h {
-              activatable: true;
-              title: _("4 hours");
-            }
-
-            $Row preset_indefinite {
-              activatable: true;
-              title: _("Until you turn it off");
-            }
+          $Row preset_4h {
+            activatable: true;
+            title: _("4 hours");
           }
         }
       }
 
-      Gtk.Separator list_rule {
-        orientation: horizontal;
+      $Section others {
         visible: false;
-      }
+        title: _("Kept awake by");
 
-      $InhibitorList list {}
+        $InhibitorList list {}
+      }
     }
 
     [footer]
