@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Section, SplitRow};
+use crate::Section;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/workspace_section.ui")]
@@ -14,7 +14,7 @@ pub struct WorkspaceSection {
     pub section: TemplateChild<Section>,
     #[template_child]
     pub rows: TemplateChild<gtk4::Box>,
-    pub held: RefCell<Vec<(u64, SplitRow)>>,
+    pub held: RefCell<Vec<(u64, gtk4::Box)>>,
 }
 
 #[glib::object_subclass]

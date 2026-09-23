@@ -3,7 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{SplitRow, Workspace};
+use crate::{SplitRow, Workspace, drawer};
 
 const URGENT: &str = "workspace-row--urgent";
 
@@ -57,7 +57,14 @@ impl WorkspaceSection {
         )
     }
 
-    fn row_for(&self, id: u64) -> SplitRow {
+    /// Every workspace row's holder, `(id, holder)`, for a caller that must reach across every
+    /// section's rows at once — reveal and recede are a property of the whole popover, not of one
+    /// output's section.
+    pub(crate) fn holders(&self) -> Vec<(u64, gtk4::Box)> {
+        self.imp().held.borrow().clone()
+    }
+
+    fn row_for(&self, id: u64) -> gtk4::Box {
         let split = SplitRow::new();
         split.connect_activated(glib::clone!(
             #[weak(rename_to = section)]
@@ -69,15 +76,18 @@ impl WorkspaceSection {
             self,
             move |_| section.emit_by_name::<()>("details", &[&id])
         ));
-        split
+        drawer::holder(&split)
     }
 }
 
-fn apply(split: &SplitRow, workspace: &Workspace) {
+fn apply(holder: &gtk4::Box, workspace: &Workspace) {
+    let Some(split) = drawer::head::<SplitRow>(holder) else {
+        return;
+    };
     let row = split.row();
     row.set_title(Some(workspace.label.as_str()));
     row.set_subtitle((!workspace.detail.is_empty()).then_some(workspace.detail.as_str()));
     row.set_selectable(true);
     row.set_selected(workspace.focused);
-    crate::set_css_class(split, URGENT, workspace.urgent);
+    crate::set_css_class(&split, URGENT, workspace.urgent);
 }

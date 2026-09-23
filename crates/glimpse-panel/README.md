@@ -170,8 +170,15 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   and that section hides rather than captioning nothing. **An event ending under an open popover
   closes it**, through `Opener::close_popover` — nothing in the runtime closes one when its group
   empties, and with no empty state there is nothing to fall back to, so the alternative is a
-  finished meeting left on screen with a live *Join* row. All-day is off by default. Join and details hide when the feed has no meeting URL or
-  facts. There is no RSVP. It does not send `calendar.set_range`.
+  finished meeting left on screen with a live *Join* row. All-day is off by default. *Join* opens
+  `Occasion.meeting_url` and only ever a recognised video-conferencing link; *Open event* opens
+  `Occasion.event_url`, the calendar's own `URL` property, whatever it points at. Either row hides
+  when the feed carries nothing for it, and so do the facts. `Duration` and `Status` are read off
+  every timed event, not only a decorated one; `Description` shows the feed's own text verbatim.
+  There is no RSVP. It does not send `calendar.set_range`. **`Clock.hide_all_day`** drops an all-day
+  entry from the calendar popover's day list and month markers alike — the next-event applet has
+  its own, older `all_day` toggle for whether one may take the bar, and the two settings are not
+  the same knob.
 - **An overlap is named, never re-chosen.** The bar takes one event — running before upcoming, then
   earliest start, then earliest end — and a *Conflicts* fact names what runs over it, with
   `{conflicts}` for the tooltip. Two meetings at once is the user's problem to see, not the applet's
@@ -188,6 +195,11 @@ and is injected as `Arc<dyn Selection>`. **An image is decoded through `thumbnai
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
 count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
 to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.
+**The row thumbnail's size is `max-width`/`max-height` in `.clipboard-list picture`, not a Rust
+`size_request`.** A `size_request` is a floor, not a ceiling — a decode up to 48px still asked for
+its full natural size in the row, widening it past a same-row icon; `max-width`/`max-height` in
+`glimpse.css` is what actually bounds it, with a small `margin` so it does not sit flush against the
+row's edge.
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
 through `gio::AppInfo::launch_default_for_uri`, off the main loop.
@@ -253,7 +265,8 @@ popover is one entry and asks for the keyboard with `Opener::typing` while it is
 an empty entry clears the name, and Esc closes. The chip takes the new name before the compositor
 answers and drops it on **any** answer, success included, re-reading the snapshot: niri refuses a
 name another workspace already holds and still replies `Ok`, so only the snapshot knows whether the
-rename happened.
+rename happened. Scroll steps `compositor.focus_workspace` `Next`/`Prev`, the same as the pager's
+own scroll in `PagerMode::Workspaces` — a chip this small has no strip to step over instead.
 
 **notifications** — the chip is a bell, hidden until the list has arrived and kept afterwards even
 when empty so do-not-disturb stays reachable. A collapsed stack card is a preview, so its
@@ -340,6 +353,12 @@ nothing without one.
 - **A master fader carries no device id of its own**, so its `level-changed`/`level-toggled`
   resolve the current default device from a fresh `AudioHandle::snapshot()` at the moment the
   signal fires, never from a value captured when the popover was built.
+- **A middle click toggles the default output's mute**, through the same `Input::Pointer` arm
+  scroll uses — left click stays the runtime's popover toggle and is never matched here.
+- **The Applications section hides entirely with nothing playing**, the same as Output and Input
+  with no devices; it no longer stays open on a "Nothing is playing" placeholder, because unlike a
+  quiet Bluetooth adapter or an empty privacy popover, silence here is the common case, not a
+  reassurance worth a permanent header.
 - **List caps are constants in `indicator.rs`, not configuration** — `AppletKind::Audio {}` carries
   no settings yet, unlike bluetooth's `devices`/`nearby`.
 
@@ -351,6 +370,9 @@ of both hides the chip.
   focused output, then the single source carrying no connector at all (the internal panel), then
   the first display source — `render::current_display` is the whole ladder and is what
   `BrightnessPopover::set_sources` is handed with that source first.
+- **A display source whose output is disabled is filtered out before any of that ladder runs**,
+  through `render::is_powered` against `OutputInfo.enabled`. A source with no matching output at
+  all is kept — an unknown power state must not hide a real fader.
 - **The chosen source is pinned for as long as the popover stays open.** `popover()` resolves the
   ladder once and holds the id; `dress` keeps feeding that id first even if focus moves to another
   output before release, because `BrightnessPopover::report_primary_changed` reads the key at emit
@@ -423,10 +445,13 @@ not from the one that opened the popover. Inhibitors are named only when they ap
 open windows are counted for log out, restart and shut down, never described as unsaved work.
 Updates appear only while PackageKit owns its name, as a status row, never a count.
 
-**privacy** — the applet reports and never intervenes: every row is informational and the popover
-has no controls, because the three it could offer are not symmetric. A microphone mute belongs to
-the audio applet, which owns that state; a camera cannot be handed back to the process holding it;
-and stopping a cast cannot be undone. A chip carries `Severity::Warning`, because a chip only exists
+**privacy** — every usage row is informational and non-activatable, because two of the three
+possible controls are not offered symmetrically. A microphone mute belongs to the audio applet,
+which owns that state, and a camera cannot be handed back to the process holding it. A screen cast
+is the exception: a `PipeWire` cast carries a stoppable compositor session (`Usage.stoppable`), so
+its row is a `$SplitRow` whose second target calls `compositor.stop_screencast` — a `wlr-screencopy`
+or Hyprland cast has no such session and renders as a plain, unpressable row beside it. A chip
+carries `Severity::Warning`, because a chip only exists
 while something is watching or listening; there is no calm state to distinguish it from. The screen cast is the
 exception: it takes `IndicatorSpec.class` instead, so `glimpse.css` can paint the record glyph in
 the danger colour while the timer beside it keeps the bar's foreground — severity colours icon and

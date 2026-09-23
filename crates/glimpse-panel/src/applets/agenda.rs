@@ -15,6 +15,7 @@ pub struct Occasion {
     pub description: String,
     pub calendar: String,
     pub meeting_url: Option<String>,
+    pub event_url: Option<String>,
     pub organizer: Option<String>,
     pub guests: Option<GuestCounts>,
     pub tentative: bool,
@@ -43,6 +44,7 @@ pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
             description: event.description.clone(),
             calendar: event.calendar.clone(),
             meeting_url: event.meeting_url.clone(),
+            event_url: event.event_url.clone(),
             organizer: event.organizer.clone(),
             guests: event.guests,
             tentative: event.tentative,
@@ -128,7 +130,7 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
         .replace("{length}", &length)
 }
 
-fn span(length: TimeDelta) -> String {
+pub(crate) fn span(length: TimeDelta) -> String {
     let minutes = length.num_minutes().max(0);
     if minutes < HOUR {
         return gettext("{minutes} min").replace("{minutes}", &minutes.to_string());
@@ -174,6 +176,7 @@ mod tests {
             description: String::new(),
             calendar: String::new(),
             meeting_url: None,
+            event_url: None,
             organizer: None,
             guests: None,
             tentative: false,
@@ -198,6 +201,7 @@ mod tests {
             location: "Room 2".to_owned(),
             description: "Bring slides".to_owned(),
             meeting_url: None,
+            event_url: None,
             organizer: None,
             guests: None,
             tentative: false,

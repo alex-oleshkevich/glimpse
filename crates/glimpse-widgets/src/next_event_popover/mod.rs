@@ -48,6 +48,17 @@ impl NextEventPopover {
         imp.join.set_visible(join.is_some());
     }
 
+    pub fn set_open_event(&self, open_event: Option<(&str, &str, &str)>) {
+        let imp = self.imp();
+        imp.open_event_url
+            .replace(open_event.map(|(_, _, url)| url.to_owned()));
+        imp.open_event
+            .set_title(open_event.map(|(title, _, _)| title));
+        imp.open_event
+            .set_subtitle(open_event.map(|(_, subtitle, _)| subtitle));
+        imp.open_event.set_visible(open_event.is_some());
+    }
+
     pub fn set_facts(&self, facts: &[Fact]) {
         let imp = self.imp();
         imp.facts.set_facts(facts);
@@ -60,6 +71,17 @@ impl NextEventPopover {
     ) -> glib::SignalHandlerId {
         self.connect_closure(
             "join-activated",
+            false,
+            glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
+        )
+    }
+
+    pub fn connect_open_event_activated<F: Fn(&Self, String) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "open-event-activated",
             false,
             glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
         )

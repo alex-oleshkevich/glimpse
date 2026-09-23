@@ -15,12 +15,6 @@ pub struct WorkspacesPopover {
     pub hero: TemplateChild<Hero>,
     #[template_child]
     pub list: TemplateChild<WorkspaceList>,
-    #[template_child]
-    pub drawer: TemplateChild<gtk4::Revealer>,
-    #[template_child]
-    pub detail: TemplateChild<crate::Section>,
-    #[template_child]
-    pub page: TemplateChild<gtk4::Box>,
     pub opened: std::cell::Cell<Option<u64>>,
     pub rows: std::cell::RefCell<Vec<(u64, crate::Row)>>,
     pub workspaces: std::cell::RefCell<Vec<crate::Workspace>>,

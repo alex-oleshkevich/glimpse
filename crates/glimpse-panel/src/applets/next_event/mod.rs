@@ -71,6 +71,11 @@ impl Applet for NextEvent {
                 run(&["xdg-open".to_owned(), url]);
             }
         });
+        shown.connect_open_event_activated(|_, url| {
+            if url.starts_with("https://") || url.starts_with("http://") {
+                run(&["xdg-open".to_owned(), url]);
+            }
+        });
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
@@ -166,6 +171,7 @@ impl NextEvent {
         let (title, subtitle) = render::heading(now, event, clock);
         let countdown = render::countdown(now, event);
         let join = render::join(event);
+        let open_event = render::open_event(event);
 
         shown.set_heading(&title, Some(subtitle.as_str()));
         shown.set_countdown(countdown.as_ref().map(render::Countdown::readout));
@@ -174,6 +180,13 @@ impl NextEvent {
                 join.title.as_str(),
                 join.subtitle.as_str(),
                 join.url.as_str(),
+            )
+        }));
+        shown.set_open_event(open_event.as_ref().map(|open| {
+            (
+                open.title.as_str(),
+                open.subtitle.as_str(),
+                open.url.as_str(),
             )
         }));
         shown.set_facts(&render::facts(

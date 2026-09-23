@@ -86,8 +86,8 @@ impl Applet for Brightness {
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let focused = self.focused_connector();
-        let pinned =
-            render::current_display(&self.state.sources, focused).map(|source| source.id.clone());
+        let pinned = render::current_display(&self.powered_sources(), focused)
+            .map(|source| source.id.clone());
         self.pinned.replace(pinned);
 
         let shown = BrightnessPopover::new();
@@ -280,6 +280,15 @@ fn night_light_wording(error: &NightLightProviderError) -> Option<String> {
 }
 
 impl Brightness {
+    fn powered_sources(&self) -> Vec<glimpse_services::BrightnessSource> {
+        self.state
+            .sources
+            .iter()
+            .filter(|source| render::is_powered(source, &self.outputs))
+            .cloned()
+            .collect()
+    }
+
     fn outputs(&self) -> Vec<OutputInfo> {
         self.compositor
             .snapshot()
@@ -297,7 +306,8 @@ impl Brightness {
 
     fn nudge(&self, direction: Direction) {
         let focused = self.focused_connector();
-        let Some(current) = render::current_display(&self.state.sources, focused) else {
+        let sources = self.powered_sources();
+        let Some(current) = render::current_display(&sources, focused) else {
             return;
         };
         let magnitude = render::native_step(self.settings.scroll_step, current.max);
@@ -362,8 +372,9 @@ impl Brightness {
     fn dress(&self, shown: &BrightnessPopover) {
         let focused = self.focused_connector();
         let pinned = self.pinned.borrow();
+        let sources = self.powered_sources();
         let ordered = render::ordered_sources(
-            &self.state.sources,
+            &sources,
             focused,
             self.settings.show_keyboard,
             pinned.as_deref(),
@@ -398,7 +409,8 @@ impl Brightness {
         let icon = render::chip(has_sources, self.night_light_seen)?;
 
         let focused = self.focused_connector();
-        let current = render::current_display(&self.state.sources, focused);
+        let sources = self.powered_sources();
+        let current = render::current_display(&sources, focused);
         let tooltip = current.map(|source| {
             let name = render::source_name(source, &self.outputs);
             let percent = render::percent_of(source.current, source.max);

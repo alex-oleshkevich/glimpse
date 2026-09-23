@@ -283,7 +283,7 @@ impl AudioPopover {
                 }
             },
         );
-        imp.apps.set_empty(entries.is_empty());
+        imp.apps.set_visible(!entries.is_empty());
     }
 
     fn build_app(&self, id: &str) -> Row {

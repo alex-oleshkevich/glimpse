@@ -19,6 +19,8 @@ pub struct NextEventPopover {
     #[template_child]
     pub join: TemplateChild<Row>,
     #[template_child]
+    pub open_event: TemplateChild<Row>,
+    #[template_child]
     pub details: TemplateChild<Section>,
     #[template_child]
     pub facts: TemplateChild<FactList>,
@@ -29,6 +31,7 @@ pub struct NextEventPopover {
     #[template_child]
     pub footer: TemplateChild<Row>,
     pub join_url: RefCell<Option<String>>,
+    pub open_event_url: RefCell<Option<String>>,
 }
 
 #[glib::object_subclass]
@@ -57,6 +60,9 @@ impl ObjectImpl for NextEventPopover {
                 glib::subclass::Signal::builder("join-activated")
                     .param_types([String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("open-event-activated")
+                    .param_types([String::static_type()])
+                    .build(),
             ]
         })
     }
@@ -78,6 +84,16 @@ impl ObjectImpl for NextEventPopover {
                     return;
                 };
                 popover.emit_by_name::<()>("join-activated", &[&url]);
+            }
+        ));
+        self.open_event.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            move |_| {
+                let Some(url) = popover.imp().open_event_url.borrow().clone() else {
+                    return;
+                };
+                popover.emit_by_name::<()>("open-event-activated", &[&url]);
             }
         ));
     }

@@ -4,12 +4,14 @@ use std::rc::Rc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{CompositorHandle, WorkspaceInfo};
+use glimpse_services::{CompositorHandle, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{IndicatorSpec, WorkspaceNamePopover};
 use gtk4::glib;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
+use crate::applet::{
+    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command, wording,
+};
 
 use super::render;
 
@@ -43,8 +45,13 @@ impl Applet for WorkspaceName {
     }
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
-        if !matches!(input, Input::Woken) {
-            return;
+        match input {
+            Input::Woken => {}
+            Input::Pointer(Pointer::Scroll(direction)) => {
+                step(&self.compositor, *direction);
+                return;
+            }
+            Input::Tick | Input::Pointer(_) => return,
         }
         self.workspaces = snapshot(&self.compositor);
         self.refresh();
@@ -147,6 +154,19 @@ impl WorkspaceName {
         shown.set_workspace(&render::title(workspace), &render::subtitle(workspace));
         shown.set_name(workspace.name.as_deref().unwrap_or_default());
     }
+}
+
+fn step(compositor: &CompositorHandle, direction: Direction) {
+    let compositor = compositor.clone();
+    let forward = matches!(direction, Direction::Up | Direction::Right);
+    spawn_command("compositor.focus_workspace", async move {
+        compositor
+            .focus_workspace(match forward {
+                true => WorkspaceRef::Next,
+                false => WorkspaceRef::Prev,
+            })
+            .await
+    });
 }
 
 fn snapshot(compositor: &CompositorHandle) -> Vec<WorkspaceInfo> {

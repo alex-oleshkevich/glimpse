@@ -237,6 +237,21 @@ fn join_title(provider: MeetingProvider) -> String {
     }
 }
 
+pub struct Open {
+    pub title: String,
+    pub subtitle: String,
+    pub url: String,
+}
+
+pub fn open_event(event: &Occasion) -> Option<Open> {
+    let url = event.event_url.as_deref()?;
+    Some(Open {
+        title: gettext("Open event"),
+        subtitle: glimpse_utils::clean(url, JOIN),
+        url: url.to_owned(),
+    })
+}
+
 pub fn conflicts(events: &[Occasion], chosen: Option<usize>) -> Vec<String> {
     let Some(event) = chosen.and_then(|index| events.get(index)) else {
         return Vec::new();
@@ -262,6 +277,12 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
     if !event.location.is_empty() {
         facts.push(Fact::new(gettext("Location"), event.location.clone()));
     }
+    if !event.all_day {
+        facts.push(Fact::new(
+            gettext("Duration"),
+            agenda::span(event.end - event.start),
+        ));
+    }
     if let Some(organizer) = &event.organizer {
         facts.push(Fact::new(gettext("Organizer"), organizer.clone()));
     }
@@ -275,8 +296,15 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
                 .replace("{accepted}", &guests.accepted.to_string()),
         ));
     }
-    if event.tentative {
-        facts.push(Fact::new(gettext("Status"), gettext("Tentative")));
+    facts.push(Fact::new(
+        gettext("Status"),
+        match event.tentative {
+            true => gettext("Tentative"),
+            false => gettext("Confirmed"),
+        },
+    ));
+    if !event.description.is_empty() {
+        facts.push(Fact::new(gettext("Description"), event.description.clone()));
     }
     if !conflicts.is_empty() {
         facts.push(Fact::new(gettext("Conflicts"), conflicts.join(", ")));
@@ -308,6 +336,7 @@ mod tests {
             description: String::new(),
             calendar: String::new(),
             meeting_url: None,
+            event_url: None,
             organizer: None,
             guests: None,
             tentative: false,
@@ -736,9 +765,28 @@ mod tests {
     }
 
     #[test]
+    fn open_event_reads_the_events_own_url_and_is_absent_without_one() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        assert!(open_event(&meeting).is_none());
+
+        meeting.event_url = Some("https://calendar.example/event/abc123".to_owned());
+        let shown = open_event(&meeting).expect("an event url");
+        assert_eq!(shown.title, "Open event");
+        assert_eq!(shown.url, "https://calendar.example/event/abc123");
+        assert_eq!(shown.subtitle, "https://calendar.example/event/abc123");
+    }
+
+    #[test]
     fn facts_omit_empty_rows_and_a_solo_attendee() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert!(facts(&meeting, &[]).is_empty());
+        assert_eq!(
+            facts(&meeting, &[])
+                .into_iter()
+                .map(|fact| fact.label)
+                .collect::<Vec<_>>(),
+            vec!["Duration".to_owned(), "Status".to_owned()],
+            "duration and status are read off every timed event, not only a decorated one"
+        );
 
         meeting.calendar = "Work".to_owned();
         meeting.location = "Room 2".to_owned();
@@ -748,6 +796,7 @@ mod tests {
             accepted: 1,
         });
         meeting.tentative = true;
+        meeting.description = "Bring the roadmap slides".to_owned();
 
         let shown: Vec<(String, String)> = facts(&meeting, &[])
             .into_iter()
@@ -758,9 +807,14 @@ mod tests {
             vec![
                 ("Calendar".to_owned(), "Work".to_owned()),
                 ("Location".to_owned(), "Room 2".to_owned()),
+                ("Duration".to_owned(), "1 h".to_owned()),
                 ("Organizer".to_owned(), "Marta".to_owned()),
                 ("Guests".to_owned(), "2 · 1 accepted".to_owned()),
                 ("Status".to_owned(), "Tentative".to_owned()),
+                (
+                    "Description".to_owned(),
+                    "Bring the roadmap slides".to_owned()
+                ),
             ]
         );
 
@@ -770,11 +824,29 @@ mod tests {
         });
         meeting.tentative = false;
         meeting.organizer = None;
+        meeting.description = String::new();
         let labels: Vec<String> = facts(&meeting, &[])
             .into_iter()
             .map(|fact| fact.label)
             .collect();
-        assert_eq!(labels, vec!["Calendar".to_owned(), "Location".to_owned()]);
+        assert_eq!(
+            labels,
+            vec![
+                "Calendar".to_owned(),
+                "Location".to_owned(),
+                "Duration".to_owned(),
+                "Status".to_owned(),
+            ]
+        );
+
+        let mut holiday = event("Conference", at(4, 0, 0), at(4, 23, 59));
+        holiday.all_day = true;
+        assert!(
+            !facts(&holiday, &[])
+                .iter()
+                .any(|fact| fact.label == "Duration"),
+            "a day has no minute count worth showing"
+        );
     }
 
     #[test]

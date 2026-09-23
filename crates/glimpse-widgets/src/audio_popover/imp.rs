@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Fader, Hero, Placeholder, PopoverShell, Readout, Row, Section};
+use crate::{Fader, Hero, PopoverShell, Readout, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -64,8 +64,6 @@ pub struct AudioPopover {
     pub app_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub more_apps: TemplateChild<Row>,
-    #[template_child]
-    pub quiet: TemplateChild<Placeholder>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 

@@ -8,6 +8,16 @@ pub fn chip(has_sources: bool, night_light_reachable: bool) -> Option<&'static s
     (has_sources || night_light_reachable).then_some(CHIP_ICON)
 }
 
+pub fn is_powered(source: &BrightnessSource, outputs: &[OutputInfo]) -> bool {
+    let Some(connector) = source.connector.as_deref() else {
+        return true;
+    };
+    outputs
+        .iter()
+        .find(|output| output.connector == connector)
+        .is_none_or(|output| output.enabled)
+}
+
 pub fn current_display<'a>(
     sources: &'a [BrightnessSource],
     focused: Option<&str>,
@@ -201,6 +211,31 @@ mod tests {
     #[test]
     fn the_chip_is_gone_with_neither_offering() {
         assert_eq!(chip(false, false), None, "AC-2");
+    }
+
+    #[test]
+    fn is_powered_hides_a_display_whose_output_is_disabled() {
+        let display = source("dp", BrightnessKind::Display, Some("DP-2"));
+        let outputs = vec![OutputInfo {
+            enabled: false,
+            ..output("DP-2", None)
+        }];
+        assert!(!is_powered(&display, &outputs));
+    }
+
+    #[test]
+    fn is_powered_keeps_a_display_with_no_matching_output() {
+        let display = source("dp", BrightnessKind::Display, Some("DP-2"));
+        assert!(
+            is_powered(&display, &[]),
+            "unknown power state must not hide a real source"
+        );
+    }
+
+    #[test]
+    fn is_powered_never_hides_the_keyboard() {
+        let keyboard = source("keyboard", BrightnessKind::Keyboard, None);
+        assert!(is_powered(&keyboard, &[]));
     }
 
     #[test]

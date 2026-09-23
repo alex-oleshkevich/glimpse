@@ -103,6 +103,7 @@ pub fn usages(state: &PrivacyState, filters: Filters) -> Vec<PrivacyUsage> {
             title: title(usage.kind),
             detail: detail(usage),
             id: usage_id(usage),
+            stoppable: usage.session.is_some(),
         })
         .collect()
 }
@@ -121,6 +122,15 @@ pub fn screen_shared(state: &PrivacyState, filters: Filters) -> Option<String> {
     }
     let details: Vec<String> = screens.iter().filter_map(|usage| detail(usage)).collect();
     Some(details.join(", "))
+}
+
+/// The compositor session id behind a usage id from the widget's `stop-activated` signal — the
+/// widget reports the id it was given, not a session, so the applet resolves it back against the
+/// state it dressed the popover from.
+pub fn session_for(state: &PrivacyState, filters: Filters, id: &str) -> Option<u64> {
+    visible(state, filters)
+        .find(|usage| usage_id(usage) == id)
+        .and_then(|usage| usage.session)
 }
 
 pub fn screencast_since(state: &PrivacyState, filters: Filters) -> Option<SystemTime> {

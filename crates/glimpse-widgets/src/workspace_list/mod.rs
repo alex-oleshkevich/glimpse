@@ -79,6 +79,17 @@ impl WorkspaceList {
         )
     }
 
+    /// Every workspace row's holder across every output's section, for the popover to reveal and
+    /// recede as one surface rather than one section at a time.
+    pub(crate) fn holders(&self) -> Vec<(u64, gtk4::Box)> {
+        self.imp()
+            .sections
+            .borrow()
+            .iter()
+            .flat_map(|(_, section)| section.holders())
+            .collect()
+    }
+
     fn render(&self) {
         let imp = self.imp();
         let workspaces = imp.workspaces.borrow();

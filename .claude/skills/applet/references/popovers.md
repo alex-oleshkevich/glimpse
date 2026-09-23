@@ -110,8 +110,8 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
 | Situation | Shape | Worked example |
 | --- | --- | --- |
 | A list, flat | `$Section`s in one `.column`, a `$Row` each | `BluetoothPopover`, `KeyboardPopover` |
-| A row has detail | a holder `Gtk.Box` per item: the `$Row` head, then its own `Gtk.Revealer` — `crate::drawer::holder` builds it | `BluetoothPopover` devices, `ForecastList` days |
-| More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover`, `WorkspacesPopover` |
+| A row has detail | a holder `Gtk.Box` per item: the `$Row` head, then its own `Gtk.Revealer` — `crate::drawer::holder` builds it | `BluetoothPopover` devices, `ForecastList` days, `WorkspacesPopover` windows |
+| More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover` |
 | Empty has variants | a `Gtk.Stack` in `$Section`'s `[placeholder]` slot, one `$Placeholder` per page | `CalendarPopover` `nothing` / `truncated` |
 | One question owns the card | a `Gtk.Stack` **around** the `.column`, `vhomogeneous: false`, the other page carrying the question | `BluetoothPopover` pairing prompts |
 
@@ -481,9 +481,10 @@ detail therefore unfolds under its own row, not beside the list.** `BluetoothPop
 `crate::drawer` owns `holder` / `head` / `panel` so neither invents its own shape.
 
 **A drawer is what is left when the content is not a row's own detail.** `CalendarPopover`'s month
-overflow and `WorkspacesPopover`'s window list still slide one out, because what they reveal belongs
-to the whole popover rather than to a line in it. Weather had one for a day's facts and those facts
-belong to the day, which is why it lost the drawer rather than kept it.
+overflow still slides one out, because what it reveals belongs to the whole popover rather than to a
+line in it. Weather had one for a day's facts and those facts belong to the day, which is why it lost
+the drawer rather than kept it — the same reason `WorkspacesPopover`'s window list moved off the side
+drawer it was first built with: a workspace's windows are that row's own detail, not overflow.
 
 ## A popover's width is a promise
 

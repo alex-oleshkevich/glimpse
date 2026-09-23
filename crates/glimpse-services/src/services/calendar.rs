@@ -46,6 +46,7 @@ pub struct CalendarEvent {
     pub location: String,
     pub description: String,
     pub meeting_url: Option<String>,
+    pub event_url: Option<String>,
     pub organizer: Option<String>,
     pub guests: Option<GuestCounts>,
     pub tentative: bool,
@@ -168,6 +169,7 @@ pub struct Occurrence {
     location: String,
     description: String,
     meeting_url: Option<String>,
+    event_url: Option<String>,
     organizer: Option<String>,
     guests: Option<GuestCounts>,
     tentative: bool,
@@ -476,6 +478,7 @@ fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
                     location: occurrence.location,
                     description: occurrence.description,
                     meeting_url: occurrence.meeting_url,
+                    event_url: occurrence.event_url,
                     organizer: occurrence.organizer,
                     guests: occurrence.guests,
                     tentative: occurrence.tentative,
@@ -673,6 +676,7 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
         let location = line(event.get_location());
         let description = line(event.get_description().and_then(first_line));
         let meeting_url = meeting_url(event);
+        let event_url = http_url(event.get_url());
         let organizer = organizer(event);
         let guests = guests(event);
         let tentative = event.get_status() == Some(EventStatus::Tentative);
@@ -691,6 +695,7 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
                 location: location.clone(),
                 description: description.clone(),
                 meeting_url: meeting_url.clone(),
+                event_url: event_url.clone(),
                 organizer: organizer.clone(),
                 guests,
                 tentative,

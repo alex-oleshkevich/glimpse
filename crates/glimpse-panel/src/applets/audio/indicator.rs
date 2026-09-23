@@ -15,7 +15,7 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{
-    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
+    Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
 };
 
 use super::render;
@@ -66,6 +66,10 @@ impl Applet for Audio {
             }
             Input::Pointer(Pointer::Scroll(direction)) => {
                 self.nudge(*direction);
+                return;
+            }
+            Input::Pointer(Pointer::Press(Button::Middle)) => {
+                self.toggle_mute();
                 return;
             }
             Input::Tick | Input::Pointer(_) => return,
@@ -510,6 +514,25 @@ impl Audio {
             async move {
                 audio
                     .set_device_volume(AudioDirection::Output, id, target)
+                    .await
+            },
+        );
+    }
+
+    fn toggle_mute(&self) {
+        let Some(device) = self.state.default_output() else {
+            return;
+        };
+        let audio = self.audio.clone();
+        let id = device.id.clone();
+        let muted = !device.muted;
+        tell(
+            &self.notifications,
+            "audio.set_device_muted",
+            gettext("Could not change that setting"),
+            async move {
+                audio
+                    .set_device_muted(AudioDirection::Output, id, muted)
                     .await
             },
         );

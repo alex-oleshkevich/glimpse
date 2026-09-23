@@ -49,17 +49,26 @@ fn midnight(day: NaiveDate) -> DateTime<Utc> {
         .unwrap_or_else(|| Utc.from_utc_datetime(&local))
 }
 
-pub fn rows(now: DateTime<Local>, day: NaiveDate, events: &[Occasion], clock: &str) -> Vec<Event> {
+pub fn rows(
+    now: DateTime<Local>,
+    day: NaiveDate,
+    events: &[Occasion],
+    clock: &str,
+    hide_all_day: bool,
+) -> Vec<Event> {
     events
         .iter()
-        .filter(|event| covers(event, day))
+        .filter(|event| covers(event, day) && !(hide_all_day && event.all_day))
         .map(|event| agenda::row(now, day, event, clock))
         .collect()
 }
 
-pub fn markers(events: &[Occasion]) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
+pub fn markers(events: &[Occasion], hide_all_day: bool) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
     let mut marked: BTreeMap<NaiveDate, Vec<gtk4::gdk::RGBA>> = BTreeMap::new();
     for event in events {
+        if hide_all_day && event.all_day {
+            continue;
+        }
         let Some(color) = event.color else {
             continue;
         };
@@ -119,6 +128,7 @@ mod tests {
             description: String::new(),
             calendar: String::new(),
             meeting_url: None,
+            event_url: None,
             organizer: None,
             guests: None,
             tentative: false,
@@ -179,7 +189,13 @@ mod tests {
     #[test]
     fn an_event_appears_under_every_day_it_covers() {
         let overnight = event(at(4, 22), at(5, 6));
-        let rows = rows(at(4, 23), at(5, 6).date_naive(), &[overnight], TWENTY_FOUR);
+        let rows = rows(
+            at(4, 23),
+            at(5, 6).date_naive(),
+            &[overnight],
+            TWENTY_FOUR,
+            false,
+        );
 
         assert_eq!(rows.len(), 1, "a night-spanning event belongs to both days");
     }
@@ -187,7 +203,36 @@ mod tests {
     #[test]
     fn a_day_with_nothing_on_it_has_no_rows() {
         let meeting = event(at(4, 9), at(4, 10));
-        assert!(rows(at(4, 12), at(6, 9).date_naive(), &[meeting], TWENTY_FOUR).is_empty());
+        assert!(
+            rows(
+                at(4, 12),
+                at(6, 9).date_naive(),
+                &[meeting],
+                TWENTY_FOUR,
+                false
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn hide_all_day_leaves_a_timed_event_on_the_same_day_alone() {
+        let mut holiday = event(at(4, 0), at(4, 23));
+        holiday.all_day = true;
+        let meeting = event(at(4, 9), at(4, 10));
+
+        let shown = rows(
+            at(4, 12),
+            at(4, 9).date_naive(),
+            &[holiday, meeting],
+            TWENTY_FOUR,
+            true,
+        );
+        assert_eq!(
+            shown.len(),
+            1,
+            "the all-day entry is left out, the timed one stays"
+        );
     }
 
     #[test]
@@ -198,12 +243,25 @@ mod tests {
         let mut second = event(at(4, 14), at(4, 15));
         second.color = Some(color);
 
-        let markers = markers(&[first, second]);
+        let markers = markers(&[first, second], false);
         assert_eq!(markers.len(), 1);
         assert_eq!(
             markers[0].1.len(),
             1,
             "two events from one calendar are one dot"
+        );
+    }
+
+    #[test]
+    fn hide_all_day_drops_a_days_only_dot() {
+        let color = gtk4::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0);
+        let mut holiday = event(at(4, 0), at(4, 23));
+        holiday.all_day = true;
+        holiday.color = Some(color);
+
+        assert!(
+            markers(&[holiday], true).is_empty(),
+            "a day marked only by a hidden all-day entry must not still show a dot"
         );
     }
 

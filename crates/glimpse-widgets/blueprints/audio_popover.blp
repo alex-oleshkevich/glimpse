@@ -71,14 +71,8 @@ template $AudioPopover: Gtk.Widget {
       }
 
       $Section apps {
-        empty: true;
+        visible: false;
         title: _("Applications");
-
-        [placeholder]
-        $Placeholder quiet {
-          icon-name: "audio-volume-muted-symbolic";
-          title: _("Nothing is playing");
-        }
 
         Gtk.Box {
           orientation: vertical;

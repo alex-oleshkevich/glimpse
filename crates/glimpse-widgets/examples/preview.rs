@@ -2127,24 +2127,28 @@ mod fixtures {
                             icon: "camera-web-symbolic".into(),
                             title: "Camera".into(),
                             detail: Some("Zoom · since 14:02".into()),
+                            stoppable: false,
                         },
                         PrivacyUsage {
                             id: "microphone".into(),
                             icon: "audio-input-microphone-symbolic".into(),
                             title: "Microphone".into(),
                             detail: Some("Zoom · since 14:02".into()),
+                            stoppable: false,
                         },
                         PrivacyUsage {
                             id: "screen".into(),
                             icon: "video-display-symbolic".into(),
                             title: "Screen".into(),
                             detail: Some("OBS Studio · sharing DP-1 since 13:41".into()),
+                            stoppable: true,
                         },
                         PrivacyUsage {
                             id: "location".into(),
                             icon: "find-location-symbolic".into(),
                             title: "Location".into(),
                             detail: None,
+                            stoppable: false,
                         },
                     ]);
                     popover.set_screen_shared(Some("OBS Studio · sharing DP-1 since 13:41"));

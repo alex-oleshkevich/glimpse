@@ -11,7 +11,6 @@ use crate::{Row, SplitRow, drawer, none_if_empty};
 fn picture_for(texture: &gdk::Texture) -> gtk4::Picture {
     let picture = gtk4::Picture::for_paintable(texture);
     picture.set_content_fit(gtk4::ContentFit::Cover);
-    picture.set_size_request(24, 24);
     picture.set_can_shrink(true);
     picture.set_accessible_role(gtk4::AccessibleRole::Presentation);
     picture

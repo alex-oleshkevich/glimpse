@@ -3449,49 +3449,65 @@ mod tests {
             .first_child()
             .and_downcast::<gtk4::Box>()
             .expect("a section holds one column of rows");
-        let rows = children_of::<SplitRow>(&column);
-        assert_eq!(rows.len(), 2, "DP-2 carries two of the three workspaces");
-        rows[1].emit_by_name::<()>("activated", &[]);
+        let holders = children_of::<gtk4::Box>(&column);
+        assert_eq!(holders.len(), 2, "DP-2 carries two of the three workspaces");
+
+        let head = |holder: &gtk4::Box| {
+            holder
+                .first_child()
+                .and_downcast::<SplitRow>()
+                .expect("a holder leads with its row")
+        };
+        let panel = |holder: &gtk4::Box| {
+            holder
+                .last_child()
+                .and_downcast::<gtk4::Revealer>()
+                .expect("a holder ends with its own detail revealer")
+        };
+
+        head(&holders[1]).emit_by_name::<()>("activated", &[]);
         assert_eq!(
             *chosen.borrow(),
             [2],
             "a row reports the workspace it stands for, which is the id the focus command needs"
         );
 
-        let drawer = child_named::<gtk4::Box>(&popover, "drawer-page")
-            .ancestor(gtk4::Revealer::static_type())
-            .and_downcast::<gtk4::Revealer>()
-            .expect("the page sits inside the drawer");
         assert!(
-            !drawer.reveals_child(),
+            !panel(&holders[0]).reveals_child(),
             "a popover opens showing the list, not one workspace's detail"
         );
         assert_eq!(
-            drawer
-                .parent()
-                .and_downcast::<gtk4::Box>()
-                .expect("the drawer is laid out beside the list")
-                .orientation(),
-            gtk4::Orientation::Horizontal,
-            "the drawer opens to the side: pushing it underneath walks the list off the bottom of \
-             the screen and takes the row that would close it with it"
-        );
-        assert_eq!(
-            drawer.transition_type(),
-            gtk4::RevealerTransitionType::SlideRight,
-            "and it slides in along the axis it grows on"
+            panel(&holders[0]).transition_type(),
+            gtk4::RevealerTransitionType::SlideDown,
+            "a detail unfolds under its own row, never beside the list"
         );
 
-        rows[0].emit_by_name::<()>("details", &[]);
+        head(&holders[0]).emit_by_name::<()>("details", &[]);
         assert!(
-            drawer.reveals_child(),
-            "the chevron is the only way into a workspace's windows, so it has to open the drawer"
+            panel(&holders[0]).reveals_child(),
+            "the chevron is the only way into a workspace's windows, so it has to open its own \
+             row's panel"
         );
-        let windows = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
+        assert!(
+            head(&holders[0]).has_css_class("open") && !head(&holders[0]).has_css_class("receded"),
+            "the open row keeps full weight"
+        );
+        assert!(
+            head(&holders[1]).has_css_class("receded") && !head(&holders[1]).has_css_class("open"),
+            "and every other row recedes"
+        );
+
+        let rows_box = |holder: &gtk4::Box| {
+            panel(holder)
+                .child()
+                .and_downcast::<gtk4::Box>()
+                .expect("the panel holds a rows box once it has been filled")
+        };
+        let windows = children_of::<Row>(&rows_box(&holders[0]));
         assert_eq!(
             windows.len(),
             1,
-            "the drawer lists the windows of the workspace whose chevron was pressed"
+            "the panel lists the windows of the workspace whose chevron was pressed"
         );
         assert_eq!(windows[0].title().as_deref(), Some("a terminal"));
 
@@ -3504,7 +3520,7 @@ mod tests {
         assert_eq!(
             *focused.borrow(),
             [9],
-            "a window in the drawer is the only place a single window can be focused from, now \
+            "a window in the panel is the only place a single window can be focused from, now \
              that the strip itself opens the popover"
         );
 
@@ -3517,21 +3533,21 @@ mod tests {
                 .first_child()
                 .and_downcast::<gtk4::Box>()
                 .expect("a section holds one column of rows");
-            children_of::<SplitRow>(&column)[0].clone()
+            children_of::<gtk4::Box>(&column)[0].clone()
         };
 
         let standing = first_row();
         popover.set_workspaces(&session("a browser"));
         assert!(
-            drawer.reveals_child(),
-            "an event arriving must not close a drawer the user opened"
+            panel(&holders[0]).reveals_child(),
+            "an event arriving must not close a panel the user opened"
         );
         assert_eq!(
-            children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"))[0]
+            children_of::<Row>(&rows_box(&holders[0]))[0]
                 .title()
                 .as_deref(),
             Some("a browser"),
-            "an open drawer follows the session: a window renaming itself shows through"
+            "an open panel follows the session: a window renaming itself shows through"
         );
         assert_eq!(
             standing,
@@ -3540,14 +3556,18 @@ mod tests {
              a title changes on every keystroke"
         );
         assert_eq!(
-            children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"))[0],
+            children_of::<Row>(&rows_box(&holders[0]))[0],
             windows[0],
-            "and it keeps its own row too: the drawer reconciles by window id, so a retitle \
+            "and it keeps its own row too: the panel reconciles by window id, so a retitle \
              rewrites a label rather than replacing the row under the pointer"
         );
 
-        rows[1].emit_by_name::<()>("details", &[]);
-        let switched = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
+        head(&holders[1]).emit_by_name::<()>("details", &[]);
+        assert!(
+            !panel(&holders[0]).reveals_child(),
+            "opening another workspace's detail closes the one that was open"
+        );
+        let switched = children_of::<Row>(&rows_box(&holders[1]));
         assert_ne!(
             switched[0], windows[0],
             "another workspace's window is another row, not the first one refilled"
@@ -3560,9 +3580,9 @@ mod tests {
              window without consulting anything"
         );
 
-        rows[1].emit_by_name::<()>("details", &[]);
+        head(&holders[1]).emit_by_name::<()>("details", &[]);
         assert!(
-            !drawer.reveals_child(),
+            !panel(&holders[1]).reveals_child(),
             "the same chevron closes what it opened"
         );
 
@@ -3722,6 +3742,22 @@ mod tests {
         assert!(next.imp().join.get_visible());
         next.set_join(None);
         assert!(!next.imp().join.get_visible());
+
+        let opened: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+        next.connect_open_event_activated({
+            let opened = Rc::clone(&opened);
+            move |_, url| opened.borrow_mut().push(url)
+        });
+        next.set_open_event(Some((
+            "Open event",
+            "https://calendar.example/event/abc",
+            "https://calendar.example/event/abc",
+        )));
+        assert!(next.imp().open_event.get_visible());
+        next.imp().open_event.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(*opened.borrow(), ["https://calendar.example/event/abc"]);
+        next.set_open_event(None);
+        assert!(!next.imp().open_event.get_visible());
 
         next.set_facts(&[Fact::new("Calendar", "Work")]);
         assert!(next.imp().details.get_visible());
@@ -5202,7 +5238,7 @@ mod tests {
         ];
         audio.set_apps(&apps);
         assert_eq!(all_named(&audio, "audio-popover__app").len(), 2);
-        assert!(!audio.imp().apps.empty());
+        assert!(audio.imp().apps.get_visible());
 
         let app_panel = |id: &str| -> gtk4::Revealer {
             let imp = audio.imp();
@@ -5414,12 +5450,8 @@ mod tests {
 
         audio.set_apps(&[]);
         assert!(
-            audio.imp().apps.empty(),
-            "no applications is what the quiet placeholder exists for"
-        );
-        assert!(
-            audio.imp().apps.get_visible(),
-            "the Applications section stays, showing the placeholder rather than disappearing"
+            !audio.imp().apps.get_visible(),
+            "no applications is nothing to head, the same as an empty output or input list"
         );
         audio.set_apps(&apps);
 

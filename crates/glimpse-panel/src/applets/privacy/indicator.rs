@@ -1,7 +1,11 @@
 use std::time::{Duration, SystemTime};
 
+use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
-use glimpse_services::{PrivacyHandle, PrivacyResource, PrivacyState};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
+use glimpse_services::{
+    CommandError, CompositorHandle, PrivacyHandle, PrivacyResource, PrivacyState,
+};
 
 use glimpse_widgets::{IndicatorSpec, PrivacyPopover, Severity};
 use gtk4::gio;
@@ -9,7 +13,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input};
+use crate::applet::{Applet, Ctx, Input, Report, report_failure};
 
 use super::render;
 
@@ -19,6 +23,8 @@ const MINUTE: Duration = Duration::from_secs(60);
 pub struct Privacy {
     state: PrivacyState,
     privacy: PrivacyHandle,
+    compositor: CompositorHandle,
+    notifications: NotificationsProviderHandle,
     filters: render::Filters,
     tooltip_format: Option<String>,
     spec: Vec<IndicatorSpec>,
@@ -62,18 +68,72 @@ impl Applet for Privacy {
 
     fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = PrivacyPopover::new();
+
+        shown.connect_stop_activated({
+            let compositor = self.compositor.clone();
+            let notifications = self.notifications.clone();
+            let state = self.state.clone();
+            let filters = self.filters;
+            move |_, id| {
+                let Some(session) = render::session_for(&state, filters, &id) else {
+                    return;
+                };
+                stop_screencast(compositor.clone(), notifications.clone(), session);
+            }
+        });
+
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
     }
 }
 
+fn stop_screencast(
+    compositor: CompositorHandle,
+    notifications: NotificationsProviderHandle,
+    session: u64,
+) {
+    relm4::spawn_local(async move {
+        if let Err(error) = compositor.stop_screencast(session).await {
+            let report = Report {
+                notifications,
+                app_name: gettext("Privacy"),
+                icon: render::SCREEN.to_owned(),
+                summary: gettext("Could not stop that screen share"),
+            };
+            report_failure(
+                "compositor.stop_screencast",
+                report,
+                compositor_wording(&error),
+                error,
+            )
+            .await;
+        }
+    });
+}
+
+fn compositor_wording(error: &CommandError) -> Option<String> {
+    Some(match error {
+        CommandError::InvalidArgument(_) => gettext("That share had already ended."),
+        CommandError::Unavailable(_) => gettext("The compositor is unavailable."),
+        CommandError::Unsupported(_) => gettext("That is not supported."),
+        CommandError::LimitExceeded(_) => gettext("That could not be completed."),
+        CommandError::Internal(_) => gettext("That did not work."),
+    })
+}
+
 impl Privacy {
-    pub fn start(privacy: PrivacyHandle) -> Self {
+    pub fn start(
+        privacy: PrivacyHandle,
+        compositor: CompositorHandle,
+        notifications: NotificationsProviderHandle,
+    ) -> Self {
         let state = privacy.snapshot();
         Self {
             state,
             privacy,
+            compositor,
+            notifications,
             filters: render::Filters::default(),
             tooltip_format: None,
             spec: Vec::new(),

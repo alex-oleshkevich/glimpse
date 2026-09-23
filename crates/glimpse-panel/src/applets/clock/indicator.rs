@@ -154,7 +154,7 @@ impl Clock {
     fn dress(&self, shown: &CalendarPopover) {
         shown.set_zones(&popover::zones(&self.settings.timezones));
         shown.set_twelve_hour(self.twelve);
-        shown.set_markers(&popover::markers(&self.events));
+        shown.set_markers(&popover::markers(&self.events, self.settings.hide_all_day));
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         self.paint(shown);
     }
@@ -172,7 +172,7 @@ impl Clock {
         shown.set_day_truncated(popover::truncated(day, self.truncated_from));
         shown.set_day(
             &popover::day_title(day, now.date_naive()),
-            &popover::rows(now, day, &self.events, clock),
+            &popover::rows(now, day, &self.events, clock, self.settings.hide_all_day),
         );
         if let Ok(instant) = glib::DateTime::from_unix_local(now.timestamp()) {
             shown.set_now(&instant);

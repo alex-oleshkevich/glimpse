@@ -4,7 +4,9 @@ use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Row, Workspace};
+use crate::{Row, SplitRow, Workspace, WorkspaceWindow, drawer};
+
+const DETAIL: &str = "detail-card";
 
 glib::wrapper! {
     pub struct WorkspacesPopover(ObjectSubclass<imp::WorkspacesPopover>)
@@ -44,14 +46,42 @@ impl WorkspacesPopover {
             drop(workspaces);
             return self.close_drawer();
         };
+        let windows = workspace.windows.clone();
+        drop(workspaces);
 
-        imp.detail.set_empty(workspace.windows.is_empty());
+        imp.opened.set(Some(id));
+        self.fill(id, &windows);
+        self.recede();
+    }
 
-        let mut rows = imp.rows.borrow_mut();
+    /// The panel is built the first time its workspace is opened: a list of a dozen workspaces
+    /// would otherwise carry a dozen row boxes nothing has asked to see.
+    fn fill(&self, id: u64, windows: &[WorkspaceWindow]) {
+        let Some((_, holder)) = self
+            .imp()
+            .list
+            .holders()
+            .into_iter()
+            .find(|(held, _)| *held == id)
+        else {
+            return;
+        };
+        let Some(panel) = drawer::panel(&holder) else {
+            return;
+        };
+        let rows = match panel.child().and_downcast::<gtk4::Box>() {
+            Some(rows) => rows,
+            None => {
+                let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+                rows.add_css_class(DETAIL);
+                panel.set_child(Some(&rows));
+                rows
+            }
+        };
         by_key(
-            &*imp.page,
-            &mut rows,
-            &workspace.windows,
+            &rows,
+            &mut self.imp().rows.borrow_mut(),
+            windows,
             |window| window.id,
             |window| self.row_for(window.id),
             |row, window| {
@@ -61,11 +91,6 @@ impl WorkspacesPopover {
                 row.set_selected(window.focused);
             },
         );
-
-        drop(rows);
-        drop(workspaces);
-        imp.opened.set(Some(id));
-        crate::drawer::set(&imp.drawer, true);
     }
 
     fn row_for(&self, id: u64) -> Row {
@@ -78,10 +103,28 @@ impl WorkspacesPopover {
         row
     }
 
-    fn close_drawer(&self) {
+    /// Every row but the open one recedes, and every panel but the open one closes — derived from
+    /// `opened` rather than remembered per row, so two holders can never disagree about which one
+    /// the card belongs to.
+    fn recede(&self) {
         let imp = self.imp();
-        imp.opened.set(None);
-        crate::drawer::set(&imp.drawer, false);
+        let opened = imp.opened.get();
+        for (id, holder) in imp.list.holders() {
+            let wanted = opened == Some(id);
+            if let Some(split) = drawer::head::<SplitRow>(&holder) {
+                crate::set_css_class(&split, drawer::OPEN, wanted);
+                crate::set_css_class(&split, drawer::RECEDED, opened.is_some() && !wanted);
+            }
+            if let Some(panel) = drawer::panel(&holder) {
+                drawer::set(&panel, wanted);
+            }
+        }
+        crate::set_css_class(&*imp.hero, drawer::RECEDED, opened.is_some());
+    }
+
+    fn close_drawer(&self) {
+        self.imp().opened.set(None);
+        self.recede();
     }
 
     pub fn toggle_detail(&self, id: u64) {
