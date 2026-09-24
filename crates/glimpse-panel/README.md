@@ -272,7 +272,10 @@ tick against the provider's thirty-minute lease.
   label is empty.
 - **The optimistic value goes into `self.players`, not beside it**, so `dress` has one source.
 - **`aimed` is a shared cell holding the current player's id**, which row signals carry too.
-- **The other players section appears only when enabled and another player exists.**
+- **The other players section appears only when enabled and another player exists**, and a row
+  raises its player's window.
+- **The volume slider is the current player's own `Volume`**, shown only when the player reports
+  one and accepts control; system volume stays with the audio applet.
 - **An icon is a name the theme actually has**, checked with `IconTheme::has_icon`: `DesktopEntry`
   first, then the bus-name suffix whole and a segment at a time.
 

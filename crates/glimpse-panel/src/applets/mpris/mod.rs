@@ -110,6 +110,18 @@ impl Applet for Mpris {
             }
         });
 
+        shown.connect_volume_changed({
+            let (service, held) = (self.service.clone(), self.aimed.clone());
+            move |_, volume| {
+                let service = service.clone();
+                aimed(&held, |player| {
+                    spawn_command("mpris.set_volume", async move {
+                        service.set_volume(player, volume).await
+                    });
+                })
+            }
+        });
+
         shown.connect_toggle_requested({
             let service = self.service.clone();
             move |_, player| {
@@ -306,6 +318,7 @@ impl Mpris {
         let Some(player) = self.current() else {
             self.aimed.replace(String::new());
             shown.set_others(None);
+            shown.set_volume(None);
             shown.set_footer(None);
             return;
         };
@@ -336,6 +349,7 @@ impl Mpris {
         transport.set_shuffle(shuffle);
         transport.set_can_repeat(player.repeat.is_some());
         transport.set_repeat(transport_repeat(repeat));
+        shown.set_volume(player.volume.filter(|_| player.can.control));
 
         let others = self
             .settings

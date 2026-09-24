@@ -3814,15 +3814,11 @@ mod tests {
         });
 
         mpris.set_others(None);
-        assert!(
-            !mpris.imp().others.is_visible(),
-            "a section switched off is hidden, not shown holding its own placeholder"
-        );
-
+        assert!(!mpris.imp().others.get_visible());
         mpris.set_others(Some(&[]));
         assert!(
-            mpris.imp().others.is_visible() && mpris.imp().others.empty(),
-            "one player running is not an empty popover, it is a popover with no others"
+            !mpris.imp().others.get_visible(),
+            "one player running shows no section at all rather than one saying so"
         );
         mpris.set_others(Some(&[
             Player {
@@ -3842,7 +3838,33 @@ mod tests {
                 playing: true,
             },
         ]));
-        assert!(!mpris.imp().others.empty());
+        assert!(mpris.imp().others.get_visible());
+
+        let volumes = Rc::new(RefCell::new(Vec::new()));
+        mpris.connect_volume_changed({
+            let volumes = volumes.clone();
+            move |_, volume| volumes.borrow_mut().push(volume)
+        });
+        assert!(!mpris.imp().volume.get_visible());
+        mpris.set_volume(Some(0.4));
+        assert!(mpris.imp().volume.get_visible());
+        assert!((mpris.imp().volume.value() - 40.0).abs() < f64::EPSILON);
+        mpris.set_volume(Some(f64::NAN));
+        assert!(
+            (mpris.imp().volume.value() - 40.0).abs() < f64::EPSILON,
+            "a NaN from the bus leaves the slider where it was"
+        );
+        assert!(
+            volumes.borrow().is_empty(),
+            "following the player is not a request to change it"
+        );
+        mpris
+            .imp()
+            .volume
+            .emit_by_name::<()>("changed", &[&70.0f64]);
+        assert_eq!(volumes.borrow().as_slice(), [0.7]);
+        mpris.set_volume(None);
+        assert!(!mpris.imp().volume.get_visible());
 
         let rows = mpris.imp().list.imp().rows.borrow().clone();
         rows[1].emit_by_name::<()>("clicked", &[]);

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 12:09+0200\n"
+"POT-Creation-Date: 2026-09-24 12:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -68,14 +68,14 @@ msgstr ""
 #: crates/glimpse-panel/src/applet/mod.rs:137
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:293
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:119
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:138
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:294
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:120
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
 
@@ -85,7 +85,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:111
 #: crates/glimpse-panel/src/applets/network/render.rs:155
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:121
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
 msgid "That did not work."
 msgstr ""
 
@@ -198,6 +198,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:169
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:257
 #: crates/glimpse-panel/src/applets/network/indicator.rs:465
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:99
 msgid "Could not change that setting"
 msgstr ""
 
@@ -856,7 +857,7 @@ msgid "Could not blank the screens"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:128
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:118
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:156
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:198
 msgid "The compositor is unavailable."
 msgstr ""
@@ -933,7 +934,7 @@ msgstr ""
 msgid "Preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:350
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:364
 msgid "Open {player}"
 msgstr ""
 
@@ -1340,7 +1341,7 @@ msgid "Aborted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:145
-#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#: crates/glimpse-panel/src/applets/privacy/render.rs:73
 msgid "Location"
 msgstr ""
 
@@ -1349,29 +1350,46 @@ msgstr ""
 msgid "Not accepting jobs"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:100
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:97
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:138
 #: crates/glimpse-widgets/blueprints/privacy_popover.blp:14
 msgid "Privacy"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:102
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:140
 msgid "Could not stop that screen share"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/indicator.rs:117
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
 msgid "That share had already ended."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/render.rs:69
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
 msgid "Camera"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
 msgid "Microphone"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
 msgid "Screen"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:144
+msgid "Sharing {what}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:152
+msgid "muted"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:175
+msgid "a window"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:183
+msgid "Built-in display"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:81
@@ -1857,16 +1875,8 @@ msgstr ""
 msgid "Kept awake by"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
 msgid "Other players"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/mpris_popover.blp:28
-msgid "Nothing else playing"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/mpris_popover.blp:29
-msgid "Only one player is running."
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/network_popover.blp:39
@@ -1952,16 +1962,12 @@ msgstr ""
 msgid "Printers"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/privacy_popover.blp:28
-msgid "Your screen is being shared"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:27
 msgid "In use now"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/privacy_popover.blp:38
-msgid "Nothing is using your camera, microphone or screen"
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:36
+msgid "Mute microphone"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:15
@@ -2169,7 +2175,7 @@ msgstr ""
 msgid "Page {completed} of {total}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/privacy_popover/mod.rs:79
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:120
 msgid "Stop sharing"
 msgstr ""
 
