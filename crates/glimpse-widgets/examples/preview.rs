@@ -605,10 +605,17 @@ mod fixtures {
     /// The real `$WeatherPopover`, filled through the setters the applet uses, so the preview
     /// shows the shipped widget rather than a hand-copied arrangement of its parts.
     fn weather_popover(root: &gtk4::Widget) {
-        let Some(popover) = find::<WeatherPopover>(root) else {
-            return;
-        };
+        for popover in collect::<WeatherPopover>(root) {
+            weather(&popover);
+            if popover.has_css_class("demo__today")
+                && let Some(today) = collect::<Expandable>(popover.upcast_ref()).first()
+            {
+                today.set_expanded(true);
+            }
+        }
+    }
 
+    fn weather(popover: &WeatherPopover) {
         popover.set_heading(
             "weather-showers-symbolic",
             "Vilnius",
@@ -632,13 +639,14 @@ mod fixtures {
         popover.set_days(
             &DAYS
                 .iter()
-                .skip(1)
-                .map(|day| Day {
+                .enumerate()
+                .map(|(index, day)| Day {
                     label: day.label.to_owned(),
                     icon_name: day.icon_name.to_owned(),
                     precipitation: day.precipitation,
                     low: day.low,
                     high: day.high,
+                    now: (index == 0).then_some(16.0),
                 })
                 .collect::<Vec<_>>(),
         );
@@ -670,19 +678,28 @@ mod fixtures {
 
         let mut pages: Vec<WeatherPage> = DAYS
             .iter()
-            .skip(1)
             .enumerate()
             .map(|(index, day)| WeatherPage {
                 key: glimpse_widgets::day_page(index as u32),
                 title: day.label.to_owned(),
                 description: Some(day.condition.to_owned()),
-                facts: vec![
-                    Fact::new("High", format!("{}°", day.high)),
-                    Fact::new("Low", format!("{}°", day.low)),
-                    Fact::new("Sunrise", "05:59"),
-                    Fact::new("Sunset", "20:08"),
-                    Fact::new("Day length", "14 h 9 min"),
-                ],
+                facts: match index {
+                    0 => vec![
+                        Fact::new("Wind", "12 km/h NW"),
+                        Fact::new("Humidity", "78%"),
+                        Fact::new("Precipitation", "0.4 mm"),
+                        Fact::new("Sunrise", "07:03"),
+                        Fact::new("Sunset", "19:02"),
+                        Fact::new("Day length", "11 h 59 min"),
+                    ],
+                    _ => vec![
+                        Fact::new("High", format!("{}°", day.high)),
+                        Fact::new("Low", format!("{}°", day.low)),
+                        Fact::new("Sunrise", "05:59"),
+                        Fact::new("Sunset", "20:08"),
+                        Fact::new("Day length", "14 h 9 min"),
+                    ],
+                },
             })
             .collect();
 

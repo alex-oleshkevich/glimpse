@@ -259,8 +259,9 @@ tick against the provider's thirty-minute lease.
   `note_unserved` runs on the tick, which keeps the startup gap from flashing a warning.
 - **Units come off the typed provider snapshot, never off the panel configuration**, so a units
   change cannot print °F over a Celsius reading while the updated snapshot is in flight.
-- **The list starts at tomorrow and the strip at the next hour** — today and the hour standing are
-  already the hero.
+- **The strip starts at the next hour** — the hour standing is already the hero.
+- **The list leads with Today**, whose bar carries a dot at the current reading and whose detail
+  holds the current wind, humidity and precipitation beside the sun. `days` counts the rows after it.
 - **An alert takes the chip's icon and its colour.** The bar has room for one thing.
 - **A weekday name is formatted through `LC_TIME`, not looked up in the message catalog.**
 - **The icon is cached by name**, because `indicators()` is a pull after every input.

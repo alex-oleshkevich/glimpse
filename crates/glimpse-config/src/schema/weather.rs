@@ -13,8 +13,7 @@ pub struct Weather {
     /// conditions every fifteen minutes, so anything shorter asks again for data that has not
     /// moved; the provider's `Refresh` method is how a person asks for it now. Values below 600 are raised.
     pub poll_interval: u64,
-    /// How many days the daily forecast covers, today included. Clamped to 1..=10. The panel's
-    /// list starts at tomorrow, so it shows one fewer day than this asks for.
+    /// How many days the daily forecast covers, today included. Clamped to 1..=10.
     pub forecast_days: u8,
 }
 

@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset, Offset as _, TimeDelta, Utc};
-use gettextrs::{gettext, ngettext};
+use gettextrs::{gettext, ngettext, pgettext};
 use glimpse_dbus::weather::{
     AlertSeverity, Condition, CurrentWeather, DayForecast, PlaceWeather, UnitSystem, WeatherAlert,
 };
@@ -179,16 +179,14 @@ pub fn hours(place: &PlaceWeather, cap: u8, twelve: bool) -> Vec<Hour> {
         .collect()
 }
 
-/// The list starts at tomorrow. Today is already the hero, the strip and the details page, and a
-/// row repeating it says nothing the popover has not said twice.
 pub fn days(place: &PlaceWeather, cap: u8) -> Vec<Day> {
     let offset = zone(place.utc_offset_seconds);
+    let now = place.current.as_ref().map(|current| current.temperature);
 
     place
         .days
         .iter()
-        .skip(1)
-        .take(cap as usize)
+        .take(cap as usize + 1)
         .enumerate()
         .map(|(index, day)| Day {
             label: day_label(index, day, offset),
@@ -196,13 +194,15 @@ pub fn days(place: &PlaceWeather, cap: u8) -> Vec<Day> {
             precipitation: day.precipitation_chance.map(u32::from),
             low: day.low,
             high: day.high,
+            now: now.filter(|_| index == 0),
         })
         .collect()
 }
 
 fn day_label(index: usize, day: &DayForecast, offset: FixedOffset) -> String {
     match index {
-        0 => gettext("Tomorrow"),
+        0 => gettext("Today"),
+        1 => gettext("Tomorrow"),
         _ => weekday(day.start.with_timezone(&offset)),
     }
 }
@@ -336,6 +336,53 @@ pub fn day_length(day: &DayForecast) -> Option<String> {
     )
 }
 
+fn compass(degrees: u16) -> String {
+    match (u32::from(degrees) * 2 + 45) / 90 % 8 {
+        0 => pgettext("wind", "N"),
+        1 => pgettext("wind", "NE"),
+        2 => pgettext("wind", "E"),
+        3 => pgettext("wind", "SE"),
+        4 => pgettext("wind", "S"),
+        5 => pgettext("wind", "SW"),
+        6 => pgettext("wind", "W"),
+        _ => pgettext("wind", "NW"),
+    }
+}
+
+fn wind(current: &CurrentWeather, units: UnitSystem) -> Option<String> {
+    let speed = current.wind_speed?;
+    let unit = match units {
+        UnitSystem::Metric => gettext("km/h"),
+        UnitSystem::Imperial => gettext("mph"),
+    };
+    let speed = format!("{} {unit}", rounded(speed));
+    Some(match current.wind_direction {
+        Some(degrees) => format!("{speed} {}", compass(degrees)),
+        None => speed,
+    })
+}
+
+fn precipitation(amount: f64, units: UnitSystem) -> String {
+    match units {
+        UnitSystem::Metric => gettext("{amount} mm").replace("{amount}", &format!("{amount:.1}")),
+        UnitSystem::Imperial => gettext("{amount} in").replace("{amount}", &format!("{amount:.2}")),
+    }
+}
+
+fn current_facts(current: &CurrentWeather, units: UnitSystem) -> Vec<Fact> {
+    let mut facts = Vec::new();
+    if let Some(wind) = wind(current, units) {
+        facts.push(fact(gettext("Wind"), wind));
+    }
+    if let Some(humidity) = current.humidity {
+        facts.push(fact(gettext("Humidity"), format!("{humidity}%")));
+    }
+    if let Some(amount) = current.precipitation {
+        facts.push(fact(gettext("Precipitation"), precipitation(amount, units)));
+    }
+    facts
+}
+
 fn day_facts(day: &DayForecast, units: UnitSystem, offset: FixedOffset, twelve: bool) -> Vec<Fact> {
     let mut facts = vec![
         fact(
@@ -351,6 +398,12 @@ fn day_facts(day: &DayForecast, units: UnitSystem, offset: FixedOffset, twelve: 
     if let Some(chance) = day.precipitation_chance {
         facts.push(fact(gettext("Chance of rain"), format!("{chance}%")));
     }
+    facts.extend(sun_facts(day, offset, twelve));
+    facts
+}
+
+fn sun_facts(day: &DayForecast, offset: FixedOffset, twelve: bool) -> Vec<Fact> {
+    let mut facts = Vec::new();
     if let Some(sunrise) = day.sunrise {
         facts.push(fact(gettext("Sunrise"), clock_at(sunrise, offset, twelve)));
     }
@@ -371,14 +424,19 @@ pub fn pages(place: &PlaceWeather, units: UnitSystem, cap: u8, twelve: bool) -> 
         place
             .days
             .iter()
-            .skip(1)
-            .take(cap as usize)
+            .take(cap as usize + 1)
             .enumerate()
             .map(|(index, day)| WeatherPage {
                 key: day_page(index as u32),
                 title: day_label(index, day, offset),
                 description: wording(day.condition),
-                facts: day_facts(day, units, offset, twelve),
+                facts: match (index, place.current.as_ref()) {
+                    (0, Some(current)) => current_facts(current, units)
+                        .into_iter()
+                        .chain(sun_facts(day, offset, twelve))
+                        .collect(),
+                    _ => day_facts(day, units, offset, twelve),
+                },
             }),
     );
 
@@ -644,7 +702,7 @@ mod tests {
         let page = |units| {
             pages(&week, units, 7, false)
                 .into_iter()
-                .find(|page| page.key == "day0")
+                .find(|page| page.key == "day1")
                 .expect("tomorrow has a page")
                 .facts
         };
@@ -677,7 +735,7 @@ mod tests {
         let printed = labels(
             &pages(&sparse, UnitSystem::Metric, 7, false)
                 .into_iter()
-                .find(|page| page.key == "day0")
+                .find(|page| page.key == "day1")
                 .expect("tomorrow has a page")
                 .facts,
         );
@@ -698,24 +756,22 @@ mod tests {
         long.days = (0..10).map(|_| today()).collect();
 
         assert_eq!(hours(&long, 4, false).len(), 4);
-        assert_eq!(days(&long, 7).len(), 7);
+        assert_eq!(days(&long, 7).len(), 8, "today, then the configured count");
         assert_eq!(hours(&long, 0, false).len(), 0);
         assert_eq!(
             days(&long, 30).len(),
-            9,
-            "a cap wider than the payload takes what is there, less the day it skips"
+            10,
+            "a cap wider than the payload takes what is there"
         );
         assert_eq!(
             pages(&long, UnitSystem::Metric, 7, false).len(),
-            7,
+            8,
             "one page per shown day, and nothing that is not a row you can see"
         );
     }
 
-    /// Today is already the hero, the strip and the details page. A row repeating it is the
-    /// third telling, and it costs the row that would have shown the seventh day.
     #[test]
-    fn the_day_list_starts_at_tomorrow() {
+    fn the_day_list_leads_with_today_and_marks_the_current_reading() {
         let mut week = place();
         week.days = (0..8)
             .map(|n| DayForecast {
@@ -725,27 +781,70 @@ mod tests {
             })
             .collect();
 
-        let listed = days(&week, 7);
+        let listed = days(&week, 6);
         assert_eq!(listed.len(), 7);
-        assert_eq!(listed[0].label, "Tomorrow");
+        assert_eq!(listed[0].label, "Today");
+        assert_eq!(listed[1].label, "Tomorrow");
+        assert_eq!(listed[0].high, 10.0);
         assert_eq!(
-            listed[0].high, 11.0,
-            "the first row is the second day the provider sent, not the first"
+            listed[0].now,
+            Some(18.4),
+            "today carries the hero's reading"
         );
         assert!(
-            listed.iter().all(|day| day.label != "Today"),
-            "nothing in the list is today"
+            listed[1..].iter().all(|day| day.now.is_none()),
+            "only today has a now"
         );
 
-        let built = pages(&week, UnitSystem::Metric, 7, false);
-        let first = built
+        week.current = None;
+        assert_eq!(days(&week, 6)[0].now, None);
+    }
+
+    #[test]
+    fn today_opens_on_the_current_conditions_and_the_sun() {
+        let built = pages(&place(), UnitSystem::Metric, 6, false);
+        let today = built
             .iter()
             .find(|page| page.key == "day0")
-            .expect("the row's own page");
+            .expect("today has a page");
+        assert_eq!(today.title, "Today");
         assert_eq!(
-            first.title, "Tomorrow",
-            "a page is keyed by the row's position, so day0 is the first row you can see"
+            labels(&today.facts),
+            [
+                "Wind",
+                "Humidity",
+                "Precipitation",
+                "Sunrise",
+                "Sunset",
+                "Day length"
+            ]
         );
+        assert_eq!(value(&today.facts, "Wind").as_deref(), Some("12 km/h SW"));
+        assert_eq!(value(&today.facts, "Humidity").as_deref(), Some("72%"));
+        assert_eq!(
+            value(&today.facts, "Precipitation").as_deref(),
+            Some("0.4 mm")
+        );
+
+        let imperial = pages(&place(), UnitSystem::Imperial, 6, false);
+        let facts = &imperial[0].facts;
+        assert_eq!(value(facts, "Wind").as_deref(), Some("12 mph SW"));
+        assert_eq!(value(facts, "Precipitation").as_deref(), Some("0.40 in"));
+    }
+
+    #[test]
+    fn a_wind_direction_rounds_to_the_nearest_of_eight_points() {
+        for (degrees, point) in [
+            (0, "N"),
+            (22, "N"),
+            (23, "NE"),
+            (180, "S"),
+            (315, "NW"),
+            (338, "N"),
+            (359, "N"),
+        ] {
+            assert_eq!(compass(degrees), point, "{degrees}°");
+        }
     }
 
     /// The hour standing is the hero's job. A column repeating it is the second telling, and it

@@ -511,8 +511,8 @@ pub struct Weather {
     /// How many hours the popover's strip shows. The strip starts at the next hour — the hour
     /// standing is already the hero.
     pub hours: u8,
-    /// How many days the popover's list shows. The list starts at tomorrow — today is already
-    /// the hero, the strip and the details page, and repeating it as a row says nothing new.
+    /// How many days after today the popover's list shows. Today always leads the list, holding
+    /// the current conditions.
     pub days: u8,
 }
 

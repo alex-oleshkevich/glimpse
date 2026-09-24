@@ -1885,6 +1885,13 @@ mod tests {
             (20.0, 20.0),
             "a high below its low is clamped rather than drawn backwards"
         );
+        assert_eq!(
+            bar.now(),
+            None,
+            "a bar marks no reading until it is given one"
+        );
+        bar.set_now(Some(16.0));
+        assert_eq!(bar.now(), Some(16.0));
 
         let facts = FactList::new();
         facts.set_facts(&[Fact::new("Humidity", "78%"), Fact::new("Wind", "14 km/h")]);
@@ -1975,9 +1982,13 @@ mod tests {
             precipitation,
             low,
             high,
+            now: None,
         };
         forecast.set_days(&[
-            day("Today", Some(60), 12.0, 18.0),
+            Day {
+                now: Some(16.0),
+                ..day("Today", Some(60), 12.0, 18.0)
+            },
             day("Tomorrow", Some(0), 11.0, 20.0),
             day("Sunday", None, 7.0, 26.0),
         ]);
@@ -1994,6 +2005,13 @@ mod tests {
                 (7.0, 26.0)
             );
         }
+        let now_of = |bar: &gtk4::Widget| bar.clone().downcast::<RangeBar>().expect("bar").now();
+        assert_eq!(now_of(&bars[0]), Some(16.0));
+        assert_eq!(
+            now_of(&bars[1]),
+            None,
+            "only the day given a reading marks one"
+        );
         let chances = all_named(&forecast, "forecast__precipitation");
         let chance = |index: usize| {
             chances[index]
@@ -4027,6 +4045,7 @@ mod tests {
             precipitation: None,
             low: 11.0,
             high: 18.0,
+            now: None,
         }]);
         assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
 
@@ -4045,6 +4064,7 @@ mod tests {
                 precipitation: None,
                 low: 11.0,
                 high: 18.0,
+                now: None,
             },
             Day {
                 label: "Wednesday".to_owned(),
@@ -4052,6 +4072,7 @@ mod tests {
                 precipitation: None,
                 low: 12.0,
                 high: 19.0,
+                now: None,
             },
         ]);
         weather.set_pages(&[page("day0", "Tomorrow"), page("day1", "Wednesday")]);

@@ -1154,7 +1154,7 @@
           "type": "object",
           "properties": {
             "days": {
-              "description": "How many days the popover's list shows. The list starts at tomorrow — today is already\nthe hero, the strip and the details page, and repeating it as a row says nothing new.",
+              "description": "How many days after today the popover's list shows. Today always leads the list, holding\nthe current conditions.",
               "type": "integer",
               "format": "uint8",
               "default": 6,
@@ -2435,7 +2435,7 @@
             "type": "object",
             "properties": {
               "days": {
-                "description": "How many days the popover's list shows. The list starts at tomorrow — today is already\nthe hero, the strip and the details page, and repeating it as a row says nothing new.",
+                "description": "How many days after today the popover's list shows. Today always leads the list, holding\nthe current conditions.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 6,
@@ -4214,7 +4214,7 @@
       "type": "object",
       "properties": {
         "forecast-days": {
-          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10. The panel's\nlist starts at tomorrow, so it shows one fewer day than this asks for.",
+          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10.",
           "type": "integer",
           "format": "uint8",
           "default": 7,

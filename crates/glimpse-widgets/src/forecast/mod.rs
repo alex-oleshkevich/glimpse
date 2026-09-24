@@ -26,6 +26,7 @@ pub struct Day {
     pub precipitation: Option<u32>,
     pub low: f64,
     pub high: f64,
+    pub now: Option<f64>,
 }
 
 glib::wrapper! {
@@ -173,6 +174,7 @@ impl ForecastList {
             row.set_high(Some(temperature(day.high, &unit).as_str()));
             row.bar().set_scale(minimum, maximum);
             row.bar().set_range(day.low, day.high);
+            row.bar().set_now(day.now);
         }
         for holder in holders.split_off(days.len()) {
             holder.unparent();

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 16:00+0200\n"
+"POT-Creation-Date: 2026-09-24 16:31+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -178,7 +178,7 @@ msgid "{hours} h"
 msgstr "{hours} ч"
 
 #: crates/glimpse-panel/src/applets/agenda.rs:215
-#: crates/glimpse-panel/src/applets/weather/render.rs:316
+#: crates/glimpse-panel/src/applets/weather/render.rs:333
 msgid "{hours} h {minutes} min"
 msgstr "{hours} ч {minutes} мин"
 
@@ -398,6 +398,7 @@ msgid "{hours} h {minutes} m"
 msgstr "{hours} ч {minutes} мин"
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:258
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
 #: crates/glimpse-widgets/src/places_popover/mod.rs:151
 msgid "Empty"
 msgstr ""
@@ -916,6 +917,7 @@ msgid "Week {number}"
 msgstr "Рабочие столы"
 
 #: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-panel/src/applets/weather/render.rs:204
 #: crates/glimpse-widgets/blueprints/calendar.blp:43
 msgid "Today"
 msgstr "Сегодня"
@@ -1080,6 +1082,10 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:164
 msgid "Preventing idle"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mod.rs:64
+msgid "Built-in display"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/mpris/mod.rs:364
@@ -1440,6 +1446,17 @@ msgstr "{count} ч"
 msgid "{count}d"
 msgstr "{count} д"
 
+#: crates/glimpse-panel/src/applets/pager/mod.rs:221
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:32
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] "{count} рабочий стол"
+msgstr[1] "{count} рабочий стол"
+msgstr[2] "{count} рабочий стол"
+
 #: crates/glimpse-panel/src/applets/places/render.rs:24
 #: crates/glimpse-widgets/blueprints/places_popover.blp:14
 #: crates/glimpse-widgets/blueprints/places_popover.blp:47
@@ -1568,10 +1585,6 @@ msgstr ""
 #| msgid_plural "{count} workspaces"
 msgid "a window"
 msgstr "{count} рабочий стол"
-
-#: crates/glimpse-panel/src/applets/privacy/render.rs:183
-msgid "Built-in display"
-msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:81
 #, fuzzy
@@ -1869,54 +1882,135 @@ msgstr ""
 msgid "feels like {temperature}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:282
+#: crates/glimpse-panel/src/applets/weather/render.rs:281
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:295
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
+msgid "{what} starting in {count} hour"
+msgid_plural "{what} starting in {count} hours"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:312
 msgid "°C"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:296
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "°F"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:325
-msgid "High"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/weather/render.rs:329
-msgid "Low"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/weather/render.rs:335
-msgid "Chance of rain"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/weather/render.rs:338
-msgid "Sunrise"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/weather/render.rs:341
-msgid "Sunset"
+msgctxt "wind"
+msgid "N"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:342
+msgctxt "wind"
+msgid "NE"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:343
+msgctxt "wind"
+msgid "E"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:344
+msgctxt "wind"
+msgid "SE"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:345
+msgctxt "wind"
+msgid "S"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
+msgctxt "wind"
+msgid "SW"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:347
+msgctxt "wind"
+msgid "W"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:348
+msgctxt "wind"
+msgid "NW"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:355
+msgid "km/h"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:356
+msgid "mph"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:367
+#, fuzzy
+#| msgid "{count}m"
+msgid "{amount} mm"
+msgstr "{count} мин"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:368
+#, fuzzy
+#| msgid "{count}m"
+msgid "{amount} in"
+msgstr "{count} мин"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:375
+msgid "Wind"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:378
+msgid "Humidity"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:381
+#, fuzzy
+#| msgid "Notification"
+msgid "Precipitation"
+msgstr "Уведомление"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:389
+msgid "High"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:393
+msgid "Low"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:399
+msgid "Chance of rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:408
+msgid "Sunrise"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:411
+msgid "Sunset"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:414
 msgid "Day length"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:371
+#: crates/glimpse-panel/src/applets/weather/render.rs:446
 msgid "Issued"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:374
+#: crates/glimpse-panel/src/applets/weather/render.rs:449
 msgid "Expires"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:377
+#: crates/glimpse-panel/src/applets/weather/render.rs:452
 msgid "Source"
 msgstr ""
 
@@ -1937,16 +2031,6 @@ msgstr "{count} рабочий стол"
 #| msgid "Workspaces"
 msgid "Workspace {number}"
 msgstr "Рабочие столы"
-
-#: crates/glimpse-panel/src/applets/workspace_name/render.rs:32
-#, fuzzy
-#| msgid "{count} workspace"
-#| msgid_plural "{count} workspaces"
-msgid "{count} window"
-msgid_plural "{count} windows"
-msgstr[0] "{count} рабочий стол"
-msgstr[1] "{count} рабочий стол"
-msgstr[2] "{count} рабочий стол"
 
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:103
 #, fuzzy
@@ -2421,23 +2505,27 @@ msgstr ""
 msgid "Unmount"
 msgstr ""
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:117
-msgid "{workspaces} on {output}"
-msgstr "{workspaces} на {output}"
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "No windows"
+msgstr "{count} рабочий стол"
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:121
-msgid "{workspaces} across {displays} display"
-msgid_plural "{workspaces} across {displays} displays"
-msgstr[0] "{workspaces} на {displays} экране"
-msgstr[1] "{workspaces} на {displays} экранах"
-msgstr[2] "{workspaces} на {displays} экранах"
+#~ msgid "{workspaces} on {output}"
+#~ msgstr "{workspaces} на {output}"
 
-#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:131
-msgid "{count} workspace"
-msgid_plural "{count} workspaces"
-msgstr[0] "{count} рабочий стол"
-msgstr[1] "{count} рабочих стола"
-msgstr[2] "{count} рабочих столов"
+#~ msgid "{workspaces} across {displays} display"
+#~ msgid_plural "{workspaces} across {displays} displays"
+#~ msgstr[0] "{workspaces} на {displays} экране"
+#~ msgstr[1] "{workspaces} на {displays} экранах"
+#~ msgstr[2] "{workspaces} на {displays} экранах"
+
+#~ msgid "{count} workspace"
+#~ msgid_plural "{count} workspaces"
+#~ msgstr[0] "{count} рабочий стол"
+#~ msgstr[1] "{count} рабочих стола"
+#~ msgstr[2] "{count} рабочих столов"
 
 #, fuzzy
 #~| msgid "Notifications are unavailable"
