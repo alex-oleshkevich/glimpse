@@ -78,12 +78,28 @@ template $Calendar: Gtk.Widget {
     Gtk.StackPage {
       name: "month";
 
-      child: Gtk.Grid month {
-        column-homogeneous: true;
+      child: Gtk.Box {
+        orientation: vertical;
 
         styles [
           "calendar__grid",
         ]
+
+        Gtk.Grid weekdays_row {
+          column-homogeneous: true;
+        }
+
+        Gtk.Stack pages {
+          transition-type: slide_left_right;
+
+          Gtk.Grid {
+            column-homogeneous: true;
+          }
+
+          Gtk.Grid {
+            column-homogeneous: true;
+          }
+        }
       };
     }
 
