@@ -50,6 +50,9 @@ themed name containing one. `IndicatorSpec` holds a `gio::Icon` and so is not `S
 - **A badge hides the attention dot, and must not cancel attention itself.** Two marks for one fact
   is noise, so the dot yields while `indicator--attention` stays and colours the chip. Assert it from
   a clean spec — `set_attention` returns early on an unchanged flag.
+- **A label with no icon is a text chip, `indicator--text`, whose label takes the icon's minimum
+  width.** The group's minimum is wider than a one- or two-letter label, and a box packs its child
+  at the start, so without it the letters sit left of the chip's middle.
 
 `Pager` is a strip of `PagerItem`, the one indicator that is not an `IndicatorGroup`: a click per
 slot over a list whose length changes.

@@ -488,8 +488,18 @@ mod tests {
         assert_eq!(label_of(&indicator).chars().count(), LABEL_MAX_CHARS);
         let label = label_widget(&indicator);
         assert!(label.is_visible());
+        assert!(
+            indicator.has_css_class("indicator--text"),
+            "a label with no icon is a text chip, which centers in the chip's width"
+        );
+        let icon: gtk4::gio::Icon = gtk4::gio::ThemedIcon::new("input-keyboard-symbolic").upcast();
+        indicator.set_icon(Some(&icon));
+        assert!(!indicator.has_css_class("indicator--text"));
+        indicator.set_icon(None);
+        assert!(indicator.has_css_class("indicator--text"));
         indicator.set_label(None);
         assert!(!label.is_visible(), "an emptied label reserves no space");
+        assert!(!indicator.has_css_class("indicator--text"));
 
         let image = child_named::<gtk4::Image>(&indicator, "indicator__icon");
         assert!(

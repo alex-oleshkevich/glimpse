@@ -119,6 +119,10 @@
     min-height: 1.5rem;
 }
 
+.indicator--text .indicator__label {
+    min-width: 1.5rem;
+}
+
 .indicator__attention-dot {
     min-width: 0.5rem;
     min-height: 0.5rem;
