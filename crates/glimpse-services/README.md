@@ -335,6 +335,19 @@ are stepped over. **Capacity is a `statvfs` sample, not a UDisks2 property** —
 for vfat and exfat, the two commonest removable filesystems, so free space comes from
 `rustix::fs::statvfs` in `spawn_blocking`, on an interval declared only while something is mounted.
 
+**kdeconnect** — mirrors `kdeconnectd` into a device list; ring, ping, send-clipboard, share, browse
+(`sftp.startBrowsing`, whose `false` is a failure), open-SMS, pair, unpair and discover are one call
+each, and each is offered only while its plugin is loaded. **It never starts the daemon**: the owner is read with
+`GetNameOwner`, and every call — `GetAll` included — goes to that unique name, which the bus cannot
+activate. **The daemon emits no `PropertiesChanged`**, only its own Qt signals, so one match rule
+on the owner under `/modules/kdeconnect` marks a device stale and a list signal marks the list stale.
+**That stream never awaits a round trip**: a zbus match queue that fills stops the shared
+connection reading, so the source only classifies signals and the service does the fetching — one
+fetch per device and one list at a time, with a signal arriving mid-fetch queuing exactly one more.
+Every result carries its generation, and one from a daemon that has since gone is dropped. No
+daemon is `running` with `running: false` in the state, not `degraded`: most users have none. A device's plugins, battery and actions exist only while it is
+paired and reachable; `send_clipboard` is offered only while the daemon's own clipboard sync is off.
+
 **places** — reads four filesystem sources with no bus at all: `user-dirs.dirs`,
 `gtk-3.0/bookmarks`, `$XDG_RUNTIME_DIR/gvfs`, `Trash/files`. **`user-dirs.dirs` is parsed, never
 read through `glib::user_special_dir`** — the key set is open, the enum is closed to eight, and the

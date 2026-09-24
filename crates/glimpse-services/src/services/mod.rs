@@ -25,6 +25,7 @@ mod color_picker;
 mod compositor;
 mod geolocation;
 mod heartbeat;
+mod kdeconnect;
 mod keyboard;
 mod mpris;
 mod network;
@@ -74,6 +75,11 @@ pub use color_picker::{
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
+pub use kdeconnect::{
+    Action as KdeconnectAction, Actions as KdeconnectActions, Battery as KdeconnectBattery,
+    Device as KdeconnectDevice, DeviceId as KdeconnectDeviceId, DeviceType as KdeconnectDeviceType,
+    Kdeconnect, KdeconnectHandle, KdeconnectState, PairState as KdeconnectPairState,
+};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle};
 pub use network::{
