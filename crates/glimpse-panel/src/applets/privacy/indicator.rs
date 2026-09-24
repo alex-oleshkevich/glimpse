@@ -4,7 +4,8 @@ use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    CommandError, CompositorHandle, PrivacyHandle, PrivacyResource, PrivacyState,
+    AudioDeviceId, AudioDirection, AudioHandle, CommandError, CompositorHandle, PrivacyHandle,
+    PrivacyResource, PrivacyState,
 };
 
 use glimpse_widgets::{IndicatorSpec, PrivacyPopover, Severity};
@@ -13,7 +14,8 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input, Report, report_failure};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported};
+use crate::applets::audio;
 
 use super::render;
 
@@ -24,6 +26,7 @@ pub struct Privacy {
     state: PrivacyState,
     privacy: PrivacyHandle,
     compositor: CompositorHandle,
+    audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     filters: render::Filters,
     tooltip_format: Option<String>,
@@ -49,7 +52,7 @@ impl Applet for Privacy {
         };
         self.tooltip_format = config.common.tooltip_format.clone();
         self.pace(ctx);
-        self.refresh();
+        self.refresh(&ctx.opener());
     }
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
@@ -59,14 +62,14 @@ impl Applet for Privacy {
             Input::Pointer(_) => return,
         }
         self.pace(ctx);
-        self.refresh();
+        self.refresh(&ctx.opener());
     }
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = PrivacyPopover::new();
 
         shown.connect_stop_activated({
@@ -75,17 +78,52 @@ impl Applet for Privacy {
             let state = self.state.clone();
             let filters = self.filters;
             move |_, id| {
-                let Some(session) = render::session_for(&state, filters, &id) else {
+                for session in render::sessions_for(&state, filters, &id) {
+                    stop_screencast(compositor.clone(), notifications.clone(), session);
+                }
+            }
+        });
+
+        shown.connect_mute_toggled({
+            let audio = self.audio.clone();
+            let notifications = self.notifications.clone();
+            move |_, muted| {
+                let Some(id) = default_input(&audio).map(|(id, _)| id) else {
                     return;
                 };
-                stop_screencast(compositor.clone(), notifications.clone(), session);
+                let audio = audio.clone();
+                let report = Report {
+                    notifications: notifications.clone(),
+                    app_name: gettext("Privacy"),
+                    icon: render::MICROPHONE.to_owned(),
+                    summary: gettext("Could not change that setting"),
+                };
+                spawn_reported(
+                    "audio.set_device_muted",
+                    report,
+                    audio::wording,
+                    async move {
+                        audio
+                            .set_device_muted(AudioDirection::Input, id, muted)
+                            .await
+                    },
+                );
             }
         });
 
         self.shown.set(Some(&shown));
-        self.refresh();
+        self.refresh(&seat.opener());
         Some(Box::new(shown))
     }
+}
+
+fn default_input(audio: &AudioHandle) -> Option<(AudioDeviceId, bool)> {
+    audio
+        .snapshot()
+        .inputs
+        .into_iter()
+        .find(|device| device.default)
+        .map(|device| (device.id, device.muted))
 }
 
 fn stop_screencast(
@@ -126,6 +164,7 @@ impl Privacy {
     pub fn start(
         privacy: PrivacyHandle,
         compositor: CompositorHandle,
+        audio: AudioHandle,
         notifications: NotificationsProviderHandle,
     ) -> Self {
         let state = privacy.snapshot();
@@ -133,6 +172,7 @@ impl Privacy {
             state,
             privacy,
             compositor,
+            audio,
             notifications,
             filters: render::Filters::default(),
             tooltip_format: None,
@@ -150,16 +190,32 @@ impl Privacy {
         }
     }
 
-    fn refresh(&mut self) {
+    fn refresh(&mut self, opener: &Opener) {
         self.spec = self.chips();
-        if let Some(shown) = self.shown.upgrade() {
-            self.dress(&shown);
+        let Some(shown) = self.shown.upgrade() else {
+            return;
+        };
+        match self.spec.is_empty() {
+            true => opener.close_popover(),
+            false => self.dress(&shown),
         }
     }
 
     fn dress(&self, shown: &PrivacyPopover) {
-        shown.set_usages(&render::usages(&self.state, self.filters));
-        shown.set_screen_shared(render::screen_shared(&self.state, self.filters).as_deref());
+        let outputs = self
+            .compositor
+            .snapshot()
+            .outputs
+            .map(|outputs| outputs.outputs)
+            .unwrap_or_default();
+        let input = default_input(&self.audio);
+        let muted = input.as_ref().is_some_and(|(_, muted)| *muted);
+        shown.set_usages(&render::usages(&self.state, self.filters, &outputs, muted));
+        shown.set_microphone_muted(
+            input
+                .filter(|_| render::uses_microphone(&self.state, self.filters))
+                .map(|(_, muted)| muted),
+        );
     }
 
     fn chips(&self) -> Vec<IndicatorSpec> {

@@ -494,12 +494,14 @@ not from the one that opened the popover. Inhibitors are named only when they ap
 open windows are counted for log out, restart and shut down, never described as unsaved work.
 Updates appear only while PackageKit owns its name, as a status row, never a count.
 
-**privacy** — every usage row is informational and non-activatable, because two of the three
-possible controls are not offered symmetrically. A microphone mute belongs to the audio applet,
-which owns that state, and a camera cannot be handed back to the process holding it. A screen cast
-is the exception: a `PipeWire` cast carries a stoppable compositor session (`Usage.stoppable`), so
-its row is a `$SplitRow` whose second target calls `compositor.stop_screencast` — a `wlr-screencopy`
-or Hyprland cast has no such session and renders as a plain, unpressable row beside it. A chip
+**privacy** — one row per application, titled by its name and icon, with what it uses in the
+subtitle (`Camera · Microphone · Sharing Dell U2723QE`); a use with no application — location, or a
+screencopy cast — is titled by the resource. A shared output is named by its display label from the
+compositor, never its connector. A row holding a `PipeWire` cast opens a card whose *Stop sharing*
+ends every session in it; nothing else opens, because a camera cannot be handed back to the process
+holding it. `Mute microphone` mutes the default input through the audio service and shows only
+while something records, and a row reads `muted` beside Microphone while it is. The popover closes
+when nothing is in use, so it has no empty state. A chip
 carries `Severity::Warning`, because a chip only exists
 while something is watching or listening; there is no calm state to distinguish it from. The screen cast is the
 exception: it takes `IndicatorSpec.class` instead, so `glimpse.css` can paint the record glyph in

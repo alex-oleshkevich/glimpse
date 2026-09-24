@@ -278,7 +278,7 @@ fn act(
     });
 }
 
-fn wording(error: &AudioError) -> Option<String> {
+pub(crate) fn wording(error: &AudioError) -> Option<String> {
     Some(match error {
         AudioError::Refused(_) => gettext("The audio server refused that."),
         AudioError::Unavailable => gettext("The audio server is unavailable."),

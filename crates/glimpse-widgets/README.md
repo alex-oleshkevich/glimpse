@@ -511,15 +511,13 @@ no detail label is translated here.
 
 ## PrivacyPopover
 
-- **A resource with an action is a `$SplitRow`; a resource with none is a plain `Row`.** `Row` is a
-  `Gtk.Button`, so a button nested inside one never emits `clicked` — the shape is the guard, not a
-  test, the same reasoning `PrintingPopover` states above for its own actions.
-- **The banner is driven by `set_screen_shared`, never inferred from a usage's action.** A
-  `WlrScreencopy` capture carries no action at all, so inferring the banner from "some resource has
-  an action" would miss it and leave the screen indicator lit with no warning behind it.
-- **The reconcile key is `(id, action)`, not `id` alone.** A resource whose action changes rebuilds
-  its control rather than keeping a stale one — `by_key` matching on `id` only would reuse a `Row`
-  that used to be a `SplitRow`, or the other way round, and leave the wrong widget in the cell.
+- **A row is one app, and only a row that can be stopped opens.** Its card holds *Stop sharing*,
+  built when the row becomes stoppable and dropped when it stops being so; every other row is an
+  inert `Row` with no chevron. The section hides with nothing in it — there is no empty state,
+  because the applet closes the popover first.
+- **`Mute microphone` is a `SwitchRow` under the list, not an action in an app's card**, because it
+  mutes the input device and a card would read as muting that app alone. `set_microphone_muted`
+  follows the device quietly; only the knob emits `mute-toggled`.
 
 ## Swatch, ColorList and ColorPickerPopover
 

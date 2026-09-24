@@ -3,11 +3,11 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{SplitRow, none_if_empty, reconcile};
+use crate::{Expandable, Row, none_if_empty, reconcile};
 
 pub use imp::Usage;
 
-const STOP_ICON: &str = "media-playback-stop-symbolic";
+const CHEVRON: &str = "go-next-symbolic";
 
 glib::wrapper! {
     pub struct PrivacyPopover(ObjectSubclass<imp::PrivacyPopover>)
@@ -35,15 +35,16 @@ impl PrivacyPopover {
         self.render_usages();
     }
 
-    pub fn set_screen_shared(&self, detail: Option<&str>) {
-        let imp = self.imp();
-        if imp.screen_notice.get_visible() == detail.is_some()
-            && imp.screen_notice.subtitle().as_deref() == detail
-        {
-            return;
+    pub fn set_microphone_muted(&self, muted: Option<bool>) {
+        let mute = &self.imp().mute;
+        if mute.get_visible() != muted.is_some() {
+            mute.set_visible(muted.is_some());
         }
-        imp.screen_notice.set_visible(detail.is_some());
-        imp.screen_notice.set_subtitle(detail);
+        if let Some(muted) = muted
+            && mute.active() != muted
+        {
+            mute.set_active(muted);
+        }
     }
 
     pub fn connect_stop_activated<F: Fn(&Self, String) + 'static>(
@@ -57,6 +58,17 @@ impl PrivacyPopover {
         )
     }
 
+    pub fn connect_mute_toggled<F: Fn(&Self, bool) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "mute-toggled",
+            false,
+            glib::closure_local!(move |popover: Self, on: bool| handler(&popover, on)),
+        )
+    }
+
     fn render_usages(&self) {
         let imp = self.imp();
         #[cfg(test)]
@@ -67,33 +79,55 @@ impl PrivacyPopover {
             &mut imp.usage_held.borrow_mut(),
             &usages,
             |usage| usage.id.clone(),
-            |usage| self.build_usage_row(&usage.id),
-            apply_usage_row,
+            |_| self.build_usage(),
+            |holder, usage| self.apply_usage(holder, usage),
         );
-        imp.usages.set_empty(usages.is_empty());
+        imp.usages.set_visible(!usages.is_empty());
     }
 
-    fn build_usage_row(&self, id: &str) -> SplitRow {
-        let split = SplitRow::new();
-        split.set_property("detail-icon", STOP_ICON);
-        split.set_property("detail-tooltip", gettext("Stop sharing"));
+    fn build_usage(&self) -> Expandable {
+        let row = Row::new();
+        let chevron = gtk4::Image::from_icon_name(CHEVRON);
+        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        chevron.add_css_class("drawer-chevron");
+        row.set_trail(&chevron);
+        Expandable::new(&row)
+    }
+
+    fn apply_usage(&self, holder: &Expandable, usage: &Usage) {
+        if let Some(row) = holder.head::<Row>() {
+            row.set_title(none_if_empty(&usage.title));
+            row.set_subtitle(usage.detail.as_deref());
+            row.set_lead_icon(none_if_empty(&usage.icon));
+            if row.activatable() != usage.stoppable {
+                row.set_activatable(usage.stoppable);
+            }
+            if let Some(chevron) = row.trail()
+                && chevron.get_visible() != usage.stoppable
+            {
+                chevron.set_visible(usage.stoppable);
+            }
+        }
+        match (usage.stoppable, holder.details::<gtk4::Widget>().is_some()) {
+            (true, false) => holder.set_details(Some(&self.stop_card(&usage.id))),
+            (false, true) => holder.set_details(None::<&gtk4::Widget>),
+            _ => {}
+        }
+    }
+
+    fn stop_card(&self, id: &str) -> gtk4::Box {
+        let stop = Row::new();
+        stop.set_title(Some(gettext("Stop sharing").as_str()));
         let key = id.to_owned();
-        split.connect_details(glib::clone!(
+        stop.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>("stop-activated", &[&key])
         ));
-        split
+        let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        card.append(&stop);
+        card
     }
-}
-
-fn apply_usage_row(split: &SplitRow, usage: &Usage) {
-    let row = split.row();
-    row.set_title(none_if_empty(&usage.title));
-    row.set_subtitle(usage.detail.as_deref());
-    row.set_lead_icon(none_if_empty(&usage.icon));
-    row.set_activatable(false);
-    split.set_detail_visible(usage.stoppable);
 }
 
 #[cfg(test)]
@@ -106,23 +140,27 @@ mod tests {
     fn usage(id: &str, title: &str) -> Usage {
         Usage {
             id: id.to_owned(),
-            icon: "camera-web-symbolic".into(),
+            icon: "google-chrome".into(),
             title: title.to_owned(),
-            detail: Some("Chrome \u{b7} since 14:02".into()),
+            detail: Some("Camera \u{b7} Microphone".into()),
             stoppable: false,
         }
     }
 
-    fn rows(parent: &gtk4::Box) -> Vec<SplitRow> {
+    fn rows(parent: &gtk4::Box) -> Vec<Expandable> {
         let mut rows = Vec::new();
         let mut child = parent.first_child();
         while let Some(widget) = child {
             child = widget.next_sibling();
-            if let Ok(row) = widget.downcast::<SplitRow>() {
+            if let Ok(row) = widget.downcast::<Expandable>() {
                 rows.push(row);
             }
         }
         rows
+    }
+
+    fn head(holder: &Expandable) -> Row {
+        holder.head::<Row>().expect("a head row")
     }
 
     #[test]
@@ -135,69 +173,29 @@ mod tests {
 
         let popover = PrivacyPopover::new();
         let imp = popover.imp();
+        assert!(!imp.usages.get_visible(), "nothing in use shows no section");
+        assert!(!imp.mute.get_visible());
 
-        assert!(
-            imp.empty_usages.is_visible(),
-            "an untouched popover shows the empty state"
-        );
-        assert!(!imp.usage_rows.is_visible());
-        assert!(!imp.screen_notice.get_visible());
-
-        popover.set_usages(&[usage("camera", "Camera")]);
-        assert!(!imp.empty_usages.is_visible());
-        assert!(imp.usage_rows.is_visible());
-        let camera = rows(&imp.usage_rows);
-        assert_eq!(camera.len(), 1);
-        assert_eq!(camera[0].row().title().as_deref(), Some("Camera"));
+        popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
+        assert!(imp.usages.get_visible());
+        let chrome = rows(&imp.usage_rows);
+        assert_eq!(chrome.len(), 1);
+        assert_eq!(head(&chrome[0]).title().as_deref(), Some("Google Chrome"));
         assert_eq!(
-            camera[0].row().subtitle().as_deref(),
-            Some("Chrome \u{b7} since 14:02")
+            head(&chrome[0]).subtitle().as_deref(),
+            Some("Camera \u{b7} Microphone")
         );
         assert!(
-            !camera[0].row().activatable(),
-            "a usage row reports and is never pressed"
-        );
-        assert!(
-            !camera[0].detail().get_visible(),
-            "a usage with nothing to stop shows no detail button"
+            !head(&chrome[0]).activatable() && chrome[0].details::<gtk4::Widget>().is_none(),
+            "a use with nothing to stop is a plain row with no card"
         );
 
         let renders_after_first = imp.renders.get();
-        popover.set_usages(&[usage("camera", "Camera")]);
+        popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
         assert_eq!(
             imp.renders.get(),
             renders_after_first,
             "an unchanged usage list must never re-enter render_usages at all"
-        );
-        assert_eq!(
-            camera[0],
-            rows(&imp.usage_rows)[0],
-            "an unchanged usage list reuses its row rather than rebuilding it"
-        );
-
-        popover.set_usages(&[Usage {
-            detail: Some("Discord \u{b7} since 14:10".into()),
-            ..usage("camera", "Camera")
-        }]);
-        let changed = rows(&imp.usage_rows);
-        assert_eq!(
-            camera[0], changed[0],
-            "an id unchanged across a detail change keeps its row"
-        );
-        assert_eq!(
-            changed[0].row().subtitle().as_deref(),
-            Some("Discord \u{b7} since 14:10"),
-            "the reused row still applies the changed detail"
-        );
-
-        popover.set_usages(&[Usage {
-            detail: None,
-            ..usage("location", "Location")
-        }]);
-        assert_eq!(
-            rows(&imp.usage_rows)[0].row().subtitle(),
-            None,
-            "a usage with no detail renders with no subtitle at all"
         );
 
         let stopped: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
@@ -207,35 +205,50 @@ mod tests {
         });
         popover.set_usages(&[Usage {
             stoppable: true,
-            ..usage("screen", "Screen")
+            ..usage("app:Chrome", "Google Chrome")
         }]);
-        let screen = rows(&imp.usage_rows);
+        let sharing = rows(&imp.usage_rows);
+        assert_eq!(sharing[0], chrome[0], "the same app keeps its row");
+        head(&sharing[0]).emit_by_name::<()>("clicked", &[]);
         assert!(
-            screen[0].detail().get_visible(),
-            "a stoppable screen share offers its second target"
+            sharing[0].expanded(),
+            "a share that can be stopped opens its card"
         );
-        screen[0].emit_by_name::<()>("details", &[]);
-        assert_eq!(
-            *stopped.borrow(),
-            ["screen".to_owned()],
-            "the stop button reports the usage id, not a session id the widget does not own"
+        let stop = sharing[0]
+            .details::<gtk4::Box>()
+            .and_then(|card| card.first_child())
+            .and_downcast::<Row>()
+            .expect("a Stop sharing row");
+        assert_eq!(stop.title().as_deref(), Some("Stop sharing"));
+        assert!(!stop.has_css_class("row--destructive"));
+        stop.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(*stopped.borrow(), ["app:Chrome".to_owned()]);
+
+        popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
+        assert!(
+            rows(&imp.usage_rows)[0].details::<gtk4::Widget>().is_none(),
+            "a share that ended takes its card with it"
         );
 
-        popover.set_screen_shared(Some("OBS Studio \u{b7} sharing DP-1 since 13:41"));
+        let toggles: Rc<RefCell<Vec<bool>>> = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_mute_toggled({
+            let toggles = Rc::clone(&toggles);
+            move |_, on| toggles.borrow_mut().push(on)
+        });
+        popover.set_microphone_muted(Some(true));
+        assert!(imp.mute.get_visible() && imp.mute.active());
         assert!(
-            imp.screen_notice.get_visible(),
-            "Some(detail) shows the notice"
+            toggles.borrow().is_empty(),
+            "following the device's state is not a request to change it"
         );
-        assert_eq!(
-            imp.screen_notice.subtitle().as_deref(),
-            Some("OBS Studio \u{b7} sharing DP-1 since 13:41")
-        );
-
-        popover.set_screen_shared(None);
-        assert!(!imp.screen_notice.get_visible(), "None hides the notice");
+        imp.mute.set_property("active", false);
+        imp.mute.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(toggles.borrow().last(), Some(&true));
+        popover.set_microphone_muted(None);
+        assert!(!imp.mute.get_visible());
 
         popover.set_usages(&[]);
-        assert!(imp.empty_usages.is_visible());
+        assert!(!imp.usages.get_visible());
         assert!(imp.usage_rows.first_child().is_none());
     }
 }

@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use gettextrs::gettext;
-use glimpse_services::{PrivacyResource, PrivacyState, PrivacyUsage as ServiceUsage};
+use glimpse_services::{OutputInfo, PrivacyResource, PrivacyState, PrivacyUsage as ServiceUsage};
 use glimpse_widgets::PrivacyUsage;
 
 pub const CAMERA: &str = "camera-web-symbolic";
@@ -10,6 +10,7 @@ pub const SCREEN: &str = "video-display-symbolic";
 pub const LOCATION: &str = "find-location-symbolic";
 pub const RECORDING: &str = "media-record-symbolic";
 pub const RECORDING_CLASS: &str = "indicator--recording";
+const NAME_CAP: usize = 48;
 
 const KINDS: [PrivacyResource; 4] = [
     PrivacyResource::Camera,
@@ -96,41 +97,104 @@ pub fn usage_id(usage: &ServiceUsage) -> String {
     }
 }
 
-pub fn usages(state: &PrivacyState, filters: Filters) -> Vec<PrivacyUsage> {
-    visible(state, filters)
-        .map(|usage| PrivacyUsage {
-            icon: icon(usage.kind).to_owned(),
-            title: title(usage.kind),
-            detail: detail(usage),
-            id: usage_id(usage),
-            stoppable: usage.session.is_some(),
-        })
+fn row_key(usage: &ServiceUsage) -> String {
+    match &usage.app {
+        Some(app) => format!("app:{app}"),
+        None => usage_id(usage),
+    }
+}
+
+pub fn usages(
+    state: &PrivacyState,
+    filters: Filters,
+    outputs: &[OutputInfo],
+    muted: bool,
+) -> Vec<PrivacyUsage> {
+    let mut groups: Vec<(String, Vec<&ServiceUsage>)> = Vec::new();
+    for usage in visible(state, filters) {
+        let key = row_key(usage);
+        match groups.iter_mut().find(|(held, _)| *held == key) {
+            Some((_, group)) => group.push(usage),
+            None => groups.push((key, vec![usage])),
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(id, group)| row(id, &group, outputs, muted))
         .collect()
 }
 
-/// The banner is raised by the presence of any screen usage, whether or not it can be stopped: a
-/// wlr-screencopy or Hyprland cast still records, and the applet's job is to tell the truth about
-/// capture rather than only about what it can stop. The subtitle names every cast sharing the
-/// screen right now, joined the same way `tooltip` joins several usages of one resource, and is
-/// empty when none of them gave a detail.
-pub fn screen_shared(state: &PrivacyState, filters: Filters) -> Option<String> {
-    let screens: Vec<&ServiceUsage> = visible(state, filters)
-        .filter(|usage| usage.kind == PrivacyResource::Screen)
-        .collect();
-    if screens.is_empty() {
-        return None;
+fn row(id: String, group: &[&ServiceUsage], outputs: &[OutputInfo], muted: bool) -> PrivacyUsage {
+    let first = group[0];
+    let named = first.app.is_some();
+    let mut parts = Vec::new();
+    for kind in KINDS {
+        let of_kind: Vec<&ServiceUsage> = group
+            .iter()
+            .copied()
+            .filter(|usage| usage.kind == kind)
+            .collect();
+        if of_kind.is_empty() {
+            continue;
+        }
+        match kind {
+            PrivacyResource::Screen => {
+                let shared = shared(&of_kind, outputs);
+                parts.push(match named {
+                    true => gettext("Sharing {what}").replace("{what}", &shared),
+                    false => shared,
+                });
+            }
+            _ if named => parts.push(title(kind)),
+            _ => {}
+        }
+        if kind == PrivacyResource::Microphone && muted {
+            parts.push(gettext("muted"));
+        }
     }
-    let details: Vec<String> = screens.iter().filter_map(|usage| detail(usage)).collect();
-    Some(details.join(", "))
+    PrivacyUsage {
+        id,
+        icon: first
+            .icon
+            .clone()
+            .unwrap_or_else(|| icon(first.kind).to_owned()),
+        title: match &first.app {
+            Some(app) => glimpse_utils::clean(app, NAME_CAP),
+            None => title(first.kind),
+        },
+        detail: (!parts.is_empty()).then(|| parts.join(" · ")),
+        stoppable: group.iter().any(|usage| usage.session.is_some()),
+    }
 }
 
-/// The compositor session id behind a usage id from the widget's `stop-activated` signal — the
-/// widget reports the id it was given, not a session, so the applet resolves it back against the
-/// state it dressed the popover from.
-pub fn session_for(state: &PrivacyState, filters: Filters, id: &str) -> Option<u64> {
+fn shared(casts: &[&ServiceUsage], outputs: &[OutputInfo]) -> String {
+    let names: Vec<String> = casts
+        .iter()
+        .map(|cast| match &cast.detail {
+            Some(connector) => output_name(connector, outputs),
+            None => gettext("a window"),
+        })
+        .collect();
+    names.join(", ")
+}
+
+fn output_name(connector: &str, outputs: &[OutputInfo]) -> String {
+    match outputs.iter().find(|output| output.connector == connector) {
+        Some(output) if output.built_in => gettext("Built-in display"),
+        Some(output) => output.label.clone().unwrap_or_else(|| connector.to_owned()),
+        None => connector.to_owned(),
+    }
+}
+
+pub fn sessions_for(state: &PrivacyState, filters: Filters, id: &str) -> Vec<u64> {
     visible(state, filters)
-        .find(|usage| usage_id(usage) == id)
-        .and_then(|usage| usage.session)
+        .filter(|usage| row_key(usage) == id)
+        .filter_map(|usage| usage.session)
+        .collect()
+}
+
+pub fn uses_microphone(state: &PrivacyState, filters: Filters) -> bool {
+    visible(state, filters).any(|usage| usage.kind == PrivacyResource::Microphone)
 }
 
 pub fn screencast_since(state: &PrivacyState, filters: Filters) -> Option<SystemTime> {
@@ -322,7 +386,12 @@ mod tests {
             camera: false,
             ..Filters::default()
         };
-        let usages = usages(&state(vec![usage(PrivacyResource::Camera)]), filters);
+        let usages = usages(
+            &state(vec![usage(PrivacyResource::Camera)]),
+            filters,
+            &[],
+            false,
+        );
         assert!(usages.is_empty());
     }
 
@@ -356,69 +425,117 @@ mod tests {
         );
     }
 
+    fn output(connector: &str, label: Option<&str>, built_in: bool) -> OutputInfo {
+        OutputInfo {
+            connector: connector.to_owned(),
+            label: label.map(str::to_owned),
+            built_in,
+            focused: false,
+            make: None,
+            model: None,
+            serial: None,
+            current_mode: None,
+            logical: None,
+            enabled: true,
+        }
+    }
+
+    fn chrome(kind: PrivacyResource) -> ServiceUsage {
+        ServiceUsage {
+            app: Some("Google Chrome".to_owned()),
+            icon: Some("google-chrome".to_owned()),
+            ..usage(kind)
+        }
+    }
+
     #[test]
-    fn the_banner_is_raised_by_a_screen_usage_with_no_stoppable_session() {
-        let unstoppable = ServiceUsage {
-            session: None,
+    fn one_app_using_several_things_is_one_row_that_names_them() {
+        let outputs = [
+            output("DP-2", Some("Dell U2723QE"), false),
+            output("eDP-1", Some("Samsung"), true),
+        ];
+        let screen = ServiceUsage {
             detail: Some("DP-2".to_owned()),
+            session: Some(7),
+            stream_id: Some(1),
+            ..chrome(PrivacyResource::Screen)
+        };
+        let rows = usages(
+            &state(vec![
+                chrome(PrivacyResource::Microphone),
+                screen,
+                chrome(PrivacyResource::Camera),
+                usage(PrivacyResource::Location),
+            ]),
+            Filters::default(),
+            &outputs,
+            false,
+        );
+        assert_eq!(rows.len(), 2, "Chrome once, location once");
+        assert_eq!(rows[0].title, "Google Chrome");
+        assert_eq!(rows[0].icon, "google-chrome", "the app's own icon");
+        assert_eq!(
+            rows[0].detail.as_deref(),
+            Some("Camera · Microphone · Sharing Dell U2723QE"),
+            "resources read in a fixed order whatever order they arrived in"
+        );
+        assert!(rows[0].stoppable);
+        assert_eq!(rows[1].title, "Location");
+        assert_eq!(rows[1].detail, None);
+        assert!(!rows[1].stoppable);
+    }
+
+    #[test]
+    fn an_unnamed_cast_is_titled_by_what_it_shares_and_says_where() {
+        let outputs = [output("eDP-1", Some("Samsung"), true)];
+        let cast = ServiceUsage {
+            detail: Some("eDP-1".to_owned()),
             ..usage(PrivacyResource::Screen)
         };
-        assert_eq!(
-            screen_shared(&state(vec![unstoppable]), Filters::default()).as_deref(),
-            Some("DP-2"),
-            "a capture that cannot be stopped must still raise the banner"
-        );
-    }
-
-    #[test]
-    fn the_banner_shows_with_no_subtitle_when_the_cast_has_no_detail() {
-        let bare = usage(PrivacyResource::Screen);
-        assert_eq!(
-            screen_shared(&state(vec![bare]), Filters::default()).as_deref(),
-            Some("")
-        );
-    }
-
-    #[test]
-    fn the_banner_names_every_cast_sharing_the_screen_at_once() {
-        let one = ServiceUsage {
-            stream_id: Some(1),
-            detail: Some("DP-1".to_owned()),
+        let window = ServiceUsage {
+            stream_id: Some(2),
             ..usage(PrivacyResource::Screen)
+        };
+        let rows = usages(
+            &state(vec![cast, window]),
+            Filters::default(),
+            &outputs,
+            false,
+        );
+        assert_eq!(rows[0].title, "Screen");
+        assert_eq!(rows[0].detail.as_deref(), Some("Built-in display"));
+        assert_eq!(rows[1].detail.as_deref(), Some("a window"));
+    }
+
+    #[test]
+    fn a_muted_microphone_says_so_on_every_row_using_it() {
+        let rows = usages(
+            &state(vec![chrome(PrivacyResource::Microphone)]),
+            Filters::default(),
+            &[],
+            true,
+        );
+        assert_eq!(rows[0].detail.as_deref(), Some("Microphone · muted"));
+    }
+
+    #[test]
+    fn stopping_a_row_stops_every_session_it_holds() {
+        let one = ServiceUsage {
+            session: Some(1),
+            stream_id: Some(1),
+            ..chrome(PrivacyResource::Screen)
         };
         let two = ServiceUsage {
+            session: Some(2),
             stream_id: Some(2),
-            detail: Some("DP-2".to_owned()),
-            ..usage(PrivacyResource::Screen)
+            ..chrome(PrivacyResource::Screen)
         };
+        let state = state(vec![one, two, chrome(PrivacyResource::Camera)]);
         assert_eq!(
-            screen_shared(&state(vec![one, two]), Filters::default()).as_deref(),
-            Some("DP-1, DP-2"),
-            "the subtitle is an incomplete truth if it names only the first of two active casts"
+            sessions_for(&state, Filters::default(), "app:Google Chrome"),
+            [1, 2]
         );
-    }
-
-    #[test]
-    fn no_screen_usage_means_no_banner_at_all() {
-        assert_eq!(
-            screen_shared(
-                &state(vec![usage(PrivacyResource::Camera)]),
-                Filters::default()
-            ),
-            None
-        );
-    }
-
-    #[test]
-    fn a_disabled_screencast_filter_hides_the_banner_too() {
-        let filters = Filters {
-            screencast: false,
-            ..Filters::default()
-        };
-        assert_eq!(
-            screen_shared(&state(vec![usage(PrivacyResource::Screen)]), filters),
-            None
-        );
+        assert!(!uses_microphone(&state, Filters::default()));
     }
 
     #[test]

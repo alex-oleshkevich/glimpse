@@ -2137,25 +2137,18 @@ mod fixtures {
                 "in_use" => {
                     popover.set_usages(&[
                         PrivacyUsage {
-                            id: "camera".into(),
-                            icon: "camera-web-symbolic".into(),
-                            title: "Camera".into(),
-                            detail: Some("Zoom · since 14:02".into()),
-                            stoppable: false,
-                        },
-                        PrivacyUsage {
-                            id: "microphone".into(),
-                            icon: "audio-input-microphone-symbolic".into(),
-                            title: "Microphone".into(),
-                            detail: Some("Zoom · since 14:02".into()),
-                            stoppable: false,
-                        },
-                        PrivacyUsage {
-                            id: "screen".into(),
-                            icon: "video-display-symbolic".into(),
-                            title: "Screen".into(),
-                            detail: Some("OBS Studio · sharing DP-1 since 13:41".into()),
+                            id: "app:Google Chrome".into(),
+                            icon: "google-chrome".into(),
+                            title: "Google Chrome".into(),
+                            detail: Some("Camera · Microphone · Sharing Dell U2723QE".into()),
                             stoppable: true,
+                        },
+                        PrivacyUsage {
+                            id: "app:Telegram".into(),
+                            icon: "telegram".into(),
+                            title: "Telegram".into(),
+                            detail: Some("Microphone".into()),
+                            stoppable: false,
                         },
                         PrivacyUsage {
                             id: "location".into(),
@@ -2165,7 +2158,7 @@ mod fixtures {
                             stoppable: false,
                         },
                     ]);
-                    popover.set_screen_shared(Some("OBS Studio · sharing DP-1 since 13:41"));
+                    popover.set_microphone_muted(Some(false));
                 }
                 _ => {
                     eprintln!("{DEMO}{case} names no privacy case");

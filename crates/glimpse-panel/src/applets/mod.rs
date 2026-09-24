@@ -260,10 +260,17 @@ pub fn build(
         AppletKind::Privacy(_) => {
             let privacy = privacy.clone();
             let compositor = compositor.clone();
+            let audio = audio.clone();
             let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(privacy.subscribe());
-                Box::new(privacy::Privacy::start(privacy, compositor, notifications))
+                ctx.watch(audio.subscribe());
+                Box::new(privacy::Privacy::start(
+                    privacy,
+                    compositor,
+                    audio,
+                    notifications,
+                ))
             }))
         }
         AppletKind::ColorPicker {} => {

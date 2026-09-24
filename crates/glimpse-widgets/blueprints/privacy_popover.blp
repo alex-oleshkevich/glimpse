@@ -22,25 +22,18 @@ template $PrivacyPopover: Gtk.Widget {
         "column",
       ]
 
-      $Notice screen_notice {
-        visible: false;
-        severity: warning;
-        title: _("Your screen is being shared");
-      }
-
       $Section usages {
-        empty: true;
+        visible: false;
         title: _("In use now");
-
-        [placeholder]
-        $Placeholder empty_usages {
-          icon-name: "security-medium-symbolic";
-          title: _("Nothing is using your camera, microphone or screen");
-        }
 
         Gtk.Box usage_rows {
           orientation: vertical;
         }
+      }
+
+      $SwitchRow mute {
+        visible: false;
+        title: _("Mute microphone");
       }
     }
   }
