@@ -32,16 +32,16 @@ template $ColorPickerPopover: Gtk.Widget {
         "column",
       ]
 
+      $Row pick {
+        title: _("Pick a color");
+        lead-icon: "color-select-symbolic";
+      }
+
       $Section palette_section {
+        visible: false;
         title: _("Palette");
 
         $ColorList palette {}
-
-        [placeholder]
-        $Placeholder nothing {
-          icon-name: "color-select-symbolic";
-          title: _("No colors picked yet");
-        }
       }
     }
 

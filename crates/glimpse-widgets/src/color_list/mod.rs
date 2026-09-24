@@ -1,9 +1,12 @@
 mod imp;
 
+use gettextrs::ngettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
 use crate::{Expandable, Row, SplitRow, Swatch, none_if_empty};
+
+const FOLDED_ROWS: usize = 8;
 
 glib::wrapper! {
     pub struct ColorList(ObjectSubclass<imp::ColorList>)
@@ -48,14 +51,27 @@ impl ColorList {
     fn render(&self) {
         let imp = self.imp();
         let shades = imp.shades.borrow();
+        let shown = match imp.show_all.get() {
+            true => shades.len(),
+            false => shades.len().min(FOLDED_ROWS),
+        };
         by_key(
-            self,
+            &imp.rows,
             &mut imp.holders.borrow_mut(),
-            &shades,
+            &shades[..shown],
             |shade| shade.id,
             |shade| self.build(shade.id),
             |holder, shade| self.apply(holder, shade),
         );
+        let hidden = shades.len() - shown;
+        imp.more.set_visible(hidden > 0);
+        if hidden > 0 {
+            imp.more.set_title(Some(
+                ngettext("{count} more color", "{count} more colors", hidden as u32)
+                    .replace("{count}", &hidden.to_string())
+                    .as_str(),
+            ));
+        }
     }
 
     fn build(&self, id: u64) -> Expandable {
@@ -118,6 +134,10 @@ impl ColorList {
 
     fn panel(&self, shade: &Shade) -> gtk4::Box {
         let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let strip = Swatch::default();
+        strip.set_color(Some(&shade.color));
+        strip.add_css_class("color-card__swatch");
+        panel.append(&strip);
         for notation in &shade.notations {
             let row = Row::new();
             row.add_css_class("color-notation");

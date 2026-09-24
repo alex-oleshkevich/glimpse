@@ -539,7 +539,11 @@ no detail label is translated here.
   class per value. `color` is `explicit_notify`: GObject otherwise notifies on every write,
   including an unchanged one.
 - **`ColorList` takes finished `Shade`s** — title, subtitle and every `Notation` already rendered by
-  the applet — and reports ids and notation keys, never a format it would have to understand.
+  the applet — and reports ids and notation keys, never a format it would have to understand. It
+  folds past eight rows behind an *N more* row that opens in place, and an open card leads with a
+  wide strip of the color, since the row's own swatch is too small to judge one by.
+- **`ColorPickerPopover` has no empty state.** An empty palette hides its section and the hero says
+  *Nothing picked yet*; the *Pick a color* row above it emits `pick-requested` either way.
 - **An open detail recedes the popover's hero and footer**, as `ClipboardPopover` does.
 
 ## WorkspaceNamePopover

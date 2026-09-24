@@ -217,7 +217,9 @@ restorable. Textures are cached by entry id and pruned when the entry leaves.
 click runs `glimpse-picker`. The service owns the palette and the clipboard copy; the applet holds
 none of it. The chip is the latest pick as a `Swatch` in the indicator's extension slot, or the
 picker icon before the first. A row copies in the configured format, read when it is pressed rather
-than when the popover opened, and its chevron unfolds all six notations, each copying itself. A
+than when the popover opened, and its chevron unfolds all six notations, each copying itself. *Pick
+a color* closes the popover and then picks. A copy that succeeds acknowledges the chip through
+`Opener::acknowledge`, as the clipboard's copies do, because a copy shows nothing of its own. A
 failed pick or copy is reported by notification. While a pick is open the chip carries
 `color-picker--picking` and a right click does nothing. A row carries no time, so the applet takes
 no tick.

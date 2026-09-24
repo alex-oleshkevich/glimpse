@@ -1,5 +1,6 @@
 mod imp;
 
+use gettextrs::gettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::{Shade, none_if_empty};
@@ -36,7 +37,13 @@ impl ColorPickerPopover {
     pub fn set_shades(&self, shades: &[Shade]) {
         let imp = self.imp();
         imp.palette.set_shades(shades);
-        imp.palette_section.set_empty(shades.is_empty());
+        imp.palette_section.set_visible(!shades.is_empty());
+        imp.hero.set_subtitle(
+            shades
+                .is_empty()
+                .then(|| gettext("Nothing picked yet"))
+                .as_deref(),
+        );
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -58,6 +65,14 @@ impl ColorPickerPopover {
             "copied",
             false,
             glib::closure_local!(move |popover: Self, id: u64, key: String| f(&popover, id, &key)),
+        )
+    }
+
+    pub fn connect_pick_requested<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "pick-requested",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
 

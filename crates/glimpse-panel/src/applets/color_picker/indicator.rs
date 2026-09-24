@@ -11,7 +11,7 @@ use gtk4::prelude::*;
 
 use super::render;
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Button, Ctx, Input, Pointer, Report, spawn_reported};
+use crate::applet::{Applet, Button, Ctx, Input, Opener, Pointer, Report, spawn_reported};
 
 const PICKING: &str = "color-picker--picking";
 
@@ -86,16 +86,6 @@ impl ColorPicker {
             summary,
         }
     }
-
-    fn pick(&self) {
-        let service = self.service.clone();
-        spawn_reported(
-            "color_picker.pick",
-            self.report(gettext("Could not pick a color")),
-            wording,
-            async move { service.pick().await },
-        );
-    }
 }
 
 fn wording(error: &CommandError) -> Option<String> {
@@ -113,13 +103,23 @@ fn wording(error: &CommandError) -> Option<String> {
     }
 }
 
-fn copy(service: &ColorPickerHandle, report: Report, id: u64, format: ColorFormat) {
+fn pick(service: &ColorPickerHandle, report: Report) {
+    let service = service.clone();
+    spawn_reported("color_picker.pick", report, wording, async move {
+        service.pick().await
+    });
+}
+
+fn copy(service: &ColorPickerHandle, report: Report, opener: Opener, id: u64, format: ColorFormat) {
     let Ok(id) = u32::try_from(id) else {
         return;
     };
     let service = service.clone();
     spawn_reported("color_picker.copy", report, wording, async move {
-        service.copy(id, format).await
+        service
+            .copy(id, format)
+            .await
+            .inspect(|_| opener.acknowledge())
     });
 }
 
@@ -141,7 +141,10 @@ impl Applet for ColorPicker {
             Input::Woken => self.state = self.service.snapshot(),
             Input::Pointer(Pointer::Press(Button::Right)) => {
                 if !self.state.picking {
-                    self.pick();
+                    pick(
+                        &self.service,
+                        self.report(gettext("Could not pick a color")),
+                    );
                 }
                 return;
             }
@@ -164,7 +167,7 @@ impl Applet for ColorPicker {
             let format = Rc::clone(&self.format);
             let opener = opener.clone();
             move |_, id| {
-                copy(&service, report.clone(), id, format.get());
+                copy(&service, report.clone(), opener.clone(), id, format.get());
                 opener.close_popover();
             }
         });
@@ -174,9 +177,20 @@ impl Applet for ColorPicker {
             let opener = opener.clone();
             move |_, id, key| {
                 if let Some(format) = ColorFormat::parse(key) {
-                    copy(&service, report.clone(), id, format);
+                    copy(&service, report.clone(), opener.clone(), id, format);
                 }
                 opener.close_popover();
+            }
+        });
+        shown.connect_pick_requested({
+            let service = self.service.clone();
+            let report = self.report(gettext("Could not pick a color"));
+            let opener = opener.clone();
+            move |_| {
+                opener.close_popover();
+                if !service.snapshot().picking {
+                    pick(&service, report.clone());
+                }
             }
         });
         if let Some((_, command)) = &self.footer {

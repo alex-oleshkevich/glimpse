@@ -662,7 +662,8 @@ expandable.open > .clip-tile .clip-tile__badge image {
     transform: rotate(90deg);
 }
 
-.clip-card__swatch {
+.clip-card__swatch,
+.color-card__swatch {
     min-height: 2.5rem;
     margin: 0.4rem 0.75rem;
     border-radius: 0.7rem;

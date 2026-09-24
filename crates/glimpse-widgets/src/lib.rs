@@ -6705,6 +6705,13 @@ mod tests {
         let card = second
             .details::<gtk4::Box>()
             .expect("the notations are built on first open");
+        assert_eq!(
+            card.first_child()
+                .and_downcast::<Swatch>()
+                .and_then(|strip| strip.color()),
+            Some(rgba([9, 0, 0])),
+            "the card opens on a strip of the color itself, wide enough to judge"
+        );
         let notation = card.last_child().and_downcast::<Row>().unwrap();
         assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
         let color_copied = Rc::new(RefCell::new(None));
@@ -6735,10 +6742,46 @@ mod tests {
 
         colors.set_shades(&[shade(7, "#070000")]);
         assert_eq!(colors.imp().holders.borrow().len(), 1);
+        assert!(!colors.imp().more.get_visible());
+
+        let many: Vec<Shade> = (1..=10)
+            .map(|id| shade(id, &format!("#{id:02}0000")))
+            .collect();
+        colors.set_shades(&many);
+        assert_eq!(
+            colors.imp().holders.borrow().len(),
+            8,
+            "a long palette folds past eight rows"
+        );
+        assert!(colors.imp().more.get_visible());
+        assert_eq!(colors.imp().more.title().as_deref(), Some("2 more colors"));
+        colors.imp().more.emit_clicked();
+        assert_eq!(
+            colors.imp().holders.borrow().len(),
+            10,
+            "the fold opens in place"
+        );
+        assert!(!colors.imp().more.get_visible());
+        colors.set_shades(&[shade(7, "#070000")]);
 
         let picker = ColorPickerPopover::new();
         picker.set_shades(&[]);
-        assert!(picker.imp().palette_section.empty());
+        assert!(
+            !picker.imp().palette_section.get_visible(),
+            "an empty palette is not a section with a placeholder in it"
+        );
+        assert_eq!(
+            picker.imp().hero.subtitle().as_deref(),
+            Some("Nothing picked yet"),
+            "the hero says there is nothing yet"
+        );
+        let pick_requested = Rc::new(Cell::new(0));
+        picker.connect_pick_requested({
+            let pick_requested = Rc::clone(&pick_requested);
+            move |_| pick_requested.set(pick_requested.get() + 1)
+        });
+        picker.imp().pick.emit_clicked();
+        assert_eq!(pick_requested.get(), 1);
         picker.set_latest(None);
         assert!(!picker.imp().latest.get_visible());
         let resting = picker.imp().hero.title();
@@ -6749,7 +6792,8 @@ mod tests {
         assert_eq!(picker.imp().hero.title(), resting);
         picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
         picker.set_shades(&[shade(7, "#070000")]);
-        assert!(!picker.imp().palette_section.empty());
+        assert!(picker.imp().palette_section.get_visible());
+        assert_eq!(picker.imp().hero.subtitle(), None);
 
         let built = gtk4::Builder::from_string(
             r#"<interface>

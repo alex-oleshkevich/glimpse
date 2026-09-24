@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ColorList, Hero, Placeholder, PopoverShell, Row, Section, Swatch};
+use crate::{ColorList, Hero, PopoverShell, Row, Section, Swatch};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/color_picker_popover.ui")]
@@ -19,7 +19,7 @@ pub struct ColorPickerPopover {
     #[template_child]
     pub palette: TemplateChild<ColorList>,
     #[template_child]
-    pub nothing: TemplateChild<Placeholder>,
+    pub pick: TemplateChild<Row>,
     #[template_child]
     pub footer: TemplateChild<Row>,
     pub resting: RefCell<Option<String>>,
@@ -35,7 +35,6 @@ impl ObjectSubclass for ColorPickerPopover {
         PopoverShell::static_type();
         Hero::static_type();
         Section::static_type();
-        Placeholder::static_type();
         ColorList::static_type();
         Swatch::static_type();
         Row::static_type();
@@ -60,6 +59,7 @@ impl ObjectImpl for ColorPickerPopover {
                 glib::subclass::Signal::builder("copied")
                     .param_types([u64::static_type(), String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("pick-requested").build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
@@ -78,6 +78,11 @@ impl ObjectImpl for ColorPickerPopover {
             #[weak]
             obj,
             move |_, id, key| obj.emit_by_name::<()>("copied", &[&id, &key])
+        ));
+        self.pick.connect_clicked(glib::clone!(
+            #[weak]
+            obj,
+            move |_| obj.emit_by_name::<()>("pick-requested", &[])
         ));
         self.footer.connect_clicked(glib::clone!(
             #[weak]
