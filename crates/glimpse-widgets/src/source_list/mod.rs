@@ -11,6 +11,7 @@ const BRIGHTNESS_ICON: &str = "display-brightness-symbolic";
 pub struct Source {
     pub key: String,
     pub name: String,
+    pub icon: String,
     pub value: f64,
     pub maximum: f64,
     pub floor: f64,
@@ -69,6 +70,7 @@ impl SourceList {
             }
             let (row, fader) = &rows[index];
             row.set_title(none_if_empty(&source.name));
+            fader.set_icon_name(Some(none_if_empty(&source.icon).unwrap_or(BRIGHTNESS_ICON)));
             fader.set_maximum(source.maximum);
             fader.set_floor(source.floor);
             fader.set_value(source.value);
@@ -90,7 +92,6 @@ impl SourceList {
 
         let fader = Fader::new();
         fader.set_toggleable(false);
-        fader.set_icon_name(Some(BRIGHTNESS_ICON));
         fader.connect_changed(glib::clone!(
             #[weak(rename_to = list)]
             self,

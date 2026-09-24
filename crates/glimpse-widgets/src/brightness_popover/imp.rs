@@ -5,17 +5,22 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Fader, Hero, PopoverShell, Readout, Row, Section, Source, SourceList, SwitchRow};
+use crate::{
+    ChoiceList, Expandable, Fader, Hero, PopoverShell, Readout, Row, Source, SourceList, SwitchRow,
+};
 
 use super::{
-    CHANGED, FOOTER_ACTIVATED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED, NIGHT_LIGHT_TOGGLED,
-    TEMPERATURE_MAX, TEMPERATURE_MIN,
+    CHANGED, FOOTER_ACTIVATED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED, NIGHT_LIGHT_SCHEDULED,
+    NIGHT_LIGHT_TOGGLED, TEMPERATURE_MAX, TEMPERATURE_MIN,
 };
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct NightLight {
     pub enabled: bool,
     pub temperature: u32,
+    pub schedule: String,
+    pub fixed_hours: bool,
+    pub serving: bool,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -28,15 +33,21 @@ pub struct BrightnessPopover {
     #[template_child]
     pub readout: TemplateChild<Readout>,
     #[template_child]
+    pub primary_name: TemplateChild<Row>,
+    #[template_child]
     pub primary: TemplateChild<Fader>,
     #[template_child]
     pub devices: TemplateChild<SourceList>,
     #[template_child]
-    pub night_light: TemplateChild<Section>,
+    pub night_light: TemplateChild<Expandable>,
     #[template_child]
     pub enabled: TemplateChild<SwitchRow>,
     #[template_child]
+    pub night_head: TemplateChild<Row>,
+    #[template_child]
     pub temperature: TemplateChild<Fader>,
+    #[template_child]
+    pub schedules: TemplateChild<ChoiceList>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 
@@ -52,6 +63,8 @@ impl ObjectSubclass for BrightnessPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        Expandable::static_type();
+        ChoiceList::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -77,6 +90,9 @@ impl ObjectImpl for BrightnessPopover {
                     .build(),
                 glib::subclass::Signal::builder(NIGHT_LIGHT_MOVED)
                     .param_types([f64::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder(NIGHT_LIGHT_SCHEDULED)
+                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder(FOOTER_ACTIVATED).build(),
             ]
@@ -111,13 +127,25 @@ impl ObjectImpl for BrightnessPopover {
         self.temperature.connect_changed(glib::clone!(
             #[weak]
             popover,
-            move |_, value| popover.emit_by_name::<()>(NIGHT_LIGHT_CHANGED, &[&value])
+            move |_, value| {
+                popover.show_temperature(value);
+                popover.emit_by_name::<()>(NIGHT_LIGHT_CHANGED, &[&value])
+            }
         ));
 
         self.temperature.connect_moved(glib::clone!(
             #[weak]
             popover,
-            move |_, value| popover.emit_by_name::<()>(NIGHT_LIGHT_MOVED, &[&value])
+            move |_, value| {
+                popover.show_temperature(value);
+                popover.emit_by_name::<()>(NIGHT_LIGHT_MOVED, &[&value])
+            }
+        ));
+
+        self.schedules.connect_activated(glib::clone!(
+            #[weak]
+            popover,
+            move |_, index| popover.report_night_light_scheduled(index)
         ));
 
         self.footer.connect_clicked(glib::clone!(

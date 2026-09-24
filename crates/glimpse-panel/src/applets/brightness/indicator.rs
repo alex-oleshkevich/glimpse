@@ -118,11 +118,32 @@ impl Applet for Brightness {
                     true => night_light
                         .snapshot()
                         .current
-                        .map(|snapshot| snapshot.configured)
-                        .filter(|configured| configured != "off")
+                        .map(|snapshot| {
+                            render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned()
+                        })
                         .unwrap_or_else(|| "automatic".to_owned()),
                     false => "off".to_owned(),
                 };
+                relm4::spawn_local(async move {
+                    if let Err(error) = night_light.set_schedule(&schedule).await {
+                        report_night_light_failure(
+                            &notifications,
+                            "night_light.set_schedule",
+                            error,
+                        )
+                        .await;
+                    }
+                });
+            }
+        });
+
+        shown.connect_night_light_scheduled({
+            let night_light = self.night_light.clone();
+            let notifications = self.notifications.clone();
+            move |_, schedule| {
+                let night_light = night_light.clone();
+                let notifications = notifications.clone();
+                let schedule = schedule.to_owned();
                 relm4::spawn_local(async move {
                     if let Err(error) = night_light.set_schedule(&schedule).await {
                         report_night_light_failure(
@@ -384,6 +405,7 @@ impl Brightness {
             .map(|source| WidgetSource {
                 key: source.id.clone(),
                 name: render::source_name(source, &self.outputs),
+                icon: render::source_icon(source.kind).to_owned(),
                 value: source.current as f64,
                 maximum: source.max as f64,
                 floor: source.floor as f64,
@@ -398,6 +420,9 @@ impl Brightness {
             .map(|snapshot| NightLight {
                 enabled: render::switch_on(&snapshot.schedule),
                 temperature: snapshot.temperature,
+                schedule: render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned(),
+                fixed_hours: snapshot.schedule == "schedule" || snapshot.configured == "schedule",
+                serving: snapshot.serving,
             });
         shown.set_night_light(night_light.as_ref());
 

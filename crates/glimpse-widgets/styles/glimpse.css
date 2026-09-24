@@ -751,6 +751,11 @@ expandable > revealer .row {
     border-radius: 0.7rem;
 }
 
+expandable > revealer .fader {
+    min-height: 2.85rem;
+    padding: 0 0.8rem;
+}
+
 .drawer-chevron {
     transition: transform var(--gl-duration) var(--gl-ease);
 }

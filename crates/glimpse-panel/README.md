@@ -422,8 +422,12 @@ of both hides the chip.
   time, not at press time, and a focus change mid-press would otherwise write to the wrong display.
 - **The switch reads `schedule != "off"`, never `active`.** `active` is `temperature != DAY`, false
   every daylight hour under Automatic, so a switch bound to it would read off while the night light
-  works. Turning it on sends `SetSchedule` with the snapshot's own `configured` mode rather than a
-  hardcoded `automatic`.
+  works. Turning it on sends `SetSchedule` with `render::night_mode` — the mode in force, else the
+  configured one, else `automatic` — which is also the choice the card shows selected. *Fixed
+  hours* is offered only while the live or the configured mode is `schedule`: the snapshot carries
+  no hours, and a fixed schedule the document never set up applies nothing. Adding them to the
+  snapshot is not free — a client declaring more struct fields than an older provider sends panics
+  in the `OwnedValue` derive.
 - **`BrightnessPopover` already remembers the night light's last-good values across `None`** and
   only greys them; the applet feeds `night_light.current` straight through on every wake rather than
   holding a second copy. The *chip*, one layer up, latches its own "night light has ever been seen"

@@ -996,6 +996,7 @@ mod fixtures {
             |key: &str, name: &str, value: f64, maximum: f64, floor: f64| glimpse_widgets::Source {
                 key: key.to_owned(),
                 name: name.to_owned(),
+                icon: String::new(),
                 value,
                 maximum,
                 floor,
@@ -1138,6 +1139,7 @@ mod fixtures {
         let level = |key: &str, name: &str, value: f64| glimpse_widgets::Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum: 100.0,
             floor: 0.0,
@@ -1165,6 +1167,17 @@ mod fixtures {
             popover.set_night_light(Some(&NightLight {
                 enabled: false,
                 temperature: 6500,
+                ..Default::default()
+            }));
+        }
+        for popover in tagged::<BrightnessPopover>(root, "day") {
+            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
+            popover.set_night_light(Some(&NightLight {
+                enabled: true,
+                temperature: 6500,
+                schedule: "automatic".to_owned(),
+                serving: true,
+                ..Default::default()
             }));
         }
         for popover in tagged::<BrightnessPopover>(root, "on") {
@@ -1172,6 +1185,9 @@ mod fixtures {
             popover.set_night_light(Some(&NightLight {
                 enabled: true,
                 temperature: 4200,
+                schedule: "automatic".to_owned(),
+                serving: true,
+                ..Default::default()
             }));
         }
     }

@@ -5579,6 +5579,7 @@ mod tests {
         let source = |key: &str, name: &str, value: f64, maximum: f64, floor: f64| Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum,
             floor,
@@ -5994,6 +5995,7 @@ mod tests {
         let level = |key: &str, name: &str, value: f64| Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum: 100.0,
             floor: 0.0,
@@ -6003,6 +6005,10 @@ mod tests {
         assert!(
             brightness.imp().primary.get_visible(),
             "AC-1: one source renders the primary fader"
+        );
+        assert!(
+            !brightness.imp().primary_name.get_visible(),
+            "a lone source needs no name above its rail"
         );
         assert!(
             !brightness.imp().devices.get_visible(),
@@ -6027,6 +6033,7 @@ mod tests {
         brightness.set_sources(&[Source {
             key: "built-in".to_owned(),
             name: "Built-in".to_owned(),
+            icon: String::new(),
             value: 200_000.0,
             maximum: 400_000.0,
             floor: 0.0,
@@ -6059,6 +6066,14 @@ mod tests {
             brightness.imp().primary.get_visible() && brightness.imp().devices.get_visible(),
             "AC-1: three sources render both the primary fader and the source list"
         );
+        assert!(
+            brightness.imp().primary_name.get_visible(),
+            "beside other sources the primary rail is named, or nothing says which screen it drives"
+        );
+        assert_eq!(
+            brightness.imp().primary_name.title().as_deref(),
+            Some("Built-in")
+        );
         assert_eq!(
             brightness.imp().primary.value(),
             40.0,
@@ -6081,6 +6096,25 @@ mod tests {
              the primary rail"
         );
 
+        brightness.set_sources(&[
+            level("built-in", "Built-in", 40.0),
+            Source {
+                icon: "keyboard-brightness-symbolic".to_owned(),
+                ..level("kbd", "Keyboard", 30.0)
+            },
+        ]);
+        let keyboard: Vec<Fader> = children_of(&*brightness.imp().devices);
+        assert_eq!(
+            keyboard[0].icon_name().as_deref(),
+            Some("keyboard-brightness-symbolic"),
+            "a keyboard backlight carries its own glyph rather than a display's"
+        );
+        assert_eq!(
+            brightness.imp().primary.icon_name().as_deref(),
+            Some("display-brightness-symbolic"),
+            "an empty icon falls back to the display glyph"
+        );
+
         brightness.set_sources(&[]);
         assert!(
             !brightness.imp().primary.get_visible() && !brightness.imp().devices.get_visible(),
@@ -6096,27 +6130,57 @@ mod tests {
         brightness.set_night_light(Some(&NightLight {
             enabled: false,
             temperature: 6500,
+            ..Default::default()
         }));
         assert!(brightness.imp().night_light.get_visible());
         assert!(brightness.imp().night_light.is_sensitive());
+        let night_head = brightness.imp().night_head.get();
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Off"),
+            "the row says the light is off, since its switch is inside the card"
+        );
         assert!(
-            !brightness.imp().temperature.get_visible(),
-            "AC-3: the temperature rail is hidden, not merely insensitive, while the switch is off"
+            brightness.imp().temperature.get_visible()
+                && !brightness.imp().temperature.is_sensitive(),
+            "a light that is off keeps its rail in the card, disabled rather than hidden"
         );
 
         brightness.set_night_light(Some(&NightLight {
             enabled: true,
             temperature: 4200,
+            schedule: "automatic".to_owned(),
+            serving: true,
+            ..Default::default()
         }));
-        assert!(brightness.imp().temperature.get_visible());
+        assert!(brightness.imp().enabled.active());
+        assert!(brightness.imp().temperature.is_sensitive());
+        assert!(
+            !brightness.imp().schedules.get_visible(),
+            "one schedule is nothing to choose"
+        );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Sunset to sunrise · 4200 K"),
+            "the head says which schedule is running and how warm it is now"
+        );
+        brightness
+            .imp()
+            .temperature
+            .emit_by_name::<()>("moved", &[&3400.0f64]);
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Sunset to sunrise · 3400 K"),
+            "the subtitle follows the rail while it is dragged, before any reply"
+        );
         assert_eq!(brightness.imp().temperature.value(), 4200.0);
         assert!(
             brightness
                 .imp()
                 .temperature
                 .tooltip_text()
-                .is_some_and(|text| text.contains("4200")),
-            "the temperature rail carries its exact value in a tooltip too"
+                .is_some_and(|text| text.contains("3400")),
+            "the temperature rail carries its exact value in a tooltip too, following the drag"
         );
         assert!(
             brightness.imp().temperature.has_css_class("fader--warm"),
@@ -6138,19 +6202,22 @@ mod tests {
             4200.0,
             "AC-5: the last-good values stay on screen rather than resetting"
         );
-        assert!(
-            brightness.imp().temperature.get_visible(),
-            "the last-known state was 'on', so the rail stays up while greyed"
-        );
 
         brightness.set_night_light(Some(&NightLight {
             enabled: true,
             temperature: 3000,
+            ..Default::default()
         }));
         assert!(
             brightness.imp().night_light.is_sensitive(),
             "a fresh snapshot lifts the greyed state"
         );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Not reaching any display"),
+            "a provider that applies nothing says so rather than looking broken"
+        );
+        assert!(night_head.has_css_class("row--warning"));
 
         let brightness_changed = Rc::new(RefCell::new(Vec::<(String, f64)>::new()));
         brightness.connect_changed({
@@ -6191,20 +6258,66 @@ mod tests {
             .enabled
             .emit_by_name::<()>("toggled", &[&false]);
         assert_eq!(*night_toggled.borrow(), [false]);
-        assert!(
-            !brightness.imp().temperature.get_visible(),
-            "UI state never waits on a round trip: the rail follows the knob optimistically, \
-             before any set_night_light call reconciles it"
-        );
 
         brightness
             .imp()
             .enabled
             .emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(*night_toggled.borrow(), [false, true]);
+
+        brightness.set_night_light(Some(&NightLight {
+            enabled: true,
+            temperature: 3000,
+            schedule: "schedule".to_owned(),
+            fixed_hours: true,
+            serving: true,
+        }));
+        assert!(brightness.imp().schedules.get_visible());
+        night_head.emit_clicked();
         assert!(
-            brightness.imp().temperature.get_visible(),
-            "and reappears the same optimistic way when the knob flips back"
+            brightness.imp().night_light.expanded(),
+            "the row opens the night light card"
+        );
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&false]);
+        assert!(
+            brightness.imp().night_light.expanded() && !brightness.imp().temperature.is_sensitive(),
+            "switching the light off disables the rail at once and leaves the card open"
+        );
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&true]);
+        assert!(brightness.imp().temperature.is_sensitive());
+        night_head.emit_clicked();
+        assert!(
+            !brightness.imp().night_light.expanded(),
+            "and closes it again"
+        );
+        assert_eq!(
+            brightness.imp().schedules.selected(),
+            Some(1),
+            "the configured hours are the schedule in force"
+        );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Fixed hours · 3000 K")
+        );
+        let scheduled = Rc::new(RefCell::new(Vec::<String>::new()));
+        brightness.connect_night_light_scheduled({
+            let scheduled = Rc::clone(&scheduled);
+            move |_, schedule| scheduled.borrow_mut().push(schedule.to_owned())
+        });
+        brightness
+            .imp()
+            .schedules
+            .emit_by_name::<()>("activated", &[&0u32]);
+        assert_eq!(
+            *scheduled.borrow(),
+            ["automatic"],
+            "a choice reports the provider's own spelling of its mode"
         );
 
         let night_changed = Rc::new(RefCell::new(Vec::<f64>::new()));

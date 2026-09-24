@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 13:38+0200\n"
+"POT-Creation-Date: 2026-09-24 15:04+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -71,23 +71,23 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:137
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:293
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:266
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:287
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:138
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:294
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:267
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:288
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:139
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:295
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:268
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:111
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:289
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:299
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:101
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
 msgid "That did not work."
@@ -203,7 +203,7 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:177
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:480
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:169
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:257
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
 #: crates/glimpse-panel/src/applets/network/indicator.rs:465
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:99
 msgid "Could not change that setting"
@@ -239,8 +239,8 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:275
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:285
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:296
 msgid "That was not a valid value."
 msgstr ""
 
@@ -336,7 +336,7 @@ msgid "Technology"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:153
-#: crates/glimpse-widgets/src/display_list/mod.rs:166
+#: crates/glimpse-widgets/src/display_list/mod.rs:184
 msgid "Model"
 msgstr ""
 
@@ -706,7 +706,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:470
 #: crates/glimpse-panel/src/applets/brightness/render.rs:73
-#: crates/glimpse-panel/src/applets/brightness/render.rs:374
+#: crates/glimpse-panel/src/applets/brightness/render.rs:388
 msgid "Keyboard"
 msgstr ""
 
@@ -746,37 +746,37 @@ msgstr ""
 msgid "Vendor codec"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:241
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:262
 #: crates/glimpse-panel/src/applets/display/indicator.rs:124
 #: crates/glimpse-widgets/blueprints/display_popover.blp:15
 msgid "Displays"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:243
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not change the brightness"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:255
-#: crates/glimpse-widgets/blueprints/brightness_popover.blp:43
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
+#: crates/glimpse-widgets/blueprints/brightness_popover.blp:50
 msgid "Night light"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:265
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:286
 msgid "The brightness service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:274
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:295
 msgid "That was not a valid setting."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:297
 msgid "The night light is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:277
+#: crates/glimpse-panel/src/applets/brightness/indicator.rs:298
 msgid "That took too long."
 msgstr ""
 
@@ -874,35 +874,35 @@ msgstr ""
 msgid "{count} items · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:431
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:432
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not copy that"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:450
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not copy that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:467
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:479
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not pin that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:483
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:495
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not forget that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:499
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:511
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -936,23 +936,24 @@ msgstr "Вчера"
 msgid "Color picker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:94
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
+msgid "That color is no longer in the palette."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:146
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:187
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not pick a color"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:105
-msgid "That color is no longer in the palette."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:108
-msgid "The picker could not start, capture the screen or reach the clipboard."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:163
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:173
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:166
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:176
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -960,6 +961,7 @@ msgid "Could not copy that color"
 msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/color_picker/render.rs:33
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:36
 msgid "Pick a color"
 msgstr ""
 
@@ -1991,8 +1993,9 @@ msgstr ""
 msgid "Brightness"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/brightness_popover.blp:49
-msgid "Warm the screen"
+#: crates/glimpse-widgets/blueprints/brightness_popover.blp:68
+#: crates/glimpse-widgets/src/display_list/mod.rs:112
+msgid "Enabled"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
@@ -2029,15 +2032,9 @@ msgstr ""
 msgid "Recent"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:36
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:42
 msgid "Palette"
 msgstr ""
-
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:43
-#, fuzzy
-#| msgid "Nothing scheduled"
-msgid "No colors picked yet"
-msgstr "Ничего не запланировано"
 
 #: crates/glimpse-widgets/blueprints/display_popover.blp:36
 msgid "Blank the screens"
@@ -2258,49 +2255,82 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:189
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:244
+#: crates/glimpse-widgets/src/display_list/mod.rs:171
+msgid "Off"
+msgstr ""
+
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:247
+#, fuzzy
+#| msgid "Nothing else scheduled"
+msgid "Not reaching any display"
+msgstr "Больше ничего не запланировано"
+
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:253
+msgid "{schedule} · {kelvin}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:264
+msgid "Sunset to sunrise"
+msgstr ""
+
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:266
+#, fuzzy
+#| msgid "{hours} h"
+msgid "Fixed hours"
+msgstr "{hours} ч"
+
+#: crates/glimpse-widgets/src/brightness_popover/mod.rs:272
 msgid "{kelvin} K"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:111
-msgid "Enabled"
-msgstr ""
+#: crates/glimpse-widgets/src/color_list/mod.rs:70
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "{count} more color"
+msgid_plural "{count} more colors"
+msgstr[0] "{count} рабочий стол"
+msgstr[1] "{count} рабочих стола"
+msgstr[2] "{count} рабочих столов"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:146
+#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
+#, fuzzy
+#| msgid "Nothing scheduled"
+msgid "Nothing picked yet"
+msgstr "Ничего не запланировано"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:149
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:160
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:181
 msgid "Make"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:169
+#: crates/glimpse-widgets/src/display_list/mod.rs:187
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:172
-msgid "Current mode"
-msgstr ""
-
-#: crates/glimpse-widgets/src/display_list/mod.rs:175
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:176
+#: crates/glimpse-widgets/src/display_list/mod.rs:191
 #, fuzzy
 #| msgid "Notification"
 msgid "Position"
 msgstr "Уведомление"
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:187
+#: crates/glimpse-widgets/src/display_list/mod.rs:202
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:205
+#: crates/glimpse-widgets/src/display_list/mod.rs:220
 msgid "{x}, {y}"
 msgstr ""
 
@@ -2436,6 +2466,16 @@ msgstr[1] "{count} рабочих стола"
 msgstr[2] "{count} рабочих столов"
 
 #, fuzzy
+#~| msgid "{start} · {length}"
+#~ msgid "{start} to {end}"
+#~ msgstr "{start} · {length}"
+
+#, fuzzy
+#~| msgid "Nothing scheduled"
+#~ msgid "No colors picked yet"
+#~ msgstr "Ничего не запланировано"
+
+#, fuzzy
 #~| msgid "Nothing else scheduled"
 #~ msgid "Nothing else playing"
 #~ msgstr "Больше ничего не запланировано"
@@ -2503,11 +2543,6 @@ msgstr[2] "{count} рабочих столов"
 #~| msgid_plural "{count} workspaces"
 #~ msgid "The audio service could not complete that."
 #~ msgstr "{count} рабочий стол"
-
-#, fuzzy
-#~| msgid "Nothing else scheduled"
-#~ msgid "Nothing is playing"
-#~ msgstr "Больше ничего не запланировано"
 
 #, fuzzy
 #~| msgid "Details"

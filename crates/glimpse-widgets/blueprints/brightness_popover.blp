@@ -28,6 +28,11 @@ template $BrightnessPopover: Gtk.Widget {
         "column",
       ]
 
+      $Row primary_name {
+        visible: false;
+        activatable: false;
+      }
+
       $Fader primary {
         visible: false;
         toggleable: false;
@@ -38,19 +43,32 @@ template $BrightnessPopover: Gtk.Widget {
         visible: false;
       }
 
-      $Section night_light {
+      $Expandable night_light {
         visible: false;
-        title: _("Night light");
 
+        $Row night_head {
+          title: _("Night light");
+
+          [trail]
+          Gtk.Image {
+            icon-name: "go-next-symbolic";
+            accessible-role: presentation;
+
+            styles [
+              "drawer-chevron",
+            ]
+          }
+        }
+
+        [details]
         Gtk.Box {
           orientation: vertical;
 
           $SwitchRow enabled {
-            title: _("Warm the screen");
+            title: _("Enabled");
           }
 
           $Fader temperature {
-            visible: false;
             toggleable: false;
             icon-name: "night-light-symbolic";
 
@@ -58,6 +76,8 @@ template $BrightnessPopover: Gtk.Widget {
               "fader--warm",
             ]
           }
+
+          $ChoiceList schedules {}
         }
       }
     }

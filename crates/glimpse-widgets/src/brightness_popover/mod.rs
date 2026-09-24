@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Source;
+use crate::{Choice, Source, none_if_empty};
 
 pub use imp::NightLight;
 
@@ -11,6 +11,10 @@ const CHANGED: &str = "changed";
 const NIGHT_LIGHT_TOGGLED: &str = "night-light-toggled";
 const NIGHT_LIGHT_CHANGED: &str = "night-light-changed";
 const NIGHT_LIGHT_MOVED: &str = "night-light-moved";
+const NIGHT_LIGHT_SCHEDULED: &str = "night-light-scheduled";
+const AUTOMATIC: &str = "automatic";
+const HOURS: &str = "schedule";
+const BRIGHTNESS_ICON: &str = "display-brightness-symbolic";
 const FOOTER_ACTIVATED: &str = "footer-activated";
 
 const TEMPERATURE_MIN: f64 = 1000.0;
@@ -113,6 +117,17 @@ impl BrightnessPopover {
         )
     }
 
+    pub fn connect_night_light_scheduled<F: Fn(&Self, &str) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            NIGHT_LIGHT_SCHEDULED,
+            false,
+            glib::closure_local!(move |popover: Self, schedule: String| f(&popover, &schedule)),
+        )
+    }
+
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             FOOTER_ACTIVATED,
@@ -134,8 +149,20 @@ impl BrightnessPopover {
     }
 
     pub(crate) fn report_night_light_toggled(&self, on: bool) {
-        self.imp().temperature.set_visible(on);
+        self.imp().temperature.set_sensitive(on);
         self.emit_by_name::<()>(NIGHT_LIGHT_TOGGLED, &[&on]);
+    }
+
+    pub(crate) fn report_night_light_scheduled(&self, index: u32) {
+        let schedule = self
+            .imp()
+            .night_light_state
+            .borrow()
+            .as_ref()
+            .and_then(|state| schedules(state).get(index as usize).map(|(mode, _)| *mode));
+        if let Some(schedule) = schedule {
+            self.emit_by_name::<()>(NIGHT_LIGHT_SCHEDULED, &[&schedule]);
+        }
     }
 
     fn render_sources(&self) {
@@ -145,8 +172,12 @@ impl BrightnessPopover {
 
         imp.primary.set_visible(primary.is_some());
         imp.readout.set_visible(primary.is_some());
+        imp.primary_name.set_visible(sources.len() > 1);
 
         if let Some(source) = primary {
+            imp.primary_name.set_title(none_if_empty(&source.name));
+            imp.primary
+                .set_icon_name(Some(none_if_empty(&source.icon).unwrap_or(BRIGHTNESS_ICON)));
             imp.primary.set_maximum(source.maximum);
             imp.primary.set_floor(source.floor);
             imp.primary.set_value(source.value);
@@ -177,12 +208,64 @@ impl BrightnessPopover {
         if imp.enabled.active() != state.enabled {
             imp.enabled.set_active(state.enabled);
         }
+        crate::set_css_class(
+            &*imp.night_head,
+            "row--warning",
+            state.enabled && !state.serving,
+        );
 
-        imp.temperature.set_visible(state.enabled);
         imp.temperature.set_value(state.temperature as f64);
-        imp.temperature
-            .set_tooltip_text(Some(&kelvin_text(state.temperature)));
+        self.show_temperature(state.temperature as f64);
+
+        let schedules = schedules(&state);
+        let current = schedules
+            .iter()
+            .position(|(mode, _)| *mode == state.schedule);
+        let choices: Vec<Choice> = schedules
+            .into_iter()
+            .map(|(_, label)| Choice {
+                label,
+                ..Default::default()
+            })
+            .collect();
+        imp.schedules.set_visible(choices.len() > 1);
+        imp.schedules.set_choices(&choices);
+        imp.schedules
+            .set_selected(current.map(|index| index as u32));
+        imp.temperature.set_sensitive(state.enabled);
     }
+
+    pub(crate) fn show_temperature(&self, kelvin: f64) {
+        let imp = self.imp();
+        let kelvin = kelvin_text(kelvin.round().max(0.0) as u32);
+        imp.temperature.set_tooltip_text(Some(&kelvin));
+        let subtitle = imp.night_light_state.borrow().as_ref().map(|state| {
+            if !state.enabled {
+                return gettext("Off");
+            }
+            if !state.serving {
+                return gettext("Not reaching any display");
+            }
+            match schedules(state)
+                .into_iter()
+                .find(|(mode, _)| *mode == state.schedule)
+            {
+                Some((_, label)) => gettext("{schedule} · {kelvin}")
+                    .replace("{schedule}", &label)
+                    .replace("{kelvin}", &kelvin),
+                None => kelvin,
+            }
+        });
+        imp.night_head.set_subtitle(subtitle);
+    }
+}
+
+fn schedules(state: &NightLight) -> Vec<(&'static str, String)> {
+    let mut schedules = vec![(AUTOMATIC, gettext("Sunset to sunrise"))];
+    if state.fixed_hours {
+        schedules.push((HOURS, gettext("Fixed hours")));
+    }
+    schedules
 }
 
 fn kelvin_text(kelvin: u32) -> String {

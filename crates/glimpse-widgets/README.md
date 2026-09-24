@@ -342,8 +342,9 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   `Fader::set_floor` is the one place that reconciles the two, clamping a floor above the maximum
   down to it, never the maximum up to the floor. `SourceList` must not pre-clamp either value, or
   the fader's own clamp never fires.
-- Each fader is built with `toggleable: false` and `display-brightness-symbolic` as its icon: a
-  brightness source has nothing for a mute button to mute.
+- Each fader is built with `toggleable: false`: a brightness source has nothing for a mute button
+  to mute. Its icon is `Source.icon`, falling back to `display-brightness-symbolic` when empty, so a
+  keyboard backlight does not read as a second screen.
 - `Source.key` is read back when a fader reports `changed`, not captured when the row was built,
   for the reason `Player.key` documents: a reconcile reuses a row in place.
 
@@ -394,15 +395,20 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   every `SourceList` fader alike carry their exact value in a tooltip instead, the audio popover's
   own settled decision — `SourceList` sets it itself, since `BrightnessPopover` cannot reach its
   children to add one after the fact.
+- **`primary` is named only beside other sources.** A lone rail needs no label; next to a second one,
+  nothing else says which screen it drives.
 - **The night light section keeps its last-good snapshot rather than collapsing on `None`.** The
   provider is a separate process that can restart mid-popover; losing the section for a moment
   reads as a fault. It stays up, greyed by `set_sensitive(false)`, until a fresh snapshot lifts it.
   A snapshot that has never arrived is a different state — no section at all.
-- **The temperature rail hides, rather than disables, while the switch is off** — the night light
-  service hands its outputs back at that point, and an insensitive override would fight the release.
-  **The knob drives it optimistically**: toggling `enabled` shows or hides the rail immediately,
-  before `set_night_light` ever reconciles it, per the rule that UI state never waits on a round
-  trip.
+- **Night light is a row that opens a card**, holding the *Enabled* switch, the temperature rail —
+  disabled rather than hidden while the light is off — and the schedule `ChoiceList` when there are
+  two schedules: *Sunset to sunrise*, and *Fixed hours* when `fixed_hours` says a fixed schedule is
+  in play. The row's subtitle is the status, *Off* included, since the switch is out of sight until
+  the card opens; it follows the rail while it is dragged. A provider that is up but applying
+  nothing marks the row `.row--warning` and says so, because otherwise the rail looks broken. A
+  fader in a card takes a row's inset, because its knob overhangs the track and the card's own
+  padding is thinner than that.
 - **`.fader--warm` is the rail's only styling hook**, reading `--gl-warning-text` rather than the
   accent colour `.fader.accent` uses elsewhere, so it cannot be mistaken for `.indicator--notice`.
   Its selector reads `.fader__track:not(:disabled)`, because it otherwise has the identical
