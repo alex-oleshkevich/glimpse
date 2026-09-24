@@ -181,8 +181,10 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   finished meeting left on screen with a live *Join* row. All-day is off by default. *Join* opens
   `Occasion.meeting_url` and only ever a recognised video-conferencing link; *Open event* opens
   `Occasion.event_url`, the calendar's own `URL` property, whatever it points at. Either row hides
-  when the feed carries nothing for it, and so do the facts. `Duration` and `Status` are read off
-  every timed event, not only a decorated one; `Description` shows the feed's own text verbatim.
+  when the feed carries nothing for it, and so do the facts, which hold only what the heading does
+  not already say — no location, no length, and `Status` only when tentative; `Description` shows
+  the feed's own text verbatim. A *Coming up* row opens the same card the calendar's day list does,
+  from `agenda::links` and `agenda::facts`.
   There is no RSVP. It does not send `calendar.set_range`. **`Clock.hide_all_day`** drops an all-day
   entry from the calendar popover's day list and month markers alike — the next-event applet has
   its own, older `all_day` toggle for whether one may take the bar, and the two settings are not

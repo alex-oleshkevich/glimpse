@@ -4,7 +4,7 @@ use chrono::{
     DateTime, Datelike, Local, Months, NaiveDate, NaiveTime, TimeDelta, TimeZone as _, Utc,
 };
 use gettextrs::gettext;
-use glimpse_widgets::{Event, EventLink, Fact, Ymd, Zone};
+use glimpse_widgets::{Event, Ymd, Zone};
 use gtk4::glib;
 
 use crate::applets::agenda::{self, Occasion};
@@ -72,33 +72,11 @@ pub fn rows(
         .filter(|event| covers(event, day) && !(hide_all_day && event.all_day))
         .map(|event| Event {
             past: day == now.date_naive() && !event.all_day && event.end <= now,
-            links: links(event),
-            facts: facts(event),
+            links: agenda::links(event),
+            facts: agenda::facts(event),
             ..agenda::row(now, day, event, clock)
         })
         .collect()
-}
-
-fn links(event: &Occasion) -> Vec<EventLink> {
-    let join = agenda::join(event).map(|join| EventLink {
-        title: join.title,
-        url: join.url,
-    });
-    let open = agenda::open_event(event).map(|open| EventLink {
-        title: open.title,
-        url: open.url,
-    });
-    join.into_iter().chain(open).collect()
-}
-
-fn facts(event: &Occasion) -> Vec<Fact> {
-    let calendar = (!event.calendar.is_empty())
-        .then(|| Fact::new(gettext("Calendar"), event.calendar.clone()));
-    let organizer = event
-        .organizer
-        .as_ref()
-        .map(|organizer| Fact::new(gettext("Organizer"), organizer.clone()));
-    calendar.into_iter().chain(organizer).collect()
 }
 
 pub fn markers(events: &[Occasion], hide_all_day: bool) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
@@ -151,6 +129,7 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
     use glimpse_config::TWENTY_FOUR;
+    use glimpse_widgets::Fact;
 
     fn at(day: u32, hour: u32) -> DateTime<Local> {
         Local

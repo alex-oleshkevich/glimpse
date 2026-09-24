@@ -184,7 +184,11 @@ pub fn upcoming(
 
 fn row(now: DateTime<Local>, event: &Occasion, clock: &str) -> Event {
     let day = shown_day(now, event);
-    let mut row = agenda::row(now, day, event, clock);
+    let mut row = Event {
+        links: agenda::links(event),
+        facts: agenda::facts(event),
+        ..agenda::row(now, day, event, clock)
+    };
     if day != now.date_naive() {
         row.when = format!("{} {}", event.start.format("%a"), row.when);
     }
@@ -231,15 +235,6 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
     if !event.calendar.is_empty() {
         facts.push(Fact::new(gettext("Calendar"), event.calendar.clone()));
     }
-    if !event.location.is_empty() {
-        facts.push(Fact::new(gettext("Location"), event.location.clone()));
-    }
-    if !event.all_day {
-        facts.push(Fact::new(
-            gettext("Duration"),
-            agenda::span(event.end - event.start),
-        ));
-    }
     if let Some(organizer) = &event.organizer {
         facts.push(Fact::new(gettext("Organizer"), organizer.clone()));
     }
@@ -253,18 +248,14 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
                 .replace("{accepted}", &guests.accepted.to_string()),
         ));
     }
-    facts.push(Fact::new(
-        gettext("Status"),
-        match event.tentative {
-            true => gettext("Tentative"),
-            false => gettext("Confirmed"),
-        },
-    ));
+    if event.tentative {
+        facts.push(Fact::new(gettext("Status"), gettext("Tentative")));
+    }
     if !event.description.is_empty() {
         facts.push(Fact::new(gettext("Description"), event.description.clone()));
     }
     if !conflicts.is_empty() {
-        facts.push(Fact::new(gettext("Conflicts"), conflicts.join(", ")));
+        facts.push(Fact::warning(gettext("Conflicts"), conflicts.join(", ")));
     }
     facts
 }
@@ -740,19 +731,15 @@ mod tests {
     }
 
     #[test]
-    fn facts_omit_empty_rows_and_a_solo_attendee() {
+    fn facts_hold_only_what_the_heading_does_not_already_say() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert_eq!(
-            facts(&meeting, &[])
-                .into_iter()
-                .map(|fact| fact.label)
-                .collect::<Vec<_>>(),
-            vec!["Duration".to_owned(), "Status".to_owned()],
-            "duration and status are read off every timed event, not only a decorated one"
+        meeting.location = "Room 2".to_owned();
+        assert!(
+            facts(&meeting, &[]).is_empty(),
+            "location and length are in the heading, and a confirmed event is the ordinary case"
         );
 
         meeting.calendar = "Work".to_owned();
-        meeting.location = "Room 2".to_owned();
         meeting.organizer = Some("Marta".to_owned());
         meeting.guests = Some(GuestCounts {
             total: 2,
@@ -769,8 +756,6 @@ mod tests {
             shown,
             vec![
                 ("Calendar".to_owned(), "Work".to_owned()),
-                ("Location".to_owned(), "Room 2".to_owned()),
-                ("Duration".to_owned(), "1 h".to_owned()),
                 ("Organizer".to_owned(), "Marta".to_owned()),
                 ("Guests".to_owned(), "2 · 1 accepted".to_owned()),
                 ("Status".to_owned(), "Tentative".to_owned()),
@@ -785,31 +770,47 @@ mod tests {
             total: 1,
             accepted: 1,
         });
-        meeting.tentative = false;
-        meeting.organizer = None;
-        meeting.description = String::new();
-        let labels: Vec<String> = facts(&meeting, &[])
-            .into_iter()
-            .map(|fact| fact.label)
-            .collect();
-        assert_eq!(
-            labels,
-            vec![
-                "Calendar".to_owned(),
-                "Location".to_owned(),
-                "Duration".to_owned(),
-                "Status".to_owned(),
-            ]
+        assert!(
+            !facts(&meeting, &[])
+                .iter()
+                .any(|fact| fact.label == "Guests"),
+            "a solo attendee is not a guest list"
         );
 
-        let mut holiday = event("Conference", at(4, 0, 0), at(4, 23, 59));
-        holiday.all_day = true;
-        assert!(
-            !facts(&holiday, &[])
-                .iter()
-                .any(|fact| fact.label == "Duration"),
-            "a day has no minute count worth showing"
+        let clash = facts(&meeting, &["Retro".to_owned()]);
+        let last = clash.last().expect("a conflict fact");
+        assert_eq!(last.label, "Conflicts");
+        assert!(last.warning, "a conflict is a problem, so it reads amber");
+        assert!(clash[..clash.len() - 1].iter().all(|fact| !fact.warning));
+    }
+
+    #[test]
+    fn an_upcoming_row_carries_the_same_card_as_the_calendar() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        let now = at(4, 13, 0);
+        let plain = upcoming(
+            now,
+            std::slice::from_ref(&meeting),
+            None,
+            TimeDelta::hours(4),
+            5,
+            "%H:%M",
         );
+        assert!(plain[0].links.is_empty() && plain[0].facts.is_empty());
+
+        meeting.calendar = "Work".to_owned();
+        meeting.meeting_url = Some("https://meet.google.com/abc-defg-hij".to_owned());
+        let carded = upcoming(
+            now,
+            std::slice::from_ref(&meeting),
+            None,
+            TimeDelta::hours(4),
+            5,
+            "%H:%M",
+        );
+        assert_eq!(carded[0].links, agenda::links(&meeting));
+        assert_eq!(carded[0].facts, agenda::facts(&meeting));
+        assert_eq!(carded[0].links[0].title, "Join Google Meet");
     }
 
     #[test]

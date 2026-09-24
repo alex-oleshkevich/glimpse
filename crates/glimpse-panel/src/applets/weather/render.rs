@@ -298,7 +298,7 @@ fn temperature_unit(units: UnitSystem) -> String {
 }
 
 fn fact(label: String, value: String) -> Fact {
-    Fact { label, value }
+    Fact::new(label, value)
 }
 
 fn clock_at(when: DateTime<Utc>, offset: FixedOffset, twelve: bool) -> String {

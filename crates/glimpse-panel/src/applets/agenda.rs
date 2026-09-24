@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
 use gettextrs::gettext;
 use glimpse_services::{CalendarEvent, GuestCounts, MeetingProvider};
-use glimpse_widgets::Event;
+use glimpse_widgets::{Event, EventLink, Fact};
 use gtk4::gdk;
 
 const JOIN: usize = 48;
@@ -174,13 +174,35 @@ pub fn open_event(event: &Occasion) -> Option<Open> {
     })
 }
 
+pub fn links(event: &Occasion) -> Vec<EventLink> {
+    let join = join(event).map(|join| EventLink {
+        title: join.title,
+        url: join.url,
+    });
+    let open = open_event(event).map(|open| EventLink {
+        title: open.title,
+        url: open.url,
+    });
+    join.into_iter().chain(open).collect()
+}
+
+pub fn facts(event: &Occasion) -> Vec<Fact> {
+    let calendar = (!event.calendar.is_empty())
+        .then(|| Fact::new(gettext("Calendar"), event.calendar.clone()));
+    let organizer = event
+        .organizer
+        .as_ref()
+        .map(|organizer| Fact::new(gettext("Organizer"), organizer.clone()));
+    calendar.into_iter().chain(organizer).collect()
+}
+
 pub fn open_http(url: String) {
     if url.starts_with("https://") || url.starts_with("http://") {
         crate::applet::popover::run(&["xdg-open".to_owned(), url]);
     }
 }
 
-pub(crate) fn span(length: TimeDelta) -> String {
+fn span(length: TimeDelta) -> String {
     let minutes = length.num_minutes().max(0);
     if minutes < HOUR {
         return gettext("{minutes} min").replace("{minutes}", &minutes.to_string());
