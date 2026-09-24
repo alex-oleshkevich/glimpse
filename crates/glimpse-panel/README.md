@@ -497,12 +497,12 @@ right`), run once per scroll notch with no shell. A program that cannot start is
 per program per five seconds; its exit status is not watched. `popover::launch` hands the child an
 activation token and drops a `LANGUAGE` only `[regional]` set.
 
-**session** — icon-only, and the hero names the session type beside how long the user has been
-signed in. Power actions confirm on the app host after the popover closes; lock and session switch
-run immediately. Confirmation copy is formatted at click from the current snapshot,
-not from the one that opened the popover. Inhibitors are named only when they apply to that action;
-open windows are counted for log out, restart and shut down, never described as unsaved work.
-Updates appear only while PackageKit owns its name, as a status row, never a count.
+**session** — icon-only, and the hero says how long the user has been signed in. Power actions
+confirm on the app host after the popover closes, with the action as the default response so Enter
+confirms it; lock runs immediately. Confirmation copy is formatted at click from the current
+snapshot, not from the one that opened the popover. Inhibitors are named only when they apply to
+that action — a blocked row names the first of them; open windows are counted for log out, restart
+and shut down, never described as unsaved work.
 
 **privacy** — one row per application, titled by its name and icon, with what it uses in the
 subtitle (`Camera · Microphone · Sharing Dell U2723QE`); a use with no application — location, or a

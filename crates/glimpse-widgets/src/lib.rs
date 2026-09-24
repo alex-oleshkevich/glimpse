@@ -142,7 +142,7 @@ pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use session_popover::{
     ActionState as SessionActionState, HIBERNATE, LOCK, LOG_OUT, POWER_OFF, REBOOT, SUSPEND,
-    SessionChoice, SessionPopover,
+    SessionPopover,
 };
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
@@ -6628,37 +6628,6 @@ mod tests {
         );
         session.imp().lock.emit_clicked();
         assert_eq!(*session_actions.borrow(), [LOCK]);
-        session.set_updates(Some("Updates available"));
-        assert!(session.imp().updates_section.get_visible());
-        assert_eq!(
-            session.imp().updates.value().as_deref(),
-            Some("Updates available")
-        );
-        session.set_updates(None);
-        assert!(!session.imp().updates_section.get_visible());
-        session.set_sessions(&[SessionChoice {
-            id: "other".to_owned(),
-            user: "Other user".to_owned(),
-            subtitle: Some("wayland".to_owned()),
-        }]);
-        assert!(session.imp().sessions_section.get_visible());
-        let activated = Rc::new(RefCell::new(Vec::new()));
-        session.connect_activate_session({
-            let activated = Rc::clone(&activated);
-            move |_, id| activated.borrow_mut().push(id.to_owned())
-        });
-        session
-            .imp()
-            .sessions
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap()
-            .emit_clicked();
-        assert_eq!(*activated.borrow(), ["other"]);
-        session.set_sessions(&[]);
-        assert!(session.imp().sessions.first_child().is_none());
-        assert!(!session.imp().sessions_section.get_visible());
 
         let battery = BatteryPopover::new();
         assert!(

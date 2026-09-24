@@ -52,12 +52,15 @@ impl Session {
         popover.set_heading(user, signed_in.as_deref());
         popover.set_action(LOCK, &render::always());
         popover.set_action(LOG_OUT, &render::always());
-        popover.set_action(SUSPEND, &render::action_state(self.state.suspend));
-        popover.set_action(HIBERNATE, &render::action_state(self.state.hibernate));
-        popover.set_action(REBOOT, &render::action_state(self.state.reboot));
-        popover.set_action(POWER_OFF, &render::action_state(self.state.power_off));
-        popover.set_sessions(&render::sessions(&self.state.sessions));
-        popover.set_updates(render::updates(self.state.updates.as_ref()).as_deref());
+        let state = &self.state;
+        for (name, action, capability) in [
+            (SUSPEND, SessionAction::Suspend, state.suspend),
+            (HIBERNATE, SessionAction::Hibernate, state.hibernate),
+            (REBOOT, SessionAction::Reboot, state.reboot),
+            (POWER_OFF, SessionAction::PowerOff, state.power_off),
+        ] {
+            popover.set_action(name, &render::action_state(state, action, capability));
+        }
         popover.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 }
@@ -116,14 +119,6 @@ impl Applet for Session {
                     return;
                 }
                 let _ = dialog.send(crate::app::AppInput::SessionRun(action));
-            }
-        });
-        shown.connect_activate_session({
-            let dialog = self.dialog.clone();
-            move |_, id| {
-                let _ = dialog.send(crate::app::AppInput::SessionRun(SessionAction::Activate(
-                    id.to_owned(),
-                )));
             }
         });
         if let Some((_, command)) = &self.footer {

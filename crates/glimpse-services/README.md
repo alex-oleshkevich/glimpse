@@ -341,10 +341,8 @@ GLib function caches besides. **A source that fails to read publishes nothing fo
 reports through `ctx.degraded`** — health is orthogonal to state, and nothing downstream renders a
 degraded section differently from an absent one.
 
-**session actions** — logind capabilities, same-seat sessions and inhibitors on their own
-subscription, window count from the compositor, PackageKit updates only on `UpdatesChanged`. A
-window appearing does not re-query the package manager. Capability reasons are an enum; the applet
-formats them.
+**session actions** — logind capabilities and inhibitors on their own subscription, window count
+from the compositor. Capability reasons are an enum; the applet formats them.
 
 **privacy** — camera, microphone, screen capture and location as one state, reporting rather than
 enforcing. **The camera source is a `/proc` fd scan gated on the `uvcvideo` refcount, never

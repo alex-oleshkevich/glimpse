@@ -34,7 +34,6 @@ pub trait Login1Manager {
     fn power_off(&self, interactive: bool) -> zbus::Result<()>;
     fn terminate_session(&self, session_id: &str) -> zbus::Result<()>;
     fn lock_session(&self, session_id: &str) -> zbus::Result<()>;
-    fn activate_session(&self, session_id: &str) -> zbus::Result<()>;
 
     fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<OwnedFd>;
 

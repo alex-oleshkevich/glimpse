@@ -40,7 +40,6 @@ pub mod mpris;
 pub mod network_manager;
 pub mod night_light;
 pub mod notifications;
-pub mod packagekit;
 pub mod portal_settings;
 pub mod power_profiles;
 pub mod sensor;

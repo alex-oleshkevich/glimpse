@@ -106,7 +106,7 @@ pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{
     Action as SessionAction, Capability as SessionCapability,
     Dependencies as SessionActionsDependencies, Inhibitor as SessionInhibitor, SessionActions,
-    SessionActionsHandle, SessionActionsState, SessionEntry, Updates as SessionUpdates,
+    SessionActionsHandle, SessionActionsState,
 };
 pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use tray::{Tray, TrayHandle, TrayItems};

@@ -1,27 +1,30 @@
 use gettextrs::{gettext, ngettext};
-use glimpse_services::{
-    SessionAction, SessionActionsState, SessionCapability, SessionEntry, SessionInhibitor,
-    SessionUpdates,
-};
-use glimpse_widgets::{SessionActionState, SessionChoice};
+use glimpse_services::{SessionAction, SessionActionsState, SessionCapability, SessionInhibitor};
+use glimpse_widgets::SessionActionState;
 
 pub fn heading(state: &SessionActionsState) -> (Option<&str>, Option<String>) {
-    let kind = state.session_type.as_deref().map(kind_label);
-    let signed_in = state.signed_in_seconds.map(duration);
-    let subtitle = match (kind, signed_in) {
-        (None, signed_in) => signed_in,
-        (Some(kind), None) => Some(kind),
-        (Some(kind), Some(signed_in)) => Some(format!("{kind} · {signed_in}")),
-    };
-    (state.user.as_deref(), subtitle)
+    (state.user.as_deref(), state.signed_in_seconds.map(duration))
 }
 
-pub fn action_state(capability: SessionCapability) -> SessionActionState {
+pub fn action_state(
+    state: &SessionActionsState,
+    action: SessionAction,
+    capability: SessionCapability,
+) -> SessionActionState {
     SessionActionState {
         visible: capability.visible(),
         enabled: capability.enabled(),
         subtitle: match capability {
-            SessionCapability::Blocked => Some(gettext("Blocked by an active inhibitor.")),
+            SessionCapability::Blocked => Some(
+                match state
+                    .inhibitors
+                    .iter()
+                    .find(|entry| matches_action(entry, &action))
+                {
+                    Some(entry) => gettext("Blocked by {who}").replace("{who}", &entry.who),
+                    None => gettext("Blocked by an active inhibitor."),
+                },
+            ),
             SessionCapability::Hidden | SessionCapability::Available => None,
         },
     }
@@ -33,25 +36,6 @@ pub fn always() -> SessionActionState {
         enabled: true,
         subtitle: None,
     }
-}
-
-pub fn sessions(entries: &[SessionEntry]) -> Vec<SessionChoice> {
-    entries
-        .iter()
-        .filter(|entry| !entry.active)
-        .map(|entry| SessionChoice {
-            id: entry.id.clone(),
-            user: entry.user.clone(),
-            subtitle: Some(kind_label(&entry.kind)),
-        })
-        .collect()
-}
-
-pub fn updates(updates: Option<&SessionUpdates>) -> Option<String> {
-    updates.map(|updates| match updates.available {
-        true => gettext("Updates available"),
-        false => gettext("No updates available"),
-    })
 }
 
 pub fn action_from(action: &str) -> Option<SessionAction> {
@@ -96,7 +80,7 @@ pub fn confirm(
             gettext("Shut down this computer?"),
             gettext("Shut down"),
         ),
-        SessionAction::Lock | SessionAction::Activate(_) => return None,
+        SessionAction::Lock => return None,
     };
     let blockers = blockers(state, action);
     let body = match blockers.is_empty() {
@@ -139,15 +123,6 @@ fn counts_windows(action: &SessionAction) -> bool {
     )
 }
 
-fn kind_label(kind: &str) -> String {
-    match kind {
-        "wayland" => gettext("Wayland"),
-        "x11" => gettext("X11"),
-        "tty" => gettext("Terminal"),
-        other => other.to_owned(),
-    }
-}
-
 fn duration(seconds: u64) -> String {
     match seconds / 86_400 {
         0 => gettext("Signed in today"),
@@ -168,17 +143,49 @@ mod tests {
 
     #[test]
     fn unsupported_actions_do_not_render() {
-        assert!(!action_state(SessionCapability::Hidden).visible);
+        assert!(
+            !action_state(
+                &SessionActionsState::default(),
+                SessionAction::Suspend,
+                SessionCapability::Hidden
+            )
+            .visible
+        );
     }
 
     #[test]
-    fn a_blocked_action_stays_visible_with_a_reason() {
-        let state = action_state(SessionCapability::Blocked);
-        assert!(state.visible);
-        assert!(!state.enabled);
+    fn a_blocked_action_stays_visible_and_names_who_blocks_it() {
+        let state = SessionActionsState {
+            inhibitors: vec![
+                SessionInhibitor {
+                    what: "shutdown".into(),
+                    who: "Updater".into(),
+                    why: "install".into(),
+                    mode: "block".into(),
+                },
+                SessionInhibitor {
+                    what: "sleep".into(),
+                    who: "Steam".into(),
+                    why: "download".into(),
+                    mode: "block".into(),
+                },
+            ],
+            ..Default::default()
+        };
+        let row = action_state(&state, SessionAction::Suspend, SessionCapability::Blocked);
+        assert!(row.visible);
+        assert!(!row.enabled);
+        assert_eq!(row.subtitle.as_deref(), Some("Blocked by Steam"));
         assert_eq!(
-            state.subtitle.as_deref(),
-            Some("Blocked by an active inhibitor.")
+            action_state(
+                &SessionActionsState::default(),
+                SessionAction::Suspend,
+                SessionCapability::Blocked
+            )
+            .subtitle
+            .as_deref(),
+            Some("Blocked by an active inhibitor."),
+            "logind says blocked but lists no matching inhibitor"
         );
     }
 
@@ -238,60 +245,14 @@ mod tests {
     }
 
     #[test]
-    fn other_sessions_drop_the_active_one_and_label_the_kind() {
-        let listed = sessions(&[
-            SessionEntry {
-                id: "current".into(),
-                user: "me".into(),
-                kind: "wayland".into(),
-                active: true,
-            },
-            SessionEntry {
-                id: "other".into(),
-                user: "you".into(),
-                kind: "x11".into(),
-                active: false,
-            },
-        ]);
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].id, "other");
-        assert_eq!(listed[0].subtitle.as_deref(), Some("X11"));
-    }
-
-    #[test]
-    fn updates_are_absent_without_packagekit_and_do_not_invent_a_count() {
-        assert_eq!(updates(None), None);
-        assert_eq!(
-            updates(Some(&SessionUpdates { available: true })).as_deref(),
-            Some("Updates available")
-        );
-        assert_eq!(
-            updates(Some(&SessionUpdates { available: false })).as_deref(),
-            Some("No updates available")
-        );
-    }
-
-    #[test]
-    fn the_heading_names_the_session_type_beside_the_sign_in() {
-        let state = SessionActionsState {
-            user: Some("alex".into()),
-            session_type: Some("wayland".into()),
-            signed_in_seconds: None,
-            ..Default::default()
-        };
-        assert_eq!(heading(&state).1.as_deref(), Some("Wayland"));
-    }
-
-    #[test]
     fn signed_in_today_is_not_a_day_count() {
         let state = SessionActionsState {
             user: Some("alex".into()),
-            session_type: Some("wayland".into()),
             signed_in_seconds: Some(3_600),
             ..Default::default()
         };
         let (user, signed) = heading(&state);
         assert_eq!(user, Some("alex"));
-        assert_eq!(signed.as_deref(), Some("Wayland · Signed in today"));
+        assert_eq!(signed.as_deref(), Some("Signed in today"));
     }
 }

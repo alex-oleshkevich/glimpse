@@ -323,7 +323,7 @@ impl App {
         dialog.add_response("cancel", &gettext("Cancel"));
         dialog.add_response("accept", &request.accept);
         dialog.set_response_appearance("accept", adw::ResponseAppearance::Destructive);
-        dialog.set_default_response(Some("cancel"));
+        dialog.set_default_response(Some("accept"));
         dialog.set_close_response("cancel");
         let closed = sender.input_sender().clone();
         let action = request.action.clone();

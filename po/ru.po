@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 15:04+0200\n"
+"POT-Creation-Date: 2026-09-24 16:00+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -46,7 +46,7 @@ msgid "Cancel"
 msgstr ""
 
 #: crates/glimpse-panel/src/app.rs:389
-#: crates/glimpse-panel/src/applets/session/mod.rs:90
+#: crates/glimpse-panel/src/applets/session/mod.rs:93
 msgid "Session"
 msgstr ""
 
@@ -1685,95 +1685,77 @@ msgid "The drive could not complete that."
 msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by {who}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/session/render.rs:25
 msgid "Blocked by an active inhibitor."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:52
-msgid "Updates available"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:53
-#, fuzzy
-#| msgid "Notifications are unavailable"
-msgid "No updates available"
-msgstr "Уведомления недоступны"
-
-#: crates/glimpse-panel/src/applets/session/render.rs:75
-#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-panel/src/applets/session/render.rs:59
+#: crates/glimpse-panel/src/applets/session/render.rs:61
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:169
 msgid "Suspend"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:76
+#: crates/glimpse-panel/src/applets/session/render.rs:60
 msgid "Suspend this session?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:80
-#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-panel/src/applets/session/render.rs:64
+#: crates/glimpse-panel/src/applets/session/render.rs:66
 #: crates/glimpse-widgets/blueprints/session_popover.blp:27
 msgid "Hibernate"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:81
+#: crates/glimpse-panel/src/applets/session/render.rs:65
 msgid "Hibernate this session?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:85
-#: crates/glimpse-panel/src/applets/session/render.rs:87
+#: crates/glimpse-panel/src/applets/session/render.rs:69
+#: crates/glimpse-panel/src/applets/session/render.rs:71
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
 msgid "Log out"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:86
+#: crates/glimpse-panel/src/applets/session/render.rs:70
 msgid ""
 "This closes the current session. Applications may not shut down gracefully."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:90
-#: crates/glimpse-panel/src/applets/session/render.rs:92
+#: crates/glimpse-panel/src/applets/session/render.rs:74
+#: crates/glimpse-panel/src/applets/session/render.rs:76
 #: crates/glimpse-widgets/blueprints/session_popover.blp:43
 msgid "Restart"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:91
+#: crates/glimpse-panel/src/applets/session/render.rs:75
 msgid "Restart this computer?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:95
-#: crates/glimpse-panel/src/applets/session/render.rs:97
+#: crates/glimpse-panel/src/applets/session/render.rs:79
+#: crates/glimpse-panel/src/applets/session/render.rs:81
 #: crates/glimpse-widgets/blueprints/session_popover.blp:48
 msgid "Shut down"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:96
+#: crates/glimpse-panel/src/applets/session/render.rs:80
 msgid "Shut down this computer?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:121
+#: crates/glimpse-panel/src/applets/session/render.rs:105
 msgid "{windows} open window is still running."
 msgid_plural "{windows} open windows are still running."
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:144
-msgid "Wayland"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:145
-msgid "X11"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:146
-msgid "Terminal"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/session/render.rs:153
+#: crates/glimpse-panel/src/applets/session/render.rs:128
 msgid "Signed in today"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:155
+#: crates/glimpse-panel/src/applets/session/render.rs:130
 msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] ""
@@ -2201,14 +2183,6 @@ msgstr "Перемотка"
 msgid "Lock"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_popover.blp:55
-msgid "Switch user"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/session_popover.blp:67
-msgid "Updates"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/transport.blp:20
 msgid "Shuffle"
 msgstr "Перемешать"
@@ -2464,6 +2438,11 @@ msgid_plural "{count} workspaces"
 msgstr[0] "{count} рабочий стол"
 msgstr[1] "{count} рабочих стола"
 msgstr[2] "{count} рабочих столов"
+
+#, fuzzy
+#~| msgid "Notifications are unavailable"
+#~ msgid "No updates available"
+#~ msgstr "Уведомления недоступны"
 
 #, fuzzy
 #~| msgid "{start} · {length}"

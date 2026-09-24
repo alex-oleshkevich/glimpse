@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::OnceLock};
+use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
@@ -9,7 +9,6 @@ use crate::{Hero, PopoverShell, Row, Section};
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/session_popover.ui")]
 pub struct SessionPopover {
-    pub choices: RefCell<Vec<super::SessionChoice>>,
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
@@ -26,14 +25,6 @@ pub struct SessionPopover {
     pub reboot: TemplateChild<Row>,
     #[template_child]
     pub power_off: TemplateChild<Row>,
-    #[template_child]
-    pub sessions_section: TemplateChild<Section>,
-    #[template_child]
-    pub sessions: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub updates_section: TemplateChild<Section>,
-    #[template_child]
-    pub updates: TemplateChild<Row>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 }
@@ -65,9 +56,6 @@ impl ObjectImpl for SessionPopover {
         SIGNALS.get_or_init(|| {
             vec![
                 glib::subclass::Signal::builder("action-requested")
-                    .param_types([String::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("activate-session")
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
