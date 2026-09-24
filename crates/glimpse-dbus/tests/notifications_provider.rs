@@ -146,6 +146,7 @@ fn contract_wire_types_remain_available_to_integration_consumers() {
         0,
         false,
         false,
+        -1,
     );
     let _: DoNotDisturbWire = (false, 0);
 }

@@ -282,6 +282,7 @@ mod tests {
             created: Utc.timestamp_opt(i64::from(id), 0).unwrap(),
             unread: true,
             resident: false,
+            expire_timeout: -1,
         }
     }
 

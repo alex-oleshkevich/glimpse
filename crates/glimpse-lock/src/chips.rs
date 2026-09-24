@@ -123,6 +123,7 @@ mod tests {
             created,
             unread: true,
             resident: false,
+            expire_timeout: -1,
         }
     }
 

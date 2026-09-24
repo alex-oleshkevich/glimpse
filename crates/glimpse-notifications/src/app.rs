@@ -58,8 +58,9 @@ pub enum Input {
 }
 
 struct Timer {
-    countdown: Countdown,
+    countdown: Option<Countdown>,
     task: Option<JoinHandle<()>>,
+    hovered: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -238,12 +239,16 @@ impl SimpleComponent for App {
                 if !self
                     .rows
                     .get(&id)
-                    .is_some_and(|entry| entry.timer.countdown.expired(Instant::now()))
+                    .and_then(|entry| entry.timer.countdown)
+                    .is_some_and(|countdown| countdown.expired(Instant::now()))
                 {
                     return;
                 }
                 let delta = self.state.hide(id);
                 self.apply(delta, &sender);
+                if let Some(services) = &self.services {
+                    expire(services.notifications.clone(), id);
+                }
             }
             Input::Hide(id) => {
                 let delta = self.state.hide(id);
@@ -260,22 +265,21 @@ impl SimpleComponent for App {
             }
             Input::Activate(id) => {
                 let record = self.state.record(id).cloned();
-                let delta = self.state.hide(id);
-                self.apply(delta, &sender);
+                self.hide_unless_resident(id, &sender);
                 if let Some(services) = &self.services {
-                    focus_and_dismiss(
+                    focus_and_activate(
                         services.notifications.clone(),
                         services.compositor.clone(),
                         id,
                         record.and_then(|record| record.app_pid),
+                        activation_token(&self.root),
                     );
                 }
             }
             Input::Invoke(id, action) => {
-                let delta = self.state.hide(id);
-                self.apply(delta, &sender);
+                self.hide_unless_resident(id, &sender);
                 if let Some(services) = &self.services {
-                    invoke_and_dismiss(
+                    invoke(
                         services.notifications.clone(),
                         id,
                         action,
@@ -297,6 +301,14 @@ impl SimpleComponent for App {
 }
 
 impl App {
+    fn hide_unless_resident(&mut self, id: u32, sender: &ComponentSender<Self>) {
+        if self.state.record(id).is_some_and(|record| record.resident) {
+            return;
+        }
+        let delta = self.state.hide(id);
+        self.apply(delta, sender);
+    }
+
     fn connect_services(&mut self, services: NotificationServices, sender: &ComponentSender<Self>) {
         services.reconfigure(&self.config);
         let mut notifications = services.notifications.subscribe();
@@ -408,8 +420,8 @@ impl App {
         self.fill(&card, &record);
         self.stack.append(&frame);
 
-        let remaining = Duration::from_secs(self.state.settings().hide_delay);
-        let timer = timer(id, remaining, sender.clone());
+        let hide_delay = Duration::from_secs(self.state.settings().hide_delay);
+        let timer = timer(id, lifetime(&record, hide_delay), sender.clone());
         let animation = animation(&frame);
         animation.connect_done({
             let sender = sender.clone();
@@ -545,7 +557,10 @@ impl App {
         if entry.state.is_leaving() {
             return;
         }
-        entry.timer.countdown.pause(Instant::now());
+        entry.timer.hovered = true;
+        if let Some(countdown) = entry.timer.countdown.as_mut() {
+            countdown.pause(Instant::now());
+        }
         if let Some(task) = entry.timer.task.take() {
             task.abort();
         }
@@ -558,20 +573,46 @@ impl App {
         if entry.state.is_leaving() {
             return;
         }
-        if let Some(remaining) = entry.timer.countdown.resume(Instant::now()) {
+        entry.timer.hovered = false;
+        if let Some(remaining) = entry
+            .timer
+            .countdown
+            .as_mut()
+            .and_then(|countdown| countdown.resume(Instant::now()))
+        {
             entry.timer.task = Some(timeout(id, remaining, sender.clone()));
         }
     }
 
     fn restart(&mut self, id: u32, sender: &ComponentSender<Self>) {
+        let hide_delay = Duration::from_secs(self.state.settings().hide_delay);
+        let lifetime = self
+            .state
+            .record(id)
+            .and_then(|record| lifetime(record, hide_delay));
         let Some(entry) = self.rows.get_mut(&id) else {
             return;
         };
         if let Some(task) = entry.timer.task.take() {
             task.abort();
         }
-        let duration = Duration::from_secs(self.state.settings().hide_delay);
-        if entry.timer.countdown.restart(duration, Instant::now()) {
+        let Some(duration) = lifetime else {
+            entry.timer.countdown = None;
+            return;
+        };
+        let now = Instant::now();
+        let running = match entry.timer.countdown.as_mut() {
+            Some(countdown) => countdown.restart(duration, now),
+            None => {
+                let mut countdown = Countdown::running(duration, now);
+                if entry.timer.hovered {
+                    countdown.pause(now);
+                }
+                entry.timer.countdown = Some(countdown);
+                !entry.timer.hovered
+            }
+        };
+        if running {
             entry.timer.task = Some(timeout(id, duration, sender.clone()));
         }
     }
@@ -699,10 +740,22 @@ impl App {
     }
 }
 
-fn timer(id: u32, remaining: Duration, sender: ComponentSender<App>) -> Timer {
+fn timer(id: u32, lifetime: Option<Duration>, sender: ComponentSender<App>) -> Timer {
     Timer {
-        countdown: Countdown::running(remaining, Instant::now()),
-        task: Some(timeout(id, remaining, sender)),
+        countdown: lifetime.map(|lifetime| Countdown::running(lifetime, Instant::now())),
+        task: lifetime.map(|lifetime| timeout(id, lifetime, sender)),
+        hovered: false,
+    }
+}
+
+fn lifetime(record: &NotificationRecord, hide_delay: Duration) -> Option<Duration> {
+    if record.resident || record.urgency == NotificationUrgency::Critical {
+        return None;
+    }
+    match u64::try_from(record.expire_timeout) {
+        Ok(0) => None,
+        Ok(millis) => Some(Duration::from_millis(millis)),
+        Err(_) => Some(hide_delay),
     }
 }
 
@@ -751,8 +804,9 @@ fn animate_in(frame: &gtk4::Box, animation: &adw::TimedAnimation, edge: Notifica
 }
 
 fn animate_out(frame: &gtk4::Box, animation: &adw::TimedAnimation, edge: NotificationEdge) {
+    let from = frame.opacity();
     animation.reset();
-    animation.set_value_from(frame.opacity());
+    animation.set_value_from(from);
     animation.set_value_to(0.0);
     frame.add_css_class(animation_class(edge));
     animation.play();
@@ -827,6 +881,14 @@ fn gdk_monitor(connector: &str) -> Option<gdk::Monitor> {
         .find(|monitor| monitor.connector().as_deref() == Some(connector))
 }
 
+fn expire(notifications: NotificationsHandle, id: u32) {
+    relm4::spawn(async move {
+        if let Err(error) = notifications.expire(id).await {
+            tracing::warn!(%error, "notification expiry failed");
+        }
+    });
+}
+
 fn dismiss(notifications: NotificationsHandle, id: u32) {
     relm4::spawn(async move {
         if let Err(error) = notifications.dismiss(id).await {
@@ -835,11 +897,12 @@ fn dismiss(notifications: NotificationsHandle, id: u32) {
     });
 }
 
-fn focus_and_dismiss(
+fn focus_and_activate(
     notifications: NotificationsHandle,
     compositor: CompositorHandle,
     id: u32,
     pid: Option<i32>,
+    activation_token: Option<String>,
 ) {
     relm4::spawn(async move {
         if let Some(pid) = pid {
@@ -854,13 +917,13 @@ fn focus_and_dismiss(
                 Err(_) => tracing::warn!("notification window focus timed out"),
             }
         }
-        if let Err(error) = notifications.dismiss(id).await {
-            tracing::warn!(%error, "notification dismiss failed");
+        if let Err(error) = notifications.activate(id, activation_token).await {
+            tracing::warn!(%error, "notification activation failed");
         }
     });
 }
 
-fn invoke_and_dismiss(
+fn invoke(
     notifications: NotificationsHandle,
     id: u32,
     action: String,
@@ -872,9 +935,6 @@ fn invoke_and_dismiss(
             .await
         {
             tracing::warn!(%error, "notification action failed");
-        }
-        if let Err(error) = notifications.dismiss(id).await {
-            tracing::warn!(%error, "notification dismiss failed");
         }
     });
 }
@@ -1106,5 +1166,55 @@ mod tests {
         assert!(first.expired(start + Duration::from_secs(6)));
         assert_eq!(second.deadline, None);
         assert!(!second.expired(start + Duration::from_secs(20)));
+    }
+
+    #[test]
+    fn a_popup_lives_as_long_as_its_sender_asked() {
+        let record = NotificationRecord {
+            id: 1,
+            app_id: "app".to_owned(),
+            app_name: "App".to_owned(),
+            app_pid: None,
+            summary: "Summary".to_owned(),
+            body: None,
+            icon: None,
+            image: None,
+            urgency: NotificationUrgency::Normal,
+            actions: Vec::new(),
+            progress: None,
+            created: chrono::Utc::now(),
+            unread: true,
+            resident: false,
+            expire_timeout: -1,
+        };
+        let delay = Duration::from_secs(4);
+        assert_eq!(lifetime(&record, delay), Some(delay));
+        assert_eq!(
+            lifetime(
+                &NotificationRecord {
+                    expire_timeout: 1500,
+                    ..record.clone()
+                },
+                delay
+            ),
+            Some(Duration::from_millis(1500))
+        );
+        for sticky in [
+            NotificationRecord {
+                resident: true,
+                ..record.clone()
+            },
+            NotificationRecord {
+                expire_timeout: 0,
+                ..record.clone()
+            },
+            NotificationRecord {
+                urgency: NotificationUrgency::Critical,
+                expire_timeout: 1500,
+                ..record
+            },
+        ] {
+            assert_eq!(lifetime(&sticky, delay), None);
+        }
     }
 }

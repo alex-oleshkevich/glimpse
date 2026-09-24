@@ -53,6 +53,7 @@ owo-colors = "4"
 palette = { version = "0.7.7", default-features = false, features = ["std"] }
 pam-client2 = { version = "0.5.5", default-features = false }
 pipewire = "0.10.1"
+png = "0.18.1"
 regex = "1"
 relm4 = { version = "0.11", features = ["gnome_50", "libadwaita"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }

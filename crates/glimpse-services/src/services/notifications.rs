@@ -1,6 +1,6 @@
 use std::{
-    collections::{HashMap, VecDeque},
-    path::Path,
+    collections::{HashMap, HashSet, VecDeque},
+    path::{Path, PathBuf},
 };
 
 use chrono::{DateTime, Utc};
@@ -37,6 +37,7 @@ const ACTIVATION_TOKEN_MAX_CHARS: usize = 512;
 
 /// `NotificationClosed` reasons, as the specification numbers them.
 const NAMED: &str = "name:";
+const CLOSED_EXPIRED: u32 = 1;
 const CLOSED_BY_SENDER: u32 = 3;
 const CLOSED_BY_READER: u32 = 2;
 
@@ -53,6 +54,8 @@ pub struct Incoming {
     pub urgency: NotificationUrgency,
     pub progress: Option<f64>,
     pub resident: bool,
+    pub expire_timeout: i32,
+    pub transient: bool,
 }
 
 pub enum Event {
@@ -68,6 +71,10 @@ pub enum Command {
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     Remove {
+        id: u32,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Expire {
         id: u32,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
@@ -125,6 +132,7 @@ pub struct Notifications {
     dnd: DoNotDisturb,
     connection: Option<Connection>,
     ids: Option<Ids>,
+    images: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -177,6 +185,10 @@ impl NotificationsHandle {
         self.call(|reply| Command::Dismiss { id, reply }).await
     }
 
+    pub async fn expire(&self, id: u32) -> Result<(), CommandError> {
+        self.call(|reply| Command::Expire { id, reply }).await
+    }
+
     pub async fn remove(&self, id: u32) -> Result<(), CommandError> {
         self.call(|reply| Command::Remove { id, reply }).await
     }
@@ -223,6 +235,7 @@ impl NotificationsHandle {
 #[derive(Debug, Default)]
 pub struct Store {
     held: VecDeque<NotificationRecord>,
+    transient: HashSet<u32>,
     keep: usize,
     suppress: Vec<Regex>,
 }
@@ -268,8 +281,12 @@ impl Service for Notifications {
             dnd: DoNotDisturb::default(),
             connection: None,
             ids: None,
+            images: HashSet::new(),
         };
         service.publish();
+        if let Some(dir) = images_dir() {
+            let _ = tokio::fs::remove_dir_all(dir).await;
+        }
 
         let connection = match ctx.session_bus() {
             Ok(connection) => connection.clone(),
@@ -311,7 +328,14 @@ impl Service for Notifications {
         Ok(service)
     }
 
-    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
+    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+        self.dispatch(input).await;
+        self.forget_images(ctx);
+    }
+}
+
+impl Notifications {
+    async fn dispatch(&mut self, input: Input<Self>) {
         match input {
             Input::Event(Event::Posted { id, incoming }) => self.posted(id, *incoming),
             Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
@@ -342,6 +366,12 @@ impl Service for Notifications {
             }
             Input::Command(Command::Remove { id, reply }) => {
                 self.remove(id, CLOSED_BY_READER).await;
+                let _ = reply.send(Ok(()));
+            }
+            Input::Command(Command::Expire { id, reply }) => {
+                if self.store.transient.contains(&id) {
+                    self.remove(id, CLOSED_EXPIRED).await;
+                }
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::Activate { id, token, reply }) => {
@@ -377,7 +407,9 @@ impl Service for Notifications {
                 }
             },
             Input::Command(Command::ClearApp { app_id, reply }) => {
-                let gone = self.store.drain(|record| record.app_id == app_id);
+                let gone = self
+                    .store
+                    .drain(|record| record.app_id == app_id && !pending(record));
                 self.publish();
                 for id in gone {
                     self.closed(id, CLOSED_BY_READER).await;
@@ -385,7 +417,7 @@ impl Service for Notifications {
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::ClearAll { reply }) => {
-                let gone = self.store.drain(|_| true);
+                let gone = self.store.drain(|record| !pending(record));
                 self.publish();
                 for id in gone {
                     self.closed(id, CLOSED_BY_READER).await;
@@ -410,6 +442,7 @@ impl Store {
     fn new(keep: usize) -> Self {
         Self {
             held: VecDeque::new(),
+            transient: HashSet::new(),
             keep,
             suppress: Vec::new(),
         }
@@ -431,11 +464,18 @@ impl Store {
         ) {
             return false;
         }
+        match incoming.transient {
+            true => self.transient.insert(id),
+            false => self.transient.remove(&id),
+        };
         let record = record(id, incoming);
         match self.held.iter().position(|held| held.id == id) {
             Some(at) => self.held[at] = record,
             None => self.held.push_front(record),
         }
+        let held = &self.held;
+        self.transient
+            .retain(|id| held.iter().any(|record| record.id == *id));
         true
     }
 
@@ -475,6 +515,7 @@ impl Store {
 
     fn take(&mut self, id: u32) -> Option<NotificationRecord> {
         let at = self.held.iter().position(|held| held.id == id)?;
+        self.transient.remove(&id);
         self.held.remove(at)
     }
 
@@ -484,6 +525,10 @@ impl Store {
         };
         if !record.unread {
             return false;
+        }
+        if self.transient.remove(&id) {
+            self.held.retain(|record| record.id != id);
+            return true;
         }
         record.unread = false;
         self.bound();
@@ -524,6 +569,9 @@ impl Store {
             }
             false => true,
         });
+        let held = &self.held;
+        self.transient
+            .retain(|id| held.iter().any(|record| record.id == *id));
         gone
     }
 
@@ -595,11 +643,17 @@ fn application_id(
         .unwrap_or_else(|| format!("notification-{id}"))
 }
 
-fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
-    let executable =
-        std::fs::read_link(Path::new("/proc").join(pid?.to_string()).join("exe")).ok()?;
-    let app_id = executable.file_name()?.to_str()?;
-    DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
+async fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
+    let pid = pid?;
+    tokio::task::spawn_blocking(move || {
+        let executable =
+            std::fs::read_link(Path::new("/proc").join(pid.to_string()).join("exe")).ok()?;
+        let app_id = executable.file_name()?.to_str()?;
+        DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 fn desktop_name(app_id: &str) -> Option<String> {
@@ -626,6 +680,29 @@ impl Notifications {
     fn announce_dnd(&mut self) {
         self.state.update(|state| {
             state.dnd = Some(NotificationsDnd { dnd: self.dnd });
+        });
+    }
+
+    fn forget_images(&mut self, ctx: &Ctx<Self>) {
+        let Some(dir) = images_dir() else {
+            return;
+        };
+        let now: HashSet<String> = self
+            .store
+            .held
+            .iter()
+            .filter_map(|record| record.image.clone())
+            .filter(|image| generated(image, &dir))
+            .collect();
+        let gone: Vec<String> = self.images.difference(&now).cloned().collect();
+        self.images = now;
+        if gone.is_empty() {
+            return;
+        }
+        ctx.spawn_detached(|_| async move {
+            for path in gone {
+                let _ = tokio::fs::remove_file(path).await;
+            }
         });
     }
 
@@ -713,12 +790,16 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         urgency,
         progress,
         resident,
+        expire_timeout,
+        transient: _,
     } = incoming;
 
     let app_name = glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS);
     let app_id = glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS);
 
-    let image = local_image_path(image.as_deref());
+    let image = image
+        .map(|image| glimpse_utils::text::clean(&image, IMAGE_PATH_MAX_CHARS))
+        .and_then(|image| local_path(&image));
 
     NotificationRecord {
         id,
@@ -740,6 +821,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         created: Utc::now(),
         unread: true,
         resident,
+        expire_timeout,
     }
 }
 
@@ -775,7 +857,7 @@ impl Served {
         body: String,
         actions: Vec<String>,
         hints: HashMap<String, OwnedValue>,
-        _expire_timeout: i32,
+        expire_timeout: i32,
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> u32 {
         let id = self.next.allocate(replaces_id);
@@ -783,23 +865,33 @@ impl Served {
 
         let app_id = application_id(
             hint_str(&hints, "desktop-entry"),
-            process_desktop_entry(app_pid),
+            process_desktop_entry(app_pid).await,
             &app_name,
             header.sender().map(ToString::to_string),
             id,
         );
+        let image_data = match pixels(&hints) {
+            Some(pixels) => {
+                let stamp = Utc::now().timestamp_nanos_opt().unwrap_or_default();
+                write_image(pixels, format!("{id}-{stamp}.png")).await
+            }
+            None => None,
+        };
+        let (icon, image) = visuals(&app_icon, image_hint(&hints).as_deref(), image_data);
         let incoming = Incoming {
             app_name,
             app_id,
             app_pid,
-            icon: (!app_icon.is_empty()).then_some(app_icon),
-            image: image_hint(&hints),
+            icon,
+            image,
             summary,
             body,
             actions: pairs(actions),
             urgency: urgency(&hints),
             progress: hint_i32(&hints, "value").map(normalized_progress),
             resident: hint_bool(&hints, "resident").unwrap_or(false),
+            expire_timeout,
+            transient: hint_bool(&hints, "transient").unwrap_or(false),
         };
 
         let _ = self
@@ -937,14 +1029,128 @@ fn image_hint(hints: &HashMap<String, OwnedValue>) -> Option<String> {
     hint_str(hints, "image-path").or_else(|| hint_str(hints, "image_path"))
 }
 
-fn local_image_path(image: Option<&str>) -> Option<String> {
-    let image = glimpse_utils::text::clean(image?, IMAGE_PATH_MAX_CHARS);
-    let path = image.strip_prefix("file://").unwrap_or(&image);
-    Path::new(path).is_absolute().then(|| path.to_owned())
+fn local_path(raw: &str) -> Option<String> {
+    match url::Url::parse(raw) {
+        Ok(url) if url.scheme() == "file" => url.to_file_path().ok()?.to_str().map(str::to_owned),
+        Ok(_) => None,
+        Err(_) => Path::new(raw).is_absolute().then(|| raw.to_owned()),
+    }
+}
+
+fn icon_name(raw: &str) -> Option<String> {
+    (!raw.is_empty() && !raw.contains('/') && url::Url::parse(raw).is_err()).then(|| raw.to_owned())
+}
+
+fn visuals(
+    app_icon: &str,
+    image_path: Option<&str>,
+    image_data: Option<String>,
+) -> (Option<String>, Option<String>) {
+    let icon = image_path
+        .and_then(icon_name)
+        .or_else(|| icon_name(app_icon));
+    let image = image_data
+        .or_else(|| image_path.and_then(local_path))
+        .or_else(|| local_path(app_icon));
+    (icon, image)
+}
+
+struct Pixels {
+    width: u32,
+    height: u32,
+    alpha: bool,
+    rows: Vec<u8>,
+}
+
+const IMAGE_DATA_SIDE_MAX: i32 = 1024;
+
+fn pixels(hints: &HashMap<String, OwnedValue>) -> Option<Pixels> {
+    let value = ["image-data", "image_data"]
+        .iter()
+        .find_map(|name| hints.get(*name))
+        .or_else(|| {
+            (hint_str(hints, "image-path").is_none() && hint_str(hints, "image_path").is_none())
+                .then(|| hints.get("icon_data"))
+                .flatten()
+        })?;
+    let (width, height, rowstride, alpha, bits, channels, data) =
+        <(i32, i32, i32, bool, i32, i32, Vec<u8>)>::try_from(value.try_clone().ok()?).ok()?;
+    let sides = 1..=IMAGE_DATA_SIDE_MAX;
+    if bits != 8 || channels != if alpha { 4 } else { 3 } {
+        return None;
+    }
+    if !sides.contains(&width) || !sides.contains(&height) {
+        return None;
+    }
+    let (width, height, rowstride, channels) = (
+        width as usize,
+        height as usize,
+        usize::try_from(rowstride).ok()?,
+        channels as usize,
+    );
+    let row = width * channels;
+    if rowstride < row || data.len() < rowstride * (height - 1) + row {
+        return None;
+    }
+    let rows = (0..height)
+        .flat_map(|y| &data[y * rowstride..y * rowstride + row])
+        .copied()
+        .collect();
+    Some(Pixels {
+        width: width as u32,
+        height: height as u32,
+        alpha,
+        rows,
+    })
+}
+
+fn encode(pixels: &Pixels) -> Option<Vec<u8>> {
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, pixels.width, pixels.height);
+    encoder.set_color(match pixels.alpha {
+        true => png::ColorType::Rgba,
+        false => png::ColorType::Rgb,
+    });
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().ok()?;
+    writer.write_image_data(&pixels.rows).ok()?;
+    writer.finish().ok()?;
+    Some(out)
+}
+
+fn generated(image: &str, dir: &Path) -> bool {
+    Path::new(image).parent() == Some(dir)
+}
+
+fn images_dir() -> Option<PathBuf> {
+    Some(
+        dirs::runtime_dir()?
+            .join("glimpse/notifications")
+            .join(std::process::id().to_string()),
+    )
+}
+
+async fn write_image(pixels: Pixels, name: String) -> Option<String> {
+    let path = images_dir()?.join(name);
+    let bytes = tokio::task::spawn_blocking(move || encode(&pixels))
+        .await
+        .ok()??;
+    tokio::fs::create_dir_all(path.parent()?).await.ok()?;
+    tokio::fs::write(&path, bytes).await.ok()?;
+    path.to_str().map(str::to_owned)
 }
 
 fn hint_i32(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<i32> {
     hints.get(name).and_then(|value| i32::try_from(value).ok())
+}
+
+fn pending(record: &NotificationRecord) -> bool {
+    record.unread
+        && (record.resident || record.expire_timeout == 0)
+        && record
+            .actions
+            .iter()
+            .any(|action| action.key != DEFAULT_ACTION)
 }
 
 fn hint_bool(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<bool> {
@@ -982,6 +1188,8 @@ mod tests {
             urgency: NotificationUrgency::Normal,
             progress: None,
             resident: false,
+            expire_timeout: -1,
+            transient: false,
         }
     }
 
@@ -1750,5 +1958,207 @@ mod tests {
 
         assert_eq!(next.allocate(0), u32::MAX);
         assert_eq!(next.allocate(0), 1);
+    }
+
+    #[tokio::test]
+    async fn bulk_clears_keep_a_request_still_waiting_for_an_answer() {
+        let (handle, sender, mut state, cancel, running) = dnd_service().await;
+        for (id, expire_timeout, action) in
+            [(1, 0, "accept"), (2, -1, "accept"), (3, 0, DEFAULT_ACTION)]
+        {
+            sender
+                .send(Input::Event(Event::Posted {
+                    id,
+                    incoming: Box::new(Incoming {
+                        expire_timeout,
+                        actions: vec![(action.to_owned(), "Go".to_owned())],
+                        ..incoming("Pairing", "Request")
+                    }),
+                }))
+                .await
+                .expect("posted");
+        }
+        state
+            .wait_for(|state| {
+                state
+                    .list
+                    .as_ref()
+                    .is_some_and(|list| list.notifications.len() == 3)
+            })
+            .await
+            .expect("posted state");
+        handle.clear_all().await.expect("cleared all");
+        let after_all = handle.snapshot();
+        handle
+            .clear_app("Pairing".to_owned())
+            .await
+            .expect("cleared application");
+        let after_app = handle.snapshot();
+        cancel.cancel();
+        running.await.expect("joined").expect("stopped");
+
+        for latest in [after_all, after_app] {
+            let ids: Vec<u32> = latest
+                .list
+                .expect("a list was published")
+                .notifications
+                .iter()
+                .map(|notification| notification.id)
+                .collect();
+            assert_eq!(ids, vec![1]);
+        }
+    }
+
+    #[test]
+    fn dismissing_a_transient_notification_leaves_no_history() {
+        let mut store = Store::new(10);
+        store.post(
+            1,
+            Incoming {
+                transient: true,
+                ..incoming("Volume", "50%")
+            },
+        );
+        store.post(2, incoming("Mail", "Hi"));
+
+        assert!(store.dismiss(1));
+        assert!(store.dismiss(2));
+        let ids: Vec<u32> = store.records().iter().map(|record| record.id).collect();
+        assert_eq!(ids, vec![2]);
+    }
+
+    #[test]
+    fn icons_and_images_resolve_from_names_paths_and_uris() {
+        let owned = |value: &str| Some(value.to_owned());
+        for (app_icon, image_path, image_data, expected) in [
+            (
+                "dialog-warning",
+                None,
+                None,
+                (owned("dialog-warning"), None),
+            ),
+            ("file:///a%20b.png", None, None, (None, owned("/a b.png"))),
+            ("/x.png", None, None, (None, owned("/x.png"))),
+            ("app", Some("/y.png"), None, (owned("app"), owned("/y.png"))),
+            (
+                "",
+                Some("dialog-warning"),
+                None,
+                (owned("dialog-warning"), None),
+            ),
+            (
+                "file:///a.png",
+                Some("/b.png"),
+                None,
+                (None, owned("/b.png")),
+            ),
+            (
+                "/a.png",
+                Some("/b.png"),
+                owned("/c.png"),
+                (None, owned("/c.png")),
+            ),
+            ("http://x/y.png", Some("rel/z.png"), None, (None, None)),
+        ] {
+            assert_eq!(
+                visuals(app_icon, image_path, image_data),
+                expected,
+                "{app_icon} {image_path:?}"
+            );
+        }
+    }
+
+    fn image_data(
+        (width, height, rowstride): (i32, i32, i32),
+        alpha: bool,
+        bits: i32,
+        channels: i32,
+        data: Vec<u8>,
+    ) -> HashMap<String, OwnedValue> {
+        let value = zbus::zvariant::Value::from(zbus::zvariant::Structure::from((
+            width, height, rowstride, alpha, bits, channels, data,
+        )));
+        HashMap::from([(
+            "image-data".to_owned(),
+            OwnedValue::try_from(value).expect("an owned value"),
+        )])
+    }
+
+    #[test]
+    fn image_data_encodes_as_a_png_of_the_same_size() {
+        let padded = [[255, 0, 0, 255, 0, 255, 0, 255, 9, 9], [0; 10]].concat();
+        let pixels = pixels(&image_data((2, 2, 10), true, 8, 4, padded)).expect("valid pixels");
+        let bytes = encode(&pixels).expect("encoded");
+
+        let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+        let reader = decoder.read_info().expect("a png");
+        let info = reader.info();
+        assert_eq!((info.width, info.height), (2, 2));
+        assert_eq!(info.color_type, png::ColorType::Rgba);
+    }
+
+    #[test]
+    fn malformed_image_data_is_ignored() {
+        for hints in [
+            image_data((2, 2, 8), true, 16, 4, vec![0; 32]),
+            image_data((2, 2, 8), true, 8, 3, vec![0; 32]),
+            image_data((2, 2, 8), true, 8, 4, vec![0; 15]),
+            image_data((2, 2, 4), true, 8, 4, vec![0; 32]),
+            image_data((5000, 1, 20000), true, 8, 4, vec![0; 20000]),
+            image_data((0, 1, 4), true, 8, 4, vec![0; 4]),
+        ] {
+            assert!(pixels(&hints).is_none());
+        }
+    }
+
+    #[test]
+    fn only_a_file_directly_in_the_images_directory_is_ever_deleted() {
+        let dir = Path::new("/run/user/1000/glimpse/notifications/7");
+        assert!(generated(
+            "/run/user/1000/glimpse/notifications/7/3-1.png",
+            dir
+        ));
+        assert!(!generated(
+            "/run/user/1000/glimpse/notifications/7/../../../../home/u/.ssh/id_ed25519",
+            dir
+        ));
+        assert!(!generated("/run/user/1000/glimpse/notifications/7", dir));
+        assert!(!generated("/home/u/picture.png", dir));
+    }
+
+    #[tokio::test]
+    async fn a_timed_out_popup_removes_only_a_transient_record() {
+        let (handle, sender, mut state, cancel, running) = dnd_service().await;
+        for (id, transient) in [(1, true), (2, false)] {
+            sender
+                .send(Input::Event(Event::Posted {
+                    id,
+                    incoming: Box::new(Incoming {
+                        transient,
+                        ..incoming("Volume", "50%")
+                    }),
+                }))
+                .await
+                .expect("posted");
+        }
+        state
+            .wait_for(|state| {
+                state
+                    .list
+                    .as_ref()
+                    .is_some_and(|list| list.notifications.len() == 2)
+            })
+            .await
+            .expect("posted state");
+        handle.expire(1).await.expect("expired transient");
+        handle.expire(2).await.expect("expired ordinary");
+        let latest = handle.snapshot();
+        cancel.cancel();
+        running.await.expect("joined").expect("stopped");
+
+        let list = latest.list.expect("a list was published");
+        let ids: Vec<u32> = list.notifications.iter().map(|record| record.id).collect();
+        assert_eq!(ids, vec![2]);
+        assert!(list.notifications[0].unread);
     }
 }

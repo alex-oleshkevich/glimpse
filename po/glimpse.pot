@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 12:13+0200\n"
+"POT-Creation-Date: 2026-09-24 14:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -103,7 +103,7 @@ msgstr ""
 msgid "Blocked by {who}: {why}"
 msgstr ""
 
-#: crates/glimpse-notifications/src/app.rs:448
+#: crates/glimpse-notifications/src/app.rs:460
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
@@ -335,7 +335,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:288
+#: crates/glimpse-widgets/src/lib.rs:322
 msgid "{percent}%"
 msgstr ""
 
@@ -2358,7 +2358,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:249
+#: crates/glimpse-widgets/src/lib.rs:283
 msgid "Play"
 msgstr ""
 
@@ -2586,7 +2586,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:248
+#: crates/glimpse-widgets/src/lib.rs:282
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
@@ -2615,21 +2615,21 @@ msgstr ""
 msgid "{app}: {notifications}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:204
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:240
 msgid "Collapse"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:456
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:492
 msgid "{count} notification"
 msgid_plural "{count} notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:95
 msgid "Show notification popups while this is on"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:111
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:151
 msgid "Clear these notifications"
 msgstr ""
 

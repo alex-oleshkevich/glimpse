@@ -247,6 +247,19 @@ same order, and the sender pid is captured because `hdr.sender()` exists only in
 is on **and** carries an expiry, one `Sub::deadline` at that instant delivers `DoNotDisturbLapsed` and
 clears both fields, so a reader that only looks at `enabled` sees it turn itself off — the expiry is
 in the subscription key, because keying on a bare marker would lapse at the wrong instant.
+`resident` is the sender's hint and nothing else — an invoked action leaves the record open — and
+`expire_timeout` is carried as sent, for the popup to honor. A live record that is resident or has a
+zero timeout and offers a named action is a pending request: Clear all and per-app clearing step
+over it, while closing that one card still works. A `transient` record is dropped rather than moved
+into history when it is closed, and `Expire` — the popup's timer running out — drops it with reason 1;
+on any other record `Expire` does nothing, so an ordinary timeout leaves it unread. `app_icon` and
+`image-path` are each a theme name or a local path or `file://` URI, each lands in `icon` or `image`
+by what it is, and `image-path` wins over `app_icon` for either slot. `image-data` is encoded as a PNG under `$XDG_RUNTIME_DIR/glimpse/notifications/<pid>/`,
+named per post because clients cache textures by path. The directory is per process so a test or a
+second instance never empties the live one's, and only a direct child of it is ever deleted — an
+`image-path` a sender points into it through `..` is someone else's file. It is emptied at start and
+a file goes once no record names it; one written for a suppressed notification stays until the next
+start, and a crashed process leaves its directory to the tmpfs.
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when it is free and hosts on whoever holds
 it when it is not. Its state is every item in registration order; no bus is `degraded` publishing an
