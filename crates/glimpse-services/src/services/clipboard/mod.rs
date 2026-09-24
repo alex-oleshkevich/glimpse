@@ -9,7 +9,7 @@ use crate::{
     ServiceState,
     context::Ctx,
     publisher::Publisher,
-    selection::{Selection, SelectionEvent},
+    selection::{Offer, Selection, SelectionEvent},
     service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
@@ -18,6 +18,7 @@ pub use history::{Entry as ClipboardEntry, EntryId as ClipboardEntryId, Kind as 
 use history::{History, Limits};
 
 const KIB: usize = 1024;
+const PLAIN_TEXT: &str = "text/plain;charset=utf-8";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
@@ -73,6 +74,10 @@ pub enum Command {
     ClearHistory {
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
+    CopyText {
+        text: String,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -121,6 +126,11 @@ impl ClipboardHandle {
             "clearing the history",
         )
         .await
+    }
+
+    pub async fn copy_text(&self, text: String) -> Result<(), CommandError> {
+        self.ask(|reply| Command::CopyText { text, reply }, "copying text")
+            .await
     }
 
     async fn ask(
@@ -217,6 +227,17 @@ impl Service for Clipboard {
             Input::Command(Command::ClearHistory { reply }) => {
                 self.history.clear();
                 let _ = reply.send(Ok(()));
+            }
+            Input::Command(Command::CopyText { text, reply }) => {
+                let offer = Offer {
+                    mime: PLAIN_TEXT.to_owned(),
+                    data: Arc::from(text.into_bytes()),
+                };
+                let _ = reply.send(
+                    self.selection
+                        .offer(offer)
+                        .map_err(CommandError::Unavailable),
+                );
             }
             Input::Config(config) => {
                 self.history.set_limits(config.limits);
@@ -372,6 +393,26 @@ mod tests {
         assert_eq!(harness.state.borrow().entries.len(), 1);
         assert_eq!(harness.state.borrow().entries[0].preview, "hello");
         assert_eq!(harness.state.borrow().total_bytes, 5);
+    }
+
+    #[tokio::test]
+    async fn copied_text_is_offered_as_plain_text() {
+        let mut harness = harness().await;
+        let (reply, result) = oneshot::channel();
+        harness
+            .feed(Input::Command(Command::CopyText {
+                text: "rgb(30 136 229)".to_owned(),
+                reply,
+            }))
+            .await;
+        result
+            .await
+            .expect("the handler answers")
+            .expect("the offer is accepted");
+
+        let offered = harness.selection.offered();
+        assert_eq!(offered[0].mime, PLAIN_TEXT);
+        assert_eq!(&*offered[0].data, b"rgb(30 136 229)");
     }
 
     #[tokio::test]
