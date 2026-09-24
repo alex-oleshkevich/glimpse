@@ -35,6 +35,7 @@ mod places;
 mod printing;
 mod privacy;
 mod removable;
+mod ruler;
 mod session;
 mod session_actions;
 mod solar;
@@ -108,6 +109,11 @@ pub use removable::{
     DriveId, Encryption as RemovableEncryption, Failure as RemovableFailure,
     Mount as RemovableMount, Removable, RemovableError, RemovableHandle, RemovableState, Volume,
     VolumeId,
+};
+pub use ruler::{
+    Config as RulerConfig, Dependencies as RulerDependencies, MeasureRequest,
+    Measured as RulerMeasured, Measurement as RulerMeasurement,
+    ProcessRunner as ProcessRulerRunner, Ruler, RulerHandle, RulerState, Runner as RulerRunner,
 };
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{

@@ -194,7 +194,7 @@ would need one, and a minute timer redrawing unchanged rows is the cost of a lin
 **Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
 history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
 not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
-and is injected as `Arc<dyn Selection>` into both the clipboard and the color picker services. An
+and is injected as `Arc<dyn Selection>` into the clipboard, color picker and ruler services alike. An
 offer keeps that connection up even with the clipboard disabled, because a selection lives only as
 long as the connection that set it. **An image is decoded through `thumbnail`, never
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
@@ -214,6 +214,12 @@ than when the popover opened, and its chevron unfolds all six notations, each co
 failed pick or copy is reported by notification. While a pick is open the chip carries
 `color-picker--picking` and a right click does nothing. A row carries no time, so the applet takes
 no tick.
+
+**ruler** — shaped like `color-picker`: a right click runs `glimpse-ruler`, refused while a
+measurement is already in progress, and a left click opens the popover with the latest measurement
+and a flat history list, no expand state anywhere. The chip is always icon-only — a measurement has
+no swatch to substitute it with — and a failed measurement or copy is reported by notification,
+never a popover banner.
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
 through `gio::AppInfo::launch_default_for_uri`, off the main loop.

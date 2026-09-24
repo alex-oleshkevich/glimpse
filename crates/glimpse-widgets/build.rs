@@ -147,6 +147,10 @@ fn main() {
             "resources/widgets/kdeconnect_popover.ui",
         ),
         (
+            "blueprints/ruler_popover.blp",
+            "resources/widgets/ruler_popover.ui",
+        ),
+        (
             "blueprints/player_row.blp",
             "resources/widgets/player_row.ui",
         ),

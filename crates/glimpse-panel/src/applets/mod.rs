@@ -21,6 +21,7 @@ mod places;
 mod printing;
 mod privacy;
 mod removable;
+mod ruler;
 mod session;
 mod system_monitor;
 mod tokens;
@@ -38,7 +39,7 @@ use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
     MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    SessionActionsHandle, SystemMonitorHandle, TrayHandle,
+    RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -84,6 +85,7 @@ pub fn build(
     kdeconnect: &KdeconnectHandle,
     privacy: &PrivacyHandle,
     system_monitor: &SystemMonitorHandle,
+    ruler: &RulerHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -309,6 +311,14 @@ pub fn build(
                 Box::new(system_monitor::SystemMonitor::start(system_monitor))
             }))
         }
+        AppletKind::Ruler {} => {
+            let ruler = ruler.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(ruler.subscribe());
+                Box::new(ruler::Ruler::start(ruler, notifications))
+            }))
+        }
         AppletKind::Exec {} => None,
     }
 }
@@ -446,6 +456,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "printing now has an implementation");
@@ -487,6 +498,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "privacy now has an implementation");
@@ -528,6 +540,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
@@ -570,6 +583,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "places has an implementation");
@@ -612,6 +626,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "removable has an implementation");
@@ -654,6 +669,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "system-monitor has an implementation");
@@ -695,6 +711,7 @@ mod tests {
             &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -738,6 +755,7 @@ mod tests {
                 &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
+                &services.ruler,
                 None,
             )
             .is_none(),
@@ -770,6 +788,7 @@ mod tests {
                 &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
+                &services.ruler,
                 Some(&dialog),
             )
             .is_some(),
@@ -790,6 +809,7 @@ mod tests {
         let idle_config: AppletConfig = AppletKind::Idle {}.into();
         let battery_config: AppletConfig = AppletKind::Battery(<_>::default()).into();
         let command_config: AppletConfig = AppletKind::Command(<_>::default()).into();
+        let ruler_config: AppletConfig = AppletKind::Ruler {}.into();
 
         for config in [
             &brightness_config,
@@ -797,6 +817,7 @@ mod tests {
             &idle_config,
             &battery_config,
             &command_config,
+            &ruler_config,
         ] {
             let built = build(
                 config,
@@ -824,6 +845,7 @@ mod tests {
                 &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
+                &services.ruler,
                 None,
             );
             assert!(

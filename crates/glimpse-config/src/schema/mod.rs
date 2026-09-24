@@ -20,6 +20,7 @@ mod power;
 mod printing;
 mod regional;
 mod removable;
+mod ruler;
 mod system_monitor;
 mod wallpaper;
 mod weather;
@@ -67,6 +68,7 @@ pub use power::Power;
 pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
+pub use ruler::Ruler as RulerConfig;
 pub use system_monitor::SystemMonitor;
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
@@ -89,6 +91,7 @@ pub struct Config {
     pub calendar: Calendar,
     pub clipboard: Clipboard,
     pub color_picker: ColorPicker,
+    pub ruler: RulerConfig,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
@@ -121,6 +124,7 @@ impl Default for Config {
             calendar: Calendar::default(),
             clipboard: Clipboard::default(),
             color_picker: ColorPicker::default(),
+            ruler: RulerConfig::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),

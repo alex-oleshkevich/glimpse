@@ -8,7 +8,7 @@ use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
     MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    SessionActionsHandle, SystemMonitorHandle, TrayHandle,
+    RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use glimpse_widgets::blur::{Blur, Shape};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -92,6 +92,7 @@ pub struct Config {
     pub kdeconnect: KdeconnectHandle,
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
+    pub ruler: RulerHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -304,6 +305,7 @@ impl Panel {
                                     &config.kdeconnect,
                                     &config.privacy,
                                     &config.system_monitor,
+                                    &config.ruler,
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(
