@@ -10,6 +10,7 @@ mod command;
 mod display;
 mod heartbeat;
 pub(crate) mod idle;
+mod kdeconnect;
 mod keyboard;
 mod mpris;
 pub mod network;
@@ -35,8 +36,8 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
-    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
+    MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
     SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
@@ -80,6 +81,7 @@ pub fn build(
     places: &PlacesHandle,
     printing: &PrintingHandle,
     removable: &RemovableHandle,
+    kdeconnect: &KdeconnectHandle,
     privacy: &PrivacyHandle,
     system_monitor: &SystemMonitorHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
@@ -253,6 +255,14 @@ pub fn build(
             Some(Box::new(move |ctx| {
                 ctx.watch(removable.subscribe());
                 Box::new(removable::Removable::start(removable, notifications))
+            }))
+        }
+        AppletKind::Kdeconnect(_) => {
+            let kdeconnect = kdeconnect.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(kdeconnect.subscribe());
+                Box::new(kdeconnect::Kdeconnect::start(kdeconnect, notifications))
             }))
         }
         AppletKind::Privacy(_) => {
@@ -433,6 +443,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -473,6 +484,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -513,6 +525,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -554,6 +567,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -595,6 +609,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -636,6 +651,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -676,6 +692,7 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
             &services.system_monitor,
             None,
@@ -718,6 +735,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
                 None,
@@ -749,6 +767,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
                 Some(&dialog),
@@ -802,6 +821,7 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
                 &services.system_monitor,
                 None,

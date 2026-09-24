@@ -571,6 +571,61 @@
           "additionalProperties": false,
           "required": []
         },
+        "kdeconnect": {
+          "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+          "type": "object",
+          "properties": {
+            "device": {
+              "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "extends": {
+              "type": "string",
+              "const": "kdeconnect"
+            },
+            "hide-when-disconnected": {
+              "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+              "type": "boolean",
+              "default": false
+            },
+            "indicator-style": {
+              "description": "Whether the bar shows the device icon, the label, or both.",
+              "$ref": "#/$defs/BatteryIndicatorStyle",
+              "default": "icon-text"
+            },
+            "label-format": {
+              "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+              "type": "string",
+              "default": "{battery}"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "keyboard": {
           "description": "The active keyboard layout, and switches between the configured ones.",
           "type": "object",
@@ -1866,6 +1921,63 @@
               "extends": {
                 "type": "string",
                 "const": "idle"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+            "type": "object",
+            "properties": {
+              "device": {
+                "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "extends": {
+                "type": "string",
+                "const": "kdeconnect"
+              },
+              "hide-when-disconnected": {
+                "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+                "type": "boolean",
+                "default": false
+              },
+              "indicator-style": {
+                "description": "Whether the bar shows the device icon, the label, or both.",
+                "$ref": "#/$defs/BatteryIndicatorStyle",
+                "default": "icon-text"
+              },
+              "label-format": {
+                "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+                "type": "string",
+                "default": "{battery}"
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",

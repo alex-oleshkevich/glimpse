@@ -6,8 +6,8 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
-    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
+    MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
     SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use glimpse_widgets::blur::{Blur, Shape};
@@ -89,6 +89,7 @@ pub struct Config {
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
+    pub kdeconnect: KdeconnectHandle,
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
@@ -300,6 +301,7 @@ impl Panel {
                                     &config.places,
                                     &config.printing,
                                     &config.removable,
+                                    &config.kdeconnect,
                                     &config.privacy,
                                     &config.system_monitor,
                                     Some(&config.dialog),

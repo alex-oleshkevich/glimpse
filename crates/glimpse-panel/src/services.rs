@@ -14,12 +14,12 @@ use glimpse_services::{
     BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
     CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker,
     ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle,
-    DdcBacklight, Heartbeat, HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
-    Mpris, MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle,
-    Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker,
-    Removable, RemovableHandle, Running, Selection, SessionActions, SessionActionsDependencies,
-    SessionActionsHandle, SysfsBacklight, SystemMonitor, SystemMonitorHandle, Tray, TrayHandle,
-    UnavailableBacklight,
+    DdcBacklight, Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard,
+    KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network, NetworkDependencies,
+    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
+    PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running, Selection, SessionActions,
+    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, SystemMonitor,
+    SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -40,6 +40,7 @@ pub struct PanelServices {
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
+    pub kdeconnect: KdeconnectHandle,
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
     compositor_service: Running<Compositor>,
@@ -59,6 +60,7 @@ pub struct PanelServices {
     places_service: Running<Places>,
     printing_service: Running<Printing>,
     removable_service: Running<Removable>,
+    kdeconnect_service: Running<Kdeconnect>,
     privacy_service: Running<Privacy>,
     system_monitor_service: Running<SystemMonitor>,
     notifications: NotificationsProvider,
@@ -164,7 +166,9 @@ impl PanelServices {
         );
         let (system_monitor_service, system_monitor) =
             Running::<SystemMonitor>::spawn(document, buses.clone(), ());
-        let (removable_service, removable) = Running::<Removable>::spawn(document, buses, ());
+        let (removable_service, removable) =
+            Running::<Removable>::spawn(document, buses.clone(), ());
+        let (kdeconnect_service, kdeconnect) = Running::<Kdeconnect>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -184,6 +188,7 @@ impl PanelServices {
             places,
             printing,
             removable,
+            kdeconnect,
             privacy,
             system_monitor,
             compositor_service,
@@ -203,6 +208,7 @@ impl PanelServices {
             places_service,
             printing_service,
             removable_service,
+            kdeconnect_service,
             privacy_service,
             system_monitor_service,
             notifications,
@@ -220,6 +226,7 @@ impl PanelServices {
         self.night_light.shutdown().await;
         self.system_monitor_service.stop().await;
         self.removable_service.stop().await;
+        self.kdeconnect_service.stop().await;
         self.printing_service.stop().await;
         self.places_service.stop().await;
         self.color_picker_service.stop().await;
@@ -256,6 +263,7 @@ impl PanelServices {
         self.places_service.reconfigure(document);
         self.printing_service.reconfigure(document);
         self.removable_service.reconfigure(document);
+        self.kdeconnect_service.reconfigure(document);
         self.privacy_service.reconfigure(document);
         self.system_monitor_service.reconfigure(document);
     }
@@ -279,6 +287,7 @@ impl PanelServices {
     fn cancel(&self) {
         self.system_monitor_service.cancel();
         self.removable_service.cancel();
+        self.kdeconnect_service.cancel();
         self.printing_service.cancel();
         self.places_service.cancel();
         self.color_picker_service.cancel();

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 23:02+0200\n"
+"POT-Creation-Date: 2026-09-24 11:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -333,7 +333,8 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
-#: crates/glimpse-widgets/src/lib.rs:279
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
+#: crates/glimpse-widgets/src/lib.rs:284
 msgid "{percent}%"
 msgstr ""
 
@@ -1084,6 +1085,110 @@ msgstr ""
 msgid "Preventing idle"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:38
+msgid "KDE Connect settings"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:161
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:14
+msgid "KDE Connect"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:163
+msgid "The device did not respond"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:180
+msgid "KDE Connect is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:194
+msgid "Send files"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:76
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:83
+#: crates/glimpse-panel/src/applets/network/render.rs:135
+#: crates/glimpse-panel/src/applets/network/render.rs:188
+#: crates/glimpse-panel/src/applets/network/render.rs:189
+msgid "Connected"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:80
+msgid "{percent}, charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
+msgid "{name} wants to pair"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:216
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:266
+#: crates/glimpse-panel/src/applets/network/render.rs:47
+msgid "Not connected"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
+msgid "{name} · {state}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:217
+msgid "No paired devices"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
+msgid "charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:212
+msgid "{count} connected"
+msgid_plural "{count} connected"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:241
+msgid "Ring"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:244
+msgid "Ping"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:247
+msgid "Send clipboard"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:250
+msgid "Send files…"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:253
+msgid "Browse files"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:256
+msgid "Open SMS"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:259
+msgid "Unpair"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:288
+msgid "Wants to pair"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:295
+#: crates/glimpse-panel/src/applets/places/render.rs:54
+#: crates/glimpse-panel/src/applets/removable/render.rs:53
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] ""
+msgstr[1] ""
+
 #: crates/glimpse-panel/src/applets/mpris/mod.rs:350
 msgid "Open {player}"
 msgstr ""
@@ -1213,10 +1318,6 @@ msgstr ""
 msgid "{network}: connected, no internet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:47
-msgid "Not connected"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/network/render.rs:55
 #: crates/glimpse-panel/src/applets/network/render.rs:446
 #: crates/glimpse-panel/src/applets/network/render.rs:454
@@ -1278,12 +1379,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:108
 msgid "Open, encrypted"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/render.rs:135
-#: crates/glimpse-panel/src/applets/network/render.rs:188
-#: crates/glimpse-panel/src/applets/network/render.rs:189
-msgid "Connected"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:137
@@ -1476,13 +1571,6 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/places_popover.blp:47
 msgid "Places"
 msgstr ""
-
-#: crates/glimpse-panel/src/applets/places/render.rs:54
-#: crates/glimpse-panel/src/applets/removable/render.rs:53
-msgid "{count} more"
-msgid_plural "{count} more"
-msgstr[0] ""
-msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:77
 msgid "Could not cancel the print job"
@@ -2009,6 +2097,7 @@ msgid "Power mode"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/battery_popover.blp:40
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:27
 msgid "Devices"
 msgstr ""
 
@@ -2151,6 +2240,10 @@ msgstr ""
 msgid "Until you turn it off"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:41
+msgid "Nearby devices"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
 msgid "Other players"
 msgstr ""
@@ -2234,7 +2327,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:240
+#: crates/glimpse-widgets/src/lib.rs:245
 msgid "Play"
 msgstr ""
 
@@ -2458,7 +2551,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:239
+#: crates/glimpse-widgets/src/lib.rs:244
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""

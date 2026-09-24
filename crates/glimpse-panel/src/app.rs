@@ -607,6 +607,7 @@ fn reconcile_panels(
                 places: services.places.clone(),
                 printing: services.printing.clone(),
                 removable: services.removable.clone(),
+                kdeconnect: services.kdeconnect.clone(),
                 privacy: services.privacy.clone(),
                 system_monitor: services.system_monitor.clone(),
                 dialog: dialog.clone(),

@@ -240,6 +240,22 @@ notification.
   words rather than printing `0 B free`.
 - **Drives end in an overflow row**, expanding as `PopoverHandle` state rather than a scroll.
 
+**kdeconnect** — watches the `kdeconnect` service and renders no chip while `kdeconnectd` is not
+running. The chip is the followed device's icon and, by default, its battery (`indicator-style`,
+`label-format` with `{name}`, `{battery}` and `{charging}`, `device`, `hide-when-disconnected`); an
+away device carries `network-offline-symbolic`, a low battery the warning severity, and a peer
+asking to pair the calm notice.
+
+- **An incoming pair request is answered in its notification, never in the popover.** `kdeconnectd`
+  posts it with Accept and Reject itself; the Nearby row only says "Wants to pair".
+- **Device rows are one line**: the battery reading or "Not connected" sits in the row's value.
+- **The footer falls back to `kdeconnect-app`** when `settings-label` is unset, so the settings row is
+  always there.
+- **Send files closes the popover first**, then opens `gtk4::FileDialog` with no parent — the portal
+  picks the window. Browse files and Open SMS close it too, since each opens another application.
+- **A card closes when its action succeeds**, and stays open on a failure, which is reported through
+  a notification.
+
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
 

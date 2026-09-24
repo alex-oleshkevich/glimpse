@@ -81,6 +81,9 @@ pub enum Kind {
     Heartbeat {},
     /// Idle inhibition, for keeping the screen awake.
     Idle {},
+    /// A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair
+    /// in its popover. Needs `kdeconnectd` running; it is never started from here.
+    Kdeconnect(Kdeconnect),
     /// The active keyboard layout, and switches between the configured ones.
     Keyboard {},
     /// The currently playing track, with transport controls in its popover.
@@ -271,8 +274,8 @@ pub struct Battery {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum BatteryIndicatorStyle {
-    #[default]
     IconOnly,
+    #[default]
     IconText,
     Text,
 }
@@ -282,6 +285,37 @@ impl Default for Battery {
         Self {
             indicator_style: BatteryIndicatorStyle::IconOnly,
             label_format: "{percentage}".to_owned(),
+        }
+    }
+}
+
+/// Settings for the kdeconnect applet. Which devices exist and which are paired is the daemon's
+/// decision; this is only how the bar renders the one it follows.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Kdeconnect {
+    /// Whether the bar shows the device icon, the label, or both.
+    pub indicator_style: BatteryIndicatorStyle,
+    /// What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and
+    /// `{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no
+    /// battery never shows a bare `%`.
+    pub label_format: String,
+    /// The device the bar follows, by the name the device announces. Unset follows the first
+    /// connected paired device.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
+    /// Hide the chip while no paired device is connected, instead of showing it with an offline
+    /// emblem.
+    pub hide_when_disconnected: bool,
+}
+
+impl Default for Kdeconnect {
+    fn default() -> Self {
+        Self {
+            indicator_style: BatteryIndicatorStyle::IconText,
+            label_format: "{battery}".to_owned(),
+            device: None,
+            hide_when_disconnected: false,
         }
     }
 }
@@ -1075,6 +1109,32 @@ mod tests {
         assert_eq!(
             configured.applets["rm"].kind,
             Kind::Removable(super::Removable { volumes: 4 })
+        );
+    }
+
+    #[test]
+    fn kdeconnect_resolves_from_a_bare_name_and_reads_its_own_settings() {
+        let bare = super::Applet::from_name("kdeconnect").expect("a known applet name");
+        assert_eq!(bare.kind, Kind::Kdeconnect(super::Kdeconnect::default()));
+
+        let configured: crate::Config = toml::from_str(
+            "[applets.phone]\nextends = \"kdeconnect\"\nindicator-style = \"icon-only\"\n\
+             label-format = \"{name}\"\ndevice = \"Pixel 8\"\nhide-when-disconnected = true\n",
+        )
+        .expect("the table loads");
+        assert_eq!(
+            configured.applets["phone"].kind,
+            Kind::Kdeconnect(super::Kdeconnect {
+                indicator_style: BatteryIndicatorStyle::IconOnly,
+                label_format: "{name}".to_owned(),
+                device: Some("Pixel 8".to_owned()),
+                hide_when_disconnected: true,
+            })
+        );
+        assert!(
+            toml::from_str::<crate::Config>("[applets.p]\nextends = \"kdeconnect\"\nbattery = 1\n")
+                .is_err(),
+            "an unknown key under kdeconnect is refused"
         );
     }
 
