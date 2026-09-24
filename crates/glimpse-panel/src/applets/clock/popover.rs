@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use chrono::{
     DateTime, Datelike, Local, Months, NaiveDate, NaiveTime, TimeDelta, TimeZone as _, Utc,
 };
-use glimpse_widgets::{Event, Ymd, Zone};
+use gettextrs::gettext;
+use glimpse_widgets::{Event, EventLink, Fact, Ymd, Zone};
+use gtk4::glib;
 
 use crate::applets::agenda::{self, Occasion};
 
@@ -15,19 +17,28 @@ pub fn date(date: Ymd) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(date.year, date.month, date.day)
 }
 
-pub fn heading(day: NaiveDate, week_numbers: bool) -> (String, Option<String>) {
-    let title = day.format("%A, %-d %B").to_string();
-    let week = week_numbers.then(|| format!("Week {}", day.iso_week().week()));
+pub fn heading(today: NaiveDate, week_numbers: bool) -> (String, Option<String>) {
+    let title = local(today, "%A, %-d %B");
+    let week = week_numbers.then(|| {
+        gettext("Week {number}").replace("{number}", &today.iso_week().week().to_string())
+    });
     (title, week)
 }
 
 pub fn day_title(day: NaiveDate, today: NaiveDate) -> String {
     match day - today {
-        difference if difference == TimeDelta::zero() => "Today".to_owned(),
-        difference if difference == TimeDelta::days(1) => "Tomorrow".to_owned(),
-        difference if difference == TimeDelta::days(-1) => "Yesterday".to_owned(),
-        _ => day.format("%A").to_string(),
+        difference if difference == TimeDelta::zero() => gettext("Today"),
+        difference if difference == TimeDelta::days(1) => gettext("Tomorrow"),
+        difference if difference == TimeDelta::days(-1) => gettext("Yesterday"),
+        _ => local(day, "%A, %-d %b"),
     }
+}
+
+fn local(day: NaiveDate, format: &str) -> String {
+    glib::DateTime::from_local(day.year(), day.month() as i32, day.day() as i32, 12, 0, 0.0)
+        .and_then(|date| date.format(format))
+        .map(|text| text.to_string())
+        .unwrap_or_else(|_| day.to_string())
 }
 
 pub fn truncated(day: NaiveDate, truncated_from: Option<DateTime<Utc>>) -> bool {
@@ -59,8 +70,35 @@ pub fn rows(
     events
         .iter()
         .filter(|event| covers(event, day) && !(hide_all_day && event.all_day))
-        .map(|event| agenda::row(now, day, event, clock))
+        .map(|event| Event {
+            past: day == now.date_naive() && !event.all_day && event.end <= now,
+            links: links(event),
+            facts: facts(event),
+            ..agenda::row(now, day, event, clock)
+        })
         .collect()
+}
+
+fn links(event: &Occasion) -> Vec<EventLink> {
+    let join = agenda::join(event).map(|join| EventLink {
+        title: join.title,
+        url: join.url,
+    });
+    let open = agenda::open_event(event).map(|open| EventLink {
+        title: open.title,
+        url: open.url,
+    });
+    join.into_iter().chain(open).collect()
+}
+
+fn facts(event: &Occasion) -> Vec<Fact> {
+    let calendar = (!event.calendar.is_empty())
+        .then(|| Fact::new(gettext("Calendar"), event.calendar.clone()));
+    let organizer = event
+        .organizer
+        .as_ref()
+        .map(|organizer| Fact::new(gettext("Organizer"), organizer.clone()));
+    calendar.into_iter().chain(organizer).collect()
 }
 
 pub fn markers(events: &[Occasion], hide_all_day: bool) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
@@ -183,7 +221,46 @@ mod tests {
         assert_eq!(day_title(today, today), "Today");
         assert_eq!(day_title(today + TimeDelta::days(1), today), "Tomorrow");
         assert_eq!(day_title(today - TimeDelta::days(1), today), "Yesterday");
-        assert_eq!(day_title(today + TimeDelta::days(3), today), "Monday");
+        assert_eq!(
+            day_title(today + TimeDelta::days(3), today),
+            "Monday, 7 Sep",
+            "a bare weekday is ambiguous once the grid is a week away"
+        );
+    }
+
+    #[test]
+    fn today_folds_what_is_over_and_an_event_opens_only_with_something_behind_it() {
+        let mut over = event(at(4, 9), at(4, 10));
+        over.calendar = "Work".to_owned();
+        let mut ahead = event(at(4, 14), at(4, 15));
+        ahead.meeting_url = Some("https://meet.google.com/abc-defg-hij".to_owned());
+        let today = rows(
+            at(4, 12),
+            at(4, 12).date_naive(),
+            &[over.clone(), ahead],
+            TWENTY_FOUR,
+            false,
+        );
+        assert!(today[0].past && !today[1].past);
+        assert_eq!(today[0].facts, [Fact::new("Calendar", "Work")]);
+        assert!(today[0].links.is_empty());
+        assert_eq!(today[1].links[0].title, "Join Google Meet");
+        assert!(
+            today[1].facts.is_empty(),
+            "no calendar, no organizer, nothing to list"
+        );
+
+        let yesterday = rows(
+            at(5, 12),
+            at(4, 12).date_naive(),
+            &[over],
+            TWENTY_FOUR,
+            false,
+        );
+        assert!(
+            !yesterday[0].past,
+            "only today folds: every event on a past day is over, so folding it hides the day"
+        );
     }
 
     #[test]

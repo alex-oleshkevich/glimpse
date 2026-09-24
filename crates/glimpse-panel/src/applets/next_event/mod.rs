@@ -66,18 +66,12 @@ impl Applet for NextEvent {
             let command = command.clone();
             shown.connect_footer_activated(move |_| run(&command));
         }
-        shown.connect_join_activated(|_, url| open_http(url));
-        shown.connect_open_event_activated(|_, url| open_http(url));
+        shown.connect_join_activated(|_, url| agenda::open_http(url));
+        shown.connect_open_event_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
         Some(Box::new(shown))
-    }
-}
-
-fn open_http(url: String) {
-    if url.starts_with("https://") || url.starts_with("http://") {
-        run(&["xdg-open".to_owned(), url]);
     }
 }
 
@@ -168,8 +162,8 @@ impl NextEvent {
 
         let (title, subtitle) = render::heading(now, event, clock);
         let countdown = render::countdown(now, event);
-        let join = render::join(event);
-        let open_event = render::open_event(event);
+        let join = agenda::join(event);
+        let open_event = agenda::open_event(event);
 
         shown.set_heading(&title, Some(subtitle.as_str()));
         shown.set_countdown(countdown.as_ref().map(render::Countdown::readout));

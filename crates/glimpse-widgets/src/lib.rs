@@ -15,7 +15,7 @@ mod color_picker_popover;
 mod display_list;
 mod display_popover;
 mod dots;
-pub mod drawer;
+mod drawer;
 mod event_list;
 mod expandable;
 mod fact_list;
@@ -96,7 +96,7 @@ pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
-pub use event_list::{Event, EventList, EventRow};
+pub use event_list::{Event, EventList, EventRow, Link as EventLink};
 pub use expandable::Expandable;
 pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
@@ -2230,19 +2230,28 @@ mod tests {
         );
 
         let event = |summary: &str, when: &str, color: Option<gdk::RGBA>| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: String::new(),
             when: when.to_owned(),
             color,
+            ..Default::default()
         };
         let blue = gdk::RGBA::new(0.2, 0.5, 0.9, 1.0);
 
         let events = EventList::new();
+        let heads = |list: &EventList| -> Vec<EventRow> {
+            list.imp()
+                .holders
+                .borrow()
+                .iter()
+                .filter_map(|(_, holder)| holder.head::<EventRow>())
+                .collect()
+        };
         events.set_events(&[
             event("Team standup", "09:30", Some(blue)),
             event("Design review", "14:00", None),
         ]);
-        let event_rows: Vec<Row> = children_of(&events);
+        let event_rows: Vec<Row> = heads(&events).into_iter().map(|row| row.upcast()).collect();
         assert_eq!(event_rows.len(), 2);
         assert_eq!(event_rows[0].title().as_deref(), Some("Team standup"));
         assert!(
@@ -2250,7 +2259,6 @@ mod tests {
             "one event with a color gives every row the same lead column, so the summaries \
              still line up"
         );
-
         assert_eq!(
             event_rows[0]
                 .imp()
@@ -2261,11 +2269,10 @@ mod tests {
             "an event carries one color, so its lead is one dot wide rather than the three the \
              calendar reserves"
         );
-
         assert!(
             !event_rows[0].can_target(),
-            "an event list nobody is listening to does not light up under the pointer: a hover \
-             is a promise that clicking does something"
+            "an event with nothing behind it and nobody listening does not light up under the \
+             pointer: a hover is a promise that clicking does something"
         );
         events.set_activatable(true);
         assert!(event_rows[0].can_target());
@@ -2277,88 +2284,110 @@ mod tests {
         });
         event_rows[1].emit_clicked();
         assert_eq!(*activated.borrow(), [1u32]);
+        events.set_activatable(false);
 
         events.set_events(&[event("Team standup", "09:30", None)]);
         assert!(
-            !children_of::<Row>(&events)[0].imp().lead.get_visible(),
+            !heads(&events)[0]
+                .upcast_ref::<Row>()
+                .imp()
+                .lead
+                .get_visible(),
             "with no color anywhere the lead column goes away rather than sitting empty"
         );
-        assert_eq!(
-            event_rows[0],
-            children_of::<Row>(&events)[0],
-            "a position reuses its row rather than rebuilding it"
+        assert!(
+            event_rows[0] == heads(&events)[0].clone().upcast::<Row>(),
+            "an event keeps its row across a refresh rather than rebuilding it"
         );
         assert!(
             event_rows[1].parent().is_none(),
             "a shorter list unparents the rows it no longer has events for"
         );
 
-        events.set_events(&[
-            event("One", "09:30", None),
-            event("Two", "10:00", None),
-            event("Three", "11:00", None),
-            event("Four", "12:00", None),
-        ]);
-        events.set_activatable(false);
-        events.set_max_rows(3);
-        let capped: Vec<Row> = children_of(&events);
-        assert_eq!(
-            capped.len(),
-            4,
-            "three events plus the row that counts the rest"
-        );
-        assert!(capped[3].has_css_class("row--quiet"));
+        let meeting = Event {
+            links: vec![EventLink {
+                title: "Join Google Meet".to_owned(),
+                url: "https://meet.google.com/abc".to_owned(),
+            }],
+            facts: vec![Fact::new("Calendar", "Work")],
+            ..event("Design review", "14:00", None)
+        };
+        events.set_events(&[event("Team standup", "09:30", None), meeting.clone()]);
+        let holder = events.imp().holders.borrow()[1].1.clone();
         assert!(
-            capped[3].activatable() && !capped[0].activatable(),
-            "the overflow row is a control, not an event: it exists only because the caller \
-             capped the list, and clicking it is the whole reason it is there"
+            heads(&events)[1].can_target() && !heads(&events)[0].can_target(),
+            "an event with a link or a fact opens; one with neither stays inert"
         );
-        assert_eq!(
-            capped[3].title().as_deref(),
-            Some("1 more event"),
-            "one hidden event is not `1 more events`"
+        heads(&events)[1].emit_clicked();
+        assert!(holder.expanded(), "the event row opens its own card");
+        let card = holder.details::<gtk4::Box>().expect("a card");
+        events.set_events(&[event("Team standup", "10:00", None), meeting.clone()]);
+        assert!(
+            holder.details::<gtk4::Box>().as_ref() == Some(&card),
+            "a refresh that leaves the card's content alone keeps the card, so a press on it lands"
         );
-        assert_eq!(capped[2].title().as_deref(), Some("Three"));
+        let links = Rc::new(RefCell::new(Vec::new()));
+        events.connect_link_activated({
+            let links = Rc::clone(&links);
+            move |_, url| links.borrow_mut().push(url)
+        });
+        card.first_child()
+            .and_downcast::<Row>()
+            .expect("the join row")
+            .emit_clicked();
+        assert_eq!(*links.borrow(), ["https://meet.google.com/abc"]);
 
-        events.set_events(&[event("One", "09:30", None)]);
-        assert_eq!(
-            children_of::<Row>(&events).len(),
-            1,
-            "a list that now fits drops the overflow row"
-        );
+        let past = |summary: &str| Event {
+            past: true,
+            ..event(summary, "over", None)
+        };
         events.set_events(&[
-            event("One", "09:30", None),
-            event("Two", "10:00", None),
+            past("One"),
+            past("Two"),
             event("Three", "11:00", None),
             event("Four", "12:00", None),
             event("Five", "13:00", None),
+            event("Six", "14:00", None),
         ]);
-        let regrown: Vec<Row> = children_of(&events);
-        assert_eq!(regrown.len(), 4);
-        assert!(
-            regrown[3].has_css_class("row--quiet")
-                && regrown[3].title().as_deref() == Some("2 more events"),
-            "the overflow row stays last when the list grows back under it"
+        events.set_max_rows(3);
+        let titles = |list: &EventList| -> Vec<String> {
+            heads(list)
+                .iter()
+                .map(|row| row.upcast_ref::<Row>().title().unwrap_or_default())
+                .collect()
+        };
+        assert_eq!(
+            titles(&events),
+            ["Three", "Four", "Five"],
+            "what is over folds away and the cap counts only what is left"
         );
-
-        let overflowed = Rc::new(Cell::new(0u32));
-        events.connect_overflow({
-            let overflowed = Rc::clone(&overflowed);
-            move |_| overflowed.set(overflowed.get() + 1)
-        });
-        regrown[3].emit_clicked();
-        assert_eq!(overflowed.get(), 1);
+        assert_eq!(events.imp().earlier.title().as_deref(), Some("2 earlier"));
+        assert_eq!(
+            events.imp().more.title().as_deref(),
+            Some("1 more event"),
+            "one hidden event is not `1 more events`"
+        );
+        events.imp().earlier.emit_clicked();
+        assert_eq!(titles(&events).len(), 5, "the fold opens in place");
+        assert!(!events.imp().earlier.get_visible());
+        assert!(heads(&events)[0].has_css_class("event-list__row--past"));
+        events.imp().more.emit_clicked();
+        assert_eq!(titles(&events).len(), 6);
+        assert!(!events.overflows());
+        events.fold();
+        assert_eq!(titles(&events).len(), 3, "folding restores both caps");
 
         events.set_max_rows(0);
-        assert_eq!(
-            children_of::<Row>(&events).len(),
-            5,
-            "no cap shows everything, with nothing left to count"
+        events.set_events(&[event("One", "09:30", None)]);
+        assert!(
+            !events.imp().earlier.get_visible() && !events.imp().more.get_visible(),
+            "a list that fits carries neither count"
         );
 
         events.set_events(&[event(&"ё".repeat(TEXT_MAX_CHARS * 2), "09:30", None)]);
         assert_eq!(
-            children_of::<Row>(&events)[0]
+            heads(&events)[0]
+                .upcast_ref::<Row>()
                 .title()
                 .unwrap_or_default()
                 .chars()
@@ -2372,7 +2401,8 @@ mod tests {
         buried.set_content(Some(&events));
         buried.set_empty(true);
         assert_eq!(
-            children_of::<Row>(&events)[0]
+            heads(&events)[0]
+                .upcast_ref::<Row>()
                 .title()
                 .unwrap_or_default()
                 .chars()
@@ -3624,13 +3654,11 @@ mod tests {
 
         let popover = CalendarPopover::new();
         let event = |summary: &str| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: String::new(),
             when: "09:00 · 1 h".to_owned(),
-            color: None,
+            ..Default::default()
         };
-        let drawer = || child_named::<gtk4::Revealer>(&popover, "calendar-popover__drawer");
-
         let footer = || child_named::<gtk4::Box>(&popover, "popover-shell__footer");
 
         popover.set_footer(None);
@@ -3656,62 +3684,42 @@ mod tests {
         let few: Vec<Event> = (0..3)
             .map(|index| event(&format!("event {index}")))
             .collect();
-        popover.set_day("Today", &few);
-        assert!(
-            !drawer().reveals_child(),
-            "three events fit, so nothing was hidden and the drawer has nothing to hold"
-        );
-
+        let shown = || popover.imp().events.imp().holders.borrow().len();
         let many: Vec<Event> = (0..9)
             .map(|index| event(&format!("event {index}")))
             .collect();
         popover.set_day("Today", &many);
-        assert!(
-            !drawer().reveals_child(),
-            "the overflow row is an offer, not a drawer that springs open on its own"
-        );
-
-        let overflow = child_named::<EventList>(&popover, "calendar-popover__events");
-        overflow.emit_by_name::<()>("overflow", &[]);
-        assert!(
-            drawer().reveals_child(),
-            "taking that offer is what the drawer is wired to"
-        );
-
-        overflow.emit_by_name::<()>("overflow", &[]);
-        assert!(
-            !drawer().reveals_child(),
-            "the control that opens a drawer is the one that closes it"
-        );
-        overflow.emit_by_name::<()>("overflow", &[]);
-
-        popover.set_day("Today", &few);
-        assert!(
-            !drawer().reveals_child(),
-            "back under the cap the drawer closes rather than standing open on nothing"
-        );
-
-        popover.set_day("Tuesday", &few);
         assert_eq!(
-            popover.imp().everything.title().as_deref(),
-            Some("Tuesday"),
-            "the drawer holds the whole of one day, so it is named after that day"
+            shown(),
+            4,
+            "four events and a row counting the rest; nothing springs open on its own"
         );
 
-        let placeholder = || popover.imp().states.visible_child_name();
+        popover.imp().events.imp().more.emit_clicked();
         assert_eq!(
-            placeholder().as_deref(),
-            Some("nothing"),
-            "a day with nothing on it is the wording the template opens with"
+            shown(),
+            9,
+            "taking the offer shows the rest in place, never in a column beside the list"
+        );
+        popover.set_day("Today", &many);
+        assert_eq!(shown(), 9, "a refresh of the same day keeps it shown");
+
+        popover.set_day("Tuesday", &many);
+        assert_eq!(shown(), 4, "another day starts capped again");
+
+        popover.set_day("Tuesday, 29 Sep", &[]);
+        assert!(
+            !popover.imp().day.get_visible(),
+            "a day with nothing on it shows nothing: the grid's missing dot already said so"
         );
         popover.set_day_truncated(true);
-        assert_eq!(
-            placeholder().as_deref(),
-            Some("truncated"),
-            "both wordings live in the template, so neither is a Rust string no translator sees"
+        assert!(
+            popover.imp().day.get_visible() && popover.imp().truncated.get_visible(),
+            "a day the calendar could not send in full says so, since the grid cannot"
         );
         popover.set_day_truncated(false);
-        assert_eq!(placeholder().as_deref(), Some("nothing"));
+        popover.set_day("Today", &few);
+        assert!(popover.imp().day.get_visible());
 
         popover.imp().calendar.show_month(2026, 12);
         let months = Rc::new(RefCell::new(Vec::new()));

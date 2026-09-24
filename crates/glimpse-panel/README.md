@@ -159,7 +159,8 @@ the fill reads `gtk_widget_get_color`.
 ## The applets
 
 **clock and next-event** — `agenda.rs` owns everything about an event that is not a calendar:
-`Occasion`, the conversion off the wire, `when`, and `row`, so a new field lands in one place.
+`Occasion`, the conversion off the wire, `when`, `row`, the join and open-event links and
+`open_http`, so a new field lands in one place.
 Twelve-hour detection and the two clock formats live in `glimpse-config`, reached as
 `glimpse_config::clock(twelve)`.
 
@@ -167,6 +168,10 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   bar label; a calendar is not somewhere else.
 - **Several panels share one calendar range, so the last to ask wins** — no client identity.
 - **A day past `truncated_from` says so instead of looking empty.**
+- **The clock popover's hero is always today**, and the day list is titled after the selected day:
+  Today, Tomorrow, Yesterday, otherwise a weekday with its date. Both go through GLib, so they follow
+  `LC_TIME` like the grid. On today, events that are over fold behind "N earlier"; an event opens a
+  card when it has a join link, an event link, a calendar name or an organizer.
 - **The next-event applet has no empty state, which is why it is usually absent.** It exists to
   show one event's details, so nothing inside `within` means no chip, and with no chip there is no
   popover to render empty. `horizon` reaches further than `within` for the *Coming up* list alone,

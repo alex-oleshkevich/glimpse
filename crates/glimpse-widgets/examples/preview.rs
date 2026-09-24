@@ -316,7 +316,7 @@ mod fixtures {
                     calendar_events(&calendar);
                 }
                 if let Some(events) = find::<EventList>(root) {
-                    agenda(&events, find::<gtk4::Revealer>(root));
+                    agenda(&events);
                 }
                 if let Some(clocks) = find::<WorldClock>(root) {
                     world_clock(&clocks);
@@ -2496,17 +2496,19 @@ mod fixtures {
         found
     }
 
-    fn agenda(events: &EventList, drawer: Option<gtk4::Revealer>) {
+    fn agenda(events: &EventList) {
         let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
         let work = color("#3584e4");
         let home = color("#2ec27e");
         let birthday = color("#e01b24");
 
         let event = |summary: &str, detail: &str, when: &str, color| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
             detail: detail.to_owned(),
             when: when.to_owned(),
             color: Some(color),
+            ..Default::default()
         };
 
         let today = [
@@ -2524,18 +2526,6 @@ mod fixtures {
 
         events.set_max_rows(4);
         events.set_events(&today);
-
-        if let Some(drawer) = drawer.as_ref()
-            && let Some(child) = drawer.child()
-            && let Some(all) = find::<EventList>(&child)
-        {
-            all.set_events(&today);
-        }
-        events.connect_overflow(move |_| {
-            if let Some(drawer) = drawer.as_ref() {
-                glimpse_widgets::drawer::toggle(drawer);
-            }
-        });
     }
 
     fn next_event(root: &gtk4::Widget) {
@@ -2557,10 +2547,12 @@ mod fixtures {
         let work = color("#3584e4");
         let home = color("#2ec27e");
         let event = |summary: &str, detail: &str, when: &str, color| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
             detail: detail.to_owned(),
             when: when.to_owned(),
             color: Some(color),
+            ..Default::default()
         };
 
         events.set_events(&[

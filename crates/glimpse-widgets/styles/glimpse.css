@@ -843,16 +843,19 @@ expandable > revealer .row {
     margin-top: 0.35rem;
 }
 
-.drawer-page {
-    min-width: 19rem;
-}
-
 .workspace-row--urgent .row__title {
     color: var(--gl-warning-text);
 }
 
-.row--quiet .row__title {
+.calendar-popover__truncated {
     font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+    padding: 0.3rem 0.75rem;
+}
+
+.event-list__row--past .row__title,
+.event-list__row--past .row__subtitle,
+.event-list__row--past .event-list__time {
     color: var(--gl-muted);
 }
 

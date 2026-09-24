@@ -15,6 +15,8 @@ mod imp {
     pub struct EventRow {
         #[template_child]
         pub time: TemplateChild<gtk4::Label>,
+        #[template_child]
+        pub chevron: TemplateChild<gtk4::Image>,
 
         #[property(name = "when", get = Self::when, set = Self::set_when, nullable)]
         when_text: PhantomData<Option<String>>,
@@ -74,6 +76,13 @@ impl Default for EventRow {
 impl EventRow {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    pub fn set_opens(&self, opens: bool) {
+        let chevron = &self.imp().chevron;
+        if chevron.get_visible() != opens {
+            chevron.set_visible(opens);
+        }
     }
 
     pub fn set_color(&self, color: Option<gdk::RGBA>, reserve: bool) {

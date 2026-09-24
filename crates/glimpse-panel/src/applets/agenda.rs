@@ -1,9 +1,10 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
 use gettextrs::gettext;
-use glimpse_services::{CalendarEvent, GuestCounts};
+use glimpse_services::{CalendarEvent, GuestCounts, MeetingProvider};
 use glimpse_widgets::Event;
 use gtk4::gdk;
 
+const JOIN: usize = 48;
 const SOON: i64 = 15;
 const NEAR: i64 = 60;
 const HOUR: i64 = 60;
@@ -61,10 +62,12 @@ pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
 
 pub fn row(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str) -> Event {
     Event {
+        id: format!("{}|{}", event.start.timestamp(), event.summary),
         summary: event.summary.clone(),
         detail: event.subtitle().to_owned(),
         when: when(now, day, event, clock),
         color: event.color,
+        ..Default::default()
     }
 }
 
@@ -128,6 +131,53 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
     gettext("{start} · {length}")
         .replace("{start}", &started)
         .replace("{length}", &length)
+}
+
+pub struct Join {
+    pub title: String,
+    pub subtitle: String,
+    pub url: String,
+}
+
+pub fn join(event: &Occasion) -> Option<Join> {
+    let url = event.meeting_url.as_deref()?;
+    let meeting = glimpse_services::meeting(url)?;
+    Some(Join {
+        title: join_title(meeting.provider),
+        subtitle: glimpse_utils::clean(&meeting.location, JOIN),
+        url: url.to_owned(),
+    })
+}
+
+fn join_title(provider: MeetingProvider) -> String {
+    match provider {
+        MeetingProvider::GoogleMeet => gettext("Join Google Meet"),
+        MeetingProvider::Zoom => gettext("Join Zoom"),
+        MeetingProvider::Teams => gettext("Join Microsoft Teams"),
+        MeetingProvider::Webex => gettext("Join Webex"),
+        MeetingProvider::Other => gettext("Join meeting"),
+    }
+}
+
+pub struct Open {
+    pub title: String,
+    pub subtitle: String,
+    pub url: String,
+}
+
+pub fn open_event(event: &Occasion) -> Option<Open> {
+    let url = event.event_url.as_deref()?;
+    Some(Open {
+        title: gettext("Open event"),
+        subtitle: glimpse_utils::clean(url, JOIN),
+        url: url.to_owned(),
+    })
+}
+
+pub fn open_http(url: String) {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        crate::applet::popover::run(&["xdg-open".to_owned(), url]);
+    }
 }
 
 pub(crate) fn span(length: TimeDelta) -> String {

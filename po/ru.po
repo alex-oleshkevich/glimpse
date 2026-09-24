@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 11:17+0200\n"
+"POT-Creation-Date: 2026-09-24 11:52+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -93,66 +93,90 @@ msgstr ""
 msgid "That did not work."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:78
+#: crates/glimpse-panel/src/applets/agenda.rs:81
 msgid "All day · day {day} of {days}"
 msgstr "Весь день · день {day} из {days}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:81
+#: crates/glimpse-panel/src/applets/agenda.rs:84
 msgid "All day"
 msgstr "Весь день"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:89
+#: crates/glimpse-panel/src/applets/agenda.rs:92
 msgid "{start} · until {weekday} {end}"
 msgstr "{start} · до {weekday} {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:96
-#: crates/glimpse-panel/src/applets/agenda.rs:128
+#: crates/glimpse-panel/src/applets/agenda.rs:99
+#: crates/glimpse-panel/src/applets/agenda.rs:131
 msgid "{start} · {length}"
 msgstr "{start} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:104
+#: crates/glimpse-panel/src/applets/agenda.rs:107
 msgid "{start} · over"
 msgstr "{start} · завершилось"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:105
+#: crates/glimpse-panel/src/applets/agenda.rs:108
 msgid "ended {length} ago"
 msgstr "закончилось {length} назад"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:112
+#: crates/glimpse-panel/src/applets/agenda.rs:115
 msgid "now · ends in {length}"
 msgstr "сейчас · закончится через {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:114
+#: crates/glimpse-panel/src/applets/agenda.rs:117
 msgid "now · ends {end}"
 msgstr "сейчас · до {end}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:121
+#: crates/glimpse-panel/src/applets/agenda.rs:124
 msgid "starting now · {length}"
 msgstr "начинается · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:124
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "in {until} · {length}"
 msgstr "через {until} · {length}"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:136
+#: crates/glimpse-panel/src/applets/agenda.rs:154
+msgid "Join Google Meet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:155
+msgid "Join Zoom"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:156
+msgid "Join Microsoft Teams"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:157
+msgid "Join Webex"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:158
+msgid "Join meeting"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:171
+msgid "Open event"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:186
 msgid "{minutes} min"
 msgstr "{minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:142
+#: crates/glimpse-panel/src/applets/agenda.rs:192
 #: crates/glimpse-panel/src/applets/battery/render.rs:247
 msgid "{hours} h"
 msgstr "{hours} ч"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:143
+#: crates/glimpse-panel/src/applets/agenda.rs:193
 #: crates/glimpse-panel/src/applets/weather/render.rs:316
 msgid "{hours} h {minutes} min"
 msgstr "{hours} ч {minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:151
+#: crates/glimpse-panel/src/applets/agenda.rs:201
 msgid "{days} d"
 msgstr "{days} д"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:152
+#: crates/glimpse-panel/src/applets/agenda.rs:202
 msgid "{days} d {hours} h"
 msgstr "{days} д {hours} ч"
 
@@ -811,6 +835,38 @@ msgstr "{count} рабочий стол"
 msgid "Could not clear the history"
 msgstr "{count} рабочий стол"
 
+#: crates/glimpse-panel/src/applets/clock/popover.rs:23
+#, fuzzy
+#| msgid "Workspaces"
+msgid "Week {number}"
+msgstr "Рабочие столы"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "Сегодня"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:31
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
+#: crates/glimpse-widgets/src/world_clock/mod.rs:151
+msgid "Tomorrow"
+msgstr "Завтра"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:32
+#: crates/glimpse-widgets/src/world_clock/mod.rs:152
+msgid "Yesterday"
+msgstr "Вчера"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:96
+#: crates/glimpse-panel/src/applets/next_event/render.rs:232
+msgid "Calendar"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:100
+#: crates/glimpse-panel/src/applets/next_event/render.rs:244
+msgid "Organizer"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:84
 #: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
 msgid "Color picker"
@@ -1229,64 +1285,36 @@ msgstr ""
 msgid "{speed} Mb/s"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:127
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
 msgid "ends in {value} {unit}"
 msgstr "закончится через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:128
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
 msgid "in {value} {unit}"
 msgstr "через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:145
-#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
 msgid "min"
 msgstr "мин"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:146
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
 msgid "min left"
 msgstr "мин осталось"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:154
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
 msgid "h"
 msgstr "ч"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:155
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
 msgid "d"
 msgstr "д"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:210
+#: crates/glimpse-panel/src/applets/next_event/render.rs:208
 msgid "Clashes with {events}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:232
-msgid "Join Google Meet"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:233
-msgid "Join Zoom"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:234
-msgid "Join Microsoft Teams"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/next_event/render.rs:235
-msgid "Join Webex"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:236
-msgid "Join meeting"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:249
-msgid "Open event"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:275
-msgid "Calendar"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:278
 #: crates/glimpse-panel/src/applets/printing/render.rs:145
 #: crates/glimpse-panel/src/applets/privacy/render.rs:72
 #, fuzzy
@@ -1294,43 +1322,39 @@ msgstr ""
 msgid "Location"
 msgstr "Уведомления"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:282
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
 #, fuzzy
 #| msgid "Notifications"
 msgid "Duration"
 msgstr "Уведомления"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:287
-msgid "Organizer"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:293
+#: crates/glimpse-panel/src/applets/next_event/render.rs:250
 msgid "Guests"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:294
+#: crates/glimpse-panel/src/applets/next_event/render.rs:251
 msgid "{total} · {accepted} accepted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:300
+#: crates/glimpse-panel/src/applets/next_event/render.rs:257
 msgid "Status"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:302
+#: crates/glimpse-panel/src/applets/next_event/render.rs:259
 msgid "Tentative"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:303
+#: crates/glimpse-panel/src/applets/next_event/render.rs:260
 msgid "Confirmed"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:307
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
 #, fuzzy
 #| msgid "Notification"
 msgid "Description"
 msgstr "Уведомление"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:310
+#: crates/glimpse-panel/src/applets/next_event/render.rs:267
 msgid "Conflicts"
 msgstr ""
 
@@ -1787,11 +1811,6 @@ msgstr ""
 msgid "feels like {temperature}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:205
-#: crates/glimpse-widgets/src/world_clock/mod.rs:151
-msgid "Tomorrow"
-msgstr "Завтра"
-
 #: crates/glimpse-panel/src/applets/weather/render.rs:282
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
@@ -1906,10 +1925,6 @@ msgstr ""
 msgid "Show the whole year"
 msgstr "Показать весь год"
 
-#: crates/glimpse-widgets/blueprints/calendar.blp:43
-msgid "Today"
-msgstr "Сегодня"
-
 #: crates/glimpse-widgets/blueprints/calendar.blp:56
 #: crates/glimpse-widgets/blueprints/transport.blp:31
 msgid "Previous"
@@ -1920,25 +1935,11 @@ msgstr "Назад"
 msgid "Next"
 msgstr "Вперёд"
 
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:43
-msgid "Nothing scheduled"
-msgstr "Ничего не запланировано"
-
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:44
-msgid "The rest of the day is yours."
-msgstr "Остаток дня — ваш."
-
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:53
-msgid "Too many events"
-msgstr "Слишком много событий"
-
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:54
-msgid "More events start here than the daemon can send at once."
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:37
+msgid "Some events on this day aren't shown."
 msgstr ""
-"Здесь начинается больше событий, чем демон может отправить за один раз.Здесь "
-"начинается больше событий, чем демон может отправить за один раз."
 
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:61
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:48
 msgid "World clock"
 msgstr "Мировые часы"
 
@@ -2370,9 +2371,29 @@ msgstr[0] "{count} рабочий стол"
 msgstr[1] "{count} рабочих стола"
 msgstr[2] "{count} рабочих столов"
 
-#: crates/glimpse-widgets/src/world_clock/mod.rs:152
-msgid "Yesterday"
-msgstr "Вчера"
+#~ msgid "Nothing scheduled"
+#~ msgstr "Ничего не запланировано"
+
+#~ msgid "The rest of the day is yours."
+#~ msgstr "Остаток дня — ваш."
+
+#~ msgid "Too many events"
+#~ msgstr "Слишком много событий"
+
+#~ msgid "More events start here than the daemon can send at once."
+#~ msgstr ""
+#~ "Здесь начинается больше событий, чем демон может отправить за один "
+#~ "раз.Здесь начинается больше событий, чем демон может отправить за один "
+#~ "раз."
+
+#, fuzzy
+#~| msgid "{count} workspace"
+#~| msgid_plural "{count} workspaces"
+#~ msgid "{count} more event"
+#~ msgid_plural "{count} more events"
+#~ msgstr[0] "{count} рабочий стол"
+#~ msgstr[1] "{count} рабочих стола"
+#~ msgstr[2] "{count} рабочих столов"
 
 #, fuzzy
 #~| msgid "{count} workspace"

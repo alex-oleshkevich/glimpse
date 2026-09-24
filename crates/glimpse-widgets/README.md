@@ -92,6 +92,9 @@ string, and loses its icon and its title/body split the moment it is flattened i
 
 ## Calendar
 
+- **A month change slides; everything else repaints in place.** The day grid has two pages in a
+  `Gtk.Stack`; a new month is painted into the hidden one and slid in from the side it lies on. A
+  change riding the month/year crossfade, or on an unmapped calendar, does not slide.
 - **Four measurements are tokens on `.calendar` itself.** The selection ring is not one: it is `2px`
   inside a `box-shadow`, and the pixel lint recognises `px` by property name.
 - **Month names use `%OB`, not `%B`**, which is the form a date is built from. English does not
@@ -151,6 +154,11 @@ prevents only idle and cannot be released has nothing to show and is plain text 
   derivation — `"00:47"` has thrown away that it is tomorrow there.
 - **`EventList` defaults to inert, the overflow row exempt** — the flag would otherwise make it inert
   in exactly the case that puts it on screen.
+- **Each event is an `Expandable` keyed by `Event::id`**, and opens only when it carries a link or a
+  fact; its card is rebuilt only when those change, so a refresh never unparents a row under a
+  press. Leading `past` events fold behind "N earlier" and the cap counts only what is left; both
+  counts open in place, the same "N more" as the network list, and `fold` closes them again —
+  `CalendarPopover` calls it when the selected day changes.
 - **`EventList` answers the tooltip, not the row**: GTK picks tooltips and skips a non-activatable
   row, so the list maps the pointer's `y` onto row allocations. **Times use `tabular-nums`**, since
   proportional digits give up to 17px of animated jitter.

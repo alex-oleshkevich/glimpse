@@ -14,85 +14,44 @@ template $CalendarPopover: Gtk.Widget {
     }
 
     Gtk.Box {
-      orientation: horizontal;
+      orientation: vertical;
+      hexpand: true;
 
-      Gtk.Box {
-        orientation: vertical;
-        hexpand: true;
+      styles [
+        "column",
+      ]
 
-        styles [
-          "column",
-        ]
+      $Calendar calendar {}
 
-        $Calendar calendar {}
+      $Section day {
+        visible: false;
 
-        $Section day {
-          $EventList events {
-            styles [
-              "calendar-popover__events",
-            ]
-          }
-
-          [placeholder]
-          Gtk.Stack states {
-            Gtk.StackPage {
-              name: "nothing";
-
-              child: $Placeholder nothing {
-                icon-name: "appointment-soon-symbolic";
-                title: _("Nothing scheduled");
-                description: _("The rest of the day is yours.");
-              };
-            }
-
-            Gtk.StackPage {
-              name: "truncated";
-
-              child: $Placeholder {
-                icon-name: "view-more-horizontal-symbolic";
-                title: _("Too many events");
-                description: _("More events start here than the daemon can send at once.");
-              };
-            }
-          }
+        $EventList events {
+          styles [
+            "calendar-popover__events",
+          ]
         }
 
-        $Section zones {
-          title: _("World clock");
+        [placeholder]
+        Gtk.Label truncated {
+          label: _("Some events on this day aren't shown.");
+          xalign: 0;
+          wrap: true;
 
           styles [
-            "calendar-popover__zones",
+            "calendar-popover__truncated",
           ]
-
-          $WorldClock clocks {}
         }
       }
 
-      Gtk.Revealer drawer {
-        transition-type: slide_right;
-        reveal-child: false;
+      $Section zones {
+        title: _("World clock");
 
         styles [
-          "calendar-popover__drawer",
+          "calendar-popover__zones",
         ]
 
-        Gtk.Box {
-          orientation: horizontal;
-
-          Gtk.Separator {
-            orientation: vertical;
-          }
-
-          $Section everything {
-            valign: start;
-
-            styles [
-              "drawer-page",
-            ]
-
-            $EventList all {}
-          }
-        }
+        $WorldClock clocks {}
       }
     }
 

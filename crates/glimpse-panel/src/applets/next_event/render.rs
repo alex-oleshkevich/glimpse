@@ -1,6 +1,5 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta, Utc};
 use gettextrs::gettext;
-use glimpse_services::MeetingProvider;
 use glimpse_widgets::{Event, Fact};
 
 use crate::applets::agenda::{self, Occasion};
@@ -8,7 +7,6 @@ use crate::applets::tokens;
 
 const MOST_ROWS: usize = 20;
 const TITLE: usize = 24;
-const JOIN: usize = 48;
 const ELLIPSIS: char = '…';
 const HOUR_MINUTES: i64 = 60;
 const DAY_HOURS: i64 = 24;
@@ -209,47 +207,6 @@ fn clashes(conflicts: &[String]) -> String {
         true => String::new(),
         false => gettext("Clashes with {events}").replace("{events}", &conflicts.join(", ")),
     }
-}
-
-pub struct Join {
-    pub title: String,
-    pub subtitle: String,
-    pub url: String,
-}
-
-pub fn join(event: &Occasion) -> Option<Join> {
-    let url = event.meeting_url.as_deref()?;
-    let meeting = glimpse_services::meeting(url)?;
-    Some(Join {
-        title: join_title(meeting.provider),
-        subtitle: glimpse_utils::clean(&meeting.location, JOIN),
-        url: url.to_owned(),
-    })
-}
-
-fn join_title(provider: MeetingProvider) -> String {
-    match provider {
-        MeetingProvider::GoogleMeet => gettext("Join Google Meet"),
-        MeetingProvider::Zoom => gettext("Join Zoom"),
-        MeetingProvider::Teams => gettext("Join Microsoft Teams"),
-        MeetingProvider::Webex => gettext("Join Webex"),
-        MeetingProvider::Other => gettext("Join meeting"),
-    }
-}
-
-pub struct Open {
-    pub title: String,
-    pub subtitle: String,
-    pub url: String,
-}
-
-pub fn open_event(event: &Occasion) -> Option<Open> {
-    let url = event.event_url.as_deref()?;
-    Some(Open {
-        title: gettext("Open event"),
-        subtitle: glimpse_utils::clean(url, JOIN),
-        url: url.to_owned(),
-    })
 }
 
 pub fn conflicts(events: &[Occasion], chosen: Option<usize>) -> Vec<String> {
@@ -719,25 +676,28 @@ mod tests {
     #[test]
     fn join_is_labelled_from_the_host_and_absent_when_there_is_no_url() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert!(join(&meeting).is_none());
+        assert!(agenda::join(&meeting).is_none());
 
         meeting.meeting_url = Some("https://meet.google.com/aaa-bbbb-ccc".to_owned());
-        let shown = join(&meeting).expect("a meet url");
+        let shown = agenda::join(&meeting).expect("a meet url");
         assert_eq!(shown.title, "Join Google Meet");
         assert_eq!(shown.subtitle, "meet.google.com/aaa-bbbb-ccc");
         assert_eq!(shown.url, "https://meet.google.com/aaa-bbbb-ccc");
 
         meeting.meeting_url = Some("https://zoom.us/j/123".to_owned());
-        assert_eq!(join(&meeting).expect("zoom").title, "Join Zoom");
+        assert_eq!(agenda::join(&meeting).expect("zoom").title, "Join Zoom");
 
         meeting.meeting_url = Some("https://teams.microsoft.com/l/meetup-join/19".to_owned());
-        assert_eq!(join(&meeting).expect("teams").title, "Join Microsoft Teams");
+        assert_eq!(
+            agenda::join(&meeting).expect("teams").title,
+            "Join Microsoft Teams"
+        );
 
         meeting.meeting_url = Some("https://calendar.example/event".to_owned());
-        assert_eq!(join(&meeting).expect("other").title, "Join meeting");
+        assert_eq!(agenda::join(&meeting).expect("other").title, "Join meeting");
 
         meeting.meeting_url = Some("https://user:pass@zoom.us/j/123".to_owned());
-        let shown = join(&meeting).expect("userinfo");
+        let shown = agenda::join(&meeting).expect("userinfo");
         assert_eq!(shown.title, "Join Zoom");
         assert_eq!(shown.subtitle, "zoom.us/j/123");
         assert!(
@@ -747,18 +707,21 @@ mod tests {
 
         meeting.meeting_url = Some("https://acme.webex.com/meet/sam".to_owned());
         assert_eq!(
-            join(&meeting).expect("webex").title,
+            agenda::join(&meeting).expect("webex").title,
             "Join Webex",
             "the service accepts a webex link as a meeting, so the row has to name it — the two \
              lists drifting is what sharing one classifier prevents"
         );
 
         meeting.meeting_url = Some("https://acme.zoom.us/j/123".to_owned());
-        assert_eq!(join(&meeting).expect("subdomain").title, "Join Zoom");
+        assert_eq!(
+            agenda::join(&meeting).expect("subdomain").title,
+            "Join Zoom"
+        );
 
         meeting.meeting_url = Some("https://notzoom.us/j/123".to_owned());
         assert_eq!(
-            join(&meeting).expect("lookalike").title,
+            agenda::join(&meeting).expect("lookalike").title,
             "Join meeting",
             "a suffix match must not treat notzoom.us as zoom.us"
         );
@@ -767,10 +730,10 @@ mod tests {
     #[test]
     fn open_event_reads_the_events_own_url_and_is_absent_without_one() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert!(open_event(&meeting).is_none());
+        assert!(agenda::open_event(&meeting).is_none());
 
         meeting.event_url = Some("https://calendar.example/event/abc123".to_owned());
-        let shown = open_event(&meeting).expect("an event url");
+        let shown = agenda::open_event(&meeting).expect("an event url");
         assert_eq!(shown.title, "Open event");
         assert_eq!(shown.url, "https://calendar.example/event/abc123");
         assert_eq!(shown.subtitle, "https://calendar.example/event/abc123");

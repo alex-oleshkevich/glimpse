@@ -46,22 +46,27 @@ impl CalendarPopover {
     pub fn set_day(&self, title: &str, events: &[Event]) {
         let imp = self.imp();
 
+        if imp.day.title().as_deref() != Some(title) {
+            imp.events.fold();
+        }
         imp.day.set_title(Some(title));
         imp.day.set_empty(events.is_empty());
-        imp.everything.set_title(Some(title));
         imp.events.set_events(events);
-        imp.all.set_events(events);
-
-        if !imp.events.overflows() {
-            crate::drawer::set(&imp.drawer, false);
-        }
+        self.sync_day();
     }
 
     pub fn set_day_truncated(&self, truncated: bool) {
-        self.imp().states.set_visible_child_name(match truncated {
-            true => "truncated",
-            false => "nothing",
-        });
+        if self.imp().day_truncated.replace(truncated) != truncated {
+            self.sync_day();
+        }
+    }
+
+    fn sync_day(&self) {
+        let imp = self.imp();
+        let visible = !imp.day.empty() || imp.day_truncated.get();
+        if imp.day.get_visible() != visible {
+            imp.day.set_visible(visible);
+        }
     }
 
     pub fn shown_month(&self) -> (i32, u32) {
@@ -109,6 +114,17 @@ impl CalendarPopover {
             glib::closure_local!(move |popover: Self, year: i32, month: u32, day: u32| {
                 handler(&popover, Ymd::new(year, month, day));
             }),
+        )
+    }
+
+    pub fn connect_link_activated<F: Fn(&Self, String) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "link-activated",
+            false,
+            glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
         )
     }
 
