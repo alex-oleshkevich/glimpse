@@ -119,9 +119,7 @@ impl BluetoothPopover {
             imp.nearby.set_visible(count > 0);
         }
         crate::set_css_class(&*imp.search, drawer::OPEN, open);
-        if imp.nearby_list.get_visible() != open {
-            imp.nearby_list.set_visible(open);
-        }
+        drawer::set(&imp.nearby_list, open);
     }
 
     pub fn connect_nearby_toggled<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {

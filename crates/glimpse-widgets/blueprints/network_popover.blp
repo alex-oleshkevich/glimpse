@@ -87,14 +87,22 @@ template $NetworkPopover: Gtk.Widget {
                 ]
               }
 
-              Gtk.Box other_rows {
-                orientation: vertical;
-              }
+              Gtk.Revealer others_drawer {
+                transition-type: slide_down;
 
-              $Row all {
-                visible: false;
-                activatable: true;
-                lead-icon: "view-more-symbolic";
+                child: Gtk.Box {
+                  orientation: vertical;
+
+                  Gtk.Box other_rows {
+                    orientation: vertical;
+                  }
+
+                  $Row all {
+                    visible: false;
+                    activatable: true;
+                    lead-icon: "view-more-symbolic";
+                  }
+                };
               }
             }
 

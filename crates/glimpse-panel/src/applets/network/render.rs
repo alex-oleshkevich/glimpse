@@ -208,19 +208,15 @@ pub fn entries(
     }
 
     let open = known.is_empty() != toggled;
-    let shown = match (open, all || cap_at == 0) {
-        (false, _) => 0,
-        (true, true) => other.len(),
-        (true, false) => cap_at.min(other.len()),
+    let shown = match all || cap_at == 0 {
+        true => other.len(),
+        false => cap_at.min(other.len()),
     };
     for network in other.iter().take(shown).copied() {
         rows.push(access_entry(state, network, Place::Other));
     }
 
-    let hidden = match open {
-        true => other.len() - shown,
-        false => 0,
-    };
+    let hidden = other.len() - shown;
     let others = Others {
         count: other.len(),
         open,
@@ -669,9 +665,10 @@ mod tests {
             ["Skylink 2G", "Skylink"],
             "the network in use leads, then every saved one in range"
         );
-        assert!(
-            !rows.iter().any(|row| row.place == Place::Other),
-            "with a known network in range the strangers wait behind the header"
+        assert_eq!(
+            rows.iter().filter(|row| row.place == Place::Other).count(),
+            3,
+            "the strangers are built behind the closed header, so opening it can slide them in"
         );
         assert_eq!(
             others,

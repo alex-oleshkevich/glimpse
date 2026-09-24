@@ -51,14 +51,21 @@ template $KdeconnectPopover: Gtk.Widget {
             }
           }
 
-          Gtk.Box nearby_rows {
-            orientation: vertical;
-            visible: false;
-          }
+          Gtk.Revealer nearby_drawer {
+            transition-type: slide_down;
 
-          $Row nearby_more {
-            visible: false;
-            activatable: false;
+            child: Gtk.Box {
+              orientation: vertical;
+
+              Gtk.Box nearby_rows {
+                orientation: vertical;
+              }
+
+              $Row nearby_more {
+                visible: false;
+                activatable: false;
+              }
+            };
           }
         }
       }

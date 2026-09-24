@@ -46,6 +46,8 @@ pub struct KdeconnectPopover {
     #[template_child]
     pub nearby_toggle: TemplateChild<Row>,
     #[template_child]
+    pub nearby_drawer: TemplateChild<gtk4::Revealer>,
+    #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub nearby_more: TemplateChild<Row>,

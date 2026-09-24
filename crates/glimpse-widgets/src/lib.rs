@@ -4681,13 +4681,13 @@ mod tests {
         popover.set_nearby(1, false);
         assert!(
             popover.imp().nearby.get_visible()
-                && !popover.imp().nearby_list.get_visible()
+                && !popover.imp().nearby_list.reveals_child()
                 && !popover.imp().search.has_css_class("open"),
             "closed, Nearby devices is one header line, the same as Other networks"
         );
         popover.set_nearby(1, true);
         assert!(
-            popover.imp().nearby_list.get_visible() && popover.imp().search.has_css_class("open"),
+            popover.imp().nearby_list.reveals_child() && popover.imp().search.has_css_class("open"),
             "open, its chevron turns and the list shows"
         );
         let nearby = holder("n").head::<SplitRow>().expect("a split row");
@@ -8125,11 +8125,10 @@ mod tests {
             Some("3 more"),
         );
         assert!(imp.nearby.get_visible());
-        assert!(!imp.nearby_rows.get_visible(), "nearby starts closed");
-        assert!(!imp.nearby_more.get_visible(), "and so does its count");
+        assert!(!imp.nearby_drawer.reveals_child(), "nearby starts closed");
         imp.nearby_toggle.emit_clicked();
         assert!(popover.nearby_open());
-        assert!(imp.nearby_rows.get_visible());
+        assert!(imp.nearby_drawer.reveals_child());
         assert!(imp.nearby_more.get_visible());
         assert!(imp.nearby_toggle.has_css_class("open"));
         let splits = children_of::<SplitRow>(&*imp.nearby_rows);
@@ -8163,7 +8162,7 @@ mod tests {
         imp.nearby_toggle.emit_clicked();
         assert!(!popover.nearby_open());
         assert!(
-            !imp.nearby_rows.get_visible(),
+            !imp.nearby_drawer.reveals_child(),
             "the header closes what it opened"
         );
 

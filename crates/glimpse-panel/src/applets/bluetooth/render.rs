@@ -259,17 +259,15 @@ pub fn entries(
         .filter(|device| !device.connected && !device.known())
         .collect();
     let open = built.is_empty() != toggled;
-    if open {
-        for device in found.iter().take(shown(nearby, all_nearby)) {
-            built.push(entry(device, Place::Nearby));
-        }
+    for device in found.iter().take(shown(nearby, all_nearby)) {
+        built.push(entry(device, Place::Nearby));
     }
     let hidden = found.len().saturating_sub(shown(nearby, all_nearby));
 
     Listing {
         entries: built,
         more_paired: more(paired.len(), devices, all_paired),
-        more_nearby: (open && hidden > 0).then(|| {
+        more_nearby: (hidden > 0).then(|| {
             ngettext("{count} more device", "{count} more devices", hidden as u32)
                 .replace("{count}", &hidden.to_string())
         }),
@@ -586,10 +584,10 @@ mod tests {
                 listing.nearby_count,
                 listing.nearby_open
             ),
-            (0, 10, false),
+            (8, 10, false),
             "with devices of its own a person rarely wants a stranger's, so Nearby starts closed"
         );
-        assert!(listing.more_nearby.is_none());
+        assert!(listing.more_nearby.is_some());
 
         let toggled = entries(&state, 6, 8, (false, false), true);
         assert_eq!(counted_in(&toggled, Place::Nearby), 8);

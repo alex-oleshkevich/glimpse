@@ -76,6 +76,8 @@ pub struct NetworkPopover {
     #[template_child]
     pub other: TemplateChild<Section>,
     #[template_child]
+    pub others_drawer: TemplateChild<gtk4::Revealer>,
+    #[template_child]
     pub other_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub more: TemplateChild<Row>,

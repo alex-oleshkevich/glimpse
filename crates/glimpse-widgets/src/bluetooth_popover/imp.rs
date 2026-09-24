@@ -96,7 +96,7 @@ pub struct BluetoothPopover {
     #[template_child]
     pub search: TemplateChild<Row>,
     #[template_child]
-    pub nearby_list: TemplateChild<gtk4::Box>,
+    pub nearby_list: TemplateChild<gtk4::Revealer>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 

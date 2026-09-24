@@ -93,6 +93,7 @@ impl NetworkPopover {
             header.set_visible(count > 0);
         }
         crate::set_css_class(&**header, crate::drawer::OPEN, open);
+        crate::drawer::set(&imp.others_drawer, open);
         set_footer_row(&imp.all, rest);
         self.settle_other();
     }

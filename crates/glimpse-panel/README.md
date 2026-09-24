@@ -400,7 +400,8 @@ both of which belong to the tooltip. No managed device renders nothing.
 - **Ethernet, VPN, Wi-Fi, Other networks, then the hidden-network row.** Wi-Fi is the network in
   use, first whatever its strength, then every saved one in range; a saved network out of range is
   not listed. **Other networks is a disclosure whose header is the toggle**, closed while anything
-  known is in range and open by itself when nothing is; an open list is capped at
+  known is in range and open by itself when nothing is. Its rows are built while it is closed, so the
+  revealer slides them in and out rather than collapsing an emptied list; the list is capped at
   `visible-networks` and ends in a row that shows the rest. A stranger is one line, saying only
   *Open* or *Enterprise*, since the padlock already says secured. Strength is banded at render from the
   raw value, which the tooltip prints exactly. A failed command is a notification.

@@ -74,19 +74,22 @@ template $BluetoothPopover: Gtk.Widget {
                 }
               }
 
-              Gtk.Box nearby_list {
-                orientation: vertical;
-                visible: false;
+              Gtk.Revealer nearby_list {
+                transition-type: slide_down;
 
-                Gtk.Box nearby_rows {
+                child: Gtk.Box {
                   orientation: vertical;
-                }
 
-                $Row more_nearby {
-                  visible: false;
-                  activatable: true;
-                  lead-icon: "view-more-symbolic";
-                }
+                  Gtk.Box nearby_rows {
+                    orientation: vertical;
+                  }
+
+                  $Row more_nearby {
+                    visible: false;
+                    activatable: true;
+                    lead-icon: "view-more-symbolic";
+                  }
+                };
               }
             }
           }
