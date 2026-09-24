@@ -1390,6 +1390,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "url",
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",

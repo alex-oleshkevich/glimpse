@@ -195,23 +195,23 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
   to resolve, and a count on the label would shift the bar as the day moves.
 
 **clipboard** — renders `ClipboardState` as two `$Section`s, pinned above recent, each a
-`$ClipboardList` of `$SplitRow`s: the body copies, the chevron unfolds Pin and Forget under it.
-**A row carries no timestamp, so the applet takes no tick** — a relative age is the only thing that
-would need one, and a minute timer redrawing unchanged rows is the cost of a line nobody reads.
-**Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
-history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
+`$ClipboardList`: a text clip is a row whose body copies it back, an image is a tile, and either
+opens a card. `render::shape` reads a text clip as a link, a hex color, a path, several lines or
+plain text, and each gets its own icon, subtitle and card action — open a link or a path, copy a
+color as RGB or HSL through the service's `copy_text`. Copying anything closes the popover, because
+it was picked to be pasted. The search field asks for keyboard input only while the popover is open
+and matches the service's own preview, so an image never matches a query. **Recent is capped by
+`visible` behind an overflow row that expands in place; pins are not capped**, because the history
+goes to real trouble to let a pin outlive eviction. **A row carries no timestamp, so the applet
+takes no tick.** `WaylandSelection` lives in `src/selection/` and
 not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
 and is injected as `Arc<dyn Selection>` into both the clipboard and the color picker services. An
 offer keeps that connection up even with the clipboard disabled, because a selection lives only as
 long as the connection that set it. **An image is decoded through `thumbnail`, never
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
-count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
-to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.
-**The row thumbnail's size is `max-width`/`max-height` in `.clipboard-list picture`, not a Rust
-`size_request`.** A `size_request` is a floor, not a ceiling — a decode up to 48px still asked for
-its full natural size in the row, widening it past a same-row icon; `max-width`/`max-height` in
-`glimpse.css` is what actually bounds it, with a small `margin` so it does not sit flush against the
-row's edge.
+count, and a small file can decode to an enormous bitmap. The decode also reports the source's
+dimensions for the card. A picture that will not decode falls back to an icon row and stays
+restorable. Textures are cached by entry id and pruned when the entry leaves.
 
 **color-picker** — renders the `color_picker` service: a left click opens the palette, a right
 click runs `glimpse-picker`. The service owns the palette and the clipboard copy; the applet holds

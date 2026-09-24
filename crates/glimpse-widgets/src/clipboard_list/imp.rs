@@ -48,6 +48,9 @@ impl ObjectImpl for ClipboardList {
                 glib::subclass::Signal::builder("removed")
                     .param_types([u64::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("acted")
+                    .param_types([u64::static_type(), String::static_type()])
+                    .build(),
             ]
         })
     }

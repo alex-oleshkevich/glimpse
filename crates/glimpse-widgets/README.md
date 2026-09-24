@@ -437,20 +437,27 @@ that hide when empty. Static labels live in the blueprint. The widget emits `act
 
 ## ClipboardPopover and ClipboardList
 
-`ClipboardList` reconciles by clip id: one `Expandable` per clip with a `$SplitRow` head. The row
-body emits `restored`, and the card underneath emits `pinned` and `removed`.
+`ClipboardList` reconciles by clip id: one `Expandable` per clip. A text clip's head is a
+`$SplitRow` — its body emits `restored`, its chevron opens the card. An image's head is a tile: a
+button showing the picture cropped to fill, capped at 200px tall, with a badge carrying
+`expandable__opener`, which is how `Expandable` finds the opener inside a head that is neither a
+row nor a split row. The tile's body copies; only the badge opens. A clip id is its content, so a
+head never changes kind under a key.
 
-**The card is built on first open and never rebuilt.** Rebuilding unparents a row under a press in
-flight, and `clicked` is then never emitted; the pin row reads the clip's state when it fires, and
-each render only rewrites its wording.
+**The card is the clip's content, then its own actions, then Pin and Forget, then facts.** A color
+leads with a strip of itself; text leads with an excerpt clamped to four lines at
+`max-width-chars: 1`, which is what keeps a long clip from widening the popover. Actions emit
+`acted` with the key the applet gave them. **The card is built on first open and never rebuilt**:
+rebuilding unparents a row under a press in flight, and a clip's content cannot change under its
+id; each render only rewrites the pin row's wording.
 
-**The list owns no wording.** `set_actions` takes the two action labels from the applet, because a
-widget owns structure and no content; the popover's only built-in strings are the placeholder's,
-which live in the `.blp`.
+**The list owns no wording.** `set_actions` takes the action labels from the applet.
 
 `ClipboardPopover` holds two of these lists; `PopoverShell`'s accordion spans both, so opening a
-card in one closes the other's. Its `$Notice` carries only the standing condition a
-notification cannot — no data-control protocol at all; a refused command is a notification.
+card in one closes the other's. A search field above them emits `searched`, and an overflow row
+under Recent emits `more`; neither filters or counts anything itself. Its `$Notice` carries only
+the standing condition a notification cannot — no data-control protocol at all; a refused command
+is a notification.
 
 ## PlacesPopover
 

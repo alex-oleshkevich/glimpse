@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 12:42+0200\n"
+"POT-Creation-Date: 2026-09-24 13:38+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -256,6 +256,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:341
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:241
 #: crates/glimpse-panel/src/applets/places/render.rs:53
 #: crates/glimpse-panel/src/applets/removable/render.rs:52
 #, fuzzy
@@ -544,7 +545,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:154
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:146
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
 msgid "Forget"
 msgstr ""
 
@@ -783,63 +784,125 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:112
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:128
 msgid "Image · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:144
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:130
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:157
+#: crates/glimpse-panel/src/applets/removable/render.rs:137
+msgid "Size"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:170
+msgid "Open in browser"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:173
+msgid "Color"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:181
+msgid "Copy as {format}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:188
+msgid "Path"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:190
+#: crates/glimpse-panel/src/applets/network/render.rs:161
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:242
+msgid "Open"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:193
+#, fuzzy
+#| msgid "{count}m"
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} мин"
+msgstr[1] "{count} мин"
+msgstr[2] "{count} мин"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:221
 #, fuzzy
 #| msgid "min"
 msgid "Pin"
 msgstr "мин"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:145
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:222
 msgid "Unpin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:231
+#, fuzzy
+#| msgid "Nothing scheduled"
+msgid "Nothing copied yet"
+msgstr "Ничего не запланировано"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:243
+#: crates/glimpse-panel/src/applets/places/render.rs:54
+#: crates/glimpse-panel/src/applets/removable/render.rs:53
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "{count} рабочий стол"
+msgstr[1] "{count} рабочих стола"
+msgstr[2] "{count} рабочих столов"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:253
 msgid "Clear history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:321
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
 msgid "Clipboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:182
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:325
 msgid "The clipboard is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:339
 msgid "That entry is no longer in the history."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:208
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:351
 msgid "{count} items · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:259
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:431
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not copy that"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:450
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not copy that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:467
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not pin that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:292
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:483
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not forget that entry"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:499
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -1230,11 +1293,6 @@ msgstr ""
 msgid "NetworkManager refused that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:161
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:242
-msgid "Open"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/network/render.rs:166
 msgid "Enterprise"
 msgstr ""
@@ -1385,17 +1443,6 @@ msgstr "{count} д"
 #: crates/glimpse-widgets/blueprints/places_popover.blp:47
 msgid "Places"
 msgstr ""
-
-#: crates/glimpse-panel/src/applets/places/render.rs:54
-#: crates/glimpse-panel/src/applets/removable/render.rs:53
-#, fuzzy
-#| msgid "{count} workspace"
-#| msgid_plural "{count} workspaces"
-msgid "{count} more"
-msgid_plural "{count} more"
-msgstr[0] "{count} рабочий стол"
-msgstr[1] "{count} рабочих стола"
-msgstr[2] "{count} рабочих столов"
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:78
 #, fuzzy
@@ -1549,10 +1596,6 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/removable/render.rs:23
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:14
 msgid "Removable"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/removable/render.rs:137
-msgid "Size"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/render.rs:146
@@ -1974,19 +2017,17 @@ msgstr ""
 msgid "World clock"
 msgstr "Мировые часы"
 
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:31
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:32
+msgid "Search clipboard"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:40
 msgid "Pinned"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:38
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:47
 msgid "Recent"
 msgstr ""
-
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:45
-#, fuzzy
-#| msgid "Nothing scheduled"
-msgid "Nothing copied yet"
-msgstr "Ничего не запланировано"
 
 #: crates/glimpse-widgets/blueprints/color_picker_popover.blp:36
 msgid "Palette"
@@ -2077,6 +2118,8 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:43
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:87
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:127
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:197
 msgid "Details"
 msgstr "Подробности"

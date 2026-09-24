@@ -72,7 +72,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
-pub use artwork::{artwork, thumbnail};
+pub use artwork::{Thumbnail, artwork, thumbnail};
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
@@ -90,7 +90,7 @@ pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
-pub use clipboard_list::{Actions as ClipActions, Clip, ClipboardList};
+pub use clipboard_list::{Actions as ClipActions, Clip, ClipAction, ClipboardList};
 pub use clipboard_popover::ClipboardPopover;
 pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
@@ -6846,8 +6846,8 @@ mod tests {
             id,
             title: "Марта🙂 a rather long clipboard entry that keeps going".to_owned(),
             icon: "text-x-generic-symbolic".to_owned(),
-            image: None,
             pinned,
+            ..Default::default()
         };
         clipboard.set_pinned(&[clip(1, true)]);
         clipboard.set_recent(&[clip(2, false), clip(3, false)]);
@@ -6939,12 +6939,126 @@ mod tests {
             "a row emits the entry it currently holds, not the one it was built for"
         );
 
-        // An empty Recent beside a populated Pinned would otherwise read "Nothing copied yet".
         clipboard.set_recent(&[]);
         assert!(
             !clipboard.imp().recent_section.get_visible(),
             "an empty Recent hides rather than contradicting the Pinned list above it"
         );
+
+        let acted = Rc::new(RefCell::new(Vec::new()));
+        clipboard.connect_acted({
+            let acted = Rc::clone(&acted);
+            move |_, id, key| acted.borrow_mut().push((id, key))
+        });
+        let long = "a long line of text that the row cannot hold whole";
+        let texture: gdk::Texture = gdk::MemoryTexture::new(
+            32,
+            18,
+            gdk::MemoryFormat::R8g8b8,
+            &glib::Bytes::from(&vec![128u8; 32 * 18 * 3]),
+            32 * 3,
+        )
+        .upcast();
+        clipboard.set_recent(&[
+            Clip {
+                id: 10,
+                title: "#1e88e5".to_owned(),
+                subtitle: "Color".to_owned(),
+                swatch: Some(gdk::RGBA::new(0.1, 0.5, 0.9, 1.0)),
+                actions: vec![ClipAction {
+                    key: "rgb".to_owned(),
+                    title: "Copy as RGB".to_owned(),
+                    value: "rgb(30 136 229)".to_owned(),
+                }],
+                facts: vec![Fact::new("Size", "7 B")],
+                ..Default::default()
+            },
+            Clip {
+                id: 11,
+                title: "Image · 1 kB".to_owned(),
+                image: Some(texture),
+                ..Default::default()
+            },
+            Clip {
+                id: 12,
+                title: long.to_owned(),
+                excerpt: long.to_owned(),
+                ..Default::default()
+            },
+        ]);
+        let cells = rows(&clipboard.imp().recent);
+        let color = head(&cells[0]);
+        assert!(
+            color.row().lead().and_downcast::<Swatch>().is_some(),
+            "a color leads with its own swatch"
+        );
+        color.emit_by_name::<()>("details", &[]);
+        let card = cells[0].details::<gtk4::Box>().expect("a color card");
+        assert!(card.first_child().and_downcast::<Swatch>().is_some());
+        children_of::<Row>(&card)
+            .into_iter()
+            .find(|row| row.title().as_deref() == Some("Copy as RGB"))
+            .expect("the type's own action")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(*acted.borrow(), [(10, "rgb".to_owned())]);
+
+        let tile = cells[1]
+            .head::<gtk4::Overlay>()
+            .expect("an image is a tile, not a row");
+        tile.child()
+            .and_downcast::<gtk4::Button>()
+            .expect("the tile's body is a button")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            restored.get(),
+            Some(11),
+            "a click on the image copies it back"
+        );
+        assert!(!cells[1].expanded(), "and does not open the card");
+        let badge = children_of::<gtk4::Button>(&tile)
+            .into_iter()
+            .find(|button| button.has_css_class("clip-tile__badge"))
+            .expect("a badge");
+        badge.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[1].expanded(), "the badge opens the card");
+
+        let before = width(&clipboard);
+        head(&cells[2]).emit_by_name::<()>("details", &[]);
+        assert_eq!(
+            width(&clipboard),
+            before,
+            "a long excerpt wraps inside the card rather than widening the popover"
+        );
+
+        let more = Rc::new(Cell::new(0));
+        clipboard.connect_more({
+            let more = Rc::clone(&more);
+            move |_| more.set(more.get() + 1)
+        });
+        clipboard.set_overflow(Some("3 more"));
+        clipboard.set_recent(&[]);
+        assert!(
+            clipboard.imp().recent_section.get_visible(),
+            "entries still behind the overflow row keep the section up"
+        );
+        clipboard.imp().more.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(more.get(), 1);
+
+        let searched = Rc::new(RefCell::new(String::new()));
+        clipboard.connect_searched({
+            let searched = Rc::clone(&searched);
+            move |_, query| {
+                searched.replace(query);
+            }
+        });
+        clipboard.set_searchable(true);
+        assert!(clipboard.imp().search.get_visible());
+        clipboard.imp().search.set_text("review");
+        clipboard
+            .imp()
+            .search
+            .emit_by_name::<()>("search-changed", &[]);
+        assert_eq!(*searched.borrow(), "review");
     }
 
     /// Separate from `widgets()` for the same reason as `clipboard_widgets`: one failure earlier in
