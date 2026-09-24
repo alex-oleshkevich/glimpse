@@ -73,6 +73,25 @@ impl IndicatorGroup {
         }
     }
 
+    pub fn acknowledge(&self) {
+        if let Some(pending) = self.imp().acknowledging.take() {
+            pending.remove();
+        }
+        self.add_css_class(imp::ACKNOWLEDGED);
+        let settle = glib::timeout_add_local_once(
+            imp::ACKNOWLEDGE_HOLD,
+            glib::clone!(
+                #[weak(rename_to = group)]
+                self,
+                move || {
+                    group.imp().acknowledging.take();
+                    group.remove_css_class(imp::ACKNOWLEDGED);
+                }
+            ),
+        );
+        self.imp().acknowledging.replace(Some(settle));
+    }
+
     pub fn connect_pressed<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "pressed",

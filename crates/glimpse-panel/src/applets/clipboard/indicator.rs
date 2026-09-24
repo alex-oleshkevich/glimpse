@@ -424,12 +424,18 @@ impl Applet for Clipboard {
                     Acting::Open(uri) => open(uri),
                     Acting::Copy(text) => {
                         let service = service.clone();
+                        let acknowledged = opener.clone();
                         tell(
                             &notifications,
                             opener.clone(),
                             "clipboard.copy_text",
                             gettext("Could not copy that"),
-                            async move { service.copy_text(text).await },
+                            async move {
+                                service
+                                    .copy_text(text)
+                                    .await
+                                    .inspect(|_| acknowledged.acknowledge())
+                            },
                         );
                     }
                 }
@@ -443,12 +449,18 @@ impl Applet for Clipboard {
             let opener = opener.clone();
             move |_, id| {
                 let service = service.clone();
+                let acknowledged = opener.clone();
                 tell(
                     &notifications,
                     opener.clone(),
                     "clipboard.restore",
                     gettext("Could not copy that entry"),
-                    async move { service.restore(id).await },
+                    async move {
+                        service
+                            .restore(id)
+                            .await
+                            .inspect(|_| acknowledged.acknowledge())
+                    },
                 );
                 // Copying is what the press meant, so the surface closes on it.
                 opener.close_popover();

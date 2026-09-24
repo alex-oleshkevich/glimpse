@@ -92,6 +92,10 @@
     background-color: var(--gl-active);
 }
 
+.indicator-group.indicator-group--acknowledged {
+    background-color: var(--gl-accent-soft);
+}
+
 .indicator-group:focus-visible {
     outline: 2px solid var(--gl-accent-text);
     outline-offset: -2px;

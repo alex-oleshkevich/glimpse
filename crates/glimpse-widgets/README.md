@@ -43,6 +43,10 @@ themed name containing one. `IndicatorSpec` holds a `gio::Icon` and so is not `S
 - **`extension` is any widget the applet owns**, placed in a box beside the icon slot. The
   indicator compares by identity and only reparents on a change, so an applet keeps one widget —
   the color picker's `Swatch` — and updates it in place.
+- **`IndicatorGroup::acknowledge` is the chip's one transient state**: it holds
+  `.indicator-group--acknowledged` for a moment and lets the group's own background transition fade
+  it in and out. It confirms an action with no visible effect of its own — a copy — so a repeat
+  restarts the hold rather than stacking timers.
 - **A badge hides the attention dot, and must not cancel attention itself.** Two marks for one fact
   is noise, so the dot yields while `indicator--attention` stays and colours the chip. Assert it from
   a clean spec — `set_attention` returns early on an unchanged flag.
