@@ -155,10 +155,16 @@ impl Idle {
 
     fn sync(&mut self) {
         self.state = self.idle.snapshot();
+        self.state.inhibitors.retain(render::holds_idle_or_sleep);
         self.manual_hold = render::manual_hold_ids(&self.state.inhibitors);
         if self.manual_hold.is_empty() || self.until.get().is_some_and(|at| at <= Local::now()) {
             self.until.set(None);
         }
+    }
+
+    fn left(&self) -> Option<String> {
+        let seconds = (self.until.get()? - Local::now()).num_seconds();
+        (seconds > 0).then(|| render::time_left((seconds + 59) / 60))
     }
 
     /// When the hold glimpse set will end, formatted with the configured clock. The service keeps
@@ -223,6 +229,7 @@ impl Idle {
                 &self.state,
                 &self.manual_hold,
                 ends.as_deref(),
+                self.left().as_deref(),
             )),
         );
         shown.set_hold_active(held);

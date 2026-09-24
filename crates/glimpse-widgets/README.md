@@ -288,7 +288,7 @@ recedes follows the row the list shows, not the id asked for**: a hidden section
 **`IdlePopover`'s hold switch is the indefinite hold, not a readout**, emitting `hold-toggled`; its
 five timed presets are an `Expandable` card under the hold row, their durations hardcoded in
 `imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
-Other apps' holds sit under a "Kept awake by" section, and it and the footer separator stay hidden
+Every hold, glimpse's own included, sits under a "Kept awake by" section, and it and the footer separator stay hidden
 until one exists.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the

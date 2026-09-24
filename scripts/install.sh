@@ -7,6 +7,8 @@ for b in "${binaries[@]}"; do
     install -Dm755 "target/release/$b" "$bindir/$b"
 done
 
+install -Dm755 data/bin/glimpse-dpms "$bindir/glimpse-dpms"
+
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$unitdir/$(basename "$f")"
 done

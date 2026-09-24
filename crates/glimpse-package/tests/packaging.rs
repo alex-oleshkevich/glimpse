@@ -276,6 +276,27 @@ fn binary_tarball_includes_idle_portal_assets() {
 }
 
 #[test]
+fn the_default_idle_handler_script_ships_everywhere() {
+    let root = workspace_root();
+    let read = |path: &str| fs::read_to_string(root.join(path)).expect(path);
+
+    assert_eq!(
+        read("crates/glimpse-package/Cargo.toml")
+            .matches("data/bin/glimpse-dpms\"")
+            .count(),
+        3,
+        "the .deb, the Fedora .rpm and the openSUSE .rpm"
+    );
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        assert!(
+            read(script).contains("install -Dm755 data/bin/glimpse-dpms"),
+            "{script}"
+        );
+    }
+    assert!(read("data/config.default.toml").contains("\"glimpse-dpms off\""));
+}
+
+#[test]
 fn every_workspace_binary_is_built_and_reaches_every_package() {
     let root = workspace_root();
     let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");

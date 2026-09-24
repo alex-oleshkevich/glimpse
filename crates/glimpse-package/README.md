@@ -7,7 +7,7 @@ binary that happens to be convenient.
 ## Contents
 
 - `Cargo.toml` — `[package.metadata.deb]`, `[package.metadata.generate-rpm]`, the `requires` table
-  and the conffile declaration; the asset lists name every binary plus config, wallpapers, themes,
+  and the conffile declaration; the asset lists name every binary, the `glimpse-dpms` script, config, wallpapers, themes,
   units, D-Bus activation files, the GeoClue policy, the license and one line per language
 - `tests/packaging.rs` — the guard that keeps the two asset lists in step with `po/LINGUAS`
 

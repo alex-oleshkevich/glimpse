@@ -2,7 +2,9 @@
 
 The idle daemon: it owns `[idle]`, drives `ext-idle-notify-v1` notifications per configured
 listener, and runs each listener's `on_idle`/`on_resume` script. It follows AC/battery state from
-UPower to choose between `profiles.ac` and `profiles.battery`.
+UPower to choose between `profiles.ac` and `profiles.battery`. The default profiles blank the
+screens through `glimpse-dpms off` (from `data/bin/`, installed to `/usr/bin`) and wake them with
+`glimpse-dpms on`, which Hyprland needs and niri tolerates.
 
 ## Contents
 

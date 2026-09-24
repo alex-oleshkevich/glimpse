@@ -45,7 +45,8 @@ impl Profile {
     fn mains() -> Self {
         Self {
             listeners: vec![
-                Listener::new(900, "loginctl lock-session", ""),
+                Listener::new(900, "glimpse-dpms off", "glimpse-dpms on"),
+                Listener::new(1800, "loginctl lock-session", ""),
                 Listener::new(3600, "systemctl suspend", ""),
             ],
         }
@@ -54,7 +55,7 @@ impl Profile {
     fn battery() -> Self {
         Self {
             listeners: vec![
-                Listener::new(900, "loginctl lock-session", ""),
+                Listener::new(900, "glimpse-dpms off", "glimpse-dpms on"),
                 Listener::new(1800, "systemctl suspend", ""),
             ],
         }

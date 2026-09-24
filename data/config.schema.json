@@ -2902,9 +2902,14 @@
           "ac": {
             "listeners": [
               {
+                "on-idle": "glimpse-dpms off",
+                "on-resume": "glimpse-dpms on",
+                "timeout": 900
+              },
+              {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",
-                "timeout": 900
+                "timeout": 1800
               },
               {
                 "on-idle": "systemctl suspend",
@@ -2916,8 +2921,8 @@
           "battery": {
             "listeners": [
               {
-                "on-idle": "loginctl lock-session",
-                "on-resume": "",
+                "on-idle": "glimpse-dpms off",
+                "on-resume": "glimpse-dpms on",
                 "timeout": 900
               },
               {
@@ -3571,9 +3576,14 @@
             "ac": {
               "listeners": [
                 {
+                  "on-idle": "glimpse-dpms off",
+                  "on-resume": "glimpse-dpms on",
+                  "timeout": 900
+                },
+                {
                   "on-idle": "loginctl lock-session",
                   "on-resume": "",
-                  "timeout": 900
+                  "timeout": 1800
                 },
                 {
                   "on-idle": "systemctl suspend",
@@ -3585,8 +3595,8 @@
             "battery": {
               "listeners": [
                 {
-                  "on-idle": "loginctl lock-session",
-                  "on-resume": "",
+                  "on-idle": "glimpse-dpms off",
+                  "on-resume": "glimpse-dpms on",
                   "timeout": 900
                 },
                 {
@@ -4335,9 +4345,14 @@
           "default": {
             "listeners": [
               {
+                "on-idle": "glimpse-dpms off",
+                "on-resume": "glimpse-dpms on",
+                "timeout": 900
+              },
+              {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",
-                "timeout": 900
+                "timeout": 1800
               },
               {
                 "on-idle": "systemctl suspend",
@@ -4352,8 +4367,8 @@
           "default": {
             "listeners": [
               {
-                "on-idle": "loginctl lock-session",
-                "on-resume": "",
+                "on-idle": "glimpse-dpms off",
+                "on-resume": "glimpse-dpms on",
                 "timeout": 900
               },
               {

@@ -7140,6 +7140,13 @@ mod tests {
 
         let ruler = RulerPopover::new();
         let ruler_imp = ruler.imp();
+        let measure_requested = Rc::new(Cell::new(0));
+        ruler.connect_measure_requested({
+            let measure_requested = Rc::clone(&measure_requested);
+            move |_| measure_requested.set(measure_requested.get() + 1)
+        });
+        ruler_imp.measure.emit_clicked();
+        assert_eq!(measure_requested.get(), 1);
 
         assert!(
             !ruler_imp.history_section.get_visible(),

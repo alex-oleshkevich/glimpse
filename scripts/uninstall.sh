@@ -13,6 +13,7 @@ rm -f "$dbusdir/org.freedesktop.Notifications.service" "$dbusdir/me.aresa.Glimps
 rm -f "$portaldir/glimpse.portal"
 rm -f "$portalconfdir/glimpse-portals.conf"
 rm -f "$bindir/glimpse-notificationd"
+rm -f "$bindir/glimpse-dpms"
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"
 rm -rf "$sharedir"

@@ -64,6 +64,14 @@ impl RulerPopover {
         )
     }
 
+    pub fn connect_measure_requested<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "measure-requested",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
+        )
+    }
+
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "footer-activated",

@@ -45,6 +45,7 @@ for bin in "${binaries[@]}"; do
     install -Dm755 "target/release/$bin" "$pkgroot/usr/bin/$bin"
 done
 
+install -Dm755 data/bin/glimpse-dpms "$pkgroot/usr/bin/glimpse-dpms"
 install -Dm644 data/config.default.toml "$pkgroot/usr/share/glimpse/config.default.toml"
 install -Dm644 data/config.commented.toml "$pkgroot/usr/share/glimpse/config.commented.toml"
 install -Dm644 data/config.schema.json "$pkgroot/usr/share/glimpse/config.schema.json"
