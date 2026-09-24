@@ -214,6 +214,40 @@ pub(crate) fn fill_slot(slot: &gtk4::Box, widget: &impl gtk4::prelude::IsA<gtk4:
     slot.append(widget);
 }
 
+pub(crate) fn fade_out(
+    owner: &impl gtk4::prelude::IsA<gtk4::Widget>,
+    leaving: Vec<gtk4::Widget>,
+    done: impl FnOnce() + 'static,
+) {
+    use adw::prelude::*;
+
+    for widget in &leaving {
+        widget.add_css_class("leaving");
+    }
+    let fading = leaving.clone();
+    let target = adw::CallbackAnimationTarget::new(move |value| {
+        for widget in &fading {
+            widget.set_opacity(value);
+        }
+    });
+    let animation = adw::TimedAnimation::new(owner, 1.0, 0.0, duration_ms(), target);
+    animation.set_easing(adw::Easing::EaseOutCubic);
+    let done = std::cell::Cell::new(Some(done));
+    animation.connect_done(move |_| {
+        for widget in &leaving {
+            widget.remove_css_class("leaving");
+            widget.set_opacity(1.0);
+        }
+        if let Some(done) = done.take() {
+            done();
+        }
+    });
+    animation.play();
+    if duration_ms() == 0 {
+        animation.skip();
+    }
+}
+
 pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
     use gtk4::prelude::*;
 
@@ -1700,7 +1734,7 @@ mod tests {
         );
 
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
-        let sections = children_of::<Section>(&popover_imp.groups.get());
+        let sections = group_sections(&popover_imp.groups.get());
         let popover_stack = child_named::<NotificationStack>(&sections[0], "notification-stack");
         assert!(
             popover_stack.imp().animated.get(),
@@ -1756,14 +1790,14 @@ mod tests {
         assert!(popover_imp.clear.get_visible() && !popover_imp.empty.get_visible());
 
         popover.set_groups(&[group("a", "", 2)]);
-        let anonymous = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let anonymous = group_sections(&popover_imp.groups.get())[0].clone();
         assert!(!anonymous.imp().title.get_visible());
         assert!(anonymous.imp().trail.property::<bool>("hexpand"));
         assert_eq!(anonymous.imp().trail.halign(), gtk4::Align::End);
 
         popover.set_groups(&[group("b", "PagerDuty", 1)]);
         assert_eq!(
-            children_of::<Section>(&popover_imp.groups.get()).len(),
+            group_sections(&popover_imp.groups.get()).len(),
             1,
             "a group that goes away takes its section with it"
         );
@@ -1780,7 +1814,7 @@ mod tests {
         });
 
         popover.set_groups(&[group("a", "Telegram", 5)]);
-        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense = group_sections(&popover_imp.groups.get())[0].clone();
         let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
         let shown = |stack: &NotificationStack| {
             children_of::<NotificationCard>(stack)
@@ -1808,14 +1842,14 @@ mod tests {
         );
 
         popover.set_groups(&[group("single", "Telegram", 1)]);
-        let single = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let single = group_sections(&popover_imp.groups.get())[0].clone();
         assert!(
             !child_named::<gtk4::Button>(&single, "section__clear").get_visible(),
             "an unstacked notification group does not offer a group clear button"
         );
 
         popover.set_groups(&[group("a", "Telegram", 5)]);
-        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense = group_sections(&popover_imp.groups.get())[0].clone();
         let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
         let dense_chip = dense_stack
             .imp()
@@ -7433,6 +7467,13 @@ mod tests {
             (width * 3) as usize,
         )
         .upcast()
+    }
+
+    fn group_sections(groups: &gtk4::Box) -> Vec<Section> {
+        children_of::<gtk4::Revealer>(groups)
+            .iter()
+            .filter_map(|revealer| revealer.child().and_downcast())
+            .collect()
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

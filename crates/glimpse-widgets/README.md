@@ -210,6 +210,10 @@ hover, focus and any pending press. The key can therefore be captured when the r
   it draws *over* it, as a bar across the bottom rather than an edge peeking out.
 - **The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
   absolute way, so "recede" reads on white and disappears on charcoal.
+- **A mapped stack slides and fades the cards leaving it (`.leaving`), then applies the list**; `NotificationsPopover` does
+  the same with whole groups, which is what Clear all removes. The newest list waits in `queued` (or
+  `held`) and wins when the fade ends. Unmapped, both apply at once. `fade_out` resets opacity
+  because `by_key` can hand a faded widget straight back.
 - **It reconciles by key without `reconcile::by_key`** — that helper asserts the items are the
   parent's *only* children and would fight `arrange` over the strips every update.
 - **The strip's corner radius is written out rather than shared**: `--gl-notification-radius` is

@@ -1233,6 +1233,11 @@ window.notification-popup {
     transform: translate(0, var(--gl-popup-motion));
 }
 
+.leaving {
+    transition: transform var(--gl-duration) var(--gl-ease);
+    transform: translate(calc(4 * var(--gl-popup-motion)), 0);
+}
+
 .readout__value {
     font-size: 2.6rem;
     font-weight: 300;

@@ -47,15 +47,55 @@ impl NotificationsPopover {
             return;
         }
         imp.held.replace(groups.to_vec());
+        if imp.fading.get() {
+            return;
+        }
+        let leaving: Vec<gtk4::Revealer> = imp
+            .sections
+            .borrow()
+            .iter()
+            .filter(|(key, _)| !groups.iter().any(|kept| kept.key == *key))
+            .map(|(_, section)| section.clone())
+            .collect();
+        if self.is_mapped() && !leaving.is_empty() {
+            imp.fading.set(true);
+            for section in &leaving {
+                section.set_transition_duration(crate::duration_ms());
+                section.set_reveal_child(false);
+            }
+            let leaving = leaving
+                .iter()
+                .filter_map(|section| section.child())
+                .collect();
+            crate::fade_out(
+                self,
+                leaving,
+                glib::clone!(
+                    #[weak(rename_to = popover)]
+                    self,
+                    move || {
+                        popover.imp().fading.set(false);
+                        popover.apply();
+                    }
+                ),
+            );
+            return;
+        }
+        self.apply();
+    }
 
+    fn apply(&self) {
+        let imp = self.imp();
+        let groups = imp.held.borrow().clone();
         let mut sections = imp.sections.borrow_mut();
         by_key(
             &*imp.groups,
             &mut sections,
-            groups,
+            &groups,
             |group| group.key.clone(),
             |group| self.section(&group.key),
             |section, group| {
+                section.set_reveal_child(true);
                 let Some(stack) = descendant::<NotificationStack>(section) else {
                     return;
                 };
@@ -77,7 +117,7 @@ impl NotificationsPopover {
         imp.clear.set_visible(anything);
     }
 
-    fn section(&self, key: &str) -> Section {
+    fn section(&self, key: &str) -> gtk4::Revealer {
         let section = Section::new();
         section.add_css_class("notifications-popover__group");
         let stack = NotificationStack::new();
@@ -128,7 +168,11 @@ impl NotificationsPopover {
 
         section.set_content(Some(&stack));
         section.set_trail(Some(&trail));
-        section
+        gtk4::Revealer::builder()
+            .transition_type(gtk4::RevealerTransitionType::SlideUp)
+            .reveal_child(true)
+            .child(&section)
+            .build()
     }
 
     pub fn set_dnd(&self, silenced: bool) {

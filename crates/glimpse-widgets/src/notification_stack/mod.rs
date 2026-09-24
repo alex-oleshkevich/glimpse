@@ -41,6 +41,42 @@ impl NotificationStack {
 
     pub fn set_items(&self, notifications: &[Notification]) {
         let imp = self.imp();
+        if imp.queued.borrow().is_some() {
+            imp.queued.replace(Some(notifications.to_vec()));
+            return;
+        }
+        if imp.notifications.borrow().as_slice() == notifications {
+            return;
+        }
+        let leaving: Vec<gtk4::Widget> = imp
+            .rows
+            .borrow()
+            .iter()
+            .filter(|(key, _)| !notifications.iter().any(|kept| kept.key == *key))
+            .map(|(_, row)| row.clone().upcast())
+            .collect();
+        if imp.animated.get() && self.is_mapped() && !leaving.is_empty() {
+            imp.queued.replace(Some(notifications.to_vec()));
+            crate::fade_out(
+                self,
+                leaving,
+                glib::clone!(
+                    #[weak(rename_to = stack)]
+                    self,
+                    move || {
+                        if let Some(queued) = stack.imp().queued.take() {
+                            stack.apply_items(&queued);
+                        }
+                    }
+                ),
+            );
+            return;
+        }
+        self.apply_items(notifications);
+    }
+
+    fn apply_items(&self, notifications: &[Notification]) {
+        let imp = self.imp();
         if imp.notifications.borrow().as_slice() == notifications {
             return;
         }
