@@ -52,10 +52,12 @@ impl Applet for Keyboard {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = KeyboardPopover::new();
         let keyboard = self.keyboard.clone();
+        let opener = seat.opener();
         shown.connect_activated(move |_, index| {
+            opener.close_popover();
             let Ok(index) = u8::try_from(index) else {
                 return;
             };

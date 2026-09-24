@@ -282,7 +282,8 @@ tick against the provider's thirty-minute lease.
   first, then the bus-name suffix whole and a segment at a time.
 
 **keyboard** — the chip is the current layout's code, hidden under two layouts. The compositor owns
-the list; this applet only renders it and sends the switch command.
+the list; this applet only renders it and sends the switch command. Picking a layout closes the
+popover, since the pick is the whole of what it offers.
 
 **workspace-name** — the chip is the name of the workspace active on this bar's output, or its
 index when it has none, falling back to the focused workspace when the output is unknown. It shares
