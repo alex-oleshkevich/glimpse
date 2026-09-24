@@ -11,7 +11,10 @@ optdepends=(
     'power-profiles-daemon: power modes in the battery popover'
     'networkmanager: the network applet'
     'bluez: the bluetooth applet'
-    'packagekit: the pending-updates row in the session popover'
+    'udisks2: the removable-media applet'
+    'cups: the printing applet'
+    'kdeconnect: the phone applet'
+    'ddcutil: its udev rule lets the brightness applet reach external displays'
     'xdg-desktop-portal: routes app inhibit requests to glimpse-idle'
 )
 # cargo already strips (profile.release strip = true), so splitting debug symbols yields a

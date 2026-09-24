@@ -72,9 +72,10 @@ activation rather than by hand.
 **A dependency is declared because something links it, not because it sounds right.** `ldd` over
 every shipped binary is the check; it is what retired `libheif` from all three manifests, left over
 from an implementation that did link it. `glimpse-lock` links `libpam`, so `pam` is declared. Everything the applets merely
-*talk to* over D-Bus — UPower, power-profiles-daemon, NetworkManager, BlueZ, PackageKit,
-xdg-desktop-portal — is an `optdepends`, because each one absent is a degraded applet rather than a
-broken install.
+*talk to* — over D-Bus, or IPP for CUPS — UPower, power-profiles-daemon, NetworkManager, BlueZ, UDisks2,
+CUPS, KDE Connect, xdg-desktop-portal — is an `optdepends`, because each one absent is a degraded applet rather than a
+broken install. `ddcutil` is one too: glimpse speaks DDC/CI itself and wants only the udev rule
+that opens `/dev/i2c-*`.
 
 **`options=('!debug')`.** `profile.release` sets `strip = true`, so there are no symbols left to
 split: the debug package comes out as nothing but `.build-id` links, and pacman does not remove it

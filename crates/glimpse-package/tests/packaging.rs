@@ -276,6 +276,50 @@ fn binary_tarball_includes_idle_portal_assets() {
 }
 
 #[test]
+fn every_workspace_binary_is_built_and_reaches_every_package() {
+    let root = workspace_root();
+    let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
+    let listed: Vec<&str> = justfile
+        .lines()
+        .find_map(|line| line.strip_prefix("binaries :="))
+        .expect("justfile has a binaries list")
+        .trim()
+        .trim_matches('"')
+        .split_whitespace()
+        .collect();
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
+
+    let mut binaries: Vec<String> = fs::read_dir(root.join("crates"))
+        .expect("crates directory")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("src/main.rs").exists())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    binaries.sort();
+    assert!(!binaries.is_empty());
+
+    for binary in &binaries {
+        assert!(
+            listed.contains(&binary.as_str()),
+            "{binary} is missing from the justfile's binaries list"
+        );
+        assert_eq!(
+            package
+                .matches(&format!("target/release/{binary}\""))
+                .count(),
+            3,
+            "{binary} must ship in the .deb, the Fedora .rpm and the openSUSE .rpm"
+        );
+    }
+    assert_eq!(
+        listed.len(),
+        binaries.len(),
+        "the justfile lists a binary no crate builds"
+    );
+}
+
+#[test]
 fn notification_provider_binary_is_packaged_with_its_local_services() {
     let root = workspace_root();
     let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))

@@ -20,6 +20,4 @@ sharedir="$destdir$prefix/share/glimpse"
 # its default, so the two agree without a second variable to keep in step.
 localedir="$destdir$prefix/share/locale"
 
-# GLIMPSE_BINARIES is set by the justfile from its single source of truth; the fallback
-# here only matters for a direct, non-just invocation.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:?set by the justfile; run through just}"
