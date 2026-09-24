@@ -100,6 +100,15 @@ accumulated context. Never assume an unfinished task was untouched — check the
 a sibling. Say so in the completion note. If your tracker gates dependents on
 completion, leaving a finished task open stalls the next wave.
 
+**If your tracker is beads, do not hand-roll what it already does.** `bd swarm validate
+<epic>` gives the dependency-graph and clean-separation check this skill's own "When NOT
+to use this" gate depends on — run it instead of eyeballing task count and package
+boundaries. `bd swarm create <epic>` then `bd swarm status` / `bd ready --mol <epic>`
+replace polling entirely: a wave's builder and reviewer report through the tracker, a
+`bd gate create --type=human --blocks <next-step>` holds a handoff, and resuming means
+checking `bd ready --gated`, never staying resident to watch for one. See Traps below for
+what this is worth in measured cost.
+
 ## Setup — one worktree per epic
 
     git worktree add ../<repo>-<EPIC> -b <EPIC>
@@ -281,6 +290,21 @@ lockfiles, snapshots.
   It will rewrite files outside the task, including ignored files with no VCS backup.
 - **Never let a builder delete documented rules to fit a size cap.** Losing a recorded
   fact is irreversible; a line count is not. Let it go over and report it.
+- **Never poll a condition with repeated individual Bash calls** (`pgrep`,
+  `systemctl is-active`, a hand-rolled retry loop). Wrap a real wait in one `Monitor`
+  call, or — if the wait is really "has this task finished" — a gate (`bd gate create`,
+  or your tracker's equivalent), and resume by checking whether it resolved rather than
+  staying resident to watch for it. Measured September 2026: 24 individual poll calls
+  spanning 11 minutes, checking one condition a single `Monitor` call would have
+  covered, cost $3.12 and 24 turns in one orchestrator run — right next to nine correct
+  uses of the same `Monitor` pattern in the same session.
+- **A coordinating thread that never resets pays for its own history every turn, the
+  same as any other long thread.** State already lives in the tracker (see above), so
+  nothing is lost by ending your turn — a fresh orchestrator invocation reading
+  `bd swarm status` / `bd ready --mol <epic>` (or your tracker's equivalent) resumes
+  exactly where the last one stopped. Measured September 2026: a single 637-turn,
+  12.5-hour orchestrator cost $92 coordinating 19 sub-agents that together cost
+  $18.62 — the coordination thread, not the sub-agent work, was the expense.
 - **Delegate the live pass, never a GUI loop.** Step 9's one bounded run is worth what it
   costs. What is never worth it is a builder iterating against a windowed app — edit,
   launch, screenshot, squint, repeat. Each launch is tens of seconds, the output needs a
