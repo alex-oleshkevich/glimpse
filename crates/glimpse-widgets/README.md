@@ -441,7 +441,8 @@ that hide when empty. Static labels live in the blueprint. The widget emits `act
 `$SplitRow` — its body emits `restored`, its chevron opens the card. An image's head is a tile: a
 button showing the picture cropped to fill, capped at 200px tall, with a badge carrying
 `expandable__opener`, which is how `Expandable` finds the opener inside a head that is neither a
-row nor a split row. The tile's body copies; only the badge opens. A clip id is its content, so a
+row nor a split row. A head built by `Builder` arrives before its own children, so `Expandable`
+searches for the opener again in `parser_finished`. The tile's body copies; only the badge opens. A clip id is its content, so a
 head never changes kind under a key.
 
 **The card is the clip's content, then its own actions, then Pin and Forget, then facts.** A color

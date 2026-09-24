@@ -32,12 +32,30 @@ impl Expandable {
         if self.head::<gtk4::Widget>().as_ref() == Some(head) {
             return;
         }
+        let handler = self.toggle_from(head);
+        if let Some((old, handler)) = imp.head.replace(Some((head.clone(), handler))) {
+            if let Some((source, handler)) = handler {
+                source.disconnect(handler);
+            }
+            old.unparent();
+        }
+        head.insert_before(self, Some(&imp.drawer));
+    }
+
+    pub(crate) fn connect_late_opener(&self) {
+        let mut held = self.imp().head.borrow_mut();
+        if let Some((head, handler @ None)) = held.as_mut() {
+            *handler = self.toggle_from(head);
+        }
+    }
+
+    fn toggle_from(&self, head: &gtk4::Widget) -> Option<imp::Toggle> {
         let toggle = glib::clone!(
             #[weak(rename_to = expandable)]
             self,
             move || expandable.set_expanded(!expandable.expanded())
         );
-        let handler = match (
+        match (
             head.downcast_ref::<SplitRow>(),
             head.downcast_ref::<gtk4::Button>(),
             opener(head),
@@ -54,14 +72,7 @@ impl Expandable {
                 badge.connect_clicked(move |_| toggle()),
             )),
             (None, None, None) => None,
-        };
-        if let Some((old, handler)) = imp.head.replace(Some((head.clone(), handler))) {
-            if let Some((source, handler)) = handler {
-                source.disconnect(handler);
-            }
-            old.unparent();
         }
-        head.insert_before(self, Some(&imp.drawer));
     }
 
     pub fn head<T: IsA<gtk4::Widget>>(&self) -> Option<T> {

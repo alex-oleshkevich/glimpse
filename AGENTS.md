@@ -337,6 +337,8 @@ new example's drawer silently inert:
   because `SplitRow` exposes no `busy` property of its own and its `row` is a template child a
   blueprint cannot reach; a `$Row` can equally say `busy: true` in the blueprint and needs no class.
   Anything else carrying the class is reported, since it has no spinner to turn on.
+- `expanded` opens each `$Expandable` carrying `state__open`, since `expanded: true` in a blueprint is
+  applied before `[details]` exists and is dropped.
 - `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`,
   `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
   **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An

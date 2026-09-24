@@ -269,12 +269,13 @@ mod fixtures {
     use glimpse_widgets::{
         Action, Advisory, BatteryChargeLimit, BatteryDevice, BatteryPopover, Body,
         BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
-        DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
-        Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
-        NightLight, Notification, NotificationsPopover, NowPlaying, Pager, Player, PlayerList,
-        PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
-        PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow, TransportAction,
-        TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
+        Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
+        InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, Pager,
+        Player, PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter,
+        PrivacyPopover, PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow,
+        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
+        Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -298,6 +299,7 @@ mod fixtures {
     const SEVERITY: &str = "severity__";
     const ATTENTION: &str = "state__attention";
     const NOTICE: &str = "state__notice";
+    const EXPANDED: &str = "state__open";
 
     pub fn apply(
         name: &str,
@@ -346,6 +348,7 @@ mod fixtures {
         after(root);
         pager(root);
         busy(root);
+        expanded(root);
         indicators(root);
         scheme_toggle(root, sheets);
     }
@@ -1800,6 +1803,20 @@ mod fixtures {
                      straight from the blueprint",
                     widget.type_().name()
                 ),
+            }
+        }
+    }
+
+    fn expanded(root: &gtk4::Widget) {
+        for host in collect::<gtk4::Widget>(root) {
+            if !host.has_css_class(EXPANDED) {
+                continue;
+            }
+            match host.downcast_ref::<Expandable>() {
+                Some(expandable) => expandable.set_expanded(true),
+                None => collect::<Expandable>(&host)
+                    .iter()
+                    .for_each(|expandable| expandable.set_expanded(true)),
             }
         }
     }

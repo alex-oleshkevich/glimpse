@@ -116,4 +116,9 @@ impl BuildableImpl for Expandable {
             _ => self.parent_add_child(builder, child, kind),
         }
     }
+
+    fn parser_finished(&self, builder: &gtk4::Builder) {
+        self.parent_parser_finished(builder);
+        self.obj().connect_late_opener();
+    }
 }
