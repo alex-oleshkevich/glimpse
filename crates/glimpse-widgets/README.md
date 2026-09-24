@@ -351,10 +351,11 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 
 - Each entry is an `Expandable` keyed by connector; the card, the accordion and the receding come
   from `PopoverShell`, so the list stores no open state.
-- The detail is a `FactList` (make, model, serial, current mode, scale, position — a field the
-  snapshot does not carry is left out of the list, never shown as `Unknown`) followed by a
-  `SwitchRow` enabling the output. The connector is not repeated there: the head's own title
-  already carries it.
+- The head's lead icon is `computer-symbolic` for a built-in display and `video-display-symbolic`
+  otherwise; its subtitle is the current mode while enabled and `Off` while disabled.
+- The detail is the `SwitchRow` enabling the output followed by a `FactList` (connector, make,
+  model, serial, scale, position — a field the snapshot does not carry is left out, never shown as
+  `Unknown`). The mode is not a fact: a card holds only what the head does not already show.
 - The enable switch's own `locked` is set only when its own output is enabled **and** it is the sole
   one enabled — never on a disabled output, which would strand the user with no way to turn a
   display back on. `DisplayList` sets the property directly rather than walking the switch's

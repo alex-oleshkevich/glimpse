@@ -5703,6 +5703,7 @@ mod tests {
             current_mode: Some(mode.clone()),
             logical: Some(logical.clone()),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -5714,18 +5715,19 @@ mod tests {
             current_mode: Some(mode.clone()),
             logical: Some(logical.clone()),
             enabled: true,
+            built_in: false,
         };
 
         let detail_of = |holder: &Expandable| -> (FactList, SwitchRow) {
             let body = holder.details::<gtk4::Box>().expect("a detail body");
-            let facts = body
+            let switch = body
                 .first_child()
-                .and_downcast::<FactList>()
-                .expect("a fact list");
-            let switch = facts
-                .next_sibling()
                 .and_downcast::<SwitchRow>()
-                .expect("a switch row");
+                .expect("the enable switch leads the detail");
+            let facts = switch
+                .next_sibling()
+                .and_downcast::<FactList>()
+                .expect("the fact list follows the switch");
             (facts, switch)
         };
         let heads_of = |holders: &[Expandable]| -> Vec<Row> {
@@ -5740,6 +5742,16 @@ mod tests {
         for head in &heads {
             let _chevron = child_named::<gtk4::Image>(head, "drawer-chevron");
         }
+        assert_eq!(heads[0].lead_icon().as_deref(), Some("computer-symbolic"));
+        assert_eq!(
+            heads[1].lead_icon().as_deref(),
+            Some("video-display-symbolic")
+        );
+        assert_eq!(
+            heads[0].subtitle().as_deref(),
+            Some("1920 × 1080 · 60 Hz"),
+            "an enabled display's head carries its current mode"
+        );
 
         let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
         let (external_facts, external_switch) = detail_of(&holders[1]);
@@ -5747,11 +5759,18 @@ mod tests {
         let external_fact_rows: Vec<Row> = children_of(&external_facts);
         assert_eq!(
             built_in_fact_rows.len(),
-            4,
+            3,
             "the connector always leads the detail; a display with no make, model or serial omits \
              those lines rather than rendering Unknown or an empty row"
         );
-        assert_eq!(external_fact_rows.len(), 7);
+        assert_eq!(external_fact_rows.len(), 6);
+        assert!(
+            built_in_fact_rows
+                .iter()
+                .chain(&external_fact_rows)
+                .all(|row| row.title().as_deref() != Some("Current mode")),
+            "the current mode is the head's subtitle, never repeated as a fact"
+        );
         assert!(
             !built_in_fact_rows
                 .iter()
@@ -5800,6 +5819,12 @@ mod tests {
             "a disabled output is never locked, or its user would be stranded"
         );
         assert!(!off_switch.active());
+        let off_heads: Vec<Row> = heads_of(&holders);
+        assert_eq!(
+            off_heads[1].subtitle().as_deref(),
+            Some("Off"),
+            "a disabled display's head says so instead of a mode"
+        );
 
         let enable_requests = Rc::new(RefCell::new(Vec::<(String, bool)>::new()));
         displays.connect_enable_requested({
@@ -5860,6 +5885,11 @@ mod tests {
         displays.set_displays(&[hostile]);
         let holders: Vec<Expandable> = children_of(&displays);
         let (hostile_facts, _) = detail_of(&holders[0]);
+        assert_eq!(
+            heads_of(&holders)[0].subtitle(),
+            None,
+            "an enabled display with no current mode has no subtitle"
+        );
         assert!(
             children_of::<Row>(&hostile_facts).iter().all(|row| {
                 row.value()
@@ -5885,7 +5915,7 @@ mod tests {
         let facts_of = |holder: &Expandable| -> FactList {
             holder
                 .details::<gtk4::Box>()
-                .and_then(|body| body.first_child())
+                .and_then(|body| body.last_child())
                 .and_downcast::<FactList>()
                 .expect("a fact list")
         };
@@ -5918,7 +5948,7 @@ mod tests {
         for holder in &gate_holders_off {
             assert!(
                 facts_of(holder)
-                    .next_sibling()
+                    .prev_sibling()
                     .is_none_or(|switch| !switch.get_visible()),
                 "AC-2/AC-5: output_power false omits the enable switch entirely, even on the \
                  sole enabled output, rather than leaving it present and locked"
@@ -5926,12 +5956,12 @@ mod tests {
         }
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[0])).len(),
-            4,
+            3,
             "AC-3: the built-in display's own facts survive the gate"
         );
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[1])).len(),
-            7,
+            6,
             "AC-3: so do the external display's, connector through position"
         );
 

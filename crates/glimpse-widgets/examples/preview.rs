@@ -1027,6 +1027,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(2.0)),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -1038,6 +1039,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(1.25)),
             enabled: true,
+            built_in: false,
         };
 
         for list in tagged::<DisplayList>(root, "one") {
@@ -1188,6 +1190,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(2.0)),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -1199,6 +1202,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(1.25)),
             enabled: true,
+            built_in: false,
         };
 
         for popover in tagged::<DisplayPopover>(root, "one") {

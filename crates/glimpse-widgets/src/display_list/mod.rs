@@ -32,6 +32,7 @@ pub struct Display {
     pub current_mode: Option<DisplayMode>,
     pub logical: Option<DisplayLogical>,
     pub enabled: bool,
+    pub built_in: bool,
 }
 
 glib::wrapper! {
@@ -117,8 +118,8 @@ impl DisplayList {
         ));
 
         let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        body.append(&FactList::new());
         body.append(&switch);
+        body.append(&FactList::new());
 
         let holder = Expandable::new(&row);
         holder.set_details(Some(&body));
@@ -129,14 +130,16 @@ impl DisplayList {
 fn apply(holder: &Expandable, display: &Display, power: bool, last_enabled: bool) {
     if let Some(row) = holder.head::<Row>() {
         row.set_title(Some(heading(display).as_str()));
+        row.set_lead_icon(Some(icon_of(display)));
+        row.set_subtitle(subtitle_of(display));
     }
     let Some(body) = holder.details::<gtk4::Box>() else {
         return;
     };
-    if let Some(facts) = body.first_child().and_downcast::<FactList>() {
+    if let Some(facts) = body.last_child().and_downcast::<FactList>() {
         facts.set_facts(&facts_of(display));
     }
-    let Some(switch) = body.last_child().and_downcast::<SwitchRow>() else {
+    let Some(switch) = body.first_child().and_downcast::<SwitchRow>() else {
         return;
     };
     switch.set_visible(power);
@@ -156,6 +159,21 @@ fn heading(display: &Display) -> String {
     }
 }
 
+fn icon_of(display: &Display) -> &'static str {
+    match display.built_in {
+        true => "computer-symbolic",
+        false => "video-display-symbolic",
+    }
+}
+
+fn subtitle_of(display: &Display) -> Option<String> {
+    match (display.enabled, &display.current_mode) {
+        (false, _) => Some(gettext("Off")),
+        (true, Some(mode)) => Some(mode_summary(mode)),
+        (true, None) => None,
+    }
+}
+
 fn facts_of(display: &Display) -> Vec<Fact> {
     let mut facts = vec![Fact::new(gettext("Connector"), &display.connector)];
 
@@ -167,9 +185,6 @@ fn facts_of(display: &Display) -> Vec<Fact> {
     }
     if let Some(serial) = non_empty(display.serial.as_deref()) {
         facts.push(Fact::new(gettext("Serial"), serial));
-    }
-    if let Some(mode) = &display.current_mode {
-        facts.push(Fact::new(gettext("Current mode"), mode_summary(mode)));
     }
     if let Some(logical) = &display.logical {
         facts.push(Fact::new(gettext("Scale"), scale_summary(logical.scale)));
