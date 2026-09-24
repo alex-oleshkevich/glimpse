@@ -1022,6 +1022,16 @@ in the same process.
 holds `DAY` (6500 K) whenever the sun says so. A switch or an icon bound to `active()` lies all day;
 the schedule to read is `schedule != "off"`.
 
+**A Wayland client that stops reading its socket binds ghosts, September 2026.** `glimpse-sunset`
+read its connection only inside a roundtrip, and under `automatic` it runs none all day, because the
+light is handed back. Output hotplugs piled up as unread `Global`/`GlobalRemove` pairs. The first
+roundtrip at dusk dispatched a stale `Global`, bound `wl_output` 44 that had been gone for hours,
+and niri answered `wl_display.error` *"global wl_output (44) is unavailable"*, killing the
+connection. That error was read out of the dead process's socket with `pidfd_getfd`. The provider
+stayed up with a dead connection, and every tick after that reported degraded. Outputs are now bound
+only after a drain, and a dead connection is replaced. Any glimpse client that holds a connection it
+does not dispatch continuously has the same exposure.
+
 **Output power and richer output info, September 2026.**
 
 - **niri STORES the output scale rather than recomputing it** — three samples of `niri msg -j

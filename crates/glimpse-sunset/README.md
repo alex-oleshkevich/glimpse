@@ -102,8 +102,13 @@ Both were measured, not feared.
 `gammastep` or `hyprsunset` makes every output answer `failed`, and the service reports
 `degraded: another gamma client holds the outputs` and stops there. It does **not** retry in a spin;
 the next scheduled tick tries again, which is a probe once a minute rather than a flicker. An output
-plugged in later is picked up the same way — the registry event arrives on the roundtrip a tick
-already does, so there is no timer behind hotplug either.
+plugged in later is picked up the same way, with no timer behind hotplug either.
+
+**A `wl_output` is bound only after a roundtrip has drained the queue.** Nothing reads the socket
+while the light is handed back — all day under `automatic` — so hotplug events wait there for hours.
+Binding straight from the `Global` event binds outputs that are long gone, and niri answers with a
+protocol error that kills the connection. Bound from `arm` instead, an output that came and went
+never gets bound. A connection that is dead anyway is replaced on the next apply or reset.
 
 **The ramp table is a `memfd`, never a file.** `set_gamma` wants a descriptor, so a path in `/tmp`
 would only be something to unlink again; `memfd_create` has no name in any directory, no window

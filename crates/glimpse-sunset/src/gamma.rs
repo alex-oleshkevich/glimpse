@@ -15,6 +15,7 @@ use wayland_protocols_wlr::gamma_control::v1::client::{
 pub struct WaylandGamma {
     connection: Connection,
     queue: EventQueue<Outputs>,
+    registry: wl_registry::WlRegistry,
     outputs: Outputs,
 }
 
@@ -42,7 +43,7 @@ impl WaylandGamma {
         let connection =
             Connection::connect_to_env().map_err(|error| Unavailable::Unreachable(say(error)))?;
         let mut queue = connection.new_event_queue();
-        connection.display().get_registry(&queue.handle(), ());
+        let registry = connection.display().get_registry(&queue.handle(), ());
 
         let mut outputs = Outputs::default();
         queue
@@ -55,8 +56,17 @@ impl WaylandGamma {
         Ok(Self {
             connection,
             queue,
+            registry,
             outputs,
         })
+    }
+
+    fn revive(&mut self) -> Result<&mut Self, String> {
+        if let Err(error) = self.connection.flush() {
+            tracing::warn!(%error, "the compositor connection is dead, reconnecting");
+            *self = Self::connect().map_err(say)?;
+        }
+        Ok(self)
     }
 
     fn set(&mut self, kelvin: u32) -> Result<(), String> {
@@ -97,15 +107,16 @@ impl WaylandGamma {
         Ok(())
     }
 
-    /// Takes a control for every output that does not have one, which is also how an output plugged
-    /// in since the last apply gets one. There is no timer behind this: the registry event arrives
-    /// on `set`'s own roundtrip, so a hotplug is armed on the next tick rather than polled for —
-    /// which is why there is nothing to ask the compositor when nothing is missing.
     fn arm(&mut self) -> Result<(), String> {
         let Some(manager) = self.outputs.manager.clone() else {
             return Err("the compositor does not offer gamma control".to_owned());
         };
+        self.queue.roundtrip(&mut self.outputs).map_err(say)?;
         let handle = self.queue.handle();
+        for (name, version) in std::mem::take(&mut self.outputs.offered) {
+            let output = self.registry.bind(name, version.min(4), &handle, ());
+            self.outputs.outputs.push((name, output));
+        }
         let missing: Vec<(u32, wl_output::WlOutput)> = self
             .outputs
             .outputs
@@ -151,17 +162,18 @@ impl WaylandGamma {
 /// take the runtime's worker with it. It needs the multi-threaded runtime, which every binary uses.
 impl Gamma for WaylandGamma {
     fn apply(&mut self, kelvin: u32) -> Result<(), String> {
-        tokio::task::block_in_place(|| self.set(kelvin))
+        tokio::task::block_in_place(|| self.revive()?.set(kelvin))
     }
 
     fn reset(&mut self) -> Result<(), String> {
-        tokio::task::block_in_place(|| self.release())
+        tokio::task::block_in_place(|| self.revive()?.release())
     }
 }
 
 #[derive(Default)]
 struct Outputs {
     manager: Option<ZwlrGammaControlManagerV1>,
+    offered: Vec<(u32, u32)>,
     outputs: Vec<(u32, wl_output::WlOutput)>,
     controls: HashMap<u32, Control>,
     taken: bool,
@@ -205,13 +217,11 @@ impl Dispatch<wl_registry::WlRegistry, ()> for Outputs {
                 "zwlr_gamma_control_manager_v1" => {
                     state.manager = Some(registry.bind(name, version.min(1), handle, ()));
                 }
-                "wl_output" => {
-                    let output = registry.bind(name, version.min(4), handle, ());
-                    state.outputs.push((name, output));
-                }
+                "wl_output" => state.offered.push((name, version)),
                 _ => {}
             },
             wl_registry::Event::GlobalRemove { name } => {
+                state.offered.retain(|(id, _)| *id != name);
                 state.outputs.retain(|(id, _)| *id != name);
                 // wayland-rs sends no destructor on drop, so a control merely forgotten stays
                 // alive compositor-side — the same rule `release` and `discard_failed` follow.
