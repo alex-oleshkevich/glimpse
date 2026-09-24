@@ -11,7 +11,7 @@ set positional-arguments
 # terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
 elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
 
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler"
 
 [doc("list recipes")]
 default:
@@ -186,6 +186,10 @@ run-weather *ARGS:
 [doc("run the color picker: pick a color from the screen and print it")]
 run-picker *ARGS:
     cargo run -p glimpse-picker -- "$@"
+
+[doc("run the screen ruler: measure distances on the screen and print each segment")]
+run-ruler *ARGS:
+    cargo run -p glimpse-ruler -- "$@"
 
 [doc("run the CLI")]
 ctl *ARGS:

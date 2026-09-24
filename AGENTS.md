@@ -379,8 +379,10 @@ increments from Rust, and assert them, because nothing in the template guards th
 ## Translations
 
 One gettext domain, `glimpse`, for all binaries. `glimpse-utils` owns it: `init_translations()`
-binds it, and the panel, notification popup, lock screen and wallpaper call that once in `run`. The
-daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal.
+binds it, and the panel, notification popup, lock screen, wallpaper and `glimpse-ruler` call that
+once in `run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and
+a terminal. `glimpse-picker` does not either — its only on-screen text is a raw color value, never a
+phrase.
 
 ```bash
 just extract-strings     # rewrite po/glimpse.pot from the tree

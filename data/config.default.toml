@@ -90,6 +90,11 @@ limit = 8
 lens-radius = 106
 max-zoom = 30
 
+[ruler]
+history-limit = 8
+lens-radius = 106
+max-zoom = 30
+
 [weather]
 provider = "open-meteo"
 poll-interval = 900

@@ -639,6 +639,32 @@
     transform: rotate(90deg);
 }
 
+.ruler-popover .popover-shell {
+    border-radius: 1.5rem;
+    padding: 1.1rem;
+}
+
+.ruler-popover .hero__title {
+    font-size: var(--gl-text-title);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-row .row__title {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.ruler-row .row__value {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.ruler-history .row {
+    border-radius: 0.75rem;
+    min-height: 3.2rem;
+}
+
 .clipboard-list picture {
     border-radius: 0.25rem;
     min-width: 1.5rem;
@@ -1612,6 +1638,44 @@ picker-lens {
     font-family: monospace;
     font-variant-numeric: tabular-nums;
     font-size: var(--gl-text-body);
+}
+
+window.ruler {
+    background-color: transparent;
+}
+
+.ruler__track {
+    min-width: 2.6rem;
+    min-height: 1.4rem;
+    background-color: alpha(var(--gl-surface), 0.7);
+    color: var(--gl-muted);
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--gl-text-caption);
+}
+
+.ruler__marks {
+    color: var(--gl-accent);
+}
+
+.ruler__pill {
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--gl-radius);
+    border: 1px solid var(--gl-border);
+    background-color: var(--gl-surface);
+    color: var(--gl-surface-fg);
+    box-shadow: var(--gl-elevation-floating);
+}
+
+.ruler__value {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--gl-text-body);
+}
+
+.ruler__value--muted {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
 }
 
 .indicator__extension swatch {

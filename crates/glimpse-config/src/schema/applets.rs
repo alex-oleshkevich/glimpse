@@ -101,6 +101,9 @@ pub enum Kind {
     Privacy(Privacy),
     /// Removable drives and their volumes, with mount, unmount and eject in its popover.
     Removable(Removable),
+    /// Measures on-screen pixel distances. A left click opens the lens to measure from the
+    /// screen. Needs `glimpse-ruler`.
+    Ruler {},
     /// Log out, suspend, restart and shut down.
     Session {},
     /// Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples

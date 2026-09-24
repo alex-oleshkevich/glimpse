@@ -609,6 +609,7 @@ fn reconcile_panels(
                 removable: services.removable.clone(),
                 privacy: services.privacy.clone(),
                 system_monitor: services.system_monitor.clone(),
+                ruler: services.ruler.clone(),
                 dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-23 23:02+0200\n"
+"POT-Creation-Date: 2026-09-24 12:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -175,6 +175,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:116
 #: crates/glimpse-panel/src/applets/network/render.rs:96
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:121
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:99
 msgid "That did not work."
 msgstr ""
 
@@ -333,7 +334,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:65
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
-#: crates/glimpse-widgets/src/lib.rs:279
+#: crates/glimpse-widgets/src/lib.rs:283
 msgid "{percent}%"
 msgstr ""
 
@@ -1682,6 +1683,26 @@ msgstr ""
 msgid "The drive could not complete that."
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:74
+msgid "Ruler"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:84
+msgid "Could not measure the screen"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:95
+msgid "The ruler could not start, capture the screen or reach the clipboard."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:152
+msgid "Could not copy that measurement"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/ruler/render.rs:25
+msgid "Measure the screen"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/session/render.rs:24
 msgid "Blocked by an active inhibitor."
 msgstr ""
@@ -2000,6 +2021,16 @@ msgid_plural "{count} windows"
 msgstr[0] ""
 msgstr[1] ""
 
+#: crates/glimpse-ruler/src/session.rs:290
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-ruler/src/session.rs:303
+msgid "segment {length}px · {angle}°"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:75
 msgid "Applications"
 msgstr ""
@@ -2234,7 +2265,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:240
+#: crates/glimpse-widgets/src/lib.rs:244
 msgid "Play"
 msgstr ""
 
@@ -2262,6 +2293,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/removable_popover.blp:15
 msgid "Drives and volumes"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:25
+msgid "History"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/scrubber.blp:17
@@ -2458,7 +2493,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:239
+#: crates/glimpse-widgets/src/lib.rs:243
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:175
 msgid "Pause"
 msgstr ""
@@ -2541,6 +2576,14 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:188
 msgid "Unmount"
+msgstr ""
+
+#: crates/glimpse-widgets/src/ruler_popover/mod.rs:36
+msgid "No measurement yet"
+msgstr ""
+
+#: crates/glimpse-widgets/src/ruler_popover/mod.rs:38
+msgid "Right-click the indicator to measure"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:117

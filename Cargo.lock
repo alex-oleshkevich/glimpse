@@ -1434,6 +1434,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-ruler"
+version = "0.16.0"
+dependencies = [
+ "anstream",
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "gettext-rs",
+ "glib",
+ "glimpse-config",
+ "glimpse-utils",
+ "glimpse-widgets",
+ "gtk4",
+ "gtk4-layer-shell",
+ "libadwaita",
+ "rustix",
+ "serde_json",
+ "shadow-rs",
+ "thiserror",
+ "tracing",
+ "wayland-client",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
 name = "glimpse-services"
 version = "0.16.0"
 dependencies = [

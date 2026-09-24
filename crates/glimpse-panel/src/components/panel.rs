@@ -7,7 +7,7 @@ use glimpse_dbus::{
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
     ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
-    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle, RulerHandle,
     SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use glimpse_widgets::blur::{Blur, Shape};
@@ -91,6 +91,7 @@ pub struct Config {
     pub removable: RemovableHandle,
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
+    pub ruler: RulerHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -302,6 +303,7 @@ impl Panel {
                                     &config.removable,
                                     &config.privacy,
                                     &config.system_monitor,
+                                    &config.ruler,
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(
