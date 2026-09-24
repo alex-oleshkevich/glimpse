@@ -273,18 +273,35 @@ pub fn nowcast(place: &PlaceWeather, now: DateTime<Utc>) -> Option<Advisory> {
         true => gettext("Snow"),
         false => gettext("Rain"),
     };
-    let count = minutes.max(0) as u32;
+    let minutes = minutes.max(0) as u32;
+    let (count, title) = match minutes {
+        0..60 => (
+            minutes,
+            ngettext(
+                "{what} starting in {count} minute",
+                "{what} starting in {count} minutes",
+                minutes,
+            ),
+        ),
+        _ => {
+            let hours = (minutes + 30) / 60;
+            (
+                hours,
+                ngettext(
+                    "{what} starting in {count} hour",
+                    "{what} starting in {count} hours",
+                    hours,
+                ),
+            )
+        }
+    };
 
     Some(Advisory {
         severity: Severity::Info,
         icon_name: icon(hour.condition, hour.is_day).to_owned(),
-        title: ngettext(
-            "{what} starting in {count} minute",
-            "{what} starting in {count} minutes",
-            count,
-        )
-        .replace("{what}", &what)
-        .replace("{count}", &count.to_string()),
+        title: title
+            .replace("{what}", &what)
+            .replace("{count}", &count.to_string()),
         subtitle: wording(hour.condition),
         page: None,
     })
@@ -554,6 +571,22 @@ mod tests {
         let mut clear = place();
         clear.hours = vec![hour(0, Condition::ClearSky), hour(60, Condition::Overcast)];
         assert!(nowcast(&clear, at(12, 0)).is_none());
+    }
+
+    #[test]
+    fn a_nowcast_an_hour_or_more_away_is_told_in_hours() {
+        let title = |minutes| {
+            let mut dry = place();
+            dry.hours = vec![
+                hour(0, Condition::PartlyCloudy),
+                hour(minutes, Condition::LightRain),
+            ];
+            nowcast(&dry, at(12, 0)).expect("rain is coming").title
+        };
+        assert_eq!(title(59), "Rain starting in 59 minutes");
+        assert_eq!(title(60), "Rain starting in 1 hour");
+        assert_eq!(title(146), "Rain starting in 2 hours");
+        assert_eq!(title(165), "Rain starting in 3 hours");
     }
 
     #[test]
