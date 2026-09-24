@@ -40,10 +40,13 @@ impl PopoverShell {
         let content_box = &self.imp().content_box;
         clear_children(content_box);
         content_box.append(content);
+        self.watch(content);
+        self.settle();
     }
 
     pub fn clear_content(&self) {
         clear_children(&self.imp().content_box);
+        self.settle();
     }
 
     pub fn append_to_footer(&self, widget: &impl IsA<gtk4::Widget>) {
@@ -136,10 +139,16 @@ impl PopoverShell {
         imp.hero_box.set_visible(hero_shown);
         imp.hero_rule.set_visible(hero_shown);
 
+        let content_shown = shows_anything(&imp.content_box);
+        imp.content_box.set_visible(content_shown);
+
         let footer_shown = shows_anything(&imp.footer_box);
         imp.footer_box.set_visible(footer_shown);
-        imp.footer_rule
-            .set_visible(footer_shown && !imp.footer_rule_suppressed.get());
+        imp.footer_rule.set_visible(
+            footer_shown
+                && !imp.footer_rule_suppressed.get()
+                && (content_shown || !hero_shown),
+        );
     }
 }
 

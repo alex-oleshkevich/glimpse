@@ -6779,6 +6779,28 @@ mod tests {
         assert!(expandable.expanded(), "a plain row opens its own details");
         head.emit_by_name::<()>("clicked", &[]);
         assert!(!expandable.expanded(), "and the same row closes them");
+
+        let bare = PopoverShell::new();
+        let section = gtk4::Label::new(Some("Other players"));
+        bare.set_hero(&gtk4::Label::new(Some("Now playing")));
+        bare.set_content(&section);
+        bare.append_to_footer(&Row::new());
+        let rules = |shell: &PopoverShell| {
+            (
+                shell.imp().hero_rule.get_visible(),
+                shell.imp().footer_rule.get_visible(),
+            )
+        };
+        assert_eq!(rules(&bare), (true, true));
+        section.set_visible(false);
+        assert_eq!(
+            rules(&bare),
+            (true, false),
+            "an empty content slot leaves one rule between hero and footer, not two"
+        );
+        assert!(!bare.imp().content_box.get_visible());
+        section.set_visible(true);
+        assert_eq!(rules(&bare), (true, true));
     }
 
     /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these
