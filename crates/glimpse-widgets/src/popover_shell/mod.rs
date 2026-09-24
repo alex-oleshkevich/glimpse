@@ -145,9 +145,7 @@ impl PopoverShell {
         let footer_shown = shows_anything(&imp.footer_box);
         imp.footer_box.set_visible(footer_shown);
         imp.footer_rule.set_visible(
-            footer_shown
-                && !imp.footer_rule_suppressed.get()
-                && (content_shown || !hero_shown),
+            footer_shown && !imp.footer_rule_suppressed.get() && (content_shown || !hero_shown),
         );
     }
 }
