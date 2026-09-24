@@ -24,6 +24,7 @@ connections they run on.
 | `power_profiles`          | system  | power-profiles-daemon                    |
 | `udisks2`                 | system  | UDisks2 removable media                  |
 | `upower`                  | system  | UPower devices, decoded from one `GetAll`; `EnableChargeThreshold` |
+| `kdeconnect`              | session | `kdeconnectd` devices and their plugin objects; proxies are hand-written, because the daemon's own introspection is invalid |
 | `mpris`                   | session | MPRIS players                            |
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
 | `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
