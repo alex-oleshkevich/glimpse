@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 11:52+0200\n"
+"POT-Creation-Date: 2026-09-24 12:09+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -158,25 +158,35 @@ msgstr ""
 msgid "Open event"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:186
+#: crates/glimpse-panel/src/applets/agenda.rs:191
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Calendar"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:195
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
+msgid "Organizer"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:208
 msgid "{minutes} min"
 msgstr "{minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/agenda.rs:214
 #: crates/glimpse-panel/src/applets/battery/render.rs:247
 msgid "{hours} h"
 msgstr "{hours} ч"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:193
+#: crates/glimpse-panel/src/applets/agenda.rs:215
 #: crates/glimpse-panel/src/applets/weather/render.rs:316
 msgid "{hours} h {minutes} min"
 msgstr "{hours} ч {minutes} мин"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:201
+#: crates/glimpse-panel/src/applets/agenda.rs:223
 msgid "{days} d"
 msgstr "{days} д"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:202
+#: crates/glimpse-panel/src/applets/agenda.rs:224
 msgid "{days} d {hours} h"
 msgstr "{days} д {hours} ч"
 
@@ -857,16 +867,6 @@ msgstr "Завтра"
 msgid "Yesterday"
 msgstr "Вчера"
 
-#: crates/glimpse-panel/src/applets/clock/popover.rs:96
-#: crates/glimpse-panel/src/applets/next_event/render.rs:232
-msgid "Calendar"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/clock/popover.rs:100
-#: crates/glimpse-panel/src/applets/next_event/render.rs:244
-msgid "Organizer"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:84
 #: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
 msgid "Color picker"
@@ -1230,6 +1230,7 @@ msgid "NetworkManager refused that."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:161
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:242
 msgid "Open"
 msgstr ""
 
@@ -1310,51 +1311,33 @@ msgstr "ч"
 msgid "d"
 msgstr "д"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:208
+#: crates/glimpse-panel/src/applets/next_event/render.rs:212
 msgid "Clashes with {events}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:235
-#: crates/glimpse-panel/src/applets/printing/render.rs:145
-#: crates/glimpse-panel/src/applets/privacy/render.rs:72
-#, fuzzy
-#| msgid "Notifications"
-msgid "Location"
-msgstr "Уведомления"
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:239
-#, fuzzy
-#| msgid "Notifications"
-msgid "Duration"
-msgstr "Уведомления"
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:250
+#: crates/glimpse-panel/src/applets/next_event/render.rs:245
 msgid "Guests"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:251
+#: crates/glimpse-panel/src/applets/next_event/render.rs:246
 msgid "{total} · {accepted} accepted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:257
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
 msgid "Status"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:259
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
 msgid "Tentative"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:260
-msgid "Confirmed"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/next_event/render.rs:264
+#: crates/glimpse-panel/src/applets/next_event/render.rs:255
 #, fuzzy
 #| msgid "Notification"
 msgid "Description"
 msgstr "Уведомление"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:267
+#: crates/glimpse-panel/src/applets/next_event/render.rs:258
 msgid "Conflicts"
 msgstr ""
 
@@ -1480,6 +1463,13 @@ msgstr ""
 msgid "Aborted"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/printing/render.rs:145
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#, fuzzy
+#| msgid "Notifications"
+msgid "Location"
+msgstr "Уведомления"
+
 #: crates/glimpse-panel/src/applets/printing/render.rs:162
 #: crates/glimpse-panel/src/applets/printing/render.rs:401
 msgid "Not accepting jobs"
@@ -1540,11 +1530,15 @@ msgstr "{count} рабочий стол"
 msgid "Removable"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:136
+#: crates/glimpse-panel/src/applets/removable/render.rs:137
+msgid "Size"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:146
 msgid "No media"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:139
+#: crates/glimpse-panel/src/applets/removable/render.rs:149
 #, fuzzy
 #| msgid "{count}m"
 msgid "{count} volume"
@@ -1553,55 +1547,71 @@ msgstr[0] "{count} мин"
 msgstr[1] "{count} мин"
 msgstr[2] "{count} мин"
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:154
+#: crates/glimpse-panel/src/applets/removable/render.rs:164
 msgid "{available} free of {total}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:166
+#: crates/glimpse-panel/src/applets/removable/render.rs:182
 msgid "No space left"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:171
+#: crates/glimpse-panel/src/applets/removable/render.rs:185
 msgid "Not mounted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:246
+#: crates/glimpse-panel/src/applets/removable/render.rs:196
+msgid "Filesystem"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:200
+msgid "Mounted at"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:203
+msgid "Access"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:203
+msgid "Read-only"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:277
 msgid "That drive is not mounted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:247
+#: crates/glimpse-panel/src/applets/removable/render.rs:278
 msgid "The drive is busy with something else."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:248
+#: crates/glimpse-panel/src/applets/removable/render.rs:279
 msgid "That drive is already mounted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:249
+#: crates/glimpse-panel/src/applets/removable/render.rs:280
 msgid "This computer is not authorized to do that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:250
+#: crates/glimpse-panel/src/applets/removable/render.rs:281
 msgid "That is not supported for this drive."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:251
+#: crates/glimpse-panel/src/applets/removable/render.rs:282
 msgid "That option is not permitted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:252
+#: crates/glimpse-panel/src/applets/removable/render.rs:283
 msgid "The drive did not respond in time."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:253
+#: crates/glimpse-panel/src/applets/removable/render.rs:284
 msgid "That would wake a sleeping drive."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:254
+#: crates/glimpse-panel/src/applets/removable/render.rs:285
 msgid "The action was cancelled."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:255
+#: crates/glimpse-panel/src/applets/removable/render.rs:286
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -2056,6 +2066,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:43
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:197
 msgid "Details"
 msgstr "Подробности"
 
@@ -2345,11 +2356,11 @@ msgstr ""
 msgid "Stop sharing"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:178
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:246
 msgid "Eject"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:188
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:249
 msgid "Unmount"
 msgstr ""
 
@@ -2370,6 +2381,11 @@ msgid_plural "{count} workspaces"
 msgstr[0] "{count} рабочий стол"
 msgstr[1] "{count} рабочих стола"
 msgstr[2] "{count} рабочих столов"
+
+#, fuzzy
+#~| msgid "Notifications"
+#~ msgid "Duration"
+#~ msgstr "Уведомления"
 
 #~ msgid "Nothing scheduled"
 #~ msgstr "Ничего не запланировано"

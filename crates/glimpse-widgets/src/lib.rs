@@ -7058,59 +7058,55 @@ mod tests {
             "an untouched popover lists no device"
         );
 
-        // AC-1, a drive with two volumes carries a real eject control on the drive row alone; AC-2,
-        // its mounted volume carries a real unmount control; AC-3, that mounted volume's body stays
-        // clickable.
-        popover.set_devices(&[RemovableDrive {
+        let photos = |mounted: bool| RemovableVolume {
+            id: "photos".to_owned(),
+            title: "Photos".to_owned(),
+            subtitle: "24 GB free of 64 GB".to_owned(),
+            fraction: mounted.then_some(0.625),
+            mounted,
+            facts: vec![Fact::new("Filesystem", "exfat")],
+            ..Default::default()
+        };
+        let cruzer = |photos: RemovableVolume, backup_busy: bool| RemovableDrive {
             id: "cruzer".to_owned(),
             title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
+            subtitle: "2 volumes".to_owned(),
             ejectable: true,
-            activatable: true,
+            facts: vec![Fact::new("Size", "128 GB")],
             volumes: vec![
-                RemovableVolume {
-                    id: "photos".to_owned(),
-                    title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
-                    activatable: true,
-                    fraction: Some(0.625),
-                    mounted: true,
-                    ..Default::default()
-                },
+                photos,
                 RemovableVolume {
                     id: "backup".to_owned(),
                     title: "Backup".to_owned(),
                     subtitle: "Not mounted".to_owned(),
-                    activatable: true,
+                    busy: backup_busy,
                     ..Default::default()
                 },
             ],
             ..Default::default()
-        }]);
-        assert!(imp.devices.get_visible());
-        let cells = children_of::<gtk4::Box>(&*imp.devices_rows);
-        assert_eq!(cells.len(), 3, "one drive header plus its two volumes");
-
-        let split_of = |cell: &gtk4::Box| cell.first_child().and_downcast::<SplitRow>();
-        let row_of = |cell: &gtk4::Box| -> Row {
-            match split_of(cell) {
-                Some(split) => split.row(),
-                None => cell.first_child().and_downcast::<Row>().expect("a row"),
+        };
+        let expandables = || children_of::<Expandable>(&*imp.devices_rows);
+        let card_rows = |holder: &Expandable| {
+            let Some(card) = holder.details::<gtk4::Box>() else {
+                return Vec::new();
+            };
+            let mut rows = children_of::<Row>(&card);
+            for facts in children_of::<FactList>(&card) {
+                rows.extend(children_of::<Row>(&facts));
             }
+            rows
+        };
+        let titled = |holder: &Expandable, title: &str| {
+            card_rows(holder)
+                .into_iter()
+                .find(|row| row.title().as_deref() == Some(title))
         };
 
-        let header_split = split_of(&cells[0]).expect("AC-1: the drive row is a real $SplitRow");
-        assert_eq!(
-            header_split.row().title().as_deref(),
-            Some("SanDisk Cruzer")
-        );
-        assert_eq!(cells[0].margin_start(), 0);
-        assert_eq!(
-            header_split.detail_icon(),
-            "media-eject-symbolic",
-            "the drive row's trailing control ejects"
-        );
-
+        let activated = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id.to_owned())
+        });
         let ejected = Rc::new(RefCell::new(None));
         popover.connect_eject({
             let ejected = Rc::clone(&ejected);
@@ -7118,23 +7114,6 @@ mod tests {
                 ejected.replace(Some(id.to_owned()));
             }
         });
-        header_split.detail().emit_by_name::<()>("clicked", &[]);
-        assert_eq!(
-            ejected.borrow().as_deref(),
-            Some("cruzer"),
-            "AC-1: the trailing button emits a typed signal carrying the drive id"
-        );
-
-        assert!(
-            split_of(&cells[1]).is_some(),
-            "AC-2: a mounted volume carries a real trailing control"
-        );
-        assert_eq!(
-            cells[1].margin_start(),
-            24,
-            "a volume nests under its drive"
-        );
-
         let unmounted = Rc::new(RefCell::new(None));
         popover.connect_unmount({
             let unmounted = Rc::clone(&unmounted);
@@ -7142,126 +7121,156 @@ mod tests {
                 unmounted.replace(Some(id.to_owned()));
             }
         });
-        split_of(&cells[1])
-            .expect("a split row")
-            .detail()
+
+        popover.set_devices(&[cruzer(photos(true), false)]);
+        assert!(imp.devices.get_visible());
+        let cells = expandables();
+        assert_eq!(cells.len(), 3, "one drive header plus its two volumes");
+        assert_eq!(cells[0].margin_start(), 0);
+        assert_eq!(
+            cells[1].margin_start(),
+            24,
+            "a volume nests under its drive"
+        );
+
+        let header = cells[0].head::<Row>().expect("the drive row opens a card");
+        header.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[0].expanded(), "a drive row opens its card");
+        titled(&cells[0], "Eject")
+            .expect("the drive's card ejects")
             .emit_by_name::<()>("clicked", &[]);
-        assert_eq!(
-            unmounted.borrow().as_deref(),
-            Some("photos"),
-            "AC-2: the trailing button emits a typed signal carrying the volume id"
-        );
-
-        // AC-6: an unmounted volume offers no trailing control at all.
+        assert_eq!(ejected.borrow().as_deref(), Some("cruzer"));
         assert!(
-            split_of(&cells[2]).is_none(),
-            "AC-6: an unmounted volume is a plain row with no trailing control"
+            titled(&cells[0], "Size").is_some(),
+            "the drive's facts sit in its card"
         );
 
-        // AC-4: a capacity bar renders under the row, full width, never in the trail slot, and no
-        // percentage text is set anywhere.
-        let photos_bar = cells[1]
-            .last_child()
+        let mounted = cells[1]
+            .head::<Row>()
+            .expect("a mounted volume is a plain opener");
+        mounted.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[1].expanded(), "a volume in use opens its card");
+        assert!(
+            activated.borrow().is_empty(),
+            "opening the card is not opening the files"
+        );
+        let bar = cells[1]
+            .details::<gtk4::Box>()
+            .and_then(|card| card.first_child())
             .and_downcast::<gtk4::ProgressBar>()
-            .expect("a progress bar under the mounted volume");
-        assert!((photos_bar.fraction() - 0.625).abs() < f64::EPSILON);
+            .expect("the capacity bar leads the card");
+        assert!((bar.fraction() - 0.625).abs() < f64::EPSILON);
+        titled(&cells[1], "Open")
+            .expect("an Open row")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(activated.borrow().as_slice(), ["cruzer/photos"]);
+        titled(&cells[1], "Unmount")
+            .expect("a volume of a shared drive unmounts rather than ejects")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(unmounted.borrow().as_deref(), Some("photos"));
+        assert!(titled(&cells[1], "Eject").is_none());
+
+        let idle = cells[2]
+            .head::<Row>()
+            .expect("nothing to show makes a plain row");
         assert!(
-            row_of(&cells[1]).activatable(),
-            "AC-3: a mounted volume's body stays a click target even under a capacity bar"
+            cells[2].details::<gtk4::Widget>().is_none(),
+            "an unmounted volume with no facts has no card"
         );
-        assert!(
-            cells[2]
-                .last_child()
-                .and_downcast::<gtk4::ProgressBar>()
-                .is_none(),
-            "an unmounted volume with no known usage carries no bar"
+        idle.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            activated.borrow().last().map(String::as_str),
+            Some("cruzer/backup"),
+            "clicking an unmounted volume mounts it"
         );
 
-        // AC-6 continued: an unchanged list reuses the same widget instances rather than tearing
-        // down and rebuilding the trailing control on every dress.
-        let header_widget = cells[0].first_child();
-        let photos_widget = cells[1].first_child();
+        let card = cells[1].details::<gtk4::Widget>();
+        let mut grown = photos(true);
+        grown.fraction = Some(0.75);
+        popover.set_devices(&[cruzer(grown, true)]);
+        let after = expandables();
+        assert_eq!(after[1], cells[1], "an unrelated update keeps the same row");
+        assert_eq!(
+            after[1].details::<gtk4::Widget>(),
+            card,
+            "a capacity change updates the bar in place rather than rebuilding the card"
+        );
+        assert!((bar.fraction() - 0.75).abs() < f64::EPSILON);
+        assert!(
+            after[2].head::<Row>().expect("a row").busy(),
+            "work in flight spins"
+        );
+
+        popover.set_devices(&[cruzer(photos(false), false)]);
+        let after = expandables();
+        let split = after[1]
+            .head::<SplitRow>()
+            .expect("an unmounted volume with a card mounts from its row");
+        assert!(!after[1].expanded(), "a successful unmount closes the card");
+        split.row().emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            activated.borrow().last().map(String::as_str),
+            Some("cruzer/photos")
+        );
+        split.detail().emit_by_name::<()>("clicked", &[]);
+        assert!(after[1].expanded(), "the chevron opens the card");
+        assert!(titled(&after[1], "Open").is_none());
+        assert!(titled(&after[1], "Unmount").is_none());
+
         popover.set_devices(&[RemovableDrive {
-            id: "cruzer".to_owned(),
-            title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
+            id: "stick".to_owned(),
+            title: "KINGSTON".to_owned(),
+            subtitle: "No space left".to_owned(),
             ejectable: true,
-            activatable: true,
-            volumes: vec![
-                RemovableVolume {
-                    id: "photos".to_owned(),
-                    title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
-                    activatable: true,
-                    fraction: Some(0.625),
-                    mounted: true,
-                    ..Default::default()
-                },
-                RemovableVolume {
-                    id: "backup".to_owned(),
-                    title: "Backup".to_owned(),
-                    subtitle: "Not mounted".to_owned(),
-                    activatable: true,
-                    busy: true,
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        }]);
-        let cells_after = children_of::<gtk4::Box>(&*imp.devices_rows);
-        assert_eq!(
-            cells_after[0].first_child(),
-            header_widget,
-            "an unrelated update reuses the same eject control rather than rebuilding it"
-        );
-        assert_eq!(
-            cells_after[1].first_child(),
-            photos_widget,
-            "an unrelated update reuses the same unmount control rather than rebuilding it"
-        );
-
-        // AC-5: work in flight is a spinner, never a word, and it suppresses the trailing control.
-        popover.set_devices(&[RemovableDrive {
-            id: "busy".to_owned(),
-            title: "External SSD".to_owned(),
-            busy: true,
-            activatable: true,
             volumes: vec![RemovableVolume {
                 id: "vol".to_owned(),
-                title: "External SSD".to_owned(),
-                subtitle: "210 GB free of 500 GB \u{b7} ext4".to_owned(),
-                activatable: true,
-                busy: true,
+                title: "KINGSTON".to_owned(),
+                subtitle: "No space left".to_owned(),
                 mounted: true,
+                warning: true,
                 ..Default::default()
             }],
             ..Default::default()
         }]);
-        let busy_cells = children_of::<gtk4::Box>(&*imp.devices_rows);
-        let busy_row = row_of(&busy_cells[0]);
-        assert!(busy_row.busy());
-        assert_eq!(
-            busy_row.subtitle().as_deref(),
-            Some("210 GB free of 500 GB \u{b7} ext4")
-        );
+        let single = &expandables()[0];
         assert!(
-            split_of(&busy_cells[0]).is_none(),
-            "busy suppresses the trailing control rather than layering a word over it"
+            single
+                .head::<Row>()
+                .expect("a row")
+                .has_css_class("row--warning")
+        );
+        titled(single, "Eject")
+            .expect("a drive's only volume ejects the drive")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(ejected.borrow().as_deref(), Some("stick"));
+        assert!(
+            card_rows(single)
+                .iter()
+                .all(|row| !row.has_css_class("row--destructive")),
+            "nothing in the card is red"
         );
 
-        // AC-7: a hostile multibyte label is capped by characters, not bytes, and the card holds
-        // its width.
+        popover.set_devices(&[RemovableDrive {
+            id: "dvd".to_owned(),
+            title: "DVD-RW".to_owned(),
+            subtitle: "No media".to_owned(),
+            ejectable: true,
+            dimmed: true,
+            ..Default::default()
+        }]);
+        let empty = &expandables()[0];
+        assert!(empty.details::<gtk4::Widget>().is_none());
+        assert!(!empty.head::<Row>().expect("a row").activatable());
+
         let width =
             |popover: &RemovablePopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
         let drive = |id: &str, label: &str| RemovableDrive {
             id: id.to_owned(),
             title: label.to_owned(),
-            activatable: true,
             volumes: vec![RemovableVolume {
                 id: "v".to_owned(),
                 title: label.to_owned(),
                 subtitle: label.to_owned(),
-                activatable: true,
                 ..Default::default()
             }],
             ..Default::default()

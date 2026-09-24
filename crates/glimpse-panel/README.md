@@ -234,8 +234,8 @@ through `gio::AppInfo::launch_default_for_uri`, off the main loop.
   `more_paired`/`more_nearby`: expanding is `PopoverHandle` state, not a scroll.
 
 **removable** — watches the `removable` service handle alone, and renders no chip at all when no
-drive is attached, which is the common case. A mounted volume opens through
-`gio::AppInfo::launch_default_for_uri`; an unmounted one is asked to mount first, and mount, eject
+drive is attached, which is the common case. A mounted volume's card opens it through
+`gio::AppInfo::launch_default_for_uri`; an unmounted one mounts from its row, and mount, eject
 and unmount all report a failure the way every applet does, through `spawn_reported` and a
 notification.
 
@@ -244,7 +244,8 @@ notification.
   application's string.
 - **Capacity is a free-of-total string, never a percentage.** `render::capacity_text` reads
   `glimpse_utils::size::bytes` on both sides of "free of", and a volume with none left says so in
-  words rather than printing `0 B free`.
+  words rather than printing `0 B free`, in amber. The filesystem, mount point and read-only access
+  are facts in the card, never the subtitle.
 - **Drives end in an overflow row**, expanding as `PopoverHandle` state rather than a scroll.
 
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's

@@ -2,20 +2,43 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row};
+use crate::{
+    Expandable, FactList, Row, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row,
+};
 
 pub use imp::{Drive, Volume};
 
-const EJECT_ICON: &str = "media-eject-symbolic";
-const READ_ONLY_ICON: &str = "changes-prevent-symbolic";
+const CHEVRON: &str = "go-next-symbolic";
 const DIMMED: &str = "dimmed";
+const WARNING: &str = "row--warning";
 const CAPACITY_BAR: &str = "capacity-bar";
 
-enum Trail {
-    None,
-    ReadOnly,
+#[derive(Debug, Clone, PartialEq)]
+enum Release {
     Eject(String),
     Unmount(String),
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+struct Card {
+    bar: bool,
+    open: Option<String>,
+    release: Option<Release>,
+    facts: Vec<crate::Fact>,
+}
+
+impl Card {
+    fn is_empty(&self) -> bool {
+        !self.bar && self.open.is_none() && self.release.is_none() && self.facts.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Head {
+    Opens,
+    Split,
+    Acts,
+    Inert,
 }
 
 glib::wrapper! {
@@ -35,13 +58,13 @@ struct DeviceRow {
     title: String,
     subtitle: String,
     icon: String,
-    value: String,
+    head: Head,
     fraction: Option<f64>,
-    activatable: bool,
     busy: bool,
     dimmed: bool,
-    trail: Trail,
+    warning: bool,
     indent: bool,
+    card: Card,
 }
 
 impl RemovablePopover {
@@ -111,237 +134,242 @@ impl RemovablePopover {
         let drives = imp.devices_data.borrow().clone();
         let rows = flatten_devices(&drives);
         imp.devices.set_visible(!rows.is_empty());
+        imp.cards
+            .borrow_mut()
+            .retain(|id, _| rows.iter().any(|row| &row.id == id));
         reconcile::by_key(
             &*imp.devices_rows,
             &mut imp.devices_held.borrow_mut(),
             &rows,
             |row| row.id.clone(),
-            |_row| self.build_device_cell(),
-            |cell, spec| self.apply_device_cell(cell, spec),
+            |_| Expandable::default(),
+            |holder, spec| self.apply_device(holder, spec),
         );
     }
 
-    fn build_device_cell(&self) -> gtk4::Box {
-        gtk4::Box::new(gtk4::Orientation::Vertical, 0)
-    }
-
-    fn apply_device_cell(&self, cell: &gtk4::Box, spec: &DeviceRow) {
-        let split = matches!(spec.trail, Trail::Eject(_) | Trail::Unmount(_));
-        let row = self.ensure_device_body(cell, spec, split);
-
+    fn apply_device(&self, holder: &Expandable, spec: &DeviceRow) {
+        let row = self.ensure_head(holder, spec);
         row.set_title(none_if_empty(&spec.title));
         row.set_subtitle(none_if_empty(&spec.subtitle));
         row.set_lead_icon(none_if_empty(&spec.icon));
-        row.set_value(none_if_empty(&spec.value));
         row.set_busy(spec.busy);
-        row.set_activatable(spec.activatable);
         set_css_class(&row, DIMMED, spec.dimmed);
+        set_css_class(&row, WARNING, spec.warning);
 
         let margin = if spec.indent { 24 } else { 0 };
-        if cell.margin_start() != margin {
-            cell.set_margin_start(margin);
+        if holder.margin_start() != margin {
+            holder.set_margin_start(margin);
         }
 
-        if !split {
-            let wanted_icon = matches!(spec.trail, Trail::ReadOnly).then_some(READ_ONLY_ICON);
-            if let Some(trail) = row.trail().and_downcast::<gtk4::Image>() {
-                if trail.icon_name().as_deref() != wanted_icon {
-                    trail.set_icon_name(wanted_icon);
-                }
-                if trail.get_visible() != wanted_icon.is_some() {
-                    trail.set_visible(wanted_icon.is_some());
-                }
+        let mut cards = self.imp().cards.borrow_mut();
+        if cards.get(&spec.id) != Some(&spec.card) {
+            match spec.card.is_empty() {
+                true => holder.set_details(None::<&gtk4::Widget>),
+                false => holder.set_details(Some(&self.card(&spec.card))),
             }
+            cards.insert(spec.id.clone(), spec.card.clone());
         }
-
-        apply_capacity_bar(cell, spec.fraction);
+        if let Some(bar) = holder
+            .details::<gtk4::Box>()
+            .and_then(|card| card.first_child())
+            .and_downcast::<gtk4::ProgressBar>()
+            && let Some(fraction) = spec.fraction
+            && bar.fraction() != fraction
+        {
+            bar.set_fraction(fraction);
+        }
     }
 
-    fn ensure_device_body(&self, cell: &gtk4::Box, spec: &DeviceRow, split: bool) -> Row {
-        if split {
-            if let Some(existing) = cell.first_child().and_downcast::<SplitRow>() {
-                return existing.row();
-            }
-            if let Some(old) = cell.first_child() {
-                old.unparent();
-            }
-            let split_row = SplitRow::new();
-            let key = spec.id.clone();
-            split_row.connect_activated(glib::clone!(
-                #[weak(rename_to = popover)]
-                self,
-                move |_| popover.emit_by_name::<()>("activated", &[&key])
-            ));
-            match &spec.trail {
-                Trail::Eject(drive_id) => {
-                    split_row.set_detail_icon(EJECT_ICON.to_owned());
-                    split_row.set_detail_tooltip(Some(gettextrs::gettext("Eject")));
-                    let drive_id = drive_id.clone();
-                    split_row.connect_details(glib::clone!(
-                        #[weak(rename_to = popover)]
-                        self,
-                        move |_| popover.emit_by_name::<()>("eject", &[&drive_id])
-                    ));
-                }
-                Trail::Unmount(volume_id) => {
-                    split_row.set_detail_icon(EJECT_ICON.to_owned());
-                    split_row.set_detail_tooltip(Some(gettextrs::gettext("Unmount")));
-                    let volume_id = volume_id.clone();
-                    split_row.connect_details(glib::clone!(
-                        #[weak(rename_to = popover)]
-                        self,
-                        move |_| popover.emit_by_name::<()>("unmount", &[&volume_id])
-                    ));
-                }
-                Trail::None | Trail::ReadOnly => {}
-            }
-            cell.prepend(&split_row);
-            split_row.row()
-        } else {
-            if let Some(existing) = cell.first_child().and_downcast::<Row>() {
-                return existing;
-            }
-            if let Some(old) = cell.first_child() {
-                old.unparent();
-            }
-            let row = Row::new();
-            let trail = gtk4::Image::new();
-            trail.set_accessible_role(gtk4::AccessibleRole::Presentation);
-            trail.set_visible(false);
-            row.set_trail(&trail);
-            let key = spec.id.clone();
-            row.connect_clicked(glib::clone!(
-                #[weak(rename_to = popover)]
-                self,
-                move |_| popover.emit_by_name::<()>("activated", &[&key])
-            ));
-            cell.prepend(&row);
-            row
+    fn ensure_head(&self, holder: &Expandable, spec: &DeviceRow) -> Row {
+        let split = spec.head == Head::Split;
+        if let Some(existing) = holder.head::<SplitRow>().filter(|_| split) {
+            return existing.row();
         }
+        if let Some(existing) = holder.head::<Row>().filter(|_| !split) {
+            set_opens(&existing, spec.head);
+            return existing;
+        }
+        holder.set_expanded(false);
+        let key = spec.id.clone();
+        match split {
+            true => {
+                let split_row = SplitRow::new();
+                split_row.set_detail_tooltip(Some(gettextrs::gettext("Details")));
+                split_row.connect_activated(glib::clone!(
+                    #[weak(rename_to = popover)]
+                    self,
+                    move |_| popover.emit_by_name::<()>("activated", &[&key])
+                ));
+                holder.set_head(&split_row);
+                split_row.row()
+            }
+            false => {
+                let row = Row::new();
+                let chevron = gtk4::Image::from_icon_name(CHEVRON);
+                chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+                chevron.add_css_class("drawer-chevron");
+                row.set_trail(&chevron);
+                set_opens(&row, spec.head);
+                row.connect_clicked(glib::clone!(
+                    #[weak(rename_to = popover)]
+                    self,
+                    #[weak]
+                    holder,
+                    move |_| {
+                        if holder.details::<gtk4::Widget>().is_none() {
+                            popover.emit_by_name::<()>("activated", &[&key]);
+                        }
+                    }
+                ));
+                holder.set_head(&row);
+                row
+            }
+        }
+    }
+
+    fn card(&self, card: &Card) -> gtk4::Box {
+        let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        if card.bar {
+            let bar = gtk4::ProgressBar::new();
+            bar.add_css_class(CAPACITY_BAR);
+            bar.set_margin_start(12);
+            bar.set_margin_end(12);
+            bar.set_margin_top(6);
+            bar.set_margin_bottom(6);
+            body.append(&bar);
+        }
+        if let Some(id) = &card.open {
+            body.append(&self.action(gettextrs::gettext("Open"), "activated", id));
+        }
+        match &card.release {
+            Some(Release::Eject(id)) => {
+                body.append(&self.action(gettextrs::gettext("Eject"), "eject", id))
+            }
+            Some(Release::Unmount(id)) => {
+                body.append(&self.action(gettextrs::gettext("Unmount"), "unmount", id))
+            }
+            None => {}
+        }
+        if !card.facts.is_empty() {
+            let facts = FactList::new();
+            facts.set_facts(&card.facts);
+            body.append(&facts);
+        }
+        body
+    }
+
+    fn action(&self, title: String, signal: &'static str, id: &str) -> Row {
+        let row = Row::new();
+        row.set_title(Some(title.as_str()));
+        let id = id.to_owned();
+        row.connect_clicked(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            move |_| popover.emit_by_name::<()>(signal, &[&id])
+        ));
+        row
     }
 }
 
-fn apply_capacity_bar(cell: &gtk4::Box, fraction: Option<f64>) {
-    match fraction {
-        Some(fraction) => {
-            let bar = match cell.last_child().and_downcast::<gtk4::ProgressBar>() {
-                Some(bar) => bar,
-                None => {
-                    let bar = gtk4::ProgressBar::new();
-                    bar.add_css_class(CAPACITY_BAR);
-                    bar.set_margin_start(44);
-                    bar.set_margin_end(12);
-                    bar.set_margin_bottom(6);
-                    cell.append(&bar);
-                    bar
-                }
-            };
-            if bar.fraction() != fraction {
-                bar.set_fraction(fraction);
-            }
-        }
-        None => {
-            if let Some(bar) = cell.last_child().and_downcast::<gtk4::ProgressBar>() {
-                bar.unparent();
-            }
-        }
+fn set_opens(row: &Row, head: Head) {
+    let opens = head == Head::Opens;
+    let activatable = matches!(head, Head::Opens | Head::Acts);
+    if row.activatable() != activatable {
+        row.set_activatable(activatable);
+    }
+    if let Some(chevron) = row.trail()
+        && chevron.get_visible() != opens
+    {
+        chevron.set_visible(opens);
     }
 }
 
-fn trail_for(busy: bool, read_only: bool, eject: Option<&str>, unmount: Option<&str>) -> Trail {
-    if busy {
-        return Trail::None;
+fn release(busy: bool, release: Option<Release>) -> Option<Release> {
+    release.filter(|_| !busy)
+}
+
+fn drive_row(drive: &Drive) -> DeviceRow {
+    let card = match drive.dimmed {
+        true => Card::default(),
+        false => Card {
+            release: release(
+                drive.busy,
+                drive.ejectable.then(|| Release::Eject(drive.id.clone())),
+            ),
+            facts: drive.facts.clone(),
+            ..Card::default()
+        },
+    };
+    DeviceRow {
+        id: drive.id.clone(),
+        title: drive.title.clone(),
+        subtitle: drive.subtitle.clone(),
+        icon: drive.icon.clone(),
+        head: match card.is_empty() {
+            true => Head::Inert,
+            false => Head::Opens,
+        },
+        fraction: None,
+        busy: drive.busy,
+        dimmed: drive.dimmed,
+        warning: false,
+        indent: false,
+        card,
     }
-    if read_only {
-        return Trail::ReadOnly;
+}
+
+fn volume_row(id: String, volume: &Volume, busy: bool, releases: Option<Release>) -> DeviceRow {
+    let card = Card {
+        bar: volume.mounted && volume.fraction.is_some(),
+        open: volume.mounted.then(|| id.clone()),
+        release: release(busy, releases),
+        facts: volume.facts.clone(),
+    };
+    DeviceRow {
+        head: match (volume.mounted, card.is_empty()) {
+            (true, _) => Head::Opens,
+            (false, false) => Head::Split,
+            (false, true) => Head::Acts,
+        },
+        id,
+        title: volume.title.clone(),
+        subtitle: volume.subtitle.clone(),
+        icon: volume.icon.clone(),
+        fraction: volume.fraction,
+        busy,
+        dimmed: false,
+        warning: volume.warning,
+        indent: false,
+        card,
     }
-    if let Some(id) = eject {
-        return Trail::Eject(id.to_owned());
-    }
-    if let Some(id) = unmount {
-        return Trail::Unmount(id.to_owned());
-    }
-    Trail::None
 }
 
 fn flatten_devices(drives: &[Drive]) -> Vec<DeviceRow> {
     let mut rows = Vec::new();
     for drive in drives {
         match drive.volumes.as_slice() {
-            [] => rows.push(DeviceRow {
-                id: drive.id.clone(),
-                title: drive.title.clone(),
-                subtitle: drive.subtitle.clone(),
-                icon: drive.icon.clone(),
-                value: drive.value.clone(),
-                fraction: None,
-                activatable: drive.activatable,
-                busy: drive.busy,
-                dimmed: drive.dimmed,
-                trail: trail_for(
-                    drive.busy,
-                    false,
-                    drive.ejectable.then_some(drive.id.as_str()),
-                    None,
-                ),
-                indent: false,
-            }),
-            [volume] => rows.push(DeviceRow {
-                id: drive.id.clone(),
-                title: volume.title.clone(),
-                subtitle: volume.subtitle.clone(),
-                icon: volume.icon.clone(),
-                value: volume.value.clone(),
-                fraction: volume.fraction,
-                activatable: volume.activatable,
-                busy: drive.busy || volume.busy,
-                dimmed: false,
-                trail: trail_for(
+            [] => rows.push(drive_row(drive)),
+            [volume] => {
+                let eject = drive.ejectable.then(|| Release::Eject(drive.id.clone()));
+                let unmount = volume.mounted.then(|| Release::Unmount(volume.id.clone()));
+                rows.push(volume_row(
+                    drive.id.clone(),
+                    volume,
                     drive.busy || volume.busy,
-                    volume.read_only,
-                    drive.ejectable.then_some(drive.id.as_str()),
-                    volume.mounted.then_some(volume.id.as_str()),
-                ),
-                indent: false,
-            }),
+                    eject.or(unmount),
+                ));
+            }
             volumes => {
-                rows.push(DeviceRow {
-                    id: drive.id.clone(),
-                    title: drive.title.clone(),
-                    subtitle: drive.subtitle.clone(),
-                    icon: drive.icon.clone(),
-                    value: drive.value.clone(),
-                    fraction: None,
-                    activatable: drive.activatable,
-                    busy: drive.busy,
-                    dimmed: drive.dimmed,
-                    trail: trail_for(
-                        drive.busy,
-                        false,
-                        drive.ejectable.then_some(drive.id.as_str()),
-                        None,
-                    ),
-                    indent: false,
-                });
+                rows.push(drive_row(drive));
                 for volume in volumes {
-                    rows.push(DeviceRow {
-                        id: format!("{}/{}", drive.id, volume.id),
-                        title: volume.title.clone(),
-                        subtitle: volume.subtitle.clone(),
-                        icon: volume.icon.clone(),
-                        value: volume.value.clone(),
-                        fraction: volume.fraction,
-                        activatable: volume.activatable,
-                        busy: volume.busy,
-                        dimmed: false,
-                        trail: trail_for(
-                            volume.busy,
-                            volume.read_only,
-                            None,
-                            volume.mounted.then_some(volume.id.as_str()),
-                        ),
-                        indent: true,
-                    });
+                    let mut row = volume_row(
+                        format!("{}/{}", drive.id, volume.id),
+                        volume,
+                        volume.busy,
+                        volume.mounted.then(|| Release::Unmount(volume.id.clone())),
+                    );
+                    row.indent = true;
+                    rows.push(row);
                 }
             }
         }

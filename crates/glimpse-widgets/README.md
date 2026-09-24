@@ -465,18 +465,18 @@ One titleless `$Section`, because the hero already says what the list is. Drives
 than in `PlacesPopover` because their applet appears and disappears with the hardware, while places
 are always there — one popover cannot honestly do both.
 
-- **A device row is the third reconcile shape.** Like `SourceList` and `DisplayList`, each drive or
-  volume is a runtime-built `Gtk.Box`, not a template, keyed by id through `reconcile::by_key`; a
-  row inside it is a plain `Row` or a `SplitRow` depending on whether it needs a click target beyond
-  the body, swapped in once and reused rather than rebuilt on every apply.
-- **A capacity readout is a `Gtk.ProgressBar` appended after the row, not a property of it** —
-  `apply_capacity_bar` builds one lazily on the first `Some(fraction)` and removes it again on
-  `None`, so a drive with no mounted filesystem carries no empty bar.
-- **`.row.dimmed` marks present-but-unusable, not absent** — a drive with no media and no volumes to
-  browse, still listed, greyed rather than hidden, since ejecting it is still a thing to do.
-- **`SplitRow`'s chevron is the eject or unmount control**, never the row body, which stays the
-  open/mount target; a read-only volume gets a plain trailing icon instead, since there is nothing
-  behind a chevron to unfold.
+- **Every drive and volume is an `Expandable`**, keyed by id through `reconcile::by_key`. A mounted
+  volume's row opens its card; an unmounted one is a `SplitRow` whose body mounts and whose chevron
+  opens the card; a drive holding several volumes opens a card of its own. A row with nothing for a
+  card is a plain row — an unmounted volume that mounts on a click, or a dimmed drive with no media,
+  which is inert.
+- **The card is Open, then Eject or Unmount, then a `FactList`.** A drive's only volume ejects the
+  drive; a volume sharing its drive unmounts itself. Nothing in it is red. The head swapping between
+  `Row` and `SplitRow` closes the card, which is how a successful unmount or mount closes it.
+- **The capacity bar leads the mounted card.** An `Expandable` toggles only on a `Row` or
+  `SplitRow` head, so a bar cannot hang under the row itself. A card is rebuilt only when its actions
+  or facts change; a capacity sample moves the bar in place, so a poll never unparents a row under a
+  press.
 
 ## PrintingPopover
 
