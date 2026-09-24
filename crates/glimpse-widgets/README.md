@@ -238,6 +238,7 @@ hover, focus and any pending press. The key can therefore be captured when the r
 
 `PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
 separator between each pair. An applet can suppress its footer separator when no divider is needed.
+Every separator inside a popover, tray menus included, paints transparent: it is spacing, not a line.
 
 - **A section and its hairline show and hide together**, the shell watching `notify::visible` on
   what is appended; hiding the section alone leaves a line floating against nothing.

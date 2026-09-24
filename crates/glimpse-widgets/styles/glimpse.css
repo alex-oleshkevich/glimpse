@@ -303,8 +303,9 @@
     padding: var(--gl-popover-padding);
 }
 
-.popover-shell separator {
-    background-color: var(--gl-border);
+.popover-shell separator,
+popover separator {
+    background-color: transparent;
     min-height: 1px;
     margin: 0.28rem 0.55rem;
 }
