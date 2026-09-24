@@ -427,6 +427,11 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
 
 - Work on one feature at a time, and only start the next after the current one passes end-to-end
   verification. Don't "also refactor" feature B while implementing feature A.
+- **Every feature-level plan runs through `plan-precision` before it gets sliced into epics or
+  issues.** Not just when a session happens to ask for planning help — any design/architecture
+  doc, RFC, or epic brief for this repo. An epic sliced from a plan that skipped it ships the
+  plan's own gaps as inventions, one per issue, discovered by a reviewer or a user instead of
+  before code was written.
 - Spawn desktop windows on the `glimpse` niri workspace; do not steal focus.
 - **Do not commit or push without being asked.**
 - **Never hand work back without running the pass in Finishing.**

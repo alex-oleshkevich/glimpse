@@ -24,9 +24,13 @@ When a report says an instruction could not be followed, the first hypothesis is
 the instruction was wrong.
 
 <prerequisite>
-Two siblings hold rules this loop leans on and does not restate in full — load both
-before round 1: **`spec-precision`** for the brief, the self-check and the acceptance
-criteria, **`adversarial-review`** for what a reviewer does and where bugs hide.
+Three siblings hold rules this loop leans on and does not restate in full — load all
+three before round 1: **`plan-precision`** for whether the feature-level plan you are
+about to slice is actually complete (dependency citations, flows, AC as user stories,
+concrete types, a durable home) — an epic sliced from an incomplete plan ships the
+plan's gaps as inventions, one per issue; **`spec-precision`** for the brief, the
+self-check and the acceptance criteria; **`adversarial-review`** for what a reviewer does
+and where bugs hide.
 </prerequisite>
 
 Substitute once: `<EPIC>`, `<repo>`, and your tracker's list/show/claim/update commands.
@@ -108,6 +112,13 @@ replace polling entirely: a wave's builder and reviewer report through the track
 `bd gate create --type=human --blocks <next-step>` holds a handoff, and resuming means
 checking `bd ready --gated`, never staying resident to watch for one. See Traps below for
 what this is worth in measured cost.
+
+**For the wave itself**, cook/pour the `epic-wave` formula
+(`bd mol pour epic-wave --var task_id=... --var worktree=...`) instead of hand-typing the
+BUILDER/REVIEWER/LIVE-TESTER templates per task — it wires the five steps (build, review,
+live_test, merge_gate, merge), their dependencies, and the one real gate. Author only the
+task-specific variables (exact paths, the one model file, the traps, AC, verify command) —
+that is where the judgment belongs, and the formula does not try to hold it.
 
 ## Setup — one worktree per epic
 
