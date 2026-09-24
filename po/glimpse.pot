@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 00:24+0200\n"
+"POT-Creation-Date: 2026-09-24 11:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -135,7 +135,7 @@ msgid "{minutes} min"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:142
-#: crates/glimpse-panel/src/applets/battery/render.rs:215
+#: crates/glimpse-panel/src/applets/battery/render.rs:247
 msgid "{hours} h"
 msgstr ""
 
@@ -235,214 +235,159 @@ msgstr ""
 msgid "Unknown application"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/mod.rs:145
+#: crates/glimpse-panel/src/applets/battery/mod.rs:156
 msgid "Could not change the power mode"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/mod.rs:167
+#: crates/glimpse-panel/src/applets/battery/mod.rs:178
 msgid "Could not change the charge limit"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/mod.rs:195
-#: crates/glimpse-panel/src/applets/battery/render.rs:82
-#: crates/glimpse-panel/src/applets/battery/render.rs:83
+#: crates/glimpse-panel/src/applets/battery/mod.rs:206
+#: crates/glimpse-panel/src/applets/battery/render.rs:112
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:378
 #: crates/glimpse-widgets/blueprints/battery_popover.blp:14
 msgid "Battery"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/mod.rs:199
+#: crates/glimpse-panel/src/applets/battery/mod.rs:210
 msgid "The battery service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:97
-msgid "Charge"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:102
-msgid "Time to full"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:103
-msgid "Time left"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:113
-msgid "Rate"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:117
+#: crates/glimpse-panel/src/applets/battery/render.rs:130
 msgid "Energy"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:123
+#: crates/glimpse-panel/src/applets/battery/render.rs:136
 msgid "Capacity when new"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:128
-msgid "Health"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:131
+#: crates/glimpse-panel/src/applets/battery/render.rs:141
 msgid "Cycles"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:135
+#: crates/glimpse-panel/src/applets/battery/render.rs:145
 msgid "Voltage"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:140
+#: crates/glimpse-panel/src/applets/battery/render.rs:150
 msgid "Technology"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:143
+#: crates/glimpse-panel/src/applets/battery/render.rs:153
 #: crates/glimpse-widgets/src/display_list/mod.rs:166
 msgid "Model"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:146
+#: crates/glimpse-panel/src/applets/battery/render.rs:156
 msgid "Vendor"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:156
-msgid "Stops at {percent}% to slow wear"
+#: crates/glimpse-panel/src/applets/battery/render.rs:166
+msgid "Limit charge to {percent}%"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:167
+msgid "Slows battery wear"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:200
+msgid "Full at {time}"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:201
-msgid "{time} to full"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:204
-msgid "{time} left"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/battery/render.rs:213
-msgid "Less than a minute"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:214
-msgid "{minutes} m"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:216
-msgid "{hours} h {minutes} m"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:224
+#: crates/glimpse-panel/src/applets/battery/render.rs:256
 msgid "Charging"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:225
+#: crates/glimpse-panel/src/applets/battery/render.rs:204
+msgid "Held at {percent}%"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:206
+#: crates/glimpse-panel/src/applets/battery/render.rs:257
 msgid "Discharging"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:226
+#: crates/glimpse-panel/src/applets/battery/render.rs:233
+msgid "{time} to full"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:236
+msgid "{time} left"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:245
+msgid "Less than a minute"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:246
+msgid "{minutes} m"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:248
+msgid "{hours} h {minutes} m"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/battery/render.rs:258
 #: crates/glimpse-widgets/src/places_popover/mod.rs:151
 msgid "Empty"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:227
+#: crates/glimpse-panel/src/applets/battery/render.rs:259
 msgid "Fully charged"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:228
+#: crates/glimpse-panel/src/applets/battery/render.rs:260
 msgid "Not charging"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:267
+#: crates/glimpse-panel/src/applets/battery/render.rs:299
 msgid "Power saver"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:268
+#: crates/glimpse-panel/src/applets/battery/render.rs:300
 msgid "Balanced"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:269
+#: crates/glimpse-panel/src/applets/battery/render.rs:301
 msgid "Performance"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:276
+#: crates/glimpse-panel/src/applets/battery/render.rs:308
 msgid "Longer battery life, slower response"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:277
-msgid "The default trade-off"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:279
+#: crates/glimpse-panel/src/applets/battery/render.rs:310
 msgid "Held back — on a lap"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:280
+#: crates/glimpse-panel/src/applets/battery/render.rs:311
 msgid "Held back — too hot"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:297
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:471
-msgid "Mouse"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:298
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:470
-#: crates/glimpse-panel/src/applets/brightness/render.rs:73
-#: crates/glimpse-panel/src/applets/brightness/render.rs:374
-msgid "Keyboard"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:299
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:468
-msgid "Headphones"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:300
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:467
-msgid "Headset"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:301
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:474
-msgid "Phone"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:302
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:473
-msgid "Tablet"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:303
-msgid "Controller"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:304
-msgid "UPS"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:305
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:478
-msgid "Device"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:324
+#: crates/glimpse-panel/src/applets/battery/render.rs:341
 msgid "Li-ion"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:325
+#: crates/glimpse-panel/src/applets/battery/render.rs:342
 msgid "Li-poly"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:326
+#: crates/glimpse-panel/src/applets/battery/render.rs:343
 msgid "LiFePO4"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:327
+#: crates/glimpse-panel/src/applets/battery/render.rs:344
 msgid "Lead acid"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:328
+#: crates/glimpse-panel/src/applets/battery/render.rs:345
 msgid "NiCd"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/render.rs:329
+#: crates/glimpse-panel/src/applets/battery/render.rs:346
 msgid "NiMH"
 msgstr ""
 
@@ -672,12 +617,38 @@ msgstr ""
 msgid "Bluetooth could not complete that."
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:467
+msgid "Headset"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:468
+msgid "Headphones"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:469
 msgid "Speaker"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:470
+#: crates/glimpse-panel/src/applets/brightness/render.rs:73
+#: crates/glimpse-panel/src/applets/brightness/render.rs:374
+msgid "Keyboard"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:471
+msgid "Mouse"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:472
 msgid "Gamepad"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:473
+msgid "Tablet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:474
+msgid "Phone"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:475
@@ -690,6 +661,10 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:477
 msgid "Printer"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:478
+msgid "Device"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:492
@@ -1745,17 +1720,13 @@ msgstr ""
 msgid "Power mode"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:40
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:47
+msgid "Health"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/battery_popover.blp:65
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:39
 msgid "Devices"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:54
-msgid "Battery details"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:82
-msgid "Charge limit"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:64

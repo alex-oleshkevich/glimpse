@@ -618,8 +618,6 @@
     border-radius: 0.25rem;
     min-width: 1.5rem;
     min-height: 1.5rem;
-    max-width: 1.5rem;
-    max-height: 1.5rem;
     margin: 0.2rem;
 }
 
@@ -639,18 +637,6 @@
 
 .network-popover__rule {
     margin: 0.4rem 0;
-}
-
-.detail-card {
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
-    border: 1px solid var(--gl-border);
-    border-radius: 1.5rem;
-    margin: 0.75rem 0 0.25rem 0;
-    padding: 0.4rem;
-}
-
-.detail-card .row {
-    border-radius: 0.75rem;
 }
 
 expandable {
@@ -1508,6 +1494,18 @@ window.notification-popup {
 
 .printing-popover__printer--warning .row__subtitle {
     color: var(--gl-warning-text);
+}
+
+.row--warning .row__subtitle,
+.row--warning .row__value,
+.battery-popover__hero--warning .hero__icon,
+.battery-popover__hero--warning .readout__value {
+    color: var(--gl-warning-text);
+}
+
+.battery-popover__hero--error .hero__icon,
+.battery-popover__hero--error .readout__value {
+    color: var(--gl-danger-text);
 }
 
 .row--destructive .row__title {

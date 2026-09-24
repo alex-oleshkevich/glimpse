@@ -9,6 +9,7 @@ pub struct Choice {
     pub label: String,
     pub detail: String,
     pub icon_name: String,
+    pub warning: bool,
 }
 
 glib::wrapper! {
@@ -74,6 +75,7 @@ impl ChoiceList {
             row.set_title(none_if_empty(&choice.label));
             row.set_subtitle(none_if_empty(&choice.detail));
             row.set_lead_icon(none_if_empty(&choice.icon_name));
+            crate::set_css_class(row, "row--warning", choice.warning);
         }
 
         for row in rows.split_off(choices.len()) {

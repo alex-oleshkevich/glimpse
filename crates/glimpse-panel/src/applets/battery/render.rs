@@ -6,6 +6,9 @@ use glimpse_widgets::{BatteryChargeLimit, BatteryDevice, Choice, Fact, Indicator
 
 use crate::applets::tokens;
 
+const HEALTHY: u8 = 80;
+const LOW: u8 = 20;
+
 pub fn chip(
     state: &BatteryState,
     style: BatteryIndicatorStyle,
@@ -34,8 +37,33 @@ pub fn shows_icon(style: BatteryIndicatorStyle) -> bool {
     !matches!(style, BatteryIndicatorStyle::Text)
 }
 
-pub fn heading(charge: &Charge) -> (String, Option<String>, u8) {
-    (icon(charge), subtitle(charge), charge.percentage)
+pub struct Heading {
+    pub icon: String,
+    pub subtitle: Option<String>,
+    pub percentage: u8,
+    pub severity: Option<Severity>,
+}
+
+pub fn heading(state: &BatteryState, full_at: Option<&str>) -> Option<Heading> {
+    let charge = state.display.as_ref()?;
+    let held_at = state
+        .internals
+        .first()
+        .and_then(|supply| supply.charge_threshold)
+        .filter(|threshold| threshold.enabled)
+        .and_then(|threshold| threshold.end);
+    Some(Heading {
+        icon: icon(charge),
+        subtitle: subtitle(charge, held_at, full_at),
+        percentage: charge.percentage,
+        severity: warning(charge.warning).0,
+    })
+}
+
+pub fn health(supply: &BatterySupply) -> Option<(String, bool)> {
+    supply
+        .capacity_pct
+        .map(|health| (format!("{health}%"), health < HEALTHY))
 }
 
 pub fn profiles(profile: Option<&Profiles>) -> (Vec<Choice>, Option<u32>) {
@@ -47,8 +75,9 @@ pub fn profiles(profile: Option<&Profiles>) -> (Vec<Choice>, Option<u32>) {
         .iter()
         .map(|name| Choice {
             label: profile_label(name),
-            detail: profile_detail(name, profile.performance_degraded.as_deref()),
+            detail: profile_detail(name, held_back(profile)),
             icon_name: profile_icon(name).to_owned(),
+            warning: name == "performance" && held_back(profile).is_some(),
         })
         .collect();
     let selected = profile
@@ -65,12 +94,13 @@ pub fn devices(state: &BatteryState) -> Vec<BatteryDevice> {
         .iter()
         .map(|device| BatteryDevice {
             name: device.name.clone(),
-            subtitle: kind_label(device.kind),
+            subtitle: device_state(&device.charge),
             icon_name: device
                 .icon_name
                 .clone()
                 .unwrap_or_else(|| kind_icon(device.kind).to_owned()),
             value: format!("{}%", device.charge.percentage),
+            warning: running_low(&device.charge),
         })
         .collect();
     rows.extend(state.internals.iter().skip(1).map(|supply| {
@@ -80,38 +110,21 @@ pub fn devices(state: &BatteryState) -> Vec<BatteryDevice> {
                 .clone()
                 .or_else(|| supply.vendor.clone())
                 .unwrap_or_else(|| gettext("Battery")),
-            subtitle: gettext("Battery"),
+            subtitle: device_state(&supply.charge),
             icon_name: if supply.charge.icon_name.is_empty() {
                 "battery-symbolic".to_owned()
             } else {
                 supply.charge.icon_name.clone()
             },
             value: format!("{}%", supply.charge.percentage),
+            warning: running_low(&supply.charge),
         }
     }));
     rows
 }
 
 pub fn facts(supply: &BatterySupply) -> Vec<Fact> {
-    let mut facts = vec![Fact::new(
-        gettext("Charge"),
-        format!("{}%", supply.charge.percentage),
-    )];
-    if let Some(remaining) = remaining(&supply.charge) {
-        let title = match supply.charge.state {
-            ChargeState::Charging | ChargeState::PendingDischarge => gettext("Time to full"),
-            _ => gettext("Time left"),
-        };
-        facts.push(Fact::new(title, remaining));
-    }
-    if let Some(rate) = supply.charge.energy_rate_mw.filter(|_| {
-        matches!(
-            supply.charge.state,
-            ChargeState::Charging | ChargeState::Discharging
-        )
-    }) {
-        facts.push(Fact::new(gettext("Rate"), watts(rate)));
-    }
+    let mut facts = Vec::new();
     if let (Some(now), Some(full)) = (supply.energy_mwh, supply.energy_full_mwh) {
         facts.push(Fact::new(
             gettext("Energy"),
@@ -123,9 +136,6 @@ pub fn facts(supply: &BatterySupply) -> Vec<Fact> {
             gettext("Capacity when new"),
             format!("{} Wh", tenths(design)),
         ));
-    }
-    if let Some(health) = supply.capacity_pct {
-        facts.push(Fact::new(gettext("Health"), format!("{health}%")));
     }
     if let Some(cycles) = supply.cycles {
         facts.push(Fact::new(gettext("Cycles"), cycles.to_string()));
@@ -153,8 +163,8 @@ pub fn charge_limit(supply: &BatterySupply) -> Option<BatteryChargeLimit> {
     let percent = threshold.end?;
     Some(BatteryChargeLimit {
         enabled: threshold.enabled,
-        subtitle: gettext("Stops at {percent}% to slow wear")
-            .replace("{percent}", &percent.to_string()),
+        title: gettext("Limit charge to {percent}%").replace("{percent}", &percent.to_string()),
+        subtitle: gettext("Slows battery wear"),
     })
 }
 
@@ -184,14 +194,36 @@ fn trimmed(rendered: &str) -> Option<String> {
         .then(|| text.to_owned())
 }
 
-fn subtitle(charge: &Charge) -> Option<String> {
-    let state = state_label(charge.state);
-    match (state.as_str(), remaining(charge)) {
-        ("", None) => None,
-        ("", Some(remaining)) => Some(remaining),
-        (state, None) => Some(state.to_owned()),
-        (state, Some(remaining)) => Some(format!("{state} · {remaining}")),
+fn subtitle(charge: &Charge, held_at: Option<u32>, full_at: Option<&str>) -> Option<String> {
+    match (charge.state, held_at) {
+        (ChargeState::Charging, _) => Some(match full_at {
+            Some(time) => gettext("Full at {time}").replace("{time}", time),
+            None => gettext("Charging"),
+        }),
+        (ChargeState::PendingCharge | ChargeState::PendingDischarge, Some(percent)) => {
+            Some(gettext("Held at {percent}%").replace("{percent}", &percent.to_string()))
+        }
+        (ChargeState::Discharging, _) => remaining(charge).or_else(|| Some(gettext("Discharging"))),
+        (state, _) => Some(state_label(state)).filter(|label| !label.is_empty()),
     }
+}
+
+fn device_state(charge: &Charge) -> String {
+    match charge.state {
+        ChargeState::Charging => gettext("Charging"),
+        _ => String::new(),
+    }
+}
+
+fn running_low(charge: &Charge) -> bool {
+    charge.percentage <= LOW && charge.state != ChargeState::Charging
+}
+
+fn held_back(profile: &Profiles) -> Option<&str> {
+    profile
+        .performance_degraded
+        .as_deref()
+        .filter(|reason| matches!(*reason, "lap-detected" | "high-operating-temperature"))
 }
 
 fn remaining(charge: &Charge) -> Option<String> {
@@ -274,7 +306,6 @@ fn profile_label(name: &str) -> String {
 fn profile_detail(name: &str, degraded: Option<&str>) -> String {
     match name {
         "power-saver" => gettext("Longer battery life, slower response"),
-        "balanced" => gettext("The default trade-off"),
         "performance" => match degraded {
             Some("lap-detected") => gettext("Held back — on a lap"),
             Some("high-operating-temperature") => gettext("Held back — too hot"),
@@ -289,20 +320,6 @@ fn profile_icon(name: &str) -> &'static str {
         "power-saver" => "power-profile-power-saver-symbolic",
         "performance" => "power-profile-performance-symbolic",
         _ => "power-profile-balanced-symbolic",
-    }
-}
-
-fn kind_label(kind: DeviceKind) -> String {
-    match kind {
-        DeviceKind::Mouse => gettext("Mouse"),
-        DeviceKind::Keyboard => gettext("Keyboard"),
-        DeviceKind::Headphones => gettext("Headphones"),
-        DeviceKind::Headset => gettext("Headset"),
-        DeviceKind::Phone => gettext("Phone"),
-        DeviceKind::Tablet => gettext("Tablet"),
-        DeviceKind::GamingInput => gettext("Controller"),
-        DeviceKind::Ups => gettext("UPS"),
-        _ => gettext("Device"),
     }
 }
 
@@ -329,10 +346,6 @@ fn technology_label(technology: Technology) -> Option<String> {
         Technology::NickelMetalHydride => gettext("NiMH"),
         Technology::Unknown => return None,
     })
-}
-
-fn watts(mw: u32) -> String {
-    format!("{} W", tenths(mw))
 }
 
 fn tenths(milli: u32) -> String {
@@ -466,15 +479,47 @@ mod tests {
     #[test]
     fn fully_charged_has_no_remaining_and_says_so() {
         assert_eq!(
-            subtitle(&charge(100, ChargeState::Full)).as_deref(),
+            subtitle(&charge(100, ChargeState::Full), None, None).as_deref(),
             Some("Fully charged")
         );
         assert!(remaining(&charge(100, ChargeState::Full)).is_none());
     }
 
     #[test]
+    fn the_hero_says_when_rather_than_what() {
+        let mut discharging = charge(40, ChargeState::Discharging);
+        discharging.time_to_empty = Some(12_000);
+        assert_eq!(
+            subtitle(&discharging, None, None).as_deref(),
+            Some("3 h 20 m left"),
+            "draining is implied by time left"
+        );
+        assert_eq!(
+            subtitle(&charge(60, ChargeState::Charging), None, Some("14:30")).as_deref(),
+            Some("Full at 14:30")
+        );
+        assert_eq!(
+            subtitle(&charge(80, ChargeState::PendingCharge), Some(80), None).as_deref(),
+            Some("Held at 80%"),
+            "a limit holding the charge says so rather than \"Not charging\""
+        );
+        assert_eq!(
+            subtitle(&charge(55, ChargeState::PendingCharge), None, None).as_deref(),
+            Some("Not charging")
+        );
+    }
+
+    #[test]
+    fn the_hero_carries_the_chip_severity() {
+        let mut low = charge(15, ChargeState::Discharging);
+        low.warning = WarningLevel::Low;
+        let shown = heading(&state(Some(low)), None).unwrap();
+        assert_eq!(shown.severity, Some(Severity::Warning));
+    }
+
+    #[test]
     fn details_omit_cycles_and_rate_when_the_pack_is_full() {
-        let supply = BatterySupply {
+        let mut supply = BatterySupply {
             path: "/bat1".to_owned(),
             charge: charge(100, ChargeState::Full),
             vendor: Some("ASUS".to_owned()),
@@ -494,15 +539,18 @@ mod tests {
             }),
         };
         let labels: Vec<_> = facts(&supply).into_iter().map(|fact| fact.label).collect();
-        assert!(labels.contains(&"Charge".to_owned()));
-        assert!(labels.contains(&"Health".to_owned()));
         assert!(labels.contains(&"Vendor".to_owned()));
         assert!(!labels.iter().any(|label| label == "Cycles"));
-        assert!(!labels.iter().any(|label| label == "Rate"));
-        assert_eq!(
-            charge_limit(&supply).unwrap().subtitle,
-            "Stops at 80% to slow wear"
+        assert!(
+            !labels
+                .iter()
+                .any(|label| ["Charge", "Health", "Rate", "Time left"].contains(&label.as_str())),
+            "the hero and the health row already say these"
         );
+        assert_eq!(health(&supply), Some(("97%".to_owned(), false)));
+        supply.capacity_pct = Some(74);
+        assert_eq!(health(&supply), Some(("74%".to_owned(), true)));
+        assert_eq!(charge_limit(&supply).unwrap().title, "Limit charge to 80%");
     }
 
     #[test]
@@ -530,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn a_mouse_row_uses_its_kind_as_the_subtitle() {
+    fn a_device_row_says_charging_and_reads_amber_when_low() {
         let rows = devices(&BatteryState {
             devices: vec![BatteryPeripheral {
                 path: "/mouse".to_owned(),
@@ -541,9 +589,36 @@ mod tests {
             }],
             ..BatteryState::default()
         });
-        assert_eq!(rows[0].subtitle, "Mouse");
+        assert_eq!(rows[0].subtitle, "", "the icon already says mouse");
         assert_eq!(rows[0].value, "41%");
         assert!(rows[0].icon_name.contains("mouse"));
+        assert!(!rows[0].warning);
+
+        let rows = devices(&BatteryState {
+            devices: vec![
+                BatteryPeripheral {
+                    path: "/mouse".to_owned(),
+                    kind: DeviceKind::Mouse,
+                    name: "MX Master 3S".to_owned(),
+                    icon_name: None,
+                    charge: charge(12, ChargeState::Discharging),
+                },
+                BatteryPeripheral {
+                    path: "/headset".to_owned(),
+                    kind: DeviceKind::Headset,
+                    name: "WH-1000XM4".to_owned(),
+                    icon_name: None,
+                    charge: charge(12, ChargeState::Charging),
+                },
+            ],
+            ..BatteryState::default()
+        });
+        assert!(rows[0].warning);
+        assert!(
+            !rows[1].warning,
+            "a device on its charger is not running low"
+        );
+        assert_eq!(rows[1].subtitle, "Charging");
     }
 
     #[test]
@@ -634,5 +709,11 @@ mod tests {
             performance_degraded: Some("something-else".to_owned()),
         }));
         assert!(unknown[0].detail.is_empty());
+        assert!(held[0].warning, "a held-back performance mode reads amber");
+        assert!(!unknown[0].warning);
+        assert!(
+            choices[1].detail.is_empty(),
+            "balanced has nothing to explain"
+        );
     }
 }

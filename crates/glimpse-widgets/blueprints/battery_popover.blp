@@ -36,23 +36,15 @@ template $BatteryPopover: Gtk.Widget {
         $ChoiceList profiles {}
       }
 
-      $Section devices_section {
-        title: _("Devices");
+      $SwitchRow charge_limit {
         visible: false;
-
-        Gtk.Box devices_box {
-          orientation: vertical;
-        }
       }
 
-      Gtk.Box details_holder {
-        orientation: vertical;
+      $Expandable details {
         visible: false;
 
         $Row details_row {
-          activatable: true;
-          title: _("Battery details");
-          lead-icon: "dialog-information-symbolic";
+          title: _("Health");
 
           [trail]
           Gtk.Image {
@@ -65,24 +57,16 @@ template $BatteryPopover: Gtk.Widget {
           }
         }
 
-        Gtk.Revealer details_panel {
-          transition-type: slide_down;
-          reveal-child: false;
+        [details]
+        $FactList facts {}
+      }
 
-          Gtk.Box {
-            orientation: vertical;
+      $Section devices_section {
+        title: _("Devices");
+        visible: false;
 
-            styles [
-              "detail-card",
-            ]
-
-            $FactList facts {}
-
-            $SwitchRow charge_limit {
-              title: _("Charge limit");
-              visible: false;
-            }
-          }
+        Gtk.Box devices_box {
+          orientation: vertical;
         }
       }
     }

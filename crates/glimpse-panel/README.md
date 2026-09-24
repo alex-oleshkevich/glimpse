@@ -462,8 +462,16 @@ the first present `BAT*` object, because the composite omits them. Extra packs a
 device list. `indicator-style` is icon-only by default; `label-format` substitutes `{percentage}`, `{state}` and
 `{remaining}`, and a format resolving to nothing drops the label rather than a bare separator.
 UPower's `IconName` is the chip icon; the level ladder is only its fallback. A failed profile or
-charge-limit command is a notification. Battery
-details is the last row in the column and unfolds in place.
+charge-limit command is a notification.
+- **The hero says when, not what**: time left while draining, "Full at {time}" while charging
+  (`[regional]` decides the clock), and "Held at N%" when an enabled charge limit is why it is not
+  charging. It takes the chip's severity.
+- **The charge limit is a control in the column**, never behind the health card. The health row
+  shows UPower's `Capacity` percentage as its value, amber below 80%; its card holds what nothing else shows — energy,
+  design capacity, cycles, voltage, technology, model, vendor — never the charge or time the hero
+  already carries.
+- A device row's subtitle is its charging state, since the icon already names the kind; it reads
+  amber at 20% or less while not charging. Performance reads amber only when it is held back.
 
 **command** — a user-defined chip: `icon` (a theme name or an absolute image path) and/or `label`,
 and one argv per gesture (`on-click`, `on-middle-click`, `on-right-click`, `on-scroll-up|down|left|

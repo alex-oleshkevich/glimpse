@@ -878,6 +878,7 @@ mod fixtures {
                         label: (*label).to_owned(),
                         detail: (*detail).to_owned(),
                         icon_name: (*icon_name).to_owned(),
+                        warning: false,
                     })
                     .collect::<Vec<_>>(),
             );
@@ -1058,9 +1059,10 @@ mod fixtures {
             return;
         };
         popover.set_heading(
-            Some("battery-full-charged-symbolic"),
-            Some("Fully charged"),
-            Some(100),
+            Some("battery-level-70-symbolic"),
+            Some("3 h 12 m left"),
+            Some(74),
+            None,
         );
         popover.set_profiles(
             &[
@@ -1068,41 +1070,63 @@ mod fixtures {
                     label: "Power saver".to_owned(),
                     detail: "Longer battery life, slower response".to_owned(),
                     icon_name: "power-profile-power-saver-symbolic".to_owned(),
+                    warning: false,
                 },
                 Choice {
                     label: "Balanced".to_owned(),
-                    detail: "The default trade-off".to_owned(),
                     icon_name: "power-profile-balanced-symbolic".to_owned(),
+                    ..Default::default()
                 },
                 Choice {
                     label: "Performance".to_owned(),
-                    detail: String::new(),
+                    detail: "Held back — too hot".to_owned(),
                     icon_name: "power-profile-performance-symbolic".to_owned(),
+                    warning: true,
                 },
             ],
             Some(1),
         );
-        popover.set_devices(&[BatteryDevice {
-            name: "MX Master 3S".to_owned(),
-            subtitle: "Mouse".to_owned(),
-            icon_name: "input-mouse-symbolic".to_owned(),
-            value: "41%".to_owned(),
-        }]);
-        popover.set_details(
+        popover.set_charge_limit(Some(&BatteryChargeLimit {
+            enabled: true,
+            title: "Limit charge to 80%".to_owned(),
+            subtitle: "Slows battery wear".to_owned(),
+        }));
+        popover.set_health(
+            Some("87%"),
+            false,
             &[
-                Fact::new("Charge", "100%"),
-                Fact::new("Energy", "87.0 / 87.0 Wh"),
-                Fact::new("Health", "97%"),
-                Fact::new("Voltage", "17.2 V"),
+                Fact::new("Energy", "41.2 / 52.0 Wh"),
+                Fact::new("Capacity when new", "57.0 Wh"),
+                Fact::new("Cycles", "312"),
+                Fact::new("Voltage", "12.1 V"),
                 Fact::new("Technology", "Li-ion"),
                 Fact::new("Model", "A32-K55"),
                 Fact::new("Vendor", "ASUS"),
             ],
-            Some(&BatteryChargeLimit {
-                enabled: false,
-                subtitle: "Stops at 80% to slow wear".to_owned(),
-            }),
         );
+        popover.set_devices(&[
+            BatteryDevice {
+                name: "MX Master 3S".to_owned(),
+                subtitle: String::new(),
+                icon_name: "input-mouse-symbolic".to_owned(),
+                value: "41%".to_owned(),
+                warning: false,
+            },
+            BatteryDevice {
+                name: "WH-1000XM4".to_owned(),
+                subtitle: "Charging".to_owned(),
+                icon_name: "audio-headphones-symbolic".to_owned(),
+                value: "18%".to_owned(),
+                warning: false,
+            },
+            BatteryDevice {
+                name: "Keychron K3".to_owned(),
+                subtitle: String::new(),
+                icon_name: "input-keyboard-symbolic".to_owned(),
+                value: "9%".to_owned(),
+                warning: true,
+            },
+        ]);
     }
 
     fn brightness_popover_states(root: &gtk4::Widget) {

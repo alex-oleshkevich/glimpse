@@ -244,11 +244,9 @@ Per-popover rules that are traps rather than taste:
   token and accepts a password NetworkManager refuses. **A hidden network chooses its own security**
   and *None* takes the box away. `SecretDialog` asks the same on the host. **The Wi-Fi switch goes
   insensitive under a hardware block**, which reads as refused, not merely off.
-**A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
-its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
-open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row.
-**`Expandable` is the holder as a widget**, and where `WorkspacesPopover` has moved: a `$Row` or
-`$SplitRow` head, a `[details]` child, and `expanded` making the whole of it one `.card`. Only
+**A detail unfolds in place, never beside the list**, so a card grows down instead of sideways off
+an output edge, and a capped list ends in an overflow row. **Every detail is an `Expandable`**: a
+`$Row` or `$SplitRow` head, a `[details]` child, and `expanded` making the whole of it one `.card`. Only
 paint changes between the two states, so the head never moves; the card stays until the drawer has
 finished closing. The head toggles it — a `SplitRow`'s chevron, a `Row`'s click — and the owner
 only fills the details. **Focus belongs to `PopoverShell`**: opening one closes every unrelated
@@ -404,9 +402,11 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 ## BatteryPopover
 
 Hero readout is the percentage; `$ChoiceList` is the power-mode selector (its first caller);
-device rows hide when empty. Battery details is the last row in the column; facts and the
-charge-limit switch unfold under it, the same in-place card IdlePopover and NetworkPopover
-use. Static labels live in the blueprint.
+device rows hide when empty. The charge limit is a `$SwitchRow` in the column; Health is an
+`Expandable` whose head carries the value and whose card is a `$FactList`, hidden and closed when
+it has neither. `.row--warning` turns a row's subtitle and value amber — on the health row, a
+device and a `Choice` — and the hero takes `--warning` or `--error` beside the chip's severity.
+Static labels live in the blueprint.
 
 ## SessionPopover
 
