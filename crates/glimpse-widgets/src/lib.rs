@@ -3406,6 +3406,7 @@ mod tests {
                     label: "chats".to_owned(),
                     detail: "1 window".to_owned(),
                     output: "DP-2".to_owned(),
+                    display: "Dell U2723QE".to_owned(),
                     focused: false,
                     urgent: false,
                     windows: vec![WorkspaceWindow {
@@ -3421,6 +3422,7 @@ mod tests {
                     label: "browser".to_owned(),
                     detail: "1 window".to_owned(),
                     output: "DP-2".to_owned(),
+                    display: "Dell U2723QE".to_owned(),
                     focused: true,
                     urgent: false,
                     windows: vec![WorkspaceWindow {
@@ -3434,8 +3436,9 @@ mod tests {
                 Workspace {
                     id: 5,
                     label: "1".to_owned(),
-                    detail: "empty".to_owned(),
+                    detail: "Empty".to_owned(),
                     output: "eDP-1".to_owned(),
+                    display: String::new(),
                     focused: false,
                     urgent: false,
                     windows: Vec::new(),
@@ -3466,6 +3469,48 @@ mod tests {
             .expect("a section holds one column of rows");
         let holders = children_of::<Expandable>(&column);
         assert_eq!(holders.len(), 2, "DP-2 carries two of the three workspaces");
+        assert_eq!(
+            sections[0].imp().section.title().as_deref(),
+            Some("Dell U2723QE"),
+            "a section names its display, not its connector"
+        );
+        assert_eq!(
+            sections[1].imp().section.title().as_deref(),
+            Some("eDP-1"),
+            "a display with no name falls back to its connector rather than an empty header"
+        );
+        assert_eq!(popover.imp().hero.subtitle(), None);
+        assert_eq!(
+            holders[0]
+                .head::<SplitRow>()
+                .and_then(|split| split.row().value())
+                .as_deref(),
+            Some("1 window"),
+            "the window count sits in the row's value slot"
+        );
+        let empty = children_of::<Expandable>(
+            &child_named::<gtk4::Box>(&sections[1], "section__content")
+                .first_child()
+                .and_downcast::<gtk4::Box>()
+                .expect("a section holds one column of rows"),
+        )[0]
+        .clone();
+        empty
+            .head::<SplitRow>()
+            .expect("an empty workspace keeps its chevron")
+            .emit_by_name::<()>("details", &[]);
+        let placeholder = children_of::<Row>(
+            &empty
+                .details::<gtk4::Box>()
+                .expect("an empty workspace's card is filled"),
+        );
+        assert!(
+            placeholder.len() == 1
+                && placeholder[0].get_visible()
+                && placeholder[0].title().as_deref() == Some("No windows"),
+            "an empty workspace's card says so rather than opening on nothing"
+        );
+        empty.set_expanded(false);
 
         let head = |holder: &Expandable| {
             holder
@@ -3534,7 +3579,10 @@ mod tests {
                 .details::<gtk4::Box>()
                 .expect("the panel holds a rows box once it has been filled")
         };
-        let windows = children_of::<Row>(&rows_box(&holders[0]));
+        let windows: Vec<Row> = children_of::<Row>(&rows_box(&holders[0]))
+            .into_iter()
+            .filter(|row| row.get_visible())
+            .collect();
         assert_eq!(
             windows.len(),
             1,

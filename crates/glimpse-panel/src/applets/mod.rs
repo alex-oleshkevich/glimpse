@@ -59,6 +59,14 @@ pub fn configured(
     Some(config)
 }
 
+pub(crate) fn output_name(connector: &str, outputs: &[glimpse_services::OutputInfo]) -> String {
+    match outputs.iter().find(|output| output.connector == connector) {
+        Some(output) if output.built_in => gettextrs::gettext("Built-in display"),
+        Some(output) => output.label.clone().unwrap_or_else(|| connector.to_owned()),
+        None => connector.to_owned(),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build(
     config: &AppletConfig,

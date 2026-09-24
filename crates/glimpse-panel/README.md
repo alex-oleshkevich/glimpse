@@ -285,6 +285,10 @@ tick against the provider's thirty-minute lease.
 the list; this applet only renders it and sends the switch command. Picking a layout closes the
 popover, since the pick is the whole of what it offers.
 
+**pager** — its popover groups workspaces under each display's name, shared with the privacy
+applet through `applets::output_name`, never the connector. A row's value is its window count or
+*Empty*; its card lists the windows, or says there are none rather than opening on nothing.
+
 **workspace-name** — the chip is the name of the workspace active on this bar's output, or its
 index when it has none, falling back to the focused workspace when the output is unknown. It shares
 `applets/workspace.rs` with the pager — `workspace_token` and the tooltip tokens — so the two never

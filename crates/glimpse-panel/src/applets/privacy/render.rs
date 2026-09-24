@@ -171,19 +171,11 @@ fn shared(casts: &[&ServiceUsage], outputs: &[OutputInfo]) -> String {
     let names: Vec<String> = casts
         .iter()
         .map(|cast| match &cast.detail {
-            Some(connector) => output_name(connector, outputs),
+            Some(connector) => crate::applets::output_name(connector, outputs),
             None => gettext("a window"),
         })
         .collect();
     names.join(", ")
-}
-
-fn output_name(connector: &str, outputs: &[OutputInfo]) -> String {
-    match outputs.iter().find(|output| output.connector == connector) {
-        Some(output) if output.built_in => gettext("Built-in display"),
-        Some(output) => output.label.clone().unwrap_or_else(|| connector.to_owned()),
-        None => connector.to_owned(),
-    }
 }
 
 pub fn sessions_for(state: &PrivacyState, filters: Filters, id: &str) -> Vec<u64> {
