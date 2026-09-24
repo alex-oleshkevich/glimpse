@@ -38,3 +38,12 @@ pub trait Systemd1Unit {
     #[zbus(property)]
     fn sub_state(&self) -> zbus::Result<String>;
 }
+
+#[zbus::proxy(
+    interface = "org.freedesktop.systemd1.Service",
+    default_service = "org.freedesktop.systemd1"
+)]
+pub trait Systemd1Service {
+    #[zbus(property, name = "MainPID")]
+    fn main_pid(&self) -> zbus::Result<u32>;
+}

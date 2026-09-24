@@ -226,6 +226,7 @@ struct Inner {
     uncommitted: Cell<bool>,
     corners: RefCell<Vec<(gtk4::Widget, Corners)>>,
     stale: Cell<bool>,
+    syncing: Cell<bool>,
 }
 
 thread_local! {
@@ -250,6 +251,7 @@ impl Blur {
             uncommitted: Cell::new(false),
             corners: RefCell::default(),
             stale: Cell::new(false),
+            syncing: Cell::new(false),
         });
         let mapped = window.connect_map(glib::clone!(
             #[weak]
@@ -298,8 +300,26 @@ pub(crate) fn restyle() {
     });
 }
 
+/// `map`/`unmap` and a config reload can each ask `Inner::sync` to run, and GTK is free to nest
+/// one inside the other — a monitor change applied while a popover is presenting, say. `attach`
+/// and `detach` are reachable only through `sync`, so this guard is what stops a nested call from
+/// taking a second `RefCell` borrow the outer call already holds and aborting the process; GTK
+/// invokes this from a `g_signal_emit` trampoline that cannot unwind a Rust panic.
+struct SyncGuard<'a>(&'a Cell<bool>);
+
+impl Drop for SyncGuard<'_> {
+    fn drop(&mut self) {
+        self.0.set(false);
+    }
+}
+
 impl Inner {
     fn sync(self: &Rc<Self>) {
+        if self.syncing.replace(true) {
+            return;
+        }
+        let _guard = SyncGuard(&self.syncing);
+
         let protocol = Protocol::get();
         let blurs = protocol.as_ref().is_some_and(|protocol| protocol.blurs());
         let active = self.enabled.get() && blurs;
@@ -476,18 +496,25 @@ fn enclosing(bounds: &graphene::Rect, dx: f64, dy: f64) -> Rect {
 }
 
 fn corners(widget: &gtk4::Widget) -> Option<Corners> {
-    let (width, height) = (widget.width(), widget.height());
-    if width <= 0 || height <= 0 {
+    let bounds = widget.compute_bounds(widget)?;
+    let (width, height) = (bounds.width(), bounds.height());
+    if width <= 0.0 || height <= 0.0 {
         return None;
     }
     let paintable = gtk4::WidgetPaintable::new(Some(widget));
-    if paintable.intrinsic_width() != width || paintable.intrinsic_height() != height {
+    let (intrinsic_width, intrinsic_height) =
+        (paintable.intrinsic_width(), paintable.intrinsic_height());
+    if intrinsic_width != width.ceil() as i32 || intrinsic_height != height.ceil() as i32 {
         return None;
     }
     let snapshot = gtk4::Snapshot::new();
-    paintable.snapshot(&snapshot, f64::from(width), f64::from(height));
+    paintable.snapshot(
+        &snapshot,
+        f64::from(intrinsic_width),
+        f64::from(intrinsic_height),
+    );
     let node = snapshot.to_node()?;
-    Some(outline(&node, width as f32, height as f32).unwrap_or(SQUARE))
+    Some(outline(&node, width, height).unwrap_or(SQUARE))
 }
 
 fn outline(node: &gsk::RenderNode, width: f32, height: f32) -> Option<Corners> {

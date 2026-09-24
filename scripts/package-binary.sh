@@ -72,7 +72,7 @@ for f in data/portals/*-portals.conf; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/xdg-desktop-portal/$(basename "$f")"
 done
 for f in data/pam.d/*; do
-    [[ -e "$f" && "$(basename "$f")" != .gitkeep ]] || continue
+    [[ -f "$f" && "$(basename "$f")" != .gitkeep ]] || continue
     install -Dm644 "$f" "$pkgroot/etc/pam.d/$(basename "$f")"
 done
 for f in data/themes/*/*; do

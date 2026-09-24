@@ -102,6 +102,8 @@ impl Provider {
                 urgency: glimpse_dbus::notifications::urgency_from_wire(urgency),
                 progress: None,
                 resident: false,
+                expire_timeout: -1,
+                transient: false,
             })
             .await
             .map_err(Error::from)
@@ -191,6 +193,7 @@ fn notification(record: NotificationRecord) -> NotificationWire {
         record.created.timestamp_micros(),
         record.unread,
         record.resident,
+        record.expire_timeout,
     )
 }
 
@@ -322,7 +325,7 @@ mod tests {
       <arg name="enabled" type="b" direction="in"/>
       <arg name="until" type="x" direction="in"/>
     </method>
-    <property name="Snapshot" type="(a(ussissssya(ss)dxbb)(bx)bs)" access="read"/>
+    <property name="Snapshot" type="(a(ussissssya(ss)dxbbi)(bx)bs)" access="read"/>
   </interface>"#
         );
 
@@ -352,6 +355,7 @@ mod tests {
             created,
             unread: true,
             resident: false,
+            expire_timeout: -1,
         });
 
         assert_eq!(wire.0, 7);

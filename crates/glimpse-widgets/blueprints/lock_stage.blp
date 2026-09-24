@@ -1,0 +1,99 @@
+using Gtk 4.0;
+
+template $LockStage: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "lock-stage",
+  ]
+
+  Gtk.Overlay overlay {
+    child: Gtk.Picture base {
+      can-shrink: true;
+      can-target: false;
+      content-fit: fill;
+      accessible-role: presentation;
+    };
+
+    [overlay]
+    Gtk.Picture background {
+      can-shrink: true;
+      can-target: false;
+      content-fit: cover;
+      accessible-role: presentation;
+    }
+
+    [overlay]
+    Gtk.Box scrim {
+      opacity: 0;
+      can-target: false;
+      accessible-role: presentation;
+
+      styles [
+        "lock-stage__scrim",
+      ]
+    }
+
+    [overlay]
+    Gtk.CenterBox layout {
+      orientation: vertical;
+
+      [start]
+      $StatusIsland status {
+        halign: end;
+
+        styles [
+          "lock-stage__edge",
+        ]
+      }
+
+      [center]
+      Gtk.Box {
+        orientation: vertical;
+        halign: center;
+        valign: center;
+
+        $LockClock clock {}
+
+        $PasswordPrompt prompt {
+          halign: center;
+
+          styles [
+            "lock-stage__prompt",
+          ]
+        }
+      }
+
+      [end]
+      Gtk.Box {
+        spacing: 12;
+
+        styles [
+          "lock-stage__edge",
+        ]
+
+        $NotificationChips chips {
+          hexpand: true;
+          halign: start;
+          valign: end;
+        }
+
+        $TrackCard track {
+          hexpand: true;
+          halign: end;
+          valign: end;
+        }
+      }
+    }
+
+    [overlay]
+    $SessionSheet sheet {
+      halign: end;
+      valign: start;
+
+      styles [
+        "lock-stage__sheet",
+      ]
+    }
+  }
+}

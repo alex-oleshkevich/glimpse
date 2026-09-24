@@ -6,22 +6,9 @@ use glimpse_widgets::{
     BluetoothLine as Line, BluetoothPlace as Place, PASSKEY_MAX, PIN_MAX, PairingEntry,
 };
 
-pub const ACTIVE: &str = "bluetooth-active-symbolic";
 pub const IDLE: &str = "bluetooth-symbolic";
-pub const SCANNING: &str = "bluetooth-acquiring-symbolic";
-pub const OFF: &str = "bluetooth-disabled-symbolic";
-pub const BLOCKED: &str = "bluetooth-hardware-disabled-symbolic";
 
 pub const NAME_CAP: usize = 24;
-
-pub fn chip(state: &BluetoothState) -> Option<&'static str> {
-    let adapter = state.adapter.as_ref()?;
-    Some(icon_for(
-        adapter.power,
-        state.held(),
-        state.connected().next().is_some(),
-    ))
-}
 
 pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
     let adapter = state.adapter.as_ref()?;
@@ -79,7 +66,7 @@ pub fn hero(state: &BluetoothState) -> Hero {
     Hero {
         title: gettext("Bluetooth"),
         subtitle: status(power, searching, connected),
-        icon: icon_for(power, searching, connected > 0).to_owned(),
+        icon: glimpse_services::icon_for(power, searching, connected > 0).to_owned(),
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
         controls: powered(state),
@@ -220,17 +207,6 @@ fn pairing(state: &BluetoothState) -> Option<Ask> {
 fn digits(passkey: u32) -> String {
     let padded = format!("{:06}", passkey.min(PASSKEY_MAX));
     format!("{} {}", &padded[..3], &padded[3..])
-}
-
-fn icon_for(power: Power, discovering: bool, any_connected: bool) -> &'static str {
-    match power {
-        Power::Blocked => BLOCKED,
-        Power::Off | Power::Disabling => OFF,
-        Power::Enabling => IDLE,
-        Power::On if discovering => SCANNING,
-        Power::On if any_connected => ACTIVE,
-        Power::On => IDLE,
-    }
 }
 
 pub struct Hero {
@@ -534,32 +510,14 @@ mod tests {
     }
 
     #[test]
-    fn a_machine_with_no_radio_shows_no_chip() {
-        assert!(chip(&BluetoothState::default()).is_none());
+    fn a_machine_with_no_radio_offers_no_tooltip() {
         assert!(tooltip(&BluetoothState::default(), None).is_none());
-    }
-
-    #[test]
-    fn the_icon_follows_the_power_state() {
-        assert_eq!(chip(&state(Power::Off, false, vec![])).unwrap(), OFF);
-        assert_eq!(
-            chip(&state(Power::Blocked, false, vec![])).unwrap(),
-            BLOCKED
-        );
-        assert_eq!(
-            chip(&state(Power::Enabling, false, vec![])).unwrap(),
-            IDLE,
-            "a transition shows the state being entered"
-        );
-        assert_eq!(chip(&state(Power::Disabling, false, vec![])).unwrap(), OFF);
-        assert_eq!(chip(&state(Power::On, true, vec![])).unwrap(), SCANNING);
-        assert_eq!(chip(&state(Power::On, false, vec![])).unwrap(), IDLE);
     }
 
     #[test]
     fn the_bar_carries_an_icon_and_never_a_device_name() {
         let one = state(Power::On, false, vec![device("Buds", true)]);
-        assert_eq!(chip(&one).unwrap(), ACTIVE);
+        assert_eq!(one.icon_name().unwrap(), "bluetooth-active-symbolic");
         assert_eq!(
             tooltip(&one, None).as_deref(),
             Some("1 device connected"),
@@ -571,25 +529,12 @@ mod tests {
             false,
             vec![device("Buds", true), device("Mouse", true)],
         );
-        assert_eq!(chip(&many).unwrap(), ACTIVE);
+        assert_eq!(many.icon_name().unwrap(), "bluetooth-active-symbolic");
         assert_eq!(tooltip(&many, None).as_deref(), Some("2 devices connected"));
         assert_eq!(
             tooltip(&state(Power::On, false, vec![]), None).as_deref(),
             Some("No devices connected")
         );
-    }
-
-    #[test]
-    fn a_disconnected_device_does_not_light_the_icon() {
-        let some = state(
-            Power::On,
-            false,
-            vec![device("Buds", true), device("Mouse", false)],
-        );
-        assert_eq!(chip(&some).unwrap(), ACTIVE);
-
-        let none = state(Power::On, false, vec![device("Mouse", false)]);
-        assert_eq!(chip(&none).unwrap(), IDLE);
     }
 
     #[test]

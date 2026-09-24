@@ -1,0 +1,69 @@
+using Gtk 4.0;
+
+template $TrackCard: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 4;
+  };
+
+  visible: false;
+
+  styles [
+    "track-card",
+  ]
+
+  Gtk.Box body {
+    orientation: vertical;
+    valign: center;
+    hexpand: true;
+    margin-end: 8;
+
+    Gtk.Label title {
+      visible: false;
+      xalign: 0;
+      ellipsize: end;
+      width-chars: 28;
+      max-width-chars: 28;
+      single-line-mode: true;
+
+      styles [
+        "track-card__title",
+      ]
+    }
+
+    Gtk.Label artist {
+      visible: false;
+      xalign: 0;
+      ellipsize: end;
+      width-chars: 28;
+      max-width-chars: 28;
+      single-line-mode: true;
+
+      styles [
+        "track-card__artist",
+      ]
+    }
+  }
+
+  Gtk.Button play {
+    icon-name: "media-playback-start-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Play");
+
+    styles [
+      "track-card__play",
+    ]
+  }
+
+  Gtk.Button next {
+    icon-name: "media-skip-forward-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Next");
+
+    styles [
+      "track-card__next",
+    ]
+  }
+}

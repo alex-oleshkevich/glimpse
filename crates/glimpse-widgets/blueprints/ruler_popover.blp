@@ -1,0 +1,43 @@
+using Gtk 4.0;
+
+template $RulerPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "ruler-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "selection-mode-symbolic";
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section history_section {
+        title: _("History");
+        visible: false;
+
+        Gtk.Box history_rows {
+          orientation: vertical;
+
+          styles [
+            "ruler-history",
+          ]
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

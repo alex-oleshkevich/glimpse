@@ -1,0 +1,4 @@
+auth      include   password-auth
+account   include   password-auth
+password  required  pam_deny.so
+session   required  pam_deny.so

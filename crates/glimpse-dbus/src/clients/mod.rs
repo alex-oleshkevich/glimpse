@@ -32,9 +32,11 @@ pub(crate) fn epoch(value: i64) -> Result<DateTime<Utc>, String> {
 pub mod accounts;
 pub mod bluez;
 pub mod dbusmenu;
+pub mod freedesktop_notifications;
 pub mod geoclue;
 pub mod hostname1;
 pub mod idle;
+pub mod kdeconnect;
 pub mod login1;
 pub mod mpris;
 pub mod network_manager;

@@ -26,7 +26,11 @@ mod idle_popover;
 mod indicator;
 mod indicator_group;
 mod inhibitor_list;
+mod kdeconnect_popover;
 mod keyboard_popover;
+mod lens;
+mod lock_clock;
+mod lock_stage;
 mod monitors;
 mod mpris_popover;
 mod network_popover;
@@ -34,6 +38,7 @@ mod network_secret_dialog;
 mod next_event_popover;
 mod notice;
 mod notification_card;
+mod notification_chips;
 mod notification_header;
 mod notification_image_body;
 mod notification_list;
@@ -43,26 +48,34 @@ mod notifications_popover;
 mod now_playing;
 mod pager;
 mod panel;
+mod password_prompt;
 mod placeholder;
 mod places_popover;
 mod player_list;
 mod popover_shell;
 mod printing_popover;
 mod privacy_popover;
+mod progress;
 mod range_bar;
+pub mod raster;
 mod readout;
 mod reconcile;
 mod removable_popover;
 pub(crate) mod row;
+mod ruler_popover;
 mod scrubber;
 mod section;
 mod session_popover;
+mod session_sheet;
 mod source_list;
 mod split_row;
+mod status_island;
 mod swatch;
 mod switch_row;
+mod system_monitor_popover;
 mod theme;
 mod tooltip_card;
+mod track_card;
 mod transport;
 mod tray_strip;
 mod weather_popover;
@@ -106,7 +119,14 @@ pub use idle_popover::IdlePopover;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
+pub use kdeconnect_popover::{
+    Action as KdeconnectAction, Device as KdeconnectDevice, KdeconnectPopover,
+    Nearby as KdeconnectNearby,
+};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
+pub use lens::{Lens, zoomed};
+pub use lock_clock::LockClock;
+pub use lock_stage::LockStage;
 pub use monitors::watch_monitors;
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
@@ -117,6 +137,7 @@ pub use network_secret_dialog::{SecretAnswer, SecretDialog};
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_card::{Action, NotificationCard, Urgency};
+pub use notification_chips::{ChipGroup, NotificationChips};
 pub use notification_header::NotificationHeader;
 pub use notification_image_body::{NotificationImageBody, notification_image};
 pub use notification_list::{Body, Notification, NotificationList};
@@ -126,6 +147,7 @@ pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
+pub use password_prompt::{MessageKind, PasswordPrompt};
 pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
@@ -138,19 +160,26 @@ pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
 pub use row::Row;
+pub use ruler_popover::{HistoryEntry, RulerPopover};
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use session_popover::{
     ActionState as SessionActionState, HIBERNATE, LOCK, LOG_OUT, POWER_OFF, REBOOT, SUSPEND,
     SessionPopover,
 };
+pub use session_sheet::SessionSheet;
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
+pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
 pub use switch_row::SwitchRow;
+pub use system_monitor_popover::{
+    DetailTile as SystemMonitorDetail, SystemMonitorPopover, UsageTile as SystemMonitorUsage,
+};
 pub(crate) use theme::animation_ms;
 pub use theme::{Sheets, Styles, duration_ms};
 pub use tooltip_card::TooltipCard;
+pub use track_card::{Track, TrackCard};
 pub use transport::{Repeat, Transport, TransportAction};
 pub use tray_strip::{Edge, TrayChip, TrayStrip};
 pub use weather_popover::{Advisory, Page as WeatherPage, WeatherPopover, alert_page, day_page};
@@ -183,6 +212,40 @@ pub(crate) fn fill_slot(slot: &gtk4::Box, widget: &impl gtk4::prelude::IsA<gtk4:
     }
     clear_children(slot);
     slot.append(widget);
+}
+
+pub(crate) fn fade_out(
+    owner: &impl gtk4::prelude::IsA<gtk4::Widget>,
+    leaving: Vec<gtk4::Widget>,
+    done: impl FnOnce() + 'static,
+) {
+    use adw::prelude::*;
+
+    for widget in &leaving {
+        widget.add_css_class("leaving");
+    }
+    let fading = leaving.clone();
+    let target = adw::CallbackAnimationTarget::new(move |value| {
+        for widget in &fading {
+            widget.set_opacity(value);
+        }
+    });
+    let animation = adw::TimedAnimation::new(owner, 1.0, 0.0, duration_ms(), target);
+    animation.set_easing(adw::Easing::EaseOutCubic);
+    let done = std::cell::Cell::new(Some(done));
+    animation.connect_done(move |_| {
+        for widget in &leaving {
+            widget.remove_css_class("leaving");
+            widget.set_opacity(1.0);
+        }
+        if let Some(done) = done.take() {
+            done();
+        }
+    });
+    animation.play();
+    if duration_ms() == 0 {
+        animation.skip();
+    }
 }
 
 pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
@@ -1642,7 +1705,7 @@ mod tests {
         );
 
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
-        let sections = children_of::<Section>(&popover_imp.groups.get());
+        let sections = group_sections(&popover_imp.groups.get());
         let popover_stack = child_named::<NotificationStack>(&sections[0], "notification-stack");
         assert!(
             popover_stack.imp().animated.get(),
@@ -1698,14 +1761,14 @@ mod tests {
         assert!(popover_imp.clear.get_visible() && !popover_imp.empty.get_visible());
 
         popover.set_groups(&[group("a", "", 2)]);
-        let anonymous = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let anonymous = group_sections(&popover_imp.groups.get())[0].clone();
         assert!(!anonymous.imp().title.get_visible());
         assert!(anonymous.imp().trail.property::<bool>("hexpand"));
         assert_eq!(anonymous.imp().trail.halign(), gtk4::Align::End);
 
         popover.set_groups(&[group("b", "PagerDuty", 1)]);
         assert_eq!(
-            children_of::<Section>(&popover_imp.groups.get()).len(),
+            group_sections(&popover_imp.groups.get()).len(),
             1,
             "a group that goes away takes its section with it"
         );
@@ -1722,7 +1785,7 @@ mod tests {
         });
 
         popover.set_groups(&[group("a", "Telegram", 5)]);
-        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense = group_sections(&popover_imp.groups.get())[0].clone();
         let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
         let shown = |stack: &NotificationStack| {
             children_of::<NotificationCard>(stack)
@@ -1750,14 +1813,14 @@ mod tests {
         );
 
         popover.set_groups(&[group("single", "Telegram", 1)]);
-        let single = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let single = group_sections(&popover_imp.groups.get())[0].clone();
         assert!(
             !child_named::<gtk4::Button>(&single, "section__clear").get_visible(),
             "an unstacked notification group does not offer a group clear button"
         );
 
         popover.set_groups(&[group("a", "Telegram", 5)]);
-        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense = group_sections(&popover_imp.groups.get())[0].clone();
         let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
         let dense_chip = dense_stack
             .imp()
@@ -1821,7 +1884,7 @@ mod tests {
         assert!(!popover_imp.notifications.is_active());
         assert_eq!(
             *toggles.borrow(),
-            [],
+            Vec::<bool>::new(),
             "showing the state the caller already knows about must not report it back, or the \
              two ends chase each other"
         );
@@ -7048,6 +7111,133 @@ mod tests {
         assert!(!bare.imp().content_box.get_visible());
         section.set_visible(true);
         assert_eq!(rules(&bare), (true, true));
+        let system_monitor = SystemMonitorPopover::new();
+        let tile = |id: &str, fraction| SystemMonitorUsage {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            value: "1".to_owned(),
+            fraction,
+            severity: None,
+        };
+        system_monitor.set_usage(&[tile("a", Some(0.5)), tile("b", None)]);
+        assert_eq!(children(&*system_monitor.imp().usage_rows), 2);
+        system_monitor.set_usage(&[tile("a", Some(0.5))]);
+        assert_eq!(
+            children(&*system_monitor.imp().usage_rows),
+            1,
+            "a tile whose key stops being passed must not remain"
+        );
+
+        let ruler = RulerPopover::new();
+        let ruler_imp = ruler.imp();
+
+        assert!(
+            !ruler_imp.history_section.get_visible(),
+            "an untouched popover shows no history section at all"
+        );
+        ruler.set_latest(None);
+        assert_eq!(
+            ruler_imp.hero.title().as_deref(),
+            Some("No measurement yet")
+        );
+        assert_eq!(
+            ruler_imp.hero.subtitle().as_deref(),
+            Some("Right-click the indicator to measure")
+        );
+
+        ruler.set_latest(Some(("365.7px", "342 \u{d7} 128 px \u{b7} 20.6\u{b0}")));
+        assert_eq!(ruler_imp.hero.title().as_deref(), Some("365.7px"));
+        assert_eq!(
+            ruler_imp.hero.subtitle().as_deref(),
+            Some("342 \u{d7} 128 px \u{b7} 20.6\u{b0}")
+        );
+
+        let entries = [
+            HistoryEntry {
+                id: 1,
+                title: "365.7px".to_owned(),
+                value: "342 \u{d7} 128 px \u{b7} 20.6\u{b0}".to_owned(),
+            },
+            HistoryEntry {
+                id: 2,
+                title: "118.4px".to_owned(),
+                value: "118 \u{d7} 0 px \u{b7} 0.0\u{b0}".to_owned(),
+            },
+        ];
+        ruler.set_history(&entries);
+        assert!(
+            ruler_imp.history_section.get_visible(),
+            "a non-empty history shows the section"
+        );
+        assert_eq!(children(&*ruler_imp.history_rows), 2);
+
+        let first_row = ruler_imp
+            .history_rows
+            .first_child()
+            .and_downcast::<Row>()
+            .expect("a history row");
+        assert_eq!(first_row.title().as_deref(), Some("365.7px"));
+        assert_eq!(
+            first_row.value().as_deref(),
+            Some("342 \u{d7} 128 px \u{b7} 20.6\u{b0}")
+        );
+
+        let renders_after_first = ruler_imp.renders.get();
+        let held_row = ruler_imp.history_held.borrow()[0].1.clone();
+        ruler.set_history(&entries);
+        assert_eq!(
+            ruler_imp.renders.get(),
+            renders_after_first,
+            "an unchanged history list must never re-enter render_history at all"
+        );
+        assert_eq!(
+            ruler_imp.history_held.borrow()[0].1,
+            held_row,
+            "an unchanged history list reuses its rows rather than rebuilding them"
+        );
+
+        let activated = Rc::new(RefCell::new(None));
+        ruler.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| {
+                activated.replace(Some(id));
+            }
+        });
+        first_row.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *activated.borrow(),
+            Some(1),
+            "clicking a history row reports its own id"
+        );
+
+        ruler.set_history(&[]);
+        assert!(
+            !ruler_imp.history_section.get_visible(),
+            "an emptied history hides the section again, matching the approved board's empty state"
+        );
+        assert_eq!(children(&*ruler_imp.history_rows), 0);
+
+        ruler.set_footer(Some("Settings"));
+        assert!(ruler_imp.footer.get_visible());
+        assert_eq!(ruler_imp.footer.title().as_deref(), Some("Settings"));
+
+        let footer_activated = Rc::new(Cell::new(false));
+        ruler.connect_footer_activated({
+            let footer_activated = Rc::clone(&footer_activated);
+            move |_| footer_activated.set(true)
+        });
+        ruler_imp.footer.emit_by_name::<()>("clicked", &[]);
+        assert!(footer_activated.get());
+    }
+
+    fn children(parent: &impl IsA<gtk4::Widget>) -> usize {
+        let mut count = 0;
+        let mut child = parent.upcast_ref::<gtk4::Widget>().first_child();
+        while let Some(widget) = child {
+            count += 1;
+            child = widget.next_sibling();
+        }
+        count
     }
 
     /// Separate from `widgets()` so an unrelated failure earlier in that test cannot stop these
@@ -7700,6 +7890,13 @@ mod tests {
         .upcast()
     }
 
+    fn group_sections(groups: &gtk4::Box) -> Vec<Section> {
+        children_of::<gtk4::Revealer>(groups)
+            .iter()
+            .filter_map(|revealer| revealer.child().and_downcast())
+            .collect()
+    }
+
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {
         let mut found = Vec::new();
         let mut child = parent.as_ref().first_child();
@@ -7806,6 +8003,176 @@ mod tests {
         assert!(!imp.footer.get_visible(), "no footer until one is set");
         popover.set_footer(Some("Workspace settings"));
         assert!(imp.footer.get_visible());
+        imp.footer.emit_clicked();
+        assert!(footer.get());
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn kdeconnect_popover_widgets() {
+        if gtk4::init().is_err() {
+            return;
+        }
+        register_resources().expect("resources");
+        let _styles = Styles::install(adw::ColorScheme::Default);
+
+        let popover = KdeconnectPopover::new();
+        let imp = popover.imp();
+        assert!(
+            !imp.devices.get_visible(),
+            "an untouched popover lists no device"
+        );
+        assert!(!imp.nearby.get_visible(), "and has no nearby header");
+
+        let action = |key: &str| KdeconnectAction {
+            key: key.to_owned(),
+            label: key.to_owned(),
+        };
+        let phone = KdeconnectDevice {
+            id: "b98d".to_owned(),
+            title: "Pixel 10 Pro".to_owned(),
+            subtitle: String::new(),
+            value: "76%".to_owned(),
+            actions: vec![action("ring"), action("unpair")],
+        };
+        let away = KdeconnectDevice {
+            id: "3d9c".to_owned(),
+            title: "Pixel 8".to_owned(),
+            subtitle: String::new(),
+            value: "Not connected".to_owned(),
+            actions: vec![action("unpair")],
+        };
+        popover.set_devices(&[phone.clone(), away.clone()]);
+        assert!(imp.devices.get_visible());
+        let holders = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(holders.len(), 2);
+        let head = holders[0].head::<Row>().expect("a row head");
+        assert_eq!(head.title().as_deref(), Some("Pixel 10 Pro"));
+        assert_eq!(head.subtitle(), None, "one line");
+        assert_eq!(head.value().as_deref(), Some("76%"));
+        assert_eq!(
+            holders[1]
+                .head::<Row>()
+                .and_then(|row| row.value())
+                .as_deref(),
+            Some("Not connected")
+        );
+
+        let details = holders[0].details::<gtk4::Box>().expect("details");
+        let rows = children_of::<Row>(&details);
+        assert_eq!(rows.len(), 2);
+
+        let fired = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
+        popover.connect_action({
+            let fired = Rc::clone(&fired);
+            move |_, id, key| fired.borrow_mut().push((id.to_owned(), key.to_owned()))
+        });
+        rows[0].emit_clicked();
+        assert_eq!(
+            fired.borrow().as_slice(),
+            [("b98d".to_owned(), "ring".to_owned())]
+        );
+
+        holders[0].set_expanded(true);
+        let mut charging = phone.clone();
+        charging.value = "77%, charging".to_owned();
+        popover.set_devices(&[charging, away.clone()]);
+        let again = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(
+            again[0], holders[0],
+            "a device keeps its row across an update"
+        );
+        assert!(
+            again[0].expanded(),
+            "an open card stays open when only the reading moves"
+        );
+        assert_eq!(
+            again[0]
+                .details::<gtk4::Box>()
+                .map(|details| children_of::<Row>(&details)),
+            Some(rows.clone()),
+            "unchanged actions keep their rows, so the pointer's row is not swapped out"
+        );
+
+        popover.collapse("b98d");
+        assert!(!again[0].expanded(), "collapse closes the card it names");
+
+        popover.set_devices(&[away.clone(), phone.clone()]);
+        let reordered = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(
+            reordered[1], holders[0],
+            "rows are keyed by id, not position"
+        );
+
+        let nearby = |id: &str, busy: bool| KdeconnectNearby {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            subtitle: String::new(),
+            busy,
+        };
+        popover.set_nearby(
+            &[nearby("desk", false), nearby("tab", true)],
+            Some("3 more"),
+        );
+        assert!(imp.nearby.get_visible());
+        assert!(!imp.nearby_rows.get_visible(), "nearby starts closed");
+        assert!(!imp.nearby_more.get_visible(), "and so does its count");
+        imp.nearby_toggle.emit_clicked();
+        assert!(popover.nearby_open());
+        assert!(imp.nearby_rows.get_visible());
+        assert!(imp.nearby_more.get_visible());
+        assert!(imp.nearby_toggle.has_css_class("open"));
+        let splits = children_of::<SplitRow>(&*imp.nearby_rows);
+        assert!(splits[1].row().busy(), "a requested pairing spins");
+
+        let paired = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_pair({
+            let paired = Rc::clone(&paired);
+            move |_, id| paired.borrow_mut().push(id.to_owned())
+        });
+        splits[0].row().emit_clicked();
+        assert!(
+            splits[0].row().busy(),
+            "the row spins the moment it is pressed"
+        );
+        splits[0].row().emit_clicked();
+        assert_eq!(
+            paired.borrow().as_slice(),
+            ["desk".to_owned()],
+            "a second press while it spins asks nothing"
+        );
+        popover.set_nearby(
+            &[nearby("desk", false), nearby("tab", true)],
+            Some("3 more"),
+        );
+        assert!(
+            !splits[0].row().busy(),
+            "an unchanged state still clears the guess, so a refused request never spins forever"
+        );
+
+        imp.nearby_toggle.emit_clicked();
+        assert!(!popover.nearby_open());
+        assert!(
+            !imp.nearby_rows.get_visible(),
+            "the header closes what it opened"
+        );
+
+        popover.set_nearby(&[], None);
+        assert!(
+            !imp.nearby.get_visible(),
+            "no header until something is found"
+        );
+
+        let summary = || imp.hero.subtitle().map(|text| text.to_string());
+        popover.set_summary("1 connected");
+        assert_eq!(summary().as_deref(), Some("1 connected"));
+
+        popover.set_footer(Some("KDE Connect settings"));
+        let footer = Rc::new(Cell::new(false));
+        popover.connect_footer_activated({
+            let footer = Rc::clone(&footer);
+            move |_| footer.set(true)
+        });
         imp.footer.emit_clicked();
         assert!(footer.get());
     }

@@ -4,11 +4,12 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use glimpse_config::Transition;
-use gtk4::{cairo, gdk, gio, glib, graphene};
+use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{Component, ComponentParts, ComponentSender, gtk};
 
-use crate::decode::{self, Raster};
+use glimpse_widgets::raster::{self, Raster};
+
 use crate::resolve::{Intent, RenderKey, Role};
 
 pub struct Config {
@@ -131,7 +132,7 @@ impl Component for Surface {
         };
         model
             .base
-            .set_paintable(Some(&decode::solid(model.intent.color)));
+            .set_paintable(Some(&raster::solid(model.intent.color)));
         model.settle(&sender);
 
         window.present();
@@ -195,7 +196,7 @@ impl Surface {
         }
 
         self.base
-            .set_paintable(Some(&decode::solid(config.intent.color)));
+            .set_paintable(Some(&raster::solid(config.intent.color)));
 
         if should_clear_image(config.intent.image.as_deref(), self.rendered.is_some()) {
             self.clear_image();
@@ -230,7 +231,7 @@ impl Surface {
         self.spawn_decode(wanted, sender);
     }
 
-    fn output_target(&self) -> Option<decode::Target> {
+    fn output_target(&self) -> Option<raster::Target> {
         let geometry = self.monitor.geometry();
         if geometry.width() <= 0 || geometry.height() <= 0 {
             return None;
@@ -239,19 +240,11 @@ impl Surface {
             scale if scale > 0.0 => scale,
             _ => f64::from(self.monitor.scale_factor()),
         };
-        Some(decode::output_target(
+        Some(raster::output_target(
             geometry.width(),
             geometry.height(),
             scale,
         ))
-    }
-
-    fn blur_sigma(&self, texture_width: i32) -> Option<f32> {
-        if self.intent.blur_radius == 0 {
-            return None;
-        }
-        let output = self.output_target()?;
-        Some(self.intent.blur_radius as f32 * texture_width as f32 / output.width as f32)
     }
 
     fn compute_wanted(&self) -> Option<RenderKey> {
@@ -259,7 +252,7 @@ impl Surface {
         let image = self.intent.image.clone()?;
         let target = match self.role {
             Role::Wallpaper => output_target,
-            Role::Backdrop => decode::backdrop_target(output_target, self.intent.downscale_factor),
+            Role::Backdrop => raster::backdrop_target(output_target, self.intent.downscale_factor),
         };
 
         let mtime = self
@@ -286,7 +279,7 @@ impl Surface {
 
         sender.spawn_oneshot_command(move || Decoded {
             key,
-            raster: decode::raster(&path, target, fit),
+            raster: raster::raster(&path, target, fit),
         });
     }
 
@@ -325,14 +318,17 @@ impl Surface {
         self.over.set_paintable(self.under.paintable().as_ref());
         self.over.set_opacity(1.0);
 
-        let texture = decode::texture(&raster);
-        let texture = match self.blur_sigma(raster.width) {
-            Some(sigma) => blurred(&self.window, &texture, sigma).unwrap_or(texture),
-            None => texture,
-        };
+        let texture = raster::texture(&raster);
+        let sigma = self.output_target().and_then(|output| {
+            raster::blur_sigma(self.intent.blur_radius, raster.width, output.width)
+        });
+        let texture = sigma
+            .zip(self.window.renderer())
+            .and_then(|(sigma, renderer)| raster::blurred(&renderer, &texture, sigma))
+            .unwrap_or(texture);
         self.under.set_paintable(Some(&texture));
         self.under
-            .set_content_fit(decode::content_fit(self.intent.fit));
+            .set_content_fit(raster::content_fit(self.intent.fit));
 
         if !self.seen
             || self.intent.transition == Transition::None
@@ -358,23 +354,6 @@ impl Surface {
         animation.play();
         self.animation = Some(animation);
     }
-}
-
-fn blurred(window: &gtk::Window, texture: &gdk::Texture, sigma: f32) -> Option<gdk::Texture> {
-    let renderer = window.renderer()?;
-    let (width, height) = (texture.width() as f32, texture.height() as f32);
-    let bounds = graphene::Rect::new(0.0, 0.0, width, height);
-    let bleed = sigma * 3.0;
-    let snapshot = gtk::Snapshot::new();
-    snapshot.push_clip(&bounds);
-    snapshot.push_blur(f64::from(sigma));
-    snapshot.append_texture(
-        texture,
-        &graphene::Rect::new(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed),
-    );
-    snapshot.pop();
-    snapshot.pop();
-    Some(renderer.render_texture(snapshot.to_node()?, Some(&bounds)))
 }
 
 fn connect_monitor(

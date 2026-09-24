@@ -59,7 +59,7 @@ impl Battery {
         if render::shows_icon(self.settings.indicator_style)
             && let Some(charge) = self.state.display.as_ref()
         {
-            let name = render::icon(charge);
+            let name = charge.icon_name();
             spec.icon = Some(self.themed(&name));
         }
         Some(spec)

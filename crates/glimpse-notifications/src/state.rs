@@ -15,7 +15,6 @@ pub struct Delta {
     pub appeared: Vec<u32>,
     pub replaced: Vec<u32>,
     pub removed: Vec<u32>,
-    pub immediate: bool,
 }
 
 pub struct PopupState {
@@ -182,7 +181,6 @@ impl PopupState {
             appeared,
             replaced,
             removed,
-            immediate: false,
         }
     }
 
@@ -216,7 +214,6 @@ impl PopupState {
         self.placement = None;
         Delta {
             removed,
-            immediate: true,
             ..Delta::default()
         }
     }
@@ -285,6 +282,7 @@ mod tests {
             created: Utc.timestamp_opt(i64::from(id), 0).unwrap(),
             unread: true,
             resident: false,
+            expire_timeout: -1,
         }
     }
 
@@ -418,7 +416,7 @@ mod tests {
                     cleared
                 }
             };
-            assert!(cleared.immediate);
+            assert_eq!(cleared.removed, [1]);
             assert!(state.visible().is_empty());
             assert_eq!(
                 state

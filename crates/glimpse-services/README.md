@@ -247,6 +247,19 @@ same order, and the sender pid is captured because `hdr.sender()` exists only in
 is on **and** carries an expiry, one `Sub::deadline` at that instant delivers `DoNotDisturbLapsed` and
 clears both fields, so a reader that only looks at `enabled` sees it turn itself off — the expiry is
 in the subscription key, because keying on a bare marker would lapse at the wrong instant.
+`resident` is the sender's hint and nothing else — an invoked action leaves the record open — and
+`expire_timeout` is carried as sent, for the popup to honor. A live record that is resident or has a
+zero timeout and offers a named action is a pending request: Clear all and per-app clearing step
+over it, while closing that one card still works. A `transient` record is dropped rather than moved
+into history when it is closed, and `Expire` — the popup's timer running out — drops it with reason 1;
+on any other record `Expire` does nothing, so an ordinary timeout leaves it unread. `app_icon` and
+`image-path` are each a theme name or a local path or `file://` URI, each lands in `icon` or `image`
+by what it is, and `image-path` wins over `app_icon` for either slot. `image-data` is encoded as a PNG under `$XDG_RUNTIME_DIR/glimpse/notifications/<pid>/`,
+named per post because clients cache textures by path. The directory is per process so a test or a
+second instance never empties the live one's, and only a direct child of it is ever deleted — an
+`image-path` a sender points into it through `..` is someone else's file. It is emptied at start and
+a file goes once no record names it; one written for a suppressed notification stays until the next
+start, and a crashed process leaves its directory to the tmpfs.
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when it is free and hosts on whoever holds
 it when it is not. Its state is every item in registration order; no bus is `degraded` publishing an
@@ -311,7 +324,8 @@ no secret and **802.1X is refused rather than a PSK profile**. **Commands go thr
 carrying the connection**, **an active connection answers for its devices** so a wired row
 disconnects, and **a wired row activates by device**, NetworkManager choosing the profile. **A VPN
 reads its state under the active path**, **an address comes from the device's `IP4Config`**, **a
-radio write publishes once taken** and **busy is cleared by `Settled`**.
+radio write publishes once taken** and **busy is cleared by `Settled`**. **Both take
+`Dependencies { agent }`: `agent: false` is mirror-only mode, and neither agent ever registers.**
 
 **audio** — the libpulse bridge (`services/audio/pulse.rs`) owns one OS thread: lock, create the
 `Operation`, unlock, await the oneshot its callback completes off the lock, since a Pulse callback
@@ -334,12 +348,49 @@ are stepped over. **Capacity is a `statvfs` sample, not a UDisks2 property** —
 for vfat and exfat, the two commonest removable filesystems, so free space comes from
 `rustix::fs::statvfs` in `spawn_blocking`, on an interval declared only while something is mounted.
 
+**kdeconnect** — mirrors `kdeconnectd` into a device list; ring, ping, send-clipboard, share, browse
+(`sftp.startBrowsing`, whose `false` is a failure), open-SMS, pair, unpair and discover are one call
+each, and each is offered only while its plugin is loaded. **It never starts the daemon**: the owner is read with
+`GetNameOwner`, and every call — `GetAll` included — goes to that unique name, which the bus cannot
+activate. **The daemon emits no `PropertiesChanged`**, only its own Qt signals, so one match rule
+on the owner under `/modules/kdeconnect` marks a device stale and a list signal marks the list stale.
+**That stream never awaits a round trip**: a zbus match queue that fills stops the shared
+connection reading, so the source only classifies signals and the service does the fetching — one
+fetch per device and one list at a time, with a signal arriving mid-fetch queuing exactly one more.
+Every result carries its generation, and one from a daemon that has since gone is dropped. No
+daemon is `running` with `running: false` in the state, not `degraded`: most users have none. A device's plugins, battery and actions exist only while it is
+paired and reachable; `send_clipboard` is offered only while the daemon's own clipboard sync is off.
+
 **places** — reads four filesystem sources with no bus at all: `user-dirs.dirs`,
 `gtk-3.0/bookmarks`, `$XDG_RUNTIME_DIR/gvfs`, `Trash/files`. **`user-dirs.dirs` is parsed, never
 read through `glib::user_special_dir`** — the key set is open, the enum is closed to eight, and the
 GLib function caches besides. **A source that fails to read publishes nothing for its section and
 reports through `ctx.degraded`** — health is orthogonal to state, and nothing downstream renders a
 degraded section differently from an absent one.
+
+**system-monitor** — CPU, memory, swap, disk, network, load average, uptime and (amdgpu only) GPU.
+**`Config.enabled` reflects panel placement, not table presence** — `glimpse_config::placed_kinds`
+resolves every zone entry the same table-then-`Applet::from_name` way a panel itself does, so `right
+= ["system-monitor"]` with no `[applets.system-monitor]` table still counts as demand and a table
+nobody placed does not. **`subscriptions()` returns nothing at all while disabled**, discovery
+included — a GPU and CPU-temp probe are themselves sysfs reads, and the whole point of demand gating
+is that a service with no consumer does zero work. **Sampling runs inside the `Sub::interval` tick
+itself**, one `spawn_blocking` doing every `/proc` and sysfs read with `std::fs`, never behind
+`ctx.spawn_detached` — that would let a sample already in flight publish after the service goes
+disabled, and ten small `tokio::fs` reads would cost ten blocking-pool hops against this one.
+Disk sampling is its own interval, keyed on `(period, paths)` so either changing restarts it, and a
+hung network mount only stalls disk tiles. **GPU and CPU-temp discovery is lazy and cached**, run
+once through a generation-keyed one-shot stream on the disabled→enabled transition (and again on a
+live `gpu` flip), its result shared with the already-running sample interval through
+`Arc<Mutex<Discovery>>` so a discovery that lands after the interval was built still reaches the very
+next tick. **CPU and network read `None` until a delta exists** — the state published before the
+first tick since (re)enabling has no rate to report, never a fabricated zero. Every counter
+subtraction is `checked_sub`; a decrease (a reset, a vanished interface) yields no rate that tick,
+never a panic or an underflow wrap. **GPU memory reads GTT on an integrated card, VRAM on a discrete
+one** — classified once at discovery by comparing `mem_info_vram_total` against
+`mem_info_gtt_total`; an APU's VRAM is a small carve-out that reads misleadingly full at idle.
+`gpu_busy_percent` is skipped while `power/runtime_status` says `suspended`, so polling never itself
+wakes a runtime-suspended discrete GPU.
 
 **session actions** — logind capabilities and inhibitors on their own subscription, window count
 from the compositor. Capability reasons are an enum; the applet formats them.

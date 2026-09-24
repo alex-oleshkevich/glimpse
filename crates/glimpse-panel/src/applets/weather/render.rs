@@ -2,73 +2,14 @@ use chrono::{DateTime, FixedOffset, Offset as _, TimeDelta, Utc};
 use gettextrs::{gettext, ngettext, pgettext};
 use glimpse_dbus::weather::{
     AlertSeverity, Condition, CurrentWeather, DayForecast, PlaceWeather, UnitSystem, WeatherAlert,
+    reading, rounded,
 };
 use glimpse_widgets::{Advisory, Day, Fact, Hour, Severity, WeatherPage, alert_page, day_page};
 
-pub const DEGREE: &str = "°";
 pub const ALERT_ICON: &str = "dialog-warning-symbolic";
 /// How far ahead the nowcast looks. Beyond it a wet hour is tomorrow's weather rather than
 /// something worth interrupting the popover for.
 const NOWCAST: i64 = 180;
-
-#[cfg(test)]
-pub(crate) const EVERY: [Condition; 21] = [
-    Condition::ClearSky,
-    Condition::MainlyClear,
-    Condition::PartlyCloudy,
-    Condition::Overcast,
-    Condition::Fog,
-    Condition::Drizzle,
-    Condition::FreezingDrizzle,
-    Condition::LightRain,
-    Condition::Rain,
-    Condition::HeavyRain,
-    Condition::FreezingRain,
-    Condition::LightSnow,
-    Condition::Snow,
-    Condition::HeavySnow,
-    Condition::SnowGrains,
-    Condition::Sleet,
-    Condition::RainShowers,
-    Condition::SnowShowers,
-    Condition::Thunderstorm,
-    Condition::ThunderstormWithHail,
-    Condition::Unknown,
-];
-
-pub fn icon(condition: Condition, is_day: bool) -> &'static str {
-    match (condition, is_day) {
-        (Condition::ClearSky, true) => "weather-clear-symbolic",
-        (Condition::ClearSky, false) => "weather-clear-night-symbolic",
-        (Condition::MainlyClear | Condition::PartlyCloudy, true) => "weather-few-clouds-symbolic",
-        (Condition::MainlyClear | Condition::PartlyCloudy, false) => {
-            "weather-few-clouds-night-symbolic"
-        }
-        (Condition::Overcast, _) => "weather-overcast-symbolic",
-        (Condition::Fog, _) => "weather-fog-symbolic",
-        (Condition::Drizzle | Condition::FreezingDrizzle | Condition::LightRain, _) => {
-            "weather-showers-scattered-symbolic"
-        }
-        (
-            Condition::Rain
-            | Condition::HeavyRain
-            | Condition::FreezingRain
-            | Condition::RainShowers,
-            _,
-        ) => "weather-showers-symbolic",
-        (
-            Condition::LightSnow
-            | Condition::Snow
-            | Condition::HeavySnow
-            | Condition::SnowGrains
-            | Condition::SnowShowers
-            | Condition::Sleet,
-            _,
-        ) => "weather-snow-symbolic",
-        (Condition::Thunderstorm | Condition::ThunderstormWithHail, _) => "weather-storm-symbolic",
-        (Condition::Unknown, _) => "weather-severe-alert-symbolic",
-    }
-}
 
 pub fn wording(condition: Condition) -> Option<String> {
     Some(match condition {
@@ -133,15 +74,6 @@ fn frozen(condition: Condition) -> bool {
     )
 }
 
-/// The one rounding site. The bar and the hero both read it, so they cannot disagree by a degree.
-pub fn rounded(value: f64) -> String {
-    format!("{}", value.round() as i64)
-}
-
-pub fn reading(value: f64) -> String {
-    format!("{}{DEGREE}", rounded(value))
-}
-
 pub fn zone(seconds: i32) -> FixedOffset {
     FixedOffset::east_opt(seconds).unwrap_or_else(|| Utc.fix())
 }
@@ -172,7 +104,7 @@ pub fn hours(place: &PlaceWeather, cap: u8, twelve: bool) -> Vec<Hour> {
         .take(cap as usize)
         .map(|hour| Hour {
             label: hour.time.with_timezone(&offset).format(clock).to_string(),
-            icon_name: icon(hour.condition, hour.is_day).to_owned(),
+            icon_name: hour.condition.icon_name(hour.is_day).to_owned(),
             temperature: hour.temperature,
             now: false,
         })
@@ -190,7 +122,7 @@ pub fn days(place: &PlaceWeather, cap: u8) -> Vec<Day> {
         .enumerate()
         .map(|(index, day)| Day {
             label: day_label(index, day, offset),
-            icon_name: icon(day.condition, true).to_owned(),
+            icon_name: day.condition.icon_name(true).to_owned(),
             precipitation: day.precipitation_chance.map(u32::from),
             low: day.low,
             high: day.high,
@@ -298,7 +230,7 @@ pub fn nowcast(place: &PlaceWeather, now: DateTime<Utc>) -> Option<Advisory> {
 
     Some(Advisory {
         severity: Severity::Info,
-        icon_name: icon(hour.condition, hour.is_day).to_owned(),
+        icon_name: hour.condition.icon_name(hour.is_day).to_owned(),
         title: title
             .replace("{what}", &what)
             .replace("{count}", &count.to_string()),
@@ -565,24 +497,9 @@ mod tests {
             .map(|fact| fact.value.clone())
     }
 
-    /// `Condition` has no `_` arm in `icon`, so a new variant is a compile error there; this is
-    /// what catches an arm that compiles and answers with nothing.
-    #[test]
-    fn every_condition_maps_to_a_day_and_a_night_icon() {
-        for condition in EVERY {
-            for is_day in [true, false] {
-                let name = icon(condition, is_day);
-                assert!(
-                    name.ends_with("-symbolic") && name.len() > "-symbolic".len(),
-                    "{condition:?} at is_day={is_day} named {name:?}"
-                );
-            }
-        }
-    }
-
     #[test]
     fn an_unknown_condition_still_renders() {
-        assert!(!icon(Condition::Unknown, true).is_empty());
+        assert!(!Condition::Unknown.icon_name(true).is_empty());
         assert_eq!(
             wording(Condition::Unknown),
             None,
@@ -592,15 +509,6 @@ mod tests {
         let mut unknown = current(Condition::Unknown);
         unknown.apparent_temperature = None;
         assert_eq!(subtitle(&unknown), None);
-    }
-
-    #[test]
-    fn the_bar_and_the_hero_round_the_same_way() {
-        for value in [18.4, 18.5, -0.4, -3.6, 0.0] {
-            assert_eq!(reading(value), format!("{}{DEGREE}", rounded(value)));
-        }
-        assert_eq!(rounded(18.5), "19");
-        assert_eq!(rounded(-0.4), "0");
     }
 
     #[test]

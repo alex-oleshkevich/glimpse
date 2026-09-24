@@ -72,6 +72,126 @@ fn every_language_in_linguas_reaches_both_package_manifests() {
 }
 
 #[test]
+fn the_lock_pam_stack_reaches_both_package_manifests_as_configuration() {
+    let root = workspace_root();
+    assert!(root.join("data/pam.d/glimpse-lock").is_file());
+    let manifest = manifest(&root);
+
+    for kind in ["deb", "generate-rpm"] {
+        assert!(
+            assets(&manifest, kind).iter().any(|(from, to)| {
+                from.contains("data/pam.d/")
+                    && from.ends_with("/glimpse-lock")
+                    && to == "etc/pam.d/glimpse-lock"
+            }),
+            "[package.metadata.{kind}] does not install a data/pam.d stack at /etc/pam.d/glimpse-lock; \
+             PAM would fall through to `other`, which denies every password"
+        );
+    }
+
+    let conf_files = manifest["package"]["metadata"]["deb"]["conf-files"]
+        .as_array()
+        .expect("the deb manifest declares conf-files");
+    assert!(
+        conf_files
+            .iter()
+            .any(|file| file.as_str() == Some("/etc/pam.d/glimpse-lock"))
+    );
+    let rpm = manifest["package"]["metadata"]["generate-rpm"]["assets"]
+        .as_array()
+        .expect("the rpm manifest declares assets");
+    assert!(rpm.iter().any(|asset| {
+        asset.get("dest").and_then(Value::as_str) == Some("/etc/pam.d/glimpse-lock")
+            && asset.get("config").and_then(Value::as_bool) == Some(true)
+    }));
+}
+
+#[test]
+fn each_package_ships_the_pam_stack_its_distribution_has() {
+    let root = workspace_root();
+    let manifest = manifest(&root);
+    let source = |kind: &str| {
+        let (from, _) = assets(&manifest, kind)
+            .into_iter()
+            .find(|(_, to)| to == "etc/pam.d/glimpse-lock")
+            .unwrap_or_else(|| panic!("[package.metadata.{kind}] ships no PAM stack"));
+        let base = if kind == "deb" {
+            root.join("crates/glimpse-package")
+        } else {
+            root.clone()
+        };
+        fs::read_to_string(base.join(&from)).expect("the PAM stack source is readable")
+    };
+    let deb = source("deb");
+    assert!(
+        !deb.contains("system-auth"),
+        "Debian has no system-auth; including it fails every attempt"
+    );
+    assert!(deb.contains("common-auth") && deb.contains("common-account"));
+    let fedora = source("generate-rpm");
+    assert!(
+        fedora.contains("password-auth") && !fedora.contains("system-auth"),
+        "Fedora's system-auth can hold pam_fprintd, which waits for a finger the prompt never asks for"
+    );
+}
+
+#[test]
+fn the_opensuse_rpm_differs_from_the_fedora_rpm_only_in_its_pam_stack() {
+    let root = workspace_root();
+    let manifest = manifest(&root);
+    let rpm = &manifest["package"]["metadata"]["generate-rpm"];
+    let fedora = rpm["assets"]
+        .as_array()
+        .expect("the rpm manifest declares assets");
+    let opensuse = rpm["variants"]["opensuse"]["assets"]
+        .as_array()
+        .expect("the opensuse variant declares its own assets, since a variant replaces the list");
+    let pam = |asset: &&Value| asset["dest"].as_str() == Some("/etc/pam.d/glimpse-lock");
+    let rest = |assets: &[Value]| -> Vec<Value> {
+        assets.iter().filter(|asset| !pam(asset)).cloned().collect()
+    };
+    assert_eq!(
+        rest(fedora),
+        rest(opensuse),
+        "the opensuse variant has drifted from the base rpm asset list"
+    );
+    assert!(
+        rpm["variants"]["opensuse"].get("requires").is_some(),
+        "without its own requires the opensuse rpm inherits Fedora package names and will not install"
+    );
+
+    let stack = opensuse
+        .iter()
+        .find(pam)
+        .expect("the opensuse rpm ships a PAM stack");
+    assert_eq!(stack["config"].as_bool(), Some(true));
+    let text = fs::read_to_string(root.join(stack["source"].as_str().expect("a source path")))
+        .expect("the PAM stack source is readable");
+    assert!(
+        text.contains("common-auth") && text.contains("common-account"),
+        "openSUSE has no system-auth or password-auth"
+    );
+}
+
+#[test]
+fn the_install_scripts_copy_pam_files_but_not_the_debian_directory() {
+    let root = workspace_root();
+    assert!(root.join("data/pam.d/debian").is_dir());
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        let text = fs::read_to_string(root.join(script)).expect("script");
+        let guard = text
+            .lines()
+            .skip_while(|line| !line.contains("data/pam.d/*"))
+            .nth(1)
+            .expect("the pam.d loop has a guard");
+        assert!(
+            guard.contains("[[ -f \"$f\""),
+            "{script} must copy regular files only, or data/pam.d/debian lands in /etc/pam.d"
+        );
+    }
+}
+
+#[test]
 fn no_catalog_asset_reaches_a_language_through_a_glob() {
     let manifest = manifest(&workspace_root());
 
@@ -173,7 +293,7 @@ fn notification_provider_binary_is_packaged_with_its_local_services() {
         package
             .matches("target/release/glimpse-notifications")
             .count(),
-        2
+        3
     );
     let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
     let binaries_line = binaries
@@ -197,7 +317,7 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
 
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-weather").count(), 2);
+    assert_eq!(package.matches("target/release/glimpse-weather").count(), 3);
 
     let unit = fs::read_to_string(root.join("data/systemd/glimpse-weather.service"))
         .expect("weather unit");
@@ -224,7 +344,7 @@ fn the_color_picker_ships_as_a_plain_binary() {
     let root = workspace_root();
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-picker").count(), 2);
+    assert_eq!(package.matches("target/release/glimpse-picker").count(), 3);
     assert!(!root.join("data/systemd/glimpse-picker.service").exists());
 
     let manifest =

@@ -36,8 +36,16 @@ One layer-shell surface owns the full stack. Every entry uses the shared `Notifi
 optional image slot updates without replacing the widget. It reserves a paint gutter around every
 card for its shadow and entrance translation, and narrows the Wayland input region to card bounds
 so the gutter and inter-card gaps remain click-through. Left click asks the compositor to focus the
-sender process where one is known and dismisses the notification; right click hides only the popup;
-close dismisses it into history; named actions invoke the sender action and then dismiss.
+sender process where one is known and activates the notification; right click hides only the popup;
+close dismisses it into history; a named action invokes the sender action. Activation and actions go
+through the service, which alone decides whether the record closes — so a `resident` card keeps its
+popup and its history entry after a click. A
+resident, zero-timeout or critical notification has no timer and stays until it is acted on or
+closed; a positive `expire_timeout` is the popup's lifetime in milliseconds, and `-1` falls back to
+`hide-delay`. A replacement that loses stickiness while hovered starts paused.
+
+The exit fade reads the card's opacity **before** `reset()`: resetting the entry animation writes its
+start value, 0, to the frame, so a start value read afterwards fades from nothing.
 
 `[appearance] blur = ["notification"]` blurs behind each card rather than the surface, for the same
 reason the input region is narrowed: the gutter is not the card.

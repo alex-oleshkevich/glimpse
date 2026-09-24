@@ -483,9 +483,37 @@ mod tests {
     }
 
     #[test]
+    fn every_block_in_the_builtin_sheet_closes() {
+        let mut open: Vec<bool> = Vec::new();
+        for (index, line) in BUILTIN.lines().enumerate() {
+            let code = line.split("/*").next().unwrap_or_default();
+            for character in code.chars() {
+                match character {
+                    '{' => {
+                        assert!(
+                            open.last().is_none_or(|&at_rule| at_rule),
+                            "glimpse.css:{} opens a rule inside an unclosed one, which GTK drops \
+                             with everything after it",
+                            index + 1
+                        );
+                        open.push(code.trim_start().starts_with('@'));
+                    }
+                    '}' => assert!(
+                        open.pop().is_some(),
+                        "glimpse.css:{} closes a block never opened",
+                        index + 1
+                    ),
+                    _ => {}
+                }
+            }
+        }
+        assert!(open.is_empty(), "glimpse.css ends inside an unclosed block");
+    }
+
+    #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 39);
+        assert_eq!(declared(block).len(), 47);
     }
 
     #[test]

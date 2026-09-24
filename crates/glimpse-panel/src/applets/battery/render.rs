@@ -53,7 +53,7 @@ pub fn heading(state: &BatteryState, full_at: Option<&str>) -> Option<Heading> {
         .filter(|threshold| threshold.enabled)
         .and_then(|threshold| threshold.end);
     Some(Heading {
-        icon: icon(charge),
+        icon: charge.icon_name(),
         subtitle: subtitle(charge, held_at, full_at),
         percentage: charge.percentage,
         severity: warning(charge.warning).0,
@@ -267,30 +267,6 @@ fn warning(level: WarningLevel) -> (Option<Severity>, bool) {
         WarningLevel::Low => (Some(Severity::Warning), false),
         WarningLevel::Critical | WarningLevel::Action => (Some(Severity::Error), true),
         WarningLevel::Unknown | WarningLevel::None | WarningLevel::Discharging => (None, false),
-    }
-}
-
-pub fn icon(charge: &Charge) -> String {
-    if !charge.icon_name.is_empty() {
-        return charge.icon_name.clone();
-    }
-    fallback_icon(charge.percentage, charge.state)
-}
-
-fn fallback_icon(percentage: u8, state: ChargeState) -> String {
-    let band = u32::from(percentage).min(100) / 10 * 10;
-    match state {
-        ChargeState::Full => "battery-full-charged-symbolic".to_owned(),
-        ChargeState::Charging | ChargeState::PendingDischarge if band == 100 => {
-            "battery-level-100-charged-symbolic".to_owned()
-        }
-        ChargeState::Charging | ChargeState::PendingDischarge => {
-            format!("battery-level-{band}-charging-symbolic")
-        }
-        ChargeState::PendingCharge => format!("battery-level-{band}-plugged-in-symbolic"),
-        ChargeState::Discharging | ChargeState::Empty | ChargeState::Unknown => {
-            format!("battery-level-{band}-symbolic")
-        }
     }
 }
 
@@ -660,27 +636,6 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "BAT1");
         assert_eq!(rows[0].value, "40%");
-    }
-
-    #[test]
-    fn the_chip_uses_upower_icon_name_when_it_is_set() {
-        let mut charging = charge(40, ChargeState::Charging);
-        charging.icon_name = "battery-full-charging-symbolic".to_owned();
-        assert_eq!(icon(&charging), "battery-full-charging-symbolic");
-        charging.icon_name.clear();
-        assert_eq!(icon(&charging), "battery-level-40-charging-symbolic");
-
-        let mut full = charge(100, ChargeState::Charging);
-        full.icon_name.clear();
-        assert_eq!(
-            icon(&full),
-            "battery-level-100-charged-symbolic",
-            "Adwaita has no battery-level-100-charging-symbolic"
-        );
-
-        let mut waiting = charge(55, ChargeState::PendingCharge);
-        waiting.icon_name.clear();
-        assert_eq!(icon(&waiting), "battery-level-50-plugged-in-symbolic");
     }
 
     #[test]

@@ -166,6 +166,7 @@ mod tests {
             created: at(12, 0),
             unread: true,
             resident: false,
+            expire_timeout: -1,
         }
     }
 

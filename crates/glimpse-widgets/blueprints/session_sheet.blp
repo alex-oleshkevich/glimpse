@@ -1,0 +1,217 @@
+using Gtk 4.0;
+
+template $SessionSheet: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "session-sheet",
+  ]
+
+  Gtk.Revealer revealer {
+    transition-type: slide_down;
+
+    Gtk.Stack stack {
+      transition-type: crossfade;
+      hhomogeneous: false;
+      vhomogeneous: false;
+
+      styles [
+        "session-sheet__panel",
+      ]
+
+      Gtk.StackPage {
+        name: "menu";
+
+        child: Gtk.Box {
+          orientation: vertical;
+
+          styles [
+            "session-sheet__menu",
+          ]
+
+          $Row suspend {
+            visible: false;
+            title: _("Suspend…");
+            lead-icon: "weather-clear-night-symbolic";
+            activatable: true;
+          }
+
+          $Row reboot {
+            visible: false;
+            title: _("Restart…");
+            lead-icon: "system-reboot-symbolic";
+            activatable: true;
+          }
+
+          $Row power_off {
+            visible: false;
+            title: _("Power Off…");
+            lead-icon: "system-shutdown-symbolic";
+            activatable: true;
+          }
+
+          Gtk.Label error {
+            visible: false;
+            xalign: 0;
+            ellipsize: end;
+            single-line-mode: true;
+
+            styles [
+              "session-sheet__error",
+            ]
+          }
+        };
+      }
+
+      Gtk.StackPage {
+        name: "suspend";
+
+        child: Gtk.Box {
+          orientation: vertical;
+          spacing: 10;
+
+          styles [
+            "session-sheet__confirm",
+          ]
+
+          Gtk.Label {
+            label: _("Suspend now?");
+            xalign: 0;
+
+            styles [
+              "session-sheet__confirm-title",
+            ]
+          }
+
+          Gtk.Label {
+            label: _("The screen stays locked when it wakes.");
+            xalign: 0;
+            wrap: true;
+            max-width-chars: 28;
+
+            styles [
+              "caption",
+            ]
+          }
+
+          Gtk.Box {
+            spacing: 8;
+            halign: end;
+
+            Gtk.Button suspend_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button suspend_confirm {
+              label: _("Suspend");
+
+              styles [
+                "suggested-action",
+              ]
+            }
+          }
+        };
+      }
+
+      Gtk.StackPage {
+        name: "reboot";
+
+        child: Gtk.Box {
+          orientation: vertical;
+          spacing: 10;
+
+          styles [
+            "session-sheet__confirm",
+          ]
+
+          Gtk.Label {
+            label: _("Restart now?");
+            xalign: 0;
+
+            styles [
+              "session-sheet__confirm-title",
+            ]
+          }
+
+          Gtk.Label {
+            label: _("Open sessions may lose unsaved work.");
+            xalign: 0;
+            wrap: true;
+            max-width-chars: 28;
+
+            styles [
+              "caption",
+            ]
+          }
+
+          Gtk.Box {
+            spacing: 8;
+            halign: end;
+
+            Gtk.Button reboot_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button reboot_confirm {
+              label: _("Restart");
+
+              styles [
+                "destructive-action",
+              ]
+            }
+          }
+        };
+      }
+
+      Gtk.StackPage {
+        name: "power-off";
+
+        child: Gtk.Box {
+          orientation: vertical;
+          spacing: 10;
+
+          styles [
+            "session-sheet__confirm",
+          ]
+
+          Gtk.Label {
+            label: _("Power off now?");
+            xalign: 0;
+
+            styles [
+              "session-sheet__confirm-title",
+            ]
+          }
+
+          Gtk.Label {
+            label: _("Open sessions may lose unsaved work.");
+            xalign: 0;
+            wrap: true;
+            max-width-chars: 28;
+
+            styles [
+              "caption",
+            ]
+          }
+
+          Gtk.Box {
+            spacing: 8;
+            halign: end;
+
+            Gtk.Button power_off_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button power_off_confirm {
+              label: _("Power Off");
+
+              styles [
+                "destructive-action",
+              ]
+            }
+          }
+        };
+      }
+    }
+  }
+}

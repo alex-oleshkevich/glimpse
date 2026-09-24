@@ -25,6 +25,7 @@ mod color_picker;
 mod compositor;
 mod geolocation;
 mod heartbeat;
+mod kdeconnect;
 mod keyboard;
 mod mpris;
 mod network;
@@ -34,9 +35,11 @@ mod places;
 mod printing;
 mod privacy;
 mod removable;
+mod ruler;
 mod session;
 mod session_actions;
 mod solar;
+mod system_monitor;
 mod tray;
 mod weather;
 
@@ -51,8 +54,8 @@ pub use battery::{
 };
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{
-    Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
-    DeviceId, Failure, Hold, Prompt,
+    Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation,
+    Dependencies as BluetoothDependencies, Device, DeviceId, Failure, Hold, Prompt, icon_for,
 };
 pub use brightness::{
     Backlight, Brightness, BrightnessHandle, BrightnessState, CompositeBacklight,
@@ -73,12 +76,17 @@ pub use color_picker::{
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
+pub use kdeconnect::{
+    Action as KdeconnectAction, Actions as KdeconnectActions, Battery as KdeconnectBattery,
+    Device as KdeconnectDevice, DeviceId as KdeconnectDeviceId, DeviceType as KdeconnectDeviceType,
+    Kdeconnect, KdeconnectHandle, KdeconnectState, PairState as KdeconnectPairState,
+};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle};
 pub use network::{
-    Access, Answer as SecretAnswer, Busy as NetworkBusy, Failure as NetworkFailure, Network,
-    NetworkError, NetworkHandle, NetworkId, NetworkState, Radio, Request as SecretRequest, Saved,
-    Secret as NetworkSecret, Vpn, Wired,
+    Access, Answer as SecretAnswer, Busy as NetworkBusy, Dependencies as NetworkDependencies,
+    Failure as NetworkFailure, Network, NetworkError, NetworkHandle, NetworkId, NetworkState,
+    Radio, Request as SecretRequest, Saved, Secret as NetworkSecret, Vpn, Wired,
 };
 pub use night_light::{
     Config as NightLightConfig, DAY as NEUTRAL_KELVIN, Dependencies as NightLightDependencies,
@@ -102,6 +110,11 @@ pub use removable::{
     Mount as RemovableMount, Removable, RemovableError, RemovableHandle, RemovableState, Volume,
     VolumeId,
 };
+pub use ruler::{
+    Config as RulerConfig, Dependencies as RulerDependencies, MeasureRequest,
+    Measured as RulerMeasured, Measurement as RulerMeasurement,
+    ProcessRunner as ProcessRulerRunner, Ruler, RulerHandle, RulerState, Runner as RulerRunner,
+};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{
     Action as SessionAction, Capability as SessionCapability,
@@ -109,6 +122,12 @@ pub use session_actions::{
     SessionActionsHandle, SessionActionsState,
 };
 pub use solar::{Solar, SolarDependencies, SolarHandle};
+pub use system_monitor::{
+    Cpu as SystemMonitorCpu, DiskUsage as SystemMonitorDiskUsage, Gpu as SystemMonitorGpu,
+    GpuMemoryKind as SystemMonitorGpuMemoryKind, LoadAverage as SystemMonitorLoadAverage,
+    NetworkRate as SystemMonitorNetworkRate, SystemMonitor, SystemMonitorHandle,
+    SystemMonitorState, Usage as SystemMonitorUsage,
+};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 

@@ -632,11 +632,37 @@ mod tests {
     /// mapping — rendered GTK's broken-image placeholder. Nothing caught it because a missing icon
     /// is not an error at any layer: the name is a string until something asks the theme for it.
     fn every_weather_icon_the_applet_can_ask_for_exists() {
+        use glimpse_dbus::weather::Condition;
+
+        const EVERY: [Condition; 21] = [
+            Condition::ClearSky,
+            Condition::MainlyClear,
+            Condition::PartlyCloudy,
+            Condition::Overcast,
+            Condition::Fog,
+            Condition::Drizzle,
+            Condition::FreezingDrizzle,
+            Condition::LightRain,
+            Condition::Rain,
+            Condition::HeavyRain,
+            Condition::FreezingRain,
+            Condition::LightSnow,
+            Condition::Snow,
+            Condition::HeavySnow,
+            Condition::SnowGrains,
+            Condition::Sleet,
+            Condition::RainShowers,
+            Condition::SnowShowers,
+            Condition::Thunderstorm,
+            Condition::ThunderstormWithHail,
+            Condition::Unknown,
+        ];
+
         let theme = gtk4::IconTheme::for_display(&gtk4::gdk::Display::default().expect("display"));
         let mut names = vec![crate::applets::weather::render::ALERT_ICON];
-        for condition in crate::applets::weather::render::EVERY {
+        for condition in EVERY {
             for is_day in [true, false] {
-                names.push(crate::applets::weather::render::icon(condition, is_day));
+                names.push(condition.icon_name(is_day));
             }
         }
         names.sort_unstable();
@@ -840,7 +866,7 @@ mod tests {
         use crate::applet::popover::Seat;
         use crate::applets::bluetooth::Bluetooth as BluetoothApplet;
         use glimpse_dbus::Buses;
-        use glimpse_services::{Confirmation, DeviceId, Running};
+        use glimpse_services::{BluetoothDependencies, Confirmation, DeviceId, Running};
         use glimpse_widgets::BluetoothPopover;
 
         const DEVICE: &str = "/org/bluez/hci0/dev_F8_4E_17_BC_EE_D5";
@@ -853,7 +879,7 @@ mod tests {
         let (mut service, bluetooth) = Running::<glimpse_services::Bluetooth>::spawn(
             &glimpse_config::Config::default(),
             Buses::unavailable("no bus in tests"),
-            (),
+            BluetoothDependencies { agent: true },
         );
 
         let notifications =

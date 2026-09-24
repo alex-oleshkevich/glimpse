@@ -10,14 +10,16 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothHandle, Brightness,
-    BrightnessDependencies, BrightnessHandle, Calendar, CalendarHandle, Clipboard,
-    ClipboardDependencies, ClipboardHandle, ColorPicker, ColorPickerDependencies,
-    ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle, DdcBacklight, Heartbeat,
-    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network,
+    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothDependencies,
+    BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
+    CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker,
+    ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle,
+    DdcBacklight, Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard,
+    KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network, NetworkDependencies,
     NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
-    PrivacyHandle, ProcessPicker, Removable, RemovableHandle, Running, Selection, SessionActions,
-    SessionActionsDependencies, SessionActionsHandle, SysfsBacklight, Tray, TrayHandle,
+    PrivacyHandle, ProcessPicker, ProcessRulerRunner, Removable, RemovableHandle, Ruler,
+    RulerDependencies, RulerHandle, Running, Selection, SessionActions, SessionActionsDependencies,
+    SessionActionsHandle, SysfsBacklight, SystemMonitor, SystemMonitorHandle, Tray, TrayHandle,
     UnavailableBacklight,
 };
 
@@ -39,7 +41,10 @@ pub struct PanelServices {
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
+    pub kdeconnect: KdeconnectHandle,
     pub privacy: PrivacyHandle,
+    pub system_monitor: SystemMonitorHandle,
+    pub ruler: RulerHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -57,7 +62,10 @@ pub struct PanelServices {
     places_service: Running<Places>,
     printing_service: Running<Printing>,
     removable_service: Running<Removable>,
+    kdeconnect_service: Running<Kdeconnect>,
     privacy_service: Running<Privacy>,
+    system_monitor_service: Running<SystemMonitor>,
+    ruler_service: Running<Ruler>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -98,9 +106,13 @@ impl PanelServices {
         let (heartbeat_service, heartbeat) =
             Running::<Heartbeat>::spawn(document, buses.clone(), ());
         let (tray_service, tray) = Running::<Tray>::spawn(document, buses.clone(), ());
-        let (bluetooth_service, bluetooth) =
-            Running::<Bluetooth>::spawn(document, buses.clone(), ());
-        let (network_service, network) = Running::<Network>::spawn(document, buses.clone(), ());
+        let (bluetooth_service, bluetooth) = Running::<Bluetooth>::spawn(
+            document,
+            buses.clone(),
+            BluetoothDependencies { agent: true },
+        );
+        let (network_service, network) =
+            Running::<Network>::spawn(document, buses.clone(), NetworkDependencies { agent: true });
         let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
         let sysfs: Arc<dyn Backlight> = match buses.system_bus() {
             Ok(bus) => Arc::new(SysfsBacklight::new(bus.clone())),
@@ -140,8 +152,18 @@ impl PanelServices {
             document,
             buses.clone(),
             ColorPickerDependencies {
-                selection,
+                selection: Arc::clone(&selection),
                 picker: Arc::new(ProcessPicker::new(program)),
+            },
+        );
+        let ruler_program =
+            std::env::var("GLIMPSE_RULER_BIN").unwrap_or_else(|_| "glimpse-ruler".to_owned());
+        let (ruler_service, ruler) = Running::<Ruler>::spawn(
+            document,
+            buses.clone(),
+            RulerDependencies {
+                selection,
+                runner: Arc::new(ProcessRulerRunner::new(ruler_program)),
             },
         );
         let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
@@ -155,7 +177,11 @@ impl PanelServices {
                 compositor: compositor.clone(),
             },
         );
-        let (removable_service, removable) = Running::<Removable>::spawn(document, buses, ());
+        let (system_monitor_service, system_monitor) =
+            Running::<SystemMonitor>::spawn(document, buses.clone(), ());
+        let (removable_service, removable) =
+            Running::<Removable>::spawn(document, buses.clone(), ());
+        let (kdeconnect_service, kdeconnect) = Running::<Kdeconnect>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -175,7 +201,10 @@ impl PanelServices {
             places,
             printing,
             removable,
+            kdeconnect,
             privacy,
+            system_monitor,
+            ruler,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -193,7 +222,10 @@ impl PanelServices {
             places_service,
             printing_service,
             removable_service,
+            kdeconnect_service,
             privacy_service,
+            system_monitor_service,
+            ruler_service,
             notifications,
             weather,
             night_light,
@@ -207,9 +239,12 @@ impl PanelServices {
         self.idle.shutdown().await;
         self.notifications.shutdown().await;
         self.night_light.shutdown().await;
+        self.system_monitor_service.stop().await;
         self.removable_service.stop().await;
+        self.kdeconnect_service.stop().await;
         self.printing_service.stop().await;
         self.places_service.stop().await;
+        self.ruler_service.stop().await;
         self.color_picker_service.stop().await;
         self.clipboard_service.stop().await;
         self.brightness_service.stop().await;
@@ -239,12 +274,15 @@ impl PanelServices {
         self.audio_service.reconfigure(document);
         self.brightness_service.reconfigure(document);
         self.clipboard_service.reconfigure(document);
+        self.ruler_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
         self.battery_service.reconfigure(document);
         self.places_service.reconfigure(document);
         self.printing_service.reconfigure(document);
         self.removable_service.reconfigure(document);
+        self.kdeconnect_service.reconfigure(document);
         self.privacy_service.reconfigure(document);
+        self.system_monitor_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -264,9 +302,12 @@ impl PanelServices {
     }
 
     fn cancel(&self) {
+        self.system_monitor_service.cancel();
         self.removable_service.cancel();
+        self.kdeconnect_service.cancel();
         self.printing_service.cancel();
         self.places_service.cancel();
+        self.ruler_service.cancel();
         self.color_picker_service.cancel();
         self.clipboard_service.cancel();
         self.brightness_service.cancel();

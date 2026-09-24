@@ -1,0 +1,30 @@
+using Gtk 4.0;
+
+template $LockClock: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+    spacing: 4;
+  };
+
+  styles [
+    "lock-clock",
+  ]
+
+  Gtk.Label time {
+    visible: false;
+    halign: center;
+
+    styles [
+      "lock-clock__time",
+    ]
+  }
+
+  Gtk.Label date {
+    visible: false;
+    halign: center;
+
+    styles [
+      "lock-clock__date",
+    ]
+  }
+}

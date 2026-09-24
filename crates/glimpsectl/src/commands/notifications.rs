@@ -210,6 +210,7 @@ mod tests {
             created: at(20, 0),
             unread: true,
             resident: false,
+            expire_timeout: -1,
         };
 
         let [id, app, _, summary] = row(&record);

@@ -22,6 +22,7 @@ ipp.workspace = true
 iso8601.workspace = true
 libpulse-binding.workspace = true
 pipewire.workspace = true
+png.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 reverse_geocoder.workspace = true

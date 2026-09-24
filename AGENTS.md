@@ -114,7 +114,9 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. A user-overridable file
   is looked up in `user_dir()` first, then `DATA_DIR`.
 - One config file, `config.toml`, with a top-level table per owner: one per service, plus `[panel]`,
-  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns. Stylesheets stay separate:
+  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns — except that the lock
+  inherits `[wallpaper]`'s `image` and `image-dark` while `[lock.background]` names neither, because
+  a lock screen that differs from the desktop by default reads as a bug. Stylesheets stay separate:
   `panel.css`, `lock.css`, and one `dark.css` per theme that every surface loads while the effective
   scheme is dark. `[appearance] theme-variant` is a CSS class on every window, not a file.
 
@@ -339,7 +341,7 @@ new example's drawer silently inert:
   Anything else carrying the class is reported, since it has no spinner to turn on.
 - `expanded` opens each `$Expandable` carrying `state__open`, since `expanded: true` in a blueprint is
   applied before `[details]` exists and is dropped.
-- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`,
+- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`, `label__<text>`,
   `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
   **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An
   indicator carrying **none** of those classes is left completely alone: `TrayStrip` builds its own
@@ -379,8 +381,10 @@ increments from Rust, and assert them, because nothing in the template guards th
 ## Translations
 
 One gettext domain, `glimpse`, for all binaries. `glimpse-utils` owns it: `init_translations()`
-binds it, and the panel, notification popup, lock screen and wallpaper call that once in `run`. The
-daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal.
+binds it, and the panel, notification popup, lock screen, wallpaper and `glimpse-ruler` call that
+once in `run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and
+a terminal. `glimpse-picker` does not either — its only on-screen text is a raw color value, never a
+phrase.
 
 ```bash
 just extract-strings     # rewrite po/glimpse.pot from the tree
@@ -425,6 +429,11 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
 
 - Work on one feature at a time, and only start the next after the current one passes end-to-end
   verification. Don't "also refactor" feature B while implementing feature A.
+- **Every feature-level plan runs through `plan-precision` before it gets sliced into epics or
+  issues.** Not just when a session happens to ask for planning help — any design/architecture
+  doc, RFC, or epic brief for this repo. An epic sliced from a plan that skipped it ships the
+  plan's own gaps as inventions, one per issue, discovered by a reviewer or a user instead of
+  before code was written.
 - Spawn desktop windows on the `glimpse` niri workspace; do not steal focus.
 - **Do not commit or push without being asked.**
 - **Never hand work back without running the pass in Finishing.**
@@ -437,10 +446,15 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
   compositor crate — `glimpse-services` reaches a compositor only through `trait Gamma` and
   `glimpse-compositors` — while pointer injection belongs in a script.
 - **`_old/` and `var/glimpse2` are reference only.** Never edit, build, or copy code out of them.
-- **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
-  `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
-  `AUTHINFO_UNAVAIL` and the correct password is rejected, which looks like a wrong password and is
-  expensive to diagnose.
+- **Never sandbox `glimpse-lock.service` — no systemd sandboxing option of any kind.** All 14
+  measured in `var/lock/research.md` break PAM through one of two mechanisms: namespace options
+  (`PrivateTmp=`, `ProtectSystem=`, `ProtectKernelTunables=`, …) put a user service in a user
+  namespace where root is unmapped and `unix_chkpwd`'s setuid bit is not honoured, and
+  seccomp-family options (`SystemCallFilter=`, `LockPersonality=`, `RestrictSUIDSGID=`, …) imply
+  `NoNewPrivileges`. PAM then returns `AUTHINFO_UNAVAIL` and the correct password is rejected, which
+  looks like a wrong password and is expensive to diagnose. The daemon probes itself at start and
+  refuses to lock when either mechanism is present, except when `LockedHint` is already true at
+  start, where it locks behind a prompt that sends the user to a text console.
 - **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
   is a locked session with nothing to authenticate against. `PartOf=` on anything but
   `graphical-session.target`, `BindsTo=`, or someone else's `Conflicts=` all reach that state;
@@ -678,6 +692,32 @@ quarter turns were never captured from a rotated output — the nested winit out
 it. A `Layer::Overlay` surface with
 `KeyboardMode::Exclusive` maps and lists under `niri msg layers` as exclusive.
 
+**niri reports no position for a tiled window, September 2026.** Measured on niri 26.04 with a
+magenta probe window located by `grim`: floating, `layout.tile_pos_in_workspace_view` was
+`[952, 568]` and the pixels sat at exactly that logical point, relative to the output's full area
+(the panel's exclusive zone is not subtracted); toggled tiled and visibly on screen, the same field
+was `null`, as it was for every tiled window in the session, in `windows` and the event stream alike.
+Nothing that needs a tiled window's rectangle can be built on niri IPC. `Action::ScreenshotWindow
+{ id, write_to_disk: true, path }` renders any window alone — off-screen and other workspaces
+included — as an RGBA PNG at buffer scale, but its reply arrives before the file does (absent at the
+~20 ms reply, present by 500 ms) and it **always replaces the clipboard** with the image. A hidden
+GTK window was already absent from a capture 40 ms after `set_visible(false)`. Full account:
+`var/screenshot/design.md` §1B.
+
+**glimpse's portal claim has never been reached, and its location would break screen sharing,
+September 2026.** Measured with x-d-p 1.22.1 run on a private bus in an unprivileged mount
+namespace, reading its `-v` decisions. With the session's `XDG_CURRENT_DESKTOP=niri`, x-d-p reads
+`niri-portals.conf` and routes `Inhibit` to **gtk**: `glimpse-idle`'s Inhibit portal is not what apps
+reach. Within one directory only the first `<desktop>-portals.conf` in `XDG_CURRENT_DESKTOP` order is
+read, so with `glimpse:niri` today's `/usr/share/xdg-desktop-portal/glimpse-portals.conf` shadows
+niri's file there and x-d-p **provides no ScreenCast portal at all**. Across directories an
+interface resolves per file in precedence order (key, then `default`, then the next directory), so
+the same keys in `/etc/xdg-desktop-portal/` route glimpse's interfaces and fall through to niri's
+file for the rest. niri sets `XDG_CURRENT_DESKTOP=niri` unconditionally in session mode and imports
+it into systemd; its `environment {}` block reaches only processes niri spawns. Plan and harness:
+`var/screenshot/design.md` §11.2 and §9. When re-running the harness, give the private bus an
+**empty** `<servicedir>`, or it activates the real `glimpse-idle`.
+
 **Data-control and the clipboard, September 2026.** niri 26.04 implements **both**
 `ext_data_control_manager_v1` and `zwlr_data_control_manager_v1` (read out of the binary; smithay
 compiles both selection handlers). `ext` is bound first as the standardised successor. The protocol
@@ -763,6 +803,14 @@ shipped version, and its README carries the design.
   ease-out fade, while the content is still faint. `wf-recorder -o <output> -g <region> -r 120` and one frame at a time from
   `ffmpeg` is how to judge any of this; `grim` in a loop is too slow to see a frame.
 
+**A notification popup cannot be recorded with `wf-recorder`, September 2026.** The recording is a
+damage-tracked screencopy, which niri reports as a cast, and the session service then gates popups
+as private — so the popup never maps while the recorder runs. Measured with a test instance on a
+private bus: `grim` showed the card, and three 120fps recordings of the same post showed nothing. A
+`grim` loop over a small region captures about one frame per 24ms, enough to see a 150ms fade; that
+is how the popup exit was verified. The exit had no fade at all before then: `adw::Animation::reset`
+writes the entry's start value (0) to the frame, and the exit read its start opacity afterwards.
+
 **GTK 4.22 cannot hand a CSS value back to code, September 2026.** Read out of the installed
 headers and the 4.22 source, and probed. The only public getter for a computed style value is
 `gtk_widget_get_color`; nothing returns a length, a duration or a custom property. The deprecated
@@ -806,6 +854,20 @@ on niri 26.04: `set-workspace-name` naming a second workspace after the first ex
 nothing and emits no event. A client that updates optimistically must drop its guess on any reply
 and re-read the snapshot, or the refused name stays on screen with nothing to correct it — which is
 what the workspace-name applet does.
+
+**A GTK test run beside another GTK test passes without running, September 2026.** libtest gives
+every test its own thread, and `gtk4::init()` answers `Err` on any thread but the first one to
+initialize, so every `if gtk4::init().is_err() { return; }` after the first reports `ok` having
+asserted nothing. Measured on `glimpse-widgets`: under `just test-crate-compositor glimpse-widgets`,
+four deliberate mutations of `PasswordPrompt` all passed, and the failing tests changed from run to
+run (`widgets`, `clipboard_widgets`, `removable_popover_widgets`, `printing_popover_states`); run
+alone, all four mutations failed. `just test-compositor` and `just test-crate-compositor` now run
+the non-ignored suite once and then run every `#[ignore]`d test in its own `cargo test` process —
+listed with `cargo test -p <crate> -- --list --ignored`, each invoked as `cargo test -p <crate>
+<name> -- --ignored --exact` — so a green run is evidence every one of them actually ran, not a
+single survivor reporting for the rest. Both recipes refuse to start when neither
+`WAYLAND_DISPLAY` nor `DISPLAY` is set, since without a display every GTK test would return early
+and pass the same vacuous way.
 
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.
@@ -1192,6 +1254,33 @@ of 766 processes and a probe of niri's cast reporting against the `RemoteDesktop
   `a_source_torn_down_mid_wait_still_runs_its_release_effect`.
 - **The privacy `show_*` flags are render filters only.** They do not stop the service's own
   sources, so `show-location = false` still lets the service talk to GeoClue.
+
+**KDE Connect on this machine, September 2026.** `kdeconnectd` 26.08.1 against a Pixel 10 Pro
+(Android, protocol 8), introspected and traced live.
+
+- **`busctl introspect` rejects `/modules/kdeconnect`** — the daemon declares
+  `sendSimpleNotification` twice. `gdbus introspect` still prints it. The proxies in
+  `glimpse-dbus` are hand-written and every method carries `#[zbus(name = "camelCase")]`.
+- **It emits no `PropertiesChanged` at all.** Pairing produced `pairStateChanged(i)` (0 → 1 → 3),
+  `statusIconNameChanged`, `pluginsChanged`, `deviceVisibilityChanged(s,b)`, `deviceListChanged`
+  and `battery.refreshed(b,i)`, and nothing else.
+- **An installed daemon autostarts under niri** through
+  `app-org.kde.kdeconnect.daemon@autostart.service`, pulled in by `xdg-desktop-autostart.target`.
+  It is also D-Bus activatable, which is why the service calls the owner's unique name only.
+- **A paired device survives unreachable; unpairing an unreachable one deletes its object path**,
+  and plugin objects exist only while a device is paired and reachable.
+- **A key that no longer matches its certificate stalls every TLS handshake silently.** The only
+  symptom is `Host timed out without sending any identity` in the journal after the phone's
+  plaintext identity arrives. `openssl x509 -pubkey` against `openssl pkey -pubout` on
+  `~/.config/kdeconnect/*.pem` tells it apart in one command; moving both aside regenerates the
+  identity, and every phone must pair again.
+- **Phone-to-laptop traffic needs the Android app's own permissions.** After a storage wipe, a
+  laptop-to-phone ping arrived while the phone's ping and notifications never reached the daemon.
+- **The battery plugin's `iconName` is the low-battery signal** — `battery-{full,good,low,caution,
+  empty}[-charging]-symbolic` — so the applet reads `caution`/`empty` rather than a threshold of
+  its own.
+- **`connectivity_report` answers `''` and `-1` on this phone** while the plugin is loaded and the
+  phone is on a cellular network, so nothing about mobile signal has been seen with a real value.
 
 ## Finishing
 

@@ -13,6 +13,7 @@ pub struct NotificationList {
     pub notifications: RefCell<Vec<Notification>>,
     pub rows: RefCell<Vec<(String, NotificationCard)>>,
     pub cap: Cell<Option<usize>>,
+    pub removals: RefCell<Vec<(Notification, adw::TimedAnimation)>>,
 }
 
 #[glib::object_subclass]

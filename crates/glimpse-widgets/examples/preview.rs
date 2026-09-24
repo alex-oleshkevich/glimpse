@@ -271,11 +271,12 @@ mod fixtures {
         BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
         DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
         Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
-        InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, Pager,
-        Player, PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter,
-        PrivacyPopover, PrivacyUsage, Repeat, Row, Severity, Shape, Slot, SourceList, SplitRow,
-        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
-        Ymd, Zone,
+        InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF,
+        Pager, Player, PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter,
+        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState,
+        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
+        SystemMonitorDetail, SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip,
+        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -296,6 +297,7 @@ mod fixtures {
     const BUSY: &str = "busy";
     const ICON: &str = "icon__";
     const OVERLAY: &str = "overlay__";
+    const LABEL: &str = "label__";
     const SEVERITY: &str = "severity__";
     const ATTENTION: &str = "state__attention";
     const NOTICE: &str = "state__notice";
@@ -335,9 +337,14 @@ mod fixtures {
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
             "tray_states" => tray_states(root),
+            "system_monitor" => system_monitor(root),
+            "system_monitor_indicator_states" => system_monitor_indicator_states(builder),
             "inhibitor_list_states" => inhibitor_list_states(root),
             "printing_states" => printing_popover_states(root),
             "privacy_states" => privacy_popover_states(root),
+            "lock_session_sheet_states" => session_sheet_states(root),
+            "lock_island_states" => status_island_states(root),
+            name if name.starts_with("lock_") => lock::apply(root),
             _ => {}
         }
         drawer_nav(root);
@@ -351,6 +358,124 @@ mod fixtures {
         expanded(root);
         indicators(root);
         scheme_toggle(root, sheets);
+    }
+
+    fn session_sheet_states(root: &gtk4::Widget) {
+        fn row_with_icon(rows: &[Row], icon: &str) -> Option<Row> {
+            rows.iter()
+                .find(|row| row.lead_icon().as_deref() == Some(icon))
+                .cloned()
+        }
+
+        for sheet in collect::<SessionSheet>(root) {
+            let case = sheet
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+                .unwrap_or_default();
+
+            sheet.set_action(
+                SUSPEND,
+                &SessionActionState {
+                    visible: true,
+                    enabled: true,
+                    subtitle: None,
+                },
+            );
+            sheet.set_action(
+                REBOOT,
+                &SessionActionState {
+                    visible: true,
+                    enabled: true,
+                    subtitle: None,
+                },
+            );
+            sheet.set_action(
+                POWER_OFF,
+                &SessionActionState {
+                    visible: true,
+                    enabled: true,
+                    subtitle: None,
+                },
+            );
+            sheet.toggle();
+            let rows = collect::<Row>(sheet.upcast_ref());
+
+            match case.as_str() {
+                "menu" => {}
+                "reboot" => match row_with_icon(&rows, "system-reboot-symbolic") {
+                    Some(row) => row.emit_clicked(),
+                    None => eprintln!("{DEMO}reboot: no row carries system-reboot-symbolic"),
+                },
+                "power_off" => match row_with_icon(&rows, "system-shutdown-symbolic") {
+                    Some(row) => row.emit_clicked(),
+                    None => eprintln!("{DEMO}power_off: no row carries system-shutdown-symbolic"),
+                },
+                "suspend_blocked" => sheet.set_action(
+                    SUSPEND,
+                    &SessionActionState {
+                        visible: true,
+                        enabled: false,
+                        subtitle: Some("Blocked by Backup: copying files".to_owned()),
+                    },
+                ),
+                "failed" => {
+                    sheet.set_error(Some("Couldn't complete that: the request was refused"));
+                }
+                other => eprintln!("{DEMO}{other} is not a session sheet state"),
+            }
+        }
+    }
+
+    fn status_island_states(root: &gtk4::Widget) {
+        fn icon_spec(icon_name: &str, label: Option<&str>) -> IndicatorSpec {
+            IndicatorSpec {
+                icon: Some(themed_icon(icon_name)),
+                label: label.map(str::to_owned),
+                ..Default::default()
+            }
+        }
+
+        let fill = |island: &StatusIsland| {
+            island.set_weather(Some(&icon_spec("weather-few-clouds-symbolic", Some("14°"))));
+            island.set_bluetooth(Some(&icon_spec("bluetooth-active-symbolic", None)));
+            island.set_network(Some(&icon_spec(
+                "network-wireless-signal-good-symbolic",
+                None,
+            )));
+            island.set_layout(Some(&icon_spec("input-keyboard-symbolic", Some("EN"))));
+        };
+
+        for island in collect::<StatusIsland>(root) {
+            let case = island
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+                .unwrap_or_default();
+
+            match case.as_str() {
+                "" => {
+                    fill(&island);
+                    island.set_battery(Some(&icon_spec("battery-level-80-symbolic", Some("84%"))));
+                }
+                "none" => island.set_session_available(true),
+                "unavailable" => {
+                    fill(&island);
+                    island.set_battery(Some(&icon_spec("battery-level-80-symbolic", Some("84%"))));
+                    island.set_session_available(false);
+                }
+                "warning" => {
+                    fill(&island);
+                    island.set_battery(Some(&IndicatorSpec {
+                        icon: Some(themed_icon("battery-level-10-symbolic")),
+                        label: Some("14%".to_owned()),
+                        severity: Some(Severity::Warning),
+                        ..Default::default()
+                    }));
+                }
+                other => eprintln!("{DEMO}{other} is not a status island state"),
+            }
+        }
     }
 
     fn dialogs(root: &gtk4::Widget, builder: &gtk4::Builder) {
@@ -1721,6 +1846,1400 @@ mod fixtures {
         }]
     }
 
+    mod lock {
+        use super::{
+            DEMO, IndicatorSpec, Media, Notification, NowPlaying, POWER_OFF, REBOOT, Row, SUSPEND,
+            SessionActionState, TransportAction, Urgency, collect, find, tagged, themed_icon,
+        };
+        use glimpse_widgets::{
+            ChipGroup, LockStage, MessageKind, NotificationCard, NotificationList, PasswordPrompt,
+            Track,
+        };
+        use gtk4::gdk;
+        use gtk4::glib;
+        use gtk4::prelude::*;
+        use std::cell::{Cell, RefCell};
+        use std::path::PathBuf;
+        use std::rc::Rc;
+        use std::time::Duration;
+
+        const PASSWORD: &str = "glimpse";
+        const LAYOUTS: [&str; 3] = ["EN", "UA", "PL"];
+        const VERIFY: Duration = Duration::from_millis(1400);
+        const TIMEOUT: Duration = Duration::from_secs(4);
+        const CURTAIN_AFTER: Duration = Duration::from_secs(12);
+        const RELOCK_AFTER: Duration = Duration::from_millis(2600);
+        const FAILLOCK: &str =
+            "The account is locked due to 3 failed logins. (10 minutes left to unlock)";
+        const PROBE: &str = "Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), \
+                             log in, and run glimpse-lock check";
+        const UNAVAILABLE: &str = "Can't verify passwords. Run glimpse-lock check";
+        const SESSION_FAILED: &str = "Couldn't complete that: the request was refused";
+        const SUSPEND_BLOCKED: &str = "Blocked by Backup: copying files";
+
+        #[derive(Clone, Copy, PartialEq)]
+        enum Privacy {
+            Count,
+            Apps,
+            Summaries,
+        }
+
+        struct Message {
+            app: &'static str,
+            icon: &'static str,
+            summary: String,
+            when: &'static str,
+            urgency: Urgency,
+        }
+
+        #[derive(Clone, Copy, PartialEq)]
+        enum Outcome {
+            Password,
+            Unavailable,
+            TimedOut,
+            Expired,
+        }
+
+        impl Outcome {
+            const ALL: [Outcome; 4] = [
+                Outcome::Password,
+                Outcome::Unavailable,
+                Outcome::TimedOut,
+                Outcome::Expired,
+            ];
+
+            fn label(self) -> &'static str {
+                match self {
+                    Outcome::Password => "PAM: check password",
+                    Outcome::Unavailable => "PAM: unavailable",
+                    Outcome::TimedOut => "PAM: hangs (timeout)",
+                    Outcome::Expired => "PAM: password expired",
+                }
+            }
+        }
+
+        struct State {
+            failures: Cell<u32>,
+            verifying: Cell<bool>,
+            layout: Cell<usize>,
+            one_layout: Cell<bool>,
+            caps: Cell<Option<bool>>,
+            outcome: Cell<Outcome>,
+            idle: Cell<u64>,
+            privacy: Cell<Privacy>,
+            provider_up: Cell<bool>,
+            blocked: Cell<bool>,
+            failing: Cell<bool>,
+            blur: Cell<bool>,
+            textures: RefCell<Vec<Option<gdk::Texture>>>,
+            messages: RefCell<Vec<Message>>,
+            next: Cell<u32>,
+        }
+
+        pub fn apply(root: &gtk4::Widget) {
+            let state = Rc::new(State {
+                failures: Cell::new(0),
+                verifying: Cell::new(false),
+                layout: Cell::new(0),
+                one_layout: Cell::new(false),
+                caps: Cell::new(None),
+                outcome: Cell::new(Outcome::Password),
+                idle: Cell::new(0),
+                privacy: Cell::new(Privacy::Apps),
+                provider_up: Cell::new(true),
+                blocked: Cell::new(false),
+                failing: Cell::new(false),
+                blur: Cell::new(false),
+                textures: RefCell::new(Vec::new()),
+                messages: RefCell::new(seed()),
+                next: Cell::new(1),
+            });
+            clock(root);
+            caps(root, &state);
+            layouts(root, &state);
+            prompts(root, &state);
+            widget_prompts(root, &state);
+            prompt_states(root);
+            curtain(root, &state);
+            session(root, &state);
+            stage_sessions(root, &state);
+            status(root, &state);
+            backgrounds(root, &state);
+            let render = notifications(root, &state);
+            media(root);
+            track(root);
+            player_toggle(root);
+            for stage in tagged::<LockStage>(root, "mirror") {
+                stage.set_interactive(false);
+            }
+            controls(root, &state, render);
+            let script = std::env::var("GLIMPSE_LOCK_DEMO").ok();
+            let root = root.clone();
+            glib::timeout_add_local_once(Duration::from_secs(1), move || match script.as_deref() {
+                Some("controls") => press_controls(&root),
+                Some("session") => open_session(&root),
+                Some(_) => demo(&root),
+                None => {}
+            });
+        }
+
+        fn controls(root: &gtk4::Widget, state: &Rc<State>, render: Rc<dyn Fn()>) {
+            let caps_label = |caps: Option<bool>| match caps {
+                None => "Caps Lock: live key",
+                Some(true) => "Caps Lock: on",
+                Some(false) => "Caps Lock: off",
+            };
+            for button in tagged::<gtk4::Button>(root, "control_caps") {
+                button.set_label(caps_label(state.caps.get()));
+                let root = root.clone();
+                let state = Rc::clone(state);
+                button.connect_clicked(move |button| {
+                    state.caps.set(match state.caps.get() {
+                        None => Some(true),
+                        Some(true) => Some(false),
+                        Some(false) => None,
+                    });
+                    button.set_label(caps_label(state.caps.get()));
+                    refresh_caps(&root, &state);
+                });
+            }
+
+            flag(root, "control_layouts", "Layouts: 3", "Layouts: 1", {
+                let root = root.clone();
+                let state = Rc::clone(state);
+                move |one| {
+                    state.one_layout.set(one);
+                    for button in tagged::<gtk4::Widget>(&root, "layout") {
+                        button.set_visible(!one);
+                    }
+                    for stage in collect::<LockStage>(&root) {
+                        stage.status().set_layout(layout(&state).as_ref());
+                    }
+                }
+            });
+            flag(root, "control_blur", "Blur: off", "Blur: on", {
+                let root = root.clone();
+                let state = Rc::clone(state);
+                move |on| {
+                    for output in tagged::<gtk4::Widget>(&root, "output") {
+                        toggle(&output, "lock-output--blur", on);
+                    }
+                    state.blur.set(on);
+                    paint(&root, &state);
+                }
+            });
+            flag(
+                root,
+                "control_avatar",
+                "Avatar: photo",
+                "Avatar: none (initials)",
+                {
+                    let root = root.clone();
+                    move |none| {
+                        for avatar in tagged::<gtk4::Label>(&root, "avatar") {
+                            avatar.set_text(if none { "A" } else { "" });
+                            toggle(avatar.upcast_ref(), "lock-avatar--initials", none);
+                        }
+                    }
+                },
+            );
+            flag(
+                root,
+                "control_probe",
+                "Sandbox probe: ok",
+                "Sandbox probe: failed",
+                {
+                    let root = root.clone();
+                    move |failed| {
+                        for prompt in tagged::<gtk4::Widget>(&root, "prompt") {
+                            for entry in tagged::<gtk4::Widget>(&prompt, "entry_row") {
+                                entry.set_visible(!failed);
+                            }
+                            say(&prompt, failed.then_some(PROBE), true);
+                        }
+                        for prompt in live_prompts(&root) {
+                            prompt.set_available(!failed);
+                            prompt.set_message(failed.then_some(PROBE), MessageKind::Error);
+                        }
+                        if !failed {
+                            focus_entry(&root);
+                        }
+                    }
+                },
+            );
+            flag(
+                root,
+                "control_provider",
+                "Notifications: provider up",
+                "Notifications: provider down",
+                {
+                    let state = Rc::clone(state);
+                    let render = Rc::clone(&render);
+                    move |down| {
+                        state.provider_up.set(!down);
+                        render();
+                    }
+                },
+            );
+            flag(
+                root,
+                "control_blocked",
+                "Suspend: free",
+                "Suspend: inhibited",
+                {
+                    let root = root.clone();
+                    let state = Rc::clone(state);
+                    move |blocked| {
+                        state.blocked.set(blocked);
+                        for row in tagged::<Row>(&root, "session_suspend") {
+                            row.set_sensitive(!blocked);
+                            row.set_property("subtitle", blocked.then_some(SUSPEND_BLOCKED));
+                        }
+                        for stage in collect::<LockStage>(&root) {
+                            session_actions(&stage, blocked);
+                        }
+                    }
+                },
+            );
+            flag(
+                root,
+                "control_failing",
+                "Session actions: succeed",
+                "Session actions: fail",
+                {
+                    let state = Rc::clone(state);
+                    move |failing| state.failing.set(failing)
+                },
+            );
+
+            for button in tagged::<gtk4::Button>(root, "control_outcome") {
+                let state = Rc::clone(state);
+                button.set_label(state.outcome.get().label());
+                button.connect_clicked(move |button| {
+                    let index = Outcome::ALL
+                        .iter()
+                        .position(|outcome| *outcome == state.outcome.get())
+                        .unwrap_or(0);
+                    state
+                        .outcome
+                        .set(Outcome::ALL[(index + 1) % Outcome::ALL.len()]);
+                    button.set_label(state.outcome.get().label());
+                });
+            }
+            for button in tagged::<gtk4::Button>(root, "control_reset") {
+                let state = Rc::clone(state);
+                let root = root.clone();
+                button.connect_clicked(move |_| {
+                    state.failures.set(0);
+                    for prompt in tagged::<gtk4::Widget>(&root, "prompt") {
+                        say(&prompt, None, false);
+                    }
+                    for prompt in live_prompts(&root) {
+                        prompt.set_message(None, MessageKind::Info);
+                    }
+                    focus_entry(&root);
+                });
+            }
+            for button in tagged::<gtk4::Button>(root, "control_demo") {
+                let root = root.clone();
+                button.connect_clicked(move |_| demo(&root));
+            }
+        }
+
+        fn flag(
+            root: &gtk4::Widget,
+            case: &str,
+            off: &'static str,
+            on: &'static str,
+            apply: impl Fn(bool) + 'static,
+        ) {
+            let apply = Rc::new(apply);
+            for button in tagged::<gtk4::Button>(root, case) {
+                let set = Rc::new(Cell::new(false));
+                button.set_label(off);
+                let apply = Rc::clone(&apply);
+                button.connect_clicked(move |button| {
+                    set.set(!set.get());
+                    button.set_label(if set.get() { on } else { off });
+                    apply(set.get());
+                });
+            }
+        }
+
+        fn press_controls(root: &gtk4::Widget) {
+            for case in [
+                "control_caps",
+                "control_layouts",
+                "control_avatar",
+                "control_provider",
+                "control_blocked",
+                "control_failing",
+                "control_outcome",
+            ] {
+                for button in tagged::<gtk4::Button>(root, case) {
+                    button.emit_clicked();
+                    eprintln!("controls: {case} -> {}", button.label().unwrap_or_default());
+                }
+            }
+            if let Some(entry) = live_entry(root) {
+                entry.set_text("hunter2");
+                entry.emit_activate();
+            }
+        }
+
+        fn open_session(root: &gtk4::Widget) {
+            for button in tagged::<gtk4::Button>(root, "control_blur") {
+                button.emit_clicked();
+                eprintln!("session: control_blur");
+            }
+            let Some(stage) = find::<LockStage>(root) else {
+                return;
+            };
+            if let Some(power) = collect::<gtk4::Button>(stage.status().upcast_ref())
+                .into_iter()
+                .find(|button| button.has_css_class("status-island__power"))
+            {
+                power.emit_clicked();
+                eprintln!("session: power button");
+            }
+            glib::timeout_add_local_once(Duration::from_millis(2500), move || {
+                if let Some(restart) = collect::<Row>(stage.upcast_ref())
+                    .into_iter()
+                    .find(|row| row.lead_icon().as_deref() == Some("system-reboot-symbolic"))
+                {
+                    restart.emit_clicked();
+                    eprintln!("session: restart");
+                }
+            });
+        }
+
+        fn demo(root: &gtk4::Widget) {
+            let steps: [(&str, u64); 4] = [
+                ("hunter2", 0),
+                ("hunter3", 3500),
+                ("hunter4", 7000),
+                (PASSWORD, 10500),
+            ];
+            for (text, at) in steps {
+                let root = root.clone();
+                glib::timeout_add_local_once(Duration::from_millis(at), move || {
+                    for stack in tagged::<gtk4::Stack>(&root, "curtain") {
+                        stack.set_visible_child_name("prompt");
+                    }
+                    if let Some(entry) = live_entry(&root) {
+                        entry.set_text(text);
+                        eprintln!(
+                            "demo: submit {}",
+                            if text == PASSWORD { "correct" } else { "wrong" }
+                        );
+                        entry.emit_activate();
+                    }
+                });
+            }
+        }
+
+        fn seed() -> Vec<Message> {
+            vec![
+                Message {
+                    app: "Slack",
+                    icon: "chat-message-new-symbolic",
+                    summary: "Maria: are we still on for the standup?".to_owned(),
+                    when: "2 min ago",
+                    urgency: Urgency::Normal,
+                },
+                Message {
+                    app: "Slack",
+                    icon: "chat-message-new-symbolic",
+                    summary: "Deploy channel: build 2291 is green".to_owned(),
+                    when: "9 min ago",
+                    urgency: Urgency::Normal,
+                },
+                Message {
+                    app: "Mail",
+                    icon: "mail-unread-symbolic",
+                    summary: "Invoice #2291 is ready".to_owned(),
+                    when: "14 min ago",
+                    urgency: Urgency::Normal,
+                },
+                Message {
+                    app: "Battery",
+                    icon: "battery-caution-symbolic",
+                    summary: "Battery low: 9% remaining".to_owned(),
+                    when: "now",
+                    urgency: Urgency::Critical,
+                },
+            ]
+        }
+
+        fn clock(root: &gtk4::Widget) {
+            let stages = collect::<LockStage>(root);
+            for stage in &stages {
+                stage.clock().set_formats("%H:%M", "%A, {day} %B");
+            }
+            let labels: Vec<(gtk4::Label, &'static str)> = [
+                ("clock", "%H:%M"),
+                ("hours", "%H"),
+                ("minutes", "%M"),
+                ("date", "%A, %B %-d"),
+            ]
+            .into_iter()
+            .flat_map(|(case, format)| {
+                tagged::<gtk4::Label>(root, case)
+                    .into_iter()
+                    .map(move |label| (label, format))
+            })
+            .collect();
+            if labels.is_empty() && stages.is_empty() {
+                return;
+            }
+            let tick = move || {
+                let Ok(now) = glib::DateTime::now_local() else {
+                    return;
+                };
+                for stage in &stages {
+                    stage.clock().set_time(&now);
+                }
+                for (label, format) in &labels {
+                    if let Ok(text) = now.format(format)
+                        && label.text() != text
+                    {
+                        label.set_text(&text);
+                    }
+                }
+            };
+            tick();
+            glib::timeout_add_seconds_local(1, move || {
+                tick();
+                glib::ControlFlow::Continue
+            });
+        }
+
+        fn status(root: &gtk4::Widget, state: &State) {
+            let indicator = |icon: &str, label: Option<&str>, tooltip: &str| IndicatorSpec {
+                icon: Some(themed_icon(icon)),
+                label: label.map(str::to_owned),
+                tooltip: Some(tooltip.to_owned()),
+                ..Default::default()
+            };
+            for stage in collect::<LockStage>(root) {
+                let island = stage.status();
+                island.set_weather(Some(&indicator(
+                    "weather-few-clouds-symbolic",
+                    Some("14°"),
+                    "Few clouds, 14°",
+                )));
+                island.set_bluetooth(Some(&indicator(
+                    "bluetooth-active-symbolic",
+                    None,
+                    "Bluetooth: WH-1000XM4",
+                )));
+                island.set_network(Some(&indicator(
+                    "network-wireless-signal-good-symbolic",
+                    None,
+                    "Wi-Fi: Skylink",
+                )));
+                island.set_layout(layout(state).as_ref());
+                island.set_battery(Some(&indicator(
+                    "battery-level-80-symbolic",
+                    Some("84%"),
+                    "Battery: 84%, discharging",
+                )));
+            }
+        }
+
+        fn backgrounds(root: &gtk4::Widget, state: &Rc<State>) {
+            if find::<LockStage>(root).is_none() {
+                return;
+            }
+            let assets = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../var/widget_examples/lock-assets");
+            let load = |name: &str| match gdk::Texture::from_filename(assets.join(name)) {
+                Ok(texture) => Some(texture),
+                Err(error) => {
+                    eprintln!("{name}: {error}");
+                    None
+                }
+            };
+            state.textures.replace(vec![
+                load("day.jpg"),
+                load("night.jpg"),
+                load("day-blur.jpg"),
+                load("night-blur.jpg"),
+            ]);
+            paint(root, state);
+            let root = root.downgrade();
+            let state = Rc::downgrade(state);
+            adw::StyleManager::default().connect_dark_notify(move |_| {
+                if let (Some(root), Some(state)) = (root.upgrade(), state.upgrade()) {
+                    paint(&root, &state);
+                }
+            });
+        }
+
+        fn paint(root: &gtk4::Widget, state: &State) {
+            let dark = adw::StyleManager::default().is_dark();
+            let textures = state.textures.borrow();
+            let texture = textures
+                .get(usize::from(dark) + 2 * usize::from(state.blur.get()))
+                .and_then(Option::as_ref);
+            for stage in collect::<LockStage>(root) {
+                stage.set_background(texture);
+                stage.set_dim(if dark { 0.45 } else { 0.3 });
+            }
+        }
+
+        fn layout(state: &State) -> Option<IndicatorSpec> {
+            (!state.one_layout.get()).then(|| IndicatorSpec {
+                label: Some(LAYOUTS[state.layout.get()].to_owned()),
+                tooltip: Some("Keyboard layout".to_owned()),
+                ..Default::default()
+            })
+        }
+
+        fn keyboard() -> Option<gdk::Device> {
+            gdk::Display::default()
+                .and_then(|display| display.default_seat())
+                .and_then(|seat| seat.keyboard())
+        }
+
+        fn caps(root: &gtk4::Widget, state: &Rc<State>) {
+            refresh_caps(root, state);
+            if let Some(keyboard) = keyboard() {
+                let root = root.clone();
+                let state = Rc::clone(state);
+                keyboard.connect_caps_lock_state_notify(move |_| refresh_caps(&root, &state));
+            }
+        }
+
+        fn refresh_caps(root: &gtk4::Widget, state: &State) {
+            let on = state
+                .caps
+                .get()
+                .unwrap_or_else(|| keyboard().is_some_and(|keyboard| keyboard.is_caps_locked()));
+            for warning in tagged::<gtk4::Widget>(root, "caps") {
+                warning.set_visible(on);
+            }
+            for prompt in live_prompts(root) {
+                prompt.set_caps_lock(on);
+            }
+            for ring in tagged::<gtk4::Widget>(root, "ring") {
+                toggle(&ring, "lock-ring--caps", on);
+            }
+        }
+
+        fn layouts(root: &gtk4::Widget, state: &Rc<State>) {
+            for button in tagged::<gtk4::Button>(root, "layout") {
+                button.set_label(LAYOUTS[state.layout.get()]);
+                let state = Rc::clone(state);
+                let root = root.clone();
+                button.connect_clicked(move |_| {
+                    state.layout.set((state.layout.get() + 1) % LAYOUTS.len());
+                    for other in tagged::<gtk4::Button>(&root, "layout") {
+                        other.set_label(LAYOUTS[state.layout.get()]);
+                    }
+                    for label in tagged::<gtk4::Label>(&root, "layout_name") {
+                        label.set_text(LAYOUTS[state.layout.get()]);
+                    }
+                    focus_entry(&root);
+                });
+            }
+        }
+
+        fn prompts(root: &gtk4::Widget, state: &Rc<State>) {
+            for entry in tagged::<gtk4::PasswordEntry>(root, "password") {
+                let prompt = climb(entry.upcast_ref(), "prompt").unwrap_or_else(|| root.clone());
+                let root = root.clone();
+                let state = Rc::clone(state);
+                entry.connect_changed(glib::clone!(
+                    #[weak]
+                    prompt,
+                    #[strong]
+                    state,
+                    move |entry| {
+                        state.idle.set(state.idle.get() + 1);
+                        let length = entry.text().chars().count();
+                        for dots in tagged::<gtk4::Label>(&prompt, "dots") {
+                            dots.set_text(&segments(length));
+                        }
+                        for ring in tagged::<gtk4::Widget>(&prompt, "ring") {
+                            toggle(&ring, "lock-ring--typing", length > 0);
+                            toggle(&ring, "lock-ring--wrong", false);
+                        }
+                        if length > 0 && !state.verifying.get() && state.failures.get() < 3 {
+                            say(&prompt, None, false);
+                        }
+                    }
+                ));
+                entry.connect_activate(move |entry| submit(&root, &prompt, entry, &state));
+            }
+        }
+
+        fn submit(
+            root: &gtk4::Widget,
+            prompt: &gtk4::Widget,
+            entry: &gtk4::PasswordEntry,
+            state: &Rc<State>,
+        ) {
+            if state.verifying.get() || entry.text().is_empty() {
+                return;
+            }
+            let correct = entry.text() == PASSWORD;
+            state.verifying.set(true);
+            entry.set_editable(false);
+            spin(prompt, true);
+            say(prompt, None, false);
+            for ring in tagged::<gtk4::Widget>(prompt, "ring") {
+                toggle(&ring, "lock-ring--verifying", true);
+            }
+
+            let outcome = state.outcome.get();
+            let wait = match outcome {
+                Outcome::TimedOut => TIMEOUT,
+                _ => VERIFY,
+            };
+            let root = root.clone();
+            let prompt = prompt.clone();
+            let entry = entry.clone();
+            let state = Rc::clone(state);
+            glib::timeout_add_local_once(wait, move || {
+                state.verifying.set(false);
+                spin(&prompt, false);
+                entry.set_editable(true);
+                entry.set_text("");
+                for ring in tagged::<gtk4::Widget>(&prompt, "ring") {
+                    toggle(&ring, "lock-ring--verifying", false);
+                    toggle(&ring, "lock-ring--typing", false);
+                }
+                let refused = match outcome {
+                    Outcome::Password if correct => {
+                        state.failures.set(0);
+                        unlock(&root, &state);
+                        return;
+                    }
+                    Outcome::Password => {
+                        state.failures.set(state.failures.get() + 1);
+                        match state.failures.get() {
+                            failures if failures >= 3 => FAILLOCK,
+                            _ => "Wrong password",
+                        }
+                    }
+                    Outcome::Unavailable => UNAVAILABLE,
+                    Outcome::TimedOut => "Authentication timed out",
+                    Outcome::Expired => "Password change required",
+                };
+                say(&prompt, Some(refused), true);
+                for ring in tagged::<gtk4::Widget>(&prompt, "ring") {
+                    toggle(&ring, "lock-ring--wrong", true);
+                }
+                shake(&prompt);
+                entry.grab_focus();
+            });
+        }
+
+        fn unlock(root: &gtk4::Widget, state: &Rc<State>) {
+            let outputs = tagged::<gtk4::Widget>(root, "output");
+            for output in &outputs {
+                output.add_css_class("lock-output--unlocked");
+            }
+            let root = root.clone();
+            let state = Rc::clone(state);
+            glib::timeout_add_local_once(RELOCK_AFTER, move || {
+                for output in tagged::<gtk4::Widget>(&root, "output") {
+                    output.remove_css_class("lock-output--unlocked");
+                }
+                for prompt in tagged::<gtk4::Widget>(&root, "prompt") {
+                    say(&prompt, None, false);
+                }
+                for prompt in live_prompts(&root) {
+                    prompt.set_message(None, MessageKind::Info);
+                }
+                lower_curtain(&root, &state);
+                focus_entry(&root);
+            });
+        }
+
+        fn curtain(root: &gtk4::Widget, state: &Rc<State>) {
+            let Some(stack) = tagged::<gtk4::Stack>(root, "curtain").into_iter().next() else {
+                focus_entry(root);
+                return;
+            };
+            stack.set_visible_child_name("curtain");
+            let keys = gtk4::EventControllerKey::new();
+            keys.set_propagation_phase(gtk4::PropagationPhase::Capture);
+            keys.connect_key_pressed(glib::clone!(
+                #[weak]
+                stack,
+                #[weak]
+                root,
+                #[strong]
+                state,
+                #[upgrade_or]
+                glib::Propagation::Proceed,
+                move |_, key, _, _| {
+                    if stack.visible_child_name().as_deref() != Some("curtain") {
+                        return glib::Propagation::Proceed;
+                    }
+                    lift(&root, &stack, &state, key.to_unicode());
+                    glib::Propagation::Stop
+                }
+            ));
+            root.add_controller(keys);
+
+            let click = gtk4::GestureClick::new();
+            click.connect_pressed(glib::clone!(
+                #[weak]
+                stack,
+                #[weak]
+                root,
+                #[strong]
+                state,
+                move |_, _, _, _| {
+                    if stack.visible_child_name().as_deref() == Some("curtain") {
+                        lift(&root, &stack, &state, None);
+                    }
+                }
+            ));
+            stack
+                .child_by_name("curtain")
+                .inspect(|page| page.add_controller(click));
+        }
+
+        fn lift(root: &gtk4::Widget, stack: &gtk4::Stack, state: &Rc<State>, first: Option<char>) {
+            stack.set_visible_child_name("prompt");
+            if let Some(entry) = tagged::<gtk4::PasswordEntry>(root, "password")
+                .into_iter()
+                .next()
+            {
+                if let Some(first) = first.filter(|c| !c.is_control()) {
+                    entry.set_text(&first.to_string());
+                    entry.set_position(-1);
+                }
+                entry.grab_focus();
+            }
+            arm_curtain(root, state);
+        }
+
+        fn arm_curtain(root: &gtk4::Widget, state: &Rc<State>) {
+            let seen = state.idle.get();
+            let root = root.clone();
+            let state = Rc::clone(state);
+            glib::timeout_add_local_once(CURTAIN_AFTER, move || {
+                if state.idle.get() == seen && !state.verifying.get() {
+                    lower_curtain(&root, &state);
+                } else {
+                    arm_curtain(&root, &state);
+                }
+            });
+        }
+
+        fn lower_curtain(root: &gtk4::Widget, state: &Rc<State>) {
+            for stack in tagged::<gtk4::Stack>(root, "curtain") {
+                if stack.visible_child_name().as_deref() == Some("curtain") {
+                    continue;
+                }
+                stack.set_visible_child_name("curtain");
+                for entry in tagged::<gtk4::PasswordEntry>(root, "password") {
+                    entry.set_text("");
+                }
+                state.idle.set(state.idle.get() + 1);
+            }
+        }
+
+        fn session(root: &gtk4::Widget, state: &Rc<State>) {
+            for button in tagged::<gtk4::MenuButton>(root, "session_button") {
+                let Some(popover) = button.popover() else {
+                    continue;
+                };
+                let close: Rc<dyn Fn()> = Rc::new(glib::clone!(
+                    #[weak]
+                    popover,
+                    move || popover.popdown()
+                ));
+                let Some(reset) = session_pages(popover.upcast_ref(), close, state) else {
+                    continue;
+                };
+                let root = root.clone();
+                popover.connect_closed(move |_| {
+                    reset();
+                    focus_entry(&root);
+                });
+            }
+        }
+
+        fn stage_sessions(root: &gtk4::Widget, state: &Rc<State>) {
+            for stage in collect::<LockStage>(root) {
+                session_actions(&stage, state.blocked.get());
+                let state = Rc::clone(state);
+                stage.connect_session_action(move |stage, action| {
+                    eprintln!("session: {action}");
+                    if state.failing.get() {
+                        stage.set_session_error(Some(SESSION_FAILED));
+                        return;
+                    }
+                    stage.close_session();
+                });
+            }
+        }
+
+        fn session_actions(stage: &LockStage, blocked: bool) {
+            let shown = |enabled: bool, subtitle: Option<&str>| SessionActionState {
+                visible: true,
+                enabled,
+                subtitle: subtitle.map(str::to_owned),
+            };
+            stage.set_session_action(
+                SUSPEND,
+                &shown(!blocked, blocked.then_some(SUSPEND_BLOCKED)),
+            );
+            stage.set_session_action(REBOOT, &shown(true, None));
+            stage.set_session_action(POWER_OFF, &shown(true, None));
+        }
+
+        fn session_pages(
+            scope: &gtk4::Widget,
+            close: Rc<dyn Fn()>,
+            state: &Rc<State>,
+        ) -> Option<impl Fn() + 'static> {
+            let pages = tagged::<gtk4::Stack>(scope, "session").into_iter().next()?;
+            let go = |case: &str, page: &'static str| {
+                for row in tagged::<gtk4::Button>(scope, case) {
+                    let pages = pages.clone();
+                    row.connect_clicked(move |_| pages.set_visible_child_name(page));
+                }
+            };
+            go("session_reboot", "reboot");
+            go("session_poweroff", "power-off");
+            go("session_back", "menu");
+            let errors = tagged::<gtk4::Label>(scope, "session_error");
+            for row in tagged::<gtk4::Button>(scope, "session_run") {
+                let close = Rc::clone(&close);
+                let pages = pages.clone();
+                let errors = errors.clone();
+                let state = Rc::clone(state);
+                row.connect_clicked(move |_| {
+                    if !state.failing.get() {
+                        close();
+                        return;
+                    }
+                    pages.set_visible_child_name("menu");
+                    for error in &errors {
+                        error.set_visible(true);
+                    }
+                });
+            }
+            Some(move || {
+                pages.set_visible_child_name("menu");
+                for error in &errors {
+                    error.set_visible(false);
+                }
+            })
+        }
+
+        fn notifications(root: &gtk4::Widget, state: &Rc<State>) -> Rc<dyn Fn()> {
+            let lists = tagged::<NotificationList>(root, "notifications");
+            let fixed: Vec<(NotificationList, Privacy)> = [
+                ("notifications_count", Privacy::Count),
+                ("notifications_apps", Privacy::Apps),
+                ("notifications_summaries", Privacy::Summaries),
+            ]
+            .into_iter()
+            .flat_map(|(case, privacy)| {
+                tagged::<NotificationList>(root, case)
+                    .into_iter()
+                    .map(move |list| (list, privacy))
+            })
+            .collect();
+            let stages = collect::<LockStage>(root);
+            let render: Rc<dyn Fn()> = Rc::new(glib::clone!(
+                #[strong]
+                state,
+                move || {
+                    let up = state.provider_up.get();
+                    let messages = state.messages.borrow();
+                    let groups = match up {
+                        true => chip_groups(&messages, state.privacy.get()),
+                        false => Vec::new(),
+                    };
+                    for stage in &stages {
+                        stage.chips().set_groups(&groups);
+                    }
+                    for list in &lists {
+                        fill(list, &messages, state.privacy.get());
+                        list.set_visible(up && !messages.is_empty());
+                    }
+                    for (list, privacy) in &fixed {
+                        fill(list, &messages, *privacy);
+                        list.set_visible(up && !messages.is_empty());
+                    }
+                }
+            ));
+            render();
+
+            for (case, privacy) in [
+                ("privacy_count", Privacy::Count),
+                ("privacy_apps", Privacy::Apps),
+                ("privacy_summaries", Privacy::Summaries),
+            ] {
+                for button in tagged::<gtk4::Button>(root, case) {
+                    let state = Rc::clone(state);
+                    let render = Rc::clone(&render);
+                    button.connect_clicked(move |_| {
+                        state.privacy.set(privacy);
+                        render();
+                    });
+                }
+            }
+            for button in tagged::<gtk4::Button>(root, "notify") {
+                let state = Rc::clone(state);
+                let render = Rc::clone(&render);
+                button.connect_clicked(move |_| {
+                    let n = state.next.get();
+                    state.next.set(n + 1);
+                    state.messages.borrow_mut().insert(
+                        0,
+                        Message {
+                            app: "Slack",
+                            icon: "chat-message-new-symbolic",
+                            summary: format!("Maria: new message {n} while you were away"),
+                            when: "now",
+                            urgency: Urgency::Normal,
+                        },
+                    );
+                    render();
+                });
+            }
+            for button in tagged::<gtk4::Button>(root, "clear") {
+                let state = Rc::clone(state);
+                let render = Rc::clone(&render);
+                button.connect_clicked(move |_| {
+                    state.messages.borrow_mut().clear();
+                    render();
+                });
+            }
+            render
+        }
+
+        fn fill(list: &NotificationList, messages: &[Message], privacy: Privacy) {
+            let mut ordered: Vec<&Message> = messages.iter().collect();
+            ordered.sort_by_key(|message| message.urgency != Urgency::Critical);
+            let cards = match privacy {
+                Privacy::Count if ordered.is_empty() => Vec::new(),
+                Privacy::Count => vec![card(
+                    "count",
+                    "Notifications",
+                    "preferences-system-notifications-symbolic",
+                    &count(ordered.len()),
+                    "",
+                    Urgency::Normal,
+                )],
+                Privacy::Apps => {
+                    let mut apps: Vec<(&str, &str, usize, &str, Urgency)> = Vec::new();
+                    for message in &ordered {
+                        match apps.iter_mut().find(|app| app.0 == message.app) {
+                            Some(app) => app.2 += 1,
+                            None => apps.push((
+                                message.app,
+                                message.icon,
+                                1,
+                                message.when,
+                                message.urgency,
+                            )),
+                        }
+                    }
+                    apps.into_iter()
+                        .map(|(app, icon, n, when, urgency)| {
+                            card(app, app, icon, &count(n), when, urgency)
+                        })
+                        .collect()
+                }
+                Privacy::Summaries => ordered
+                    .iter()
+                    .enumerate()
+                    .map(|(index, message)| {
+                        card(
+                            &format!("{}-{index}-{}", message.app, message.summary),
+                            message.app,
+                            message.icon,
+                            &message.summary,
+                            message.when,
+                            message.urgency,
+                        )
+                    })
+                    .collect(),
+            };
+            list.set_cap(Some(3));
+            list.set_notifications(&cards);
+            for row in collect::<NotificationCard>(list.upcast_ref()) {
+                row.set_controls_visible(false);
+            }
+        }
+
+        fn chip_groups(messages: &[Message], privacy: Privacy) -> Vec<ChipGroup> {
+            let group = |key: &str, app: &str, icon: &str, count: usize| ChipGroup {
+                key: key.to_owned(),
+                app: app.to_owned(),
+                icon: Some(themed_icon(icon)),
+                count: u32::try_from(count).unwrap_or(u32::MAX),
+            };
+            if privacy == Privacy::Count {
+                return vec![group(
+                    "count",
+                    "Notifications",
+                    "preferences-system-notifications-symbolic",
+                    messages.len(),
+                )];
+            }
+            let mut ordered: Vec<&Message> = messages.iter().collect();
+            ordered.sort_by_key(|message| message.urgency != Urgency::Critical);
+            let mut apps: Vec<(&str, &str, usize)> = Vec::new();
+            for message in ordered {
+                match apps.iter_mut().find(|app| app.0 == message.app) {
+                    Some(app) => app.2 += 1,
+                    None => apps.push((message.app, message.icon, 1)),
+                }
+            }
+            apps.into_iter()
+                .map(|(app, icon, count)| group(app, app, icon, count))
+                .collect()
+        }
+
+        fn card(
+            key: &str,
+            app: &str,
+            icon: &str,
+            summary: &str,
+            when: &str,
+            urgency: Urgency,
+        ) -> Notification {
+            Notification {
+                key: key.to_owned(),
+                app_name: app.to_owned(),
+                summary: summary.to_owned(),
+                when: when.to_owned(),
+                icon: Some(themed_icon(icon)),
+                urgency,
+                unread: true,
+                activatable: false,
+                ..Notification::default()
+            }
+        }
+
+        fn count(n: usize) -> String {
+            match n {
+                1 => "1 new notification".to_owned(),
+                n => format!("{n} new notifications"),
+            }
+        }
+
+        fn media(root: &gtk4::Widget) {
+            let Some(player) = find::<NowPlaying>(root) else {
+                return;
+            };
+            let media = Rc::new(RefCell::new(Media::new()));
+            let show = glib::clone!(
+                #[strong]
+                media,
+                #[weak]
+                player,
+                move || {
+                    let media = media.borrow();
+                    let current = &media.entries[0];
+                    let song = current.song();
+                    player.set_source(Some(current.source().name));
+                    player.set_icon_name(Some(current.source().icon_name));
+                    player.set_title(Some(song.title));
+                    player.set_artist(Some(song.artist));
+                    player.set_album(Some(song.album));
+                    player.set_art(Some(&media.covers[current.source]));
+                    let scrubber = player.scrubber();
+                    scrubber.set_duration(song.duration);
+                    scrubber.set_position(current.position);
+                    scrubber.set_seekable(false);
+                    let transport = player.transport();
+                    transport.set_playing(current.playing);
+                    transport.set_can_next(current.source().songs.len() > 1);
+                }
+            );
+            show();
+            player.transport().connect_action(glib::clone!(
+                #[strong]
+                media,
+                #[strong]
+                show,
+                move |_, action| {
+                    {
+                        let mut media = media.borrow_mut();
+                        match action {
+                            TransportAction::PlayPause => {
+                                media.entries[0].playing = !media.entries[0].playing
+                            }
+                            TransportAction::Next => media.entries[0].step(true),
+                            TransportAction::Previous => media.entries[0].step(false),
+                            TransportAction::Shuffle | TransportAction::Repeat => {}
+                        }
+                    }
+                    show();
+                }
+            ));
+            glib::timeout_add_seconds_local(1, move || {
+                {
+                    let mut media = media.borrow_mut();
+                    let entry = &mut media.entries[0];
+                    if entry.playing {
+                        entry.position = (entry.position + 1.0) % entry.song().duration;
+                    }
+                }
+                show();
+                glib::ControlFlow::Continue
+            });
+        }
+
+        fn track(root: &gtk4::Widget) {
+            let stages = collect::<LockStage>(root);
+            if stages.is_empty() {
+                return;
+            }
+            let media = Rc::new(RefCell::new(Media::new()));
+            let shown = Rc::new(Cell::new(true));
+            let show: Rc<dyn Fn()> = Rc::new({
+                let media = Rc::clone(&media);
+                let shown = Rc::clone(&shown);
+                let stages = stages.clone();
+                move || {
+                    let media = media.borrow();
+                    let entry = &media.entries[0];
+                    let song = entry.song();
+                    let track = Track {
+                        title: song.title.to_owned(),
+                        artist: song.artist.to_owned(),
+                        playing: entry.playing,
+                        can_play_pause: true,
+                        can_next: entry.source().songs.len() > 1,
+                    };
+                    for stage in &stages {
+                        stage.track().set_track(shown.get().then_some(&track));
+                    }
+                }
+            });
+            show();
+            for stage in &stages {
+                let media = Rc::clone(&media);
+                let show = Rc::clone(&show);
+                stage.track().connect_action(move |_, action| {
+                    {
+                        let mut media = media.borrow_mut();
+                        match action {
+                            TransportAction::PlayPause => {
+                                media.entries[0].playing = !media.entries[0].playing
+                            }
+                            TransportAction::Next => media.entries[0].step(true),
+                            TransportAction::Previous
+                            | TransportAction::Shuffle
+                            | TransportAction::Repeat => {}
+                        }
+                    }
+                    show();
+                });
+            }
+            for button in tagged::<gtk4::Button>(root, "player") {
+                let shown = Rc::clone(&shown);
+                let show = Rc::clone(&show);
+                button.connect_clicked(move |_| {
+                    shown.set(!shown.get());
+                    show();
+                });
+            }
+        }
+
+        fn player_toggle(root: &gtk4::Widget) {
+            for button in tagged::<gtk4::Button>(root, "player") {
+                let root = root.clone();
+                button.connect_clicked(move |_| {
+                    for section in tagged::<gtk4::Widget>(&root, "media") {
+                        section.set_visible(!section.is_visible());
+                    }
+                });
+            }
+        }
+
+        fn segments(length: usize) -> String {
+            match length {
+                0 => String::new(),
+                n => (0..5)
+                    .map(|slot| if slot == n % 5 { '●' } else { '○' })
+                    .collect(),
+            }
+        }
+
+        fn say(prompt: &gtk4::Widget, text: Option<&str>, error: bool) {
+            for hint in tagged::<gtk4::Label>(prompt, "hint") {
+                hint.set_text(text.unwrap_or_default());
+                toggle(hint.upcast_ref(), "lock-hint--error", error);
+            }
+        }
+
+        fn spin(prompt: &gtk4::Widget, on: bool) {
+            for spinner in tagged::<gtk4::Spinner>(prompt, "spinner") {
+                spinner.set_visible(on);
+                spinner.set_spinning(on);
+            }
+            for peek in tagged::<gtk4::Widget>(prompt, "peek") {
+                peek.set_visible(!on);
+            }
+        }
+
+        fn shake(prompt: &gtk4::Widget) {
+            prompt.add_css_class("lock-shake");
+            let prompt = prompt.clone();
+            glib::timeout_add_local_once(Duration::from_millis(450), move || {
+                prompt.remove_css_class("lock-shake")
+            });
+        }
+
+        fn focus_entry(root: &gtk4::Widget) {
+            if let Some(entry) = live_entry(root) {
+                entry.grab_focus();
+            }
+        }
+
+        fn live_prompts(root: &gtk4::Widget) -> Vec<PasswordPrompt> {
+            collect::<PasswordPrompt>(root)
+                .into_iter()
+                .filter(|prompt| !prompt.css_classes().iter().any(|c| c.starts_with(DEMO)))
+                .collect()
+        }
+
+        fn live_entry(root: &gtk4::Widget) -> Option<gtk4::PasswordEntry> {
+            tagged::<gtk4::PasswordEntry>(root, "password")
+                .into_iter()
+                .chain(
+                    live_prompts(root)
+                        .iter()
+                        .filter_map(|prompt| find::<gtk4::PasswordEntry>(prompt.upcast_ref())),
+                )
+                .find(|entry| entry.is_mapped())
+        }
+
+        fn widget_prompts(root: &gtk4::Widget, state: &Rc<State>) {
+            for prompt in live_prompts(root) {
+                prompt.set_user(Some("alex"));
+                prompt.connect_edited(glib::clone!(
+                    #[strong]
+                    state,
+                    move |prompt| {
+                        state.idle.set(state.idle.get() + 1);
+                        if !state.verifying.get() && state.failures.get() < 3 {
+                            prompt.set_message(None, MessageKind::Info);
+                        }
+                    }
+                ));
+                let root = root.clone();
+                let state = Rc::clone(state);
+                prompt.connect_submitted(move |prompt| verify(&root, prompt, &state));
+            }
+        }
+
+        fn verify(root: &gtk4::Widget, prompt: &PasswordPrompt, state: &Rc<State>) {
+            let correct = prompt.take_text().as_str() == PASSWORD;
+            state.verifying.set(true);
+            prompt.set_busy(true);
+            prompt.set_message(None, MessageKind::Info);
+            let outcome = state.outcome.get();
+            let wait = match outcome {
+                Outcome::TimedOut => TIMEOUT,
+                _ => VERIFY,
+            };
+            let root = root.clone();
+            let prompt = prompt.clone();
+            let state = Rc::clone(state);
+            glib::timeout_add_local_once(wait, move || {
+                state.verifying.set(false);
+                prompt.set_busy(false);
+                let refused = match outcome {
+                    Outcome::Password if correct => {
+                        state.failures.set(0);
+                        unlock(&root, &state);
+                        return;
+                    }
+                    Outcome::Password => {
+                        state.failures.set(state.failures.get() + 1);
+                        match state.failures.get() {
+                            failures if failures >= 3 => FAILLOCK,
+                            _ => "Wrong password",
+                        }
+                    }
+                    Outcome::Unavailable => UNAVAILABLE,
+                    Outcome::TimedOut => "Authentication timed out",
+                    Outcome::Expired => "Password change required",
+                };
+                prompt.set_message(Some(refused), MessageKind::Error);
+                prompt.shake();
+                prompt.grab_focus();
+            });
+        }
+
+        fn prompt_states(root: &gtk4::Widget) {
+            for prompt in collect::<PasswordPrompt>(root) {
+                let Some(case) = prompt
+                    .css_classes()
+                    .iter()
+                    .find_map(|class| class.strip_prefix(DEMO).map(str::to_owned))
+                else {
+                    continue;
+                };
+                prompt.set_user(Some("alex"));
+                let entry = find::<gtk4::PasswordEntry>(prompt.upcast_ref());
+                let typed = || {
+                    if let Some(entry) = &entry {
+                        entry.set_text("hunter2");
+                    }
+                };
+                match case.as_str() {
+                    "idle" => {}
+                    "typing" => typed(),
+                    "verifying" => prompt.set_busy(true),
+                    "wrong" => prompt.set_message(Some("Wrong password"), MessageKind::Error),
+                    "faillock" => prompt.set_message(Some(FAILLOCK), MessageKind::Error),
+                    "capslock" => {
+                        typed();
+                        prompt.set_caps_lock(true);
+                    }
+                    "unavailable" => prompt.set_message(Some(UNAVAILABLE), MessageKind::Error),
+                    "probe" => {
+                        prompt.set_available(false);
+                        prompt.set_message(Some(PROBE), MessageKind::Error);
+                    }
+                    "mirror" => {
+                        typed();
+                        prompt.set_interactive(false);
+                    }
+                    other => eprintln!("{DEMO}{other} is not a password prompt state"),
+                }
+            }
+        }
+
+        fn climb(widget: &gtk4::Widget, case: &str) -> Option<gtk4::Widget> {
+            let wanted = format!("{DEMO}{case}");
+            let mut current = Some(widget.clone());
+            while let Some(widget) = current {
+                if widget.has_css_class(&wanted) {
+                    return Some(widget);
+                }
+                current = widget.parent();
+            }
+            None
+        }
+
+        fn toggle(widget: &gtk4::Widget, class: &str, on: bool) {
+            if widget.has_css_class(class) != on {
+                match on {
+                    true => widget.add_css_class(class),
+                    false => widget.remove_css_class(class),
+                }
+            }
+        }
+    }
+
     fn themed_icon(name: &str) -> gtk4::gio::Icon {
         gtk4::gio::ThemedIcon::new(name).upcast()
     }
@@ -1870,17 +3389,24 @@ mod fixtures {
 
             let icon = named(ICON);
             let overlay = named(OVERLAY);
+            let label = named(LABEL);
             let severity = named(SEVERITY);
             let attention = flagged(ATTENTION);
             let notice = flagged(NOTICE);
 
-            if icon.is_none() && overlay.is_none() && severity.is_none() && !attention && !notice {
+            if icon.is_none()
+                && overlay.is_none()
+                && label.is_none()
+                && severity.is_none()
+                && !attention
+                && !notice
+            {
                 continue;
             }
 
             match icon {
                 Some(icon) => indicator.set_icon(Some(&themed_icon(&icon))),
-                None if overlay.is_none() && !attention && !notice => {
+                None if overlay.is_none() && label.is_none() && !attention && !notice => {
                     eprintln!("an $Indicator carries no {ICON} class and nothing else to draw")
                 }
                 None => {}
@@ -1888,6 +3414,10 @@ mod fixtures {
 
             if let Some(overlay) = overlay {
                 indicator.set_overlay(Some(&themed_icon(&overlay)));
+            }
+
+            if let Some(label) = label {
+                indicator.set_label(Some(&label));
             }
 
             match severity.as_deref() {
@@ -1995,6 +3525,104 @@ mod fixtures {
                 _ => strip.set_max_visible(0),
             }
             strip.set_items(&items);
+        }
+    }
+
+    fn system_monitor(root: &gtk4::Widget) {
+        let usage = |id: &str, title: &str, value: &str, fraction: Option<f64>, severity| {
+            SystemMonitorUsage {
+                id: id.to_owned(),
+                title: title.to_owned(),
+                value: value.to_owned(),
+                fraction,
+                severity,
+            }
+        };
+        let detail = |id: &str, title: &str, value: &str| SystemMonitorDetail {
+            id: id.to_owned(),
+            title: title.to_owned(),
+            value: value.to_owned(),
+        };
+
+        for popover in collect::<SystemMonitorPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $SystemMonitorPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            let mut tiles = vec![
+                usage("cpu", "CPU", "42%", Some(0.42), None),
+                usage("ram", "Memory", "6.1 / 16.3 GB", Some(0.37), None),
+                usage(
+                    "disk-home",
+                    "/home",
+                    "870 / 1000 GB",
+                    Some(0.87),
+                    Some(Severity::Warning),
+                ),
+                usage(
+                    "disk-var",
+                    "/var",
+                    "970 / 1000 GB",
+                    Some(0.97),
+                    Some(Severity::Error),
+                ),
+            ];
+            let mut details = vec![
+                detail("load", "Load average", "1.24, 0.98, 0.87"),
+                detail("uptime", "Uptime", "2d 4h"),
+                detail("network", "Network", "↓ 1.2 MB/s ↑ 84 KB/s"),
+                detail("cpu-temp", "CPU temperature", "62°C"),
+            ];
+
+            if case == "full" {
+                tiles.insert(2, usage("swap", "Swap", "1.1 / 8.0 GB", Some(0.14), None));
+                tiles.push(usage("gpu-usage", "GPU", "18%", Some(0.18), None));
+                tiles.push(usage(
+                    "gpu-memory",
+                    "GTT",
+                    "6.7 / 16.3 GB",
+                    Some(0.41),
+                    None,
+                ));
+                details.push(detail("gpu-temp", "GPU temperature", "54°C"));
+            }
+
+            popover.set_usage(&tiles);
+            popover.set_details(&details);
+            popover.set_footer(Some("System Monitor settings"));
+        }
+    }
+
+    fn system_monitor_indicator_states(builder: &gtk4::Builder) {
+        let cases: &[(&str, &str, Option<Severity>)] = &[
+            ("cpu_normal", "CPU 42%", None),
+            ("cpu_warning", "CPU 88%", Some(Severity::Warning)),
+            ("cpu_error", "CPU 97%", Some(Severity::Error)),
+            ("ram_normal", "RAM 51%", None),
+            ("ram_warning", "RAM 88%", Some(Severity::Warning)),
+            ("ram_error", "RAM 97%", Some(Severity::Error)),
+            ("swap_normal", "Swap 12%", None),
+            ("swap_warning", "Swap 88%", Some(Severity::Warning)),
+            ("swap_error", "Swap 97%", Some(Severity::Error)),
+            ("network_normal", "↓ 1.2 MB/s", None),
+            ("network_warning", "↓ 1.2 MB/s", Some(Severity::Warning)),
+            ("network_error", "↓ 1.2 MB/s", Some(Severity::Error)),
+            ("gpu_normal", "GPU 18%", None),
+            ("gpu_warning", "GPU 88%", Some(Severity::Warning)),
+            ("gpu_error", "GPU 97%", Some(Severity::Error)),
+        ];
+        for (id, label, severity) in cases {
+            let Some(indicator) = builder.object::<Indicator>(*id) else {
+                eprintln!("{id} names no $Indicator in this file");
+                continue;
+            };
+            indicator.set_label(Some(label));
+            indicator.set_severity(*severity);
         }
     }
 
@@ -2672,13 +4300,14 @@ fn ensure_types() {
         BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClipboardList,
         ClipboardPopover, ClockRow, ColorList, ColorPickerPopover, DisplayList, DisplayPopover,
         EventList, EventRow, Expandable, FactList, Fader, ForecastDay, ForecastHour, ForecastList,
-        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, Notice,
-        NotificationCard, NotificationHeader, NotificationImageBody, NotificationList,
-        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
-        Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover,
-        RangeBar, Readout, Row, Scrubber, Section, SessionPopover, SourceList, SplitRow, Swatch,
-        SwitchRow, TooltipCard, Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover,
-        WorldClock,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LockClock,
+        LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
+        NotificationImageBody, NotificationList, NotificationStack, NotificationTextBody,
+        NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList,
+        PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout, Row, Scrubber,
+        Section, SessionPopover, SessionSheet, SourceList, SplitRow, StatusIsland, Swatch,
+        SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard, Transport, TrayStrip,
+        WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -2709,6 +4338,7 @@ fn ensure_types() {
         NotificationStack::static_type(),
         NotificationsPopover::static_type(),
         NowPlaying::static_type(),
+        PasswordPrompt::static_type(),
         PlayerList::static_type(),
         PlayerRow::static_type(),
         Scrubber::static_type(),
@@ -2738,9 +4368,16 @@ fn ensure_types() {
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
+        SystemMonitorPopover::static_type(),
         PrintingPopover::static_type(),
         PrivacyPopover::static_type(),
         WorkspaceNamePopover::static_type(),
+        LockClock::static_type(),
+        SessionSheet::static_type(),
+        StatusIsland::static_type(),
+        TrackCard::static_type(),
+        NotificationChips::static_type(),
+        LockStage::static_type(),
     ] {
         let _ = widget;
     }

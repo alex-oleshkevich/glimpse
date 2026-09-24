@@ -208,6 +208,12 @@ hover, focus and any pending press. The key can therefore be captured when the r
 
 - **`set_cap` hides rows rather than dropping them**, so expanding is a visibility flip and a row
   mid-hover survives it.
+- **A row dropped from the target list fades before it is unparented**, rather than vanishing on the
+  next `by_key` pass. `set_notifications` keeps a fading row's last known `Notification` in
+  `removals` and folds it back into the list handed to `by_key`, so the row is neither re-dressed away
+  nor rebuilt mid-fade; `by_key` itself stays untouched, since animating its removal generically would
+  reach every other list built on it. A key that reappears while still fading cancels the fade instead
+  of queuing a second one.
 
 - **It has no `BoxLayout`, and could not have one.** The cards behind must overlap the front one and
   sit against its *measured* height; a box cannot overlap children, and `Gtk.Overlay` takes its size
@@ -216,6 +222,10 @@ hover, focus and any pending press. The key can therefore be captured when the r
   it draws *over* it, as a bar across the bottom rather than an edge peeking out.
 - **The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
   absolute way, so "recede" reads on white and disappears on charcoal.
+- **A mapped stack slides and fades the cards leaving it (`.leaving`), then applies the list**; `NotificationsPopover` does
+  the same with whole groups, which is what Clear all removes. The newest list waits in `queued` (or
+  `held`) and wins when the fade ends. Unmapped, both apply at once. `fade_out` resets opacity
+  because `by_key` can hand a faded widget straight back.
 - **It reconciles by key without `reconcile::by_key`** — that helper asserts the items are the
   parent's *only* children and would fight `arrange` over the strips every update.
 - **The strip's corner radius is written out rather than shared**: `--gl-notification-radius` is
@@ -433,6 +443,75 @@ Lock, sleep and power rows are template children; other sessions and the updates
 that hide when empty. Static labels live in the blueprint. The widget emits `action-requested` and
 `activate-session` and does not know logind.
 
+## PasswordPrompt
+
+The lock screen's name, entry and message line. It knows nothing about PAM: `submitted` and
+`edited` never carry the text.
+
+- **The password leaves the entry exactly once.** `take_text` copies the entry's own buffer into a
+  `Zeroizing<String>`, clears it and undoes a peek. Never `EditableExt::text`: a `GString` is
+  immutable and cannot be wiped, which is also why the emptiness check reads the length.
+- `set_busy` makes the entry non-editable and swaps the peek icon for a spinner, never
+  `set_sensitive`, which drops focus mid-attempt. A peek is undone first, or GTK logs two criticals.
+- The message line and the Caps Lock note keep their space through `child-visible`, never
+  `visible`, so nothing moves the prompt. The message goes through `glimpse_utils::clean` to one
+  paragraph of 120 characters; a line limit would not bound it, since Pango applies one per
+  paragraph. An error is announced as it appears.
+- `set_interactive(false)` (a mirrored output) and `set_available(false)` (passwords cannot be
+  verified) both clear the entry and move focus off it, so nothing is typed blind.
+- A busy, mirrored or unavailable prompt, or an empty entry, never emits `submitted`.
+
+## LockClock
+
+`set_formats(time, date)` takes strftime patterns; the date's literal `{day}` is expanded before
+`glib::DateTime::format`. **The suffix follows `LC_TIME`, not the catalog**, as the month and weekday
+names do: an English, `C` or `C.<codeset>` time locale gets `1st`, anything else the plain number. An
+empty formatted string keeps its label hidden; a pattern GLib cannot format hides it too and warns
+once per pattern.
+
+## SessionSheet
+
+The in-surface session menu, since a lock surface cannot parent a popover. Rows start hidden until
+`set_action` shows one, and `toggle()` refuses an empty sheet. Every action goes through a confirm
+page that focuses Cancel, returns focus to the opening row, and re-checks the row before emitting,
+since `set_action` can revoke it mid-page. The look lives on the `Gtk.Stack`, so a closed sheet
+paints nothing. `set_error(Some(..))` is ignored
+while closed — `grab_focus` succeeds inside an unrevealed `Gtk.Revealer` and would steal focus; open,
+it returns to the menu, shows the error and focuses the first enabled row. `set_error(None)` never
+changes the page.
+
+## StatusIsland
+
+Five fixed `$Indicator` slots — weather, battery, layout, bluetooth, network — then the power button,
+with no popovers. `set_*(None)` hides a slot and `Some` calls `Indicator::apply`. Only the power
+button is focusable; its icon is set in `constructed`, since `$Indicator` has no properties.
+
+## TrackCard and NotificationChips
+
+`TrackCard::set_track(None)` hides the card. Title and artist go through `glimpse_utils::clean`, which
+hides an empty artist line and appends `…` past the cap, so a capped assertion is `cap + 1` chars.
+Both labels carry `width-chars` beside `max-width-chars`, and `.track-card` a fixed `min-width`, so a
+track change never resizes the footer. Play/pause and next are the card's own buttons reusing
+`TransportAction`, because `Transport` cannot hide its previous button.
+
+`NotificationChips` has no template: a `BoxLayout` and plain `Gtk.Box` chips reconciled by
+`reconcile::by_key`, built with `accessible-role: Img` through `glib::Object::builder`, since the role
+is construct-only. Zero-count groups never reach the reconcile, and an absent icon reserves nothing.
+The visible label is only the count; the tooltip and accessible label are `chip_label`, from
+`gettext("{app}: {notifications}")` with the app cleaned first.
+
+## LockStage
+
+One output's surface: a `Gtk.Picture` under a black scrim (`set_dim`, NaN dropped before GTK), the
+island, clock, prompt, chips and track card in a vertical `Gtk.CenterBox`, and the `SessionSheet`
+top-end. The background is a texture over a 1x1 base picture filled by `set_color`, which shows under
+an empty or letterboxed image; the base is the overlay's main child, so a 4K texture sets no size.
+`set_session_actions` writes every action first, then keeps the power button in step with
+`SessionSheet::has_actions` and closes a sheet left empty, so the outcome never depends on order. Escape and a press anywhere but
+the sheet or the power button close the sheet, both in the capture phase so the press is consumed
+rather than reaching what lies under it; the power button is exempt because it toggles on its own.
+Every close focuses the prompt, or the power button on a mirrored stage. The look is scoped to `.lock-stage`.
+
 ## DisplayPopover
 
 - Display rows carry a chevron that rotates down while their detail drawer is open.
@@ -478,6 +557,22 @@ with no exception and no placeholder anywhere. A popover with nothing to list is
 footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
 Every row is a plain `Row` that opens a location, so the popover emits `activated` and nothing else.
 
+## KdeconnectPopover
+
+Paired devices, then the nearby ones, with no icon on any row. A paired device is an `Expandable`
+over a one-line `Row` whose value carries the reading, with a card of action rows the applet
+formats, unpair last. A nearby device is a
+`SplitRow` with its chevron hidden, whose body asks to pair.
+
+- **A card's rows are rebuilt only when its actions change.** A battery tick rewrites the head alone,
+  so the row under the pointer of an open card is never swapped out.
+- **Nearby is a disclosure**: a header `Row` toggling the list and its count, with no revealer. The
+  widget owns the open state and the applet only sets where it starts.
+- **`collapse(id)`** closes one device's card, for an action that succeeded.
+- **A nearby row spins the moment it is pressed** and ignores a second press while it does;
+  `set_nearby` re-applies every row's real state, so a refused request stops spinning on the next
+  refresh.
+
 ## RemovablePopover
 
 One titleless `$Section`, because the hero already says what the list is. Drives live here rather
@@ -496,6 +591,10 @@ are always there — one popover cannot honestly do both.
   `SplitRow` head, so a bar cannot hang under the row itself. A card is rebuilt only when its actions
   or facts change; a capacity sample moves the bar in place, so a poll never unparents a row under a
   press.
+- **`SystemMonitorPopover` reconciles two `Section`s by key** — usage tiles and plain detail rows. A
+  tile's `Gtk.ProgressBar` comes from `progress::apply_bar(cell, fraction, class)`, which builds one
+  lazily on the first `Some(fraction)` and removes it on `None`; a `warning`/`error` class layered on
+  the bar colors a threshold, and the function itself knows nothing about severity.
 
 ## PrintingPopover
 
@@ -632,6 +731,14 @@ closure returning `Shape::Surface` for a card and `Shape::Arrow` for a triangle,
 time the region is rebuilt, so a stack that gains a card needs no call. With no protocol — another
 compositor, an older niri — the class never appears and the surfaces stay opaque.
 
+- **`sync` guards against its own reentrancy**, because `attach` and `detach` are reachable only
+  through it and each takes a `RefCell` borrow. GTK can invoke it nested — a config reload's
+  `set_enabled` landing while a `map` signal for the same window is still being dispatched, say —
+  and a `g_signal_emit` trampoline cannot unwind a Rust panic, so a double borrow there is a whole
+  process abort, not a caught error, and hit the shipped panel in production with no local
+  reproduction — `journalctl`'s `thread 'main' panicked ... RefCell already borrowed` against a
+  stripped release build was the only evidence, which is why the fix is a structural guard rather
+  than a fix at the specific call site that happened to be caught.
 - **It borrows GTK's own Wayland connection.** The display and each surface come from
   `gdk_wayland_*_get_*` declared `extern "C"`, wrapped by `wayland-client`'s `system` backend. On a
   borrowed connection a protocol error kills GTK, so the effect object and both frame-clock handlers
@@ -654,6 +761,11 @@ compositor, an older niri — the class never appears and the surfaces stay opaq
 - **niri blurs a layer surface in xray mode** — the wallpaper, not the windows between — unless a
   `layer-rule` sets `background-effect { xray false; }` for `glimpse-popover` and
   `glimpse-notifications`. That rule is the user's; nothing here installs it.
+- **`.notification`'s blur tint is keyed on `window.blurred` alone, not `window.notification-popup`.**
+  The same `NotificationCard` renders inside two different blurred windows — the standalone toast
+  popup and any applet popover that shows notification history — and both carry the `blurred` class
+  from `Blur::attach`; only the popup also carries `notification-popup`. Scoping the tint to the
+  narrower pair left the popover's cards solid while the rest of that popover went transparent.
 
 ## Rules
 

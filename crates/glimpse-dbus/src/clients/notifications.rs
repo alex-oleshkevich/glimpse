@@ -60,9 +60,10 @@ pub struct NotificationRecord {
     pub progress: Option<f64>,
     pub created: DateTime<Utc>,
     pub unread: bool,
-    /// The sender asked to stay until it is acted on. `resident` and a zero timeout are the two
-    /// ways it can say so, and the store treats them alike.
+    /// The sender's `resident` hint: invoking an action does not close the notification.
     pub resident: bool,
+    /// The sender's `expire_timeout`: -1 is the server's default, 0 is never, otherwise milliseconds.
+    pub expire_timeout: i32,
 }
 
 /// Do not disturb. `until` is when it lapses on its own; `None` means it stands until the reader
@@ -101,6 +102,7 @@ pub type NotificationWire = (
     i64,                   // creation time in Unix microseconds
     bool,                  // unread
     bool,                  // resident
+    i32,                   // expire timeout: -1 server default, 0 never, else milliseconds
 );
 
 pub type DoNotDisturbWire = (bool, i64);
@@ -181,6 +183,7 @@ fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, Str
         created,
         unread,
         resident,
+        expire_timeout,
     ) = wire;
     Ok(NotificationRecord {
         id,
@@ -204,6 +207,7 @@ fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, Str
         created: epoch(created)?,
         unread,
         resident,
+        expire_timeout,
     })
 }
 
@@ -627,6 +631,7 @@ mod tests {
             1_234_567_890,
             true,
             false,
+            -1,
         )
     }
 
@@ -684,11 +689,11 @@ mod tests {
 
     #[test]
     fn wire_signatures_match_the_versioned_contract() {
-        assert_eq!(NotificationWire::SIGNATURE, "(ussissssya(ss)dxbb)");
+        assert_eq!(NotificationWire::SIGNATURE, "(ussissssya(ss)dxbbi)");
         assert_eq!(DoNotDisturbWire::SIGNATURE, "(bx)");
         assert_eq!(
             NotificationsSnapshot::SIGNATURE,
-            "(a(ussissssya(ss)dxbb)(bx)bs)"
+            "(a(ussissssya(ss)dxbbi)(bx)bs)"
         );
     }
 }

@@ -41,6 +41,32 @@ pub struct Charge {
     pub warning: WarningLevel,
 }
 
+impl Charge {
+    pub fn icon_name(&self) -> String {
+        if !self.icon_name.is_empty() {
+            return self.icon_name.clone();
+        }
+        fallback_icon(self.percentage, self.state)
+    }
+}
+
+fn fallback_icon(percentage: u8, state: ChargeState) -> String {
+    let band = u32::from(percentage).min(100) / 10 * 10;
+    match state {
+        ChargeState::Full => "battery-full-charged-symbolic".to_owned(),
+        ChargeState::Charging | ChargeState::PendingDischarge if band == 100 => {
+            "battery-level-100-charged-symbolic".to_owned()
+        }
+        ChargeState::Charging | ChargeState::PendingDischarge => {
+            format!("battery-level-{band}-charging-symbolic")
+        }
+        ChargeState::PendingCharge => format!("battery-level-{band}-plugged-in-symbolic"),
+        ChargeState::Discharging | ChargeState::Empty | ChargeState::Unknown => {
+            format!("battery-level-{band}-symbolic")
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Supply {
     pub path: String,
@@ -590,6 +616,39 @@ mod tests {
                 ..DeviceProperties::default()
             },
         )
+    }
+
+    fn charge(percentage: u8, state: ChargeState) -> Charge {
+        Charge {
+            percentage,
+            state,
+            icon_name: "battery-full-charged-symbolic".to_owned(),
+            time_to_empty: None,
+            time_to_full: None,
+            energy_rate_mw: None,
+            warning: WarningLevel::None,
+        }
+    }
+
+    #[test]
+    fn the_chip_uses_upower_icon_name_when_it_is_set() {
+        let mut charging = charge(40, ChargeState::Charging);
+        charging.icon_name = "battery-full-charging-symbolic".to_owned();
+        assert_eq!(charging.icon_name(), "battery-full-charging-symbolic");
+        charging.icon_name.clear();
+        assert_eq!(charging.icon_name(), "battery-level-40-charging-symbolic");
+
+        let mut full = charge(100, ChargeState::Charging);
+        full.icon_name.clear();
+        assert_eq!(
+            full.icon_name(),
+            "battery-level-100-charged-symbolic",
+            "Adwaita has no battery-level-100-charging-symbolic"
+        );
+
+        let mut waiting = charge(55, ChargeState::PendingCharge);
+        waiting.icon_name.clear();
+        assert_eq!(waiting.icon_name(), "battery-level-50-plugged-in-symbolic");
     }
 
     #[test]

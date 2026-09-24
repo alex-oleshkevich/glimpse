@@ -119,6 +119,23 @@ pub enum Hold {
     Held,
 }
 
+const ACTIVE: &str = "bluetooth-active-symbolic";
+const IDLE: &str = "bluetooth-symbolic";
+const SCANNING: &str = "bluetooth-acquiring-symbolic";
+const OFF: &str = "bluetooth-disabled-symbolic";
+const BLOCKED: &str = "bluetooth-hardware-disabled-symbolic";
+
+pub fn icon_for(power: Power, discovering: bool, any_connected: bool) -> &'static str {
+    match power {
+        Power::Blocked => BLOCKED,
+        Power::Off | Power::Disabling => OFF,
+        Power::Enabling => IDLE,
+        Power::On if discovering => SCANNING,
+        Power::On if any_connected => ACTIVE,
+        Power::On => IDLE,
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BluetoothState {
     pub adapter: Option<Adapter>,
@@ -135,6 +152,15 @@ impl BluetoothState {
 
     pub fn held(&self) -> bool {
         self.scan == Some(Hold::Held)
+    }
+
+    pub fn icon_name(&self) -> Option<&'static str> {
+        let adapter = self.adapter.as_ref()?;
+        Some(icon_for(
+            adapter.power,
+            self.held(),
+            self.connected().next().is_some(),
+        ))
     }
 }
 
@@ -299,6 +325,10 @@ struct Record {
     failure: Option<Failure>,
 }
 
+pub struct Dependencies {
+    pub agent: bool,
+}
+
 pub struct Bluetooth {
     state: Publisher<BluetoothState>,
     config: Config,
@@ -307,6 +337,9 @@ pub struct Bluetooth {
     scan: Option<(u64, Hold)>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
+    agent_enabled: bool,
+    #[cfg(test)]
+    register_attempts: std::cell::Cell<u32>,
     agent: bool,
     prompt: Option<(Prompt, Option<oneshot::Sender<Answer>>)>,
     confirm: Option<Confirmation>,
@@ -429,7 +462,7 @@ impl Service for Bluetooth {
     type Handle = BluetoothHandle;
     type Command = Command;
     type Event = Event;
-    type Dependencies = ();
+    type Dependencies = Dependencies;
     type SubKey = Watch;
 
     fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
@@ -460,7 +493,7 @@ impl Service for Bluetooth {
     async fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
-        _: Self::Dependencies,
+        dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
         let service = Self {
             state: ctx.publisher(),
@@ -470,6 +503,9 @@ impl Service for Bluetooth {
             scan: None,
             scans: 0,
             deadline: None,
+            agent_enabled: dependencies.agent,
+            #[cfg(test)]
+            register_attempts: std::cell::Cell::new(0),
             agent: false,
             prompt: None,
             confirm: None,
@@ -841,6 +877,12 @@ impl Bluetooth {
     }
 
     fn reregister(&self, ctx: &Ctx<Self>) {
+        if !self.agent_enabled {
+            return;
+        }
+        #[cfg(test)]
+        self.register_attempts.set(self.register_attempts.get() + 1);
+
         let Ok(connection) = ctx.system_bus().cloned() else {
             return;
         };
@@ -1230,6 +1272,17 @@ mod tests {
         tokio::sync::watch::Receiver<BluetoothState>,
         tokio::sync::watch::Receiver<crate::ServiceState>,
     ) {
+        started(Dependencies { agent: true }).await
+    }
+
+    async fn started(
+        dependencies: Dependencies,
+    ) -> (
+        Bluetooth,
+        Ctx<Bluetooth>,
+        tokio::sync::watch::Receiver<BluetoothState>,
+        tokio::sync::watch::Receiver<crate::ServiceState>,
+    ) {
         let cancel = CancellationToken::new();
         let (events, _inbox) = tokio::sync::mpsc::channel(8);
         let (state, state_rx) = tokio::sync::watch::channel(BluetoothState::default());
@@ -1241,9 +1294,13 @@ mod tests {
             health,
             Buses::unavailable("no bus in tests"),
         );
-        let service = Bluetooth::start(&ctx, Config::from(&glimpse_config::Config::default()), ())
-            .await
-            .expect("starts");
+        let service = Bluetooth::start(
+            &ctx,
+            Config::from(&glimpse_config::Config::default()),
+            dependencies,
+        )
+        .await
+        .expect("starts");
         (service, ctx, state_rx, health_rx)
     }
 
@@ -2143,6 +2200,67 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mirror_only_mode_never_enables_agent_registration() {
+        let (mut service, ctx, _state, _health) = started(Dependencies { agent: false }).await;
+        assert_eq!(
+            service.register_attempts.get(),
+            0,
+            "starting must not attempt to register a pairing agent"
+        );
+
+        enumerated(&mut service, &ctx, session()).await;
+        assert_eq!(service.register_attempts.get(), 0);
+
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
+            )
+            .await;
+        assert_eq!(
+            service.register_attempts.get(),
+            0,
+            "coming back onto the bus must not attempt registration in mirror-only mode"
+        );
+
+        let (sent, outcome) = oneshot::channel();
+        service
+            .handle(
+                &ctx,
+                Input::Command(Command::Pair {
+                    id: DeviceId(HEADSET.to_owned()),
+                    reply: sent,
+                }),
+            )
+            .await;
+        assert!(matches!(
+            outcome.await,
+            Ok(Err(BluetoothError::Failed(Failure::NoAgent)))
+        ));
+    }
+
+    #[tokio::test]
+    async fn the_panel_path_still_attempts_agent_registration() {
+        let (mut service, ctx, _state, _health) = started(Dependencies { agent: true }).await;
+        assert!(
+            service.register_attempts.get() > 0,
+            "starting with the agent enabled must attempt registration, same as today"
+        );
+
+        let after_start = service.register_attempts.get();
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
+            )
+            .await;
+        assert!(
+            service.register_attempts.get() > after_start,
+            "the bus reappearing re-attempts registration when the agent is enabled"
+        );
+    }
+
+    #[tokio::test]
     async fn pairing_without_an_agent_is_refused_in_its_own_words() {
         let (mut service, ctx, state, _health) = bluetooth().await;
         enumerated(&mut service, &ctx, session()).await;
@@ -2575,5 +2693,80 @@ mod tests {
             state.borrow().adapter.as_ref().map(|adapter| adapter.power),
             Some(Power::Off)
         );
+    }
+
+    fn device(name: &str, connected: bool) -> Device {
+        Device {
+            id: DeviceId::new(format!("/org/bluez/hci0/dev_{name}")),
+            address: "00:00:00:00:00:00".to_owned(),
+            name: name.to_owned(),
+            icon: DeviceIcon::Headset,
+            paired: true,
+            bonded: true,
+            trusted: true,
+            blocked: false,
+            connected,
+            battery: None,
+            codec: None,
+            rssi: None,
+            profiles: Vec::new(),
+            busy: None,
+            failure: None,
+        }
+    }
+
+    fn state(power: Power, scanning: bool, devices: Vec<Device>) -> BluetoothState {
+        BluetoothState {
+            adapter: Some(Adapter {
+                alias: "glimpse".to_owned(),
+                power,
+                discoverable: false,
+            }),
+            devices,
+            scan: scanning.then_some(Hold::Held),
+            pairing: None,
+            confirm: None,
+        }
+    }
+
+    #[test]
+    fn a_machine_with_no_radio_reports_no_icon() {
+        assert!(BluetoothState::default().icon_name().is_none());
+    }
+
+    #[test]
+    fn the_icon_follows_the_power_state() {
+        assert_eq!(state(Power::Off, false, vec![]).icon_name().unwrap(), OFF);
+        assert_eq!(
+            state(Power::Blocked, false, vec![]).icon_name().unwrap(),
+            BLOCKED
+        );
+        assert_eq!(
+            state(Power::Enabling, false, vec![]).icon_name().unwrap(),
+            IDLE,
+            "a transition shows the state being entered"
+        );
+        assert_eq!(
+            state(Power::Disabling, false, vec![]).icon_name().unwrap(),
+            OFF
+        );
+        assert_eq!(
+            state(Power::On, true, vec![]).icon_name().unwrap(),
+            SCANNING
+        );
+        assert_eq!(state(Power::On, false, vec![]).icon_name().unwrap(), IDLE);
+    }
+
+    #[test]
+    fn a_disconnected_device_does_not_light_the_icon() {
+        let some = state(
+            Power::On,
+            false,
+            vec![device("Buds", true), device("Mouse", false)],
+        );
+        assert_eq!(some.icon_name().unwrap(), ACTIVE);
+
+        let none = state(Power::On, false, vec![device("Mouse", false)]);
+        assert_eq!(none.icon_name().unwrap(), IDLE);
     }
 }

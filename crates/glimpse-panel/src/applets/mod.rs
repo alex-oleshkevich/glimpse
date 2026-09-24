@@ -10,6 +10,7 @@ mod command;
 mod display;
 mod heartbeat;
 pub(crate) mod idle;
+mod kdeconnect;
 mod keyboard;
 mod mpris;
 pub mod network;
@@ -20,7 +21,9 @@ mod places;
 mod printing;
 mod privacy;
 mod removable;
+mod ruler;
 mod session;
+mod system_monitor;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
@@ -34,9 +37,9 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
-    NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    SessionActionsHandle, TrayHandle,
+    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
+    MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
+    RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -47,11 +50,7 @@ pub fn configured(
     configured: &BTreeMap<String, AppletConfig>,
     regional: &Regional,
 ) -> Option<AppletConfig> {
-    let config = configured
-        .get(name)
-        .cloned()
-        .or_else(|| AppletConfig::from_name(name));
-    let Some(mut config) = config else {
+    let Some(mut config) = glimpse_config::resolve_applet(name, configured) else {
         tracing::warn!(applet = name, "unknown applet, skipping");
         return None;
     };
@@ -91,7 +90,10 @@ pub fn build(
     places: &PlacesHandle,
     printing: &PrintingHandle,
     removable: &RemovableHandle,
+    kdeconnect: &KdeconnectHandle,
     privacy: &PrivacyHandle,
+    system_monitor: &SystemMonitorHandle,
+    ruler: &RulerHandle,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -265,6 +267,14 @@ pub fn build(
                 Box::new(removable::Removable::start(removable, notifications))
             }))
         }
+        AppletKind::Kdeconnect(_) => {
+            let kdeconnect = kdeconnect.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(kdeconnect.subscribe());
+                Box::new(kdeconnect::Kdeconnect::start(kdeconnect, notifications))
+            }))
+        }
         AppletKind::Privacy(_) => {
             let privacy = privacy.clone();
             let compositor = compositor.clone();
@@ -307,6 +317,21 @@ pub fn build(
             let notifications = notifications.clone();
             Some(Box::new(move |_ctx| {
                 Box::new(command::Command::start(notifications))
+            }))
+        }
+        AppletKind::SystemMonitor(_) => {
+            let system_monitor = system_monitor.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(system_monitor.subscribe());
+                Box::new(system_monitor::SystemMonitor::start(system_monitor))
+            }))
+        }
+        AppletKind::Ruler {} => {
+            let ruler = ruler.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(ruler.subscribe());
+                Box::new(ruler::Ruler::start(ruler, notifications))
             }))
         }
         AppletKind::Exec {} => None,
@@ -443,7 +468,10 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "printing now has an implementation");
@@ -482,7 +510,10 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "privacy now has an implementation");
@@ -521,7 +552,10 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
@@ -561,7 +595,10 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "places has an implementation");
@@ -601,10 +638,56 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "removable has an implementation");
+
+        services.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn the_system_monitor_applet_produces_a_builder() {
+        let services = crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        );
+        let config = configured("system-monitor", &BTreeMap::new(), &Regional::default())
+            .expect("`system-monitor` is a known applet");
+
+        let built = build(
+            &config,
+            &services.compositor,
+            &services.keyboard,
+            &services.calendar,
+            &services.mpris,
+            &services.heartbeat,
+            &services.tray,
+            &services.bluetooth,
+            &services.network,
+            &services.audio,
+            &services.brightness,
+            &services.night_light(),
+            &services.notifications(),
+            &services.weather(),
+            &services.idle(),
+            &services.color_picker,
+            &services.session_actions,
+            &services.battery,
+            &services.clipboard,
+            &services.places,
+            &services.printing,
+            &services.removable,
+            &services.kdeconnect,
+            &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
+            None,
+        );
+        assert!(built.is_some(), "system-monitor has an implementation");
 
         services.shutdown().await;
     }
@@ -640,7 +723,10 @@ mod tests {
             &services.places,
             &services.printing,
             &services.removable,
+            &services.kdeconnect,
             &services.privacy,
+            &services.system_monitor,
+            &services.ruler,
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -681,7 +767,10 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
+                &services.system_monitor,
+                &services.ruler,
                 None,
             )
             .is_none(),
@@ -711,7 +800,10 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
+                &services.system_monitor,
+                &services.ruler,
                 Some(&dialog),
             )
             .is_some(),
@@ -732,6 +824,7 @@ mod tests {
         let idle_config: AppletConfig = AppletKind::Idle {}.into();
         let battery_config: AppletConfig = AppletKind::Battery(<_>::default()).into();
         let command_config: AppletConfig = AppletKind::Command(<_>::default()).into();
+        let ruler_config: AppletConfig = AppletKind::Ruler {}.into();
 
         for config in [
             &brightness_config,
@@ -739,6 +832,7 @@ mod tests {
             &idle_config,
             &battery_config,
             &command_config,
+            &ruler_config,
         ] {
             let built = build(
                 config,
@@ -763,7 +857,10 @@ mod tests {
                 &services.places,
                 &services.printing,
                 &services.removable,
+                &services.kdeconnect,
                 &services.privacy,
+                &services.system_monitor,
+                &services.ruler,
                 None,
             );
             assert!(

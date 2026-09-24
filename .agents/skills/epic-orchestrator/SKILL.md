@@ -24,9 +24,13 @@ When a report says an instruction could not be followed, the first hypothesis is
 the instruction was wrong.
 
 <prerequisite>
-Two siblings hold rules this loop leans on and does not restate in full — load both
-before round 1: **`spec-precision`** for the brief, the self-check and the acceptance
-criteria, **`adversarial-review`** for what a reviewer does and where bugs hide.
+Three siblings hold rules this loop leans on and does not restate in full — load all
+three before round 1: **`plan-precision`** for whether the feature-level plan you are
+about to slice is actually complete (dependency citations, flows, AC as user stories,
+concrete types, a durable home) — an epic sliced from an incomplete plan ships the
+plan's gaps as inventions, one per issue; **`spec-precision`** for the brief, the
+self-check and the acceptance criteria; **`adversarial-review`** for what a reviewer does
+and where bugs hide.
 </prerequisite>
 
 Substitute once: `<EPIC>`, `<repo>`, and your tracker's list/show/claim/update commands.
@@ -99,6 +103,22 @@ accumulated context. Never assume an unfinished task was untouched — check the
 **Mark a task done when its work is verified, even if its commit is held** to pair with
 a sibling. Say so in the completion note. If your tracker gates dependents on
 completion, leaving a finished task open stalls the next wave.
+
+**If your tracker is beads, do not hand-roll what it already does.** `bd swarm validate
+<epic>` gives the dependency-graph and clean-separation check this skill's own "When NOT
+to use this" gate depends on — run it instead of eyeballing task count and package
+boundaries. `bd swarm create <epic>` then `bd swarm status` / `bd ready --mol <epic>`
+replace polling entirely: a wave's builder and reviewer report through the tracker, a
+`bd gate create --type=human --blocks <next-step>` holds a handoff, and resuming means
+checking `bd ready --gated`, never staying resident to watch for one. See Traps below for
+what this is worth in measured cost.
+
+**For the wave itself**, cook/pour the `epic-wave` formula
+(`bd mol pour epic-wave --var task_id=... --var worktree=...`) instead of hand-typing the
+BUILDER/REVIEWER/LIVE-TESTER templates per task — it wires the five steps (build, review,
+live_test, merge_gate, merge), their dependencies, and the one real gate. Author only the
+task-specific variables (exact paths, the one model file, the traps, AC, verify command) —
+that is where the judgment belongs, and the formula does not try to hold it.
 
 ## Setup — one worktree per epic
 
@@ -281,6 +301,21 @@ lockfiles, snapshots.
   It will rewrite files outside the task, including ignored files with no VCS backup.
 - **Never let a builder delete documented rules to fit a size cap.** Losing a recorded
   fact is irreversible; a line count is not. Let it go over and report it.
+- **Never poll a condition with repeated individual Bash calls** (`pgrep`,
+  `systemctl is-active`, a hand-rolled retry loop). Wrap a real wait in one `Monitor`
+  call, or — if the wait is really "has this task finished" — a gate (`bd gate create`,
+  or your tracker's equivalent), and resume by checking whether it resolved rather than
+  staying resident to watch for it. Measured September 2026: 24 individual poll calls
+  spanning 11 minutes, checking one condition a single `Monitor` call would have
+  covered, cost $3.12 and 24 turns in one orchestrator run — right next to nine correct
+  uses of the same `Monitor` pattern in the same session.
+- **A coordinating thread that never resets pays for its own history every turn, the
+  same as any other long thread.** State already lives in the tracker (see above), so
+  nothing is lost by ending your turn — a fresh orchestrator invocation reading
+  `bd swarm status` / `bd ready --mol <epic>` (or your tracker's equivalent) resumes
+  exactly where the last one stopped. Measured September 2026: a single 637-turn,
+  12.5-hour orchestrator cost $92 coordinating 19 sub-agents that together cost
+  $18.62 — the coordination thread, not the sub-agent work, was the expense.
 - **Delegate the live pass, never a GUI loop.** Step 9's one bounded run is worth what it
   costs. What is never worth it is a builder iterating against a windowed app — edit,
   launch, screenshot, squint, repeat. Each launch is tens of seconds, the output needs a

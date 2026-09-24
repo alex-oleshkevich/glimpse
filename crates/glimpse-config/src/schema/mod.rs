@@ -20,6 +20,8 @@ mod power;
 mod printing;
 mod regional;
 mod removable;
+mod ruler;
+mod system_monitor;
 mod wallpaper;
 mod weather;
 
@@ -32,14 +34,16 @@ pub use appearance::{Appearance, BlurSurface, ColorScheme};
 pub use applets::{
     Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
     Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,
-    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
-    Common as AppletCommon, FirstDay, Kind as AppletKind, Mpris as MprisAppletConfig,
+    Chip as SystemMonitorChip, Clipboard as ClipboardAppletConfig, Clock as ClockConfig,
+    Command as CommandAppletConfig, Common as AppletCommon, FirstDay,
+    Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
     PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
     Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
-    Removable as RemovableAppletConfig, Timezone as ClockTimezone, Tray as TrayAppletConfig,
-    Weather as WeatherAppletConfig,
+    Removable as RemovableAppletConfig, SystemMonitor as SystemMonitorAppletConfig,
+    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
+    resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
@@ -49,7 +53,10 @@ pub use color_picker::{ColorFormat, ColorPicker};
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
-pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
+pub use lock::{
+    Background as LockBackground, Lock, Privacy as LockPrivacy, Session as LockSession,
+    SessionAction as LockSessionAction,
+};
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;
@@ -61,6 +68,8 @@ pub use power::Power;
 pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
+pub use ruler::Ruler as RulerConfig;
+pub use system_monitor::SystemMonitor;
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
@@ -82,6 +91,7 @@ pub struct Config {
     pub calendar: Calendar,
     pub clipboard: Clipboard,
     pub color_picker: ColorPicker,
+    pub ruler: RulerConfig,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
@@ -89,6 +99,7 @@ pub struct Config {
     pub lock: Lock,
     pub places: Places,
     pub removable: Removable,
+    pub system_monitor: SystemMonitor,
     pub panels: Vec<Panel>,
     #[serde(deserialize_with = "applets::deserialize")]
     #[schemars(schema_with = "applets::schema")]
@@ -113,6 +124,7 @@ impl Default for Config {
             calendar: Calendar::default(),
             clipboard: Clipboard::default(),
             color_picker: ColorPicker::default(),
+            ruler: RulerConfig::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),
@@ -120,15 +132,64 @@ impl Default for Config {
             lock: Lock::default(),
             places: Places::default(),
             removable: Removable::default(),
+            system_monitor: SystemMonitor::default(),
             panels: vec![Panel::default()],
             applets: BTreeMap::new(),
         }
     }
 }
 
+/// Every `Kind` actually placed on some panel's `left`/`center`/`right` zone, resolved the same
+/// way a panel resolves a zone entry (see `resolve_applet`). The single source of truth for
+/// "is anything actually consuming this applet" — a service's demand gating and the panel's own
+/// zone resolution must not diverge.
+pub fn placed_kinds(config: &Config) -> impl Iterator<Item = AppletKind> + '_ {
+    config
+        .panels
+        .iter()
+        .flat_map(|panel| panel.left.iter().chain(&panel.center).chain(&panel.right))
+        .filter_map(|name| resolve_applet(name, &config.applets).map(|applet| applet.kind))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn placed_kinds_follows_zone_placement_not_table_presence() {
+        let default = Config::default();
+        assert!(
+            !placed_kinds(&default).any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            "the default document places nothing named system-monitor"
+        );
+
+        let named_in_a_zone_with_no_table: Config =
+            toml::from_str("[[panels]]\nright = [\"system-monitor\"]\n")
+                .expect("a bare name resolves through Applet::from_name");
+        assert!(
+            placed_kinds(&named_in_a_zone_with_no_table)
+                .any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            "a name placed in a zone with no table entry must still resolve, the common case"
+        );
+
+        let table_with_no_placement: Config = toml::from_str("[applets.system-monitor]\n")
+            .expect("a table with no zone naming it still loads");
+        assert!(
+            !placed_kinds(&table_with_no_placement)
+                .any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            "a table nobody places is not demand"
+        );
+
+        let renamed_and_placed: Config = toml::from_str(
+            "[applets.sm]\nextends = \"system-monitor\"\n\n[[panels]]\nright = [\"sm\"]\n",
+        )
+        .expect("a renamed table placed in a zone loads");
+        assert!(
+            placed_kinds(&renamed_and_placed)
+                .any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            "a renamed table placed in a zone must still resolve to its kind"
+        );
+    }
 
     #[test]
     fn the_reference_file_matches_the_compiled_in_defaults() {

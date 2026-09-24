@@ -210,6 +210,139 @@ fn a_portal_does_not_reach_the_internet_but_an_unknown_connectivity_does() {
     );
 }
 
+fn wifi_access(ssid: &str, strength: u8, active: bool) -> Access {
+    Access {
+        id: NetworkId::new("/ap/1"),
+        ssid: (!ssid.is_empty()).then(|| ssid.to_owned()),
+        bssid: None,
+        strength,
+        band: nm::Band::Five,
+        security: nm::Security::Wpa2,
+        active,
+        saved: None,
+        address: None,
+        busy: None,
+        failure: None,
+    }
+}
+
+fn wifi_connected(strength: u8) -> NetworkState {
+    NetworkState {
+        networking: true,
+        wifi: Some(Radio {
+            enabled: true,
+            hardware_enabled: true,
+        }),
+        connectivity: nm::Connectivity::Full,
+        networks: vec![wifi_access("Skylink", strength, true)],
+        ..NetworkState::default()
+    }
+}
+
+#[test]
+fn no_managed_device_renders_no_chip_at_all() {
+    let bare = NetworkState {
+        networking: true,
+        ..NetworkState::default()
+    };
+    assert_eq!(
+        bare.icon_name(),
+        None,
+        "the group hides itself rather than showing a placeholder"
+    );
+}
+
+#[test]
+fn each_of_the_five_bands_has_its_own_icon() {
+    let icons: Vec<&str> = [0u8, 20, 42, 70, 94]
+        .into_iter()
+        .map(|strength| wifi_connected(strength).icon_name().expect("a chip"))
+        .collect();
+    let unique: std::collections::BTreeSet<&&str> = icons.iter().collect();
+
+    assert_eq!(unique.len(), 5, "got {icons:?}");
+    assert_eq!(icons[4], "network-wireless-signal-excellent-symbolic");
+    assert_eq!(icons[0], "network-wireless-signal-none-symbolic");
+}
+
+#[test]
+fn hard_blocked_and_soft_off_are_different_icons() {
+    let soft = NetworkState {
+        wifi: Some(Radio {
+            enabled: false,
+            hardware_enabled: true,
+        }),
+        ..wifi_connected(70)
+    };
+    let hard = NetworkState {
+        wifi: Some(Radio {
+            enabled: false,
+            hardware_enabled: false,
+        }),
+        ..wifi_connected(70)
+    };
+
+    assert_eq!(soft.icon_name(), Some(DISABLED));
+    assert_eq!(hard.icon_name(), Some(BLOCKED));
+    assert_ne!(soft.icon_name(), hard.icon_name());
+}
+
+#[test]
+fn no_internet_replaces_the_strength_icon_rather_than_tinting_it() {
+    let portal = NetworkState {
+        connectivity: nm::Connectivity::Portal,
+        ..wifi_connected(94)
+    };
+    assert_eq!(portal.icon_name(), Some(NO_ROUTE));
+
+    let unchecked = NetworkState {
+        connectivity: nm::Connectivity::Unknown,
+        ..wifi_connected(94)
+    };
+    assert_eq!(
+        unchecked.icon_name(),
+        Some("network-wireless-signal-excellent-symbolic"),
+        "a disabled connectivity check is not a portal"
+    );
+}
+
+#[test]
+fn vpn_is_a_separate_chip_and_only_when_it_is_up() {
+    let mut state = wifi_connected(70);
+    assert_eq!(state.vpn_icon_name(true), None);
+
+    state.vpn = vec![Vpn {
+        id: NetworkId::new("/s/1"),
+        name: "Mullvad".to_owned(),
+        kind: "wireguard".to_owned(),
+        state: nm::VpnState::Activated,
+        address: None,
+        active: true,
+        failure: None,
+        busy: None,
+    }];
+    assert_eq!(state.vpn_icon_name(true), Some(VPN));
+    assert_eq!(
+        state.vpn_icon_name(false),
+        None,
+        "the config can turn the second chip off"
+    );
+    assert_eq!(
+        state.icon_name(),
+        Some("network-wireless-signal-good-symbolic"),
+        "the Wi-Fi chip is unchanged; the VPN does not overlay it"
+    );
+}
+
+#[test]
+fn networking_off_outranks_everything_else() {
+    let state = NetworkState {
+        networking: false,
+        ..wifi_connected(94)
+    };
+    assert_eq!(state.icon_name(), Some(OFFLINE));
+}
+
 pub(super) mod service {
     use super::*;
     use crate::service::ServiceState;
@@ -227,6 +360,14 @@ pub(super) mod service {
     }
 
     pub(in crate::services::network) async fn harness() -> Harness {
+        started(Dependencies { agent: true }).await
+    }
+
+    pub(in crate::services::network) async fn harness_without_agent() -> Harness {
+        started(Dependencies { agent: false }).await
+    }
+
+    async fn started(dependencies: Dependencies) -> Harness {
         let (events, inbox) = mpsc::channel(32);
         let cancel = CancellationToken::new();
         let config = Config::from(&glimpse_config::Config::default());
@@ -240,7 +381,7 @@ pub(super) mod service {
             health,
             Buses::unavailable("no bus in tests"),
         );
-        let service = Network::start(&ctx, config, ())
+        let service = Network::start(&ctx, config, dependencies)
             .await
             .expect("the service starts");
 
@@ -441,6 +582,61 @@ pub(super) mod service {
         assert!(
             keys.contains(&Watch::ProfileUpdates(harness.service.generation)),
             "a profile edited in place announces itself only through Settings.Connection.Updated,              so that source has to be declared and to restart with the generation"
+        );
+    }
+
+    #[tokio::test]
+    async fn mirror_only_mode_never_enables_agent_registration() {
+        let mut harness = harness_without_agent().await;
+        assert_eq!(
+            harness.service.register_attempts.get(),
+            0,
+            "a locked screen must never register a secret agent"
+        );
+
+        enumerate(&mut harness, measured_objects()).await;
+        assert_eq!(harness.service.register_attempts.get(), 0);
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
+            )
+            .await;
+        assert_eq!(
+            harness.service.register_attempts.get(),
+            0,
+            "coming back onto the bus must not attempt registration in mirror-only mode"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_panel_path_still_attempts_agent_registration() {
+        let mut harness = harness().await;
+        assert_eq!(
+            harness.service.register_attempts.get(),
+            0,
+            "nothing attempts registration before the first enumeration"
+        );
+
+        enumerate(&mut harness, measured_objects()).await;
+        assert!(
+            harness.service.register_attempts.get() > 0,
+            "enumerating with the agent enabled must attempt registration, same as today"
+        );
+
+        let after_enumerate = harness.service.register_attempts.get();
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::NameOwner(Some(":1.7".to_owned()))),
+            )
+            .await;
+        assert!(
+            harness.service.register_attempts.get() > after_enumerate,
+            "the bus reappearing re-attempts registration when the agent is enabled"
         );
     }
 

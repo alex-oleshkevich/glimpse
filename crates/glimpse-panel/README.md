@@ -205,7 +205,7 @@ and matches the service's own preview, so an image never matches a query. **Rece
 goes to real trouble to let a pin outlive eviction. **A row carries no timestamp, so the applet
 takes no tick.** `WaylandSelection` lives in `src/selection/` and
 not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
-and is injected as `Arc<dyn Selection>` into both the clipboard and the color picker services. An
+and is injected as `Arc<dyn Selection>` into the clipboard, color picker and ruler services alike. An
 offer keeps that connection up even with the clipboard disabled, because a selection lives only as
 long as the connection that set it. **An image is decoded through `thumbnail`, never
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
@@ -223,6 +223,12 @@ a color* closes the popover and then picks. A copy that succeeds acknowledges th
 failed pick or copy is reported by notification. While a pick is open the chip carries
 `color-picker--picking` and a right click does nothing. A row carries no time, so the applet takes
 no tick.
+
+**ruler** — shaped like `color-picker`: a right click runs `glimpse-ruler`, refused while a
+measurement is already in progress, and a left click opens the popover with the latest measurement
+and a flat history list, no expand state anywhere. The chip is always icon-only — a measurement has
+no swatch to substitute it with — and a failed measurement or copy is reported by notification,
+never a popover banner.
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
 through `gio::AppInfo::launch_default_for_uri`, off the main loop.
@@ -249,6 +255,22 @@ notification.
   words rather than printing `0 B free`, in amber. The filesystem, mount point and read-only access
   are facts in the card, never the subtitle.
 - **Drives end in an overflow row**, expanding as `PopoverHandle` state rather than a scroll.
+
+**kdeconnect** — watches the `kdeconnect` service and renders no chip while `kdeconnectd` is not
+running. The chip is the followed device's icon and, by default, its battery (`indicator-style`,
+`label-format` with `{name}`, `{battery}` and `{charging}`, `device`, `hide-when-disconnected`); an
+away device carries `network-offline-symbolic`, a low battery the warning severity, and a peer
+asking to pair the calm notice.
+
+- **An incoming pair request is answered in its notification, never in the popover.** `kdeconnectd`
+  posts it with Accept and Reject itself; the Nearby row only says "Wants to pair".
+- **Device rows are one line**: the battery reading or "Not connected" sits in the row's value.
+- **The footer falls back to `kdeconnect-app`** when `settings-label` is unset, so the settings row is
+  always there.
+- **Send files closes the popover first**, then opens `gtk4::FileDialog` with no parent — the portal
+  picks the window. Browse files and Open SMS close it too, since each opens another application.
+- **A card closes when its action succeeds**, and stays open on a failure, which is reported through
+  a notification.
 
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
@@ -528,6 +550,21 @@ several casts collapse onto one chip, and the screen has been shared continuousl
 began. `Usage.since` survives a refresh, so the count does not restart when the service re-reads its
 sources. The applet paces itself — a second while casting, a minute otherwise — and a `since` in the
 future, from a clock that jumped backwards, reads as `00:00` rather than panicking.
+
+**system-monitor** — opt-in, and its backing service samples nothing at all unless the applet is
+actually placed on a panel zone (`glimpse_config::placed_kinds`, the same table-then-`from_name`
+resolution a zone itself uses — not mere presence of an `[applets.system-monitor]` table). Chips are
+label-only, one per configured kind (CPU/RAM/Swap/Network/GPU), each skipped rather than shown empty
+when its backing reading is `None` — CPU and network read `None` on the first sample since the
+service last enabled, since a rate needs a delta the first sample cannot have. The popover stays
+live while open: `Input::Woken` re-reads the service snapshot and re-dresses the shown popover the
+same way every other applet with a popover does, so the numbers do not freeze the moment it opens.
+Usage tiles color their bar `Severity::Warning`/`Severity::Error` off `warn-percent`/
+`critical-percent`; a GPU tile is labeled "VRAM" or "GTT" by `Gpu.memory_kind`, which the service
+decides once at discovery, not the applet. **`chip-format` is the same token-substitution
+`applets::tokens::render` every applet's `tooltip-format` already uses** — `{name}` is the chip's
+own localized name, `{value}` its reading — so `"{value}"` drops the name and `"{value} ({name})"`
+reorders it, the same way a user already customizes a tooltip.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

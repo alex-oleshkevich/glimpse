@@ -417,7 +417,7 @@ impl Bluetooth {
     fn indicator(&self) -> Option<IndicatorSpec> {
         let waiting = render::waiting(&self.state);
         Some(IndicatorSpec {
-            icon: Some(themed(render::chip(&self.state)?)),
+            icon: Some(themed(self.state.icon_name()?)),
             attention: waiting.is_some(),
             tooltip: waiting
                 .or_else(|| render::tooltip(&self.state, self.tooltip_format.as_deref())),

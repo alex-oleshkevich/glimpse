@@ -22,6 +22,8 @@
         <file>widgets/workspace_section.ui</file>
         <file>widgets/indicator.ui</file>
         <file>widgets/keyboard_popover.ui</file>
+        <file>widgets/lock_clock.ui</file>
+        <file>widgets/lock_stage.ui</file>
         <file>widgets/next_event_popover.ui</file>
         <file>widgets/mpris_popover.ui</file>
         <file>widgets/notice.ui</file>
@@ -34,8 +36,11 @@
         <file>widgets/pager_item.ui</file>
         <file>widgets/panel.ui</file>
         <file>widgets/placeholder.ui</file>
+        <file>widgets/password_prompt.ui</file>
         <file>widgets/places_popover.ui</file>
         <file>widgets/removable_popover.ui</file>
+        <file>widgets/kdeconnect_popover.ui</file>
+        <file>widgets/ruler_popover.ui</file>
         <file>widgets/player_row.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/printing_popover.ui</file>
@@ -46,8 +51,12 @@
         <file>widgets/scrubber.ui</file>
         <file>widgets/section.ui</file>
         <file>widgets/session_popover.ui</file>
+        <file>widgets/session_sheet.ui</file>
         <file>widgets/split_row.ui</file>
+        <file>widgets/status_island.ui</file>
         <file>widgets/switch_row.ui</file>
+        <file>widgets/system_monitor_popover.ui</file>
+        <file>widgets/track_card.ui</file>
         <file>widgets/transport.ui</file>
         <file>widgets/weather_popover.ui</file>
         <file>widgets/idle_popover.ui</file>

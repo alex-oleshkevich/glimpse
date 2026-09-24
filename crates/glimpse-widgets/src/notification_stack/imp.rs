@@ -15,6 +15,7 @@ const CHIP_SPACING: i32 = 7;
 #[derive(Debug, Default)]
 pub struct NotificationStack {
     pub notifications: RefCell<Vec<Notification>>,
+    pub queued: RefCell<Option<Vec<Notification>>>,
     pub rows: RefCell<Vec<(String, NotificationCard)>>,
     pub strips: RefCell<Vec<gtk4::Box>>,
     pub chip: OnceCell<gtk4::Button>,

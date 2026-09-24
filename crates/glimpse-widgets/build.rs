@@ -81,6 +81,14 @@ fn main() {
             "resources/widgets/keyboard_popover.ui",
         ),
         (
+            "blueprints/lock_clock.blp",
+            "resources/widgets/lock_clock.ui",
+        ),
+        (
+            "blueprints/lock_stage.blp",
+            "resources/widgets/lock_stage.ui",
+        ),
+        (
             "blueprints/next_event_popover.blp",
             "resources/widgets/next_event_popover.ui",
         ),
@@ -123,12 +131,24 @@ fn main() {
             "resources/widgets/placeholder.ui",
         ),
         (
+            "blueprints/password_prompt.blp",
+            "resources/widgets/password_prompt.ui",
+        ),
+        (
             "blueprints/places_popover.blp",
             "resources/widgets/places_popover.ui",
         ),
         (
             "blueprints/removable_popover.blp",
             "resources/widgets/removable_popover.ui",
+        ),
+        (
+            "blueprints/kdeconnect_popover.blp",
+            "resources/widgets/kdeconnect_popover.ui",
+        ),
+        (
+            "blueprints/ruler_popover.blp",
+            "resources/widgets/ruler_popover.ui",
         ),
         (
             "blueprints/player_row.blp",
@@ -158,10 +178,26 @@ fn main() {
             "blueprints/session_popover.blp",
             "resources/widgets/session_popover.ui",
         ),
+        (
+            "blueprints/session_sheet.blp",
+            "resources/widgets/session_sheet.ui",
+        ),
         ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
+        (
+            "blueprints/status_island.blp",
+            "resources/widgets/status_island.ui",
+        ),
         (
             "blueprints/switch_row.blp",
             "resources/widgets/switch_row.ui",
+        ),
+        (
+            "blueprints/system_monitor_popover.blp",
+            "resources/widgets/system_monitor_popover.ui",
+        ),
+        (
+            "blueprints/track_card.blp",
+            "resources/widgets/track_card.ui",
         ),
         ("blueprints/transport.blp", "resources/widgets/transport.ui"),
         (

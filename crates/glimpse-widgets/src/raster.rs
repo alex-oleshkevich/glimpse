@@ -5,9 +5,9 @@ use anyhow::{Context, Result};
 use glimpse_config::Fit;
 use gtk4::gdk_pixbuf::Pixbuf;
 use gtk4::prelude::*;
-use gtk4::{gdk, glib};
+use gtk4::{gdk, glib, graphene, gsk};
 
-pub const CEILING: i32 = 8192;
+const CEILING: i32 = 8192;
 const BACKDROP_FLOOR: i32 = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -75,7 +75,7 @@ pub fn plan(source: Target, output: Target, fit: Fit) -> Option<Plan> {
     Some(Plan { load, crop })
 }
 
-pub(crate) fn backdrop_target(output: Target, downscale_factor: u32) -> Target {
+pub fn backdrop_target(output: Target, downscale_factor: u32) -> Target {
     let divisor = i32::try_from(downscale_factor).unwrap_or(i32::MAX).max(1);
     let divided = Target {
         width: (output.width / divisor).max(1),
@@ -126,6 +126,31 @@ pub fn raster(path: &Path, output: Target, fit: Fit) -> Result<Raster> {
     })
 }
 
+pub fn blur_sigma(radius: u32, texture_width: i32, output_width: i32) -> Option<f32> {
+    (radius > 0 && output_width > 0)
+        .then(|| radius as f32 * texture_width as f32 / output_width as f32)
+}
+
+pub fn blurred(
+    renderer: &gsk::Renderer,
+    texture: &gdk::Texture,
+    sigma: f32,
+) -> Option<gdk::Texture> {
+    let (width, height) = (texture.width() as f32, texture.height() as f32);
+    let bounds = graphene::Rect::new(0.0, 0.0, width, height);
+    let bleed = sigma * 3.0;
+    let snapshot = gtk4::Snapshot::new();
+    snapshot.push_clip(&bounds);
+    snapshot.push_blur(f64::from(sigma));
+    snapshot.append_texture(
+        texture,
+        &graphene::Rect::new(-bleed, -bleed, width + 2.0 * bleed, height + 2.0 * bleed),
+    );
+    snapshot.pop();
+    snapshot.pop();
+    Some(renderer.render_texture(snapshot.to_node()?, Some(&bounds)))
+}
+
 pub fn texture(raster: &Raster) -> gdk::Texture {
     gdk::MemoryTexture::new(
         raster.width,
@@ -165,8 +190,23 @@ pub fn content_fit(fit: Fit) -> gtk4::ContentFit {
     }
 }
 
+pub fn color(text: &str) -> gdk::RGBA {
+    match gdk::RGBA::parse(text) {
+        Ok(color) => color,
+        Err(_) => {
+            tracing::warn!(
+                color = text,
+                "wallpaper color did not parse; using opaque black"
+            );
+            gdk::RGBA::BLACK
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
 
     #[test]
@@ -434,5 +474,86 @@ mod tests {
         let target = output_target(100_000, 100_000, 2.0);
         assert!(target.width <= CEILING);
         assert!(target.height <= CEILING);
+    }
+
+    static LOG_CAPTURE: Mutex<()> = Mutex::new(());
+
+    #[derive(Clone, Default)]
+    struct Logged(Arc<Mutex<Vec<u8>>>);
+
+    impl Logged {
+        fn lines(&self) -> String {
+            let bytes = self.0.lock().expect("not poisoned").clone();
+            String::from_utf8(bytes).expect("tracing writes utf-8")
+        }
+
+        fn capture(
+            &self,
+        ) -> (
+            std::sync::MutexGuard<'static, ()>,
+            tracing::subscriber::DefaultGuard,
+        ) {
+            let serialize = LOG_CAPTURE
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let sink = self.clone();
+            let dispatch = tracing::subscriber::set_default(
+                tracing_subscriber::fmt()
+                    .with_writer(move || sink.clone())
+                    .with_max_level(tracing::Level::WARN)
+                    .without_time()
+                    .finish(),
+            );
+            (serialize, dispatch)
+        }
+    }
+
+    impl std::io::Write for Logged {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("not poisoned").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn color_parses_a_hex_value() {
+        let parsed = color("#336699");
+        assert!((parsed.red() - 0x33 as f32 / 255.0).abs() < 0.01);
+        assert!((parsed.green() - 0x66 as f32 / 255.0).abs() < 0.01);
+        assert!((parsed.blue() - 0x99 as f32 / 255.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn color_parses_a_named_value() {
+        let parsed = color("red");
+        assert_eq!(
+            (parsed.red(), parsed.green(), parsed.blue()),
+            (1.0, 0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn color_falls_back_to_opaque_black_on_garbage() {
+        let parsed = color("not a color");
+        assert_eq!(parsed, gdk::RGBA::BLACK);
+    }
+
+    #[test]
+    fn color_logs_exactly_one_warning_on_garbage() {
+        let logged = Logged::default();
+        let _guards = logged.capture();
+
+        color("not a color");
+
+        let lines = logged.lines();
+        assert_eq!(
+            lines.matches("wallpaper color did not parse").count(),
+            1,
+            "{lines}"
+        );
     }
 }

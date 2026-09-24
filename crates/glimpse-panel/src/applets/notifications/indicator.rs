@@ -411,6 +411,7 @@ mod tests {
             created: Utc::now(),
             unread,
             resident: false,
+            expire_timeout: -1,
         }
     }
 

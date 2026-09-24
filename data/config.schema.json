@@ -289,6 +289,7 @@
             "timezones": {
               "description": "The other zones the popover lists under its world clock. Empty hides the section.",
               "type": "array",
+              "default": [],
               "items": {
                 "$ref": "#/$defs/Timezone"
               }
@@ -544,6 +545,61 @@
             "extends": {
               "type": "string",
               "const": "idle"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "kdeconnect": {
+          "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+          "type": "object",
+          "properties": {
+            "device": {
+              "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "extends": {
+              "type": "string",
+              "const": "kdeconnect"
+            },
+            "hide-when-disconnected": {
+              "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+              "type": "boolean",
+              "default": false
+            },
+            "indicator-style": {
+              "description": "Whether the bar shows the device icon, the label, or both.",
+              "$ref": "#/$defs/BatteryIndicatorStyle",
+              "default": "icon-text"
+            },
+            "label-format": {
+              "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+              "type": "string",
+              "default": "{battery}"
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1059,6 +1115,39 @@
           "additionalProperties": false,
           "required": []
         },
+        "ruler": {
+          "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-ruler`.",
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "ruler"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "session": {
           "description": "Log out, suspend, restart and shut down.",
           "type": "object",
@@ -1087,6 +1176,71 @@
                 "string",
                 "null"
               ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "system-monitor": {
+          "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+          "type": "object",
+          "properties": {
+            "chip-format": {
+              "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+              "type": "string",
+              "default": "{name} {value}"
+            },
+            "chips": {
+              "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+              "type": "array",
+              "default": [
+                "cpu",
+                "ram"
+              ],
+              "items": {
+                "$ref": "#/$defs/Chip"
+              }
+            },
+            "critical-percent": {
+              "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 95,
+              "maximum": 100,
+              "minimum": 1
+            },
+            "extends": {
+              "type": "string",
+              "const": "system-monitor"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "warn-percent": {
+              "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 85,
+              "maximum": 100,
+              "minimum": 1
             }
           },
           "additionalProperties": false,
@@ -1532,6 +1686,7 @@
               "timezones": {
                 "description": "The other zones the popover lists under its world clock. Empty hides the section.",
                 "type": "array",
+                "default": [],
                 "items": {
                   "$ref": "#/$defs/Timezone"
                 }
@@ -1799,6 +1954,63 @@
               "extends": {
                 "type": "string",
                 "const": "idle"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+            "type": "object",
+            "properties": {
+              "device": {
+                "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "extends": {
+                "type": "string",
+                "const": "kdeconnect"
+              },
+              "hide-when-disconnected": {
+                "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+                "type": "boolean",
+                "default": false
+              },
+              "indicator-style": {
+                "description": "Whether the bar shows the device icon, the label, or both.",
+                "$ref": "#/$defs/BatteryIndicatorStyle",
+                "default": "icon-text"
+              },
+              "label-format": {
+                "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+                "type": "string",
+                "default": "{battery}"
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -2337,6 +2549,41 @@
             ]
           },
           {
+            "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-ruler`.",
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "ruler"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
             "description": "Log out, suspend, restart and shut down.",
             "type": "object",
             "properties": {
@@ -2364,6 +2611,73 @@
                   "string",
                   "null"
                 ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+            "type": "object",
+            "properties": {
+              "chip-format": {
+                "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+                "type": "string",
+                "default": "{name} {value}"
+              },
+              "chips": {
+                "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+                "type": "array",
+                "default": [
+                  "cpu",
+                  "ram"
+                ],
+                "items": {
+                  "$ref": "#/$defs/Chip"
+                }
+              },
+              "critical-percent": {
+                "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 95,
+                "maximum": 100,
+                "minimum": 1
+              },
+              "extends": {
+                "type": "string",
+                "const": "system-monitor"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "warn-percent": {
+                "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 85,
+                "maximum": 100,
+                "minimum": 1
               }
             },
             "additionalProperties": false,
@@ -2627,25 +2941,38 @@
     "lock": {
       "$ref": "#/$defs/Lock",
       "default": {
-        "background": "",
-        "background-dark": "",
+        "background": {
+          "blur-radius": 0,
+          "color": "#000000",
+          "dim": 0.35,
+          "dim-dark": 0.5,
+          "fit": "cover"
+        },
         "clock": {
-          "date-format": "%A, %B %-d",
+          "date-format": "%A, {day} %B",
           "enabled": true,
           "time-format": "%H:%M"
         },
-        "controls": {
-          "buttons": [
-            "wifi",
-            "input",
-            "weather",
-            "battery",
-            "power"
-          ]
+        "media": {
+          "enabled": true
         },
-        "dim": 1.0,
-        "dim-dark": 1.0,
-        "pam-service": "glimpse-lock"
+        "notifications": {
+          "enabled": true,
+          "privacy": "apps"
+        },
+        "pam-service": "glimpse-lock",
+        "prompt-output": "focused",
+        "session": {
+          "actions": [
+            "suspend",
+            "reboot",
+            "power-off"
+          ],
+          "enabled": true
+        },
+        "status": {
+          "enabled": true
+        }
       }
     },
     "monitors": {
@@ -2656,7 +2983,8 @@
       "$ref": "#/$defs/Mpris",
       "default": {
         "art-max-kib": 4096,
-        "fetch-art": true
+        "fetch-art": true,
+        "ignore": []
       }
     },
     "network": {
@@ -2767,6 +3095,24 @@
       "$ref": "#/$defs/Removable",
       "default": {
         "capacity-interval": 10
+      }
+    },
+    "ruler": {
+      "$ref": "#/$defs/Ruler",
+      "default": {
+        "history-limit": 8,
+        "lens-radius": 106,
+        "max-zoom": 30
+      }
+    },
+    "system-monitor": {
+      "$ref": "#/$defs/SystemMonitor",
+      "default": {
+        "disk-paths": [
+          "/"
+        ],
+        "gpu": true,
+        "poll-interval": 2
       }
     },
     "wallpaper": {
@@ -2963,16 +3309,6 @@
       },
       "additionalProperties": false
     },
-    "Button": {
-      "type": "string",
-      "enum": [
-        "wifi",
-        "input",
-        "weather",
-        "battery",
-        "power"
-      ]
-    },
     "Calendar": {
       "description": "Where calendar events come from. One list, read by every surface that shows an event: the\nclock popover, the day markers on its grid, and the `next-event` applet.",
       "type": "object",
@@ -2994,6 +3330,17 @@
         }
       },
       "additionalProperties": false
+    },
+    "Chip": {
+      "description": "One chip the system-monitor applet can show on the bar. Disk is deliberately not a variant —\narbitrarily many configured paths don't reduce to one chip value, so disk stays popover-only.",
+      "type": "string",
+      "enum": [
+        "cpu",
+        "ram",
+        "swap",
+        "network",
+        "gpu"
+      ]
     },
     "Clipboard": {
       "description": "What the panel remembers of the clipboard. The history lives in the panel process and in memory\nonly: it survives nothing, which is deliberate for a buffer that routinely holds passwords.",
@@ -3037,8 +3384,9 @@
       "type": "object",
       "properties": {
         "date-format": {
+          "description": "`{day}` is the day of the month with its ordinal suffix, e.g. \"3rd\".",
           "type": "string",
-          "default": "%A, %B %-d"
+          "default": "%A, {day} %B"
         },
         "enabled": {
           "type": "boolean",
@@ -3125,25 +3473,6 @@
         "dark",
         "auto"
       ]
-    },
-    "Controls": {
-      "type": "object",
-      "properties": {
-        "buttons": {
-          "type": "array",
-          "default": [
-            "wifi",
-            "input",
-            "weather",
-            "battery",
-            "power"
-          ],
-          "items": {
-            "$ref": "#/$defs/Button"
-          }
-        }
-      },
-      "additionalProperties": false
     },
     "FirstDay": {
       "description": "Which day a calendar week starts on. There is deliberately no `locale` here, unlike\n`hour-format`: the two ways to ask the system are GTK's translated `calendar:week_start:0`,\nwhich came back untranslated when it was measured and would have answered Sunday under an\n`LC_TIME` that means Monday, and glibc's `_NL_TIME_FIRST_WEEKDAY`, which is not portable. A\n`locale` that quietly answers wrong is worse than a default that says what it is.",
@@ -3323,49 +3652,211 @@
       "type": "object",
       "properties": {
         "background": {
-          "type": "string",
-          "default": ""
-        },
-        "background-dark": {
-          "type": "string",
-          "default": ""
+          "$ref": "#/$defs/LockBackground",
+          "default": {
+            "blur-radius": 0,
+            "color": "#000000",
+            "dim": 0.35,
+            "dim-dark": 0.5,
+            "fit": "cover"
+          }
         },
         "clock": {
           "$ref": "#/$defs/Clock",
           "default": {
-            "date-format": "%A, %B %-d",
+            "date-format": "%A, {day} %B",
             "enabled": true,
             "time-format": "%H:%M"
           }
         },
-        "controls": {
-          "$ref": "#/$defs/Controls",
+        "media": {
+          "description": "The now-playing transport, when something is playing.",
+          "$ref": "#/$defs/LockSection",
           "default": {
-            "buttons": [
-              "wifi",
-              "input",
-              "weather",
-              "battery",
-              "power"
-            ]
+            "enabled": true
           }
         },
-        "dim": {
-          "type": "number",
-          "format": "float",
-          "default": 1.0
-        },
-        "dim-dark": {
-          "type": "number",
-          "format": "float",
-          "default": 1.0
+        "notifications": {
+          "description": "Notifications received while the screen is locked.",
+          "$ref": "#/$defs/LockNotifications",
+          "default": {
+            "enabled": true,
+            "privacy": "apps"
+          }
         },
         "pam-service": {
           "type": "string",
           "default": "glimpse-lock"
+        },
+        "prompt-output": {
+          "description": "`\"focused\"` follows the compositor's focused output; anything else is a connector name.",
+          "type": "string",
+          "default": "focused"
+        },
+        "session": {
+          "description": "The suspend, reboot and power-off actions offered from the lock stage.",
+          "$ref": "#/$defs/LockSession",
+          "default": {
+            "actions": [
+              "suspend",
+              "reboot",
+              "power-off"
+            ],
+            "enabled": true
+          }
+        },
+        "status": {
+          "description": "The status island: weather, battery, keyboard layout, bluetooth and network.",
+          "$ref": "#/$defs/LockSection",
+          "default": {
+            "enabled": true
+          }
         }
       },
       "additionalProperties": false
+    },
+    "LockBackground": {
+      "description": "The lock stage's background: an image over a color, blurred and dimmed.",
+      "type": "object",
+      "properties": {
+        "blur-radius": {
+          "description": "Gaussian blur radius in output pixels; 0 blurs nothing.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "maximum": 128,
+          "minimum": 0
+        },
+        "color": {
+          "description": "Painted under everything: the whole background when no image resolves, and what shows\nthrough `contain`'s letterbox.",
+          "type": "string",
+          "default": "#000000"
+        },
+        "dim": {
+          "description": "How much the background is darkened, from 0 (untouched) to 1 (black).",
+          "type": "number",
+          "format": "double",
+          "default": 0.35,
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "dim-dark": {
+          "description": "Overrides `dim` under the dark color scheme.",
+          "type": "number",
+          "format": "double",
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "fit": {
+          "description": "How the image meets an output of a different aspect ratio.",
+          "$ref": "#/$defs/Fit",
+          "default": "cover"
+        },
+        "image": {
+          "description": "The background image, used as-is or under the light color scheme when `image-dark` is set.\nWith neither this nor `image-dark` set, the lock shows `[wallpaper]`'s `image` and\n`image-dark`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image-dark": {
+          "description": "The background image under the dark color scheme. Falls back to `image` when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockNotifications": {
+      "description": "Which notifications reach the lock stage, and how much of each one is shown.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether notifications show on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        },
+        "privacy": {
+          "description": "A locked screen never shows a notification's body. `count` shows only a total; `apps`\nalso names which applications sent them.",
+          "$ref": "#/$defs/LockPrivacy",
+          "default": "apps"
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockPrivacy": {
+      "description": "How much of a notification's own content shows on the lock stage.",
+      "oneOf": [
+        {
+          "description": "Only a total count, naming nothing about any individual notification.",
+          "type": "string",
+          "const": "count"
+        },
+        {
+          "description": "Also names which application each notification came from, never a summary or body.",
+          "type": "string",
+          "const": "apps"
+        }
+      ]
+    },
+    "LockSection": {
+      "description": "A lock stage element with nothing to configure besides whether it shows at all.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether this element shows on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockSession": {
+      "description": "The session actions offered from the lock stage.",
+      "type": "object",
+      "properties": {
+        "actions": {
+          "description": "Every action here is also gated by logind: one it refuses does not appear even when listed.",
+          "type": "array",
+          "default": [
+            "suspend",
+            "reboot",
+            "power-off"
+          ],
+          "items": {
+            "$ref": "#/$defs/LockSessionAction"
+          }
+        },
+        "enabled": {
+          "description": "Whether the session actions show on the lock stage at all.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "LockSessionAction": {
+      "description": "One system action offered from the lock stage.",
+      "oneOf": [
+        {
+          "description": "Suspend the system.",
+          "type": "string",
+          "const": "suspend"
+        },
+        {
+          "description": "Reboot the system.",
+          "type": "string",
+          "const": "reboot"
+        },
+        {
+          "description": "Power the system off.",
+          "type": "string",
+          "const": "power-off"
+        }
+      ]
     },
     "Margin": {
       "type": "object",
@@ -3428,6 +3919,7 @@
         "ignore": {
           "description": "Regular expressions matched against a player's bus-name suffix (`spotify`,\n`kdeconnect.mpris_desktop_1`) and its `Identity` (`Spotify`, `Firefox`). A player matching\nany of them is never shown. Patterns are unanchored and case-sensitive; write `(?i)` for\ncase-insensitive and `^…$` to anchor. A pattern that does not compile is skipped with a\nwarning and the rest keep working. `playerctld` and KDE Connect mirrors are already\nhandled without this.\n\nTo start from: `'^chromium'` hides every Chromium tab, whose bus names carry an instance\nnumber after the application (`chromium.instance4181`); `'(?i)firefox'` hides Firefox\nhowever it happens to capitalize its `Identity`; `'^mpv$'` hides exactly `mpv` and leaves\n`mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash\nreaches the regex instead of being read as a string escape:\n`ignore = ['^chromium', '(?i)firefox']`.",
           "type": "array",
+          "default": [],
           "items": {
             "type": "string"
           }
@@ -3933,6 +4425,34 @@
       },
       "additionalProperties": false
     },
+    "Ruler": {
+      "description": "The screen ruler. `glimpse-ruler` reads it for the lens and the history it keeps.",
+      "type": "object",
+      "properties": {
+        "history-limit": {
+          "description": "How many measurements history keeps, newest first. A measurement beyond it drops the\noldest. Clamped to 1..=64.",
+          "type": "integer",
+          "format": "uint",
+          "default": 8,
+          "minimum": 0
+        },
+        "lens-radius": {
+          "description": "The lens's radius in logical pixels. Clamped to 40..=400.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 106,
+          "minimum": 0
+        },
+        "max-zoom": {
+          "description": "How far the scroll wheel zooms the lens in, as a magnification. Clamped to 2..=64.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 30,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
     "Schedule": {
       "type": "string",
       "enum": [
@@ -4002,6 +4522,36 @@
           "const": "directory"
         }
       ]
+    },
+    "SystemMonitor": {
+      "description": "The system-monitor service: what it samples and how often. Whether it samples at all is not a\nkey here — it is derived from panel placement (see `placed_kinds`), because a poll interval\nonly means something once something is actually placed to consume it.",
+      "type": "object",
+      "properties": {
+        "disk-paths": {
+          "description": "Filesystem paths sampled for free space, each becoming its own popover tile. A path that\ndoes not exist is skipped. An unmounted-but-present path still resolves — `statvfs` reports\nwhichever filesystem currently owns the directory, the same way `df` would — accepted, not\na bug. Each entry must be absolute; duplicates (after stripping a trailing `/`) collapse to\ntheir first occurrence.",
+          "type": "array",
+          "default": [
+            "/"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "gpu": {
+          "description": "Whether to probe for an amdgpu GPU at all.",
+          "type": "boolean",
+          "default": true
+        },
+        "poll-interval": {
+          "description": "Seconds between samples of every reading this service publishes. Must be between 1 and 60.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 2,
+          "maximum": 60,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
     },
     "Timezone": {
       "description": "One zone in the clock popover's world clock.",
