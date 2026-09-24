@@ -310,7 +310,8 @@ impl Inner {
             }
         }
         let wanted = self.enabled.get() && self.window.is_mapped();
-        match (wanted, self.attached.borrow().is_some()) {
+        let attached = self.attached.borrow().is_some();
+        match (wanted, attached) {
             (true, false) => self.attach(),
             (false, true) => self.detach(),
             _ => {}
