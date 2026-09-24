@@ -6,10 +6,12 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use super::CARD;
 use crate::{PopoverShell, drawer};
 
+pub type Toggle = (gtk4::Widget, glib::SignalHandlerId);
+
 #[derive(Debug, Default, glib::Properties)]
 #[properties(wrapper_type = super::Expandable)]
 pub struct Expandable {
-    pub head: RefCell<Option<(gtk4::Widget, Option<glib::SignalHandlerId>)>>,
+    pub head: RefCell<Option<(gtk4::Widget, Option<Toggle>)>>,
     pub drawer: gtk4::Revealer,
 
     #[property(name = "expanded", get = Self::expanded, set = Self::set_expanded, explicit_notify)]

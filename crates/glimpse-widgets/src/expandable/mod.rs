@@ -5,6 +5,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 use crate::SplitRow;
 
 const CARD: &str = "card";
+pub const OPENER: &str = "expandable__opener";
 
 glib::wrapper! {
     pub struct Expandable(ObjectSubclass<imp::Expandable>)
@@ -39,14 +40,24 @@ impl Expandable {
         let handler = match (
             head.downcast_ref::<SplitRow>(),
             head.downcast_ref::<gtk4::Button>(),
+            opener(head),
         ) {
-            (Some(split), _) => Some(split.connect_details(move |_| toggle())),
-            (None, Some(row)) => Some(row.connect_clicked(move |_| toggle())),
-            (None, None) => None,
+            (Some(split), _, _) => Some((
+                split.clone().upcast(),
+                split.connect_details(move |_| toggle()),
+            )),
+            (None, Some(row), _) => {
+                Some((row.clone().upcast(), row.connect_clicked(move |_| toggle())))
+            }
+            (None, None, Some(badge)) => Some((
+                badge.clone().upcast(),
+                badge.connect_clicked(move |_| toggle()),
+            )),
+            (None, None, None) => None,
         };
         if let Some((old, handler)) = imp.head.replace(Some((head.clone(), handler))) {
-            if let Some(handler) = handler {
-                old.disconnect(handler);
+            if let Some((source, handler)) = handler {
+                source.disconnect(handler);
             }
             old.unparent();
         }
@@ -83,8 +94,27 @@ impl Expandable {
         let opener = match head.downcast_ref::<SplitRow>() {
             Some(split) => split.detail().upcast(),
             None if head.is::<gtk4::Button>() => head,
-            None => return false,
+            None => match opener(&head) {
+                Some(badge) => badge.upcast(),
+                None => return false,
+            },
         };
         target == &opener || target.is_ancestor(&opener)
     }
+}
+
+fn opener(head: &gtk4::Widget) -> Option<gtk4::Button> {
+    let mut child = head.first_child();
+    while let Some(widget) = child {
+        if widget.has_css_class(OPENER)
+            && let Some(button) = widget.downcast_ref::<gtk4::Button>()
+        {
+            return Some(button.clone());
+        }
+        if let Some(found) = opener(&widget) {
+            return Some(found);
+        }
+        child = widget.next_sibling();
+    }
+    None
 }
