@@ -1,0 +1,72 @@
+using Gtk 4.0;
+
+template $KdeconnectPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "kdeconnect-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "phone-symbolic";
+      title: _("KDE Connect");
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section devices {
+        visible: false;
+        title: _("Devices");
+
+        Gtk.Box devices_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section nearby {
+        visible: false;
+
+        Gtk.Box {
+          orientation: vertical;
+
+          $Row nearby_toggle {
+            title: _("Nearby devices");
+
+            [trail]
+            Gtk.Image {
+              icon-name: "go-next-symbolic";
+              accessible-role: presentation;
+
+              styles [
+                "drawer-chevron",
+              ]
+            }
+          }
+
+          Gtk.Box nearby_rows {
+            orientation: vertical;
+            visible: false;
+          }
+
+          $Row nearby_more {
+            visible: false;
+            activatable: false;
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

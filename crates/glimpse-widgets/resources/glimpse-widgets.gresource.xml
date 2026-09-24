@@ -39,6 +39,7 @@
         <file>widgets/password_prompt.ui</file>
         <file>widgets/places_popover.ui</file>
         <file>widgets/removable_popover.ui</file>
+        <file>widgets/kdeconnect_popover.ui</file>
         <file>widgets/player_row.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/printing_popover.ui</file>

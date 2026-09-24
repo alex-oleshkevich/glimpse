@@ -26,6 +26,7 @@ mod idle_popover;
 mod indicator;
 mod indicator_group;
 mod inhibitor_list;
+mod kdeconnect_popover;
 mod keyboard_popover;
 mod lock_clock;
 mod lock_stage;
@@ -116,6 +117,10 @@ pub use idle_popover::IdlePopover;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
+pub use kdeconnect_popover::{
+    Action as KdeconnectAction, Device as KdeconnectDevice, KdeconnectPopover,
+    Nearby as KdeconnectNearby,
+};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use lock_clock::LockClock;
 pub use lock_stage::LockStage;
@@ -7431,6 +7436,176 @@ mod tests {
         assert!(!imp.footer.get_visible(), "no footer until one is set");
         popover.set_footer(Some("Workspace settings"));
         assert!(imp.footer.get_visible());
+        imp.footer.emit_clicked();
+        assert!(footer.get());
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn kdeconnect_popover_widgets() {
+        if gtk4::init().is_err() {
+            return;
+        }
+        register_resources().expect("resources");
+        let _styles = Styles::install(adw::ColorScheme::Default);
+
+        let popover = KdeconnectPopover::new();
+        let imp = popover.imp();
+        assert!(
+            !imp.devices.get_visible(),
+            "an untouched popover lists no device"
+        );
+        assert!(!imp.nearby.get_visible(), "and has no nearby header");
+
+        let action = |key: &str| KdeconnectAction {
+            key: key.to_owned(),
+            label: key.to_owned(),
+        };
+        let phone = KdeconnectDevice {
+            id: "b98d".to_owned(),
+            title: "Pixel 10 Pro".to_owned(),
+            subtitle: String::new(),
+            value: "76%".to_owned(),
+            actions: vec![action("ring"), action("unpair")],
+        };
+        let away = KdeconnectDevice {
+            id: "3d9c".to_owned(),
+            title: "Pixel 8".to_owned(),
+            subtitle: String::new(),
+            value: "Not connected".to_owned(),
+            actions: vec![action("unpair")],
+        };
+        popover.set_devices(&[phone.clone(), away.clone()]);
+        assert!(imp.devices.get_visible());
+        let holders = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(holders.len(), 2);
+        let head = holders[0].head::<Row>().expect("a row head");
+        assert_eq!(head.title().as_deref(), Some("Pixel 10 Pro"));
+        assert_eq!(head.subtitle(), None, "one line");
+        assert_eq!(head.value().as_deref(), Some("76%"));
+        assert_eq!(
+            holders[1]
+                .head::<Row>()
+                .and_then(|row| row.value())
+                .as_deref(),
+            Some("Not connected")
+        );
+
+        let details = holders[0].details::<gtk4::Box>().expect("details");
+        let rows = children_of::<Row>(&details);
+        assert_eq!(rows.len(), 2);
+
+        let fired = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
+        popover.connect_action({
+            let fired = Rc::clone(&fired);
+            move |_, id, key| fired.borrow_mut().push((id.to_owned(), key.to_owned()))
+        });
+        rows[0].emit_clicked();
+        assert_eq!(
+            fired.borrow().as_slice(),
+            [("b98d".to_owned(), "ring".to_owned())]
+        );
+
+        holders[0].set_expanded(true);
+        let mut charging = phone.clone();
+        charging.value = "77%, charging".to_owned();
+        popover.set_devices(&[charging, away.clone()]);
+        let again = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(
+            again[0], holders[0],
+            "a device keeps its row across an update"
+        );
+        assert!(
+            again[0].expanded(),
+            "an open card stays open when only the reading moves"
+        );
+        assert_eq!(
+            again[0]
+                .details::<gtk4::Box>()
+                .map(|details| children_of::<Row>(&details)),
+            Some(rows.clone()),
+            "unchanged actions keep their rows, so the pointer's row is not swapped out"
+        );
+
+        popover.collapse("b98d");
+        assert!(!again[0].expanded(), "collapse closes the card it names");
+
+        popover.set_devices(&[away.clone(), phone.clone()]);
+        let reordered = children_of::<Expandable>(&*imp.devices_rows);
+        assert_eq!(
+            reordered[1], holders[0],
+            "rows are keyed by id, not position"
+        );
+
+        let nearby = |id: &str, busy: bool| KdeconnectNearby {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            subtitle: String::new(),
+            busy,
+        };
+        popover.set_nearby(
+            &[nearby("desk", false), nearby("tab", true)],
+            Some("3 more"),
+        );
+        assert!(imp.nearby.get_visible());
+        assert!(!imp.nearby_rows.get_visible(), "nearby starts closed");
+        assert!(!imp.nearby_more.get_visible(), "and so does its count");
+        imp.nearby_toggle.emit_clicked();
+        assert!(popover.nearby_open());
+        assert!(imp.nearby_rows.get_visible());
+        assert!(imp.nearby_more.get_visible());
+        assert!(imp.nearby_toggle.has_css_class("open"));
+        let splits = children_of::<SplitRow>(&*imp.nearby_rows);
+        assert!(splits[1].row().busy(), "a requested pairing spins");
+
+        let paired = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_pair({
+            let paired = Rc::clone(&paired);
+            move |_, id| paired.borrow_mut().push(id.to_owned())
+        });
+        splits[0].row().emit_clicked();
+        assert!(
+            splits[0].row().busy(),
+            "the row spins the moment it is pressed"
+        );
+        splits[0].row().emit_clicked();
+        assert_eq!(
+            paired.borrow().as_slice(),
+            ["desk".to_owned()],
+            "a second press while it spins asks nothing"
+        );
+        popover.set_nearby(
+            &[nearby("desk", false), nearby("tab", true)],
+            Some("3 more"),
+        );
+        assert!(
+            !splits[0].row().busy(),
+            "an unchanged state still clears the guess, so a refused request never spins forever"
+        );
+
+        imp.nearby_toggle.emit_clicked();
+        assert!(!popover.nearby_open());
+        assert!(
+            !imp.nearby_rows.get_visible(),
+            "the header closes what it opened"
+        );
+
+        popover.set_nearby(&[], None);
+        assert!(
+            !imp.nearby.get_visible(),
+            "no header until something is found"
+        );
+
+        let summary = || imp.hero.subtitle().map(|text| text.to_string());
+        popover.set_summary("1 connected");
+        assert_eq!(summary().as_deref(), Some("1 connected"));
+
+        popover.set_footer(Some("KDE Connect settings"));
+        let footer = Rc::new(Cell::new(false));
+        popover.connect_footer_activated({
+            let footer = Rc::clone(&footer);
+            move |_| footer.set(true)
+        });
         imp.footer.emit_clicked();
         assert!(footer.get());
     }

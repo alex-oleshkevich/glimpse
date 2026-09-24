@@ -143,6 +143,10 @@ fn main() {
             "resources/widgets/removable_popover.ui",
         ),
         (
+            "blueprints/kdeconnect_popover.blp",
+            "resources/widgets/kdeconnect_popover.ui",
+        ),
+        (
             "blueprints/player_row.blp",
             "resources/widgets/player_row.ui",
         ),

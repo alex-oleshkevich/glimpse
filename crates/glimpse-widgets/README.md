@@ -528,6 +528,22 @@ with no exception and no placeholder anywhere. A popover with nothing to list is
 footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
 Every row is a plain `Row` that opens a location, so the popover emits `activated` and nothing else.
 
+## KdeconnectPopover
+
+Paired devices, then the nearby ones, with no icon on any row. A paired device is an `Expandable`
+over a one-line `Row` whose value carries the reading, with a card of action rows the applet
+formats, unpair last. A nearby device is a
+`SplitRow` with its chevron hidden, whose body asks to pair.
+
+- **A card's rows are rebuilt only when its actions change.** A battery tick rewrites the head alone,
+  so the row under the pointer of an open card is never swapped out.
+- **Nearby is a disclosure**: a header `Row` toggling the list and its count, with no revealer. The
+  widget owns the open state and the applet only sets where it starts.
+- **`collapse(id)`** closes one device's card, for an action that succeeded.
+- **A nearby row spins the moment it is pressed** and ignores a second press while it does;
+  `set_nearby` re-applies every row's real state, so a refused request stops spinning on the next
+  refresh.
+
 ## RemovablePopover
 
 One titleless `$Section`, because the hero already says what the list is. Drives live here rather
