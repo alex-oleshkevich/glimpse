@@ -11,6 +11,7 @@ use crate::{Expandable, Hero, PopoverShell, Row, Section, SplitRow};
 pub struct Action {
     pub key: String,
     pub label: String,
+    pub destructive: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

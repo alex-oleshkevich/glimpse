@@ -10,7 +10,8 @@ use gtk4::glib;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{
-    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command, wording,
+    Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command,
+    wording,
 };
 
 use super::render;
@@ -22,6 +23,7 @@ pub struct WorkspaceName {
     notifications: NotificationsProviderHandle,
     output: Option<String>,
     workspaces: Vec<WorkspaceInfo>,
+    recent: Vec<String>,
     current: Rc<RefCell<Option<WorkspaceInfo>>>,
     pending: Pending,
     tooltip_format: Option<String>,
@@ -44,9 +46,28 @@ impl Applet for WorkspaceName {
         self.refresh();
     }
 
-    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {}
+            Input::Pointer(Pointer::Press(Button::Middle)) => {
+                let named = self
+                    .current
+                    .borrow()
+                    .as_ref()
+                    .filter(|workspace| workspace.name.is_some())
+                    .map(|workspace| workspace.id);
+                if let Some(id) = named {
+                    rename(
+                        &self.compositor,
+                        &self.notifications,
+                        &ctx.opener(),
+                        &self.pending,
+                        id,
+                        None,
+                    );
+                }
+                return;
+            }
             Input::Pointer(Pointer::Scroll(direction)) => {
                 step(&self.compositor, *direction);
                 return;
@@ -54,6 +75,7 @@ impl Applet for WorkspaceName {
             Input::Tick | Input::Pointer(_) => return,
         }
         self.workspaces = snapshot(&self.compositor);
+        render::remember(&mut self.recent, &self.workspaces);
         self.refresh();
     }
 
@@ -108,8 +130,12 @@ impl Applet for WorkspaceName {
 
 impl WorkspaceName {
     pub fn start(compositor: CompositorHandle, notifications: NotificationsProviderHandle) -> Self {
+        let workspaces = snapshot(&compositor);
+        let mut recent = Vec::new();
+        render::remember(&mut recent, &workspaces);
         Self {
-            workspaces: snapshot(&compositor),
+            workspaces,
+            recent,
             compositor,
             notifications,
             output: None,
@@ -153,6 +179,8 @@ impl WorkspaceName {
         };
         shown.set_workspace(&render::title(workspace), &render::subtitle(workspace));
         shown.set_name(workspace.name.as_deref().unwrap_or_default());
+        shown.set_taken(&render::taken(&self.workspaces, workspace.id));
+        shown.set_recent(&render::suggestions(&self.recent, &self.workspaces));
     }
 }
 

@@ -2,15 +2,14 @@ mod paths;
 mod sources;
 
 use std::collections::BTreeMap;
-use std::convert::Infallible;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use glimpse_utils::clean;
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError},
+    service::{CommandError, Input, Service, ServiceError},
     subscription::Sub,
 };
 
@@ -102,6 +101,20 @@ impl PlacesHandle {
     pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
         self.0.health()
     }
+
+    pub async fn empty_trash(&self) -> Result<(), CommandError> {
+        let (reply, result) = tokio::sync::oneshot::channel();
+        self.0.command(Command::EmptyTrash { reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("places stopped while emptying the trash".to_owned())
+        })?
+    }
+}
+
+pub enum Command {
+    EmptyTrash {
+        reply: tokio::sync::oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -124,7 +137,7 @@ impl Service for Places {
     type Config = Config;
     type State = PlacesState;
     type Handle = PlacesHandle;
-    type Command = Infallible;
+    type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
@@ -179,7 +192,22 @@ impl Service for Places {
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Command(command) => match command {},
+            Input::Command(Command::EmptyTrash { reply }) => {
+                let Some(root) = self.roots.trash_files.parent().map(Path::to_path_buf) else {
+                    let _ = reply.send(Err(CommandError::Unavailable(
+                        "there is no trash directory".to_owned(),
+                    )));
+                    return;
+                };
+                ctx.spawn_detached(move |_ctx| async move {
+                    let outcome = tokio::task::spawn_blocking(move || empty_trash(&root))
+                        .await
+                        .map_err(|error| error.to_string())
+                        .and_then(|result| result)
+                        .map_err(|reason| CommandError::Internal(clean(&reason, REASON)));
+                    let _ = reply.send(outcome);
+                });
+            }
             Input::Config(config) => self.config = config,
             Input::Event(Event::Xdg(result)) => {
                 self.settle(ctx, "xdg", result, |state, places| state.places = places);
@@ -200,6 +228,29 @@ impl Service for Places {
                 });
             }
         }
+    }
+}
+
+fn empty_trash(root: &Path) -> Result<(), String> {
+    for folder in ["files", "info", "expunged"] {
+        let entries = match std::fs::read_dir(root.join(folder)) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(format!("{folder}: {error}")),
+        };
+        for entry in entries {
+            let path = entry.map_err(|error| error.to_string())?.path();
+            let removed = match std::fs::symlink_metadata(&path) {
+                Ok(meta) if meta.is_dir() => std::fs::remove_dir_all(&path),
+                Ok(_) => std::fs::remove_file(&path),
+                Err(error) => Err(error),
+            };
+            removed.map_err(|error| format!("{}: {error}", path.display()))?;
+        }
+    }
+    match std::fs::remove_file(root.join("directorysizes")) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.to_string()),
+        _ => Ok(()),
     }
 }
 
@@ -367,6 +418,37 @@ mod tests {
             .handle(&ctx, Input::Event(Event::Trash(Ok(0))))
             .await;
         assert!(matches!(&*health.borrow(), crate::ServiceState::Running));
+    }
+
+    #[test]
+    fn emptying_the_trash_clears_files_and_their_sidecars_but_keeps_the_folders() {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        let trash = root.path();
+        for dir in ["files/folder/inner", "info"] {
+            std::fs::create_dir_all(trash.join(dir)).expect("a trash folder");
+        }
+        std::fs::write(trash.join("files/a.txt"), "a").expect("a trashed file");
+        std::fs::write(trash.join("files/folder/inner/b"), "b").expect("a nested file");
+        std::fs::write(trash.join("info/a.txt.trashinfo"), "[Trash Info]").expect("a sidecar");
+        std::fs::write(trash.join("directorysizes"), "").expect("a size cache");
+        let outside = root.path().join("outside");
+        std::fs::write(&outside, "keep").expect("a file outside the trash");
+        std::os::unix::fs::symlink(&outside, trash.join("files/link")).expect("a symlink");
+
+        empty_trash(trash).expect("emptied");
+
+        for dir in ["files", "info"] {
+            assert_eq!(
+                std::fs::read_dir(trash.join(dir)).expect(dir).count(),
+                0,
+                "{dir} is emptied"
+            );
+        }
+        assert!(!trash.join("directorysizes").exists());
+        assert!(
+            outside.exists(),
+            "a trashed symlink is removed, never followed"
+        );
     }
 
     #[tokio::test]

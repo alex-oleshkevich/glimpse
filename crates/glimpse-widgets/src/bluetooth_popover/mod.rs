@@ -392,6 +392,7 @@ impl BluetoothPopover {
 
         let row = Row::new();
         row.set_activatable(line.activates);
+        crate::set_css_class(&row, crate::DESTRUCTIVE, line.destructive);
         if !line.activates {
             return row;
         }

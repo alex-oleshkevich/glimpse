@@ -118,6 +118,7 @@ impl PrivacyPopover {
     fn stop_card(&self, id: &str) -> gtk4::Box {
         let stop = Row::new();
         stop.set_title(Some(gettext("Stop sharing").as_str()));
+        stop.add_css_class(crate::DESTRUCTIVE);
         let key = id.to_owned();
         stop.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
@@ -220,7 +221,7 @@ mod tests {
             .and_downcast::<Row>()
             .expect("a Stop sharing row");
         assert_eq!(stop.title().as_deref(), Some("Stop sharing"));
-        assert!(!stop.has_css_class("row--destructive"));
+        assert!(stop.has_css_class("row--destructive"));
         stop.emit_by_name::<()>("clicked", &[]);
         assert_eq!(*stopped.borrow(), ["app:Chrome".to_owned()]);
 

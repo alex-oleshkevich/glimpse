@@ -271,6 +271,7 @@ impl ClipboardList {
 
         let remove = Row::new();
         remove.set_title(Some(self.imp().actions.borrow().forget.as_str()));
+        remove.add_css_class(crate::DESTRUCTIVE);
         remove.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,

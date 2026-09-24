@@ -366,6 +366,7 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
         action: "forget".to_owned(),
         title: gettext("Forget this device"),
         activates: true,
+        destructive: true,
         busy: matches!(device.busy, Some(Busy::Forgetting)),
         ..Default::default()
     });
@@ -384,6 +385,7 @@ fn line((action, title): (&str, String), value: String) -> Line {
         toggle: None,
         activates: false,
         busy: false,
+        destructive: false,
     }
 }
 
@@ -689,6 +691,13 @@ mod tests {
         assert!(actions.contains(&"codec"));
         assert!(actions.contains(&"battery"));
         assert!(actions.contains(&"forget"));
+        let red: Vec<&str> = details
+            .lines
+            .iter()
+            .filter(|line| line.destructive)
+            .map(|line| line.action.as_str())
+            .collect();
+        assert_eq!(red, ["forget"], "Disconnect beside Forget stays plain");
     }
 
     #[test]

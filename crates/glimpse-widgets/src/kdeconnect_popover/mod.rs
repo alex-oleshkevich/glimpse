@@ -164,6 +164,7 @@ impl KdeconnectPopover {
         for action in &device.actions {
             let row = Row::new();
             row.set_title(Some(action.label.as_str()));
+            crate::set_css_class(&row, crate::DESTRUCTIVE, action.destructive);
             let id = device.id.clone();
             let key = action.key.clone();
             row.connect_clicked(glib::clone!(

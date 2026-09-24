@@ -106,7 +106,7 @@ impl InhibitorList {
         let release = Row::new();
         release.set_title(Some(gettext("Release").as_str()));
         release.set_activatable(true);
-        release.add_css_class("row--destructive");
+        release.add_css_class(crate::DESTRUCTIVE);
         release.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,

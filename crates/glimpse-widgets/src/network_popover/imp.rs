@@ -37,6 +37,7 @@ pub struct Line {
     pub toggle: Option<bool>,
     pub activates: bool,
     pub busy: bool,
+    pub destructive: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

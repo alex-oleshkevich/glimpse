@@ -264,11 +264,12 @@ fn stranger(security: nm::Security) -> String {
 /// stranger, and a wired or VPN connection not in use, has no card: its row's body is its one
 /// action, and Security and Signal would only repeat the subtitle and the icon.
 pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
-    let disconnect = |busy: bool| Line {
+    let disconnect = |busy: bool, destructive: bool| Line {
         action: "disconnect".to_owned(),
         title: gettext("Disconnect"),
         activates: true,
         busy,
+        destructive,
         ..Default::default()
     };
     let address = |address: &Option<String>| {
@@ -289,10 +290,10 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
     if let Some(network) = state.networks.iter().find(|one| one.id.as_str() == id) {
         let mut lines = Vec::new();
         if network.active {
-            lines.push(disconnect(matches!(
-                network.busy,
-                Some(NetworkBusy::Disconnecting)
-            )));
+            lines.push(disconnect(
+                matches!(network.busy, Some(NetworkBusy::Disconnecting)),
+                network.saved.is_none(),
+            ));
             lines.extend(address(&network.address));
         }
         if let Some(saved) = &network.saved {
@@ -307,6 +308,7 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
                 action: "forget".to_owned(),
                 title: gettext("Forget this network"),
                 activates: true,
+                destructive: true,
                 busy: profile.is_some_and(|one| matches!(one.busy, Some(NetworkBusy::Forgetting))),
                 ..Default::default()
             });
@@ -318,7 +320,7 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
         if !wired.active {
             return None;
         }
-        let mut lines = vec![disconnect(wired.busy.is_some())];
+        let mut lines = vec![disconnect(wired.busy.is_some(), true)];
         if let Some(speed) = wired.speed.filter(|speed| *speed > 0) {
             lines.push(Line {
                 action: "speed".to_owned(),
@@ -337,7 +339,7 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
         }
         let mut lines = vec![Line {
             action: "disconnect-vpn".to_owned(),
-            ..disconnect(vpn.busy.is_some())
+            ..disconnect(vpn.busy.is_some(), true)
         }];
         lines.extend(address(&vpn.address));
         return card(lines);
@@ -429,6 +431,20 @@ mod tests {
             .find(|line| line.action == "address")
             .expect("an address line");
         assert_eq!(address.value, "192.168.50.27/24");
+        let red: Vec<&str> = card
+            .lines
+            .iter()
+            .filter(|line| line.destructive)
+            .map(|line| line.action.as_str())
+            .collect();
+        assert_eq!(
+            red,
+            [match state.networks[0].saved.is_some() {
+                true => "forget",
+                false => "disconnect",
+            }],
+            "a card has one red action, and forgetting outranks disconnecting"
+        );
 
         let other = state.networks[1].id.as_str().to_owned();
         assert!(
@@ -454,6 +470,10 @@ mod tests {
         let card = details(&state, "/s/vpn").expect("a detail card");
         let actions: Vec<&str> = card.lines.iter().map(|line| line.action.as_str()).collect();
         assert_eq!(actions, ["disconnect-vpn", "address"]);
+        assert!(
+            card.lines[0].destructive,
+            "a lone Disconnect is the card's red action"
+        );
 
         state.vpn[0].active = false;
         state.vpn[0].address = None;

@@ -246,9 +246,10 @@ pub fn build(
         }
         AppletKind::Places(_) => {
             let places = places.clone();
+            let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(places.subscribe());
-                Box::new(places::Places::start(places))
+                Box::new(places::Places::start(places, notifications))
             }))
         }
         AppletKind::Printing(_) => {

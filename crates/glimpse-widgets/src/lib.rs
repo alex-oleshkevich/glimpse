@@ -286,6 +286,8 @@ pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
     button.set_tooltip_text(Some(tooltip.as_str()));
 }
 
+pub(crate) const DESTRUCTIVE: &str = "row--destructive";
+
 pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {
     use gtk4::prelude::*;
 
@@ -7521,6 +7523,34 @@ mod tests {
             ..Default::default()
         };
 
+        let emptied = Rc::new(Cell::new(0));
+        popover.connect_empty_trash({
+            let emptied = Rc::clone(&emptied);
+            move |_| emptied.set(emptied.get() + 1)
+        });
+        popover.set_trash(Some(PlacesTrash { items: 3 }));
+        imp.trash_empty.emit_clicked();
+        assert_eq!(emptied.get(), 0, "the first press only asks");
+        assert_eq!(
+            imp.trash_empty.title().as_deref(),
+            Some("Delete 3 items for good?")
+        );
+        imp.trash_item.set_expanded(true);
+        imp.trash_item.set_expanded(false);
+        assert_eq!(
+            imp.trash_empty.title().as_deref(),
+            Some("Empty the trash"),
+            "closing the card takes the question back"
+        );
+        imp.trash_empty.emit_clicked();
+        imp.trash_empty.emit_clicked();
+        assert_eq!(emptied.get(), 1, "the second press empties");
+        popover.set_trash(Some(PlacesTrash { items: 0 }));
+        assert!(
+            !imp.trash_empty.get_visible(),
+            "an empty trash offers nothing to empty"
+        );
+
         popover.set_places(&[]);
         popover.set_bookmarks(&[]);
         popover.set_network(&[]);
@@ -7833,11 +7863,13 @@ mod tests {
             .expect("a drive's only volume ejects the drive")
             .emit_by_name::<()>("clicked", &[]);
         assert_eq!(ejected.borrow().as_deref(), Some("stick"));
-        assert!(
+        assert_eq!(
             card_rows(single)
                 .iter()
-                .all(|row| !row.has_css_class("row--destructive")),
-            "nothing in the card is red"
+                .filter(|row| row.has_css_class("row--destructive"))
+                .count(),
+            1,
+            "Eject is the card's one red action"
         );
 
         popover.set_devices(&[RemovableDrive {
@@ -8004,6 +8036,33 @@ mod tests {
         imp.name.emit_activate();
         assert_eq!(submitted.borrow().as_deref(), Some("chat"));
 
+        popover.set_taken(&[(
+            "Chat".to_owned(),
+            "Already the name of Workspace 2".to_owned(),
+        )]);
+        assert!(
+            imp.taken.get_visible(),
+            "a name another workspace holds warns at once"
+        );
+        submitted.replace(None);
+        imp.name.emit_activate();
+        assert_eq!(
+            submitted.borrow().as_deref(),
+            None,
+            "and Enter does nothing"
+        );
+        imp.name.set_text("code");
+        assert!(!imp.taken.get_visible());
+
+        popover.set_recent(&["music".to_owned()]);
+        assert!(imp.recent.get_visible());
+        imp.recent_rows
+            .first_child()
+            .and_downcast::<Row>()
+            .expect("a recent name")
+            .emit_clicked();
+        assert_eq!(submitted.borrow().as_deref(), Some("music"));
+
         imp.name
             .emit_by_name::<()>("icon-press", &[&gtk4::EntryIconPosition::Secondary]);
         assert_eq!(imp.name.text(), "", "the clear icon empties the entry");
@@ -8044,6 +8103,7 @@ mod tests {
         let action = |key: &str| KdeconnectAction {
             key: key.to_owned(),
             label: key.to_owned(),
+            destructive: key == "unpair",
         };
         let phone = KdeconnectDevice {
             id: "b98d".to_owned(),

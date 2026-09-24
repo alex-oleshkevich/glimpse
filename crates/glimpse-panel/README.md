@@ -225,13 +225,17 @@ failed pick or copy is reported by notification. While a pick is open the chip c
 no tick.
 
 **ruler** — shaped like `color-picker`: a right click runs `glimpse-ruler`, refused while a
-measurement is already in progress, and a left click opens the popover with the latest measurement
-and a flat history list, no expand state anywhere. The chip is always icon-only — a measurement has
+measurement is already in progress, and a left click opens the popover with the latest measurement,
+a *Measure the screen* row that closes the popover and does the same, and a flat history list, no
+expand state anywhere. The chip is always icon-only — a measurement has
 no swatch to substitute it with — and a failed measurement or copy is reported by notification,
 never a popover banner.
 
 **places** — watches the `places` service handle alone. A place, a bookmark or a network share opens
-through `gio::AppInfo::launch_default_for_uri`, off the main loop.
+through `gio::AppInfo::launch_default_for_uri`, off the main loop. Places come before bookmarks. A
+share reads as its folder over `host · PROTOCOL`, parsed out of the GVFS mount name, never as the
+raw `smb-share:server=…` string. The Trash row opens a card: *Open the trash*, and a red *Empty the
+trash* that asks on the first press and acts on the second; closing the card takes the question back.
 
 - **`tooltip-format` takes `{bookmarks}` and `{places}`.** `{drives}` moved to the removable applet
   when the two split, so it now renders as itself here.
@@ -320,7 +324,10 @@ popover is one entry and asks for the keyboard with `Opener::typing` while it is
 an empty entry clears the name, and Esc closes. The chip takes the new name before the compositor
 answers and drops it on **any** answer, success included, re-reading the snapshot: niri refuses a
 name another workspace already holds and still replies `Ok`, so only the snapshot knows whether the
-rename happened. Scroll steps `compositor.focus_workspace` `Next`/`Prev`, the same as the pager's
+rename happened. **A name another workspace holds is refused before Enter**: the entry warns while it
+matches, compared ignoring ASCII case, and Enter does nothing. Names seen on any workspace this
+session are offered as one-press rows under it, newest first and never one in use; they live in the
+applet and a restart forgets them. A middle click on the chip clears the name. Scroll steps `compositor.focus_workspace` `Next`/`Prev`, the same as the pager's
 own scroll in `PagerMode::Workspaces` — a chip this small has no strip to step over instead.
 
 **notifications** — the chip is a bell, hidden until the list has arrived and kept afterwards even

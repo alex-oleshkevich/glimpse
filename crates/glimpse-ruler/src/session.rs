@@ -9,7 +9,6 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use crate::capture::Frame;
 use crate::marks::Marks;
 
-const DEFAULT_ZOOM: u32 = 8;
 const PILL_GAP: f64 = 10.0;
 const RADIUS_STEP: f32 = 1.15;
 const MIN_RADIUS: f32 = 40.0;
@@ -149,7 +148,7 @@ impl Session {
         done: impl Fn(Outcome) + 'static,
     ) -> Result<Self, String> {
         let display = gdk::Display::default().ok_or_else(|| "the display".to_owned())?;
-        let zoom = Rc::new(Cell::new(DEFAULT_ZOOM.min(settings.max_zoom.max(1))));
+        let zoom = Rc::new(Cell::new(1));
         let radius = Rc::new(Cell::new(settings.radius.clamp(MIN_RADIUS, MAX_RADIUS)));
         let mut surfaces: Vec<Surface> = Vec::new();
         for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {

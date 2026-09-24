@@ -366,7 +366,9 @@ paired and reachable; `send_clipboard` is offered only while the daemon's own cl
 read through `glib::user_special_dir`** — the key set is open, the enum is closed to eight, and the
 GLib function caches besides. **A source that fails to read publishes nothing for its section and
 reports through `ctx.degraded`** — health is orthogonal to state, and nothing downstream renders a
-degraded section differently from an absent one.
+degraded section differently from an absent one. **`empty_trash` clears the home trash only** —
+`files/`, `info/`, `expunged/` and `directorysizes`, removing a trashed symlink rather than following
+it; a mount's `.Trash-$UID` is left alone.
 
 **system-monitor** — CPU, memory, swap, disk, network, load average, uptime and (amdgpu only) GPU.
 **`Config.enabled` reflects panel placement, not table presence** — `glimpse_config::placed_kinds`

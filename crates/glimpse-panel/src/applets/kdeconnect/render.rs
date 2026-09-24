@@ -226,6 +226,7 @@ fn row(key: &str, label: String) -> Row {
     Row {
         key: key.to_owned(),
         label,
+        destructive: key == UNPAIR,
     }
 }
 

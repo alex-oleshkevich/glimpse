@@ -164,7 +164,7 @@ impl PrintingPopover {
         panel.append(&self.build_action_row(&job.id, gettext("Pause"), "paused"));
         panel.append(&self.build_action_row(&job.id, gettext("Resume"), "resumed"));
         let cancel = self.build_action_row(&job.id, gettext("Cancel"), "cancelled");
-        cancel.add_css_class(DESTRUCTIVE);
+        cancel.add_css_class(crate::DESTRUCTIVE);
         panel.append(&cancel);
         holder.set_details(Some(&panel));
         holder
@@ -214,7 +214,6 @@ impl PrintingPopover {
 }
 
 const WARNING: &str = "printing-popover__printer--warning";
-const DESTRUCTIVE: &str = "row--destructive";
 
 fn opener_row(tooltip: String) -> Row {
     let row = Row::new();

@@ -243,10 +243,10 @@ impl RemovablePopover {
         }
         match &card.release {
             Some(Release::Eject(id)) => {
-                body.append(&self.action(gettextrs::gettext("Eject"), "eject", id))
+                body.append(&self.release(gettextrs::gettext("Eject"), "eject", id))
             }
             Some(Release::Unmount(id)) => {
-                body.append(&self.action(gettextrs::gettext("Unmount"), "unmount", id))
+                body.append(&self.release(gettextrs::gettext("Unmount"), "unmount", id))
             }
             None => {}
         }
@@ -256,6 +256,12 @@ impl RemovablePopover {
             body.append(&facts);
         }
         body
+    }
+
+    fn release(&self, title: String, signal: &'static str, id: &str) -> Row {
+        let row = self.action(title, signal, id);
+        row.add_css_class(crate::DESTRUCTIVE);
+        row
     }
 
     fn action(&self, title: String, signal: &'static str, id: &str) -> Row {

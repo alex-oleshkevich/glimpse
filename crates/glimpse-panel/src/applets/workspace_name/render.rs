@@ -5,6 +5,7 @@ use crate::applets::workspace::{Facts, render, workspace_token};
 
 pub const ICON: &str = "view-grid-symbolic";
 const CHIP_MAX_CHARS: usize = 32;
+const RECENT: usize = 6;
 
 pub fn current<'a>(
     workspaces: &'a [WorkspaceInfo],
@@ -55,6 +56,48 @@ pub fn tooltip(workspace: &WorkspaceInfo, format: Option<&str>) -> String {
     }
 }
 
+pub fn taken(workspaces: &[WorkspaceInfo], current: u64) -> Vec<(String, String)> {
+    workspaces
+        .iter()
+        .filter(|workspace| workspace.id != current)
+        .filter_map(|workspace| {
+            let name = workspace.name.as_deref().filter(|name| !name.is_empty())?;
+            let message = gettext("Already the name of {workspace}")
+                .replace("{workspace}", &title(workspace));
+            Some((name.to_owned(), message))
+        })
+        .collect()
+}
+
+pub fn remember(recent: &mut Vec<String>, workspaces: &[WorkspaceInfo]) {
+    for name in workspaces
+        .iter()
+        .filter_map(|workspace| workspace.name.as_deref())
+    {
+        let name = glimpse_utils::clean(name, CHIP_MAX_CHARS);
+        if name.is_empty() || recent.iter().any(|known| known.eq_ignore_ascii_case(&name)) {
+            continue;
+        }
+        recent.insert(0, name);
+    }
+    recent.truncate(RECENT);
+}
+
+pub fn suggestions(recent: &[String], workspaces: &[WorkspaceInfo]) -> Vec<String> {
+    recent
+        .iter()
+        .filter(|name| {
+            !workspaces.iter().any(|workspace| {
+                workspace
+                    .name
+                    .as_deref()
+                    .is_some_and(|held| held.eq_ignore_ascii_case(name))
+            })
+        })
+        .cloned()
+        .collect()
+}
+
 pub fn rename(current: Option<&str>, typed: &str) -> Option<Option<String>> {
     let typed = typed.trim();
     let wanted = (!typed.is_empty()).then(|| typed.to_owned());
@@ -65,6 +108,37 @@ pub fn rename(current: Option<&str>, typed: &str) -> Option<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn named(id: u64, name: &str) -> WorkspaceInfo {
+        WorkspaceInfo {
+            name: Some(name.to_owned()),
+            ..workspace(id, "DP-2", false, false)
+        }
+    }
+
+    #[test]
+    fn a_name_another_workspace_holds_is_taken_and_its_own_is_not() {
+        let workspaces = [named(1, "web"), named(2, "chat")];
+        let taken = taken(&workspaces, 2);
+        assert_eq!(taken.len(), 1);
+        assert_eq!(taken[0].0, "web");
+        assert!(taken[0].1.contains("Workspace 1"));
+    }
+
+    #[test]
+    fn recent_names_survive_their_workspace_and_never_offer_one_in_use() {
+        let mut recent = Vec::new();
+        remember(&mut recent, &[named(1, "web"), named(2, "chat")]);
+        remember(&mut recent, &[named(1, "Web"), named(2, "music")]);
+        assert_eq!(
+            recent,
+            ["music", "chat", "web"],
+            "newest first, case-folded"
+        );
+
+        let now = [named(1, "web")];
+        assert_eq!(suggestions(&recent, &now), ["music", "chat"]);
+    }
 
     fn workspace(id: u64, output: &str, active: bool, focused: bool) -> WorkspaceInfo {
         WorkspaceInfo {

@@ -887,6 +887,10 @@ expandable > revealer .fader {
     color: var(--gl-muted);
 }
 
+.workspace-name-popover__taken {
+    color: var(--gl-warning-text);
+}
+
 .prompt__code {
     font-size: var(--gl-text-display, 2.4rem);
     font-weight: 700;

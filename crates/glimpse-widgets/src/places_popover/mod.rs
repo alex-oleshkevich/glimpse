@@ -56,6 +56,7 @@ impl PlacesPopover {
             return;
         }
         imp.trash_data.replace(trash);
+        imp.trash_armed.set(false);
         self.render_trash();
     }
 
@@ -73,6 +74,31 @@ impl PlacesPopover {
             false,
             glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
+    }
+
+    pub fn connect_empty_trash<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "empty-trash",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
+        )
+    }
+
+    pub(crate) fn press_empty_trash(&self) {
+        let imp = self.imp();
+        if imp.trash_armed.replace(false) {
+            imp.trash_item.set_expanded(false);
+            self.emit_by_name::<()>("empty-trash", &[]);
+        } else {
+            imp.trash_armed.set(true);
+        }
+        self.render_trash();
+    }
+
+    pub(crate) fn disarm_empty_trash(&self) {
+        if self.imp().trash_armed.replace(false) {
+            self.render_trash();
+        }
     }
 
     pub fn connect_more<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -153,6 +179,17 @@ impl PlacesPopover {
                 .replace("{n}", &trash.items.to_string()),
         };
         imp.trash_row.set_value(Some(value.as_str()));
+        imp.trash_empty.set_visible(!empty);
+        let prompt = match imp.trash_armed.get() {
+            true => gettextrs::ngettext(
+                "Delete {n} item for good?",
+                "Delete {n} items for good?",
+                trash.items,
+            )
+            .replace("{n}", &trash.items.to_string()),
+            false => gettextrs::gettext("Empty the trash"),
+        };
+        imp.trash_empty.set_title(Some(prompt.as_str()));
     }
 
     fn build_entry_row(&self, id: &str) -> Row {
