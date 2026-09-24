@@ -685,6 +685,32 @@ quarter turns were never captured from a rotated output — the nested winit out
 it. A `Layer::Overlay` surface with
 `KeyboardMode::Exclusive` maps and lists under `niri msg layers` as exclusive.
 
+**niri reports no position for a tiled window, September 2026.** Measured on niri 26.04 with a
+magenta probe window located by `grim`: floating, `layout.tile_pos_in_workspace_view` was
+`[952, 568]` and the pixels sat at exactly that logical point, relative to the output's full area
+(the panel's exclusive zone is not subtracted); toggled tiled and visibly on screen, the same field
+was `null`, as it was for every tiled window in the session, in `windows` and the event stream alike.
+Nothing that needs a tiled window's rectangle can be built on niri IPC. `Action::ScreenshotWindow
+{ id, write_to_disk: true, path }` renders any window alone — off-screen and other workspaces
+included — as an RGBA PNG at buffer scale, but its reply arrives before the file does (absent at the
+~20 ms reply, present by 500 ms) and it **always replaces the clipboard** with the image. A hidden
+GTK window was already absent from a capture 40 ms after `set_visible(false)`. Full account:
+`var/screenshot/design.md` §1B.
+
+**glimpse's portal claim has never been reached, and its location would break screen sharing,
+September 2026.** Measured with x-d-p 1.22.1 run on a private bus in an unprivileged mount
+namespace, reading its `-v` decisions. With the session's `XDG_CURRENT_DESKTOP=niri`, x-d-p reads
+`niri-portals.conf` and routes `Inhibit` to **gtk**: `glimpse-idle`'s Inhibit portal is not what apps
+reach. Within one directory only the first `<desktop>-portals.conf` in `XDG_CURRENT_DESKTOP` order is
+read, so with `glimpse:niri` today's `/usr/share/xdg-desktop-portal/glimpse-portals.conf` shadows
+niri's file there and x-d-p **provides no ScreenCast portal at all**. Across directories an
+interface resolves per file in precedence order (key, then `default`, then the next directory), so
+the same keys in `/etc/xdg-desktop-portal/` route glimpse's interfaces and fall through to niri's
+file for the rest. niri sets `XDG_CURRENT_DESKTOP=niri` unconditionally in session mode and imports
+it into systemd; its `environment {}` block reaches only processes niri spawns. Plan and harness:
+`var/screenshot/design.md` §11.2 and §9. When re-running the harness, give the private bus an
+**empty** `<servicedir>`, or it activates the real `glimpse-idle`.
+
 **Data-control and the clipboard, September 2026.** niri 26.04 implements **both**
 `ext_data_control_manager_v1` and `zwlr_data_control_manager_v1` (read out of the binary; smithay
 compiles both selection handlers). `ext` is bound first as the standardised successor. The protocol
@@ -769,6 +795,14 @@ shipped version, and its README carries the design.
   six frames before the blur arrived. At half opacity the blur arrives about 30ms into the 150ms
   ease-out fade, while the content is still faint. `wf-recorder -o <output> -g <region> -r 120` and one frame at a time from
   `ffmpeg` is how to judge any of this; `grim` in a loop is too slow to see a frame.
+
+**A notification popup cannot be recorded with `wf-recorder`, September 2026.** The recording is a
+damage-tracked screencopy, which niri reports as a cast, and the session service then gates popups
+as private — so the popup never maps while the recorder runs. Measured with a test instance on a
+private bus: `grim` showed the card, and three 120fps recordings of the same post showed nothing. A
+`grim` loop over a small region captures about one frame per 24ms, enough to see a 150ms fade; that
+is how the popup exit was verified. The exit had no fade at all before then: `adw::Animation::reset`
+writes the entry's start value (0) to the frame, and the exit read its start opacity afterwards.
 
 **GTK 4.22 cannot hand a CSS value back to code, September 2026.** Read out of the installed
 headers and the 4.22 source, and probed. The only public getter for a computed style value is
