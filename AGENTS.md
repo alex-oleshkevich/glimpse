@@ -339,7 +339,7 @@ new example's drawer silently inert:
   because `SplitRow` exposes no `busy` property of its own and its `row` is a template child a
   blueprint cannot reach; a `$Row` can equally say `busy: true` in the blueprint and needs no class.
   Anything else carrying the class is reported, since it has no spinner to turn on.
-- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`,
+- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`, `label__<text>`,
   `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
   **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An
   indicator carrying **none** of those classes is left completely alone: `TrayStrip` builds its own
@@ -1190,6 +1190,33 @@ of 766 processes and a probe of niri's cast reporting against the `RemoteDesktop
   `a_source_torn_down_mid_wait_still_runs_its_release_effect`.
 - **The privacy `show_*` flags are render filters only.** They do not stop the service's own
   sources, so `show-location = false` still lets the service talk to GeoClue.
+
+**KDE Connect on this machine, September 2026.** `kdeconnectd` 26.08.1 against a Pixel 10 Pro
+(Android, protocol 8), introspected and traced live.
+
+- **`busctl introspect` rejects `/modules/kdeconnect`** — the daemon declares
+  `sendSimpleNotification` twice. `gdbus introspect` still prints it. The proxies in
+  `glimpse-dbus` are hand-written and every method carries `#[zbus(name = "camelCase")]`.
+- **It emits no `PropertiesChanged` at all.** Pairing produced `pairStateChanged(i)` (0 → 1 → 3),
+  `statusIconNameChanged`, `pluginsChanged`, `deviceVisibilityChanged(s,b)`, `deviceListChanged`
+  and `battery.refreshed(b,i)`, and nothing else.
+- **An installed daemon autostarts under niri** through
+  `app-org.kde.kdeconnect.daemon@autostart.service`, pulled in by `xdg-desktop-autostart.target`.
+  It is also D-Bus activatable, which is why the service calls the owner's unique name only.
+- **A paired device survives unreachable; unpairing an unreachable one deletes its object path**,
+  and plugin objects exist only while a device is paired and reachable.
+- **A key that no longer matches its certificate stalls every TLS handshake silently.** The only
+  symptom is `Host timed out without sending any identity` in the journal after the phone's
+  plaintext identity arrives. `openssl x509 -pubkey` against `openssl pkey -pubout` on
+  `~/.config/kdeconnect/*.pem` tells it apart in one command; moving both aside regenerates the
+  identity, and every phone must pair again.
+- **Phone-to-laptop traffic needs the Android app's own permissions.** After a storage wipe, a
+  laptop-to-phone ping arrived while the phone's ping and notifications never reached the daemon.
+- **The battery plugin's `iconName` is the low-battery signal** — `battery-{full,good,low,caution,
+  empty}[-charging]-symbolic` — so the applet reads `caution`/`empty` rather than a threshold of
+  its own.
+- **`connectivity_report` answers `''` and `-1` on this phone** while the plugin is loaded and the
+  phone is on a cellular network, so nothing about mobile signal has been seen with a real value.
 
 ## Finishing
 
