@@ -339,9 +339,8 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 
 ## DisplayList
 
-- Also the second shape. Each entry is a `crate::drawer::holder`; `OPEN` and `RECEDED` are read
-  back from `Gtk.Revealer::reveals_child()` on every apply rather than from a stored index, so a
-  reconcile can never disagree with what is actually on screen.
+- Each entry is an `Expandable` keyed by connector; the card, the accordion and the receding come
+  from `PopoverShell`, so the list stores no open state.
 - The detail is a `FactList` (make, model, serial, current mode, scale, position — a field the
   snapshot does not carry is left out of the list, never shown as `Unknown`) followed by a
   `SwitchRow` enabling the output. The connector is not repeated there: the head's own title
@@ -430,21 +429,19 @@ that hide when empty. Static labels live in the blueprint. The widget emits `act
 
 ## ClipboardPopover and ClipboardList
 
-`ClipboardList` is index-reconciled like `PlayerList`: one `crate::drawer::holder` per clip, a
-`$SplitRow` head and its own `Gtk.Revealer`. The row body emits `restored`, the chevron `detailed`,
-and the panel underneath emits `pinned` and `removed`. **Every signal reads its id back at fire
-time** from the position the row was built for — a row outlives the clip that was in it.
+`ClipboardList` reconciles by clip id: one `Expandable` per clip with a `$SplitRow` head. The row
+body emits `restored`, and the card underneath emits `pinned` and `removed`.
 
-**The detail panel is rebuilt on each reveal rather than cached.** Its pin row reads *Pin* or
-*Unpin* depending on the clip, so a panel kept from a previous open would contradict the entry
-above it.
+**The card is built on first open and never rebuilt.** Rebuilding unparents a row under a press in
+flight, and `clicked` is then never emitted; the pin row reads the clip's state when it fires, and
+each render only rewrites its wording.
 
 **The list owns no wording.** `set_actions` takes the two action labels from the applet, because a
 widget owns structure and no content; the popover's only built-in strings are the placeholder's,
 which live in the `.blp`.
 
-`ClipboardPopover` holds two of these lists and drives `set_open` across both, so one cannot keep a
-panel open while the other opens a second. Its `$Notice` carries only the standing condition a
+`ClipboardPopover` holds two of these lists; `PopoverShell`'s accordion spans both, so opening a
+card in one closes the other's. Its `$Notice` carries only the standing condition a
 notification cannot — no data-control protocol at all; a refused command is a notification.
 
 ## PlacesPopover

@@ -4800,7 +4800,7 @@ mod tests {
 
         let held = all_named(&network, "network-popover__row");
         let mut renamed = entries.clone();
-        renamed[0].title = "Skylink 5G".to_owned();
+        renamed[1].title = "Skylink 5G".to_owned();
         network.set_entries(&renamed);
         let again = all_named(&network, "network-popover__row");
         assert!(
@@ -6260,36 +6260,23 @@ mod tests {
         assert!(display_popover.imp().footer.get_visible());
 
         let popover_heads: Vec<Row> = heads_of(&children_of(&*display_popover.imp().devices));
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class(crate::drawer::RECEDED))
+        };
+        let chrome: [gtk4::Widget; 3] = [
+            display_popover.imp().hero.clone().upcast(),
+            display_popover.imp().blank.clone().upcast(),
+            display_popover.imp().footer.clone().upcast(),
+        ];
         popover_heads[0].emit_clicked();
         assert!(
-            display_popover
-                .imp()
-                .hero
-                .has_css_class(crate::drawer::RECEDED)
-                && display_popover
-                    .imp()
-                    .blank
-                    .has_css_class(crate::drawer::RECEDED)
-                && display_popover
-                    .imp()
-                    .footer
-                    .has_css_class(crate::drawer::RECEDED),
+            chrome.iter().all(dimmed) && !dimmed(popover_heads[0].upcast_ref()),
             "opening display details dims the popover chrome while preserving the open row"
         );
         popover_heads[0].emit_clicked();
         assert!(
-            !display_popover
-                .imp()
-                .hero
-                .has_css_class(crate::drawer::RECEDED)
-                && !display_popover
-                    .imp()
-                    .blank
-                    .has_css_class(crate::drawer::RECEDED)
-                && !display_popover
-                    .imp()
-                    .footer
-                    .has_css_class(crate::drawer::RECEDED),
+            !chrome.iter().any(dimmed),
             "closing details restores the popover chrome"
         );
 
@@ -6301,6 +6288,8 @@ mod tests {
         display_popover.imp().footer.emit_clicked();
         assert_eq!(popover_footer.get(), 1);
         let idle = IdlePopover::new();
+        let idle_window = gtk4::Window::new();
+        idle_window.set_child(Some(&idle));
         let idle_hold = idle.imp().hold.clone();
         let idle_hold_row = idle.imp().hold_row.clone();
         let idle_hold_card = idle.imp().hold_card.clone();
@@ -6785,23 +6774,27 @@ mod tests {
             |popover: &ClipboardPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
         let floor = width(&clipboard);
 
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
         let opened = rows(&clipboard.imp().recent)[0].clone();
         head(&opened).emit_by_name::<()>("details", &[]);
         assert!(
-            clipboard.imp().hero.has_css_class("receded"),
+            dimmed(clipboard.imp().hero.upcast_ref()),
             "the hero is read against the open panel and must recede with everything else"
         );
         assert!(
-            clipboard.imp().clear.has_css_class("receded")
-                && clipboard.imp().footer.has_css_class("receded"),
+            dimmed(clipboard.imp().clear.upcast_ref())
+                && dimmed(clipboard.imp().footer.upcast_ref()),
             "a footer row that stays lit still looks pressable while a card asks a question"
         );
         assert!(
-            opened.has_css_class("open") && !opened.has_css_class("receded"),
+            opened.has_css_class("open") && !dimmed(opened.upcast_ref()),
             "the row that was opened is the one thing that must not recede"
         );
         assert!(
-            rows(&clipboard.imp().recent)[1].has_css_class("receded"),
+            dimmed(rows(&clipboard.imp().recent)[1].upcast_ref()),
             "its neighbour recedes"
         );
         assert_eq!(
@@ -6811,7 +6804,7 @@ mod tests {
         );
 
         head(&opened).emit_by_name::<()>("details", &[]);
-        assert!(!clipboard.imp().hero.has_css_class("receded"));
+        assert!(!dimmed(clipboard.imp().hero.upcast_ref()));
 
         // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
         head(&opened).emit_by_name::<()>("details", &[]);

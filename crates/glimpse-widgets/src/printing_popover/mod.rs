@@ -469,7 +469,7 @@ mod tests {
                 value: "Ground floor".into(),
             }],
         };
-        popover.set_printers(&[kitchen.clone()]);
+        popover.set_printers(std::slice::from_ref(&kitchen));
         assert!(imp.printers.get_visible());
         assert_eq!(imp.printer_renders.get(), printer_renders_before + 1);
         let printer = imp
@@ -490,7 +490,7 @@ mod tests {
         );
 
         let printer_renders_after = imp.printer_renders.get();
-        popover.set_printers(&[kitchen.clone()]);
+        popover.set_printers(std::slice::from_ref(&kitchen));
         assert_eq!(
             imp.printer_renders.get(),
             printer_renders_after,
