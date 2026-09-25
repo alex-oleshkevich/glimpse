@@ -10,7 +10,7 @@ session daemon, the session panel, or `~/.config/glimpse`. Scratch config, own s
 process, grim *that* bar, restore compositor state, kill only the test pids.
 
 Headless tiers, mutation checks, and "never `~/.config`" live in the `testing` skill. Widget look
-without a daemon is `just preview` in AGENTS.md.
+without a daemon is `just preview`, in `docs/preview.md`.
 
 ## Isolated stack
 

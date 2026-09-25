@@ -1,129 +1,70 @@
 # glimpse-package
 
 The suite's packaging manifest, and nothing else. `src/lib.rs` is empty on purpose: cargo-deb and
-cargo-generate-rpm each need one crate to invoke against, and this is that crate rather than a
-binary that happens to be convenient.
+cargo-generate-rpm each need one crate to invoke against.
 
 ## Contents
 
-- `Cargo.toml` — `[package.metadata.deb]`, `[package.metadata.generate-rpm]`, the `requires` table
-  and the conffile declaration; the asset lists name every binary, the `glimpse-dpms` script, config, wallpapers, themes,
-  units, D-Bus activation files, the GeoClue policy, the license and one line per language
+- `Cargo.toml` — `[package.metadata.deb]`, `[package.metadata.generate-rpm]`, `requires`, the
+  conffile declaration, and the asset lists naming every binary, script, config, wallpaper, theme,
+  unit, D-Bus activation file, the GeoClue policy, the license and one line per language
 - `tests/packaging.rs` — the guard that keeps the two asset lists in step with `po/LINGUAS`
 
-## Why a crate with no code
+## Rules
 
-Hosting the suite's packaging on one of its binaries ties the product's manifest to a crate that may
-be renamed, split or deleted, and makes that binary's manifest carry a comment apologising for
-packaging everything else. A crate whose only job is packaging cannot be surprised by any of that.
-
+Packaging lives in its own crate so it is never tied to a binary that might be renamed or deleted.
 **The build is invoked as `cargo deb -p glimpse-package` and `cargo generate-rpm -p
-crates/glimpse-package`** — note the asymmetry, which is the tools' and not ours: cargo-deb takes a
-package *name* and resolves `assets` relative to this manifest, so the `../../data/...` prefixes are
-counted from `crates/glimpse-package/`; cargo-generate-rpm takes a *path* and runs from the workspace
-root, so its `source` fields have no prefix at all. Two spellings of one asset list is the reason
-`tests/packaging.rs` compares them rather than trusting either.
+crates/glimpse-package`** — cargo-deb takes a package *name* and resolves `assets` relative to this
+manifest, so `../../data/...` prefixes count from here; cargo-generate-rpm takes a *path* and runs
+from the workspace root, so its `source` fields have no prefix. Two spellings of one list is why
+`tests/packaging.rs` compares them rather than trusting either. **`$auto` scans the executables named
+in `assets`, not this crate's** (which links nothing); the explicit GTK/libadwaita/layer-shell/
+libheif/PAM/GeoClue entries stay anyway, since a partial scan would silently drop what the bundled
+binaries actually link.
 
-**`$auto` scans the asset binaries, not this crate's.** An empty lib has nothing to link, which
-sounds like it should break dpkg-shlibdeps — measured, it does not: cargo-deb resolves `$auto`
-against the executables in `assets`. The explicit GTK/libadwaita/layer-shell/libheif/PAM/GeoClue
-entries stay anyway, because those are linked by the *bundled* binaries and a partial scan would
-silently drop them.
+**The two manifests list one `.mo` asset per language, never a glob** — cargo-deb flattens a glob
+onto the destination directory, so one over `target/locale` ships one arbitrary language at the
+wrong path and exits 0 anyway. `tests/packaging.rs` fails when a language reaches `po/LINGUAS`
+without reaching both asset lists, or when a glob is reintroduced, reading the manifest with
+comments stripped so the prose describing the hazard cannot trip the guard. `package-deb`,
+`package-rpm` and `package-binary` all depend on `build-translations` so the `.mo` files exist first.
 
-## Translation catalogs
+**`just package-aur` builds through `makepkg` from the same `PKGBUILD` the AUR carries** —
+`render-pkgbuild.sh --local` swaps the source for the local tarball and skips the checksum,
+`--release` keeps the published URL and its b2sum; one `PKGBUILD` is the point, since a second copy
+would drift on `depends` first, and `makepkg --nodeps` is right because `package()` only copies an
+already-built tree. **`install-aur`/`uninstall-aur` elevate with `sudo`, never `pkexec`** — pkexec
+drops the working directory, so a relative package path never resolves, and a correct password can
+still fail with `No session for cookie` when its agent cannot tie the process to a session; use
+`GLIMPSE_SUDO=pkexec` plus an absolute path for a launcher with no terminal. **Installing also
+changes which binary the session bus activates** — D-Bus service files name `/usr/bin/`, so an
+installed package wins over a `target/` build for anything started by activation.
 
-The two manifests list one `.mo` asset **per language**, never a glob. cargo-deb flattens an asset
-glob onto the destination directory, so a glob over `target/locale` ships one arbitrary language at
-the wrong path and still exits 0. `tests/packaging.rs` reads `po/LINGUAS` and fails when a language
-reaches it without reaching both asset lists; a second test fails if a glob is ever reintroduced.
-Both read the manifest with comment lines stripped, because the prose describing the hazard
-otherwise trips the guard against it.
+**A dependency is declared because something links it, checked with `ldd`.** Everything an applet
+merely *talks to* — UPower, power-profiles-daemon, NetworkManager, BlueZ, UDisks2, CUPS, KDE Connect,
+xdg-desktop-portal, `ddcutil` — is `optdepends`, since its absence degrades an applet rather than
+breaking the install. **`options=('!debug')`**, since `strip = true` in the release profile leaves no
+symbols to split, so the debug package is nothing but `.build-id` links pacman never removes with
+its parent.
 
-`just package-deb`, `just package-rpm` and `just package-binary` all depend on
-`build-translations`, so the `.mo` files exist before any of them resolves its assets. The binary
-tarball is what the AUR package unpacks, so a language missing there is missing from every Arch
-install as well — `package-binary.sh` walks `target/locale/*/LC_MESSAGES` and rebuilds `<lang>/`
-from the source path, the same way it walks the themes below.
+**Packages seed no user configuration** — an install runs as root with no home to write, so none
+carries a `postinst`. Each UI binary calls `glimpse_config::seed_user_config` before `load`, and
+whichever starts first writes `~/.config/glimpse/config.toml` with `File::create_new`, so
+simultaneous starts cannot race; `scripts/install.sh` seeds the same file for a source install, using
+`SUDO_USER`'s passwd entry for the real destination and owner (root's `$HOME` names the wrong
+person), and skips entirely under `DESTDIR`. **The seeded file is the fully commented copy, and every
+value in it is inert**, so an uncommented default still updates on the next release; its `#:schema`
+first line points at the installed `config.schema.json`, giving a TOML language server completion,
+hover docs and diagnostics.
 
-## Arch
-
-`just package-aur` builds `dist/glimpse-desktop-bin-<version>-1-x86_64.pkg.tar.zst` from the
-tarball `package-binary` just wrote, through `makepkg`. It is the same `PKGBUILD` the AUR carries:
-`scripts/render-pkgbuild.sh --local` only swaps the source for the tarball sitting beside it and
-skips the checksum, because there is nothing downloaded to check. `--release`, used by
-`just release-pkgbuild` from the release workflow, keeps the published URL and its real b2sum.
-Keeping one `PKGBUILD` is the point — a second copy would drift on `depends` first. `makepkg` runs
-`--nodeps` because `package()` only copies an already-built tree; the declared dependencies are
-what the package needs to run, not what building it needs.
-
-`just install-aur` builds it and hands it to `pacman -U`; `just uninstall-aur` removes it again.
-Both go through the `elevate` variable, which is `sudo` — these are run from a terminal that has
-one. **`pkexec` is the wrong default here**: it drops the working directory, so a relative package
-path never resolves, and its own polkit path is the fragile one — a correct password still fails
-with `No session for cookie` when the agent cannot tie the calling process to a session. Set
-`GLIMPSE_SUDO=pkexec` from a launcher with no terminal, and pass the package by absolute path,
-which these recipes do anyway. Neither passes `--noconfirm`: a transaction that writes to `/usr`
-is worth reading first.
-
-**Installing changes which binary the session bus activates** — the D-Bus service files name
-`/usr/bin/`, so an installed package wins over a `target/` build for anything started by
-activation rather than by hand.
-
-**A dependency is declared because something links it, not because it sounds right.** `ldd` over
-every shipped binary is the check; it is what retired `libheif` from all three manifests, left over
-from an implementation that did link it. `glimpse-lock` links `libpam`, so `pam` is declared. Everything the applets merely
-*talk to* — over D-Bus, or IPP for CUPS — UPower, power-profiles-daemon, NetworkManager, BlueZ, UDisks2,
-CUPS, KDE Connect, xdg-desktop-portal — is an `optdepends`, because each one absent is a degraded applet rather than a
-broken install. `ddcutil` is one too: glimpse speaks DDC/CI itself and wants only the udev rule
-that opens `/dev/i2c-*`.
-
-**`options=('!debug')`.** `profile.release` sets `strip = true`, so there are no symbols left to
-split: the debug package comes out as nothing but `.build-id` links, and pacman does not remove it
-with its parent, so it lingers after an uninstall.
-
-## The user's own configuration
-
-The packages ship `/usr/share/glimpse/config.commented.toml` and seed nothing. A `.deb`, `.rpm` or
-pacman install runs as root and has no user to write a home directory for, which is why none of the
-three carries a `postinst`: the four UI binaries call `glimpse_config::seed_user_config` before
-`load`, and whichever starts first writes `~/.config/glimpse/config.toml`. It is written with
-`File::create_new`, so simultaneous starts cannot race and a symlink cannot be followed onto an
-existing file, and it returns nothing — a lock screen that refused to start over a template file is
-the worse bargain.
-
-`scripts/install.sh` seeds the same file for a source install, where the invoking user is known. It
-skips entirely under `DESTDIR`, because a packaging build must not touch anybody's home, and takes
-the destination and owner from `SUDO_USER`'s passwd entry — root's `$HOME` names the wrong person,
-and a root-owned `config.toml` is one its owner cannot edit.
-
-**What is seeded is the commented copy, and every value in it is inert.** A user uncomments what
-they want to change, so a later release's changed default still reaches them. Its first line is a
-`#:schema` directive pointing at the installed `config.schema.json`, which is what gives a TOML
-language server — taplo, or an editor extension built on it — completion for every table and key,
-each setting's documentation on hover, and a diagnostic on a value the schema refuses.
-
-## Themes
-
-Themes are the one asset whose directory structure is load-bearing: `themes/<name>/panel.css` is
-found by name, so a flat glob into a single destination would collapse every theme's sheets on top of
-one another. `scripts/install.sh` and `scripts/package-binary.sh` walk `data/themes/*/*.css` and
-rebuild `<name>/` from the source path, and generalise to any number of themes; the two static asset
-lists cannot compute a destination, so each shipped theme needs its own line in both. Only `adwaita`
-ships today.
-
-`data/pam.d/glimpse-lock` is the locker's PAM stack for Arch and the binary tarball, built on
-`system-auth`. Every package installs its own stack at the same `/etc/pam.d/glimpse-lock`:
-
-- the rpm ships `data/pam.d/fedora/glimpse-lock`, built on `password-auth`, because authselect can
-  put `pam_fprintd` in Fedora's `system-auth` and the prompt only ever sends a password;
-- the deb ships `data/pam.d/debian/glimpse-lock`, built on `common-auth` and `common-account`;
-- the `opensuse` rpm variant ships that same Debian stack, since openSUSE has neither `system-auth`
-  nor `password-auth` and `@include` is upstream Linux-PAM syntax. A variant replaces `assets` and
-  `requires` whole, so its asset list repeats the base one and its `requires` names only `geoclue2`
-  and `pam`, the two Fedora names openSUSE shares; auto-req covers the linked libraries by soname.
-  `just package-rpm` builds both rpms, and the variant's `1.opensuse` release keeps their file names
-  apart.
-
-Every manifest marks the stack a configuration file, so an edited stack survives an upgrade. The
-install scripts copy regular files out of `data/pam.d/` only, so the per-distribution directories
-never land in `/etc/pam.d`.
+**Theme directory structure is load-bearing** — `themes/<name>/panel.css` is found by name, so a
+flat glob into one destination would collapse every theme's sheets together; `install.sh` and
+`package-binary.sh` walk `data/themes/*/*.css` and rebuild `<name>/`, since the static asset lists
+cannot compute a destination and each theme needs its own line in both. **Each package installs its
+own PAM stack at `/etc/pam.d/glimpse-lock`**: `data/pam.d/glimpse-lock` (Arch/binary tarball, on
+`system-auth`), `data/pam.d/fedora/…` (rpm, on `password-auth`, since
+authselect can put `pam_fprintd` in Fedora's `system-auth`), and `data/pam.d/debian/…` (deb, on
+`common-auth`/`common-account`) — the openSUSE rpm variant ships the Debian stack too, since it has
+neither `system-auth` nor `password-auth`. Every manifest marks the stack a configuration file, so
+an edit survives an upgrade, and the install scripts copy files out of `data/pam.d/` only, so the
+per-distribution directories never land in `/etc/pam.d`.

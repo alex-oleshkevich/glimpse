@@ -10,668 +10,200 @@ panel, the notification popup process and the lock screen.
 - `resources/widgets/` — generated `.ui`, bundled into `glimpse-widgets.gresource`
 
 Adding a template is three edits: the `build.rs` pair, the `gresource.xml` entry, the module in
-`lib.rs`. Resource prefix `/me/aresa/GlimpseShell`; `build.rs` only compiles, and `just lint` runs
-`blueprint-compiler lint` separately.
-
-**Every type a template names must be bound as a `TemplateChild`, even one Rust never reads.**
-Binding registers the GType before `init_template` resolves the class by name, or `Builder` reports
-`Invalid object type` and the constructor panics.
+`lib.rs`. Resource prefix `/me/aresa/GlimpseShell`. **Every type a template names must be bound as a
+`TemplateChild`, even one Rust never reads** — binding registers the GType before `init_template`
+resolves the class by name, or `Builder` reports `Invalid object type` and the constructor panics.
 
 ## Recurring rules
 
 - **Every setter compares before it writes**; `gio::Icon` compares with `Icon::equal`.
-- **`css_classes` on a builder replaces the list, and `has-frame: false` *is* the `flat` class**, so
-  a chain setting both paints a button behind a frameless icon. Add classes after `build()`.
-- **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a `Section`
-  marked empty reports no title for one it holds. A runtime-built label handed to `set_text` starts
-  `visible: false`, since `set_text` returns early when unchanged: a visible empty label never hides.
-- **A row highlights only if its body acts.** `activatable: false` drops `can-target`, so neither the
-  row, its children, nor a tooltip is reachable — a row holding a control uses `SwitchRow` instead.
+- **`css_classes` on a builder replaces the list, and `has-frame: false` *is* the `flat` class** —
+  add classes after `build()`, or a chain setting both paints a button behind a frameless icon.
+- **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a hidden
+  `Section` reports no title.
+- **A row highlights only if its body acts**; `activatable: false` drops `can-target`, so a row
+  holding a control uses `SwitchRow` instead.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
-- **Untrusted text is capped and set as plain text**, with no markup setter anywhere: tray titles,
+- **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 
-## Indicator, IndicatorGroup and Pager
+## Indicator, IndicatorGroup, Pager, TrayStrip, TooltipCard and InhibitorList
 
-The icon is one `Option<gio::Icon>`; `gdk::Texture` implements it, so a themed name, a file and a
-tray pixmap all arrive through one setter — sniffing a string for a leading slash guesses wrong on a
-themed name containing one. `IndicatorSpec` holds a `gio::Icon` and so is not `Send`.
+The icon is one `Option<gio::Icon>`, sitting in a `Gtk.Overlay` whose `overlay` is an emblem on the
+trailing corner; the slot follows the base icon's presence, so an indicator with neither reserves no
+space. `extension` reparents only on identity change, so an applet keeps one widget and updates it
+in place. **A badge hides the attention dot but must not cancel attention itself** — two marks for
+one fact is noise, so `indicator--attention` keeps colouring the chip while the dot yields. `Pager`
+is a click per slot; an item takes no click of its own, since `GtkButton` restricts its gesture to
+the primary button and acting on a workspace happens in the popover.
 
-- **The icon sits in a `Gtk.Overlay`, and `overlay` is an emblem on its trailing corner** — the
-  Windows-taskbar idiom, for a state the application's own icon does not carry. The *slot* follows
-  the base icon's presence, so an indicator with neither reserves no space.
-- **`extension` is any widget the applet owns**, placed in a box beside the icon slot. The
-  indicator compares by identity and only reparents on a change, so an applet keeps one widget —
-  the color picker's `Swatch` — and updates it in place.
-- **`IndicatorGroup::acknowledge` is the chip's one transient state**: it holds
-  `.indicator-group--acknowledged` for a moment and lets the group's own background transition fade
-  it in and out. It confirms an action with no visible effect of its own — a copy — so a repeat
-  restarts the hold rather than stacking timers.
-- **A badge hides the attention dot, and must not cancel attention itself.** Two marks for one fact
-  is noise, so the dot yields while `indicator--attention` stays and colours the chip. Assert it from
-  a clean spec — `set_attention` returns early on an unchanged flag.
-- **A label with no icon is a text chip, `indicator--text`, whose label takes the icon's minimum
-  width.** The group's minimum is wider than a one- or two-letter label, and a box packs its child
-  at the start, so without it the letters sit left of the chip's middle.
+`TrayStrip` renders one `Indicator` per `TrayChip`, a remote object `IndicatorGroup` cannot express.
+**The chevron is pinned to one edge and hidden chips grow away from it**: a right-zone applet wants
+`Edge::Start`, a left-zone one `Edge::End`, and the slide direction and `halign` follow that pair, or
+the strip shoves the chips already on the bar aside.
 
-`Pager` is a strip of `PagerItem`, the one indicator that is not an `IndicatorGroup`: a click per
-slot over a list whose length changes.
+`TooltipCard` reports itself invisible when every one of its four fields is empty, so a host shows
+no tooltip rather than an empty box. Each `InhibitorList` row is an `Expandable` opening a card of
+what it prevents and, when releasable, a destructive Release — it ends another app's hold, which
+"Cancel" does not say.
 
-- **An item takes no click of its own.** `GtkButton` restricts its gesture to the primary button,
-  the one every applet's popover opens on; acting on a workspace happens in the popover.
-- **One token drives both dimensions of the labels shape.** GTK4's `min-width`/`min-height` bound
-  the *content* box and padding is added outside it, so padding belongs on `.pager-item__label`.
-- **`PagerItem` deliberately has no `dispose`.** *Naming* a `Gtk.Button` template's root child makes
-  `dispose_template()` unparent it twice; `Row` and `Notice` escape by wrapping contents in an
-  **unnamed** box, and a `gtk4::Widget` subclass owns no child and needs the call.
+## Calendar, Row, SplitRow and Placeholder
 
-`TrayStrip` is the second. It renders one `Indicator` per `TrayChip` and exists because a tray item
-is its own remote object, which an `IndicatorGroup` cannot express — that group is one clickable
-thing whose `pressed` names no chip.
-
-- **Each chip owns its click and scroll controllers, and the key is captured when it is built.**
-  `reconcile::by_key` binds a widget to a key for as long as the key lives, so the capture stays
-  correct across a reorder with no hit-testing arithmetic — the opposite of `IndicatorGroup`.
-- **Visible chips and overflow chips are two boxes**, because `by_key` assumes the items are its
-  parent's only children and the strip also holds the chevron and the revealer.
-- **The chevron is handled inside the strip and emits nothing** — overflow is presentation, so an
-  applet never learns it happened. It hides when nothing is hidden, and closes the drawer on the way.
-- **The chevron is pinned to one edge and the hidden chips grow away from it**, so the overflow
-  opens into the bar rather than off the screen. A right-zone applet wants `Edge::Start`, a
-  left-zone one `Edge::End`, and the slide direction *and* the chevron's `pan-*-symbolic` follow that
-  pair — **as must the strip's `halign`**, or the strip grows from its anchor and shoves the chips
-  already on the bar aside. Closed, the chevron points back over the drawer and `--open` rotates it
-  180°; **the icon has to be directional**, a rotated symmetrical glyph reading as nothing.
-- **The strip does not author text.** `set_overflow_tooltip` takes the wording; the widget joins
-  what it is given for the accessible name and invents none of it.
-
-## TooltipCard
-
-Icon, title, body and a status line, for a tray item's `ToolTip` — which is four fields, not a
-string, and loses its icon and its title/body split the moment it is flattened into one.
-
-- **It reports itself invisible when every field is empty**, so a host shows no tooltip rather than
-  an empty box. An icon alone is still a tooltip; a card with only an icon reserves no text column.
-- **Caps are the widget's, because the text is another application's**: 128 characters of title,
-  512 and six lines of body. A sync log would otherwise grow the tooltip past the screen.
-- Title, body, status and `icon-name` are GObject properties, which is what lets its states board
-  be pure Blueprint.
-
-## Calendar
-
-- **A month change slides; everything else repaints in place.** The day grid has two pages in a
-  `Gtk.Stack`; a new month is painted into the hidden one and slid in from the side it lies on. A
-  change riding the month/year crossfade, or on an unmapped calendar, does not slide.
-- **Four measurements are tokens on `.calendar` itself.** The selection ring is not one: it is `2px`
-  inside a `box-shadow`, and the pixel lint recognises `px` by property name.
-- **Month names use `%OB`, not `%B`**, which is the form a date is built from. English does not
-  distinguish them, which is what makes it easy to ship broken.
-- **Dots are drawn, not styled**, and `measure` reports the same height with or without events.
-- **`select` compares before it writes, and that guard is load-bearing** — it emits `day-selected`,
-  so a handler that reacts by selecting overflows the stack without it.
-- **Weekdays are numbered as `glib::DateTime` numbers them**, Monday 1 through Sunday 7; the letters
-  come from January 2024, whose 1st was a Monday, so `%a` gives the locale's own abbreviations.
-
-## Row, SplitRow and Placeholder
+**A month change slides; everything else repaints in place** — a new month paints into the hidden
+page of a two-page `Gtk.Stack` and slides from the side it lies on. **Month names use `%OB`, not
+`%B`**, which English does not distinguish, making it easy to ship broken. `select` compares before
+it writes and that guard is load-bearing: it emits `day-selected`, so a handler that reacts by
+selecting would otherwise overflow the stack.
 
 ```
 [ check ] [ lead ] [ title    ]  ←space→  [ value ] [ spinner ] [ trail ]
                    [ subtitle ]
 ```
 
-- **It navigates, it does not expand.** A popover's height is capped by the work area, so expanding
-  row 15 of 20 hides the thing just revealed. Expand only one or two rows, and only from a list that
-  cannot grow.
-- **`icon-name` and `value` are properties; `lead` and `trail` stay slots.** Without properties a
-  `.blp` names the type and nothing else, and separate widgets let a row carry a value *and* a
-  chevron.
-- **`selectable` and `selected` are separate**, so a selectable row reserves the check column before
-  anything is selected and selecting one shifts no label in the list.
-- **`busy` spins where the value sits**; a word like "Connecting…" beside it says it twice.
-- **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
-- **`.row` must reset `font-weight`.** libadwaita styles bare `button` bold and weight inherits, so
-  every row would render bold — and the grammar distinguishes a selected row by weight.
-- **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
-  only emitter, so the row and the switch can never double each other. **`locked` disables the knob
-  and makes a row-body click a no-op, but never the row itself** — `set_sensitive(false)` on the row
-  would dim the subtitle explaining the lock, the same defect `Fader::toggleable` exists to avoid.
-- **`Placeholder` stands where content would be**; its `error` flag only recolours the icon.
-- **`SplitRow` wraps a `Row` rather than subclassing one**, or its trailing button lands inside the
-  row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
-  lint allows `border:` but not `border-left:`.
+**It navigates, it does not expand** — a popover's height is capped by the work area, so expanding
+one row in a long list hides what it just revealed. `.row` must reset `font-weight`, since libadwaita
+styles bare `button` bold and the grammar distinguishes a selected row by weight. `SwitchRow`'s
+`locked` disables the knob and makes a row-body click a no-op, but never the row itself —
+`set_sensitive(false)` would dim the subtitle explaining the lock. `SplitRow` wraps a `Row` rather
+than subclassing one, so its trailing button lands inside the row's box without `Row` knowing.
 
-## InhibitorList
+## Section, EventList, WorldClock and the notification widgets
 
-Each inhibitor is an `Expandable` whose whole row opens a card of what it prevents and, when it can
-be released, a destructive Release — it ends another app's hold, which "Cancel" does not say. The
-card repeats nothing the row shows: the reason is the subtitle, the source the icon. A hold that
-prevents only idle and cannot be released has nothing to show and is plain text with no chevron.
+**Visibility toggle, not a `Gtk.Stack`** — a stack sizes to its largest page, so a placeholder would
+reserve its height under a short agenda. **`when` arrives formatted; a `Zone` does not** — derive in
+the widget when formatting destroys the derivation, since `"00:47"` has thrown away that it is
+tomorrow there. A zone that does not resolve reads `—`, since `g_time_zone_new_identifier` returns
+NULL where the older `g_time_zone_new` silently returns UTC.
 
-- **`InhibitorEntry`/`InhibitorSource`/`InhibitorTargets` are local to this crate**, per the widget
-  boundary rule above; `InhibitorSource` maps to a lead icon internally, not carried as a string.
-- **Rows reconcile by inhibitor id**, so a Release row only ever names the hold it was built for.
-- **A states board declares `$InhibitorList` and feeds real data through `set_inhibitors`**, the same
-  way `tray_states` tags each `TrayStrip` with a `demo__<case>` class.
+The card subclasses `Gtk.Widget`, not `Gtk.Button`, so its default action is a gesture plus keyboard
+activation on the root. **The image is bounded before it reaches the card, because the sender chose
+it**: dimensions above 4096px refused, centre-cropped, decoded toward 64px. Urgency is behaviour, not
+appearance: `set_urgency` stores the value and writes no CSS class. **Body text is the one place
+`set_markup` is called**, only through `body-markup`, whose setter runs `pango::parse_markup` first —
+refused markup renders **empty**, not raw tags, so callers sanitize first through
+`glimpse_utils::markup`, and a refused body falls back to `plain`, never the markup string. There is
+no inline reply here: a reply field needs keyboard focus, which a panel popover cannot take.
 
-## Section, EventList and WorldClock
-
-- **Visibility toggle, not a `Gtk.Stack`** — a stack sizes to its largest page, so a placeholder
-  reserves its height under a four-row agenda.
-- **`when` arrives formatted; a `Zone` does not.** Derive in the widget when formatting destroys the
-  derivation — `"00:47"` has thrown away that it is tomorrow there.
-- **`EventList` defaults to inert, the overflow row exempt** — the flag would otherwise make it inert
-  in exactly the case that puts it on screen.
-- **Each event is an `Expandable` keyed by `Event::id`**, and opens only when it carries a link or a
-  fact; its card is rebuilt only when those change, so a refresh never unparents a row under a
-  press. Leading `past` events fold behind "N earlier" and the cap counts only what is left; both
-  counts open in place, the same "N more" as the network list, and `fold` closes them again —
-  `CalendarPopover` calls it when the selected day changes.
-- **`EventList` answers the tooltip, not the row**: GTK picks tooltips and skips a non-activatable
-  row, so the list maps the pointer's `y` onto row allocations. **Times use `tabular-nums`**, since
-  proportional digits give up to 17px of animated jitter.
-- **`Zone::note` and `Zone::icon_name` travel together**, or a sun sits above "light rain", and the
-  icon carries no colour. A second line appears only when the date differs in that instant's own
-  timezone — pass a local `DateTime`.
-- **A zone that does not resolve reads `—`**: `g_time_zone_new_identifier` returns NULL where the
-  older `g_time_zone_new` silently returns UTC, hence the `v2_68` feature.
-
-## NotificationCard, NotificationHeader and the body widgets
-
-- **The card subclasses `Gtk.Widget`, not `Gtk.Button`.** It contains close and action buttons, so
-  its default action is a gesture plus keyboard activation on the root. `:hover` is on
-  `.notification`, so the actions row does not read as a detached strip below a card.
-- **Every action carries `min-height: 0`.** Adwaita gives every `Gtk.Button` an intrinsic minimum
-  that GNOME's St buttons do not have. This is a toolkit difference, not a style preference.
-- **The image is bounded before it reaches the card, because the sender chose it**: header checked
-  before decoding, dimensions above 4096px refused, centre-cropped, decoded toward 64px. **Compare
-  the source, not the result** — `bound` builds a new texture every resample, so comparing its
-  output never matches and the image is resampled twice on the main loop.
-- **Urgency is behaviour, not appearance.** `Critical` persists and ignores do not disturb and looks
-  like everything else; `set_urgency` stores the value and writes no CSS class.
-- **What a screen reader hears is assembled in `announce`, and it is the whole card** — unread
-  first, because it decides whether the rest is worth hearing. Every leaf is `presentation`, and the
-  close button takes the summary too, or twenty cards give twenty `Dismiss, button` tab stops.
-- **Body text is the one place `set_markup` is called**, and only through `body-markup`, whose
-  setter runs `pango::parse_markup` first: a `GtkLabel` handed markup Pango refuses renders **empty**
-  rather than showing raw tags. Callers sanitize first through `glimpse_utils::markup`.
-- **A refused body falls back to `plain`, not the markup string.** `plain` decodes the five XML
-  entities Pango knows plus `&nbsp;`, leaves anything unrecognised as written, and bounds the search
-  for a reference's `;` by **characters**: a byte bound slices inside `&` followed by six `é`.
-- **Each custom widget binds its template root**, so `dispose_template` unparents the whole subtree.
-
-There is no inline reply and no timer here: a reply field needs keyboard focus, which a panel
-popover cannot take, and expiry is the stack's business.
-
-## NotificationList and NotificationStack
-
-`NotificationList` takes `&[Notification]` and reconciles **by key**, because notifications arrive
-and leave from the middle; matching on position rebuilds every row below the change and destroys
-hover, focus and any pending press. The key can therefore be captured when the row is built.
-`PlayerList` reuses by position and reads its key back at signal time for exactly that reason.
-
-- **`set_cap` hides rows rather than dropping them**, so expanding is a visibility flip and a row
-  mid-hover survives it.
-- **A row dropped from the target list fades before it is unparented**, rather than vanishing on the
-  next `by_key` pass. `set_notifications` keeps a fading row's last known `Notification` in
-  `removals` and folds it back into the list handed to `by_key`, so the row is neither re-dressed away
-  nor rebuilt mid-fade; `by_key` itself stays untouched, since animating its removal generically would
-  reach every other list built on it. A key that reappears while still fading cancels the fade instead
-  of queuing a second one.
-
-- **It has no `BoxLayout`, and could not have one.** The cards behind must overlap the front one and
-  sit against its *measured* height; a box cannot overlap children, and `Gtk.Overlay` takes its size
-  from its main child — the very height it is being asked to produce.
-- **Paint order is child order, so strips are parented ahead of the front card.** One parented after
-  it draws *over* it, as a bar across the bottom rather than an edge peeking out.
-- **The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
-  absolute way, so "recede" reads on white and disappears on charcoal.
-- **A mapped stack slides and fades the cards leaving it (`.leaving`), then applies the list**; `NotificationsPopover` does
-  the same with whole groups, which is what Clear all removes. The newest list waits in `queued` (or
-  `held`) and wins when the fade ends. Unmapped, both apply at once. `fade_out` resets opacity
-  because `by_key` can hand a faded widget straight back.
-- **It reconciles by key without `reconcile::by_key`** — that helper asserts the items are the
-  parent's *only* children and would fight `arrange` over the strips every update.
-- **The strip's corner radius is written out rather than shared**: `--gl-notification-radius` is
-  declared on `.notification`, and a strip is a sibling the variable does not reach.
+`NotificationList` reconciles **by key**, because notifications arrive and leave from the middle;
+matching on position would rebuild every row below the change and destroy hover and focus. `set_cap`
+hides rows rather than dropping them, so expanding is a visibility flip. The stack has no
+`BoxLayout`: the cards behind must overlap the front one at its *measured* height, which
+`Gtk.Overlay` cannot report while taking its size from that same child, and paint order is child
+order, so strips are parented ahead of the front card.
 
 ## Popovers
 
 `PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
-separator between each pair. An applet can suppress its footer separator when no divider is needed.
-Every separator inside a popover, tray menus included, paints transparent: it is spacing, not a line.
-**A detail card has at most one red action**, `crate::DESTRUCTIVE` on its row: the least reversible
-one, so Forget outranks the Disconnect beside it and a lone Disconnect, Eject or Stop sharing takes
-the red itself.
+separator between each pair, and every separator paints transparent. **A detail card has at most one
+red action**, `crate::DESTRUCTIVE`: the least reversible one, so Forget outranks Disconnect.
 
-- **A section and its hairline show and hide together**, the shell watching `notify::visible` on
-  what is appended; hiding the section alone leaves a line floating against nothing.
-- **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
-  `init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `hero_box` into
-  `content_box` and panics.
-- **The shell paints its own surface, draws no shadow and does not scroll.** A `Gtk.Popover`'s
-  `contents` node draws one already, two radii show at every corner, and capping height belongs to
-  whatever knows the anchor's work area.
+**`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
+`init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `hero_box` into
+`content_box` and panics. **A switch driven from state never reports it back** — `set_dnd` and the
+bluetooth power switch raise a guard flag while writing, and `SwitchRow::set_active` compares and
+silences its own knob. **A detail unfolds in place, never beside the list**: every detail is an
+`Expandable` whose `expanded` makes the whole of it one `.card`, so the head never moves. **Focus
+belongs to `PopoverShell`**: opening one detail closes every unrelated `Expandable` in the shell, and
+a press on anything else dimmed closes the detail instead of acting, claimed in the capture phase.
+**A network is asked for a password on a page of its own popover, not a window beside it**, and
+`NetworkPopover::set_prompt` clears the box whenever the key changes. **A pairing prompt is a
+`Gtk.Stack` page, not a dialog**, and `PairingDialog` clears its entry only when the **device**
+changes, not the name, so a credential cannot reach the next device.
 
-Per-popover rules that are traps rather than taste:
+## ForecastStrip, ForecastList, the media widgets, Fader and SourceList
 
-- **A switch driven from state never reports it back** — `set_dnd` and the bluetooth power switch
-  raise a guard flag while writing, and `SwitchRow::set_active` compares and silences its own knob.
-  Anything drawn from the same value is set *above* the guard: it stops a set being reported, not
-  drawn.
-- **`.column` carries the width floor, not `.popover-shell`**, and `same_rows` compares only what
-  the list draws — a title changes on every keystroke.
-- **Static wording lives in the template; wording the data decides lives in Rust.** A fixed label is
-  `_("…")` in the `.blp`, a slot holding two a `Gtk.Stack` of `$Placeholder` pages; a plural is
-  `ngettext` with named `{placeholders}`, which `format!` cannot reorder.
-- **A `NetworkPopover` row is a `$SplitRow`**: the body activates it, the chevron unfolds its card,
-  and a line keyed by network *and* action cannot act on the one no longer shown.
-- **A network is asked for a password on a page of its own popover, not in a window beside it.**
-  `NetworkPopover::set_prompt` swaps the list for the ask, makes the hero insensitive so the Wi-Fi
-  switch is not a way out of a question, and **clears the box whenever the key changes**. **What a
-  box accepts is decided by what is asked** — a passphrase is 8 to 63 characters or 64 hex digits,
-  an SSID at most 32 octets, a VPN token only bounded — since one rule for all three rejects a valid
-  token and accepts a password NetworkManager refuses. **A hidden network chooses its own security**
-  and *None* takes the box away. `SecretDialog` asks the same on the host. **The Wi-Fi switch goes
-  insensitive under a hardware block**, which reads as refused, not merely off.
-**A detail unfolds in place, never beside the list**, so a card grows down instead of sideways off
-an output edge, and a capped list ends in an overflow row. **Every detail is an `Expandable`**: a
-`$Row` or `$SplitRow` head, a `[details]` child, and `expanded` making the whole of it one `.card`. Only
-paint changes between the two states, so the head never moves; the card stays until the drawer has
-finished closing. The head toggles it — a `SplitRow`'s chevron, a `Row`'s click — and the owner
-only fills the details. **Focus belongs to `PopoverShell`**: opening one closes every unrelated
-`Expandable` in the shell, and everything neither holding nor inside an open one takes `.receded`,
-derived from the tree on each change so nothing lists what dims. The largest subtree outside is
-dimmed, never its children too, because opacity compounds; section headers and separators stay lit
-as the frame. A press on anything dimmed closes the detail and is claimed in the capture phase, so
-the row under it never acts — except on another `Expandable`'s opener, which goes through and
-switches cards in one click; dimmed openers keep their hover to say so. **No
-card row carries a lead icon**: the head above it already names the thing, so a column of glyphs
-beside one-word labels is decoration the eye has to step over. **What
-recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
-**`IdlePopover`'s hold switch is the indefinite hold, not a readout**, emitting `hold-toggled`; its
-five timed presets are an `Expandable` card under the hold row, their durations hardcoded in
-`imp.rs`, a fixed UI fact the applet has no reason to supply. It reuses the `quiet`-guard above.
-Every hold, glimpse's own included, sits under a "Kept awake by" section, and it and the footer separator stay hidden
-until one exists.
-**A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
-device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
-wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
-carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey. It
-focuses its entry on `map` and clears it when the **device** changes, not the name, so a credential
-cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a half-typed one.
+**Row's lead icon is `lead-icon`, not `icon-name`** — `Gtk.Button` already owns an `icon-name` that
+replaces the button's child, so a subclass calling `set_icon_name` destroys the row's template.
+Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
+the paintable's natural width. `Pixbuf::file_info` reads dimensions out of the header without
+decoding, so an oversized `mpris:artUrl` is refused before anything expands it in memory.
 
-## ForecastStrip, ForecastList and the media widgets
+`Fader` lifts `Scrubber`'s drag guard wholesale, a capture-phase `held: Cell<Option<f64>>`, so an incoming
+state update cannot fight a drag. **`maximum` and `floor` put value and clamp in the device's own
+units**, never a literal 100 or 0, and clamp each other on write so neither setter can invert the
+range; both skip `NaN`, since `g_param_value_validate`'s `CLAMP` leaves it unchanged and glib-rs
+reads that as changed (`NaN != NaN`) and panics before either setter body runs. `toggleable: false`
+swaps the leading `ToggleButton` for a plain, non-dimmed `Gtk.Image`, since an insensitive
+`ToggleButton` renders dimmed. `SourceList` has no template: a row and its `Fader` are parented as
+siblings, never nested, so the row's `activatable: false` cannot reach the fader beneath it.
+`Fader::set_floor` is the one place that reconciles `maximum` and `floor`, so `SourceList` must not
+pre-clamp either value.
 
-- **`ForecastDay` subclasses `Row`**: `Row` is `IsSubclassable`, its own `Buildable` routes the
-  subclass's `[trail]`, and its setters are inherent so a subclass reaches them by `upcast_ref`.
-- **`ForecastList`'s children are holders, not rows.** Each day is parented with the revealer that
-  unfolds under it, so reach a row through `rows`, never through the list's own children.
-- **Row's lead icon is `lead-icon`, not `icon-name`.** `Gtk.Button` already owns an `icon-name` that
-  replaces the button's child, so a subclass calling `set_icon_name` resolves the *parent's* setter
-  and destroys the row's template. `Hero`, `Notice` and `Placeholder` extend `Gtk.Widget` and keep
-  `icon-name`.
-- **`set_position` is ignored while the pointer is down, and its increments are set in Rust** — the
-  same capture-phase `held` guard and `Adjustment` setup `Fader` reuses (below). `blueprint-compiler
-  lint` rejects an `Adjustment` carrying anything but `lower`, `upper` and `value`, so nothing in the
-  template can guard them, and losing them kills keyboard seeking silently.
-- **Artwork is a `Gtk.Image`**, the only one that can be told how big to be: `Gtk.Picture` reports
-  the paintable's natural width, so a cover would set the popover's. It also centres a paintable at
-  its own aspect ratio, so cover art arrives already square or the corners read as broken.
-- **`Pixbuf::file_info` reads dimensions out of the header without decoding**, so an oversized
-  `mpris:artUrl` is refused before anything expands it in memory. Scaling is by the shorter side,
-  only downward, cropped from the middle; `cover()` is pure arithmetic.
-- **A widget built before `Styles::install()` picks up none of it.** Order matters, rooting does not.
+## DisplayList, DisplayPopover, AudioPopover, BrightnessPopover, BatteryPopover and SessionPopover
 
-## Fader
+Each entry is an `Expandable` keyed by connector. The enable switch's `locked` is set only when its
+own output is enabled **and** is the sole one enabled, never on a disabled output, which would
+strand the user with no way to turn a display back on. **`set_output_power(false)` removes the
+switch from the row, rather than locking it** — `locked` answers "your last enabled display", the
+gate answers "this compositor cannot do this at all", and the two never fight. Blanking the screens
+in `DisplayPopover` is a plain `$Row`, never a `$SwitchRow` — DPMS has no state to sit in, since the
+first input undoes it. `AudioPopover` uses no `Gtk.Stack`: sound has no prompt page, unlike bluetooth
+or network, and its output master fader carries `.accent`, added in Rust, because `Fader` exposes no
+accent property. **`BrightnessPopover::set_sources` takes the slice already ordered with the current
+source first**; `SourceList` renders only `sources[1..]`. Its night light section keeps its
+last-good snapshot rather than collapsing on `None`, since the provider is a separate process that
+can restart mid-popover — a snapshot that has never arrived is a different state, no section at all.
 
-- **Lifts `Scrubber`'s drag guard wholesale** — the same `held: Cell<Option<f64>>`, capture-phase
-  `EventControllerLegacy` and `connect_unmap` reset, so an incoming state update cannot fight a drag.
-- **`set_muted` raises `quiet` around `ToggleButton::set_active`**, as `SwitchRow::set_active` does,
-  or a muted render fires `toggled` on its own.
-- **`maximum` (default 100 — the audio popover needs no change) puts value and clamp in the
-  device's own units**, and `set_value`/`connect_change_value` clamp to it, never to a literal 100.
-  Increments (`max(1, max/100)`, `max(1, max/20)`) are a pure function of `maximum`, computed by
-  the single `apply_increments` also run at construction — cache them once and a later
-  `set_maximum` leaves two same-state faders answering arrow keys differently. Still not in the
-  template, for the same `blueprint-compiler lint` reason as `ForecastList`'s `Adjustment` above.
-- **`toggleable: false` swaps the leading `ToggleButton` for a plain, non-dimmed `Gtk.Image`** — an
-  insensitive `ToggleButton` renders dimmed, the bug this property avoids. `set_icon_name` writes
-  both children unconditionally, and `.fader__icon` matches `.fader__mute`'s min size so the track's
-  edge does not shift with the presentation.
-- **`floor` (default 0 — the audio popover needs no change) moves the adjustment's lower bound**,
-  the same shape as `maximum`: the getter reads `adjustment().lower()` rather than a stored `Cell`,
-  and `set_value`/`connect_change_value` clamp to `floor..=maximum`, never to a literal `0`. Raising
-  `floor` past the current value pulls the value up to it, because `GtkAdjustment::set_lower` does
-  not re-clamp `value` on its own. A `floor` above the current `maximum` is clamped down to it, and
-  a `maximum` set below the current `floor` is clamped up to it — both setters guard the same
-  direction so neither can invert the range and panic the next `f64::clamp`. A negative `floor` is
-  clamped the same way a negative `maximum` already is. Neither setter guards a non-finite value:
-  `f64::max`/`min` turn `±∞` finite, but a `NaN` write panics instead of being rejected —
-  `g_param_value_validate`'s `CLAMP` leaves `NaN` unchanged, and glib-rs reads that as changed (`NaN
-  != NaN`) before either setter body runs.
+`BatteryPopover`'s Health is an `Expandable` whose card is a `$FactList`, hidden and closed when
+empty; `.row--warning` turns a row's subtitle and value amber. `SessionPopover`'s other-sessions and
+updates sections hide when empty, and the widget emits `action-requested` and `activate-session`
+without knowing logind.
 
-## SourceList
+## PasswordPrompt, LockClock, SessionSheet, LockStage, StatusIsland, TrackCard and NotificationChips
 
-- The second shape, exactly `PlayerList`'s: no template, a `BoxLayout` set in `class_init`,
-  children parented at runtime. A row and its `Fader` are parented as siblings one after the
-  other, never nested, so the row's `activatable: false` cannot reach the fader beneath it.
-- A source's own `maximum` and `floor` pass straight through to the `Fader`, `maximum` first —
-  `Fader::set_floor` is the one place that reconciles the two, clamping a floor above the maximum
-  down to it, never the maximum up to the floor. `SourceList` must not pre-clamp either value, or
-  the fader's own clamp never fires.
-- Each fader is built with `toggleable: false`: a brightness source has nothing for a mute button
-  to mute. Its icon is `Source.icon`, falling back to `display-brightness-symbolic` when empty, so a
-  keyboard backlight does not read as a second screen.
-- `Source.key` is read back when a fader reports `changed`, not captured when the row was built,
-  for the reason `Player.key` documents: a reconcile reuses a row in place.
+`PasswordPrompt` knows nothing about PAM: `submitted` and `edited` never carry the text. **The
+password leaves the entry exactly once** — `take_text` copies the buffer into a `Zeroizing<String>`
+and clears it, never `EditableExt::text`, since a `GString` is immutable. `set_busy` makes the entry
+non-editable, never `set_sensitive`, which drops focus mid-attempt.
 
-## DisplayList
+`LockClock::set_formats` takes strftime patterns. **The day suffix follows `LC_TIME`, not the
+catalog**: an English, `C` or `C.<codeset>` time locale gets `1st`, anything else the plain number.
 
-- Each entry is an `Expandable` keyed by connector; the card, the accordion and the receding come
-  from `PopoverShell`, so the list stores no open state.
-- The head's lead icon is `computer-symbolic` for a built-in display and `video-display-symbolic`
-  otherwise; its subtitle is the current mode while enabled and `Off` while disabled.
-- The detail is the `SwitchRow` enabling the output followed by a `FactList` (connector, make,
-  model, serial, scale, position — a field the snapshot does not carry is left out, never shown as
-  `Unknown`). The mode is not a fact: a card holds only what the head does not already show.
-- The enable switch's own `locked` is set only when its own output is enabled **and** it is the sole
-  one enabled — never on a disabled output, which would strand the user with no way to turn a
-  display back on. `DisplayList` sets the property directly rather than walking the switch's
-  children for its knob.
-- **`set_output_power(false)` removes the switch from the row, rather than locking it.** `locked`
-  answers "offered, but this is your last enabled display"; the gate answers "this compositor
-  cannot do this at all", and the two never fight because nothing computes or applies a lock while
-  the switch is out. `render` reparents the same `SwitchRow` into or out of the body as the gate
-  flips — never rebuilt — so a reused row keeps its identity and an open detail stays open either
-  way.
+`SessionSheet` rows start hidden until `set_action` shows one, and every action goes through a
+confirm page that re-checks the row before emitting, since `set_action` can revoke it mid-page.
+`StatusIsland` has five fixed `$Indicator` slots with no popovers; `set_*(None)` hides a slot.
+`TrackCard`'s labels carry `width-chars` beside `max-width-chars` and a fixed `min-width`, so a
+track change never resizes the footer. `NotificationChips` is built with `accessible-role: Img`
+through `glib::Object::builder`, since the role is construct-only.
 
-## AudioPopover
+`LockStage::set_session_actions` writes every action first, then keeps the power button in step with
+`SessionSheet::has_actions`, so the outcome never depends on order. Escape and a press anywhere but
+the sheet or the power button close the sheet, both in the capture phase so the press is consumed.
 
-- **No `Gtk.Stack`.** Bluetooth and network each have a prompt page; sound has none, so the column
-  is the whole content.
-- **The output master fader carries `.accent`, added in Rust** (`fader.add_css_class("accent")`),
-  because `Fader` exposes no accent property. `.fader.accent .fader__track` is the only rule that
-  reads it; the input fader stays plain.
-- **A card holds one block per role the application has**, output before input, each its own
-  `Fader` plus the selectable device rows for that direction; a role with `adjustable: false` still
-  renders, insensitive, rather than being hidden. `recede` dims both master faders along with the
-  device and application rows, since a card open under them reads against the whole popover.
-- **Outputs, inputs and applications each end in their own overflow row** (`more_outputs`,
-  `more_inputs`, `more_apps`), on the same footing as `more_paired`/`more_nearby`: the widget only
-  shows and labels the row, and leaves whether the fuller list stays open to whoever is asking.
+## ClipboardPopover, ClipboardList, PlacesPopover, KdeconnectPopover and RemovablePopover
 
-## BrightnessPopover
+`ClipboardList` reconciles by clip id. An image's head is a tile with a badge carrying
+`expandable__opener`, since `Expandable` cannot otherwise find the opener inside a head that is
+neither a row nor a split row. **The card is built on first open and never rebuilt**, since a clip's
+content cannot change under its id — each render only rewrites the pin row's wording.
 
-- **`set_sources` takes the slice already ordered with the current source first.** The caller
-  resolves "current" — focused output, then the single internal source, then the first display
-  source, then none — and hands it over that way; `primary` mirrors `sources[0]` and `SourceList`
-  renders only `sources[1..]`. Handing the whole slice to both would put two faders on the current
-  display that do not track each other until a round trip, and would make the hero state a number
-  for whichever source enumerated first rather than the one on screen.
-- **The hero's `Readout` is the only place a percentage appears.** `primary`, `temperature` and
-  every `SourceList` fader alike carry their exact value in a tooltip instead, the audio popover's
-  own settled decision — `SourceList` sets it itself, since `BrightnessPopover` cannot reach its
-  children to add one after the fact.
-- **`primary` is named only beside other sources.** A lone rail needs no label; next to a second one,
-  nothing else says which screen it drives.
-- **The night light section keeps its last-good snapshot rather than collapsing on `None`.** The
-  provider is a separate process that can restart mid-popover; losing the section for a moment
-  reads as a fault. It stays up, greyed by `set_sensitive(false)`, until a fresh snapshot lifts it.
-  A snapshot that has never arrived is a different state — no section at all.
-- **Night light is a row that opens a card**, holding the *Enabled* switch, the temperature rail —
-  disabled rather than hidden while the light is off — and the schedule `ChoiceList` when there are
-  two schedules: *Sunset to sunrise*, and *Fixed hours* when `fixed_hours` says a fixed schedule is
-  in play. The row's subtitle is the status, *Off* included, since the switch is out of sight until
-  the card opens; it follows the rail while it is dragged. A provider that is up but applying
-  nothing marks the row `.row--warning` and says so, because otherwise the rail looks broken. A
-  fader in a card takes a row's inset, because its knob overhangs the track and the card's own
-  padding is thinner than that.
-- **`.fader--warm` is the rail's only styling hook**, reading `--gl-warning-text` rather than the
-  accent colour `.fader.accent` uses elsewhere, so it cannot be mistaken for `.indicator--notice`.
-  Its selector reads `.fader__track:not(:disabled)`, because it otherwise has the identical
-  specificity of `.fader__track:disabled` and sits later in the sheet — without the guard, greying
-  the section out under AC-5 would leave the rail looking live and warm rather than muted.
-- **The knob's own row carries `_("Warm the screen")`, not `_("Enabled")`.** `DisplayList` already
-  owns that msgid for "this output is on"; sharing it would ask one translation to serve two
-  unrelated ideas.
+`PlacesPopover`'s four independent `$Section`s each hide when they have nothing, with no exception
+and no placeholder. In `KdeconnectPopover`, **a card's rows are rebuilt only when its actions
+change**, so the row under the pointer of an open card is never swapped out, and a nearby row spins
+the moment it is pressed and ignores a second press while it does. In `RemovablePopover`, **every
+drive and volume is an `Expandable`**, keyed by id; the head swapping between `Row` and `SplitRow` is
+how a successful mount or unmount closes the card, and the capacity bar leads the mounted card since
+an `Expandable` toggles only on its head.
 
-## BatteryPopover
+## PrintingPopover, PrivacyPopover, Swatch, ColorList, ColorPickerPopover and WorkspaceNamePopover
 
-Hero readout is the percentage; `$ChoiceList` is the power-mode selector (its first caller);
-device rows hide when empty. The charge limit is a `$SwitchRow` in the column; Health is an
-`Expandable` whose head carries the value and whose card is a `$FactList`, hidden and closed when
-it has neither. `.row--warning` turns a row's subtitle and value amber — on the health row, a
-device and a `Choice` — and the hero takes `--warning` or `--error` beside the chip's severity.
-Static labels live in the blueprint.
+**A job and a printer are the same shape: an `Expandable` whose whole row opens its card.** **An
+action is a row, never an icon button, and it cannot live in the head** — `Row` is a `Gtk.Button`,
+so a button inside one is a button inside a button and the inner never emits `clicked`. Formatting
+and sanitizing raw CUPS text is the panel applet's job, not this widget's.
 
-## SessionPopover
-
-Lock, sleep and power rows are template children; other sessions and the updates row are sections
-that hide when empty. Static labels live in the blueprint. The widget emits `action-requested` and
-`activate-session` and does not know logind.
-
-## PasswordPrompt
-
-The lock screen's name, entry and message line. It knows nothing about PAM: `submitted` and
-`edited` never carry the text.
-
-- **The password leaves the entry exactly once.** `take_text` copies the entry's own buffer into a
-  `Zeroizing<String>`, clears it and undoes a peek. Never `EditableExt::text`: a `GString` is
-  immutable and cannot be wiped, which is also why the emptiness check reads the length.
-- `set_busy` makes the entry non-editable and swaps the peek icon for a spinner, never
-  `set_sensitive`, which drops focus mid-attempt. A peek is undone first, or GTK logs two criticals.
-- The message line and the Caps Lock note keep their space through `child-visible`, never
-  `visible`, so nothing moves the prompt. The message goes through `glimpse_utils::clean` to one
-  paragraph of 120 characters; a line limit would not bound it, since Pango applies one per
-  paragraph. An error is announced as it appears.
-- `set_interactive(false)` (a mirrored output) and `set_available(false)` (passwords cannot be
-  verified) both clear the entry and move focus off it, so nothing is typed blind.
-- A busy, mirrored or unavailable prompt, or an empty entry, never emits `submitted`.
-
-## LockClock
-
-`set_formats(time, date)` takes strftime patterns; the date's literal `{day}` is expanded before
-`glib::DateTime::format`. **The suffix follows `LC_TIME`, not the catalog**, as the month and weekday
-names do: an English, `C` or `C.<codeset>` time locale gets `1st`, anything else the plain number. An
-empty formatted string keeps its label hidden; a pattern GLib cannot format hides it too and warns
-once per pattern.
-
-## SessionSheet
-
-The in-surface session menu, since a lock surface cannot parent a popover. Rows start hidden until
-`set_action` shows one, and `toggle()` refuses an empty sheet. Every action goes through a confirm
-page that focuses Cancel, returns focus to the opening row, and re-checks the row before emitting,
-since `set_action` can revoke it mid-page. The look lives on the `Gtk.Stack`, so a closed sheet
-paints nothing. `set_error(Some(..))` is ignored
-while closed — `grab_focus` succeeds inside an unrevealed `Gtk.Revealer` and would steal focus; open,
-it returns to the menu, shows the error and focuses the first enabled row. `set_error(None)` never
-changes the page.
-
-## StatusIsland
-
-Five fixed `$Indicator` slots — weather, battery, layout, bluetooth, network — then the power button,
-with no popovers. `set_*(None)` hides a slot and `Some` calls `Indicator::apply`. Only the power
-button is focusable; its icon is set in `constructed`, since `$Indicator` has no properties.
-
-## TrackCard and NotificationChips
-
-`TrackCard::set_track(None)` hides the card. Title and artist go through `glimpse_utils::clean`, which
-hides an empty artist line and appends `…` past the cap, so a capped assertion is `cap + 1` chars.
-Both labels carry `width-chars` beside `max-width-chars`, and `.track-card` a fixed `min-width`, so a
-track change never resizes the footer. Play/pause and next are the card's own buttons reusing
-`TransportAction`, because `Transport` cannot hide its previous button.
-
-`NotificationChips` has no template: a `BoxLayout` and plain `Gtk.Box` chips reconciled by
-`reconcile::by_key`, built with `accessible-role: Img` through `glib::Object::builder`, since the role
-is construct-only. Zero-count groups never reach the reconcile, and an absent icon reserves nothing.
-The visible label is only the count; the tooltip and accessible label are `chip_label`, from
-`gettext("{app}: {notifications}")` with the app cleaned first.
-
-## LockStage
-
-One output's surface: a `Gtk.Picture` under a black scrim (`set_dim`, NaN dropped before GTK), the
-island, clock, prompt, chips and track card in a vertical `Gtk.CenterBox`, and the `SessionSheet`
-top-end. The background is a texture over a 1x1 base picture filled by `set_color`, which shows under
-an empty or letterboxed image; the base is the overlay's main child, so a 4K texture sets no size.
-`set_session_actions` writes every action first, then keeps the power button in step with
-`SessionSheet::has_actions` and closes a sheet left empty, so the outcome never depends on order. Escape and a press anywhere but
-the sheet or the power button close the sheet, both in the capture phase so the press is consumed
-rather than reaching what lies under it; the power button is exempt because it toggles on its own.
-Every close focuses the prompt, or the power button on a mirrored stage. The look is scoped to `.lock-stage`.
-
-## DisplayPopover
-
-- Display rows carry a chevron that rotates down while their detail drawer is open.
-- Composes `DisplayList` unchanged; blanking the screens is a plain `$Row` beside it, never a
-  `$SwitchRow` — DPMS has no state to sit in, since the first input undoes it and the popover is
-  already gone by then.
-- **The `displays` section and the blank row are absent, not disabled, once there is nothing to
-  act on** — an empty list hides the section, and `output_power: false` hides the blank row.
-- **`set_output_power` forwards straight to `DisplayList`'s own setter of the same name.** The
-  popover owns no logic of its own here: `DisplayList` decides what its gate means, `DisplayPopover`
-  only relays the one value it already tracks for the blank row, so the blank row and every
-  per-output switch disappear on the same signal.
-
-## ClipboardPopover and ClipboardList
-
-`ClipboardList` reconciles by clip id: one `Expandable` per clip. A text clip's head is a
-`$SplitRow` — its body emits `restored`, its chevron opens the card. An image's head is a tile: a
-button showing the picture cropped to fill, capped at 200px tall, with a badge carrying
-`expandable__opener`, which is how `Expandable` finds the opener inside a head that is neither a
-row nor a split row. A head built by `Builder` arrives before its own children, so `Expandable`
-searches for the opener again in `parser_finished`. The tile's body copies; only the badge opens. A clip id is its content, so a
-head never changes kind under a key.
-
-**The card is the clip's content, then its own actions, then Pin and Forget, then facts.** A color
-leads with a strip of itself; text leads with an excerpt clamped to four lines at
-`max-width-chars: 1`, which is what keeps a long clip from widening the popover. Actions emit
-`acted` with the key the applet gave them. **The card is built on first open and never rebuilt**:
-rebuilding unparents a row under a press in flight, and a clip's content cannot change under its
-id; each render only rewrites the pin row's wording.
-
-**The list owns no wording.** `set_actions` takes the action labels from the applet.
-
-`ClipboardPopover` holds two of these lists; `PopoverShell`'s accordion spans both, so opening a
-card in one closes the other's. A search field above them emits `searched`, and an overflow row
-under Recent emits `more`; neither filters or counts anything itself. Its `$Notice` carries only
-the standing condition a notification cannot — no data-control protocol at all; a refused command
-is a notification.
-
-## PlacesPopover
-
-Four independent `$Section`s — bookmarks, places, network, trash — each hiding when it has nothing,
-with no exception and no placeholder anywhere. A popover with nothing to list is a hero and a
-footer; the user's own bookmarks lead, because they are what was chosen rather than what exists.
-Every row is a plain `Row` that opens a location, so the popover emits `activated` and nothing else.
-
-## KdeconnectPopover
-
-Paired devices, then the nearby ones, with no icon on any row. A paired device is an `Expandable`
-over a one-line `Row` whose value carries the reading, with a card of action rows the applet
-formats, unpair last. A nearby device is a
-`SplitRow` with its chevron hidden, whose body asks to pair.
-
-- **A card's rows are rebuilt only when its actions change.** A battery tick rewrites the head alone,
-  so the row under the pointer of an open card is never swapped out.
-- **Nearby is a disclosure**: a header `Row` toggling the list and its count, with no revealer. The
-  widget owns the open state and the applet only sets where it starts.
-- **`collapse(id)`** closes one device's card, for an action that succeeded.
-- **A nearby row spins the moment it is pressed** and ignores a second press while it does;
-  `set_nearby` re-applies every row's real state, so a refused request stops spinning on the next
-  refresh.
-
-## RemovablePopover
-
-One titleless `$Section`, because the hero already says what the list is. Drives live here rather
-than in `PlacesPopover` because their applet appears and disappears with the hardware, while places
-are always there — one popover cannot honestly do both.
-
-- **Every drive and volume is an `Expandable`**, keyed by id through `reconcile::by_key`. A mounted
-  volume's row opens its card; an unmounted one is a `SplitRow` whose body mounts and whose chevron
-  opens the card; a drive holding several volumes opens a card of its own. A row with nothing for a
-  card is a plain row — an unmounted volume that mounts on a click, or a dimmed drive with no media,
-  which is inert.
-- **The card is Open, then Eject or Unmount, then a `FactList`.** A drive's only volume ejects the
-  drive; a volume sharing its drive unmounts itself. Nothing in it is red. The head swapping between
-  `Row` and `SplitRow` closes the card, which is how a successful unmount or mount closes it.
-- **The capacity bar leads the mounted card.** An `Expandable` toggles only on a `Row` or
-  `SplitRow` head, so a bar cannot hang under the row itself. A card is rebuilt only when its actions
-  or facts change; a capacity sample moves the bar in place, so a poll never unparents a row under a
-  press.
-- **`SystemMonitorPopover` reconciles two `Section`s by key** — usage tiles and plain detail rows. A
-  tile's `Gtk.ProgressBar` comes from `progress::apply_bar(cell, fraction, class)`, which builds one
-  lazily on the first `Some(fraction)` and removes it on `None`; a `warning`/`error` class layered on
-  the bar colors a threshold, and the function itself knows nothing about severity.
-
-## PrintingPopover
-
-Print jobs come first and the section is absent with no jobs — there is no empty state, because
-`render_jobs` sets the hero's subtitle (`"No print jobs"` / an `ngettext` count) from the same list
-and the count text lives in exactly one place. Job and printer rows reuse the plain `$Row` template; its title label already caps
-its own width, which is what keeps a long job name from resizing the row.
-
-A job's second line reads `"{printer} · {status}"`, and page progress replaces the status word there
-(`"{printer} · Page {n} of {m}"`) rather than sitting in the row's value column, which job rows leave
-unset. `.printing-popover .row__subtitle` carries `font-variant-numeric: tabular-nums` in this
-widget's own `styles/glimpse.css` rule, because `.row__subtitle` (unlike `.row__value`) has no
-tabular figures by default.
-
-**A job and a printer are the same shape: an `Expandable` whose whole row opens its card**, since the
-row body does nothing else. A job's card is its actions — Pause, Resume, and Cancel as a
-destructive row — and it closes once the action succeeds; a printer's is its location alone. A row
-with nothing to show has no chevron and is not activatable. A printer's problem — its own message,
-a refusal to take jobs, a stopped queue — is the row's subtitle in the warning colour.
-
-**An action is a row, never an icon button, and it cannot live in the head.** `Row` is a
-`Gtk.Button`, so a button placed inside one is a button inside a button: the outer gesture claims
-the press and the inner never emits `clicked`. A headless test cannot catch it — `emit_by_name`
-bypasses the gesture entirely — so the shape is the guard.
-
-The chevron hides when there is nothing behind it, and the drawer is forced shut in the same pass,
-so it can never stand open on an empty card. The widget emits `cancelled`/`paused`/`resumed`, each
-carrying the job id, the same shape as `BluetoothPopover`'s `connect_selected`. `Job.printer`,
-`Job.status`, `Printer.status` and every `Detail` are caller-supplied, already-cleaned text —
-formatting and sanitizing raw CUPS text is the panel applet's job, not this widget's, which is why
-no detail label is translated here.
-
-## PrivacyPopover
-
-- **A row is one app, and only a row that can be stopped opens.** Its card holds *Stop sharing*,
-  built when the row becomes stoppable and dropped when it stops being so; every other row is an
-  inert `Row` with no chevron. The section hides with nothing in it — there is no empty state,
-  because the applet closes the popover first.
-- **`Mute microphone` is a `SwitchRow` under the list, not an action in an app's card**, because it
-  mutes the input device and a card would read as muting that app alone. `set_microphone_muted`
-  follows the device quietly; only the knob emits `mute-toggled`.
-
-## Swatch, ColorList and ColorPickerPopover
-
-- **`Swatch` paints its `color` property and nothing else.** Its CSS node is `swatch`, which is
-  how `.indicator__extension swatch` sizes it for the bar. CSS owns its size, radius and hairline;
-  `overflow: hidden` is what clips the fill to that radius. A color is data, so it is never a CSS
-  class per value. `color` is `explicit_notify`: GObject otherwise notifies on every write,
-  including an unchanged one.
-- **`ColorList` takes finished `Shade`s** — title, subtitle and every `Notation` already rendered by
-  the applet — and reports ids and notation keys, never a format it would have to understand. It
-  folds past eight rows behind an *N more* row that opens in place, and an open card leads with a
-  wide strip of the color, since the row's own swatch is too small to judge one by.
-- **`ColorPickerPopover` has no empty state.** An empty palette hides its section and the hero says
-  *Nothing picked yet*; the *Pick a color* row above it emits `pick-requested` either way.
-- **An open detail recedes the popover's hero and footer**, as `ClipboardPopover` does.
-
-## WorkspaceNamePopover
-
-- **`set_name` writes the entry only while the user has not touched it.** A compositor event
-  arriving mid-edit would otherwise replace what is being typed.
-- **Esc is caught in the capture phase on the popover, not on the entry**, so it closes whatever has
-  focus; the entry is focused and its text selected on `map`, when it first has a root to focus in.
+In `PrivacyPopover`, **a row is one app, and only a row that can be stopped opens.** `Mute
+microphone` is a `SwitchRow` under the list, not an action in an app's card, because it mutes the
+input device rather than that one app. `Swatch` paints its `color` property and nothing else; a
+color is data, so it is never a CSS class per value. `ColorList` takes finished `Shade`s, already
+rendered by the applet, and reports ids and notation keys, never a format it would have to
+understand. `WorkspaceNamePopover::set_name` writes the entry only while the user has not touched
+it, or a compositor event arriving mid-edit would replace what is being typed.
 
 ## Stylesheets
 
-`Styles` owns the CSS providers for one process. `install()` registers them on the display **once**
-and gives every provider libadwaita's concrete effective scheme — GTK treats a provider's `default`
-as light, so an automatic request passed through would disagree with a dark application. Installing
-twice stacks every rule; `load()` replaces content in place.
+`Styles` owns the CSS providers for one process. `install()` registers them **once** and gives every
+provider libadwaita's concrete effective scheme, since GTK treats a provider's `default` as light.
 
 | Priority | Source | Holds |
 | --- | --- | --- |
@@ -683,96 +215,35 @@ twice stacks every rule; `load()` replaces content in place.
 | `USER + 4` | generated by `set_animation_speed` | `--gl-duration`, and nothing else |
 
 **Each owner's dark sheet refines that owner's own base sheet and nothing above it**, so one
-precedence rule — user beats theme beats built-in — holds in both schemes.
+precedence rule — user beats theme beats built-in — holds in both schemes. A dark sheet is applied on
+`dark-notify`, with no file or config event behind it, since a config change touching only
+`color-scheme` never reaches `load()`. The built-in is compiled in rather than installed, because
+`load()` points the theme provider at **one** path.
 
-**A dark sheet is applied on `dark-notify`, with no file or config event behind it.** Under
-`ColorScheme::Default` the desktop preference arrives from the portal after `install()` returns, and
-a config change touching only `color-scheme` never reaches `load()`, so `Styles` keeps the two dark
-paths and re-points their providers from the handler. It is a convenience, not the only route:
-`@media (prefers-color-scheme: dark)` works in any sheet.
+**`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with
+only a `Gtk-WARNING` on stderr, so every `var()` in the built-in carries a fallback.
 
-`set_variant` puts `appearance.theme-variant` on every toplevel as a CSS class. It reads the live
-toplevel list rather than a window passed in, because each binary owns a different number of them —
-one hidden host for the lock screen, a bar per output for the panel — so re-running it after a
-window is created is what covers the new one.
-
-The built-in is compiled in rather than installed, because `load()` points the theme provider at
-**one** path: a component rule in a theme is one the first second theme deletes. The shipped
-`adwaita` theme is therefore empty, and that is the test.
-
-**`IndicatorSpec.class` is the one styling hook beside `severity`, and it exists because the
-severity classes colour the icon and the label together.** A chip that must colour them apart — the
-privacy applet's screen cast, a danger-red record glyph beside a timer that stays the bar's own
-foreground — names a class and `glimpse.css` decides both. It is not a second severity; a chip
-reporting a condition still uses `severity`.
-
-**`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with only
-a `Gtk-WARNING` on stderr. Hence two guards: every `var()` in the built-in carries a fallback, and
-`theme::tests` lints the vocabulary, whose rules are in `.claude/rules/ui.md`.
-
-### Tokens and the type scale
-
-Thirty-nine `--gl-` tokens in `:root`, in three tiers, and a rule may only read the tier below it:
-libadwaita's tokens → `--gl-*` → component rules. **Adding a token means updating the count asserted
-in `theme::tests` and the number above, together.**
-
-**`--gl-muted`, `--gl-dim` and `--gl-faint` are `alpha(var(--gl-surface-fg), …)`, so they resolve
-lower in light than dark** — `alpha()` composites against the surface, which is the opposite colour
-in each scheme. This matches `.dimmed` in every Adwaita application; **do not compensate for it.**
-
-**`--gl-duration` belongs to `[appearance] animation-speed`, not to a sheet.** GTK cannot hand a CSS
-value back to code, so the one duration Rust and CSS share is written from Rust: 150ms divided by
-the speed, into its own sheet above every other, and `duration_ms()` hands the Rust fades the same
-number; `NotificationStack` scales its own two bases the same way. A theme or drop-in that sets `--gl-duration` is overridden by design; speed
-`0` makes every transition `0ms` and every Rust fade instant.
-
-**Thickness is `[[panels]] size`, not CSS.** `Panel::set_thickness` calls `set_size_request`, also a
-minimum, so GTK takes the larger and a CSS floor silently overrides a smaller configured size.
+Tokens live in `:root` in three tiers, and a rule may only read the tier below it: libadwaita's
+tokens → `--gl-*` → component rules. **`--gl-muted`, `--gl-dim` and `--gl-faint` resolve lower in
+light than dark**, matching `.dimmed` in every Adwaita application; do not compensate for it.
+**`--gl-duration` belongs to `[appearance] animation-speed`, not to a sheet**, since GTK cannot hand
+a CSS value back to code. **Thickness is `[[panels]] size`, not CSS** — `set_size_request` is also a
+minimum, so a CSS floor silently overrides a smaller configured size.
 
 ## Blur
 
 `blur::Blur` asks the compositor to blur what lies behind chosen widgets of one window, through
-`ext-background-effect-v1`, and puts `.blurred` on the window while it does; `glimpse.css` swaps the
-opaque surfaces for `--gl-blur-opacity` tints under that class. `attach(window, shapes)` takes a
-closure returning `Shape::Surface` for a card and `Shape::Arrow` for a triangle, re-evaluated every
-time the region is rebuilt, so a stack that gains a card needs no call. With no protocol — another
-compositor, an older niri — the class never appears and the surfaces stay opaque.
+`ext-background-effect-v1`. With no protocol the surfaces stay opaque.
 
-- **`sync` guards against its own reentrancy**, because `attach` and `detach` are reachable only
-  through it and each takes a `RefCell` borrow. GTK can invoke it nested — a config reload's
-  `set_enabled` landing while a `map` signal for the same window is still being dispatched, say —
-  and a `g_signal_emit` trampoline cannot unwind a Rust panic, so a double borrow there is a whole
-  process abort, not a caught error, and hit the shipped panel in production with no local
-  reproduction — `journalctl`'s `thread 'main' panicked ... RefCell already borrowed` against a
-  stripped release build was the only evidence, which is why the fix is a structural guard rather
-  than a fix at the specific call site that happened to be caught.
-- **It borrows GTK's own Wayland connection.** The display and each surface come from
-  `gdk_wayland_*_get_*` declared `extern "C"`, wrapped by `wayland-client`'s `system` backend. On a
-  borrowed connection a protocol error kills GTK, so the effect object and both frame-clock handlers
-  exist only while blur is enabled **and** the window is mapped, and go on `unmap`: a region sent to
-  a destroyed surface is exactly that error. With `blur = []` nothing is ever created.
-- **The region is compared at layout and after every paint, and built only when it changes.**
-  Layout carries a new size in GTK's own commit. After-paint catches opacity, which animates without
-  a relayout — but GTK has already committed that frame, and a still popover commits nothing more,
-  so after-paint commits the surface itself whenever a region is still uncommitted. That is the only
-  commit made outside GTK, and nothing of GTK's is pending at that moment.
-- **A shape is blurred only while it is at least half shown**, its opacity multiplied up to the
-  window. A blur cannot fade: from zero it paints a blurred block before the content, and from full it
-  leaves the finished content over a sharp background for the rest of an ease-out curve.
-- **Corner radii are read from what GTK drew**, never duplicated from CSS: the widget's last render
-  node (through `WidgetPaintable`) holds the rounded clip of its background. They are read only after
-  a paint, and only from a node drawn at the widget's current size; until then the shape is left
-  out. `Styles` calls `restyle()` after any stylesheet or scheme change, which re-reads them after
-  the next paint rather than from the node the old CSS drew. A region is rectangles only, so a corner is one strip per
-  row.
-- **niri blurs a layer surface in xray mode** — the wallpaper, not the windows between — unless a
-  `layer-rule` sets `background-effect { xray false; }` for `glimpse-popover` and
-  `glimpse-notifications`. That rule is the user's; nothing here installs it.
-- **`.notification`'s blur tint is keyed on `window.blurred` alone, not `window.notification-popup`.**
-  The same `NotificationCard` renders inside two different blurred windows — the standalone toast
-  popup and any applet popover that shows notification history — and both carry the `blurred` class
-  from `Blur::attach`; only the popup also carries `notification-popup`. Scoping the tint to the
-  narrower pair left the popover's cards solid while the rest of that popover went transparent.
+**`sync` guards against its own reentrancy**: GTK can invoke `attach`/`detach` nested, and a
+`g_signal_emit` trampoline cannot unwind a Rust panic, so a double `RefCell` borrow is a whole
+process abort. **It borrows GTK's own Wayland connection**, so a protocol error on it kills GTK —
+the effect object exists only while blur is enabled **and** the window is mapped. **A shape is
+blurred only while at least half shown**: a blur cannot fade, so from zero it paints a blurred block
+before the content, and from full it leaves the finished content over a sharp background. **Corner
+radii are read from what GTK drew**, never duplicated from CSS, through the widget's last render
+node. **niri blurs a layer surface in xray mode** — the wallpaper, not the windows between — unless a
+`layer-rule` sets `background-effect { xray false; }`, which is the user's, not installed here.
 
 ## Rules
 
