@@ -207,13 +207,6 @@ pub enum AppletsCommand {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
     },
-    #[command(about = "Print or follow an external applet's logs")]
-    Logs {
-        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
-        id: String,
-        #[arg(short, long, help = "Follow new lines, including after log rotation")]
-        follow: bool,
-    },
     #[command(about = "Stop running scopes so the panel restarts the applet")]
     Restart {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]

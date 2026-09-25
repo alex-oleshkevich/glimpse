@@ -1,0 +1,2 @@
+{"t":"hello","v":1}
+{"t":"commit","ops":[{"op":"insert","parent":0,"before":null,"node":{"id":1,"type":"popover","props":{},"children":[{"id":2,"type":"box","props":{},"children":[{"id":3,"type":"image","props":{"icon":"dialog-warning-symbolic","tooltip":"Warning"},"children":[]},{"id":4,"type":"button","props":{"icon":"media-playback-start-symbolic","tooltip":"Play","onClick":true},"children":[]}]}]}}]}

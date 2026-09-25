@@ -16,7 +16,6 @@ glimpsectl config show
 glimpsectl doctor
 glimpsectl applets list
 glimpsectl applets inspect me.example.Clock
-glimpsectl applets logs me.example.Clock -f
 glimpsectl applets restart me.example.Clock
 ```
 
@@ -59,9 +58,8 @@ probes all three concurrently, and tells a provider that is gone apart from one 
 but reports `serving = false` or fails to reply, both `degraded` with the reason.
 
 **`applets list` and `inspect` read desktop entries and placements locally**, query systemd for
-running scopes when a bus is there, and report `runtime: unavailable` when it is not. `list --json` returns `{runtime, applets}`. `logs` reads
-the `<id>.<slot>.<output>.<zone>.<epoch>.<pid>-<start>.log` files under the runtime directory and prefixes each line with its placement; the epoch changes when an instance changes applet ID. `restart` signals each running scope so the panel
-respawns it.
+running scopes when a bus is there, and report `runtime: unavailable` when it is not. `list --json`
+returns `{runtime, applets}`. `restart` signals each running scope so the panel respawns it.
 
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through

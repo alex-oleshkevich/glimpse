@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Todo
+Comment=A list of things to do
+Icon=view-list-symbolic
+Exec=glimpse-applet /usr/share/glimpse/sdk/applet/examples/todo/main.tsx
+TryExec=glimpse-applet
+NoDisplay=true
+Implements=me.aresa.Glimpse.Applet1

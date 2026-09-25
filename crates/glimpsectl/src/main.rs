@@ -84,9 +84,6 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Applets(AppletsCommand::Inspect { id }) => {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }
-        Command::Applets(AppletsCommand::Logs { id, follow }) => {
-            commands::applets_logs(id, follow).await
-        }
         Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
     }

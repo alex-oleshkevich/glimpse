@@ -6,7 +6,7 @@ mod notifications;
 mod sunset;
 mod weather;
 
-pub use applets::{applets_inspect, applets_list, applets_logs, applets_restart};
+pub use applets::{applets_inspect, applets_list, applets_restart};
 pub use applets_author::{
     applets_bundle, applets_check, applets_dev, applets_install, applets_new, applets_uninstall,
 };

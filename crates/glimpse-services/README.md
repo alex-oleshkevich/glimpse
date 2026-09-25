@@ -182,10 +182,8 @@ that exits before `Hello` stays `Failed` until its catalog entry or instance con
 bounded backoff. The source resolves desktop entries off the async worker, spawns on that worker for
 PDEATHSIG, and adopts the pid into a transient scope before waiting. **Only a user event marked as a
 gesture opens a two-second gate** for copy, URI, session and close-popover requests; notifications
-bypass it and are limited to one per second. Invalid JSON, oversized lines, invalid trees, Hello or Commit
-floods and a full stdin queue stop only the offending child. Stderr is capped at 20 lines per second
-and 512 bytes per line under `$XDG_RUNTIME_DIR/glimpse/applets/<id>.<slot>.<output>.<zone>.<epoch>.<pid>-<start>.log`, rotated to `.1` at
-one MiB and deleted on detach or applet ID change.
+bypass it and are limited to one per second. Invalid JSON, oversized lines, invalid trees, message
+floods and a full stdin queue stop only the offending child. The panel discards child stderr.
 
 ## Rules
 

@@ -87,8 +87,7 @@ pub use exec::{
 pub use exec::{
     BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies, Exec,
     ExecHandle, ExecState, SlotState as ExecSlotState, Status as ExecStatus,
-    UserEvent as ExecUserEvent, log_dir as exec_log_dir, log_file_name as exec_log_file_name,
-    unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
+    UserEvent as ExecUserEvent, unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
 };
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

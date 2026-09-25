@@ -1,0 +1,14 @@
+{"t":"hello","v":1,"name":"pomodoro","options":{"title":"Todos"},"placement":{"output":"DP-2","position":"left","orientation":"vertical","zone":"right","size":32}}
+{"t":"options","options":{"enabled":true,"title":"Todos"}}
+{"t":"placement","placement":{"output":null,"position":"bottom","orientation":"horizontal","zone":"center","size":48}}
+{"t":"popover","open":true}
+{"t":"popover","open":false}
+{"t":"event","id":1,"name":"onPress","args":[2],"seq":null}
+{"t":"event","id":1,"name":"onScroll","args":[1.5,-0.5],"seq":null}
+{"t":"event","id":5,"name":"onActivate","args":[],"seq":null}
+{"t":"event","id":6,"name":"onToggle","args":[true],"seq":null}
+{"t":"event","id":7,"name":"onChange","args":[0.25],"seq":8}
+{"t":"event","id":7,"name":"onMute","args":[],"seq":null}
+{"t":"event","id":8,"name":"onChange","args":["hello "],"seq":3}
+{"t":"event","id":8,"name":"onSubmit","args":["hello "],"seq":null}
+{"t":"event","id":9,"name":"onClick","args":[],"seq":null}

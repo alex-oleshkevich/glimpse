@@ -1,0 +1,9 @@
+{"t":"commit","ops":[{"op":"insert","parent":0,"before":null,"node":{"id":1,"type":"popover","props":{},"children":[]}}]}
+{"t":"commit","ops":[{"op":"insert","parent":1,"before":null,"node":{"id":2,"type":"section","props":{"title":"Open"},"children":[{"id":3,"type":"row","props":{"title":"a"},"children":[]},{"id":4,"type":"row","props":{"title":"b"},"children":[]},{"id":5,"type":"row","props":{"title":"c"},"children":[]}]}}]}
+{"t":"commit","ops":[{"op":"move","parent":2,"id":5,"before":3}]}
+{"t":"commit","ops":[{"op":"insert","parent":2,"before":4,"node":{"id":6,"type":"row","props":{"title":"d"},"children":[]}}]}
+{"t":"commit","ops":[{"op":"insert","parent":1,"before":null,"node":{"id":7,"type":"box","props":{},"children":[{"id":8,"type":"label","props":{"text":"one"},"children":[]},{"id":9,"type":"label","props":{"text":"two"},"children":[]}]}}]}
+{"t":"commit","ops":[{"op":"remove","parent":1,"id":7}]}
+{"t":"commit","ops":[{"op":"set","id":3,"props":{"title":"Updated","busy":"nope"}}]}
+{"t":"commit","ops":[{"op":"set","id":3,"props":{"title":"Sequenced"}}]}
+{"t":"commit","ops":[{"op":"set","id":3,"props":{"title":null}}]}
