@@ -248,7 +248,13 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 
     let lock = fs::read_to_string(directory.join("glimpse-lock.service")).expect("lock unit");
     assert!(lock.contains("PartOf=graphical-session.target"));
-    assert!(!target.contains("glimpse-lock.service"));
+    assert!(!lock.contains("glimpse-session.target"));
+    let mentions: Vec<&str> = target
+        .lines()
+        .filter(|line| line.contains("glimpse-lock.service"))
+        .collect();
+    assert_eq!(mentions.len(), 1);
+    assert!(mentions[0].starts_with("Wants="));
 }
 
 #[test]
