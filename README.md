@@ -1,7 +1,7 @@
 # glimpse
 
-A desktop shell for the niri Wayland compositor: a panel, a wallpaper and a lock screen, built with
-GTK4 and libadwaita.
+A desktop shell for Wayland: a panel, a wallpaper and a lock screen, built with GTK4 and
+libadwaita.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/shell-dark.png">
@@ -10,29 +10,19 @@ GTK4 and libadwaita.
 
 ## About
 
-glimpse gives a bare compositor the parts a desktop needs: a bar with a clock, system status and
-quick settings, a wallpaper, notifications, a lock screen, idle handling and a night light. It
-follows your light or dark preference and your accent color, and uses the compositor's blur behind
-the panel, popovers and notifications.
-
-There is no central daemon. The panel runs its own services, and notifications, weather, idle and
-the night light are small standalone programs, each owning one D-Bus name. If one of them crashes,
-the others keep running.
-
-niri is the main target. Hyprland support exists but is second class and untested.
+glimpse adds what a bare Wayland compositor leaves out: a bar, notifications, a wallpaper, a lock
+screen, idle timers and a night light. It follows your light or dark theme and accent color, and
+blurs what sits behind it.
 
 ## Features
 
-- A panel whose popovers cover the everyday settings: calendar with your events and a world clock,
-  weather, Wi-Fi and VPN, Bluetooth, audio, media players, brightness, battery and removable drives.
-- Notifications with a history and do not disturb.
-- A lock screen that authenticates through PAM.
-- Idle handling that blanks the screens, locks and suspends, with separate timings on AC and on
-  battery.
-- A night light that follows sunset and sunrise at your location.
-- One `config.toml` for everything, reloaded as you save it, with a JSON schema for editor
-  completion.
-- `glimpsectl`, a command-line tool for scripting and checking the setup.
+- Quick popovers for Wi-Fi, Bluetooth, audio, the calendar and the weather, and a few more.
+- Notifications keep a history, and do not disturb holds them back.
+- The lock screen authenticates through PAM.
+- Idle timers blank the screens, lock and suspend, and can differ between AC and battery.
+- The night light follows sunset and sunrise where you are.
+- All settings live in one `config.toml`. Saving it applies the change, and a JSON schema gives your
+  editor completion.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/applets-dark.png">
@@ -63,7 +53,7 @@ just install
 
 ### Start the shell
 
-glimpse runs as a set of systemd user services. Enable them once from inside your niri session:
+glimpse runs as a set of systemd user services. Enable them once from inside your Wayland session:
 
 ```sh
 systemctl --user enable --now glimpse-session.target

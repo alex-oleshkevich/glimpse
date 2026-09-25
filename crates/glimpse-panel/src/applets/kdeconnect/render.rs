@@ -71,17 +71,17 @@ fn percent(charge: u8) -> String {
     gettext("{percent}%").replace("{percent}", &charge.to_string())
 }
 
+fn charge(device: &Device) -> Option<String> {
+    let battery = device.battery?;
+    let charge = percent(battery.charge?);
+    Some(match battery.charging {
+        true => gettext("{percent}, charging").replace("{percent}", &charge),
+        false => charge,
+    })
+}
+
 fn reading(device: &Device) -> String {
-    let Some(battery) = device.battery else {
-        return gettext("Connected");
-    };
-    match (battery.charge, battery.charging) {
-        (Some(charge), true) => {
-            gettext("{percent}, charging").replace("{percent}", &percent(charge))
-        }
-        (Some(charge), false) => percent(charge),
-        (None, _) => gettext("Connected"),
-    }
+    charge(device).unwrap_or_else(|| gettext("Connected"))
 }
 
 fn line(device: &Device) -> String {
@@ -263,7 +263,7 @@ pub fn devices(state: &KdeconnectState) -> Vec<KdeconnectDevice> {
                 title: name(device),
                 subtitle: String::new(),
                 value: match device.reachable {
-                    true => reading(device),
+                    true => charge(device).unwrap_or_default(),
                     false => gettext("Not connected"),
                 },
                 actions,
@@ -536,6 +536,19 @@ mod tests {
         let keys: Vec<&str> = rows[0].actions.iter().map(|row| row.key.as_str()).collect();
         assert_eq!(keys, [UNPAIR]);
         assert_eq!(rows[0].value, "Not connected");
+    }
+
+    #[test]
+    fn a_connected_device_without_a_battery_reading_shows_no_value() {
+        let mut phone = device("10", true, PairState::Paired);
+        phone.battery = None;
+        assert_eq!(devices(&state(vec![phone.clone()]))[0].value, "");
+        phone.battery = Some(Battery {
+            charge: None,
+            charging: false,
+            low: false,
+        });
+        assert_eq!(devices(&state(vec![phone]))[0].value, "");
     }
 
     #[test]
