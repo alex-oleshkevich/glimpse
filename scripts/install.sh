@@ -43,6 +43,10 @@ install -Dm644 data/config.schema.json "$sharedir/config.schema.json"
 install -Dm644 data/language-codes.json "$sharedir/language-codes.json"
 install -Dm644 LICENSE "$sharedir/LICENSE"
 
+while IFS= read -r -d '' f; do
+    install -Dm644 "$f" "$sharedir/$f"
+done < <(find sdk/applet -type f -print0)
+
 for f in data/themes/*/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/themes/$(basename "$(dirname "$f")")/$(basename "$f")"
 done

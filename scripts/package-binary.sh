@@ -52,6 +52,10 @@ install -Dm644 data/config.schema.json "$pkgroot/usr/share/glimpse/config.schema
 install -Dm644 data/language-codes.json "$pkgroot/usr/share/glimpse/language-codes.json"
 install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 
+while IFS= read -r -d '' f; do
+    install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
+done < <(find sdk/applet -type f -print0)
+
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"
 done

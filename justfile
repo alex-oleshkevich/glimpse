@@ -11,7 +11,7 @@ set positional-arguments
 # terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
 elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
 
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-applet glimpse-ruler"
 
 [doc("list recipes")]
 default:
@@ -140,10 +140,14 @@ test-crate-compositor CRATE FILTER="":
 
 [doc("one test by its full path, ignored or not; a GTK test only proves anything run alone")]
 test-one CRATE TEST:
-    cargo test -p {{ CRATE }} --lib -- --include-ignored --exact {{ TEST }}
+    cargo test -p {{ CRATE }} -- --include-ignored --exact {{ TEST }}
 
 [doc("everything CI runs")]
 verify: fmt-check check lint test check-strings
+
+[doc("run the applet SDK tests")]
+sdk-test:
+    "${GLIMPSE_DENO:-deno}" test --allow-read --allow-env --config sdk/applet/deno.json sdk/applet
 
 [doc("search crates.io before writing something by hand")]
 search QUERY:

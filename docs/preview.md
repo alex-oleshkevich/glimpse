@@ -79,6 +79,7 @@ new example's drawer silently inert:
 - `expanded` opens each `$Expandable` carrying `state__open`, since `expanded: true` in a blueprint is
   applied before `[details]` exists and is dropped.
 - `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`, `label__<text>`,
+  `badge__<text>`, `dot__<hex>` (no `#`: a class cannot carry one),
   `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
   **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An
   indicator carrying **none** of those classes is left completely alone: `TrayStrip` builds its own

@@ -7,7 +7,10 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use cli::{Cli, Command, ConfigCommand, NotificationsCommand, SunsetCommand, WeatherCommand};
+use cli::{
+    AppletsCommand, Cli, Command, ConfigCommand, NotificationsCommand, SunsetCommand,
+    WeatherCommand,
+};
 use errors::Exit;
 use glimpse_utils::init_app_tracing;
 
@@ -65,6 +68,26 @@ async fn run(cli: Cli) -> Result<()> {
             commands::config_validate(path.or(cli.config.config))
         }
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config.config, cli.json),
+        Command::Applets(AppletsCommand::List) => {
+            commands::applets_list(cli.config.config, cli.json).await
+        }
+        Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args),
+        Command::Applets(AppletsCommand::Check { dir }) => commands::applets_check(&dir).await,
+        Command::Applets(AppletsCommand::Dev { dir }) => {
+            commands::applets_dev(&dir, cli.config.config).await
+        }
+        Command::Applets(AppletsCommand::Bundle { dir, prefix, out }) => {
+            commands::applets_bundle(&dir, &prefix, &out).await
+        }
+        Command::Applets(AppletsCommand::Install { dir }) => commands::applets_install(&dir).await,
+        Command::Applets(AppletsCommand::Uninstall { id }) => commands::applets_uninstall(&id),
+        Command::Applets(AppletsCommand::Inspect { id }) => {
+            commands::applets_inspect(cli.config.config, id, cli.json).await
+        }
+        Command::Applets(AppletsCommand::Logs { id, follow }) => {
+            commands::applets_logs(id, follow).await
+        }
+        Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
     }
 }

@@ -298,6 +298,8 @@ mod fixtures {
     const ICON: &str = "icon__";
     const OVERLAY: &str = "overlay__";
     const LABEL: &str = "label__";
+    const BADGE: &str = "badge__";
+    const DOT: &str = "dot__";
     const SEVERITY: &str = "severity__";
     const ATTENTION: &str = "state__attention";
     const NOTICE: &str = "state__notice";
@@ -3390,6 +3392,8 @@ mod fixtures {
             let icon = named(ICON);
             let overlay = named(OVERLAY);
             let label = named(LABEL);
+            let badge = named(BADGE);
+            let dot = named(DOT);
             let severity = named(SEVERITY);
             let attention = flagged(ATTENTION);
             let notice = flagged(NOTICE);
@@ -3397,6 +3401,8 @@ mod fixtures {
             if icon.is_none()
                 && overlay.is_none()
                 && label.is_none()
+                && badge.is_none()
+                && dot.is_none()
                 && severity.is_none()
                 && !attention
                 && !notice
@@ -3418,6 +3424,17 @@ mod fixtures {
 
             if let Some(label) = label {
                 indicator.set_label(Some(&label));
+            }
+
+            if let Some(badge) = badge {
+                indicator.set_badge(Some(&badge));
+            }
+
+            if let Some(dot) = dot {
+                match gtk4::gdk::RGBA::parse(format!("#{dot}")) {
+                    Ok(color) => indicator.set_dot(Some(color)),
+                    Err(_) => eprintln!("{DOT}{dot} is not a hex color"),
+                }
             }
 
             match severity.as_deref() {

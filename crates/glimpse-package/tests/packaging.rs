@@ -456,6 +456,30 @@ fn every_install_route_ships_the_commented_reference() {
 }
 
 #[test]
+fn every_install_route_ships_the_applet_sdk() {
+    let root = workspace_root();
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        let body = fs::read_to_string(root.join(script)).expect(script);
+        assert!(body.contains("find sdk/applet -type f -print0"), "{script}");
+    }
+    let manifest = manifest(&root);
+    for kind in ["deb", "generate-rpm"] {
+        let listed = assets(&manifest, kind);
+        for source in [
+            "sdk/applet/*.ts",
+            "sdk/applet/template/*",
+            "sdk/applet/examples/todo/*",
+        ] {
+            assert!(
+                listed.iter().any(|(path, dest)| path.ends_with(source)
+                    && dest.contains("share/glimpse/sdk/applet")),
+                "{kind}: {source}"
+            );
+        }
+    }
+}
+
+#[test]
 fn the_seeded_user_config_is_the_commented_copy_and_not_the_defaults() {
     let install = fs::read_to_string(workspace_root().join("scripts/install.sh"))
         .expect("the install script");

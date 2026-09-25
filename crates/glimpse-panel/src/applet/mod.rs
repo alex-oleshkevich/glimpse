@@ -31,6 +31,10 @@ pub trait Applet: 'static {
         let _ = orientation;
     }
 
+    fn place(&mut self, placement: glimpse_services::Placement) {
+        let _ = placement;
+    }
+
     fn indicators(&self) -> Vec<IndicatorSpec> {
         Vec::new()
     }

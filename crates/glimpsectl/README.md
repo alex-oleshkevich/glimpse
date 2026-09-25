@@ -14,6 +14,10 @@ glimpsectl notifications clear --app org.mozilla.firefox
 glimpsectl notifications dnd on
 glimpsectl config show
 glimpsectl doctor
+glimpsectl applets list
+glimpsectl applets inspect me.example.Clock
+glimpsectl applets logs me.example.Clock -f
+glimpsectl applets restart me.example.Clock
 ```
 
 ## Contents
@@ -54,6 +58,11 @@ provider is D-Bus activatable, so a direct call would start the process it exist
 probes all three concurrently, and tells a provider that is gone apart from one that owns its name
 but reports `serving = false` or fails to reply, both `degraded` with the reason.
 
+**`applets list` and `inspect` read desktop entries and placements locally**, query systemd for
+running scopes when a bus is there, and report `runtime: unavailable` when it is not. `list --json` returns `{runtime, applets}`. `logs` reads
+the `<id>.<slot>.<output>.<zone>.<epoch>.<pid>-<start>.log` files under the runtime directory and prefixes each line with its placement; the epoch changes when an instance changes applet ID. `restart` signals each running scope so the panel
+respawns it.
+
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through
 `within` on the same `glimpse_dbus::DEADLINE` the panel uses, and a timeout maps to `Exit::Timeout`.
@@ -66,4 +75,3 @@ Colour resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` a
 honoured without any detection of our own; errors go to stderr, only requested data to stdout.
 Column width in `render.rs` counts characters, not display columns, so a wide glyph in third-party
 text — CJK, an emoji, as in a notification summary — is measured one short and hangs its row.
-

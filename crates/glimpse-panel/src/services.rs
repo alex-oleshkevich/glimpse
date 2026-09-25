@@ -14,13 +14,13 @@ use glimpse_services::{
     BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
     CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker,
     ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle,
-    DdcBacklight, Heartbeat, HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard,
-    KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Network, NetworkDependencies,
-    NetworkHandle, Places, PlacesHandle, Printing, PrintingHandle, Privacy, PrivacyDependencies,
-    PrivacyHandle, ProcessPicker, ProcessRulerRunner, Removable, RemovableHandle, Ruler,
-    RulerDependencies, RulerHandle, Running, Selection, SessionActions, SessionActionsDependencies,
-    SessionActionsHandle, SysfsBacklight, SystemMonitor, SystemMonitorHandle, Tray, TrayHandle,
-    UnavailableBacklight,
+    DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle,
+    Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris,
+    MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle, Printing,
+    PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker, ProcessRulerRunner,
+    Removable, RemovableHandle, Ruler, RulerDependencies, RulerHandle, Running, Selection,
+    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
+    SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
 };
 
 pub struct PanelServices {
@@ -45,6 +45,7 @@ pub struct PanelServices {
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
     pub ruler: RulerHandle,
+    exec: ExecHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -66,6 +67,7 @@ pub struct PanelServices {
     privacy_service: Running<Privacy>,
     system_monitor_service: Running<SystemMonitor>,
     ruler_service: Running<Ruler>,
+    exec_service: Running<Exec>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
     night_light: NightLightProvider,
@@ -162,8 +164,17 @@ impl PanelServices {
             document,
             buses.clone(),
             RulerDependencies {
-                selection,
+                selection: Arc::clone(&selection),
                 runner: Arc::new(ProcessRulerRunner::new(ruler_program)),
+            },
+        );
+        let (exec_service, exec) = Running::<Exec>::spawn(
+            document,
+            buses.clone(),
+            ExecDependencies {
+                catalog: Arc::new(DesktopCatalog),
+                selection,
+                notifications: notifications.handle(),
             },
         );
         let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
@@ -205,6 +216,7 @@ impl PanelServices {
             privacy,
             system_monitor,
             ruler,
+            exec,
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -226,6 +238,7 @@ impl PanelServices {
             privacy_service,
             system_monitor_service,
             ruler_service,
+            exec_service,
             notifications,
             weather,
             night_light,
@@ -245,6 +258,7 @@ impl PanelServices {
         self.printing_service.stop().await;
         self.places_service.stop().await;
         self.ruler_service.stop().await;
+        self.exec_service.stop().await;
         self.color_picker_service.stop().await;
         self.clipboard_service.stop().await;
         self.brightness_service.stop().await;
@@ -275,6 +289,7 @@ impl PanelServices {
         self.brightness_service.reconfigure(document);
         self.clipboard_service.reconfigure(document);
         self.ruler_service.reconfigure(document);
+        self.exec_service.reconfigure(document);
         self.session_actions_service.reconfigure(document);
         self.battery_service.reconfigure(document);
         self.places_service.reconfigure(document);
@@ -287,6 +302,10 @@ impl PanelServices {
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
         self.notifications.handle()
+    }
+
+    pub fn exec(&self) -> ExecHandle {
+        self.exec.clone()
     }
 
     pub fn weather(&self) -> WeatherProviderHandle {
@@ -308,6 +327,7 @@ impl PanelServices {
         self.printing_service.cancel();
         self.places_service.cancel();
         self.ruler_service.cancel();
+        self.exec_service.cancel();
         self.color_picker_service.cancel();
         self.clipboard_service.cancel();
         self.brightness_service.cancel();
@@ -330,6 +350,7 @@ impl fmt::Debug for PanelServices {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("PanelServices")
+            .field("exec_slots", &self.exec().snapshot().slots.len())
             .finish_non_exhaustive()
     }
 }
@@ -351,6 +372,7 @@ mod tests {
             services.keyboard.health(),
             services.calendar.health(),
             services.mpris.health(),
+            services.exec().health(),
             services.heartbeat.health(),
             services.tray.health(),
         ];

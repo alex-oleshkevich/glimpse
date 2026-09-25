@@ -35,7 +35,7 @@ pub use applets::{
     Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
     Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,
     Chip as SystemMonitorChip, Clipboard as ClipboardAppletConfig, Clock as ClockConfig,
-    Command as CommandAppletConfig, Common as AppletCommon, FirstDay,
+    Command as CommandAppletConfig, Common as AppletCommon, Exec as ExecAppletConfig, FirstDay,
     Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
@@ -43,7 +43,7 @@ pub use applets::{
     Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
     Removable as RemovableAppletConfig, SystemMonitor as SystemMonitorAppletConfig,
     Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
-    resolve_applet,
+    is_desktop_id, resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
@@ -151,9 +151,48 @@ pub fn placed_kinds(config: &Config) -> impl Iterator<Item = AppletKind> + '_ {
         .filter_map(|name| resolve_applet(name, &config.applets).map(|applet| applet.kind))
 }
 
+pub fn placed_applets(config: &Config) -> impl Iterator<Item = (&str, Applet)> + '_ {
+    config
+        .panels
+        .iter()
+        .flat_map(|panel| panel.left.iter().chain(&panel.center).chain(&panel.right))
+        .filter_map(|name| {
+            resolve_applet(name, &config.applets).map(|applet| (name.as_str(), applet))
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typos_and_bare_exec_remain_unknown_applets() {
+        for name in ["clcok", "exec"] {
+            let source = format!("[[panels]]\ncenter = [\"{name}\"]\n");
+            let config: Config = toml::from_str(&source).expect("the document parses");
+            let error = crate::load::named_applets_exist(&config)
+                .expect_err("the zone name must fail load validation");
+            assert!(error.to_string().contains("unknown applet"), "{error}");
+        }
+    }
+
+    #[test]
+    fn desktop_id_in_zone_resolves_and_is_placed() {
+        let config: Config = toml::from_str("[[panels]]\ncenter = [\"me.example.Pomodoro\"]\n")
+            .expect("the document parses");
+        crate::load::named_applets_exist(&config).expect("the desktop id is known");
+        let (name, applet) = placed_applets(&config)
+            .find(|(name, _)| *name == "me.example.Pomodoro")
+            .expect("the placed applet resolves");
+        assert_eq!(name, "me.example.Pomodoro");
+        assert_eq!(
+            applet.kind,
+            AppletKind::Exec(Box::new(ExecAppletConfig {
+                applet: "me.example.Pomodoro".to_owned(),
+                options: serde_json::Map::new(),
+            }))
+        );
+    }
 
     #[test]
     fn placed_kinds_follows_zone_placement_not_table_presence() {

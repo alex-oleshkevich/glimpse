@@ -74,8 +74,8 @@ pub enum Kind {
     Command(Box<Command>),
     /// Connected outputs, their modes and their arrangement.
     Display {},
-    /// Hosts a third-party applet binary that draws its own popover.
-    Exec {},
+    /// A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).
+    Exec(Box<Exec>),
     /// A counter that ticks once a second. A development fixture: it proves the service is
     /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
@@ -118,6 +118,16 @@ pub enum Kind {
     Weather(Weather),
     /// The current workspace's name, renamed from its popover.
     WorkspaceName {},
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Exec {
+    /// The desktop-file id, e.g. `me.example.Pomodoro`.
+    pub applet: String,
+    /// Passed to the applet as written.
+    #[serde(default)]
+    pub options: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Settings for the tray applet. Which items exist is the applications' decision; this is only
@@ -794,8 +804,27 @@ impl Applet {
     pub fn from_name(name: &str) -> Option<Self> {
         let mut table = toml::Table::new();
         table.insert("extends".to_owned(), toml::Value::String(name.to_owned()));
-        Kind::deserialize(table).ok().map(Self::from)
+        Kind::deserialize(table).ok().map(Self::from).or_else(|| {
+            is_desktop_id(name).then(|| {
+                Self::from(Kind::Exec(Box::new(Exec {
+                    applet: name.to_owned(),
+                    options: serde_json::Map::new(),
+                })))
+            })
+        })
     }
+}
+
+pub fn is_desktop_id(name: &str) -> bool {
+    let mut segments = name.split('.');
+    let valid = |segment: &str| {
+        let mut bytes = segment.bytes();
+        bytes
+            .next()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+            && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+    };
+    segments.next().is_some_and(valid) && segments.next().is_some_and(valid) && segments.all(valid)
 }
 
 pub fn deserialize<'de, D>(deserializer: D) -> Result<BTreeMap<String, Applet>, D::Error>
@@ -814,12 +843,24 @@ where
 
 fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> {
     let common = take_common(&mut table)?;
-    table
-        .entry("extends")
-        .or_insert_with(|| toml::Value::String(name.to_owned()));
+    if !table.contains_key("extends") && is_desktop_id(name) {
+        table.insert("extends".to_owned(), toml::Value::String("exec".to_owned()));
+        table
+            .entry("applet")
+            .or_insert_with(|| toml::Value::String(name.to_owned()));
+    } else {
+        table
+            .entry("extends")
+            .or_insert_with(|| toml::Value::String(name.to_owned()));
+    }
     let keys: Vec<String> = table.keys().cloned().collect();
     let mut kind =
         Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
+    if let Kind::Exec(exec) = &kind
+        && !is_desktop_id(&exec.applet)
+    {
+        return Err(toml::de::Error::custom("applet must be a desktop-file id"));
+    }
     on_earth(&mut kind)?;
     runnable(&kind)?;
     thresholds(&kind)?;
@@ -1085,6 +1126,68 @@ mod tests {
             declared.len(),
             "the splitter removes a key no common setting declares"
         );
+    }
+
+    #[test]
+    fn desktop_id_segments_require_ascii_identifier_starts() {
+        for name in ["me.example.Pomodoro", "_me.example-2", "a.b.c"] {
+            assert!(super::is_desktop_id(name), "{name}");
+        }
+        for name in [
+            "exec",
+            "me.",
+            ".example",
+            "me..example",
+            "1me.example",
+            "me.2example",
+            "me.ex ample",
+            "mé.example",
+        ] {
+            assert!(!super::is_desktop_id(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn desktop_id_table_without_extends_carries_options() {
+        let config: crate::Config =
+            toml::from_str("[applets.\"me.example.Pomodoro\".options]\nwork-minutes = 25\n")
+                .expect("a desktop-id table loads as exec");
+        let Kind::Exec(exec) = &config.applets["me.example.Pomodoro"].kind else {
+            panic!("the desktop-id table resolves to exec");
+        };
+        assert_eq!(exec.applet, "me.example.Pomodoro");
+        assert_eq!(exec.options["work-minutes"], 25);
+    }
+
+    #[test]
+    fn explicit_exec_table_creates_a_named_instance() {
+        let config: crate::Config = toml::from_str(
+            "[applets.pomo]\nextends = \"exec\"\napplet = \"me.example.Pomodoro\"\n",
+        )
+        .expect("an explicit exec table loads");
+        let Kind::Exec(exec) = &config.applets["pomo"].kind else {
+            panic!("pomo resolves to exec");
+        };
+        assert_eq!(exec.applet, "me.example.Pomodoro");
+        assert!(exec.options.is_empty());
+    }
+
+    #[test]
+    fn invalid_exec_applet_names_the_table_and_key() {
+        let error = toml::from_str::<crate::Config>(
+            "[applets.pomo]\nextends = \"exec\"\napplet = \"not an id\"\n",
+        )
+        .expect_err("an invalid desktop id must fail");
+        let message = error.to_string();
+        assert!(message.contains("[applets.pomo]"), "{message}");
+        assert!(message.contains("applet"), "{message}");
+    }
+
+    #[test]
+    fn built_in_table_name_remains_its_kind() {
+        let config: crate::Config =
+            toml::from_str("[applets.clock]\n").expect("the built-in table loads");
+        assert!(matches!(config.applets["clock"].kind, Kind::Clock(_)));
     }
 
     #[test]

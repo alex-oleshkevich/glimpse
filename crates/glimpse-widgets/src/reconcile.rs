@@ -1,6 +1,6 @@
 use gtk4::prelude::*;
 
-pub(crate) fn by_key<T, W, K>(
+pub fn by_key<T, W, K>(
     parent: &impl IsA<gtk4::Widget>,
     held: &mut Vec<(K, W)>,
     wanted: &[T],
@@ -24,13 +24,17 @@ pub(crate) fn by_key<T, W, K>(
     }
 
     for (_, widget) in held.drain(..) {
-        widget.unparent();
+        if widget.parent().as_ref() == Some(parent.upcast_ref()) {
+            widget.unparent();
+        }
     }
 
     let mut previous: Option<W> = None;
     for (_, widget) in &next {
         let expected = previous.clone().map(Cast::upcast::<gtk4::Widget>);
-        if widget.parent().is_none() || widget.prev_sibling() != expected {
+        if widget.parent().as_ref() != Some(parent.upcast_ref())
+            || widget.prev_sibling() != expected
+        {
             if widget.parent().is_some() {
                 widget.unparent();
             }

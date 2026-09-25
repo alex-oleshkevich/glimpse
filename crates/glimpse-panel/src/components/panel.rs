@@ -6,9 +6,9 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
-    MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
+    ColorPickerHandle, CompositorHandle, ExecHandle, HeartbeatHandle, KdeconnectHandle,
+    KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle,
+    RemovableHandle, RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use glimpse_widgets::blur::{Blur, Shape};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -46,13 +46,19 @@ fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
         return;
     };
     handle.set_orientation(orientation);
+    handle.set_placement(applets::exec::placement(
+        config.position,
+        config.size,
+        config.monitor.connector().map(String::from),
+        slot.zone,
+    ));
     if let Some(applet) = applets::configured(&slot.name, &config.applets, &config.regional) {
         handle.configure(applet);
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Zone {
+pub(crate) enum Zone {
     Start,
     Center,
     End,
@@ -93,6 +99,7 @@ pub struct Config {
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
     pub ruler: RulerHandle,
+    pub exec: ExecHandle,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -306,6 +313,13 @@ impl Panel {
                                     &config.privacy,
                                     &config.system_monitor,
                                     &config.ruler,
+                                    &config.exec,
+                                    crate::applets::exec::placement(
+                                        config.position,
+                                        config.size,
+                                        connector.clone(),
+                                        zone,
+                                    ),
                                     Some(&config.dialog),
                                 ) else {
                                     tracing::debug!(

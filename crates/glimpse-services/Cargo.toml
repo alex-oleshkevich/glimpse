@@ -12,7 +12,8 @@ ddc.workspace = true
 ddc-i2c.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
-gio-unix.workspace = true
+gio.workspace = true
+gio-unix = { workspace = true, features = ["v2_60"] }
 glimpse-compositors.workspace = true
 glimpse-config.workspace = true
 glimpse-dbus.workspace = true

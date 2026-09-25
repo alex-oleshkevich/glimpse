@@ -33,6 +33,7 @@ pub enum HostInput {
     PopoverLowered,
     PopoverDismissed,
     Oriented(gtk4::Orientation),
+    Placed(glimpse_services::Placement),
     Pressed { button: u32 },
     Woken,
     Acknowledged,
@@ -131,6 +132,7 @@ impl Component for AppletRuntime {
             }
             HostInput::Configured(settings) => self.configure(settings),
             HostInput::Oriented(orientation) => self.orient(orientation),
+            HostInput::Placed(placement) => self.place(placement),
             HostInput::Ticked => self.deliver(Some(&Input::Tick)),
             HostInput::Woken => self.deliver(Some(&Input::Woken)),
             HostInput::Acknowledged => {
@@ -268,6 +270,16 @@ impl AppletRuntime {
             .applet
             .as_mut()
             .map(|applet| catch_unwind(AssertUnwindSafe(|| applet.orient(orientation))));
+        if let Some(Err(panic)) = outcome {
+            self.stop(panic.as_ref());
+        }
+    }
+
+    fn place(&mut self, placement: glimpse_services::Placement) {
+        let outcome = self
+            .applet
+            .as_mut()
+            .map(|applet| catch_unwind(AssertUnwindSafe(|| applet.place(placement))));
         if let Some(Err(panic)) = outcome {
             self.stop(panic.as_ref());
         }
@@ -429,6 +441,10 @@ impl AppletHandle {
             .sender()
             .send(HostInput::Oriented(orientation));
     }
+
+    pub fn set_placement(&self, placement: glimpse_services::Placement) {
+        let _ = self._controller.sender().send(HostInput::Placed(placement));
+    }
 }
 
 #[cfg(test)]
@@ -447,6 +463,10 @@ mod tests {
     struct Probe;
 
     impl Applet for Probe {
+        fn orient(&mut self, _orientation: gtk4::Orientation) {
+            SEEN.with(|seen| seen.borrow_mut().push("Oriented".to_owned()));
+        }
+
         fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
             if EXPLODE.with(Cell::get) {
                 panic!("the probe exploded while configuring");
@@ -711,6 +731,18 @@ mod tests {
             group(&handle).first_child().is_some(),
             "the group renders what indicators() returned"
         );
+
+        handle.set_orientation(gtk4::Orientation::Vertical);
+        settle();
+        assert_eq!(
+            group(&handle)
+                .layout_manager()
+                .and_downcast::<gtk4::BoxLayout>()
+                .expect("group layout")
+                .orientation(),
+            gtk4::Orientation::Vertical
+        );
+        assert!(seen().is_empty());
 
         press(&group(&handle), 3);
         assert_eq!(

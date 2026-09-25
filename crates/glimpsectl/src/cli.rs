@@ -3,7 +3,7 @@ use shadow_rs::shadow;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 fn clock(raw: &str) -> Result<NaiveTime, String> {
     glimpse_config::parse_clock(raw)
@@ -51,6 +51,9 @@ pub enum Command {
 
     #[command(subcommand, about = "Inspect the configuration stack")]
     Config(ConfigCommand),
+
+    #[command(subcommand, about = "Inspect and control external applets")]
+    Applets(AppletsCommand),
 
     #[command(about = "Check the configuration and every provider")]
     Doctor,
@@ -167,9 +170,82 @@ pub enum ConfigCommand {
     Path,
 }
 
+#[derive(Debug, Subcommand)]
+pub enum AppletsCommand {
+    #[command(about = "Create an external applet")]
+    New(NewAppletArgs),
+    #[command(about = "Validate an external applet")]
+    Check {
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+    },
+    #[command(about = "Link an applet into the live panel until interrupted")]
+    Dev {
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+    },
+    #[command(about = "Build a distributable applet")]
+    Bundle {
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        #[arg(long, default_value = "/usr")]
+        prefix: PathBuf,
+        #[arg(long, default_value = "dist")]
+        out: PathBuf,
+    },
+    #[command(about = "Install an applet for the current user")]
+    Install {
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+    },
+    #[command(about = "Remove a user-installed applet")]
+    Uninstall { id: String },
+    #[command(about = "List installed and placed external applets")]
+    List,
+    #[command(about = "Inspect an external applet")]
+    Inspect {
+        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
+        id: String,
+    },
+    #[command(about = "Print or follow an external applet's logs")]
+    Logs {
+        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
+        id: String,
+        #[arg(short, long, help = "Follow new lines, including after log rotation")]
+        follow: bool,
+    },
+    #[command(about = "Stop running scopes so the panel restarts the applet")]
+    Restart {
+        #[arg(value_name = "ID", help = "The applet's desktop-file id")]
+        id: String,
+    },
+}
+
+#[derive(Debug, Args)]
+pub struct NewAppletArgs {
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub name: Option<String>,
+    #[arg(long)]
+    pub description: Option<String>,
+    #[arg(long)]
+    pub icon: Option<String>,
+    #[arg(long, conflicts_with = "no_popover")]
+    pub popover: bool,
+    #[arg(long, conflicts_with = "popover")]
+    pub no_popover: bool,
+    #[arg(long)]
+    pub allow_net: Option<String>,
+    #[arg(long)]
+    pub dir: Option<PathBuf>,
+    #[arg(long)]
+    pub yes: bool,
+}
+
 impl Command {
     pub fn needs_session_bus(&self) -> bool {
-        !matches!(self, Self::Config(_) | Self::Doctor)
+        !matches!(self, Self::Config(_) | Self::Doctor | Self::Applets(_))
     }
 }
 
@@ -204,9 +280,10 @@ mod tests {
     }
 
     #[test]
-    fn only_config_and_doctor_run_without_a_bus() {
+    fn config_doctor_and_applets_run_without_a_bus() {
         assert!(!Command::Doctor.needs_session_bus());
         assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
+        assert!(!Command::Applets(AppletsCommand::List).needs_session_bus());
         assert!(Command::Sunset(SunsetCommand::Status).needs_session_bus());
     }
 }

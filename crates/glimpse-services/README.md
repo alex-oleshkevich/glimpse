@@ -175,6 +175,18 @@ PipeWire**, since PipeWire is blind to raw V4L2 capture. **`app: None` is first-
 resource, and always the case for location**, since GeoClue has no per-client attribution; it takes
 no commands at all.
 
+**exec** — an attached slot owns one external process and one tree. The child speaks first with
+`Hello`; every `Hello` resets its tree and advances the generation, so stale UI events cannot reach
+a reloaded applet. Placement and options changes go over its stdin without respawning it. A child
+that exits before `Hello` stays `Failed` until its catalog entry or instance config changes; a missing entry is checked every five seconds, and one that spoke restarts after
+bounded backoff. The source resolves desktop entries off the async worker, spawns on that worker for
+PDEATHSIG, and adopts the pid into a transient scope before waiting. **Only a user event marked as a
+gesture opens a two-second gate** for copy, URI, session and close-popover requests; notifications
+bypass it and are limited to one per second. Invalid JSON, oversized lines, invalid trees, Hello or Commit
+floods and a full stdin queue stop only the offending child. Stderr is capped at 20 lines per second
+and 512 bytes per line under `$XDG_RUNTIME_DIR/glimpse/applets/<id>.<slot>.<output>.<zone>.<epoch>.<pid>-<start>.log`, rotated to `.1` at
+one MiB and deleted on detach or applet ID change.
+
 ## Rules
 
 Concrete handles only — no broker, registry or string routing; see `.claude/rules/daemon.md`.

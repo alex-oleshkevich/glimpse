@@ -113,6 +113,12 @@ inject through. A label without a command, or a command without a label, is a lo
 **A variant with no settings is written `Clock {}`, never `Clock`** — `deny_unknown_fields` has
 nothing to deny on a unit variant, so it silently swallows every key under it.
 
+**A desktop-file id in a zone resolves to an `exec` applet**, but only after no kind matched the
+name: `center = ["me.example.Pomodoro"]`, two or more `.`-separated segments of
+`[A-Za-z_][A-Za-z0-9_-]*`. A table named by the id sets `options` without `extends`; a second
+instance is `[applets.pomo]` with `extends = "exec"` and a required `applet` id. `options` reaches
+the applet as written, unvalidated; the common settings stay beside it in the applet table.
+
 ## The `locale` convention
 
 A setting whose correct value the system already knows takes an enum with a `locale` variant, the

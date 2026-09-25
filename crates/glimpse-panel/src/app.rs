@@ -611,6 +611,7 @@ fn reconcile_panels(
                 privacy: services.privacy.clone(),
                 system_monitor: services.system_monitor.clone(),
                 ruler: services.ruler.clone(),
+                exec: services.exec(),
                 dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {

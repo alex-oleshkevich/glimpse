@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-24 22:39+0200\n"
+"POT-Creation-Date: 2026-09-25 18:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -149,25 +149,25 @@ msgstr ""
 msgid "this device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:136
+#: crates/glimpse-panel/src/applet/mod.rs:140
 msgid "That change was refused."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:137
+#: crates/glimpse-panel/src/applet/mod.rs:141
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:293
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:287
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:138
+#: crates/glimpse-panel/src/applet/mod.rs:142
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:294
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:288
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:139
+#: crates/glimpse-panel/src/applet/mod.rs:143
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:295
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:289
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:299
@@ -1008,6 +1008,29 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/exec/dom.rs:655
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1100
+msgid "Unsupported: {name}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:660
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1105
+msgid "This applet asked for an element glimpse does not render"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:93
+#: crates/glimpse-panel/src/applets/exec/mod.rs:128
+msgid "External applet action failed."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:189
+msgid "The link did not open."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:230
+msgid "External applet is not running."
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/idle/mod.rs:227
 #: crates/glimpse-panel/src/applets/printing/render.rs:165
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:168
@@ -1194,7 +1217,7 @@ msgstr ""
 msgid "Wants to pair"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mod.rs:63
+#: crates/glimpse-panel/src/applets/mod.rs:64
 msgid "Built-in display"
 msgstr ""
 

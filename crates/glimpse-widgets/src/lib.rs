@@ -59,7 +59,7 @@ mod progress;
 mod range_bar;
 pub mod raster;
 mod readout;
-mod reconcile;
+pub mod reconcile;
 mod removable_popover;
 pub(crate) mod row;
 mod ruler_popover;

@@ -473,12 +473,22 @@
           "required": []
         },
         "exec": {
-          "description": "Hosts a third-party applet binary that draws its own popover.",
+          "description": "A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).",
           "type": "object",
           "properties": {
+            "applet": {
+              "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
+              "type": "string"
+            },
             "extends": {
               "type": "string",
               "const": "exec"
+            },
+            "options": {
+              "description": "Passed to the applet as written.",
+              "type": "object",
+              "additionalProperties": true,
+              "default": {}
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -503,7 +513,9 @@
             }
           },
           "additionalProperties": false,
-          "required": []
+          "required": [
+            "applet"
+          ]
         },
         "heartbeat": {
           "description": "A counter that ticks once a second. A development fixture: it proves the service is\nreachable and events are arriving, and is not meant for a real bar.",
@@ -1878,12 +1890,22 @@
             ]
           },
           {
-            "description": "Hosts a third-party applet binary that draws its own popover.",
+            "description": "A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).",
             "type": "object",
             "properties": {
+              "applet": {
+                "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
+                "type": "string"
+              },
               "extends": {
                 "type": "string",
                 "const": "exec"
+              },
+              "options": {
+                "description": "Passed to the applet as written.",
+                "type": "object",
+                "additionalProperties": true,
+                "default": {}
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1909,7 +1931,8 @@
             },
             "additionalProperties": false,
             "required": [
-              "extends"
+              "extends",
+              "applet"
             ]
           },
           {

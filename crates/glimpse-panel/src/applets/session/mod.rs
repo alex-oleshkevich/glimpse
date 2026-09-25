@@ -1,4 +1,4 @@
-mod render;
+pub(crate) mod render;
 
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};

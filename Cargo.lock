@@ -1268,6 +1268,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-applet"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "glimpse-utils",
+ "notify",
+ "rustix",
+]
+
+[[package]]
 name = "glimpse-compositors"
 version = "0.16.0"
 dependencies = [
@@ -1432,6 +1443,7 @@ dependencies = [
  "libadwaita",
  "owo-colors",
  "relm4",
+ "serde_json",
  "shadow-rs",
  "thiserror",
  "tokio",
@@ -1504,6 +1516,7 @@ dependencies = [
  "ddc-i2c",
  "dirs",
  "futures-util",
+ "gio",
  "gio-unix",
  "glimpse-compositors",
  "glimpse-config",
@@ -1646,7 +1659,9 @@ dependencies = [
  "colorchoice-clap",
  "glimpse-config",
  "glimpse-dbus",
+ "glimpse-services",
  "glimpse-utils",
+ "libc",
  "serde",
  "serde_json",
  "shadow-rs",

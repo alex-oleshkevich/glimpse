@@ -205,8 +205,8 @@ capped before it reaches a label. They are not repeated here. What follows is wh
   it. An empty struct variant refuses them.
 - **There is no `Output`.** Commands leave through `ctx.call`; an empty group hides itself; nothing
   is reported to the panel.
-- **An applet is not told about orientation, position or its monitor.** The panel sets orientation on
-  the group directly. `Placement` returns with the first applet that needs the connector name.
+- **The panel calls `Applet::place` with `Placement` for position, orientation, zone, size and output.**
+  Group applets receive orientation on their group directly.
 - **Nothing in the panel scrolls, and nothing caps a popover's height.** `PopoverShell` does not and
   the catcher does not; the crate's one `Gtk.ScrolledWindow` propagates its natural height and so
   does not either. A popover stays on the screen

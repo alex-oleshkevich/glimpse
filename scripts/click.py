@@ -100,7 +100,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
         output=str(output),
         x=integer("x", x),
         y=integer("y", y),
-        button=str(button),
+        button=str(button or "left"),
         restore_x=integer("restore_x", restore_x),
         restore_y=integer("restore_y", restore_y),
         dry_run=args.dry_run,

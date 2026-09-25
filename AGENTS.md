@@ -15,9 +15,14 @@ Details, reasons and measured facts live in `docs/` — read the relevant file b
 
 ## Layout
 
-`crates/` (flat, one dir per crate), `data/` (installed assets), `scripts/` (not installed),
-`docs/`, `var/` (scratch). `_old/` and `var/glimpse2` are **reference only — never edit, build or
-copy from them**.
+| Path | Role |
+| --- | --- |
+| `crates/` | Flat workspace, one directory per crate |
+| `crates/glimpse-applet/` | External applet launcher |
+| `sdk/applet/` | TypeScript applet SDK, templates and examples |
+| `data/`, `scripts/`, `docs/`, `var/` | Installed assets, local scripts, documentation and scratch files |
+
+`_old/` and `var/glimpse2` are **reference only — never edit, build or copy from them**.
 
 Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `applet`, `widget`,
 `testing`, `live-testing`, `zbus`.
@@ -38,6 +43,7 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
   code — use D-Bus or the compositor IPC.
 - **No service crate has a Wayland dependency.** GTK stays in UI crates or `glimpse-widgets`.
 - Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/` only.
+- `glimpsectl applets dev`, `install` and `uninstall` may write their documented symlink or applet files under the user's home; tests use a temporary home.
 - **Text from other apps is hostile**: cap, ellipsize, never build markup from it.
 - **Never add `panic = "abort"`. Never sandbox `glimpse-lock.service`**, and nothing may stop it while
   it holds the lock.
