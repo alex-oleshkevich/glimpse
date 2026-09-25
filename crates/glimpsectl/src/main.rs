@@ -7,7 +7,10 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use cli::{Cli, Command, ConfigCommand, NotificationsCommand, SunsetCommand, WeatherCommand};
+use cli::{
+    Cli, Command, ConfigCommand, NotificationsCommand, SessionCommand, SunsetCommand,
+    WeatherCommand,
+};
 use errors::Exit;
 use glimpse_utils::init_app_tracing;
 
@@ -66,5 +69,6 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config.config, cli.json),
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
+        Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,
     }
 }

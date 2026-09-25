@@ -3,9 +3,14 @@ mod event;
 mod testing;
 
 use std::collections::{BTreeMap, VecDeque};
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use futures_util::stream::{self, BoxStream, StreamExt};
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use rustix::fd::OwnedFd;
+use rustix::fs::inotify;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
@@ -15,9 +20,11 @@ use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
     LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
-    WorkspaceId, WorkspaceTarget, capped_edid_str, is_built_in,
+    WorkspaceId, WorkspaceTarget, capped_edid_str, fill_window_outputs, is_built_in,
 };
 use event::{EventState, WireCast, WireLayouts, into_casts};
+
+const SCREENSHOT_DEADLINE: Duration = Duration::from_secs(2);
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: false,
@@ -41,7 +48,7 @@ impl Niri {
     }
 
     pub(crate) async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
-        let (outputs, workspaces, windows, keyboard, focused_output, casts) = tokio::try_join!(
+        let (outputs, workspaces, mut windows, keyboard, focused_output, casts) = tokio::try_join!(
             self.fetch::<BTreeMap<String, WireOutput>>("Outputs"),
             self.fetch::<Vec<Workspace>>("Workspaces"),
             self.fetch::<Vec<Window>>("Windows"),
@@ -49,6 +56,7 @@ impl Niri {
             self.fetch::<Option<WireFocusedOutput>>("FocusedOutput"),
             self.fetch::<Vec<WireCast>>("Casts"),
         )?;
+        fill_window_outputs(&mut windows, &workspaces);
 
         Ok(Snapshot {
             outputs: outputs.into_values().map(WireOutput::into_model).collect(),
@@ -155,6 +163,38 @@ impl Niri {
 
     pub(crate) async fn stop_screencast(&self, session_id: u64) -> Result<(), CompositorError> {
         self.act(&stop_cast_action(session_id)).await
+    }
+
+    pub(crate) async fn screenshot_window(
+        &self,
+        id: WindowId,
+        path: &Path,
+    ) -> Result<(), CompositorError> {
+        if !path.is_absolute() {
+            return Err(CompositorError::InvalidPath(path.to_owned()));
+        }
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| CompositorError::InvalidPath(path.to_owned()))?
+            .to_owned();
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| CompositorError::InvalidPath(path.to_owned()))?
+            .to_owned();
+        let dir = path
+            .parent()
+            .ok_or_else(|| CompositorError::InvalidPath(path.to_owned()))?
+            .to_owned();
+
+        let watch = arm_close_write_watch(&dir)?;
+
+        self.act(&screenshot_action(id, &path_str)).await?;
+
+        tokio::task::spawn_blocking(move || {
+            wait_for_close_write(watch, &file_name, SCREENSHOT_DEADLINE)
+        })
+        .await
+        .map_err(CompositorError::protocol)?
     }
 
     async fn fetch<T: for<'de> Deserialize<'de>>(
@@ -369,6 +409,78 @@ fn stop_cast_action(session_id: u64) -> Value {
     json!({ "StopCast": { "session_id": session_id } })
 }
 
+fn screenshot_action(id: WindowId, path: &str) -> Value {
+    json!({
+        "ScreenshotWindow": {
+            "id": id.0,
+            "write_to_disk": true,
+            "show_pointer": false,
+            "path": path,
+        }
+    })
+}
+
+fn arm_close_write_watch(dir: &Path) -> Result<OwnedFd, CompositorError> {
+    let flags = inotify::CreateFlags::CLOEXEC | inotify::CreateFlags::NONBLOCK;
+    let watch = inotify::init(flags).map_err(|source| CompositorError::Watch {
+        path: dir.to_owned(),
+        source: source.into(),
+    })?;
+    inotify::add_watch(
+        &watch,
+        dir,
+        inotify::WatchFlags::CLOSE_WRITE | inotify::WatchFlags::MOVED_TO,
+    )
+    .map_err(|source| CompositorError::Watch {
+        path: dir.to_owned(),
+        source: source.into(),
+    })?;
+    Ok(watch)
+}
+
+fn wait_for_close_write(
+    watch: OwnedFd,
+    file_name: &OsStr,
+    deadline: Duration,
+) -> Result<(), CompositorError> {
+    use std::os::unix::ffi::OsStrExt;
+
+    let started = Instant::now();
+    let mut buffer = [std::mem::MaybeUninit::uninit(); 512];
+    loop {
+        let remaining = deadline
+            .checked_sub(started.elapsed())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or(CompositorError::NoFile(deadline))?;
+        let timeout = Timespec {
+            tv_sec: remaining.as_secs() as i64,
+            tv_nsec: i64::from(remaining.subsec_nanos()),
+        };
+        let mut fds = [PollFd::new(&watch, PollFlags::IN)];
+        match poll(&mut fds, Some(&timeout)) {
+            Ok(0) => return Err(CompositorError::NoFile(deadline)),
+            Ok(_) => {}
+            Err(rustix::io::Errno::INTR) => continue,
+            Err(error) => return Err(CompositorError::protocol(error)),
+        }
+
+        let mut reader = inotify::Reader::new(&watch, &mut buffer);
+        loop {
+            match reader.next() {
+                Ok(event)
+                    if event.file_name().map(|name| name.to_bytes())
+                        == Some(file_name.as_bytes()) =>
+                {
+                    return Ok(());
+                }
+                Ok(_) => {}
+                Err(rustix::io::Errno::WOULDBLOCK) => break,
+                Err(error) => return Err(CompositorError::protocol(error)),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -457,6 +569,11 @@ mod tests {
         assert_eq!(snapshot.workspaces[0].idx, Some(1));
         assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
         assert_eq!(snapshot.windows[0].layout_order, Some(2));
+        assert_eq!(
+            snapshot.windows[0].output.as_deref(),
+            Some("eDP-1"),
+            "a window's output is filled from its workspace once the snapshot is assembled"
+        );
         assert_eq!(snapshot.keyboard.names, ["Polish", "Russian"]);
         assert_eq!(snapshot.keyboard.codes, ["PL", "RU"]);
         assert_eq!(snapshot.keyboard.current, Some(1));
@@ -707,6 +824,18 @@ mod tests {
             stop_cast_action(2),
             json!({ "StopCast": { "session_id": 2 } })
         );
+
+        assert_eq!(
+            screenshot_action(WindowId(9), "/tmp/shot.png"),
+            json!({
+                "ScreenshotWindow": {
+                    "id": 9,
+                    "write_to_disk": true,
+                    "show_pointer": false,
+                    "path": "/tmp/shot.png"
+                }
+            })
+        );
     }
 
     #[tokio::test]
@@ -747,6 +876,97 @@ mod tests {
             received.lock().expect("lock").as_deref(),
             Some(r#"{"Action":{"StopCast":{"session_id":2}}}"#)
         );
+    }
+
+    #[tokio::test]
+    async fn the_watch_is_armed_before_the_action_is_sent() {
+        let received: Arc<Mutex<Option<String>>> = Arc::default();
+        let sink = received.clone();
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("shot.png");
+        let target = path.clone();
+        let server = FakeNiri::spawn(move |request| {
+            *sink.lock().expect("lock") = Some(request.to_owned());
+            std::fs::write(&target, b"not really a png").expect("write the screenshot file");
+            vec![json!({ "Ok": null }).to_string()]
+        });
+
+        Niri::at(&server.socket)
+            .screenshot_window(WindowId(9), &path)
+            .await
+            .expect("screenshot");
+
+        assert_eq!(
+            received.lock().expect("lock").as_deref(),
+            Some(
+                json!({
+                    "Action": {
+                        "ScreenshotWindow": {
+                            "id": 9,
+                            "write_to_disk": true,
+                            "show_pointer": false,
+                            "path": path.to_str().expect("utf-8 path"),
+                        }
+                    }
+                })
+                .to_string()
+                .as_str()
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn screenshot_window_returns_only_after_the_file_exists() {
+        let server = FakeNiri::spawn(|_| vec![json!({ "Ok": null }).to_string()]);
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("shot.png");
+        let target = path.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            std::fs::write(&target, b"not really a png").expect("write the screenshot file");
+        });
+
+        Niri::at(&server.socket)
+            .screenshot_window(WindowId(9), &path)
+            .await
+            .expect("screenshot");
+
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn a_close_write_watch_times_out_when_no_matching_file_ever_arrives() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let watch = arm_close_write_watch(dir.path()).expect("watch armed");
+
+        let failure =
+            wait_for_close_write(watch, OsStr::new("never.png"), Duration::from_millis(30))
+                .expect_err("nothing ever closes that file");
+
+        assert!(matches!(failure, CompositorError::NoFile(_)));
+    }
+
+    #[test]
+    fn a_close_write_watch_ignores_an_unrelated_file_closing_in_the_same_directory() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let watch = arm_close_write_watch(dir.path()).expect("watch armed");
+        std::fs::write(dir.path().join("other.png"), b"decoy").expect("write a decoy file");
+
+        let failure =
+            wait_for_close_write(watch, OsStr::new("shot.png"), Duration::from_millis(30))
+                .expect_err("the decoy must not satisfy the watch");
+
+        assert!(matches!(failure, CompositorError::NoFile(_)));
+    }
+
+    #[tokio::test]
+    async fn a_relative_screenshot_path_is_rejected_before_anything_is_armed() {
+        let failure = Niri::at("/nonexistent/niri.sock")
+            .screenshot_window(WindowId(9), Path::new("shot.png"))
+            .await
+            .expect_err("a relative path must be refused");
+
+        assert!(matches!(failure, CompositorError::InvalidPath(_)));
     }
 
     #[test]

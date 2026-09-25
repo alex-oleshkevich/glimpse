@@ -1,38 +1,58 @@
+mod ext;
+mod wlr;
+
 use std::fs::File;
 use std::os::fd::AsFd;
-use std::os::unix::fs::FileExt;
 use std::time::Instant;
 
-use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use rustix::fs::{MemfdFlags, memfd_create};
-use wayland_client::globals::{GlobalListContents, registry_queue_init};
-use wayland_client::protocol::{wl_buffer, wl_output, wl_registry, wl_shm, wl_shm_pool};
-use wayland_client::{Connection, Dispatch, EventQueue, Proxy, QueueHandle, WEnum, delegate_noop};
-use wayland_protocols_wlr::screencopy::v1::client::{
-    zwlr_screencopy_frame_v1::{self, ZwlrScreencopyFrameV1},
-    zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1,
+use wayland_client::protocol::{wl_buffer, wl_output, wl_shm, wl_shm_pool};
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle, WEnum};
+use wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1;
+use wayland_protocols::ext::image_capture_source::v1::client::{
+    ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1,
+    ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1,
 };
+use wayland_protocols::ext::image_copy_capture::v1::client::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1;
+use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
+
+use crate::wire::{self, Globals, Stall};
 
 #[derive(Debug, thiserror::Error)]
 pub enum CaptureError {
-    #[error("the compositor does not offer zwlr_screencopy_manager_v1")]
+    #[error(
+        "the compositor offers neither ext_image_copy_capture_manager_v1 nor zwlr_screencopy_manager_v1 for this capture"
+    )]
     Unsupported,
-    #[error("the compositor offered a {0} buffer, which the picker cannot read")]
+    #[error("the compositor offered a {0} buffer, which cannot be read")]
     Format(String),
     #[error("the compositor refused to capture {0}")]
     Refused(String),
     #[error("there is no output to capture")]
     NoOutputs,
+    #[error("there is no output named {0}")]
+    NoSuchOutput(String),
     #[error("the compositor did not answer in time")]
     TimedOut,
     #[error("the compositor offers wl_output version {0}, and outputs have names only from 4")]
     Unnamed(u32),
     #[error("{0}")]
     Failed(String),
+    #[error("there is no window with that identifier")]
+    NoSuchToplevel,
 }
 
 fn failed(error: impl std::fmt::Display) -> CaptureError {
     CaptureError::Failed(error.to_string())
+}
+
+impl From<Stall> for CaptureError {
+    fn from(stall: Stall) -> Self {
+        match stall {
+            Stall::TimedOut => Self::TimedOut,
+            Stall::Failed(reason) => Self::Failed(reason),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,11 +71,13 @@ pub struct Raw {
     pub transform: wl_output::Transform,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Frame {
     pub connector: String,
     pub width: u32,
     pub height: u32,
     pub pixels: glib::Bytes,
+    pub alpha: bool,
 }
 
 impl Frame {
@@ -124,6 +146,7 @@ impl Frame {
             width: width as u32,
             height: height as u32,
             pixels: glib::Bytes::from_owned(pixels),
+            alpha: false,
         }
     }
 
@@ -135,205 +158,145 @@ impl Frame {
     }
 }
 
-struct Output {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Toplevel {
+    pub identifier: String,
+    pub app_id: Option<String>,
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backend {
+    ExtImageCopy,
+    WlrScreencopy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Capabilities {
+    pub outputs: Backend,
+    pub toplevels: bool,
+}
+
+pub fn capabilities(deadline: Instant) -> Result<Capabilities, CaptureError> {
+    let (_connection, globals) = wire::connect(deadline)?;
+    choose(&globals.pairs())
+}
+
+pub fn choose(globals: &[(&str, u32)]) -> Result<Capabilities, CaptureError> {
+    let offers = |wanted: &str| globals.iter().any(|(interface, _)| *interface == wanted);
+    let copy = offers(ExtImageCopyCaptureManagerV1::interface().name);
+    let outputs = if copy && offers(ExtOutputImageCaptureSourceManagerV1::interface().name) {
+        Backend::ExtImageCopy
+    } else if offers(ZwlrScreencopyManagerV1::interface().name) {
+        Backend::WlrScreencopy
+    } else {
+        return Err(CaptureError::Unsupported);
+    };
+    let toplevels = copy
+        && offers(ExtForeignToplevelImageCaptureSourceManagerV1::interface().name)
+        && offers(ExtForeignToplevelListV1::interface().name);
+    Ok(Capabilities { outputs, toplevels })
+}
+
+pub fn outputs(deadline: Instant, cursor: bool) -> Result<Vec<Frame>, CaptureError> {
+    shoot(deadline, cursor, None)
+}
+
+pub fn output(name: &str, deadline: Instant, cursor: bool) -> Result<Frame, CaptureError> {
+    shoot(deadline, cursor, Some(name))?
+        .into_iter()
+        .next()
+        .ok_or(CaptureError::NoOutputs)
+}
+
+pub fn toplevels(deadline: Instant) -> Result<Vec<Toplevel>, CaptureError> {
+    let (connection, globals) = wire::connect(deadline)?;
+    ext::toplevels(&connection, &globals, deadline)
+}
+
+pub fn toplevel(identifier: &str, deadline: Instant) -> Result<Frame, CaptureError> {
+    let (connection, globals) = wire::connect(deadline)?;
+    if !choose(&globals.pairs())?.toplevels {
+        return Err(CaptureError::Unsupported);
+    }
+    ext::toplevel(&connection, &globals, identifier, deadline)
+}
+
+fn shoot(deadline: Instant, cursor: bool, only: Option<&str>) -> Result<Vec<Frame>, CaptureError> {
+    let (connection, globals) = wire::connect(deadline)?;
+    let backend = choose(&globals.pairs())?.outputs;
+    let named = named(&connection, &globals, deadline, only)?;
+    let frames = match backend {
+        Backend::ExtImageCopy => ext::outputs(&connection, &globals, &named, deadline, cursor),
+        Backend::WlrScreencopy => wlr::outputs(&connection, &globals, &named, deadline, cursor),
+    };
+    for output in &named {
+        output.output.release();
+    }
+    connection.flush().map_err(failed)?;
+    frames
+}
+
+struct Named {
     output: wl_output::WlOutput,
-    connector: Option<String>,
+    connector: String,
     transform: wl_output::Transform,
-    frame: Option<ZwlrScreencopyFrameV1>,
-    buffer: Option<(wl_shm::Format, u32, u32, u32)>,
-    buffer_done: bool,
-    y_invert: bool,
-    outcome: Option<bool>,
 }
 
 #[derive(Default)]
-struct State {
-    outputs: Vec<Output>,
+struct Naming {
+    outputs: Vec<(wl_output::WlOutput, Option<String>, wl_output::Transform)>,
 }
 
-pub fn capture(deadline: Instant) -> Result<Vec<Frame>, CaptureError> {
-    let connection = Connection::connect_to_env().map_err(failed)?;
-    let (globals, mut queue) = registry_queue_init::<State>(&connection).map_err(failed)?;
+fn named(
+    connection: &Connection,
+    globals: &Globals,
+    deadline: Instant,
+    only: Option<&str>,
+) -> Result<Vec<Named>, CaptureError> {
+    let mut queue = connection.new_event_queue::<Naming>();
     let handle = queue.handle();
-    let manager: ZwlrScreencopyManagerV1 = globals
-        .bind(&handle, 1..=3, ())
-        .map_err(|_| CaptureError::Unsupported)?;
-    let shm: wl_shm::WlShm = globals.bind(&handle, 1..=1, ()).map_err(failed)?;
-
-    let mut state = State::default();
-    for global in globals.contents().clone_list() {
-        if global.interface != "wl_output" {
-            continue;
-        }
+    let mut naming = Naming::default();
+    for global in globals.all(wl_output::WlOutput::interface().name) {
         if global.version < 4 {
             return Err(CaptureError::Unnamed(global.version));
         }
-        let index = state.outputs.len();
-        let output = globals.registry().bind::<wl_output::WlOutput, _, _>(
-            global.name,
-            global.version.min(4),
-            &handle,
-            index,
-        );
-        state.outputs.push(Output {
-            output,
-            connector: None,
-            transform: wl_output::Transform::Normal,
-            frame: None,
-            buffer: None,
-            buffer_done: false,
-            y_invert: false,
-            outcome: None,
-        });
+        let index = naming.outputs.len();
+        let output =
+            globals
+                .registry()
+                .bind::<wl_output::WlOutput, _, _>(global.name, 4, &handle, index);
+        naming
+            .outputs
+            .push((output, None, wl_output::Transform::Normal));
     }
-    if state.outputs.is_empty() {
+    if naming.outputs.is_empty() {
         return Err(CaptureError::NoOutputs);
     }
-    settle(&connection, &mut queue, &mut state, deadline, |state| {
-        state
-            .outputs
-            .iter()
-            .all(|output| output.connector.is_some())
+    wire::settle(connection, &mut queue, &mut naming, deadline, |naming| {
+        naming.outputs.iter().all(|(_, name, _)| name.is_some())
     })?;
-
-    for (index, output) in state.outputs.iter_mut().enumerate() {
-        output.frame = Some(manager.capture_output(0, &output.output, &handle, index));
-    }
-    let announces_done = manager.version() >= 3;
-    settle(&connection, &mut queue, &mut state, deadline, |state| {
-        state.outputs.iter().all(|output| {
-            output.outcome.is_some()
-                || output.buffer_done
-                || (!announces_done && output.buffer.is_some())
-        })
-    })?;
-
-    let mut memory = Vec::new();
-    for output in &state.outputs {
-        let name = output.connector.clone().unwrap_or_default();
-        let Some((format, width, height, stride)) = output.buffer else {
-            return Err(CaptureError::Refused(name));
-        };
-        let Some(layout) = layout(format) else {
-            return Err(CaptureError::Format(format!("{format:?}")));
-        };
-        let raw = Raw {
-            width,
-            height,
-            stride,
-            layout,
-            y_invert: false,
-            transform: output.transform,
-        };
-        let size = stride as usize * height as usize;
-        let file = File::from(memfd_create("glimpse-picker", MemfdFlags::CLOEXEC).map_err(failed)?);
-        file.set_len(size as u64).map_err(failed)?;
-        let pool = shm.create_pool(file.as_fd(), size as i32, &handle, ());
-        let buffer = pool.create_buffer(
-            0,
-            width as i32,
-            height as i32,
-            stride as i32,
-            format,
-            &handle,
-            (),
-        );
-        if let Some(frame) = &output.frame {
-            frame.copy(&buffer);
-        }
-        memory.push((file, pool, buffer, raw));
-    }
-
-    settle(&connection, &mut queue, &mut state, deadline, |state| {
-        state.outputs.iter().all(|output| output.outcome.is_some())
-    })?;
-
-    let mut frames = Vec::new();
-    for (output, (file, pool, buffer, raw)) in state.outputs.iter().zip(memory) {
-        let name = output.connector.clone().unwrap_or_default();
-        if let Some(frame) = &output.frame {
-            frame.destroy();
-        }
-        let mut bytes = vec![0u8; raw.stride as usize * raw.height as usize];
-        let read = output.outcome == Some(true) && file.read_exact_at(&mut bytes, 0).is_ok();
-        buffer.destroy();
-        pool.destroy();
-        if !read {
-            return Err(CaptureError::Refused(name));
-        }
-        let raw = Raw {
-            y_invert: output.y_invert,
-            ..raw
-        };
-        tracing::debug!(connector = name, ?raw, "screencopy buffer");
-        frames.push(Frame::upright(name, raw, &bytes));
-    }
-    for output in &state.outputs {
-        output.output.release();
-    }
-    manager.destroy();
-    connection.flush().map_err(failed)?;
-    Ok(frames)
-}
-
-fn settle(
-    connection: &Connection,
-    queue: &mut EventQueue<State>,
-    state: &mut State,
-    deadline: Instant,
-    done: impl Fn(&State) -> bool,
-) -> Result<(), CaptureError> {
-    loop {
-        queue.dispatch_pending(state).map_err(failed)?;
-        if done(state) {
-            return Ok(());
-        }
-        connection.flush().map_err(failed)?;
-        let Some(guard) = queue.prepare_read() else {
+    let mut named = Vec::new();
+    for (output, connector, transform) in naming.outputs {
+        let connector = connector.unwrap_or_default();
+        if only.is_some_and(|wanted| wanted != connector) {
+            output.release();
             continue;
-        };
-        let left = deadline
-            .checked_duration_since(Instant::now())
-            .filter(|left| !left.is_zero())
-            .ok_or(CaptureError::TimedOut)?;
-        let timeout = Timespec {
-            tv_sec: left.as_secs() as i64,
-            tv_nsec: i64::from(left.subsec_nanos()),
-        };
-        let fd = guard.connection_fd();
-        let mut fds = [PollFd::new(&fd, PollFlags::IN)];
-        match poll(&mut fds, Some(&timeout)) {
-            Ok(0) => return Err(CaptureError::TimedOut),
-            Ok(_) => {
-                guard.read().map_err(failed)?;
-            }
-            Err(rustix::io::Errno::INTR) => {}
-            Err(error) => return Err(failed(error)),
         }
+        named.push(Named {
+            output,
+            connector,
+            transform,
+        });
+    }
+    match (named.is_empty(), only) {
+        (true, Some(wanted)) => Err(CaptureError::NoSuchOutput(wanted.to_owned())),
+        (true, None) => Err(CaptureError::NoOutputs),
+        (false, _) => Ok(named),
     }
 }
 
-fn layout(format: wl_shm::Format) -> Option<Layout> {
-    match format {
-        wl_shm::Format::Xrgb8888 | wl_shm::Format::Argb8888 => Some(Layout::Bgrx),
-        wl_shm::Format::Xbgr8888 | wl_shm::Format::Abgr8888 => Some(Layout::Rgbx),
-        _ => None,
-    }
-}
-
-impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for State {
-    fn event(
-        _: &mut Self,
-        _: &wl_registry::WlRegistry,
-        _: wl_registry::Event,
-        _: &GlobalListContents,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-    ) {
-    }
-}
-
-impl Dispatch<wl_output::WlOutput, usize> for State {
+impl Dispatch<wl_output::WlOutput, usize> for Naming {
     fn event(
         state: &mut Self,
         _: &wl_output::WlOutput,
@@ -342,63 +305,62 @@ impl Dispatch<wl_output::WlOutput, usize> for State {
         _: &Connection,
         _: &QueueHandle<Self>,
     ) {
-        let Some(output) = state.outputs.get_mut(*index) else {
+        let Some((_, connector, transform)) = state.outputs.get_mut(*index) else {
             return;
         };
         match event {
-            wl_output::Event::Name { name } => output.connector = Some(name),
+            wl_output::Event::Name { name } => *connector = Some(name),
             wl_output::Event::Geometry {
-                transform: WEnum::Value(transform),
+                transform: WEnum::Value(value),
                 ..
-            } => output.transform = transform,
+            } => *transform = value,
             _ => {}
         }
     }
 }
 
-impl Dispatch<ZwlrScreencopyFrameV1, usize> for State {
-    fn event(
-        state: &mut Self,
-        _: &ZwlrScreencopyFrameV1,
-        event: zwlr_screencopy_frame_v1::Event,
-        index: &usize,
-        _: &Connection,
-        _: &QueueHandle<Self>,
-    ) {
-        let Some(output) = state.outputs.get_mut(*index) else {
-            return;
-        };
-        match event {
-            zwlr_screencopy_frame_v1::Event::Buffer {
-                format: WEnum::Value(format),
-                width,
-                height,
-                stride,
-            } => {
-                let preferred = output
-                    .buffer
-                    .is_some_and(|(chosen, ..)| layout(chosen).is_some());
-                if !preferred {
-                    output.buffer = Some((format, width, height, stride));
-                }
-            }
-            zwlr_screencopy_frame_v1::Event::Flags {
-                flags: WEnum::Value(flags),
-            } => {
-                output.y_invert = flags.contains(zwlr_screencopy_frame_v1::Flags::YInvert);
-            }
-            zwlr_screencopy_frame_v1::Event::BufferDone => output.buffer_done = true,
-            zwlr_screencopy_frame_v1::Event::Ready { .. } => output.outcome = Some(true),
-            zwlr_screencopy_frame_v1::Event::Failed => output.outcome = Some(false),
-            _ => {}
-        }
-    }
+struct Memory {
+    file: File,
+    pool: wl_shm_pool::WlShmPool,
+    buffer: wl_buffer::WlBuffer,
 }
 
-delegate_noop!(State: ignore wl_shm::WlShm);
-delegate_noop!(State: ignore wl_shm_pool::WlShmPool);
-delegate_noop!(State: ignore wl_buffer::WlBuffer);
-delegate_noop!(State: ignore ZwlrScreencopyManagerV1);
+impl Memory {
+    fn new<D>(
+        shm: &wl_shm::WlShm,
+        handle: &QueueHandle<D>,
+        (width, height, stride): (u32, u32, u32),
+        format: wl_shm::Format,
+    ) -> Result<Self, CaptureError>
+    where
+        D: Dispatch<wl_shm_pool::WlShmPool, ()> + Dispatch<wl_buffer::WlBuffer, ()> + 'static,
+    {
+        let size = stride as usize * height as usize;
+        let file =
+            File::from(memfd_create("glimpse-capture", MemfdFlags::CLOEXEC).map_err(failed)?);
+        file.set_len(size as u64).map_err(failed)?;
+        let pool = shm.create_pool(file.as_fd(), size as i32, handle, ());
+        let buffer = pool.create_buffer(
+            0,
+            width as i32,
+            height as i32,
+            stride as i32,
+            format,
+            handle,
+            (),
+        );
+        Ok(Self { file, pool, buffer })
+    }
+
+    fn read(self, size: usize, ready: bool) -> Option<Vec<u8>> {
+        use std::os::unix::fs::FileExt;
+        let mut bytes = vec![0u8; size];
+        let read = ready && self.file.read_exact_at(&mut bytes, 0).is_ok();
+        self.buffer.destroy();
+        self.pool.destroy();
+        read.then_some(bytes)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -559,5 +521,77 @@ mod tests {
         );
 
         assert_eq!(frame.pixel(99, 99), [5, 0, 0]);
+    }
+
+    const EXT: [(&str, u32); 2] = [
+        ("ext_image_copy_capture_manager_v1", 1),
+        ("ext_output_image_capture_source_manager_v1", 1),
+    ];
+    const TOPLEVELS: [(&str, u32); 2] = [
+        ("ext_foreign_toplevel_image_capture_source_manager_v1", 1),
+        ("ext_foreign_toplevel_list_v1", 1),
+    ];
+    const WLR: (&str, u32) = ("zwlr_screencopy_manager_v1", 3);
+
+    #[test]
+    fn ext_is_chosen_whenever_it_is_offered() {
+        let mut globals = vec![WLR, ("wl_output", 4)];
+        globals.extend(EXT);
+        globals.extend(TOPLEVELS);
+
+        let chosen = choose(&globals).unwrap();
+
+        assert_eq!(
+            chosen,
+            Capabilities {
+                outputs: Backend::ExtImageCopy,
+                toplevels: true
+            }
+        );
+    }
+
+    #[test]
+    fn screencopy_alone_captures_outputs_and_no_windows() {
+        let chosen = choose(&[("wl_output", 4), WLR]).unwrap();
+
+        assert_eq!(
+            chosen,
+            Capabilities {
+                outputs: Backend::WlrScreencopy,
+                toplevels: false
+            }
+        );
+    }
+
+    #[test]
+    fn neither_protocol_is_unsupported() {
+        assert!(matches!(
+            choose(&[("wl_output", 4), ("wl_shm", 1)]),
+            Err(CaptureError::Unsupported)
+        ));
+        assert!(matches!(choose(&[]), Err(CaptureError::Unsupported)));
+    }
+
+    #[test]
+    fn ext_without_a_toplevel_source_captures_no_windows() {
+        let chosen = choose(&EXT).unwrap();
+
+        assert_eq!(
+            chosen,
+            Capabilities {
+                outputs: Backend::ExtImageCopy,
+                toplevels: false
+            }
+        );
+        let mut without_list = EXT.to_vec();
+        without_list.push(TOPLEVELS[0]);
+        assert!(!choose(&without_list).unwrap().toplevels);
+    }
+
+    #[test]
+    fn a_copy_manager_without_an_output_source_falls_back_to_screencopy() {
+        let chosen = choose(&[EXT[0], WLR]).unwrap();
+
+        assert_eq!(chosen.outputs, Backend::WlrScreencopy);
     }
 }

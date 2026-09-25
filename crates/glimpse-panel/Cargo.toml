@@ -23,6 +23,7 @@ glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-services.workspace = true
 glimpse-utils.workspace = true
+glimpse-wayland.workspace = true
 glimpse-widgets.workspace = true
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
@@ -33,9 +34,6 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
-wayland-client.workspace = true
-wayland-protocols.workspace = true
-wayland-protocols-wlr.workspace = true
 zeroize.workspace = true
 tracing-subscriber.workspace = true
 

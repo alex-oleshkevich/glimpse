@@ -1,0 +1,35 @@
+using Gtk 4.0;
+
+template $ShotCountdown: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  Gtk.Box {
+    spacing: 12;
+
+    styles [
+      "shot-surface",
+      "shot-pill",
+      "shot-pill--compact",
+    ]
+
+    Gtk.Label label {
+      valign: center;
+      use-markup: false;
+
+      styles [
+        "shot-countdown",
+      ]
+    }
+
+    Gtk.Button cancel {
+      icon-name: "window-close-symbolic";
+      tooltip-text: _("Cancel the screenshot");
+      valign: center;
+
+      styles [
+        "flat",
+        "circular",
+      ]
+    }
+  }
+}

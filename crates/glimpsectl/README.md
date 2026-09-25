@@ -76,6 +76,23 @@ dropped. The flag was withheld at first because the store held `until` and nothi
 it would have promised a lapse that never came. The service now arms a subscription keyed on the
 instant, so the expiry is honoured rather than merely recorded.
 
+**`session declare` is hidden and not for a user to run.** `glimpse-desktop.service`
+(`PartOf=glimpse-session.target`, no `[Install]`) runs it once at session start as
+`ExecStart=/usr/bin/glimpsectl session declare`. It declares `XDG_CURRENT_DESKTOP=glimpse:niri`
+through `Systemd1Manager.SetEnvironment` and `DBus.UpdateActivationEnvironment`, then
+`TryRestartUnit`s `xdg-desktop-portal.service` — D-Bus only, never `systemctl` or
+`dbus-update-activation-environment`. It declares only when the inherited `XDG_CURRENT_DESKTOP` is
+exactly `niri`, the value niri's session sets before importing it into systemd; anything else,
+including an already-declared `glimpse:niri`, is left alone and the command exits 0 having printed
+nothing. A user who starts niri some other way than through niri-session gets the same identity by
+adding this to their own niri config instead:
+
+```
+environment {
+    XDG_CURRENT_DESKTOP "glimpse:niri"
+}
+```
+
 **`config` and `doctor` open no bus.** `config` reads the layered stack from disk, which is what
 makes it work when a provider is what will not start. `doctor` connects but tolerates failure, for
 the same reason: a command that exists to diagnose a missing provider cannot require one, so an

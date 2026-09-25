@@ -847,6 +847,9 @@ fn command_error(error: &CompositorError) -> CommandError {
         }
         CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
         CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
+        CompositorError::NoFile(_)
+        | CompositorError::InvalidPath(_)
+        | CompositorError::Watch { .. } => CommandError::Internal(error.to_string()),
     }
 }
 
@@ -1034,6 +1037,9 @@ mod tests {
             is_floating: false,
             is_urgent: false,
             layout_order: None,
+            size: None,
+            rect: None,
+            output: None,
         }
     }
 

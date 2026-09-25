@@ -257,22 +257,101 @@ fn binary_tarball_includes_idle_portal_assets() {
     let script = fs::read_to_string(root.join("scripts/package-binary.sh"))
         .expect("binary packaging script");
 
-    for (source, destination) in [
-        (
-            "data/portals/*.portal",
-            "usr/share/xdg-desktop-portal/portals",
-        ),
-        (
-            "data/portals/*-portals.conf",
-            "usr/share/xdg-desktop-portal",
-        ),
-    ] {
-        assert!(script.contains(source), "{source}");
-        assert!(script.contains(destination), "{destination}");
-    }
+    assert!(script.contains("data/portals/*.portal"));
+    assert!(
+        script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/portals/$(basename \"$f\")\"")
+    );
+    assert!(script.contains("data/portals/*-portals.conf"));
+    assert!(script.contains("\"$pkgroot/etc/xdg-desktop-portal/$(basename \"$f\")\""));
+    assert!(!script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/$(basename \"$f\")\""));
+    assert!(script.contains("\"$pkgroot/usr/share/glimpse/portals/$(basename \"$f\")\""));
 
     assert!(root.join("data/portals/glimpse.portal").is_file());
-    assert!(root.join("data/portals/glimpse-portals.conf").is_file());
+    let manifest = manifest(&root);
+    for conf in ["glimpse-portals.conf", "niri-portals.conf"] {
+        let text = fs::read_to_string(root.join("data/portals").join(conf)).expect(conf);
+        assert!(
+            text.contains("org.freedesktop.impl.portal.Inhibit=glimpse"),
+            "{conf}"
+        );
+        assert!(
+            !text
+                .lines()
+                .any(|line| line.trim_start().starts_with("default")),
+            "{conf} must not set a default: it would swallow every interface niri routes"
+        );
+
+        for kind in ["deb", "generate-rpm"] {
+            let assets = assets(&manifest, kind);
+            assert!(
+                assets
+                    .iter()
+                    .any(|(from, to)| from.ends_with(conf)
+                        && to.starts_with("etc/xdg-desktop-portal/")),
+                "[package.metadata.{kind}] does not install {conf} into /etc/xdg-desktop-portal"
+            );
+            assert!(
+                !assets
+                    .iter()
+                    .any(|(from, to)| from.ends_with("-portals.conf")
+                        && to.starts_with("usr/share/xdg-desktop-portal")),
+                "[package.metadata.{kind}] installs a portals.conf where it would replace niri's"
+            );
+            assert!(
+                assets
+                    .iter()
+                    .any(|(from, to)| from.ends_with("-portals.conf")
+                        && to.starts_with("usr/share/glimpse/portals")),
+                "[package.metadata.{kind}] does not ship the reference copy of {conf}"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_etc_portal_routing_is_configuration_in_every_package() {
+    let root = workspace_root();
+    let manifest = manifest(&root);
+    let metadata = &manifest["package"]["metadata"];
+    let pkgbuild = fs::read_to_string(root.join("PKGBUILD")).expect("PKGBUILD");
+    let install = fs::read_to_string(root.join("scripts/install.sh")).expect("install script");
+    assert!(install.contains("$portaletcdir"));
+
+    let conf_files = metadata["deb"]["conf-files"]
+        .as_array()
+        .expect("the deb manifest declares conf-files");
+    let rpm_tables = [
+        &metadata["generate-rpm"]["assets"],
+        &metadata["generate-rpm"]["variants"]["opensuse"]["assets"],
+    ];
+
+    for path in [
+        "/etc/geoclue/conf.d/glimpse.conf",
+        "/etc/pam.d/glimpse-lock",
+        "/etc/xdg-desktop-portal/glimpse-portals.conf",
+        "/etc/xdg-desktop-portal/niri-portals.conf",
+    ] {
+        assert!(
+            pkgbuild.contains(&format!("'{}'", path.trim_start_matches('/'))),
+            "PKGBUILD backup=() lacks {path}, so pacman overwrites an edit on upgrade"
+        );
+        if !path.starts_with("/etc/xdg-desktop-portal/") {
+            continue;
+        }
+        assert!(
+            conf_files.iter().any(|file| file.as_str() == Some(path)),
+            "deb conf-files lacks {path}"
+        );
+        for table in rpm_tables {
+            let asset = table
+                .as_array()
+                .expect("an rpm assets array")
+                .iter()
+                .find(|asset| asset["dest"].as_str() == Some(path))
+                .unwrap_or_else(|| panic!("an rpm table does not install {path}"));
+            assert!(asset.get("config").is_some(), "{path} is not rpm %config");
+        }
+    }
 }
 
 #[test]
@@ -345,6 +424,7 @@ fn the_color_picker_ships_as_a_plain_binary() {
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
     assert_eq!(package.matches("target/release/glimpse-picker").count(), 3);
+    assert_eq!(package.matches("target/release/glimpse-ruler").count(), 3);
     assert!(!root.join("data/systemd/glimpse-picker.service").exists());
 
     let manifest =
@@ -353,6 +433,64 @@ fn the_color_picker_ships_as_a_plain_binary() {
         !manifest.contains("zbus"),
         "the picker is a command, not a D-Bus provider"
     );
+}
+
+#[test]
+fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
+    let root = workspace_root();
+    let manifest = manifest(&root);
+
+    for kind in ["deb", "generate-rpm"] {
+        let assets = assets(&manifest, kind);
+        assert!(
+            assets.iter().any(|(from, to)| {
+                from.ends_with("target/release/glimpse-shot") && to.starts_with("usr/bin/")
+            }),
+            "{kind} omits glimpse-shot"
+        );
+        assert!(
+            assets.iter().any(|(from, to)| {
+                from.ends_with("target/locale/me.aresa.Glimpse.Shot.desktop")
+                    && to.starts_with("usr/share/applications/")
+            }),
+            "{kind} omits the translated desktop entry"
+        );
+        assert!(
+            assets.iter().any(|(from, to)| {
+                from.ends_with("data/dbus-1/services/*.service")
+                    && to.starts_with("usr/share/dbus-1/services/")
+            }),
+            "{kind} omits D-Bus services"
+        );
+    }
+
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
+    assert_eq!(package.matches("target/release/glimpse-shot").count(), 3);
+    assert_eq!(
+        package
+            .matches("target/locale/me.aresa.Glimpse.Shot.desktop")
+            .count(),
+        3
+    );
+    assert!(
+        root.join("data/dbus-1/services/me.aresa.Glimpse.Shot.service")
+            .is_file()
+    );
+
+    for script in ["scripts/glimpse-paths.sh", "scripts/package-binary.sh"] {
+        let text = fs::read_to_string(root.join(script)).expect(script);
+        assert!(text.contains("glimpse-ruler glimpse-shot"), "{script}");
+    }
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        let text = fs::read_to_string(root.join(script)).expect(script);
+        assert!(
+            text.contains("$applicationsdir/me.aresa.Glimpse.Shot.desktop"),
+            "{script}"
+        );
+    }
+    let pkgbuild = fs::read_to_string(root.join("PKGBUILD")).expect("PKGBUILD");
+    assert!(pkgbuild.contains("glib2>=2.80"));
 }
 
 #[test]

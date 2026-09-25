@@ -11,7 +11,7 @@ set positional-arguments
 # terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
 elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
 
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot"
 
 [doc("list recipes")]
 default:
@@ -27,8 +27,8 @@ check:
 check-crate CRATE:
     cargo check -p {{ CRATE }} --all-targets
 
-[doc("rust, systemd units and blueprints; warnings are errors")]
-lint: lint-rust check-units lint-blueprints
+[doc("rust, systemd units, blueprints and desktop entries; warnings are errors")]
+lint: lint-rust check-units lint-blueprints lint-desktop
 
 [doc("clippy on the workspace, warnings are errors")]
 lint-rust:
@@ -37,6 +37,10 @@ lint-rust:
 [doc("blueprint templates")]
 lint-blueprints:
     scripts/lint-blueprints.sh
+
+[doc("desktop-file-validate on every desktop entry in data/")]
+lint-desktop:
+    scripts/lint-desktop.sh
 
 [doc("compile every widget example blueprint; the preview does this one at a time")]
 check-examples:
@@ -92,8 +96,10 @@ test-compositor:
     fi
     cargo test --workspace
     failed=()
-    for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
-        names=$(cargo test -p "$crate" -- --list --ignored 2>/dev/null | grep -E ': test$' | sed 's/: test$//') || true
+    crates=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name')
+    for crate in $crates; do
+        listing=$(cargo test -p "$crate" -- --list --ignored)
+        names=$(printf '%s\n' "$listing" | sed -n 's/: test$//p')
         [ -z "$names" ] && continue
         while IFS= read -r name; do
             [ -z "$name" ] && continue
@@ -120,7 +126,8 @@ test-crate-compositor CRATE FILTER="":
     if [ -z "{{ FILTER }}" ]; then
         cargo test -p {{ CRATE }}
     fi
-    names=$(cargo test -p {{ CRATE }} -- --list --ignored 2>/dev/null | grep -E ': test$' | sed 's/: test$//') || true
+    listing=$(cargo test -p {{ CRATE }} -- --list --ignored)
+    names=$(printf '%s\n' "$listing" | sed -n 's/: test$//p')
     if [ -n "{{ FILTER }}" ]; then
         names=$(printf '%s\n' "$names" | grep -F -- "{{ FILTER }}") || true
     fi
@@ -140,7 +147,7 @@ test-crate-compositor CRATE FILTER="":
 
 [doc("one test by its full path, ignored or not; a GTK test only proves anything run alone")]
 test-one CRATE TEST:
-    cargo test -p {{ CRATE }} --lib -- --include-ignored --exact {{ TEST }}
+    cargo test -p {{ CRATE }} -- --include-ignored --exact {{ TEST }}
 
 [doc("everything CI runs")]
 verify: fmt-check check lint test check-strings
@@ -190,6 +197,10 @@ run-picker *ARGS:
 [doc("run the screen ruler: measure distances on the screen and print each segment")]
 run-ruler *ARGS:
     cargo run -p glimpse-ruler -- "$@"
+
+[doc("run the screenshot tool: capture a screen or a region headless, or list outputs and windows")]
+run-shot *ARGS:
+    cargo run -p glimpse-shot -- "$@"
 
 [doc("run the CLI")]
 ctl *ARGS:

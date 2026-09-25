@@ -43,6 +43,9 @@ assets = [
   ["target/release/glimpse-weather", "usr/bin/", "755"],
   ["target/release/glimpse-idle", "usr/bin/", "755"],
   ["target/release/glimpse-picker", "usr/bin/", "755"],
+  ["target/release/glimpse-ruler", "usr/bin/", "755"],
+  ["target/release/glimpse-shot", "usr/bin/", "755"],
+  ["../../target/locale/me.aresa.Glimpse.Shot.desktop", "usr/share/applications/", "644"],
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.commented.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
@@ -52,7 +55,9 @@ assets = [
   ["../../data/systemd/*.target", "usr/lib/systemd/user/", "644"],
   ["../../data/dbus-1/services/*.service", "usr/share/dbus-1/services/", "644"],
   ["../../data/portals/*.portal", "usr/share/xdg-desktop-portal/portals/", "644"],
-  ["../../data/portals/*-portals.conf", "usr/share/xdg-desktop-portal/", "644"],
+  ["../../data/portals/glimpse-portals.conf", "etc/xdg-desktop-portal/", "644"],
+  ["../../data/portals/niri-portals.conf", "etc/xdg-desktop-portal/", "644"],
+  ["../../data/portals/*-portals.conf", "usr/share/glimpse/portals/", "644"],
   ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
   ["../../data/pam.d/debian/glimpse-lock", "etc/pam.d/glimpse-lock", "644"],
   ["../../LICENSE", "usr/share/glimpse/", "644"],
@@ -62,7 +67,12 @@ assets = [
 
 # Marked as conffiles so dpkg preserves an edited allowlist or PAM stack across upgrades rather
 # than overwriting it, which is the whole point of them living under /etc.
-conf-files = ["/etc/geoclue/conf.d/glimpse.conf", "/etc/pam.d/glimpse-lock"]
+conf-files = [
+  "/etc/geoclue/conf.d/glimpse.conf",
+  "/etc/pam.d/glimpse-lock",
+  "/etc/xdg-desktop-portal/glimpse-portals.conf",
+  "/etc/xdg-desktop-portal/niri-portals.conf",
+]
 
 # `cargo generate-rpm -p crates/glimpse-package` is run from the workspace root, so these `source` paths
 # resolve there directly (unlike cargo-deb's crate-manifest-relative resolution above).
@@ -79,6 +89,9 @@ assets = [
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
   { source = "target/release/glimpse-picker", dest = "/usr/bin/glimpse-picker", mode = "755" },
+  { source = "target/release/glimpse-ruler", dest = "/usr/bin/glimpse-ruler", mode = "755" },
+  { source = "target/release/glimpse-shot", dest = "/usr/bin/glimpse-shot", mode = "755" },
+  { source = "target/locale/me.aresa.Glimpse.Shot.desktop", dest = "/usr/share/applications/me.aresa.Glimpse.Shot.desktop", mode = "644" },
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.commented.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
@@ -88,7 +101,9 @@ assets = [
   { source = "data/systemd/*.target", dest = "/usr/lib/systemd/user/", mode = "644" },
   { source = "data/dbus-1/services/*.service", dest = "/usr/share/dbus-1/services/", mode = "644" },
   { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
-  { source = "data/portals/*-portals.conf", dest = "/usr/share/xdg-desktop-portal/", mode = "644" },
+  { source = "data/portals/glimpse-portals.conf", dest = "/etc/xdg-desktop-portal/glimpse-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "data/pam.d/fedora/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
@@ -110,6 +125,9 @@ assets = [
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
   { source = "target/release/glimpse-picker", dest = "/usr/bin/glimpse-picker", mode = "755" },
+  { source = "target/release/glimpse-ruler", dest = "/usr/bin/glimpse-ruler", mode = "755" },
+  { source = "target/release/glimpse-shot", dest = "/usr/bin/glimpse-shot", mode = "755" },
+  { source = "target/locale/me.aresa.Glimpse.Shot.desktop", dest = "/usr/share/applications/me.aresa.Glimpse.Shot.desktop", mode = "644" },
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.commented.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
@@ -119,7 +137,9 @@ assets = [
   { source = "data/systemd/*.target", dest = "/usr/lib/systemd/user/", mode = "644" },
   { source = "data/dbus-1/services/*.service", dest = "/usr/share/dbus-1/services/", mode = "644" },
   { source = "data/portals/*.portal", dest = "/usr/share/xdg-desktop-portal/portals/", mode = "644" },
-  { source = "data/portals/*-portals.conf", dest = "/usr/share/xdg-desktop-portal/", mode = "644" },
+  { source = "data/portals/glimpse-portals.conf", dest = "/etc/xdg-desktop-portal/glimpse-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/niri-portals.conf", dest = "/etc/xdg-desktop-portal/niri-portals.conf", mode = "644", config = "noreplace" },
+  { source = "data/portals/*-portals.conf", dest = "/usr/share/glimpse/portals/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "data/pam.d/debian/glimpse-lock", dest = "/etc/pam.d/glimpse-lock", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },

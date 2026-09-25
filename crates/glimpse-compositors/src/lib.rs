@@ -15,10 +15,12 @@ pub use event::{Event, Resync};
 pub use hyprland::Hyprland;
 pub use keyboard::layout_code;
 pub use model::{
-    Cast, CastKind, CastTarget, KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot,
-    Window, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget,
+    Cast, CastKind, CastTarget, KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Rect,
+    Snapshot, Window, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget,
 };
 pub use niri::Niri;
+
+use std::path::Path;
 
 use futures_util::stream::BoxStream;
 
@@ -181,6 +183,15 @@ impl Compositor {
         delegate!(self, "cannot stop a screencast", |backend| backend
             .stop_screencast(session_id))
     }
+
+    pub async fn screenshot_window(
+        &self,
+        id: WindowId,
+        path: &Path,
+    ) -> Result<(), CompositorError> {
+        delegate!(self, "cannot screenshot a window", |backend| backend
+            .screenshot_window(id, path))
+    }
 }
 
 #[cfg(test)]
@@ -227,6 +238,12 @@ mod tests {
         ));
         assert!(matches!(
             compositor.stop_screencast(2).await,
+            Err(CompositorError::Unsupported(_))
+        ));
+        assert!(matches!(
+            compositor
+                .screenshot_window(WindowId(1), Path::new("/tmp/shot.png"))
+                .await,
             Err(CompositorError::Unsupported(_))
         ));
     }

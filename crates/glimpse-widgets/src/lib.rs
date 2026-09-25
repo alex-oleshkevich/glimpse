@@ -67,6 +67,15 @@ mod scrubber;
 mod section;
 mod session_popover;
 mod session_sheet;
+mod shot_banner;
+mod shot_capture_page;
+mod shot_countdown;
+mod shot_preferences;
+mod shot_region;
+mod shot_result_page;
+mod shot_shortcuts;
+mod shot_toolbar;
+mod shot_window_list;
 mod source_list;
 mod split_row;
 mod status_island;
@@ -99,6 +108,7 @@ pub use bluetooth_popover::{
     Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
     Line as BluetoothLine, Place as BluetoothPlace,
 };
+pub use blur::roundtrip;
 pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
@@ -168,6 +178,15 @@ pub use session_popover::{
     SessionChoice, SessionPopover,
 };
 pub use session_sheet::SessionSheet;
+pub use shot_banner::ShotBanner;
+pub use shot_capture_page::ShotCapturePage;
+pub use shot_countdown::ShotCountdown;
+pub use shot_preferences::{ShotPreferences, ShotPreferencesFields};
+pub use shot_region::ShotRegion;
+pub use shot_result_page::ShotResultPage;
+pub use shot_shortcuts::shot_shortcuts;
+pub use shot_toolbar::ShotToolbar;
+pub use shot_window_list::{ShotWindowEntry, ShotWindowList};
 pub use source_list::{Source, SourceList};
 pub use split_row::SplitRow;
 pub use status_island::StatusIsland;
@@ -331,6 +350,7 @@ mod tests {
     use super::*;
     use crate::bluetooth_pairing_dialog::PIN_MAX;
     use adw::prelude::AlertDialogExt;
+    use adw::prelude::{ActionRowExt, ComboRowExt, PreferencesRowExt};
     use gtk4::gdk;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
@@ -7754,5 +7774,1042 @@ mod tests {
         });
         imp.footer.emit_clicked();
         assert!(footer.get());
+    }
+
+    fn shot_display() -> bool {
+        if gtk4::init().is_err() {
+            return false;
+        }
+        register_resources().expect("resources");
+        let _styles = Styles::install(adw::ColorScheme::Default);
+        true
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_toolbar_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let toolbar = ShotToolbar::new();
+        let imp = toolbar.imp();
+        assert!(imp.arrow.is_active() && imp.screen.is_active() && imp.red.is_active());
+        assert_eq!(imp.strokes.active_name().as_deref(), Some("medium"));
+        assert!(!imp.undo.is_sensitive() && !imp.redo.is_sensitive());
+
+        let tools = Rc::new(RefCell::new(Vec::<String>::new()));
+        let targets = Rc::new(RefCell::new(Vec::<String>::new()));
+        let colors = Rc::new(RefCell::new(Vec::<u32>::new()));
+        let strokes = Rc::new(RefCell::new(Vec::<u32>::new()));
+        let actions = Rc::new(RefCell::new(Vec::<String>::new()));
+        toolbar.connect_tool_selected({
+            let tools = Rc::clone(&tools);
+            move |_, tool| tools.borrow_mut().push(tool)
+        });
+        toolbar.connect_target_selected({
+            let targets = Rc::clone(&targets);
+            move |_, target| targets.borrow_mut().push(target)
+        });
+        toolbar.connect_color_selected({
+            let colors = Rc::clone(&colors);
+            move |_, color| colors.borrow_mut().push(color)
+        });
+        toolbar.connect_stroke_selected({
+            let strokes = Rc::clone(&strokes);
+            move |_, stroke| strokes.borrow_mut().push(stroke)
+        });
+        toolbar.connect_action({
+            let actions = Rc::clone(&actions);
+            move |_, action| actions.borrow_mut().push(action)
+        });
+
+        imp.arrow.emit_clicked();
+        toolbar.set_tool("arrow");
+        toolbar.set_tool("nope");
+        assert!(
+            tools.borrow().is_empty(),
+            "the active tool and a setter emit nothing"
+        );
+        imp.crop.emit_clicked();
+        assert_eq!(tools.borrow().as_slice(), ["crop"]);
+        imp.crop.emit_clicked();
+        assert_eq!(
+            tools.borrow().len(),
+            1,
+            "a second press on the active tool is silent"
+        );
+        toolbar.set_tool("rect");
+        assert_eq!(tools.borrow().len(), 1, "set_tool does not emit");
+        assert!(imp.rect.is_active());
+
+        imp.screen.emit_clicked();
+        toolbar.set_target("screen");
+        assert!(targets.borrow().is_empty());
+        imp.window.emit_clicked();
+        assert_eq!(targets.borrow().as_slice(), ["window"]);
+        toolbar.set_target("screen");
+        assert!(imp.screen.is_active());
+        assert_eq!(targets.borrow().len(), 1);
+
+        imp.red.emit_clicked();
+        toolbar.set_color(0);
+        toolbar.set_color(9);
+        assert!(colors.borrow().is_empty());
+        imp.blue.emit_clicked();
+        assert_eq!(colors.borrow().as_slice(), [3]);
+        toolbar.set_color(4);
+        assert!(imp.white.is_active());
+        assert_eq!(colors.borrow().len(), 1);
+
+        toolbar.set_stroke(2);
+        toolbar.set_stroke(0);
+        assert!(strokes.borrow().is_empty());
+        imp.strokes.set_active_name(Some("thick"));
+        assert_eq!(strokes.borrow().as_slice(), [3]);
+        toolbar.set_stroke(1);
+        assert_eq!(imp.strokes.active_name().as_deref(), Some("thin"));
+        assert_eq!(strokes.borrow().len(), 1);
+
+        imp.undo.emit_clicked();
+        imp.redo.emit_clicked();
+        assert!(
+            actions.borrow().is_empty(),
+            "undo and redo start insensitive"
+        );
+        toolbar.set_can_undo(false);
+        toolbar.set_can_redo(false);
+        toolbar.set_can_undo(true);
+        toolbar.set_can_redo(true);
+        imp.undo.emit_clicked();
+        imp.redo.emit_clicked();
+        imp.copy_close.emit_by_name::<()>("clicked", &[]);
+        imp.cancel.emit_clicked();
+        for name in shot_toolbar::FINISH_ACTIONS {
+            gtk4::prelude::ActionGroupExt::activate_action(&imp.finishing, name, None);
+        }
+        assert_eq!(
+            actions.borrow().as_slice(),
+            [
+                "undo",
+                "redo",
+                "copy-close",
+                "cancel",
+                "save",
+                "save-as",
+                "open-with",
+                "open-window",
+            ]
+        );
+        let menu = imp.copy_close.menu_model().expect("a finish menu");
+        let entries: Vec<(String, String)> = (0..menu.n_items())
+            .flat_map(|section| {
+                let items = menu.item_link(section, "section").expect("one section");
+                (0..items.n_items())
+                    .map(|index| {
+                        let text = |name: &str| {
+                            items
+                                .item_attribute_value(index, name, None)
+                                .and_then(|value| value.get::<String>())
+                                .unwrap_or_default()
+                        };
+                        (text("action"), text("accel"))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        assert_eq!(
+            entries,
+            [
+                ("shot.save".to_owned(), "<Shift>Return".to_owned()),
+                ("shot.save-as".to_owned(), "<Control><Shift>s".to_owned()),
+                ("shot.open-with".to_owned(), String::new()),
+                ("shot.open-window".to_owned(), "<Control>e".to_owned()),
+            ]
+        );
+        let enabled = || {
+            shot_toolbar::FINISH_ACTIONS
+                .into_iter()
+                .filter(|name| {
+                    gtk4::prelude::ActionGroupExt::is_action_enabled(&imp.finishing, name)
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(enabled(), shot_toolbar::FINISH_ACTIONS);
+        toolbar.set_finish_actions(&["save", "save-as", "open-with"]);
+        assert_eq!(
+            enabled(),
+            ["save", "save-as", "open-with"],
+            "--json drops Open in Window"
+        );
+        toolbar.set_finish_actions(&[]);
+        assert!(enabled().is_empty());
+
+        imp.filled_rect.emit_clicked();
+        assert_eq!(
+            tools.borrow().last().map(String::as_str),
+            Some("filled-rect")
+        );
+        toolbar.set_tool("rect");
+        toolbar.set_tool("filled-rect");
+        assert!(imp.filled_rect.is_active());
+        assert_eq!(
+            imp.filled_rect.tooltip_text().as_deref(),
+            Some("Filled Rectangle (F)")
+        );
+
+        assert!(!imp.apply_crop.get_visible());
+        toolbar.set_apply_visible(true);
+        assert!(imp.apply_crop.get_visible());
+        let icon = imp
+            .apply_crop
+            .child()
+            .and_downcast::<gtk4::Image>()
+            .expect("Apply Crop icon");
+        assert_eq!(icon.icon_name().as_deref(), Some("object-select-symbolic"));
+        assert!(
+            gtk4::IconTheme::for_display(&toolbar.display()).has_icon("object-select-symbolic")
+        );
+        imp.apply_crop.emit_clicked();
+        assert_eq!(
+            actions.borrow().last().map(String::as_str),
+            Some("apply-crop")
+        );
+        toolbar.set_apply_visible(false);
+
+        toolbar.set_target_visible(false);
+        toolbar.set_finish_visible(false);
+        assert!(!imp.targets.get_visible() && !imp.target_gap.get_visible());
+        assert!(!imp.finish.get_visible() && !imp.finish_gap.get_visible());
+        let visible = Rc::new(Cell::new(0));
+        imp.targets.connect_notify_local(Some("visible"), {
+            let visible = Rc::clone(&visible);
+            move |_, _| visible.set(visible.get() + 1)
+        });
+        toolbar.set_target_visible(false);
+        toolbar.set_finish_visible(false);
+        assert_eq!(visible.get(), 0);
+
+        toolbar.set_history_visible(false);
+        assert!(!imp.history.get_visible() && !imp.history_gap.get_visible());
+        let history_writes = Rc::new(Cell::new(0));
+        imp.history.connect_notify_local(Some("visible"), {
+            let history_writes = Rc::clone(&history_writes);
+            move |_, _| history_writes.set(history_writes.get() + 1)
+        });
+        toolbar.set_history_visible(false);
+        assert_eq!(history_writes.get(), 0, "an unchanged group writes nothing");
+        toolbar.set_history_visible(true);
+        assert!(imp.history.get_visible());
+
+        assert!(imp.targets.is_sensitive());
+        let sensitivity = Rc::new(Cell::new(0));
+        imp.targets.connect_notify_local(Some("sensitive"), {
+            let sensitivity = Rc::clone(&sensitivity);
+            move |_, _| sensitivity.set(sensitivity.get() + 1)
+        });
+        toolbar.set_target_sensitive(false);
+        assert!(!imp.targets.is_sensitive());
+        toolbar.set_target_sensitive(false);
+        assert_eq!(
+            sensitivity.get(),
+            1,
+            "an unchanged sensitivity writes nothing"
+        );
+        toolbar.set_target_sensitive(true);
+        assert!(imp.targets.is_sensitive());
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_window_list_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let list = ShotWindowList::new();
+        let imp = list.imp();
+        assert!(!imp.this_section.get_visible() && !imp.other_section.get_visible());
+
+        let title = format!("Q&A <b>draft</b>{}", "é".repeat(190));
+        let here = ShotWindowEntry {
+            id: 7,
+            app_id: Some("org.gnome.TextEditor".to_owned()),
+            title: title.clone(),
+            name: None,
+            icon: None,
+            this_workspace: true,
+            focused: true,
+            captured_when_picked: false,
+        };
+        let elsewhere = ShotWindowEntry {
+            id: 8,
+            app_id: Some("app & <b>".to_owned()),
+            title: "other".to_owned(),
+            name: None,
+            icon: None,
+            this_workspace: false,
+            focused: false,
+            captured_when_picked: true,
+        };
+        list.set_windows(&[here.clone(), elsewhere.clone()]);
+        assert!(imp.this_section.get_visible() && imp.other_section.get_visible());
+
+        let current = imp.this_rows.first_child().expect("the focused row");
+        assert!(current.has_css_class("shot-list__row--current"));
+        let title_label = child_named::<gtk4::Label>(&current, "shot-list__title");
+        assert_eq!(title_label.text().chars().count(), 200);
+        assert!(title_label.text().contains("Q&A <b>draft</b>"));
+        assert!(!title_label.uses_markup());
+        assert!(
+            !title_label.get_visible(),
+            "the title is already the first line"
+        );
+        let note = child_named::<gtk4::Label>(&current, "shot-list__note");
+        assert!(!note.get_visible());
+
+        let other = imp.other_rows.first_child().expect("the other row");
+        assert!(!other.has_css_class("shot-list__row--current"));
+        let other_note = child_named::<gtk4::Label>(&other, "shot-list__note");
+        assert!(other_note.get_visible());
+        assert_eq!(other_note.text(), "captured when picked");
+        let primary = other
+            .first_child()
+            .and_then(|row| row.first_child())
+            .and_then(|icon| icon.next_sibling())
+            .and_then(|text| text.first_child())
+            .and_downcast::<gtk4::Label>()
+            .expect("the app id label");
+        assert_eq!(primary.text(), "other");
+        assert!(!primary.uses_markup());
+        assert!(!child_named::<gtk4::Label>(&other, "shot-list__title").get_visible());
+
+        let picked = Rc::new(RefCell::new(Vec::<u64>::new()));
+        list.connect_window_picked({
+            let picked = Rc::clone(&picked);
+            move |_, id| picked.borrow_mut().push(id)
+        });
+        current
+            .downcast_ref::<gtk4::Button>()
+            .expect("a row button")
+            .emit_clicked();
+        assert_eq!(picked.borrow().as_slice(), [7]);
+
+        let kept = imp.this_rows.first_child();
+        list.set_windows(&[here, elsewhere]);
+        assert_eq!(
+            imp.this_rows.first_child(),
+            kept,
+            "an unchanged list rebuilds nothing"
+        );
+
+        list.set_windows(&[ShotWindowEntry {
+            id: 1,
+            app_id: None,
+            title: "only elsewhere".to_owned(),
+            name: None,
+            icon: None,
+            this_workspace: false,
+            focused: true,
+            captured_when_picked: false,
+        }]);
+        assert!(!imp.this_section.get_visible());
+        assert!(imp.other_section.get_visible());
+        list.set_windows(&[]);
+        assert!(!imp.this_section.get_visible() && !imp.other_section.get_visible());
+
+        let name = format!("N& <b>{}", "é".repeat(210));
+        list.set_windows(&[ShotWindowEntry {
+            id: 3,
+            app_id: Some("org.example.Unused".to_owned()),
+            title: "notes & <b>".to_owned(),
+            name: Some(name),
+            icon: Some("edit-copy-symbolic".to_owned()),
+            this_workspace: true,
+            focused: false,
+            captured_when_picked: false,
+        }]);
+        let named = imp.this_rows.first_child().expect("the named row");
+        let named_primary = named
+            .first_child()
+            .and_then(|row| row.first_child())
+            .and_then(|icon| icon.next_sibling())
+            .and_then(|text| text.first_child())
+            .and_downcast::<gtk4::Label>()
+            .expect("the name label");
+        assert_eq!(named_primary.text().chars().count(), 200);
+        assert!(named_primary.text().starts_with("N& <b>"));
+        assert!(!named_primary.uses_markup());
+        let named_title = child_named::<gtk4::Label>(&named, "shot-list__title");
+        assert!(named_title.get_visible());
+        assert_eq!(named_title.text(), "notes & <b>");
+        let named_icon = named
+            .first_child()
+            .and_then(|row| row.first_child())
+            .and_downcast::<gtk4::Image>()
+            .expect("the icon");
+        assert_eq!(
+            named_icon.icon_name().as_deref(),
+            Some("edit-copy-symbolic")
+        );
+
+        list.set_windows(&[ShotWindowEntry {
+            id: 4,
+            app_id: Some("no-such-icon".to_owned()),
+            title: String::new(),
+            name: None,
+            icon: None,
+            this_workspace: true,
+            focused: false,
+            captured_when_picked: false,
+        }]);
+        let fallback = imp.this_rows.first_child().expect("the fallback row");
+        let fallback_primary = fallback
+            .first_child()
+            .and_then(|row| row.first_child())
+            .and_then(|icon| icon.next_sibling())
+            .and_then(|text| text.first_child())
+            .and_downcast::<gtk4::Label>()
+            .expect("the app id label");
+        assert_eq!(fallback_primary.text(), "no-such-icon");
+        assert!(!child_named::<gtk4::Label>(&fallback, "shot-list__title").get_visible());
+        let fallback_icon = fallback
+            .first_child()
+            .and_then(|row| row.first_child())
+            .and_downcast::<gtk4::Image>()
+            .expect("the fallback icon");
+        assert_eq!(fallback_icon.icon_name().as_deref(), Some("no-such-icon"));
+
+        let window = gtk4::Window::new();
+        window.set_default_size(320, 200);
+        let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let stay = gtk4::Button::with_label("stay");
+        column.append(&stay);
+        column.append(&list);
+        window.set_child(Some(&column));
+        window.set_visible(true);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(2000);
+        while !list.is_mapped() && std::time::Instant::now() < deadline {
+            if !gtk4::glib::MainContext::default().iteration(false) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        assert!(list.is_mapped(), "the list is mapped");
+        assert!(stay.grab_focus());
+        assert!(stay.is_focus());
+        list.set_windows(&[ShotWindowEntry {
+            id: 9,
+            app_id: None,
+            title: "focused".to_owned(),
+            name: None,
+            icon: None,
+            this_workspace: true,
+            focused: true,
+            captured_when_picked: false,
+        }]);
+        assert!(
+            stay.is_focus(),
+            "set_windows does not move focus while mapped"
+        );
+        let current = imp.this_rows.first_child().expect("the current row");
+        assert!(current.has_css_class("shot-list__row--current"));
+        assert!(!current.is_focus());
+        window.close();
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_region_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let region = ShotRegion::new();
+        let imp = region.imp();
+        assert!(!imp.size_label.get_visible());
+        let writes = Rc::new(Cell::new(0));
+        imp.size_label.connect_notify_local(Some("label"), {
+            let writes = Rc::clone(&writes);
+            move |_, _| writes.set(writes.get() + 1)
+        });
+        region.set_size_text("1440 × 612 & <b>");
+        assert_eq!(imp.size_label.text(), "1440 × 612 & <b>");
+        assert!(!imp.size_label.uses_markup());
+        assert!(!imp.size_label.get_visible(), "no selection, no readout");
+        let written = writes.get();
+        region.set_size_text("1440 × 612 & <b>");
+        assert_eq!(writes.get(), written);
+        let redraws = Rc::new(Cell::new(0));
+        imp.size_label.connect_notify_local(Some("visible"), {
+            let redraws = Rc::clone(&redraws);
+            move |_, _| redraws.set(redraws.get() + 1)
+        });
+        region.set_selection(Some((10.0, 20.0, 30.0, 40.0)));
+        assert!(imp.size_label.get_visible());
+        assert_eq!(redraws.get(), 1);
+        region.set_selection(Some((10.0, 20.0, 30.0, 40.0)));
+        assert_eq!(redraws.get(), 1, "an unchanged selection redraws nothing");
+        region.set_selection(None);
+        assert!(!imp.size_label.get_visible());
+        assert_eq!(redraws.get(), 2);
+        assert_eq!(
+            imp.hint.text(),
+            "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
+        );
+        assert!(imp.hint.has_css_class("shot-surface") && imp.hint.has_css_class("shot-pill"));
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_banner_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let banner = ShotBanner::new();
+        let imp = banner.imp();
+        let writes = Rc::new(Cell::new(0));
+        imp.body.connect_notify_local(Some("label"), {
+            let writes = Rc::clone(&writes);
+            move |_, _| writes.set(writes.get() + 1)
+        });
+        let prompt = format!("Circle & <b>{}", "é".repeat(520));
+        banner.set_prompt(&prompt);
+        assert_eq!(imp.body.text().chars().count(), 500);
+        assert!(imp.body.text().starts_with("Circle & <b>"));
+        assert!(!imp.body.uses_markup());
+        let written = writes.get();
+        banner.set_prompt(&prompt);
+        assert_eq!(writes.get(), written);
+
+        banner.set_portal_request("   ");
+        assert!(imp.body.text().contains("An application"));
+        assert!(imp.body.text().contains("asked for a screenshot"));
+        assert!(!imp.body.text().contains("Enter shares"));
+        assert!(imp.keys.get_visible());
+        assert_eq!(imp.keys.text(), "Enter shares · Esc refuses");
+        assert!(imp.keys.has_css_class("shot-banner__keys"));
+        banner.set_portal_request("GIMP & <b>");
+        assert!(imp.body.text().contains("GIMP & <b>"));
+        assert!(!imp.body.uses_markup());
+        let written = writes.get();
+        banner.set_portal_request("GIMP & <b>");
+        assert_eq!(
+            writes.get(),
+            written,
+            "the same portal request writes nothing"
+        );
+        banner.set_portal_request(&"é".repeat(250));
+        assert_eq!(imp.body.text().matches('é').count(), 200);
+        assert!(imp.body.text().contains('…'));
+        banner.set_prompt("done");
+        assert!(!imp.keys.get_visible());
+        assert_eq!(imp.body.text(), "done");
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_countdown_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let countdown = ShotCountdown::new();
+        let imp = countdown.imp();
+        assert_eq!(imp.label.text(), "Capturing in 0");
+        assert!(!imp.label.uses_markup());
+        let writes = Rc::new(Cell::new(0));
+        imp.label.connect_notify_local(Some("label"), {
+            let writes = Rc::clone(&writes);
+            move |_, _| writes.set(writes.get() + 1)
+        });
+        countdown.set_seconds(3);
+        assert_eq!(imp.label.text(), "Capturing in 3");
+        let written = writes.get();
+        countdown.set_seconds(3);
+        assert_eq!(writes.get(), written);
+        let cancelled = Rc::new(Cell::new(0));
+        countdown.connect_cancelled({
+            let cancelled = Rc::clone(&cancelled);
+            move |_| cancelled.set(cancelled.get() + 1)
+        });
+        imp.cancel.emit_clicked();
+        assert_eq!(cancelled.get(), 1);
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_capture_page_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let page = ShotCapturePage::new();
+        let imp = page.imp();
+        assert_eq!(imp.modes.active_name().as_deref(), Some("screen"));
+        assert_eq!(imp.modes.halign(), gtk4::Align::Fill);
+        assert!(!imp.screen.get_visible() && !imp.window.get_visible());
+        assert!(!imp.screen.uses_markup() && !imp.window.uses_markup());
+        assert!(!imp.menu.get_visible());
+        assert!(imp.menu.is_primary());
+        assert_eq!(imp.menu.icon_name().as_deref(), Some("open-menu-symbolic"));
+        assert_eq!(imp.menu.tooltip_text().as_deref(), Some("Main Menu"));
+
+        let modes = Rc::new(RefCell::new(Vec::<String>::new()));
+        let outputs = Rc::new(RefCell::new(Vec::<String>::new()));
+        let windows = Rc::new(RefCell::new(Vec::<u64>::new()));
+        let delays = Rc::new(RefCell::new(Vec::<u32>::new()));
+        let cursors = Rc::new(RefCell::new(Vec::<bool>::new()));
+        let takes = Rc::new(Cell::new(0));
+        page.connect_mode_changed({
+            let modes = Rc::clone(&modes);
+            move |_, mode| modes.borrow_mut().push(mode)
+        });
+        page.connect_output_selected({
+            let outputs = Rc::clone(&outputs);
+            move |_, output| outputs.borrow_mut().push(output)
+        });
+        page.connect_window_selected({
+            let windows = Rc::clone(&windows);
+            move |_, id| windows.borrow_mut().push(id)
+        });
+        page.connect_delay_changed({
+            let delays = Rc::clone(&delays);
+            move |_, seconds| delays.borrow_mut().push(seconds)
+        });
+        page.connect_cursor_changed({
+            let cursors = Rc::clone(&cursors);
+            move |_, shown| cursors.borrow_mut().push(shown)
+        });
+        page.connect_take({
+            let takes = Rc::clone(&takes);
+            move |_| takes.set(takes.get() + 1)
+        });
+
+        page.set_mode("screen");
+        page.set_mode("nope");
+        assert!(modes.borrow().is_empty());
+        imp.modes.set_active_name(Some("window"));
+        assert_eq!(modes.borrow().as_slice(), ["window"]);
+        page.set_mode("window");
+        assert_eq!(modes.borrow().len(), 1);
+
+        page.set_outputs(&["eDP-1".to_owned()], "eDP-1");
+        assert!(!imp.screen.get_visible(), "one output hides the Screen row");
+        assert!(outputs.borrow().is_empty());
+        page.set_outputs(&["DP-2".to_owned(), "eDP-1".to_owned()], "eDP-1");
+        assert!(
+            !imp.screen.get_visible(),
+            "window mode keeps the Screen row hidden"
+        );
+        page.set_mode("screen");
+        assert!(imp.screen.get_visible());
+        assert!(outputs.borrow().is_empty(), "set_outputs does not emit");
+        assert_eq!(page.selected_output(), "current");
+        let screens = imp
+            .screen
+            .model()
+            .expect("a screen model")
+            .downcast::<gtk4::StringList>()
+            .expect("screen names");
+        assert_eq!(screens.string(0).as_deref(), Some("Current Screen"));
+        assert_eq!(screens.string(1).as_deref(), Some("DP-2"));
+        assert_eq!(screens.string(2).as_deref(), Some("eDP-1"));
+        imp.screen.set_selected(0);
+        assert!(outputs.borrow().is_empty(), "Current is already selected");
+        imp.screen.set_selected(1);
+        assert_eq!(outputs.borrow().as_slice(), ["DP-2"]);
+        imp.screen.set_selected(0);
+        assert_eq!(outputs.borrow().as_slice(), ["DP-2", "current"]);
+        page.set_outputs(&["DP-2".to_owned(), "eDP-1".to_owned()], "eDP-1");
+        assert_eq!(outputs.borrow().len(), 2);
+        assert_eq!(page.selected_output(), "current");
+
+        let hostile = format!("Q&A <b>draft</b>{}", "é".repeat(190));
+        page.set_windows(&[(4, hostile.clone()), (5, "glimpse — design.md".to_owned())]);
+        assert!(!imp.window.get_visible());
+        page.set_mode("window");
+        assert!(imp.window.get_visible());
+        let model = imp.window.model().expect("a window model");
+        let strings = model.downcast::<gtk4::StringList>().expect("window titles");
+        assert_eq!(strings.string(0).expect("a title").chars().count(), 200);
+        assert!(
+            strings
+                .string(0)
+                .expect("a title")
+                .contains("Q&A <b>draft</b>")
+        );
+        assert!(windows.borrow().is_empty());
+        imp.window.set_selected(1);
+        assert_eq!(windows.borrow().as_slice(), [5]);
+        assert_eq!(page.selected_window(), Some(5));
+        page.set_windows(&[(4, hostile.clone()), (5, "glimpse — design.md".to_owned())]);
+        assert_eq!(windows.borrow().len(), 1);
+        page.set_windows(&[
+            (1, "A".to_owned()),
+            (5, "B".to_owned()),
+            (9, "C".to_owned()),
+        ]);
+        assert_eq!(page.selected_window(), Some(5));
+        assert_eq!(
+            windows.borrow().len(),
+            1,
+            "a refresh keeps the selected window and emits nothing"
+        );
+        page.set_windows(&[
+            (9, "C".to_owned()),
+            (1, "A".to_owned()),
+            (5, "B".to_owned()),
+        ]);
+        assert_eq!(page.selected_window(), Some(5));
+        assert_eq!(windows.borrow().len(), 1);
+
+        page.set_delay(0);
+        assert!(delays.borrow().is_empty());
+        imp.delay.set_value(4.0);
+        assert_eq!(delays.borrow().as_slice(), [4]);
+        page.set_delay(4);
+        page.set_delay(99);
+        assert_eq!(imp.delay.value(), 60.0);
+        assert_eq!(delays.borrow().len(), 1, "set_delay does not emit");
+
+        page.set_cursor(false);
+        assert!(cursors.borrow().is_empty());
+        imp.cursor.set_active(true);
+        assert_eq!(cursors.borrow().as_slice(), [true]);
+        page.set_cursor(true);
+        assert_eq!(cursors.borrow().len(), 1);
+
+        imp.take.emit_clicked();
+        assert_eq!(takes.get(), 1);
+
+        let menu_writes = Rc::new(Cell::new(0));
+        imp.menu.connect_notify_local(Some("menu-model"), {
+            let menu_writes = Rc::clone(&menu_writes);
+            move |_, _| menu_writes.set(menu_writes.get() + 1)
+        });
+        let model = gtk4::gio::Menu::new();
+        page.set_menu_model(None);
+        assert_eq!(menu_writes.get(), 0);
+        page.set_menu_model(Some(model.upcast_ref()));
+        assert!(imp.menu.get_visible());
+        assert_eq!(menu_writes.get(), 1);
+        page.set_menu_model(Some(model.upcast_ref()));
+        assert_eq!(menu_writes.get(), 1, "the same menu writes nothing");
+        page.set_menu_model(None);
+        assert!(!imp.menu.get_visible());
+        page.set_outputs_labeled(
+            &[
+                ("DP-2".to_owned(), "Dell U2723QE (DP-2)".to_owned()),
+                ("eDP-1".to_owned(), "Built-in Display (eDP-1)".to_owned()),
+            ],
+            "eDP-1",
+        );
+        page.set_mode("screen");
+        assert!(imp.targets.get_visible());
+        let names = imp
+            .screen
+            .model()
+            .expect("screen model")
+            .downcast::<gtk4::StringList>()
+            .expect("labels");
+        assert_eq!(names.string(1).as_deref(), Some("Dell U2723QE (DP-2)"));
+        let writes = Rc::new(Cell::new(0));
+        imp.screen.connect_notify_local(Some("model"), {
+            let writes = Rc::clone(&writes);
+            move |_, _| writes.set(writes.get() + 1)
+        });
+        page.set_outputs_labeled(
+            &[
+                ("DP-2".to_owned(), "Dell U2723QE (DP-2)".to_owned()),
+                ("eDP-1".to_owned(), "Built-in Display (eDP-1)".to_owned()),
+            ],
+            "eDP-1",
+        );
+        assert_eq!(writes.get(), 0);
+        page.set_mode("region");
+        assert!(!imp.targets.get_visible());
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_result_page_widgets() {
+        if !shot_display() {
+            return;
+        }
+
+        let page = ShotResultPage::new();
+        let imp = page.imp();
+        assert!(!imp.toolbar.imp().targets.get_visible());
+        assert!(!imp.toolbar.imp().finish.get_visible());
+        assert!(!imp.toolbar.imp().history.get_visible());
+        assert!(imp.toolbar.has_css_class("shot-result-toolbar"));
+        assert!(
+            imp.toasts
+                .parent()
+                .is_some_and(|parent| parent.is::<adw::ToolbarView>())
+        );
+        let mut toolbar_parent = imp.toolbar.parent();
+        while let Some(parent) = toolbar_parent {
+            assert!(!parent.is::<adw::ToastOverlay>());
+            toolbar_parent = parent.parent();
+        }
+        assert_eq!(imp.toolbar.halign(), gtk4::Align::Center);
+        assert!(!imp.menu.get_visible());
+        assert!(imp.menu.is_primary());
+        assert_eq!(imp.zoom.active_name().as_deref(), Some("fit"));
+        assert!(imp.picture.can_shrink());
+        assert_eq!(imp.picture.content_fit(), gtk4::ContentFit::ScaleDown);
+        let mut ancestor = imp.picture.parent();
+        let mut in_scroll = false;
+        while let Some(widget) = ancestor {
+            if widget.is::<gtk4::ScrolledWindow>() {
+                in_scroll = true;
+                break;
+            }
+            ancestor = widget.parent();
+        }
+        assert!(in_scroll, "the picture sits in a scrolled window");
+        assert!(!imp.undo.is_sensitive() && !imp.redo.is_sensitive());
+        let writes = Rc::new(Cell::new(0));
+        imp.heading.connect_notify_local(Some("subtitle"), {
+            let writes = Rc::clone(&writes);
+            move |_, _| writes.set(writes.get() + 1)
+        });
+        page.set_size_text("1440 × 612");
+        assert_eq!(imp.heading.subtitle(), "1440 × 612");
+        let written = writes.get();
+        page.set_size_text("1440 × 612");
+        assert_eq!(writes.get(), written);
+
+        page.set_name("Q&A <b>draft</b>");
+        assert_eq!(page.name(), "Q&A <b>draft</b>");
+        let name_writes = Rc::new(Cell::new(0));
+        imp.name.connect_notify_local(Some("text"), {
+            let name_writes = Rc::clone(&name_writes);
+            move |_, _| name_writes.set(name_writes.get() + 1)
+        });
+        page.set_name("Q&A <b>draft</b>");
+        assert_eq!(name_writes.get(), 0);
+        let applied = Rc::new(Cell::new(0));
+        page.connect_name_changed({
+            let applied = Rc::clone(&applied);
+            move |_| applied.set(applied.get() + 1)
+        });
+        imp.name.set_text("draft two");
+        assert_eq!(page.name(), "Q&A <b>draft</b>");
+        assert_eq!(applied.get(), 0);
+        imp.name.emit_by_name::<()>("apply", &[]);
+        assert_eq!(page.name(), "draft two");
+        assert_eq!(applied.get(), 1);
+
+        assert!(!imp.collision.get_visible());
+        assert!(!imp.name.has_css_class("error"));
+        page.set_collision(true);
+        assert!(imp.collision.get_visible());
+        assert_eq!(
+            imp.collision.text(),
+            "A file with this name exists. Saving adds “(2)”."
+        );
+        assert!(imp.name.has_css_class("error"));
+        let collision_writes = Rc::new(Cell::new(0));
+        imp.collision.connect_notify_local(Some("visible"), {
+            let collision_writes = Rc::clone(&collision_writes);
+            move |_, _| collision_writes.set(collision_writes.get() + 1)
+        });
+        page.set_collision(true);
+        assert_eq!(collision_writes.get(), 0);
+        page.set_collision(false);
+        assert!(!imp.collision.get_visible());
+        assert!(!imp.name.has_css_class("error"));
+
+        let shot = texture(4, 2);
+        page.set_texture(Some(&shot));
+        assert!(imp.picture.paintable().is_some());
+        let texture_writes = Rc::new(Cell::new(0));
+        imp.picture.connect_notify_local(Some("paintable"), {
+            let texture_writes = Rc::clone(&texture_writes);
+            move |_, _| texture_writes.set(texture_writes.get() + 1)
+        });
+        page.set_texture(Some(&shot));
+        assert_eq!(texture_writes.get(), 0, "the same texture is not set again");
+        page.set_texture(None);
+        assert!(imp.picture.paintable().is_none());
+
+        let copies = Rc::new(Cell::new(0));
+        let saves = Rc::new(Cell::new(0));
+        let opens = Rc::new(Cell::new(0));
+        let save_as = Rc::new(Cell::new(0));
+        let news = Rc::new(Cell::new(0));
+        page.connect_copy({
+            let copies = Rc::clone(&copies);
+            move |_| copies.set(copies.get() + 1)
+        });
+        page.connect_save({
+            let saves = Rc::clone(&saves);
+            move |_| saves.set(saves.get() + 1)
+        });
+        page.connect_open_with({
+            let opens = Rc::clone(&opens);
+            move |_| opens.set(opens.get() + 1)
+        });
+        page.connect_save_as({
+            let save_as = Rc::clone(&save_as);
+            move |_| save_as.set(save_as.get() + 1)
+        });
+        page.connect_new({
+            let news = Rc::clone(&news);
+            move |_| news.set(news.get() + 1)
+        });
+        imp.copy.emit_clicked();
+        imp.actions.activate_action("save", None);
+        imp.actions.activate_action("open-with", None);
+        imp.actions.activate_action("save-as", None);
+        imp.new_shot.emit_clicked();
+        assert_eq!(
+            (
+                copies.get(),
+                saves.get(),
+                opens.get(),
+                save_as.get(),
+                news.get()
+            ),
+            (1, 1, 1, 1, 1)
+        );
+
+        let actions = Rc::new(RefCell::new(Vec::<String>::new()));
+        imp.toolbar.connect_action({
+            let actions = Rc::clone(&actions);
+            move |_, action| actions.borrow_mut().push(action)
+        });
+        imp.undo.emit_clicked();
+        imp.redo.emit_clicked();
+        assert!(actions.borrow().is_empty(), "history starts insensitive");
+        let undo_writes = Rc::new(Cell::new(0));
+        imp.undo.connect_notify_local(Some("sensitive"), {
+            let undo_writes = Rc::clone(&undo_writes);
+            move |_, _| undo_writes.set(undo_writes.get() + 1)
+        });
+        page.set_can_undo(false);
+        page.set_can_redo(false);
+        assert_eq!(undo_writes.get(), 0);
+        page.set_can_undo(true);
+        page.set_can_redo(true);
+        assert_eq!(undo_writes.get(), 1);
+        page.set_can_undo(true);
+        assert_eq!(
+            undo_writes.get(),
+            1,
+            "set_can_undo writes nothing when unchanged"
+        );
+        imp.undo.emit_clicked();
+        imp.redo.emit_clicked();
+        assert_eq!(actions.borrow().as_slice(), ["undo", "redo"]);
+
+        let zoom_writes = Rc::new(Cell::new(0));
+        imp.picture.connect_notify_local(Some("can-shrink"), {
+            let zoom_writes = Rc::clone(&zoom_writes);
+            move |_, _| zoom_writes.set(zoom_writes.get() + 1)
+        });
+        page.set_zoom("fit");
+        page.set_zoom("nope");
+        assert_eq!(zoom_writes.get(), 0);
+        page.set_zoom("actual");
+        assert_eq!(zoom_writes.get(), 1);
+        assert!(!imp.picture.can_shrink());
+        assert!(!imp.picture.hexpands());
+        assert_eq!(imp.picture.content_fit(), gtk4::ContentFit::ScaleDown);
+        assert_eq!(imp.zoom.active_name().as_deref(), Some("actual"));
+        page.set_zoom("actual");
+        assert_eq!(zoom_writes.get(), 1);
+        page.set_zoom("fit");
+        assert!(imp.picture.can_shrink());
+        assert_eq!(imp.picture.content_fit(), gtk4::ContentFit::ScaleDown);
+
+        let menu_writes = Rc::new(Cell::new(0));
+        imp.menu.connect_notify_local(Some("menu-model"), {
+            let menu_writes = Rc::clone(&menu_writes);
+            move |_, _| menu_writes.set(menu_writes.get() + 1)
+        });
+        let model = gtk4::gio::Menu::new();
+        page.set_menu_model(Some(model.upcast_ref()));
+        assert!(imp.menu.get_visible());
+        assert_eq!(menu_writes.get(), 1);
+        page.set_menu_model(Some(model.upcast_ref()));
+        assert_eq!(menu_writes.get(), 1);
+        page.set_menu_model(None);
+        assert!(!imp.menu.get_visible());
+
+        let toast = adw::Toast::new("Saved");
+        toast.set_button_label(Some("Show in Folder"));
+        page.add_toast(&toast);
+        assert_eq!(toast.button_label().as_deref(), Some("Show in Folder"));
+
+        assert_eq!(page.picture(), imp.picture.get());
+        let renames = Rc::new(Cell::new(0));
+        page.connect_name_changed({
+            let renames = Rc::clone(&renames);
+            move |_| renames.set(renames.get() + 1)
+        });
+        page.set_name("Q&A <b>draft</b>");
+        assert_eq!(renames.get(), 0, "an unchanged name emits nothing");
+        page.set_name("renamed");
+        assert_eq!(page.name(), "renamed");
+        assert_eq!(renames.get(), 0);
+        imp.name.set_text("typed");
+        assert_eq!(page.name(), "renamed");
+        assert_eq!(renames.get(), 0);
+        imp.name.emit_by_name::<()>("apply", &[]);
+        assert_eq!(page.name(), "typed");
+        assert_eq!(renames.get(), 1);
+        assert_eq!(imp.heading.title(), "typed.png");
+        page.set_name(&"é".repeat(300));
+        assert_eq!(page.name().chars().count(), 200);
+
+        let preferences = ShotPreferences::new();
+        let fields = preferences.fields();
+        assert!(fields.folder.activatable_widget().is_some());
+        assert!(fields.keyboard.is_sensitive());
+        for (button, color) in [
+            (&fields.red, "red"),
+            (&fields.yellow, "yellow"),
+            (&fields.green, "green"),
+            (&fields.blue, "blue"),
+            (&fields.white, "white"),
+        ] {
+            assert!(button.has_css_class("shot-color") && button.has_css_class(color));
+        }
+        assert_eq!(fields.strokes.active_name().as_deref(), Some("medium"));
+        let shortcuts =
+            gtk4::Builder::from_resource("/me/aresa/GlimpseShell/widgets/shot_shortcuts.ui");
+        assert!(
+            shortcuts
+                .object::<adw::ShortcutsDialog>("shortcuts")
+                .is_some()
+        );
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn shot_icons() {
+        if !shot_display() {
+            return;
+        }
+        let display = gdk::Display::default().expect("a display");
+        let theme = gtk4::IconTheme::for_display(&display);
+        for name in [
+            "shot-area-symbolic",
+            "shot-crop-symbolic",
+            "shot-arrow-symbolic",
+            "shot-rect-symbolic",
+            "shot-rect-filled-symbolic",
+            "shot-oval-symbolic",
+            "shot-number-symbolic",
+            "shot-text-symbolic",
+            "shot-blur-symbolic",
+            "shot-window-symbolic",
+        ] {
+            assert!(theme.has_icon(name), "{name} is not in the icon theme");
+        }
     }
 }

@@ -62,5 +62,27 @@
         <file>widgets/idle_popover.ui</file>
         <file>widgets/workspace_name_popover.ui</file>
         <file>widgets/color_picker_popover.ui</file>
+        <file>widgets/shot_toolbar.ui</file>
+        <file>widgets/shot_window_list.ui</file>
+        <file>widgets/shot_region.ui</file>
+        <file>widgets/shot_banner.ui</file>
+        <file>widgets/shot_countdown.ui</file>
+        <file>widgets/shot_capture_page.ui</file>
+        <file>widgets/shot_result_page.ui</file>
+        <file>widgets/shot_preferences.ui</file>
+        <file>widgets/shot_shortcuts.ui</file>
+        <file>icons/scalable/actions/shot-arrow-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-area-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-blur-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-crop-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-freehand-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-highlighter-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-line-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-number-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-oval-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-rect-filled-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-rect-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-text-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-window-symbolic.svg</file>
     </gresource>
 </gresources>

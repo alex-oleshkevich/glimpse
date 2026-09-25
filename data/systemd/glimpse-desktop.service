@@ -1,0 +1,11 @@
+[Unit]
+Description=Glimpse session identity
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=glimpse-session.target
+After=niri.service
+Before=graphical-session.target xdg-desktop-autostart.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/glimpsectl session declare

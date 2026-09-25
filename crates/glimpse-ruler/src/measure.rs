@@ -11,8 +11,8 @@ use glimpse_config::{
 use glimpse_widgets::{Sheets, Styles};
 use gtk4::glib;
 
-use crate::capture::{self, CaptureError};
 use crate::session::{Outcome, Segment, Session, Settings};
+use glimpse_wayland::capture::{self, CaptureError};
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(3);
 const SETUP_GRACE: Duration = Duration::from_secs(1);
@@ -65,7 +65,7 @@ fn capture_within(timeout: Duration) -> Result<Vec<capture::Frame>, CaptureError
     let deadline = Instant::now() + timeout;
     let (sender, frames) = mpsc::channel();
     std::thread::spawn(move || {
-        let _ = sender.send(capture::capture(deadline));
+        let _ = sender.send(capture::outputs(deadline, false));
     });
     frames
         .recv_timeout(timeout + SETUP_GRACE)

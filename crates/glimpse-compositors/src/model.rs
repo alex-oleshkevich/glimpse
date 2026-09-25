@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Opaque and scoped to one compositor run: niri assigns a counter, Hyprland hands out the window's
 /// address. Never render it, never persist it across sessions.
@@ -27,27 +27,113 @@ pub struct Workspace {
     pub active_window_id: Option<WindowId>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(from = "RawWindow")]
 pub struct Window {
     pub id: WindowId,
-    #[serde(default, deserialize_with = "capped_title")]
     pub title: Option<String>,
-    #[serde(default, deserialize_with = "capped_app_id")]
     pub app_id: Option<String>,
-    #[serde(default)]
     pub pid: Option<i32>,
-    #[serde(default)]
     pub workspace_id: Option<WorkspaceId>,
-    #[serde(default)]
     pub is_focused: bool,
-    #[serde(default)]
     pub is_floating: bool,
-    #[serde(default)]
     pub is_urgent: bool,
     /// Where the compositor places this window among its peers. Niri's scrolling column index;
     /// Hyprland has no equivalent and leaves it `None`.
-    #[serde(rename = "layout", default, deserialize_with = "scrolling_column")]
     pub layout_order: Option<u16>,
+    pub size: Option<(u32, u32)>,
+    pub rect: Option<Rect>,
+    pub output: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RawWindow {
+    id: WindowId,
+    #[serde(default, deserialize_with = "capped_title")]
+    title: Option<String>,
+    #[serde(default, deserialize_with = "capped_app_id")]
+    app_id: Option<String>,
+    #[serde(default)]
+    pid: Option<i32>,
+    #[serde(default)]
+    workspace_id: Option<WorkspaceId>,
+    #[serde(default)]
+    is_focused: bool,
+    #[serde(default)]
+    is_floating: bool,
+    #[serde(default)]
+    is_urgent: bool,
+    #[serde(default)]
+    layout: Option<RawLayout>,
+}
+
+#[derive(Deserialize)]
+struct RawLayout {
+    #[serde(default)]
+    pos_in_scrolling_layout: Option<(u16, u16)>,
+    #[serde(default)]
+    window_size: Option<(i32, i32)>,
+    #[serde(default)]
+    tile_pos_in_workspace_view: Option<(f64, f64)>,
+    #[serde(default)]
+    window_offset_in_tile: Option<(f64, f64)>,
+}
+
+impl From<RawWindow> for Window {
+    fn from(raw: RawWindow) -> Self {
+        let layout_order = raw
+            .layout
+            .as_ref()
+            .and_then(|layout| layout.pos_in_scrolling_layout)
+            .map(|(column, _row)| column);
+        let size = raw.layout.as_ref().and_then(|layout| {
+            let (width, height) = layout.window_size?;
+            Some((u32::try_from(width).ok()?, u32::try_from(height).ok()?))
+        });
+        let rect = raw.layout.as_ref().and_then(|layout| {
+            let (x, y) = layout.tile_pos_in_workspace_view?;
+            let (offset_x, offset_y) = layout.window_offset_in_tile.unwrap_or((0.0, 0.0));
+            let (width, height) = size?;
+            Some(Rect {
+                x: x + offset_x,
+                y: y + offset_y,
+                width: f64::from(width),
+                height: f64::from(height),
+            })
+        });
+
+        Self {
+            id: raw.id,
+            title: raw.title,
+            app_id: raw.app_id,
+            pid: raw.pid,
+            workspace_id: raw.workspace_id,
+            is_focused: raw.is_focused,
+            is_floating: raw.is_floating,
+            is_urgent: raw.is_urgent,
+            layout_order,
+            size,
+            rect,
+            output: None,
+        }
+    }
+}
+
+pub(crate) fn fill_window_outputs(windows: &mut [Window], workspaces: &[Workspace]) {
+    for window in windows.iter_mut() {
+        window.output = window
+            .workspace_id
+            .and_then(|id| workspaces.iter().find(|workspace| workspace.id == id))
+            .and_then(|workspace| workspace.output.clone());
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,20 +292,6 @@ pub(crate) fn is_built_in(connector: &str) -> bool {
     connector.starts_with("edp-") || connector.starts_with("lvds-")
 }
 
-/// Niri nests the scrolling position under `layout.pos_in_scrolling_layout` as `[column, row]`, and
-/// leaves it null for a window that is not in the scrolling layout at all.
-fn scrolling_column<'de, D: Deserializer<'de>>(input: D) -> Result<Option<u16>, D::Error> {
-    #[derive(Deserialize)]
-    struct Layout {
-        #[serde(default)]
-        pos_in_scrolling_layout: Option<(u16, u16)>,
-    }
-
-    Ok(Option::<Layout>::deserialize(input)?
-        .and_then(|layout| layout.pos_in_scrolling_layout)
-        .map(|(column, _row)| column))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +352,104 @@ mod tests {
         assert!(is_built_in("LVDS-1"));
         assert!(!is_built_in("DP-3"));
         assert!(!is_built_in("HDMI-A-1"));
+    }
+
+    #[test]
+    fn a_tiled_window_has_no_rect_and_a_floating_window_does() {
+        let tiled: Window = serde_json::from_value(serde_json::json!({
+            "id": 374, "is_floating": false,
+            "layout": { "pos_in_scrolling_layout": [4, 1], "window_size": [1018, 1644],
+                        "tile_pos_in_workspace_view": null, "window_offset_in_tile": [0.0, 0.0] }
+        }))
+        .expect("tiled window");
+
+        assert_eq!(tiled.size, Some((1018, 1644)));
+        assert_eq!(tiled.rect, None);
+
+        let floating: Window = serde_json::from_value(serde_json::json!({
+            "id": 435, "is_floating": true,
+            "layout": { "pos_in_scrolling_layout": null, "window_size": [1807, 924],
+                        "tile_pos_in_workspace_view": [259.2, 189.6],
+                        "window_offset_in_tile": [3.0, -2.0] }
+        }))
+        .expect("floating window");
+
+        assert_eq!(floating.size, Some((1807, 924)));
+        assert_eq!(
+            floating.rect,
+            Some(Rect {
+                x: 262.2,
+                y: 187.6,
+                width: 1807.0,
+                height: 924.0
+            })
+        );
+    }
+
+    #[test]
+    fn a_window_with_no_layout_at_all_decodes_with_neither_size_nor_rect() {
+        let window: Window =
+            serde_json::from_value(serde_json::json!({ "id": 1, "is_focused": false }))
+                .expect("window with no layout key");
+
+        assert_eq!(window.size, None);
+        assert_eq!(window.rect, None);
+        assert_eq!(window.layout_order, None);
+    }
+
+    #[test]
+    fn a_negative_window_size_drops_the_geometry_but_not_the_window() {
+        let window: Window = serde_json::from_value(serde_json::json!({
+            "id": 1,
+            "layout": { "window_size": [-1, 924], "tile_pos_in_workspace_view": [10.0, 20.0] }
+        }))
+        .expect("a negative size still decodes the window");
+
+        assert_eq!(window.size, None);
+        assert_eq!(window.rect, None);
+    }
+
+    #[test]
+    fn a_window_s_output_comes_from_its_workspace() {
+        let mut windows = vec![Window {
+            id: WindowId(9),
+            title: None,
+            app_id: None,
+            pid: None,
+            workspace_id: Some(WorkspaceId(5)),
+            is_focused: false,
+            is_floating: false,
+            is_urgent: false,
+            layout_order: None,
+            size: None,
+            rect: None,
+            output: None,
+        }];
+        let workspaces = vec![Workspace {
+            id: WorkspaceId(5),
+            idx: None,
+            name: None,
+            output: Some("eDP-1".to_owned()),
+            is_active: false,
+            is_focused: false,
+            is_urgent: false,
+            active_window_id: None,
+        }];
+
+        fill_window_outputs(&mut windows, &workspaces);
+
+        assert_eq!(windows[0].output.as_deref(), Some("eDP-1"));
+    }
+
+    #[test]
+    fn a_window_deserialized_directly_still_caps_its_title() {
+        let long = "x".repeat(5000);
+        let window: Window =
+            serde_json::from_value(serde_json::json!({ "id": 1, "title": long })).expect("window");
+
+        assert_eq!(
+            window.title.map(|title| title.chars().count()),
+            Some(TITLE_CAP)
+        );
     }
 }

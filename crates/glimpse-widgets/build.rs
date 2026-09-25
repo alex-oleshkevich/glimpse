@@ -216,6 +216,42 @@ fn main() {
             "blueprints/color_picker_popover.blp",
             "resources/widgets/color_picker_popover.ui",
         ),
+        (
+            "blueprints/shot_toolbar.blp",
+            "resources/widgets/shot_toolbar.ui",
+        ),
+        (
+            "blueprints/shot_window_list.blp",
+            "resources/widgets/shot_window_list.ui",
+        ),
+        (
+            "blueprints/shot_region.blp",
+            "resources/widgets/shot_region.ui",
+        ),
+        (
+            "blueprints/shot_banner.blp",
+            "resources/widgets/shot_banner.ui",
+        ),
+        (
+            "blueprints/shot_countdown.blp",
+            "resources/widgets/shot_countdown.ui",
+        ),
+        (
+            "blueprints/shot_capture_page.blp",
+            "resources/widgets/shot_capture_page.ui",
+        ),
+        (
+            "blueprints/shot_result_page.blp",
+            "resources/widgets/shot_result_page.ui",
+        ),
+        (
+            "blueprints/shot_preferences.blp",
+            "resources/widgets/shot_preferences.ui",
+        ),
+        (
+            "blueprints/shot_shortcuts.blp",
+            "resources/widgets/shot_shortcuts.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

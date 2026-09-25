@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+template $ShotRegion: Gtk.Widget {
+  hexpand: true;
+  vexpand: true;
+  can-target: false;
+
+  styles [
+    "shot-region",
+  ]
+
+  Gtk.Label size_label {
+    use-markup: false;
+    visible: false;
+    can-target: false;
+    xalign: 1;
+
+    styles [
+      "shot-readout",
+    ]
+  }
+
+  Gtk.Label hint {
+    label: _("Drag to select  ·  Space: whole screen  ·  Esc: cancel");
+    halign: center;
+    valign: start;
+    margin-top: 18;
+    can-target: false;
+
+    styles [
+      "shot-surface",
+      "shot-pill",
+    ]
+  }
+
+  Gtk.Box dim_probe {
+    can-target: false;
+    accessible-role: presentation;
+
+    styles [
+      "shot-region__dim",
+    ]
+  }
+
+  Gtk.Box ring_probe {
+    can-target: false;
+    accessible-role: presentation;
+
+    styles [
+      "shot-region__ring",
+    ]
+  }
+}

@@ -1,0 +1,517 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $ShotToolbar: Gtk.Widget {
+  halign: center;
+  valign: start;
+
+  layout-manager: BinLayout {};
+
+  Gtk.Box {
+    spacing: 2;
+
+    styles [
+      "shot-surface",
+      "shot-toolbar",
+    ]
+
+    Gtk.Box targets {
+      spacing: 2;
+
+      Gtk.ToggleButton screen {
+        tooltip-text: _("Screen (S)");
+        active: true;
+
+        Gtk.Image {
+          icon-name: "video-display-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton window {
+        tooltip-text: _("Window (W)");
+        group: screen;
+
+        Gtk.Image {
+          icon-name: "shot-window-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+    }
+
+    Gtk.Separator target_gap {
+      accessible-role: presentation;
+    }
+
+    Gtk.Box {
+      spacing: 2;
+
+      Gtk.ToggleButton crop {
+        tooltip-text: _("Crop (C)");
+
+        Gtk.Image {
+          icon-name: "shot-crop-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton arrow {
+        tooltip-text: _("Arrow (A)");
+        active: true;
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-arrow-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton line {
+        tooltip-text: _("Line (L)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-line-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles ["flat"]
+      }
+
+      Gtk.ToggleButton freehand {
+        tooltip-text: _("Freehand (P)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-freehand-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles ["flat"]
+      }
+
+      Gtk.ToggleButton highlighter {
+        tooltip-text: _("Highlighter (H)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-highlighter-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles ["flat"]
+      }
+
+      Gtk.ToggleButton rect {
+        tooltip-text: _("Rectangle (R)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-rect-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton filled_rect {
+        tooltip-text: _("Filled Rectangle (F)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-rect-filled-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton oval {
+        tooltip-text: _("Oval (O)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-oval-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton number {
+        tooltip-text: _("Number (N)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-number-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton text {
+        tooltip-text: _("Text (T)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-text-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.ToggleButton blur {
+        tooltip-text: _("Pixelate (B)");
+        group: crop;
+
+        Gtk.Image {
+          icon-name: "shot-blur-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+    }
+
+    Gtk.Separator {
+      accessible-role: presentation;
+    }
+
+    Gtk.MenuButton color_menu {
+      tooltip-text: _("Color (1–5)");
+
+      styles [
+        "flat",
+      ]
+
+      child: Gtk.Box dot {
+        halign: center;
+        valign: center;
+        accessible-role: presentation;
+
+        styles [
+          "shot-dot",
+          "red",
+        ]
+      };
+
+      popover: Gtk.Popover {
+        child: Gtk.Box {
+          spacing: 6;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 6;
+          margin-end: 6;
+
+          Gtk.ToggleButton red {
+            tooltip-text: _("Red (1)");
+            active: true;
+
+            accessibility {
+              label: _("Red");
+            }
+
+            styles [
+              "shot-color",
+              "red",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind red.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton yellow {
+            tooltip-text: _("Yellow (2)");
+            group: red;
+
+            accessibility {
+              label: _("Yellow");
+            }
+
+            styles [
+              "shot-color",
+              "yellow",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind yellow.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton green {
+            tooltip-text: _("Green (3)");
+            group: red;
+
+            accessibility {
+              label: _("Green");
+            }
+
+            styles [
+              "shot-color",
+              "green",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind green.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton blue {
+            tooltip-text: _("Blue (4)");
+            group: red;
+
+            accessibility {
+              label: _("Blue");
+            }
+
+            styles [
+              "shot-color",
+              "blue",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind blue.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton white {
+            tooltip-text: _("White (5)");
+            group: red;
+
+            accessibility {
+              label: _("White");
+            }
+
+            styles [
+              "shot-color",
+              "white",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind white.active;
+              accessible-role: presentation;
+            };
+          }
+        };
+      };
+    }
+
+    Gtk.Separator {
+      accessible-role: presentation;
+    }
+
+    Adw.ToggleGroup strokes {
+      active-name: "medium";
+
+      styles [
+        "flat",
+      ]
+
+      Adw.Toggle {
+        name: "thin";
+        tooltip: _("Thin line ([ and ])");
+
+        child: Gtk.Box {
+          halign: center;
+          valign: center;
+          accessible-role: presentation;
+
+          styles [
+            "shot-stroke",
+            "shot-stroke--thin",
+          ]
+        };
+      }
+
+      Adw.Toggle {
+        name: "medium";
+        tooltip: _("Medium line ([ and ])");
+
+        child: Gtk.Box {
+          halign: center;
+          valign: center;
+          accessible-role: presentation;
+
+          styles [
+            "shot-stroke",
+            "shot-stroke--medium",
+          ]
+        };
+      }
+
+      Adw.Toggle {
+        name: "thick";
+        tooltip: _("Thick line ([ and ])");
+
+        child: Gtk.Box {
+          halign: center;
+          valign: center;
+          accessible-role: presentation;
+
+          styles [
+            "shot-stroke",
+            "shot-stroke--thick",
+          ]
+        };
+      }
+    }
+
+    Gtk.Button apply_crop {
+      tooltip-text: _("Apply Crop (Enter)");
+      valign: center;
+      visible: false;
+
+      Gtk.Image {
+        icon-name: "object-select-symbolic";
+        accessible-role: presentation;
+      }
+
+      accessibility {
+        label: _("Apply Crop");
+      }
+
+      styles [
+        "suggested-action",
+      ]
+    }
+
+    Gtk.Separator history_gap {
+      accessible-role: presentation;
+    }
+
+    Gtk.Box history {
+      spacing: 2;
+
+      Gtk.Button undo {
+        sensitive: false;
+        tooltip-text: _("Undo (Ctrl+Z)");
+
+        Gtk.Image {
+          icon-name: "edit-undo-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+
+      Gtk.Button redo {
+        sensitive: false;
+        tooltip-text: _("Redo (Ctrl+Shift+Z)");
+
+        Gtk.Image {
+          icon-name: "edit-redo-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+    }
+
+    Gtk.Separator finish_gap {
+      accessible-role: presentation;
+    }
+
+    Gtk.Box finish {
+      spacing: 2;
+
+      Adw.SplitButton copy_close {
+        tooltip-text: _("Copy and close (Enter)");
+        dropdown-tooltip: _("More ways to finish");
+        icon-name: "edit-copy-symbolic";
+        menu-model: finish_menu;
+
+        styles [
+          "suggested-action",
+        ]
+      }
+
+      Gtk.Button cancel {
+        tooltip-text: _("Cancel (Esc)");
+
+        Gtk.Image {
+          icon-name: "window-close-symbolic";
+          accessible-role: presentation;
+        }
+
+        styles [
+          "flat",
+        ]
+      }
+    }
+  }
+}
+
+menu finish_menu {
+  section {
+    item {
+      label: _("Save");
+      action: "shot.save";
+      accel: "<Shift>Return";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("Save As…");
+      action: "shot.save-as";
+      accel: "<Control><Shift>s";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("Open With…");
+      action: "shot.open-with";
+      hidden-when: "action-disabled";
+    }
+
+    item {
+      label: _("Open in Window");
+      action: "shot.open-window";
+      accel: "<Control>e";
+      hidden-when: "action-disabled";
+    }
+  }
+}

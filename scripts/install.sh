@@ -16,12 +16,21 @@ done
 for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$dbusdir/$(basename "$f")"
 done
+install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.aresa.Glimpse.Shot.desktop"
 for f in data/portals/*.portal; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$portaldir/$(basename "$f")"
 done
 for f in data/portals/*-portals.conf; do
-    [[ -e "$f" ]] && install -Dm644 "$f" "$portalconfdir/$(basename "$f")"
+    target="$portaletcdir/$(basename "$f")"
+    reference="$sharedir/portals/$(basename "$f")"
+    if [[ ! -e "$target" ]] || cmp -s "$target" "$reference" || cmp -s "$target" "$f"; then
+        install -Dm644 "$f" "$target"
+    else
+        printf 'warning: keeping %s, which was edited after glimpse installed it\n' "$target" >&2
+    fi
+    install -Dm644 "$f" "$reference"
 done
+rm -f "$portalconfdir/glimpse-portals.conf"
 debian_pam=false
 [[ -e /etc/pam.d/common-auth && ! -e /etc/pam.d/system-auth ]] && debian_pam=true
 for f in data/pam.d/*; do

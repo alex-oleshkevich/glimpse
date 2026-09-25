@@ -92,6 +92,9 @@ fn activate(
     adw::StyleManager::default().set_color_scheme(scheme);
     glimpse_utils::init_translations(None);
     glimpse_widgets::register_resources().expect("widget resources");
+    if let Some(display) = gdk::Display::default() {
+        gtk4::IconTheme::for_display(&display).add_resource_path("/me/aresa/GlimpseShell/icons");
+    }
     ensure_types();
 
     let shared = blueprint.with_file_name("_shared.css");
@@ -4253,9 +4256,10 @@ fn ensure_types() {
         NotificationImageBody, NotificationList, NotificationStack, NotificationTextBody,
         NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList,
         PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout, Row, Scrubber,
-        Section, SessionPopover, SessionSheet, SourceList, SplitRow, StatusIsland, Swatch,
-        SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard, Transport, TrayStrip,
-        WeatherPopover, WorkspaceNamePopover, WorldClock,
+        Section, SessionPopover, SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown,
+        ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar, ShotWindowList, SourceList,
+        SplitRow, StatusIsland, Swatch, SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard,
+        Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -4326,6 +4330,14 @@ fn ensure_types() {
         TrackCard::static_type(),
         NotificationChips::static_type(),
         LockStage::static_type(),
+        ShotBanner::static_type(),
+        ShotCapturePage::static_type(),
+        ShotCountdown::static_type(),
+        ShotPreferences::static_type(),
+        ShotRegion::static_type(),
+        ShotResultPage::static_type(),
+        ShotToolbar::static_type(),
+        ShotWindowList::static_type(),
     ] {
         let _ = widget;
     }

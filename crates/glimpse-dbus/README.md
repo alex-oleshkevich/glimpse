@@ -8,7 +8,7 @@ connections they run on.
 - `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
 - `provider.rs` — `Exported`, the name-and-object lifecycle the three providers share
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
-- `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
+- `testing/` — `PrivateBus` (`start` uses the session config; `isolated` is a private bus whose `<servicedir>` is an empty directory) and the tray fakes, compiled only under the `testing` feature
 - `clients/idle.rs` — idle-inhibitor and per-backend health wire values, typed proxy and owned
   follower lifecycle
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
@@ -30,7 +30,7 @@ connections they run on.
 | `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
 | `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
 | `idle`                    | session | the Glimpse idle-inhibitor provider      |
-| `freedesktop_notifications` | session | `Notify` on any notification daemon   |
+| `freedesktop_notifications` | session | `Notify` and `CloseNotification`; signals `ActionInvoked`, `ActivationToken`, `NotificationClosed` |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 | `night_light`             | session | the Glimpse night light provider         |

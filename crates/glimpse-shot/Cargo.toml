@@ -1,0 +1,46 @@
+[package]
+name = "glimpse-shot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+adw.workspace = true
+anstream.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+futures-util.workspace = true
+gettext-rs.workspace = true
+gio = { workspace = true, features = ["v2_80"] }
+gio-unix.workspace = true
+glimpse-compositors.workspace = true
+glimpse-config.workspace = true
+glimpse-dbus.workspace = true
+glimpse-utils.workspace = true
+glimpse-wayland.workspace = true
+glimpse-widgets.workspace = true
+gtk4.workspace = true
+gtk4-layer-shell.workspace = true
+libc.workspace = true
+rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shadow-rs.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+toml_edit.workspace = true
+tracing.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+glib.workspace = true
+glimpse-dbus = { workspace = true, features = ["testing"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[build-dependencies]
+shadow-rs.workspace = true

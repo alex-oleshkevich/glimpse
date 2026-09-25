@@ -1,6 +1,11 @@
+use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use tempfile::NamedTempFile;
 
 use crate::error::{ConfigError, MAX_FILE_BYTES};
 use crate::schema::{Applet, Config};
@@ -10,6 +15,7 @@ const FILE_NAME: &str = "config.toml";
 const COMMENTED_FILE_NAME: &str = "config.commented.toml";
 const DROPIN_DIR: &str = "config.d";
 const FOLDER_NAME: &str = "glimpse";
+const WRITE_ATTEMPTS: usize = 3;
 
 /// `/usr/share/glimpse` — where the package installs files a user reads but does not edit. Beside
 /// [`user_dir`] because the two are asked in the same breath: the user's copy, then the shipped one.
@@ -20,6 +26,153 @@ pub const DATA_DIR: &str = "/usr/share/glimpse";
 /// this rather than rebuilding the path.
 pub fn user_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join(FOLDER_NAME))
+}
+
+pub fn runtime_dir() -> Option<PathBuf> {
+    runtime_dir_in(std::env::var_os("XDG_RUNTIME_DIR"))
+}
+
+fn runtime_dir_in(runtime: Option<OsString>) -> Option<PathBuf> {
+    runtime
+        .map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .map(|dir| dir.join(FOLDER_NAME))
+}
+
+pub fn write_table(path: &Path, table: &str, values: &toml_edit::Table) -> Result<(), ConfigError> {
+    write_table_with(path, table, values, &mut || {})
+}
+
+fn write_table_with(
+    path: &Path,
+    table: &str,
+    values: &toml_edit::Table,
+    before_rename: &mut dyn FnMut(),
+) -> Result<(), ConfigError> {
+    let target = match fs::canonicalize(path) {
+        Ok(target) => target,
+        Err(error) if error.kind() == io::ErrorKind::NotFound && !is_symlink(path) => {
+            path.to_path_buf()
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err(ConfigError::unwritable(
+                path,
+                io::Error::other("the symlink points at nothing"),
+            ));
+        }
+        Err(error) => return Err(ConfigError::unwritable(path, error)),
+    };
+    let dir = target
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(dir).map_err(|error| ConfigError::unwritable(dir, error))?;
+
+    for _ in 0..WRITE_ATTEMPTS {
+        let read_at = stamp(&target)?;
+        let text = match read_at {
+            Some(_) => read(&target)?,
+            None => String::new(),
+        };
+        if let Err(error) = text.parse::<toml::Table>() {
+            return Err(ConfigError::parse(&target, &text, &error));
+        }
+        let mut document =
+            text.parse::<toml_edit::DocumentMut>()
+                .map_err(|error| ConfigError::Parse {
+                    path: target.clone(),
+                    line: 1,
+                    column: 1,
+                    message: error.message().to_owned(),
+                })?;
+        set_table(&mut document, table, values)?;
+        let mut output = document.to_string();
+        if text.contains("\r\n") {
+            output = output.replace("\r\n", "\n").replace('\n', "\r\n");
+        }
+
+        let temporary = temporary_beside(&target, dir, &output)
+            .map_err(|error| ConfigError::unwritable(&target, error))?;
+        before_rename();
+        if stamp(&target)? != read_at {
+            continue;
+        }
+        return temporary
+            .persist(&target)
+            .map(drop)
+            .map_err(|error| ConfigError::unwritable(&target, error.error));
+    }
+    Err(ConfigError::unwritable(
+        &target,
+        io::Error::other("the file kept changing while it was being written"),
+    ))
+}
+
+fn is_symlink(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
+}
+
+fn temporary_beside(target: &Path, dir: &Path, text: &str) -> io::Result<NamedTempFile> {
+    let mut file = NamedTempFile::new_in(dir)?;
+    let permissions = match fs::metadata(target) {
+        Ok(metadata) if metadata.permissions().readonly() => {
+            return Err(io::ErrorKind::PermissionDenied.into());
+        }
+        Ok(metadata) => metadata.permissions(),
+        Err(_) => fs::Permissions::from_mode(0o644),
+    };
+    file.as_file().set_permissions(permissions)?;
+    file.write_all(text.as_bytes())?;
+    file.as_file().sync_all()?;
+    Ok(file)
+}
+
+fn stamp(path: &Path) -> Result<Option<(SystemTime, u64, u64, u64)>, ConfigError> {
+    match fs::metadata(path) {
+        Ok(metadata) => metadata
+            .modified()
+            .map(|modified| Some((modified, metadata.len(), metadata.dev(), metadata.ino())))
+            .map_err(|error| ConfigError::unreadable(path, error)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(ConfigError::unreadable(path, error)),
+    }
+}
+
+fn set_table(
+    document: &mut toml_edit::DocumentMut,
+    table: &str,
+    values: &toml_edit::Table,
+) -> Result<(), ConfigError> {
+    let Some(existing) = document
+        .entry(table)
+        .or_insert(toml_edit::table())
+        .as_table_like_mut()
+    else {
+        return Err(ConfigError::Schema {
+            message: format!("`{table}` is not a table"),
+        });
+    };
+    if let Some((key, _)) = values.iter().find(|(_, item)| !item.is_value()) {
+        return Err(ConfigError::Schema {
+            message: format!("`{table}.{key}` is not a value"),
+        });
+    }
+    for (key, item) in values.iter() {
+        let mut item = item.clone();
+        if let (Some(new), Some(old)) = (
+            item.as_value_mut(),
+            existing.get(key).and_then(toml_edit::Item::as_value),
+        ) {
+            *new.decor_mut() = old.decor().clone();
+        }
+        match existing.get_mut(key) {
+            Some(slot) => *slot = item,
+            None => {
+                existing.insert(key, item);
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn load(config_path: Option<&Path>) -> Result<Config, ConfigError> {
@@ -308,6 +461,196 @@ mod tests {
         let source = dir.join(COMMENTED_FILE_NAME);
         std::fs::write(&source, crate::commented_document()).expect("writes");
         source
+    }
+
+    #[test]
+    fn the_runtime_dir_is_glimpse_under_the_sessions_runtime_dir() {
+        assert_eq!(
+            runtime_dir_in(Some("/run/user/1000".into())),
+            Some(PathBuf::from("/run/user/1000/glimpse"))
+        );
+        assert_eq!(runtime_dir_in(None), None);
+        assert_eq!(runtime_dir_in(Some("".into())), None);
+    }
+
+    fn flash_off() -> toml_edit::Table {
+        let mut values = toml_edit::Table::new();
+        values.insert("flash", toml_edit::value(false));
+        values
+    }
+
+    const DOTFILE: &str = "# my dotfiles\n[appearance]\ntheme = \"mine\" # keep\n\n\
+                           [screenshot]\nnotify = false\n# blink on capture\n\"flash\" = true # blink\n\
+                           delay = 3\n";
+
+    #[test]
+    fn a_symlinked_commented_file_keeps_everything_but_the_key() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let store = root.path().join("dotfiles");
+        let config = root.path().join("glimpse");
+        std::fs::create_dir_all(&store).expect("creates");
+        std::fs::create_dir_all(&config).expect("creates");
+        std::fs::write(store.join(FILE_NAME), DOTFILE).expect("writes");
+        let link = config.join(FILE_NAME);
+        std::os::unix::fs::symlink(store.join(FILE_NAME), &link).expect("links");
+
+        write_table(&link, "screenshot", &flash_off()).expect("writes");
+
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .expect("the link")
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            std::fs::read_to_string(store.join(FILE_NAME)).expect("reads"),
+            DOTFILE.replace("\"flash\" = true # blink", "\"flash\" = false # blink")
+        );
+        assert_eq!(
+            std::fs::read_dir(&store).expect("lists").count(),
+            1,
+            "no temporary file is left behind"
+        );
+    }
+
+    #[test]
+    fn a_change_between_read_and_write_is_kept_and_the_edit_reapplied() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(&path, DOTFILE).expect("writes");
+        let concurrent = format!("{DOTFILE}\n[ruler]\nmax-zoom = 12\n");
+        let mut edits = 0;
+
+        write_table_with(&path, "screenshot", &flash_off(), &mut || {
+            if edits == 0 {
+                std::fs::write(&path, &concurrent).expect("writes");
+            }
+            edits += 1;
+        })
+        .expect("writes");
+
+        assert_eq!(edits, 2, "the edit ran once more on the new content");
+        assert_eq!(
+            std::fs::read_dir(dir.path()).expect("lists").count(),
+            1,
+            "the abandoned temporary file is removed"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            concurrent.replace("\"flash\" = true # blink", "\"flash\" = false # blink")
+        );
+    }
+
+    #[test]
+    fn a_file_that_never_settles_is_not_written() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(&path, DOTFILE).expect("writes");
+        let mut churn = String::from(DOTFILE);
+
+        write_table_with(&path, "screenshot", &flash_off(), &mut || {
+            churn.push('\n');
+            std::fs::write(&path, &churn).expect("writes");
+        })
+        .expect_err("three attempts, then a refusal");
+
+        assert!(
+            std::fs::read_to_string(&path)
+                .expect("reads")
+                .contains("\"flash\" = true")
+        );
+    }
+
+    #[test]
+    fn an_unparseable_file_is_refused_and_left_untouched() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        let broken = b"[screenshot\nflash = true\n";
+        std::fs::write(&path, broken).expect("writes");
+
+        let error = write_table(&path, "screenshot", &flash_off()).expect_err("refused");
+
+        assert!(matches!(error, ConfigError::Parse { .. }), "{error}");
+        assert_eq!(std::fs::read(&path).expect("reads"), broken);
+    }
+
+    #[test]
+    fn a_crlf_file_keeps_its_line_endings() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(&path, "# mine\r\n[appearance]\r\ntheme = \"mine\"\r\n").expect("writes");
+
+        write_table(&path, "screenshot", &flash_off()).expect("writes");
+
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            "# mine\r\n[appearance]\r\ntheme = \"mine\"\r\n\r\n[screenshot]\r\nflash = false\r\n"
+        );
+    }
+
+    #[test]
+    fn a_dangling_symlink_is_refused_and_left_a_symlink() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let link = dir.path().join(FILE_NAME);
+        std::os::unix::fs::symlink(dir.path().join("gone.toml"), &link).expect("links");
+
+        let error = write_table(&link, "screenshot", &flash_off()).expect_err("refused");
+
+        assert!(matches!(error, ConfigError::Unwritable { .. }), "{error}");
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .expect("the link")
+                .file_type()
+                .is_symlink()
+        );
+        assert!(!dir.path().join("gone.toml").exists());
+    }
+
+    #[test]
+    fn a_read_only_file_is_refused_and_left_untouched() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(&path, "[screenshot]\nflash = true\n").expect("writes");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444)).expect("chmod");
+
+        let error = write_table(&path, "screenshot", &flash_off()).expect_err("refused");
+
+        assert!(matches!(error, ConfigError::Unwritable { .. }), "{error}");
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            "[screenshot]\nflash = true\n"
+        );
+        assert_eq!(std::fs::read_dir(dir.path()).expect("lists").count(), 1);
+    }
+
+    #[test]
+    fn a_table_where_a_value_belongs_is_refused() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join(FILE_NAME);
+        std::fs::write(&path, "screenshot = { flash = true }\n").expect("writes");
+        let mut values = toml_edit::Table::new();
+        values.insert("flash", toml_edit::table());
+
+        let error = write_table(&path, "screenshot", &values).expect_err("refused");
+
+        assert!(matches!(error, ConfigError::Schema { .. }), "{error}");
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            "screenshot = { flash = true }\n"
+        );
+    }
+
+    #[test]
+    fn a_missing_file_is_created_holding_only_the_table() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("glimpse").join(FILE_NAME);
+
+        write_table(&path, "screenshot", &flash_off()).expect("writes");
+
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            "[screenshot]\nflash = false\n"
+        );
     }
 
     #[test]

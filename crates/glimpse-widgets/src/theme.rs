@@ -109,6 +109,8 @@ impl Styles {
 
         match gdk::Display::default() {
             Some(display) => {
+                gtk4::IconTheme::for_display(&display)
+                    .add_resource_path("/me/aresa/GlimpseShell/icons");
                 gtk4::style_context_add_provider_for_display(&display, &builtin, BUILTIN_PRIORITY);
                 gtk4::style_context_add_provider_for_display(&display, &theme, THEME_PRIORITY);
                 gtk4::style_context_add_provider_for_display(
@@ -513,7 +515,7 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 47);
+        assert_eq!(declared(block).len(), 54);
     }
 
     #[test]

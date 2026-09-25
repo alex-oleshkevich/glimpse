@@ -20,7 +20,8 @@ place that asks the environment a regional question.
 
 **`user_dir()` is `~/.config/glimpse`, and this crate owns it.** Anything that needs a glimpse path
 asks here rather than rebuilding `dirs::config_dir().join("glimpse")`. It is the directory, not a
-file: what a caller joins onto it is that caller's business.
+file: what a caller joins onto it is that caller's business. `runtime_dir()` is
+`$XDG_RUNTIME_DIR/glimpse`, the only home for runtime state; `None` when unset, and never created here.
 
 **Merging is per key: tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
@@ -83,6 +84,15 @@ names the kebab spelling when the written one differs only by underscores.
 Loading is synchronous and every binary calls `load` once at startup; only watching is async, and it
 puts each re-read on `spawn_blocking`.
 
+## Writing a file
+
+`write_table(path, table, values)`, the only way glimpse edits a document, replaces only each value
+in `[table]` through `toml_edit`: comments above and beside a key, quoting, order and CRLF survive.
+A symlink is followed and survives; a dangling one, a read-only file and a table value are refused.
+A synced temporary file is written beside the target, **then mtime, length and inode are compared
+again, just before the rename**; a mismatch re-applies the change to a fresh read, three attempts at
+most. An unparseable file is never overwritten; a missing one is created 0644 with only that table.
+
 ## Errors
 
 `load` reports every problem it found, not the first. **No `ConfigError` renders any of a file's
@@ -101,13 +111,6 @@ reload, drop the update and keep what is running. Neither exits.
 fails on the document rather than reaching the night light, which could only report "a schedule
 needs start-time and end-time" — which reads as "you did not set them" when they are set and merely
 wrong. They stay `Option<String>`, so `config show` prints the spelling the user wrote.
-
-**`[bluetooth]` carries what only the user can decide, and nothing the backend already knows.**
-`scan-timeout` is the seconds a scan runs before stopping on its own, because a discovery session
-outlives the popover that opened it; `0` disables the timeout and leaves the scan to the popover.
-`hide-unnamed` drops nearby devices advertising no name — a scan measured 17 devices in 20 seconds,
-most of them beacons whose only identity was their own address. The applet's own table bounds the
-two lists, `devices` and `nearby`, because nothing in the panel scrolls.
 
 ## Themes
 
@@ -290,10 +293,7 @@ A default that names an external command names one the system already has — `l
 `systemctl`. Pointing at a helper this repository would have to install is a default that is broken
 on every machine until that install lands, and `scripts/` is not installed.
 
-Semantic validation — duplicate idle timeouts, a panel zone naming an applet nothing provides — is
-not written yet. `[geolocation]` needs none: the table is one internally tagged enum, so a
-half-filled table is a `missing field` from serde before any reader sees it. Where a rule can be
-expressed in the type it belongs there rather than in a pass that has to remember to run.
+A rule that can be expressed in the type belongs there, not in a pass that has to remember to run.
 
 `Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`, a
 command line and the document sharing one vocabulary. `manual` stays a document-only alias — nothing

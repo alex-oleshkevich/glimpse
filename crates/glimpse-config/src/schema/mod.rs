@@ -21,6 +21,7 @@ mod printing;
 mod regional;
 mod removable;
 mod ruler;
+mod screenshot;
 mod system_monitor;
 mod wallpaper;
 mod weather;
@@ -69,6 +70,7 @@ pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
 pub use ruler::Ruler as RulerConfig;
+pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as ScreenshotConfig, Stroke};
 pub use system_monitor::SystemMonitor;
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
@@ -92,6 +94,7 @@ pub struct Config {
     pub clipboard: Clipboard,
     pub color_picker: ColorPicker,
     pub ruler: RulerConfig,
+    pub screenshot: ScreenshotConfig,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
     pub notifications: Notifications,
@@ -125,6 +128,7 @@ impl Default for Config {
             clipboard: Clipboard::default(),
             color_picker: ColorPicker::default(),
             ruler: RulerConfig::default(),
+            screenshot: ScreenshotConfig::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
             notifications: Notifications::default(),

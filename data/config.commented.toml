@@ -110,6 +110,16 @@
 # lens-radius = 106
 # max-zoom = 30
 
+[screenshot]
+# filename = "Screenshot from %Y-%m-%d %H-%M-%S.png"
+# editor = "overlay"
+# delay = 0
+# flash = true
+# cursor = false
+# notify = true
+# color = "red"
+# stroke = "medium"
+
 [weather]
 # provider = "open-meteo"
 # poll-interval = 900

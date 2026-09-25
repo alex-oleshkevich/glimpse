@@ -1,0 +1,294 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $ShotPreferences: Adw.PreferencesDialog {
+  title: _("Preferences");
+
+  Adw.PreferencesPage page {
+    banner: Adw.Banner read_only_banner {
+      title: _("config.toml cannot be read, so nothing here can be saved");
+      button-label: _("Open File");
+      use-markup: false;
+
+      styles [
+        "error",
+      ]
+    };
+
+    Adw.PreferencesGroup saving {
+      title: _("Saving");
+
+      Adw.ActionRow folder {
+        title: _("Folder");
+        use-markup: false;
+        activatable-widget: choose_folder;
+
+        [suffix]
+        Gtk.Button choose_folder {
+          icon-name: "folder-open-symbolic";
+          tooltip-text: _("Choose Folder");
+          valign: center;
+
+          styles [
+            "flat",
+          ]
+        }
+      }
+
+      Adw.EntryRow filename {
+        title: _("File Name");
+        show-apply-button: true;
+
+        [suffix]
+        Gtk.Label {
+          label: ".png";
+
+          styles [
+            "dimmed",
+          ]
+        }
+      }
+
+      Gtk.Label example {
+        xalign: 0;
+        wrap: true;
+        margin-top: 6;
+        margin-start: 12;
+
+        styles [
+          "caption",
+          "dimmed",
+        ]
+      }
+    }
+
+    Adw.PreferencesGroup behavior {
+      title: _("Behavior");
+
+      Adw.ComboRow editor {
+        title: _("Annotate In");
+        subtitle: _("Where a Print capture opens");
+
+        model: Gtk.StringList {
+          strings [
+            _("Full-Screen Overlay"),
+            _("Window")
+            ,
+          ]
+        };
+      }
+
+      Adw.SpinRow delay {
+        title: _("Default Delay");
+        subtitle: _("Seconds before capturing");
+
+        adjustment: Gtk.Adjustment {
+          lower: 0;
+          upper: 60;
+          value: 0;
+        };
+      }
+
+      Adw.SwitchRow cursor {
+        title: _("Show Pointer");
+      }
+
+      Adw.SwitchRow flash {
+        title: _("Flash on Capture");
+      }
+
+      Adw.SwitchRow notify {
+        title: _("Notify After Saving or Copying");
+      }
+    }
+
+    Adw.PreferencesGroup annotations {
+      title: _("Annotations");
+
+      Adw.ActionRow color {
+        title: _("Color");
+
+        [suffix]
+        Gtk.Box {
+          spacing: 6;
+          valign: center;
+
+          Gtk.ToggleButton red {
+            tooltip-text: _("Red");
+            valign: center;
+            active: true;
+
+            accessibility {
+              label: _("Red");
+            }
+
+            styles [
+              "shot-color",
+              "red",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind red.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton yellow {
+            tooltip-text: _("Yellow");
+            valign: center;
+            group: red;
+
+            accessibility {
+              label: _("Yellow");
+            }
+
+            styles [
+              "shot-color",
+              "yellow",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind yellow.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton green {
+            tooltip-text: _("Green");
+            valign: center;
+            group: red;
+
+            accessibility {
+              label: _("Green");
+            }
+
+            styles [
+              "shot-color",
+              "green",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind green.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton blue {
+            tooltip-text: _("Blue");
+            valign: center;
+            group: red;
+
+            accessibility {
+              label: _("Blue");
+            }
+
+            styles [
+              "shot-color",
+              "blue",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind blue.active;
+              accessible-role: presentation;
+            };
+          }
+
+          Gtk.ToggleButton white {
+            tooltip-text: _("White");
+            valign: center;
+            group: red;
+
+            accessibility {
+              label: _("White");
+            }
+
+            styles [
+              "shot-color",
+              "white",
+            ]
+
+            child: Gtk.Image {
+              icon-name: "object-select-symbolic";
+              visible: bind white.active;
+              accessible-role: presentation;
+            };
+          }
+        }
+      }
+
+      Adw.ActionRow width {
+        title: _("Line Width");
+
+        [suffix]
+        Adw.ToggleGroup strokes {
+          valign: center;
+          active-name: "medium";
+
+          Adw.Toggle {
+            name: "thin";
+            label: _("Thin");
+          }
+
+          Adw.Toggle {
+            name: "medium";
+            label: _("Medium");
+          }
+
+          Adw.Toggle {
+            name: "thick";
+            label: _("Thick");
+          }
+        }
+      }
+    }
+
+    Adw.PreferencesGroup keyboard {
+      title: _("Keyboard Shortcuts");
+      description: _("Add these bindings to the niri configuration");
+
+      header-suffix: Gtk.Button copy_snippet {
+        label: _("Copy _Snippet");
+        use-underline: true;
+        valign: center;
+
+        styles [
+          "flat",
+        ]
+      };
+
+      Adw.ActionRow {
+        title: _("Capture and Annotate");
+
+        [suffix]
+        Adw.ShortcutLabel {
+          accelerator: "Print";
+          valign: center;
+        }
+      }
+
+      Adw.ActionRow {
+        title: _("Capture a Window");
+
+        [suffix]
+        Adw.ShortcutLabel {
+          accelerator: "<Control>Print";
+          valign: center;
+        }
+      }
+
+      Adw.ActionRow {
+        title: _("Copy the Screen to the Clipboard");
+
+        [suffix]
+        Adw.ShortcutLabel {
+          accelerator: "<Shift>Print";
+          valign: center;
+        }
+      }
+    }
+  }
+}

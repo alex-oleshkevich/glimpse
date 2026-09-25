@@ -1,0 +1,26 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Comment=Take a screenshot, mark it up, save or copy it
+Icon=applets-screenshooter
+Exec=glimpse-shot %f
+TryExec=glimpse-shot
+Terminal=false
+DBusActivatable=true
+StartupNotify=true
+Categories=Utility;
+Keywords=screenshot;capture;annotate;
+MimeType=image/png;
+Actions=screen;window;region;
+
+[Desktop Action screen]
+Name=Screen
+Exec=gapplication action me.aresa.Glimpse.Shot screen
+
+[Desktop Action window]
+Name=Window
+Exec=gapplication action me.aresa.Glimpse.Shot window
+
+[Desktop Action region]
+Name=Region
+Exec=gapplication action me.aresa.Glimpse.Shot region

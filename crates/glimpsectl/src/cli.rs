@@ -54,6 +54,15 @@ pub enum Command {
 
     #[command(about = "Check the configuration and every provider")]
     Doctor,
+
+    #[command(subcommand, hide = true)]
+    Session(SessionCommand),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SessionCommand {
+    #[command(hide = true, about = "Declare glimpse:niri as the current desktop")]
+    Declare,
 }
 
 #[derive(Debug, Subcommand)]
@@ -208,5 +217,22 @@ mod tests {
         assert!(!Command::Doctor.needs_session_bus());
         assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
         assert!(Command::Sunset(SunsetCommand::Status).needs_session_bus());
+    }
+
+    #[test]
+    fn the_session_command_is_hidden_from_the_top_level_help() {
+        let command = Cli::command();
+        let session = command
+            .get_subcommands()
+            .find(|subcommand| subcommand.get_name() == "session")
+            .expect("the session subcommand still exists for parsing");
+        assert!(session.is_hide_set());
+    }
+
+    #[test]
+    fn session_declare_still_parses() {
+        let error = Cli::try_parse_from(["glimpsectl", "session", "declare", "--help"])
+            .expect_err("--help exits through the error path");
+        assert_eq!(error.exit_code(), 0);
     }
 }

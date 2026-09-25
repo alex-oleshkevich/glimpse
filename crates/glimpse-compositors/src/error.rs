@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CompositorError {
@@ -18,6 +19,16 @@ pub enum CompositorError {
     Refused(String),
     #[error("undecodable reply: {0}")]
     Protocol(String),
+    #[error("the compositor wrote no file within {0:?}")]
+    NoFile(Duration),
+    #[error("not an absolute UTF-8 file path: {}", .0.display())]
+    InvalidPath(PathBuf),
+    #[error("watching {}: {source}", path.display())]
+    Watch {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 impl CompositorError {

@@ -80,10 +80,10 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   stopped being true.
 - **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
 - Every binary fails the same way: `run(cli) -> anyhow::Result<()>` does the work and `main` turns
-  the outcome into an `ExitCode`. `errors.rs` holds a private module of named exit-code constants
-  and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by `downcast_ref`. One
-  mapping site is what stops an upstream `.context(...)` from changing which code a script sees.
-  `ExitCode` is opaque, so split the `u8` out to keep it testable.
+  the outcome into an `ExitCode`. `errors.rs` holds a `#[repr(u8)] enum Exit` of named codes with
+  `From<Exit> for ExitCode`, and the single `exit(&anyhow::Error) -> Exit` that maps them by
+  `downcast_ref`. One mapping site is what stops an upstream `.context(...)` from changing which
+  code a script sees. `ExitCode` is opaque, so `exit` returns `Exit` to keep it testable.
 - User-facing strings are not comments. Clap `help`, error messages and log lines all stay.
 
 **Dependencies**
@@ -828,18 +828,6 @@ holding nearly every widget assertion — only runs under `just test-compositor`
 rot unnoticed between compositor runs. One failure there hides every assertion after it in the same
 function.
 
-**Splitting that function into more `#[ignore]`d tests does not fix it and is unsound, September
-2026.** `gtk4::init()` **panics** when GTK is already initialized on another thread — *"Attempted to
-initialize GTK from two different threads"*, `gtk4-0.11.4/src/rt.rs:138` — so the
-`if gtk4::init().is_err() { return; }` guard every one of them opens with can never fire. Cargo gives
-each `#[test]` its own thread **including under `--test-threads=1`**, so in one test process only the
-**first** GTK test can pass. Measured on the same tree: `--test-threads=1` gives 59 passed and 6
-failed, five of them on that panic; the default parallel run got lucky and all six ran. Which
-assertions execute is therefore decided by thread scheduling, and a green run is not evidence they
-ran at all. Six tests are in this state today — bead `glimpse-9vjo`. Until it is resolved, **do not
-add a seventh**: a new widget's assertions go at the end of `widgets()`, and the constraint is per
-*process*, so a separate test binary under `tests/` is the escape hatch if one is really needed.
-
 **A separate `#[ignore]`d GTK test can pass without running, September 2026.** Every one of them
 opens with `if gtk4::init().is_err() { return; }`, and cargo runs them on parallel threads: the one
 that initializes GTK first wins, and the rest return early and report `ok`. Measured on
@@ -1319,27 +1307,3 @@ bd prime                # Refresh Beads context
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->
-
-<!-- BACKLOG.MD GUIDELINES START -->
-<!-- backlog.md-instructions-version: 1.52.0 -->
-<CRITICAL_INSTRUCTION>
-
-## Backlog.md Workflow
-
-This project uses Backlog.md for task and project management.
-
-**At the beginning of each conversation in this project, run `backlog instructions overview` before answering or taking action. Re-read it only if you have not read it yet in the current conversation.**
-
-Use the overview to decide whether to search, read, create, or update Backlog tasks.
-
-Before task lifecycle actions, read the matching detailed guide:
-- `backlog instructions task-creation` before creating or splitting tasks
-- `backlog instructions task-execution` before planning, changing status or assignee, adding a plan or implementation notes, or implementing task work
-- `backlog instructions task-finalization` before checking acceptance criteria, writing final summaries, or moving tasks to terminal statuses
-
-Use `backlog <command> --help` before running unfamiliar commands. Help shows options, fields, and examples.
-
-Do not edit Backlog task, draft, document, decision, or milestone markdown files directly. Use the `backlog` CLI so metadata, relationships, and history stay consistent.
-
-</CRITICAL_INSTRUCTION>
-<!-- BACKLOG.MD GUIDELINES END -->

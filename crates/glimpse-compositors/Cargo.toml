@@ -9,6 +9,7 @@ license.workspace = true
 dirs.workspace = true
 glimpse-config.workspace = true
 futures-util.workspace = true
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

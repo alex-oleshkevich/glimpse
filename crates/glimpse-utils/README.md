@@ -8,6 +8,8 @@ The argument structs and logging setup every binary repeats, written once.
 - `log.rs` — `LogFormat` and `init_app_tracing`
 - `i18n.rs` — `init_translations`, the one place the gettext domain is bound
 - `text.rs` — `clean`, the gate text from another application passes before it reaches a label
+- `selection.rs` — `is_sensitive`, the password-manager rule every clipboard reader applies before
+  reading content
 - `build.rs` — bakes `PREFIX` into the default catalog directory
 
 ## What it holds

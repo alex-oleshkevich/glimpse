@@ -1,0 +1,48 @@
+using Gtk 4.0;
+
+template $ShotWindowList: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  Gtk.Box {
+    orientation: vertical;
+    spacing: 2;
+    hexpand: true;
+
+    styles [
+      "shot-surface",
+      "shot-list",
+    ]
+
+    Gtk.Label this_section {
+      label: _("This workspace");
+      xalign: 0;
+      visible: false;
+
+      styles [
+        "shot-list__section",
+      ]
+    }
+
+    Gtk.Box this_rows {
+      orientation: vertical;
+      spacing: 2;
+      visible: false;
+    }
+
+    Gtk.Label other_section {
+      label: _("Other workspaces");
+      xalign: 0;
+      visible: false;
+
+      styles [
+        "shot-list__section",
+      ]
+    }
+
+    Gtk.Box other_rows {
+      orientation: vertical;
+      spacing: 2;
+      visible: false;
+    }
+  }
+}

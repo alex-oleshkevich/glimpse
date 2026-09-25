@@ -1,0 +1,44 @@
+using Gtk 4.0;
+
+template $ShotBanner: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  Gtk.Box {
+    spacing: 12;
+
+    styles [
+      "shot-surface",
+      "shot-banner",
+    ]
+
+    Gtk.Image {
+      icon-name: "dialog-information-symbolic";
+      valign: start;
+      accessible-role: presentation;
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      spacing: 2;
+      hexpand: true;
+
+      Gtk.Label body {
+        use-markup: false;
+        wrap: true;
+        max-width-chars: 60;
+        xalign: 0;
+      }
+
+      Gtk.Label keys {
+        label: _("Enter shares · Esc refuses");
+        use-markup: false;
+        xalign: 0;
+        visible: false;
+
+        styles [
+          "shot-banner__keys",
+        ]
+      }
+    }
+  }
+}

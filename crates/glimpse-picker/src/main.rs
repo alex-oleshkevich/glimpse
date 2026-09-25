@@ -1,4 +1,3 @@
-mod capture;
 mod cli;
 mod errors;
 mod lens;

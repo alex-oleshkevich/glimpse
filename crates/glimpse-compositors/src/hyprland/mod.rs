@@ -3,7 +3,7 @@ mod event;
 mod testing;
 
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use futures_util::stream::{self, BoxStream, StreamExt};
@@ -15,9 +15,9 @@ use tokio::net::UnixStream;
 use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
-    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
-    Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str, capped_name_str,
-    capped_title_str, is_built_in,
+    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Rect, Snapshot, Window, WindowId,
+    WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_edid_str,
+    capped_name_str, capped_title_str, fill_window_outputs, is_built_in,
 };
 use event::{EventState, address, layout_index};
 
@@ -67,6 +67,10 @@ impl Hyprland {
                 Some((workspace.id, monitor.focused))
             })
             .collect();
+        let monitor_origins: HashMap<i64, (f64, f64)> = monitors
+            .iter()
+            .map(|monitor| (monitor.id, (f64::from(monitor.x), f64::from(monitor.y))))
+            .collect();
 
         // Hyprland reports focus once, per session, rather than on each client — so unlike niri
         // the flag has to be filled in here or `is_focused` would be false on every window.
@@ -75,19 +79,23 @@ impl Hyprland {
             .and_then(Value::as_str)
             .and_then(address);
 
+        let workspaces: Vec<Workspace> = workspaces
+            .into_iter()
+            .map(|workspace| workspace.into_model(&active_workspaces))
+            .collect();
+        let mut windows: Vec<Window> = clients
+            .into_iter()
+            .filter_map(|client| client.into_model(&monitor_origins))
+            .map(|window| Window {
+                is_focused: Some(window.id) == focused_window,
+                ..window
+            })
+            .collect();
+        fill_window_outputs(&mut windows, &workspaces);
+
         Ok(Snapshot {
-            workspaces: workspaces
-                .into_iter()
-                .map(|workspace| workspace.into_model(&active_workspaces))
-                .collect(),
-            windows: clients
-                .into_iter()
-                .filter_map(WireClient::into_model)
-                .map(|window| Window {
-                    is_focused: Some(window.id) == focused_window,
-                    ..window
-                })
-                .collect(),
+            workspaces,
+            windows,
             outputs: monitors.into_iter().map(WireMonitor::into_model).collect(),
             keyboard: layouts,
             focused_window,
@@ -214,6 +222,14 @@ impl Hyprland {
 
     pub(crate) async fn stop_screencast(&self, _session_id: u64) -> Result<(), CompositorError> {
         Err(CompositorError::Unavailable("stop a screencast"))
+    }
+
+    pub(crate) async fn screenshot_window(
+        &self,
+        _id: WindowId,
+        _path: &Path,
+    ) -> Result<(), CompositorError> {
+        Err(CompositorError::Unavailable("screenshot a window"))
     }
 
     async fn keyboard_layouts(&self) -> Result<KeyboardLayouts, CompositorError> {
@@ -395,6 +411,7 @@ struct WireActiveWorkspace {
 
 #[derive(Deserialize)]
 struct WireMonitor {
+    id: i64,
     name: String,
     #[serde(default)]
     description: Option<String>,
@@ -521,10 +538,27 @@ struct WireClient {
     floating: bool,
     #[serde(default)]
     urgent: bool,
+    #[serde(default)]
+    monitor: Option<i64>,
+    #[serde(default)]
+    at: Option<(f64, f64)>,
+    #[serde(default)]
+    size: Option<(u32, u32)>,
 }
 
 impl WireClient {
-    fn into_model(self) -> Option<Window> {
+    fn into_model(self, monitor_origins: &HashMap<i64, (f64, f64)>) -> Option<Window> {
+        let origin = self.monitor.and_then(|id| monitor_origins.get(&id));
+        let rect = match (self.at, self.size, origin) {
+            (Some((x, y)), Some((width, height)), Some(&(origin_x, origin_y))) => Some(Rect {
+                x: x - origin_x,
+                y: y - origin_y,
+                width: f64::from(width),
+                height: f64::from(height),
+            }),
+            _ => None,
+        };
+
         Some(Window {
             id: address(&self.address)?,
             title: capped_title_str(&self.title),
@@ -537,6 +571,9 @@ impl WireClient {
             is_floating: self.floating,
             is_urgent: self.urgent,
             layout_order: None,
+            size: self.size,
+            rect,
+            output: None,
         })
     }
 }
@@ -613,11 +650,11 @@ mod tests {
         FakeHyprland::spawn(
             |command| match command {
                 "j/monitors" => json!([
-                    { "name": "eDP-1", "description": "Samsung 14\"", "make": "Samsung",
+                    { "id": 0, "name": "eDP-1", "description": "Samsung 14\"", "make": "Samsung",
                       "model": "ATNA60CL10", "width": 2880, "height": 1800,
                       "refreshRate": 120.001, "x": 0, "y": 0, "scale": 1.25, "transform": 0,
                       "focused": true, "disabled": false, "activeWorkspace": { "id": 5 } },
-                    { "name": "DP-3", "description": "", "disabled": true }
+                    { "id": 1, "name": "DP-3", "description": "", "disabled": true }
                 ])
                 .to_string(),
                 "j/workspaces" => json!([
@@ -627,7 +664,8 @@ mod tests {
                 .to_string(),
                 "j/clients" => json!([
                     { "address": "0x9", "title": "a terminal", "class": "foot", "pid": 4265,
-                      "workspace": { "id": 5 }, "floating": false, "urgent": false }
+                      "workspace": { "id": 5 }, "floating": false, "urgent": false,
+                      "monitor": 0, "at": [0, 0], "size": [2880, 1800] }
                 ])
                 .to_string(),
                 "j/activewindow" => json!({ "address": "0x9" }).to_string(),
@@ -656,6 +694,18 @@ mod tests {
         assert_eq!(snapshot.windows[0].app_id.as_deref(), Some("foot"));
         assert_eq!(snapshot.windows[0].workspace_id, Some(WorkspaceId(5)));
         assert_eq!(snapshot.windows[0].layout_order, None);
+        assert_eq!(snapshot.windows[0].size, Some((2880, 1800)));
+        assert_eq!(
+            snapshot.windows[0].rect,
+            Some(Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 2880.0,
+                height: 1800.0
+            }),
+            "Hyprland reports both at and size for every window, unlike a tiled niri window"
+        );
+        assert_eq!(snapshot.windows[0].output.as_deref(), Some("eDP-1"));
         assert_eq!(snapshot.workspaces[0].name.as_deref(), Some("5"));
         assert!(snapshot.workspaces[0].is_active && snapshot.workspaces[0].is_focused);
         assert!(!snapshot.workspaces[1].is_active);
@@ -844,6 +894,66 @@ mod tests {
             .expect_err("refused");
 
         assert!(matches!(error, CompositorError::Unavailable(_)));
+    }
+
+    #[tokio::test]
+    async fn screenshotting_a_window_is_unavailable_rather_than_dispatched() {
+        let error = Hyprland::at("/nonexistent")
+            .screenshot_window(WindowId(9), Path::new("/tmp/shot.png"))
+            .await
+            .expect_err("unavailable");
+
+        assert!(
+            matches!(error, CompositorError::Unavailable(_)),
+            "a dispatch would have failed to connect first, so this is what proves nothing was sent"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout() {
+        let server = FakeHyprland::spawn(
+            |command| match command {
+                "j/monitors" => json!([
+                    { "id": 0, "name": "eDP-1", "width": 2880, "height": 1800,
+                      "refreshRate": 120.0, "x": 100, "y": 50, "scale": 1.0, "transform": 0,
+                      "focused": true, "disabled": false }
+                ])
+                .to_string(),
+                "j/workspaces" => "[]".to_owned(),
+                "j/clients" => json!([
+                    { "address": "0x9", "title": "a terminal", "class": "foot",
+                      "monitor": 0, "at": [150, 90], "size": [800, 600] },
+                    { "address": "0xa", "title": "orphan", "class": "foot",
+                      "monitor": 7, "at": [150, 90], "size": [800, 600] }
+                ])
+                .to_string(),
+                "j/activewindow" => "{}".to_owned(),
+                "j/getoption input:kb_layout" => json!({ "str": "" }).to_string(),
+                "j/devices" => json!({ "keyboards": [] }).to_string(),
+                other => panic!("the fake was asked for {other}"),
+            },
+            Vec::new(),
+        );
+
+        let snapshot = Hyprland::at(&server.dir)
+            .snapshot()
+            .await
+            .expect("snapshot");
+
+        assert_eq!(
+            snapshot.windows[0].rect,
+            Some(Rect {
+                x: 50.0,
+                y: 40.0,
+                width: 800.0,
+                height: 600.0
+            }),
+            "at is global layout coordinates; rect must be relative to the window's own monitor"
+        );
+        assert_eq!(
+            snapshot.windows[1].rect, None,
+            "a window whose monitor is unknown has no rect rather than a global one"
+        );
     }
 
     #[tokio::test]

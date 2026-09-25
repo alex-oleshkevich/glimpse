@@ -2469,6 +2469,10 @@ msgstr[2] "{count} рабочих столов"
 msgid "Yesterday"
 msgstr "Вчера"
 
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
+msgid "Pixelate (B)"
+msgstr "Пикселизация (B)"
+
 #, fuzzy
 #~| msgid "{count} workspace"
 #~| msgid_plural "{count} workspaces"

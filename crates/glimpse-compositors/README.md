@@ -123,6 +123,40 @@ A relative workspace — `Next`, `Prev` — is not a reference niri accepts for 
 combination answers `Unavailable`. Hyprland's selector grammar does accept `+1`/`-1`, and it is left
 supported there: the backend is right when the two disagree.
 
+## Window geometry and screenshotting a window
+
+- **`Window.rect` is output-relative logical pixels, on both backends.** glimpse-shot crops a
+  per-output frozen frame, so a position in any other space would crop the wrong pixels. niri's
+  `tile_pos_in_workspace_view` already is relative to the output; Hyprland's `at` is global layout
+  coordinates, so `WireClient::into_model` subtracts the window's own monitor's `x`/`y` (matched by
+  the numeric `monitor` id every client carries, against `WireMonitor.id`), never the workspace.
+- **`Window.rect` is `None` for a tiled window, on purpose.** niri reports no position for a
+  window in the scrolling layout — `layout.tile_pos_in_workspace_view` is `null` — and this crate
+  does not invent one by cropping to a guess. `Window.size` is set for both a tiled and a floating
+  window; only the position is withheld.
+- **`Window.rect`'s position is `tile_pos_in_workspace_view + window_offset_in_tile`.**
+- **`Window.output`, `.size` and `.rect` are current only right after a snapshot.**
+  `fill_window_outputs` runs inside `snapshot()`, so a window arriving through niri's
+  `WindowOpenedOrChanged` or `WindowsChanged` event carries `output: None` until the next snapshot;
+  `WindowLayoutsChanged` carries no window at all, only a `layout_order` delta, so it also leaves a
+  cached window's `size` and `rect` exactly as they were. `Window.output` is filled from
+  `Workspace.output`, never decoded from a window's own wire payload — niri's window JSON has no
+  output field at all, and while Hyprland's client JSON does carry a `monitor` id, that id is used
+  only to make `rect` output-relative (above), never to fill `output` itself.
+- **`screenshot_window` waits for the file, not just the reply.** niri's IPC reply to
+  `ScreenshotWindow` arrives before the PNG exists on disk — measured: absent at ~20 ms, present by
+  500 ms. The inotify watch on the target's parent directory is armed for `IN_CLOSE_WRITE`
+  *before* the action is sent, and the call returns only once that event names the target file, or
+  after a 2 s deadline (`CompositorError::NoFile`). The wait runs in `spawn_blocking`, never on the
+  async runtime. The path is validated — absolute, valid UTF-8, carrying a file name — before
+  anything is armed; a path that fails this is `CompositorError::InvalidPath` and a failure to open
+  or watch the directory itself is `CompositorError::Watch`.
+- **`ScreenshotWindow` always replaces the clipboard.** Measured: there is no flag to suppress it.
+  This crate does not work around that here — restoring the clipboard afterward is the caller's job.
+- **Hyprland has no equivalent action.** `screenshot_window` on `Hyprland` returns
+  `CompositorError::Unavailable` — a compositor is running and simply cannot do this, the same
+  reason `reorder_workspace` and `stop_screencast` answer the same way there.
+
 ## Where the two compositors differ
 
 Every row below moved a decision in the public API. They are the reason both backends were built at

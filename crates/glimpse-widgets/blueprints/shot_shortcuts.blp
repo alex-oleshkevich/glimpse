@@ -1,0 +1,198 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.ShortcutsDialog shortcuts {
+  Adw.ShortcutsSection {
+    title: _("Capture");
+
+    Adw.ShortcutsItem {
+      title: _("Take Screenshot");
+      accelerator: "Return";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Capture a Screen");
+      accelerator: "s";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Capture a Window");
+      accelerator: "w";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Capture a Region");
+      accelerator: "r";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("Tools");
+
+    Adw.ShortcutsItem {
+      title: _("Crop");
+      accelerator: "c";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Arrow");
+      accelerator: "a";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Line");
+      accelerator: "l";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Freehand");
+      accelerator: "p";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Highlighter");
+      accelerator: "h";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Rectangle");
+      accelerator: "r";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Filled Rectangle");
+      accelerator: "f";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Oval");
+      accelerator: "o";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Number");
+      accelerator: "n";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Text");
+      accelerator: "t";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Blur");
+      accelerator: "b";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Color");
+      accelerator: "1...5";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Thinner and Thicker Line");
+      accelerator: "bracketleft bracketright";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("Editing");
+
+    Adw.ShortcutsItem {
+      title: _("Apply Crop or Finish Text");
+      accelerator: "Return";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Undo");
+      accelerator: "<Control>z";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Redo");
+      accelerator: "<Control><Shift>z";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Delete Selection");
+      accelerator: "Delete";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Cancel Crop or Text");
+      accelerator: "Escape";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("Finishing");
+
+    Adw.ShortcutsItem {
+      title: _("Copy and Close");
+      accelerator: "Return";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Copy");
+      accelerator: "<Control>c";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Save");
+      accelerator: "<Shift>Return <Control>s";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Save As");
+      accelerator: "<Control><Shift>s";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Open in Window");
+      accelerator: "<Control>e";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("View");
+
+    Adw.ShortcutsItem {
+      title: _("Best Fit");
+      accelerator: "<Control>0";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Actual Size");
+      accelerator: "<Control>1";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("General");
+
+    Adw.ShortcutsItem {
+      title: _("New Screenshot");
+      accelerator: "<Control>n";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Preferences");
+      accelerator: "<Control>comma";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Keyboard Shortcuts");
+      accelerator: "<Control>question";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Close Window");
+      accelerator: "<Control>w";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Quit");
+      accelerator: "<Control>q";
+    }
+  }
+}

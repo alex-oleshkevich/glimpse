@@ -193,10 +193,15 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
 would need one, and a minute timer redrawing unchanged rows is the cost of a line nobody reads.
 **Both lists are capped by `visible`**, pinned included — nothing in the panel scrolls, and a
 history of pins would otherwise run off the output. `WaylandSelection` lives in `src/selection/` and
-not in `glimpse-services`, which may bind no `wl_` object; it holds the one data-control connection
-and is injected as `Arc<dyn Selection>` into the clipboard, color picker and ruler services alike. An
-offer keeps that connection up even with the clipboard disabled, because a selection lives only as
-long as the connection that set it. **An image is decoded through `thumbnail`, never
+not in `glimpse-services`, which may bind no `wl_` object; it adapts `glimpse_wayland::selection` to
+the `Selection` trait and is injected as `Arc<dyn Selection>` into the clipboard, color picker and
+ruler services alike. It holds `selection::watch()` only while an `events()` subscriber exists, so
+`enabled = false` opens no connection, and the demand it passes is asked before every read, so no
+selection is read with nobody listening. It holds an `Owned` for the entry it offers — text under
+every common alias — until another client takes the selection. Offers are set up off the event loop
+one at a time, in request order; one superseded or cancelled first never sets the selection, one
+that fails keeps the entry already offered, and a lost connection, a retired device and an ended
+watch stream are each logged and not retried. **An image is decoded through `thumbnail`, never
 `Texture::from_bytes`** — the service caps an entry's bytes, which says nothing about its pixel
 count, and a small file can decode to an enormous bitmap. A picture that will not decode falls back
 to its icon and stays restorable. Textures are cached by entry id and pruned when the entry leaves.

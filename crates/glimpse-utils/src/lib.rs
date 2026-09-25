@@ -2,6 +2,7 @@ pub mod args;
 pub mod i18n;
 pub mod log;
 pub mod markup;
+pub mod selection;
 pub mod size;
 pub mod text;
 
@@ -9,5 +10,6 @@ pub use args::*;
 pub use i18n::*;
 pub use log::*;
 pub use markup::*;
+pub use selection::*;
 pub use size::*;
 pub use text::*;

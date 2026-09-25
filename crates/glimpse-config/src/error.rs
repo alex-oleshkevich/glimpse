@@ -13,6 +13,14 @@ pub enum ConfigError {
         source: io::Error,
     },
 
+    #[error("{}: {source}", located(path, resolved))]
+    Unwritable {
+        path: PathBuf,
+        resolved: Option<PathBuf>,
+        #[source]
+        source: io::Error,
+    },
+
     #[error("{}: not a regular file", located(path, resolved))]
     NotRegularFile {
         path: PathBuf,
@@ -40,6 +48,14 @@ pub enum ConfigError {
 impl ConfigError {
     pub(crate) fn unreadable(path: &Path, source: io::Error) -> Self {
         Self::Unreadable {
+            path: path.to_path_buf(),
+            resolved: link_target(path),
+            source,
+        }
+    }
+
+    pub(crate) fn unwritable(path: &Path, source: io::Error) -> Self {
+        Self::Unwritable {
             path: path.to_path_buf(),
             resolved: link_target(path),
             source,

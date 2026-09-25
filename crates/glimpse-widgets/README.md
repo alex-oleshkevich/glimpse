@@ -722,6 +722,8 @@ compositor, an older niri — the class never appears and the surfaces stay opaq
   borrowed connection a protocol error kills GTK, so the effect object and both frame-clock handlers
   exist only while blur is enabled **and** the window is mapped, and go on `unmap`: a region sent to
   a destroyed surface is exactly that error. With `blur = []` nothing is ever created.
+  `roundtrip(display)` does one `wl_display` roundtrip on the same borrowed connection, so a caller
+  that just hid a surface knows the compositor has processed the unmap.
 - **The region is compared at layout and after every paint, and built only when it changes.**
   Layout carries a new size in GTK's own commit. After-paint catches opacity, which animates without
   a relayout — but GTK has already committed that frame, and a still popover commits nothing more,
@@ -744,6 +746,42 @@ compositor, an older niri — the class never appears and the surfaces stay opaq
   popup and any applet popover that shows notification history — and both carry the `blurred` class
   from `Blur::attach`; only the popup also carries `notification-popup`. Scoping the tint to the
   narrower pair left the popover's cards solid while the rest of that popover went transparent.
+
+## Screenshot
+
+`ShotToolbar`, `ShotWindowList`, `ShotRegion`, `ShotBanner`, `ShotCountdown`, `ShotCapturePage`,
+`ShotResultPage`, `ShotPreferences` and `shot_shortcuts()` are the screenshot surfaces. They take plain values and emit signals; the
+`glimpse-shot` binary owns capture, files and the discard dialog.
+
+- **A setter that is handed the value already showing writes nothing and emits nothing.** Toggle
+  buttons report a choice only when the click turns that button on, so pressing the active tool
+  again is silent. Programmatic `set_*` never emits.
+- **Tool ids are `crop`, `arrow`, `rect`, `filled-rect`, `oval`, `number`, `text`, `blur`.** Targets are `screen`
+  and `window`. Palette index `0..=4` is red, yellow, green, blue, white. Stroke `1..=3` is thin,
+  medium, thick. Anything else is ignored.
+- **`action` names** `undo`, `redo`, `apply-crop`, `copy-close`, `cancel` and the copy split
+  button's menu entries `save`, `save-as`, `open-with`, `open-window`. The menu is the `shot` action
+  group; `set_finish_actions` enables only the entries a mode can run, and a disabled entry is
+  hidden. Apply crop shows only while `set_apply_visible(true)`. Undo and redo stay insensitive
+  until `set_can_undo` / `set_can_redo`.
+- **`ShotResultPage` embeds a `ShotToolbar` in its bottom bar with targets, history and finishing hidden**
+  (`toolbar()` reaches it); `picture()` is the page's `Gtk.Picture` and `name-changed` fires on each
+  edit of the name. Bottom undo and redo emit that toolbar's `action`. The header emits copy, save,
+  save-as, open-with and new. The rename popover holds the name; the folder is in Preferences.
+  `set_zoom` is `fit` or `actual`.
+- **`ShotPreferences` supplies the fixed groups and controls; `glimpse-shot` owns the config.**
+  The five color choices carry `shot-color` plus their color class so CSS paints them in either scheme.
+  `shot_shortcuts()` loads the six-section shortcuts dialog from the resource.
+- **Window titles and prompts are capped by character and set as plain text.** A row's
+  first line is `name`, else the title, else the app id; `icon` is used when set. A section with no
+  rows is hidden. The focused entry carries `shot-list__row--current`.
+- **`ShotRegion` only paints.** The dim, outline, handles and hint are a snapshot; the overlay owns
+  the pointer. The size label is hidden until there is both a selection and a size string.
+- **A portal request is “{app}” asked for a screenshot, plus a keys line only then.** The name goes
+  through `glimpse_utils::text::clean` at 200 characters; an empty name reads "An application".
+- **The screenshot icons live in this crate's gresource.** `Styles::install` adds
+  `/me/aresa/GlimpseShell/icons` to the display's icon theme, which is what lets `icon-name` recolor
+  them. A `file:` image does not.
 
 ## Rules
 

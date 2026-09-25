@@ -1,7 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// The screen ruler. `glimpse-ruler` reads it for the lens and the history it keeps.
+/// The screen ruler. `glimpse-ruler` reads the lens keys; the panel's ruler service keeps the
+/// history.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Ruler {

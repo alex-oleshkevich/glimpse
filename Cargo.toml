@@ -38,6 +38,7 @@ glimpse-config = { path = "crates/glimpse-config" }
 glimpse-dbus = { path = "crates/glimpse-dbus" }
 glimpse-services = { path = "crates/glimpse-services" }
 glimpse-utils = { path = "crates/glimpse-utils" }
+glimpse-wayland = { path = "crates/glimpse-wayland" }
 glimpse-widgets = { path = "crates/glimpse-widgets" }
 gtk4 = { package = "gtk4", version = "0.11", features = ["v4_22"] }
 gtk4-layer-shell = "0.8"
@@ -71,6 +72,7 @@ tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process"
 tokio-udev = "0.10.0"
 tokio-util = { version = "0.7", features = ["codec", "rt"] }
 toml = "1.1"
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 udev = { version = "0.9.3", features = ["send"] }

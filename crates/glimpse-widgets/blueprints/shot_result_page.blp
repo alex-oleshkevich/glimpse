@@ -1,0 +1,207 @@
+using Gtk 4.0;
+using Adw 1;
+
+menu result_finish_menu {
+  section {
+    item {
+      label: _("_Save");
+      action: "result.save";
+    }
+
+    item {
+      label: _("Save _As…");
+      action: "result.save-as";
+      accel: "<Control><Shift>s";
+    }
+
+    item {
+      label: _("_Open With…");
+      action: "result.open-with";
+    }
+  }
+}
+
+template $ShotResultPage: Gtk.Widget {
+  hexpand: true;
+  vexpand: true;
+
+  layout-manager: BinLayout {};
+
+  Adw.ToolbarView {
+      top-bar-style: raised;
+      bottom-bar-style: raised;
+
+      [top]
+      Adw.HeaderBar {
+        styles [
+          "flat",
+        ]
+
+        [start]
+        Gtk.Button new_shot {
+          icon-name: "go-previous-symbolic";
+          tooltip-text: _("New Screenshot (Ctrl+N)");
+
+          styles [
+            "flat",
+          ]
+        }
+
+        title-widget: Gtk.MenuButton {
+          always-show-arrow: true;
+
+          styles [
+            "flat",
+          ]
+
+          child: Adw.WindowTitle heading {
+            title: _("Screenshot");
+          };
+
+          popover: Gtk.Popover {
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 6;
+              margin-top: 12;
+              margin-bottom: 12;
+              margin-start: 12;
+              margin-end: 12;
+
+              Gtk.ListBox {
+                selection-mode: none;
+
+                styles [
+                  "boxed-list",
+                ]
+
+                Adw.EntryRow name {
+                  title: _("File Name");
+                  show-apply-button: true;
+
+                  [suffix]
+                  Gtk.Label {
+                    label: ".png";
+
+                    styles [
+                      "dimmed",
+                    ]
+                  }
+                }
+              }
+
+              Gtk.Label collision {
+                label: _("A file with this name exists. Saving adds “(2)”.");
+                xalign: 0;
+                wrap: true;
+                margin-start: 6;
+                visible: false;
+
+                styles [
+                  "caption",
+                  "error",
+                ]
+              }
+            };
+          };
+        };
+
+        [end]
+        Gtk.MenuButton menu {
+          icon-name: "open-menu-symbolic";
+          tooltip-text: _("Main Menu");
+          primary: true;
+          visible: false;
+        }
+
+        [end]
+        Adw.SplitButton copy {
+          label: _("_Copy");
+          use-underline: true;
+          tooltip-text: _("Copy to Clipboard (Ctrl+C)");
+          dropdown-tooltip: _("Save or Open");
+          menu-model: result_finish_menu;
+        }
+      }
+
+      content: Adw.ToastOverlay toasts {
+        Gtk.ScrolledWindow {
+          hexpand: true;
+          vexpand: true;
+
+          styles [
+            "view",
+          ]
+
+          Gtk.Picture picture {
+            hexpand: true;
+            vexpand: true;
+            content-fit: scale_down;
+            can-shrink: true;
+            margin-top: 24;
+            margin-bottom: 24;
+            margin-start: 24;
+            margin-end: 24;
+          }
+        }
+      };
+
+      [bottom]
+      Gtk.CenterBox {
+        styles [
+          "toolbar",
+        ]
+
+        start-widget: Gtk.Box {
+          Gtk.Button undo {
+            icon-name: "edit-undo-symbolic";
+            tooltip-text: _("Undo (Ctrl+Z)");
+            sensitive: false;
+
+            styles [
+              "flat",
+            ]
+          }
+
+          Gtk.Button redo {
+            icon-name: "edit-redo-symbolic";
+            tooltip-text: _("Redo (Ctrl+Shift+Z)");
+            sensitive: false;
+
+            styles [
+              "flat",
+            ]
+          }
+        };
+
+        center-widget: $ShotToolbar toolbar {
+          halign: center;
+          valign: center;
+
+          styles [
+            "shot-result-toolbar",
+          ]
+        };
+
+        end-widget: Adw.ToggleGroup zoom {
+          valign: center;
+          active-name: "fit";
+
+          styles [
+            "flat",
+          ]
+
+          Adw.Toggle {
+            name: "fit";
+            icon-name: "zoom-fit-best-symbolic";
+            tooltip: _("Best Fit (Ctrl+0)");
+          }
+
+          Adw.Toggle {
+            name: "actual";
+            icon-name: "zoom-original-symbolic";
+            tooltip: _("Actual Size (Ctrl+1)");
+          }
+        };
+      }
+  }
+}

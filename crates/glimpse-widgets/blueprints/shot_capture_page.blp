@@ -1,0 +1,177 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $ShotCapturePage: Gtk.Widget {
+  hexpand: true;
+  vexpand: true;
+
+  layout-manager: BinLayout {};
+
+  Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      styles [
+        "flat",
+      ]
+
+      title-widget: Adw.WindowTitle {
+        title: _("Screenshot");
+      };
+
+      [end]
+      Gtk.MenuButton menu {
+        icon-name: "open-menu-symbolic";
+        tooltip-text: _("Main Menu");
+        primary: true;
+        visible: false;
+      }
+    }
+
+    content: Adw.Clamp {
+      maximum-size: 400;
+      tightening-threshold: 300;
+
+      child: Gtk.Box {
+        orientation: vertical;
+        spacing: 18;
+        margin-top: 6;
+        margin-bottom: 24;
+        margin-start: 12;
+        margin-end: 12;
+
+        Adw.ToggleGroup modes {
+          homogeneous: true;
+          active-name: "screen";
+
+          Adw.Toggle {
+            name: "screen";
+            label: _("Screen");
+            tooltip: _("Capture a Screen (S)");
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 6;
+              margin-top: 6;
+              margin-bottom: 6;
+
+              Gtk.Image {
+                icon-name: "video-display-symbolic";
+                icon-size: large;
+                accessible-role: presentation;
+              }
+
+              Gtk.Label {
+                label: _("Screen");
+              }
+            };
+          }
+
+          Adw.Toggle {
+            name: "window";
+            label: _("Window");
+            tooltip: _("Capture a Window (W)");
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 6;
+              margin-top: 6;
+              margin-bottom: 6;
+
+              Gtk.Image {
+                icon-name: "focus-windows-symbolic";
+                icon-size: large;
+                accessible-role: presentation;
+              }
+
+              Gtk.Label {
+                label: _("Window");
+              }
+            };
+          }
+
+          Adw.Toggle {
+            name: "region";
+            label: _("Region");
+            tooltip: _("Capture a Region (R)");
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 6;
+              margin-top: 6;
+              margin-bottom: 6;
+
+              Gtk.Image {
+                icon-name: "shot-area-symbolic";
+                icon-size: large;
+                accessible-role: presentation;
+              }
+
+              Gtk.Label {
+                label: _("Region");
+              }
+            };
+          }
+        }
+
+        Gtk.ListBox targets {
+          selection-mode: none;
+          visible: false;
+
+          styles [
+            "boxed-list",
+          ]
+
+          Adw.ComboRow screen {
+            title: _("Screen");
+            use-markup: false;
+            visible: false;
+          }
+
+          Adw.ComboRow window {
+            title: _("Window");
+            use-markup: false;
+            use-subtitle: true;
+            subtitle-lines: 1;
+            visible: false;
+          }
+        }
+
+        Gtk.ListBox {
+          selection-mode: none;
+
+          styles [
+            "boxed-list",
+          ]
+
+          Adw.SpinRow delay {
+            title: _("Delay");
+            subtitle: _("Seconds before capturing");
+
+            adjustment: Gtk.Adjustment {
+              lower: 0;
+              upper: 60;
+              value: 0;
+            };
+          }
+
+          Adw.SwitchRow cursor {
+            title: _("Show Pointer");
+          }
+        }
+
+        Gtk.Button take {
+          halign: center;
+          margin-top: 6;
+          label: _("_Take Screenshot");
+          use-underline: true;
+          tooltip-text: _("Take Screenshot (Enter)");
+
+          styles [
+            "pill",
+            "suggested-action",
+          ]
+        }
+      };
+    };
+  }
+}

@@ -6,8 +6,8 @@ use glimpse_widgets::{Lens, zoomed};
 use gtk4::{gdk, glib, prelude::*};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-use crate::capture::Frame;
 use crate::marks::Marks;
+use glimpse_wayland::capture::Frame;
 
 const DEFAULT_ZOOM: u32 = 8;
 const PILL_GAP: f64 = 10.0;

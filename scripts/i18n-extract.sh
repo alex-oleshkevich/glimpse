@@ -54,6 +54,7 @@ grep -vE "unknown; will try C|unterminated (string literal|character constant)" 
 
 mkdir -p "$(dirname "$out")"
 cp "$work/glimpse.pot" "$out"
+xgettext --language=Desktop --join-existing --sort-by-file -o "$out" data/me.aresa.Glimpse.Shot.desktop
 
 python3 scripts/i18n-coverage.py "$out" "${files[@]}"
 

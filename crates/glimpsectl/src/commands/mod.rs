@@ -1,6 +1,7 @@
 mod config;
 mod doctor;
 mod notifications;
+mod session;
 mod sunset;
 mod weather;
 
@@ -9,6 +10,7 @@ pub use doctor::doctor;
 pub use notifications::{
     notifications_clear, notifications_dismiss, notifications_dnd, notifications_list,
 };
+pub use session::session_declare;
 pub use sunset::{sunset_mode, sunset_status};
 pub use weather::{weather_refresh, weather_status};
 

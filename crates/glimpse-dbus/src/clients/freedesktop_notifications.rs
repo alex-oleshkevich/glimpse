@@ -20,4 +20,15 @@ pub trait FreedesktopNotifications {
         hints: HashMap<&str, Value<'_>>,
         expire_timeout: i32,
     ) -> zbus::Result<u32>;
+
+    fn close_notification(&self, id: u32) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn action_invoked(&self, id: u32, action_key: String) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn activation_token(&self, id: u32, token: String) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn notification_closed(&self, id: u32, reason: u32) -> zbus::Result<()>;
 }

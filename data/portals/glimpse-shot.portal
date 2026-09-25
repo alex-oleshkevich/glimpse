@@ -1,0 +1,4 @@
+[portal]
+DBusName=me.aresa.Glimpse.Shot.Portal
+Interfaces=org.freedesktop.impl.portal.Screenshot
+UseIn=glimpse

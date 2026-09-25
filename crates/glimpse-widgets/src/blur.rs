@@ -25,6 +25,21 @@ unsafe extern "C" {
     fn gdk_wayland_surface_get_wl_surface(surface: *mut gdk::ffi::GdkSurface) -> *mut c_void;
 }
 
+pub fn roundtrip(display: &gdk::Display) -> std::io::Result<()> {
+    if display.type_().name() != "GdkWaylandDisplay" {
+        return Err(std::io::Error::other("not a Wayland display"));
+    }
+    let pointer = unsafe { gdk_wayland_display_get_wl_display(display.to_glib_none().0) };
+    if pointer.is_null() {
+        return Err(std::io::Error::other("GTK holds no wl_display"));
+    }
+    let backend = unsafe { Backend::from_foreign_display(pointer.cast()) };
+    Connection::from_backend(backend)
+        .roundtrip()
+        .map(drop)
+        .map_err(std::io::Error::other)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tip {
     Up,
