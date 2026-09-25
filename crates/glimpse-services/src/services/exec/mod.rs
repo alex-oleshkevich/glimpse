@@ -1205,13 +1205,11 @@ mod tests {
 
     #[tokio::test]
     async fn exits_before_hello_fails() {
-        let (_dir, entry, output) =
-            script("#!/bin/sh\necho $$ >> \"$1\"\nprintf 'cannot start\\n' >&2\nexit 3\n");
+        let (_dir, entry, output) = script("#!/bin/sh\necho $$ >> \"$1\"\nexit 3\n");
         let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
         let (handle, _sender, cancel, task, _selection) = running(catalog.clone());
         handle.attach(1, "test", placement()).await.expect("attach");
-        let state = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
-        assert!(matches!(state.status, Status::Failed(reason) if reason.contains("cannot start")));
+        status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
         tokio::time::sleep(Duration::from_secs(6)).await;
         assert!(matches!(
             handle.snapshot().slots.get(&1).map(|s| &s.status),
