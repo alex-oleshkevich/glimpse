@@ -297,5 +297,4 @@ window-rule {
     open-floating true
 }
 ```
-
 On Hyprland: `windowrulev2 = float, class:^(me\.aresa\.Glimpse\.Shot)$`.

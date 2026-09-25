@@ -24,11 +24,10 @@ counted from `crates/glimpse-package/`; cargo-generate-rpm takes a *path* and ru
 root, so its `source` fields have no prefix at all. Two spellings of one asset list is the reason
 `tests/packaging.rs` compares them rather than trusting either.
 
-**`$auto` scans the asset binaries, not this crate's.** An empty lib has nothing to link, which
-sounds like it should break dpkg-shlibdeps — measured, it does not: cargo-deb resolves `$auto`
-against the executables in `assets`. The explicit GTK/libadwaita/layer-shell/libheif/PAM/GeoClue
-entries stay anyway, because those are linked by the *bundled* binaries and a partial scan would
-silently drop them.
+**The `.deb` declares direct library dependencies explicitly.** `$auto` can add dependencies when
+`dpkg-shlibdeps` is available, but an Arch build cannot derive Debian shlibs metadata. Scan every
+shipped binary on Debian when the binaries or build environment change, and update the manifest's
+dependency floors. An older Debian release may lack the runtime versions named in the control file.
 
 ## Translation catalogs
 

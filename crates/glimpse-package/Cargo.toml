@@ -16,22 +16,25 @@ priority = "optional"
 extended-description = """\
 A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, and a lock."""
 
-# $auto scans this crate's own linked libraries via dpkg-shlibdeps; the other binaries
-# bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell, which $auto's scan
-# may not cover, so those are listed explicitly rather than trusted to auto-detect. glimpse-lock
-# links libpam; nothing links libheif — `ldd` over every shipped binary is the check. ddcutil is not
-# linked — glimpse talks DDC/CI itself over /dev/i2c-* — but its own udev rule is what grants that
-# access without root or a static group, so it rides along as a dependency for that rule alone.
 depends = [
   "$auto",
-  "libgtk-4-1",
-  "libadwaita-1-0",
-  "libgtk4-layer-shell0",
+  "libadwaita-1-0 (>= 1.8~alpha)",
+  "libc6 (>= 2.43)",
+  "libcairo2 (>= 1.10.0)",
+  "libgcc-s1 (>= 4.2)",
+  "libgdk-pixbuf-2.0-0 (>= 2.31.1)",
+  "libglib2.0-0t64 (>= 2.80.0)",
+  "libgraphene-1.0-0 (>= 1.5.4)",
+  "libgtk-4-1 (>= 4.19.3)",
+  "libgtk4-layer-shell0 (>= 1.2.0)",
+  "libpam0g (>= 0.99.7.1)",
+  "libpango-1.0-0 (>= 1.14.0)",
+  "libpipewire-0.3-0t64 (>= 0.3.1)",
+  "libpulse0 (>= 0.99.4)",
+  "libudev1 (>= 183)",
+  "libwayland-client0 (>= 1.11.0)",
   "geoclue-2.0",
-  "libpulse0",
-  "libudev1",
   "ddcutil",
-  "libpam0g",
 ]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
