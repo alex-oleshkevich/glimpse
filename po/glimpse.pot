@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-25 18:28+0200\n"
+"POT-Creation-Date: 2026-09-26 11:19+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1142,16 +1142,15 @@ msgstr ""
 msgid "Send files"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:76
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:83
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
+msgid "{percent}, charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
 #: crates/glimpse-panel/src/applets/network/render.rs:135
 #: crates/glimpse-panel/src/applets/network/render.rs:170
 #: crates/glimpse-panel/src/applets/network/render.rs:171
 msgid "Connected"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:80
-msgid "{percent}, charging"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
