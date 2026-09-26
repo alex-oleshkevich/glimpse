@@ -28,18 +28,35 @@ impl MprisPopover {
         self.imp().player.clone()
     }
 
-    /// `None` is the section switched off, which is not the same as an empty one: an empty section
-    /// shows its placeholder, and "Nothing else playing" is the opposite of what a viewer who
-    /// turned the list off asked for.
     pub fn set_others(&self, players: Option<&[Player]>) {
         let imp = self.imp();
-        imp.others.set_visible(players.is_some());
-
-        let Some(players) = players else {
-            return;
-        };
-        imp.others.set_empty(players.is_empty());
+        let players = players.unwrap_or_default();
+        imp.others.set_visible(!players.is_empty());
         imp.list.set_players(players);
+    }
+
+    pub fn set_volume(&self, volume: Option<f64>) {
+        let fader = &self.imp().volume;
+        if fader.get_visible() != volume.is_some() {
+            fader.set_visible(volume.is_some());
+        }
+        if let Some(volume) = volume.filter(|volume| volume.is_finite()) {
+            let value = (volume * 100.0).clamp(0.0, 100.0);
+            if fader.value() != value {
+                fader.set_value(value);
+            }
+        }
+    }
+
+    pub fn connect_volume_changed<F: Fn(&Self, f64) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "volume-changed",
+            false,
+            glib::closure_local!(move |popover: Self, volume: f64| handler(&popover, volume)),
+        )
     }
 
     pub fn set_footer(&self, label: Option<&str>) {

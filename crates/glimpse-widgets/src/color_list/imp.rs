@@ -3,14 +3,16 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
-use super::{Notation, Shade};
+use super::Shade;
+use crate::{Expandable, Row};
 
 #[derive(Debug, Default)]
 pub struct ColorList {
     pub shades: RefCell<Vec<Shade>>,
-    pub holders: RefCell<Vec<gtk4::Box>>,
-    pub open: Cell<Option<u64>>,
-    pub built: RefCell<Option<(u64, Vec<Notation>)>>,
+    pub holders: RefCell<Vec<(u64, Expandable)>>,
+    pub rows: gtk4::Box,
+    pub more: Row,
+    pub show_all: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -33,9 +35,6 @@ impl ObjectImpl for ColorList {
                 glib::subclass::Signal::builder("activated")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("detailed")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("copied")
                     .param_types([u64::static_type(), String::static_type()])
                     .build(),
@@ -50,12 +49,25 @@ impl ObjectImpl for ColorList {
         if let Some(layout) = list.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_orientation(gtk4::Orientation::Vertical);
         }
+        self.rows.set_orientation(gtk4::Orientation::Vertical);
+        self.rows.set_parent(&*list);
+        self.more.set_lead_icon(Some("view-more-symbolic"));
+        self.more.set_visible(false);
+        self.more.set_parent(&*list);
+        self.more.connect_clicked(glib::clone!(
+            #[weak]
+            list,
+            move |_| {
+                list.imp().show_all.set(true);
+                list.render();
+            }
+        ));
     }
 
     fn dispose(&self) {
-        for holder in self.holders.borrow_mut().drain(..) {
-            holder.unparent();
-        }
+        self.holders.borrow_mut().clear();
+        self.rows.unparent();
+        self.more.unparent();
     }
 }
 

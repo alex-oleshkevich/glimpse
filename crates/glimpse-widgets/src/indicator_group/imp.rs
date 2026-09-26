@@ -1,6 +1,7 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::RefCell;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use crate::indicator::Indicator;
 
@@ -11,7 +12,11 @@ const PRIMARY_BUTTON: u32 = 1;
 pub struct IndicatorGroup {
     pub items: RefCell<Vec<Indicator>>,
     pub accessible_name: RefCell<String>,
+    pub acknowledging: RefCell<Option<glib::SourceId>>,
 }
+
+pub const ACKNOWLEDGED: &str = "indicator-group--acknowledged";
+pub const ACKNOWLEDGE_HOLD: Duration = Duration::from_millis(600);
 
 #[glib::object_subclass]
 impl ObjectSubclass for IndicatorGroup {
@@ -101,6 +106,9 @@ impl ObjectImpl for IndicatorGroup {
     }
 
     fn dispose(&self) {
+        if let Some(pending) = self.acknowledging.take() {
+            pending.remove();
+        }
         for indicator in self.items.borrow_mut().drain(..) {
             indicator.unparent();
         }

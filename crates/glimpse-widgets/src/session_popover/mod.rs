@@ -16,13 +16,6 @@ pub struct ActionState {
     pub subtitle: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SessionChoice {
-    pub id: String,
-    pub user: String,
-    pub subtitle: Option<String>,
-}
-
 glib::wrapper! {
     pub struct SessionPopover(ObjectSubclass<imp::SessionPopover>)
         @extends gtk4::Widget,
@@ -68,43 +61,6 @@ impl SessionPopover {
         row.set_subtitle(state.subtitle.as_deref());
     }
 
-    pub fn set_updates(&self, updates: Option<&str>) {
-        let imp = self.imp();
-        let visible = updates.is_some();
-        if imp.updates_section.get_visible() == visible && imp.updates.value().as_deref() == updates
-        {
-            return;
-        }
-        imp.updates_section.set_visible(visible);
-        imp.updates.set_value(updates);
-    }
-
-    pub fn set_sessions(&self, sessions: &[SessionChoice]) {
-        let imp = self.imp();
-        if imp.choices.borrow().as_slice() == sessions {
-            return;
-        }
-        *imp.choices.borrow_mut() = sessions.to_vec();
-        crate::clear_children(&imp.sessions);
-        imp.sessions_section.set_visible(!sessions.is_empty());
-        let popover = self.clone();
-        for entry in sessions {
-            let id = entry.id.clone();
-            let row = crate::Row::new();
-            row.set_title(Some(entry.user.as_str()));
-            row.set_subtitle(entry.subtitle.as_deref());
-            row.set_activatable(true);
-            row.connect_clicked(glib::clone!(
-                #[weak]
-                popover,
-                #[strong]
-                id,
-                move |_| popover.emit_by_name::<()>("activate-session", &[&id])
-            ));
-            imp.sessions.append(&row);
-        }
-    }
-
     pub fn set_footer(&self, label: Option<&str>) {
         crate::set_footer_row(&self.imp().footer, label);
     }
@@ -117,17 +73,6 @@ impl SessionPopover {
             "action-requested",
             false,
             glib::closure_local!(move |popover: Self, action: String| f(&popover, &action)),
-        )
-    }
-
-    pub fn connect_activate_session<F: Fn(&Self, &str) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "activate-session",
-            false,
-            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
 

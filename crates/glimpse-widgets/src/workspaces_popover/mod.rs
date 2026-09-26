@@ -1,10 +1,12 @@
 mod imp;
 
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
 use crate::{Row, Workspace};
+
+const NO_WINDOWS: &str = "workspace-card__empty";
 
 glib::wrapper! {
     pub struct WorkspacesPopover(ObjectSubclass<imp::WorkspacesPopover>)
@@ -30,7 +32,6 @@ impl WorkspacesPopover {
         }
         imp.workspaces.replace(workspaces.to_vec());
         imp.list.set_workspaces(workspaces);
-        imp.hero.set_subtitle(summary(workspaces).as_deref());
 
         let open = imp
             .list
@@ -76,6 +77,19 @@ impl WorkspacesPopover {
                 row.set_selected(window.focused);
             },
         );
+        let placeholder = rows
+            .last_child()
+            .and_downcast::<Row>()
+            .filter(|row| row.has_css_class(NO_WINDOWS))
+            .unwrap_or_else(|| {
+                let row = Row::new();
+                row.add_css_class(NO_WINDOWS);
+                row.set_title(Some(gettext("No windows").as_str()));
+                row.set_activatable(false);
+                rows.append(&row);
+                row
+            });
+        placeholder.set_visible(windows.is_empty());
     }
 
     fn row_for(&self, id: u64) -> Row {
@@ -99,35 +113,4 @@ impl WorkspacesPopover {
             glib::closure_local!(move |_: Self, id: u64| f(id)),
         )
     }
-}
-
-fn summary(workspaces: &[Workspace]) -> Option<String> {
-    if workspaces.is_empty() {
-        return None;
-    }
-
-    let mut outputs: Vec<&str> = workspaces
-        .iter()
-        .map(|workspace| workspace.output.as_str())
-        .collect();
-    outputs.sort_unstable();
-    outputs.dedup();
-
-    Some(match outputs.len() {
-        1 => gettext("{workspaces} on {output}")
-            .replace("{workspaces}", &plural(workspaces.len()))
-            .replace("{output}", outputs[0]),
-        displays => ngettext(
-            "{workspaces} across {displays} display",
-            "{workspaces} across {displays} displays",
-            displays as u32,
-        )
-        .replace("{workspaces}", &plural(workspaces.len()))
-        .replace("{displays}", &displays.to_string()),
-    })
-}
-
-fn plural(count: usize) -> String {
-    ngettext("{count} workspace", "{count} workspaces", count as u32)
-        .replace("{count}", &count.to_string())
 }

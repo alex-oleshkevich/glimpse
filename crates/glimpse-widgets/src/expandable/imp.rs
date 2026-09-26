@@ -6,10 +6,12 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use super::CARD;
 use crate::{PopoverShell, drawer};
 
+pub type Toggle = (gtk4::Widget, glib::SignalHandlerId);
+
 #[derive(Debug, Default, glib::Properties)]
 #[properties(wrapper_type = super::Expandable)]
 pub struct Expandable {
-    pub head: RefCell<Option<(gtk4::Widget, Option<glib::SignalHandlerId>)>>,
+    pub head: RefCell<Option<(gtk4::Widget, Option<Toggle>)>>,
     pub drawer: gtk4::Revealer,
 
     #[property(name = "expanded", get = Self::expanded, set = Self::set_expanded, explicit_notify)]
@@ -22,7 +24,7 @@ impl Expandable {
     }
 
     fn set_expanded(&self, expanded: bool) {
-        if self.drawer.reveals_child() == expanded {
+        if self.drawer.reveals_child() == expanded || expanded && self.drawer.child().is_none() {
             return;
         }
         let obj = self.obj();
@@ -90,6 +92,13 @@ impl ObjectImpl for Expandable {
 }
 
 impl WidgetImpl for Expandable {
+    fn root(&self) {
+        self.parent_root();
+        if let Some(shell) = self.drawer.reveals_child().then(|| self.shell()).flatten() {
+            shell.focus(&self.obj());
+        }
+    }
+
     fn unroot(&self) {
         let shell = self.drawer.reveals_child().then(|| self.shell()).flatten();
         self.parent_unroot();
@@ -106,5 +115,10 @@ impl BuildableImpl for Expandable {
             (None, Some(head)) => self.obj().set_head(head),
             _ => self.parent_add_child(builder, child, kind),
         }
+    }
+
+    fn parser_finished(&self, builder: &gtk4::Builder) {
+        self.parent_parser_finished(builder);
+        self.obj().connect_late_opener();
     }
 }

@@ -11,6 +11,7 @@ use crate::{Expandable, Hero, PopoverShell, Row, Section, SplitRow};
 pub struct Action {
     pub key: String,
     pub label: String,
+    pub destructive: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -45,6 +46,8 @@ pub struct KdeconnectPopover {
     pub nearby: TemplateChild<Section>,
     #[template_child]
     pub nearby_toggle: TemplateChild<Row>,
+    #[template_child]
+    pub nearby_drawer: TemplateChild<gtk4::Revealer>,
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]

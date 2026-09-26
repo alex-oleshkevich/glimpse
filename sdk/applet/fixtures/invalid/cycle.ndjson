@@ -1,0 +1,1 @@
+{"t":"commit","ops":[{"op":"insert","parent":0,"before":null,"node":{"id":1,"type":"popover","props":{},"children":[]}},{"op":"insert","parent":1,"before":null,"node":{"id":2,"type":"box","props":{},"children":[{"id":3,"type":"box","props":{},"children":[]}]}},{"op":"move","parent":3,"id":2,"before":null}]}

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Clip, ClipActions, Severity, drawer, none_if_empty};
+use crate::{Clip, ClipActions, Severity, none_if_empty};
 
 glib::wrapper! {
     pub struct ClipboardPopover(ObjectSubclass<imp::ClipboardPopover>)
@@ -49,31 +49,25 @@ impl ClipboardPopover {
         self.imp().pinned_section.set_visible(!clips.is_empty());
     }
 
-    /// The Recent section hides outright when it is empty but something is pinned: a populated
-    /// Pinned list above a placeholder reading "Nothing copied yet" contradicts itself.
     pub fn set_recent(&self, clips: &[Clip]) {
         let imp = self.imp();
         imp.recent.set_clips(clips);
-        let pinned = imp.pinned_section.get_visible();
-        imp.recent_section.set_visible(!clips.is_empty() || !pinned);
-        imp.recent_section.set_empty(clips.is_empty());
+        imp.recent_section
+            .set_visible(!clips.is_empty() || imp.more.get_visible());
     }
 
-    /// Which entry has its actions unfolded, across both sections: one list must not keep a panel
-    /// open while the other opens a second.
-    pub fn set_open(&self, open: Option<u64>) {
+    pub fn set_overflow(&self, label: Option<&str>) {
+        crate::set_footer_row(&self.imp().more, label);
         let imp = self.imp();
-        imp.pinned.set_open(open);
-        imp.recent.set_open(open);
-        // Every piece of surrounding chrome recedes while a detail is open, or the card is read
-        // against a hero and two footer rows that still look pressable.
-        for chrome in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.trouble.upcast_ref(),
-            imp.clear.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(chrome, drawer::RECEDED, open.is_some());
+        if label.is_some() && !imp.recent_section.get_visible() {
+            imp.recent_section.set_visible(true);
+        }
+    }
+
+    pub fn set_searchable(&self, searchable: bool) {
+        let search = &self.imp().search;
+        if search.get_visible() != searchable {
+            search.set_visible(searchable);
         }
     }
 
@@ -97,14 +91,6 @@ impl ClipboardPopover {
         )
     }
 
-    pub fn connect_detailed<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "detailed",
-            false,
-            glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
-        )
-    }
-
     pub fn connect_pinned<F: Fn(&Self, u64, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "pinned",
@@ -120,6 +106,33 @@ impl ClipboardPopover {
             "removed",
             false,
             glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
+        )
+    }
+
+    pub fn connect_acted<F: Fn(&Self, u64, String) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "acted",
+            false,
+            glib::closure_local!(move |popover: Self, id: u64, key: String| f(&popover, id, key)),
+        )
+    }
+
+    pub fn connect_searched<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "searched",
+            false,
+            glib::closure_local!(move |popover: Self, query: String| f(&popover, query)),
+        )
+    }
+
+    pub fn connect_more<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "more",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
 

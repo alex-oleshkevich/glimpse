@@ -5,7 +5,9 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ChoiceList, FactList, Hero, PopoverShell, Readout, Row, Section, SwitchRow, drawer};
+use crate::{
+    ChoiceList, Expandable, FactList, Hero, PopoverShell, Readout, Row, Section, SwitchRow,
+};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/battery_popover.ui")]
@@ -26,11 +28,9 @@ pub struct BatteryPopover {
     #[template_child]
     pub devices_box: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub details_holder: TemplateChild<gtk4::Box>,
+    pub details: TemplateChild<Expandable>,
     #[template_child]
     pub details_row: TemplateChild<Row>,
-    #[template_child]
-    pub details_panel: TemplateChild<gtk4::Revealer>,
     #[template_child]
     pub facts: TemplateChild<FactList>,
     #[template_child]
@@ -51,6 +51,7 @@ impl ObjectSubclass for BatteryPopover {
         Readout::static_type();
         Section::static_type();
         ChoiceList::static_type();
+        Expandable::static_type();
         FactList::static_type();
         SwitchRow::static_type();
         Row::static_type();
@@ -83,25 +84,6 @@ impl ObjectImpl for BatteryPopover {
     fn constructed(&self) {
         self.parent_constructed();
         let popover = self.obj();
-        self.details_row.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| {
-                if !popover.imp().details_holder.get_visible() {
-                    return;
-                }
-                drawer::toggle(&popover.imp().details_panel);
-                popover.sync_dimming();
-            }
-        ));
-        self.details_panel.connect_notify_local(
-            Some("reveal-child"),
-            glib::clone!(
-                #[weak]
-                popover,
-                move |_, _| popover.sync_dimming()
-            ),
-        );
         self.profiles.connect_activated(glib::clone!(
             #[weak]
             popover,

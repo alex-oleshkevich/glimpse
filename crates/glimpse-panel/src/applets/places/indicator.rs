@@ -1,8 +1,10 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
-use glimpse_services::{PlacesHandle, PlacesState};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
+use glimpse_services::{CommandError, PlacesHandle, PlacesState};
 
 use glimpse_widgets::{IndicatorSpec, PlacesPopover};
 use gtk4::gio;
@@ -10,12 +12,13 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input};
+use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
 
 use super::render;
 
 pub struct Places {
     places: PlacesHandle,
+    notifications: NotificationsProviderHandle,
     places_state: Rc<RefCell<PlacesState>>,
     tooltip_format: Option<String>,
     footer: Option<(String, Vec<String>)>,
@@ -73,6 +76,22 @@ impl Applet for Places {
             }
         });
 
+        shown.connect_empty_trash({
+            let places = self.places.clone();
+            let report = Report {
+                notifications: self.notifications.clone(),
+                app_name: gettext("Places"),
+                icon: render::ICON.to_owned(),
+                summary: gettext("Could not empty the trash"),
+            };
+            move |_| {
+                let places = places.clone();
+                spawn_reported("places.empty_trash", report.clone(), wording, async move {
+                    places.empty_trash().await
+                });
+            }
+        });
+
         shown.connect_more({
             let expanded = Rc::clone(&self.expanded);
             let opener = seat.opener();
@@ -93,6 +112,13 @@ impl Applet for Places {
     }
 }
 
+fn wording(error: &CommandError) -> Option<String> {
+    match error {
+        CommandError::LimitExceeded(_) => None,
+        _ => Some(gettext("Some items could not be deleted.")),
+    }
+}
+
 fn open(uri: String) {
     relm4::spawn_local(async move {
         if let Err(error) =
@@ -104,10 +130,11 @@ fn open(uri: String) {
 }
 
 impl Places {
-    pub fn start(places: PlacesHandle) -> Self {
+    pub fn start(places: PlacesHandle, notifications: NotificationsProviderHandle) -> Self {
         let places_state = places.snapshot();
         Self {
             places,
+            notifications,
             places_state: Rc::new(RefCell::new(places_state)),
             tooltip_format: None,
             footer: None,

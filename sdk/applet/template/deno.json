@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "imports": {
+    "@glimpse/applet": {{sdk}},
+    "react": "npm:react@19.3.0",
+    "react/jsx-runtime": {{sdk}},
+    "react/jsx-dev-runtime": {{sdk}},
+    "react-reconciler": "npm:react-reconciler@0.33.0",
+    "react-reconciler/constants.js": "npm:react-reconciler@0.33.0/constants.js"
+  },
+  "tasks": {
+    "dev": "glimpsectl applets dev .",
+    "bundle": "glimpsectl applets bundle .",
+    "link": "glimpsectl applets dev .",
+    "check": "deno check main.tsx"
+  }
+}

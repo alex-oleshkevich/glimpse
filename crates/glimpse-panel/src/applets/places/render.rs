@@ -87,14 +87,43 @@ pub fn network(state: &PlacesState) -> Vec<PlacesEntry> {
     state
         .network
         .iter()
-        .map(|place| PlacesEntry {
-            id: place.id.clone(),
-            title: cap(&place.name),
-            subtitle: place.path.display().to_string(),
-            icon: place.kind.icon_name().to_owned(),
-            busy: false,
+        .map(|place| {
+            let (title, subtitle) = share(&place.id);
+            PlacesEntry {
+                id: place.id.clone(),
+                title: cap(&title),
+                subtitle: cap(&subtitle),
+                icon: place.kind.icon_name().to_owned(),
+                busy: false,
+            }
         })
         .collect()
+}
+
+fn share(mount: &str) -> (String, String) {
+    let Some((scheme, params)) = mount.split_once(':') else {
+        return (mount.to_owned(), String::new());
+    };
+    let param = |key: &str| {
+        params
+            .split(',')
+            .filter_map(|pair| pair.split_once('='))
+            .find(|(name, _)| *name == key)
+            .map(|(_, value)| {
+                gtk4::glib::uri_unescape_string(value, None::<&str>)
+                    .map_or_else(|| value.to_owned(), |text| text.to_string())
+            })
+            .filter(|value| !value.is_empty())
+    };
+    let host = param("server").or_else(|| param("host"));
+    let folder = param("share")
+        .or_else(|| param("prefix").map(|prefix| prefix.trim_matches('/').to_owned()));
+    let protocol = scheme.trim_end_matches("-share").to_uppercase();
+    match (folder.filter(|folder| !folder.is_empty()), host) {
+        (Some(folder), Some(host)) => (folder, format!("{host} · {protocol}")),
+        (None, Some(host)) => (host, protocol),
+        (_, None) => (mount.to_owned(), String::new()),
+    }
 }
 
 pub fn trash(state: &PlacesState) -> Option<PlacesTrash> {
@@ -128,6 +157,27 @@ pub fn activation(places: &PlacesState, id: &str) -> Option<Activation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_share_reads_as_its_folder_on_its_host_and_never_as_the_raw_mount() {
+        assert_eq!(
+            share("smb-share:server=nas,share=media%20library"),
+            ("media library".to_owned(), "nas · SMB".to_owned())
+        );
+        assert_eq!(
+            share("sftp:host=box.lan,user=alex"),
+            ("box.lan".to_owned(), "SFTP".to_owned())
+        );
+        assert_eq!(
+            share("dav:host=cloud,ssl=true,prefix=%2Fremote.php%2Fdav"),
+            ("remote.php/dav".to_owned(), "cloud · DAV".to_owned())
+        );
+        assert_eq!(
+            share("something-odd"),
+            ("something-odd".to_owned(), String::new()),
+            "a name that is not a gvfs mount is shown as it is"
+        );
+    }
 
     fn place(id: &str, name: &str, kind: glimpse_services::PlacesKind, path: &str) -> Place {
         Place {

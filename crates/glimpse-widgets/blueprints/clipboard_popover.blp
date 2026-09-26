@@ -27,6 +27,15 @@ template $ClipboardPopover: Gtk.Widget {
         icon-name: "dialog-warning-symbolic";
       }
 
+      Gtk.SearchEntry search {
+        visible: false;
+        placeholder-text: _("Search clipboard");
+
+        styles [
+          "clipboard-popover__search",
+        ]
+      }
+
       $Section pinned_section {
         title: _("Pinned");
         visible: false;
@@ -36,13 +45,18 @@ template $ClipboardPopover: Gtk.Widget {
 
       $Section recent_section {
         title: _("Recent");
+        visible: false;
 
-        $ClipboardList recent {}
+        Gtk.Box {
+          orientation: vertical;
 
-        [placeholder]
-        $Placeholder nothing {
-          icon-name: "edit-paste-symbolic";
-          title: _("Nothing copied yet");
+          $ClipboardList recent {}
+
+          $Row more {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
         }
       }
     }

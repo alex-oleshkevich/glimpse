@@ -1,11 +1,11 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -45,7 +45,13 @@ pub struct PlacesPopover {
     #[template_child]
     pub trash: TemplateChild<Section>,
     #[template_child]
+    pub trash_item: TemplateChild<Expandable>,
+    #[template_child]
     pub trash_row: TemplateChild<Row>,
+    #[template_child]
+    pub trash_open: TemplateChild<Row>,
+    #[template_child]
+    pub trash_empty: TemplateChild<Row>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 
@@ -56,6 +62,7 @@ pub struct PlacesPopover {
     pub network_data: RefCell<Vec<Entry>>,
     pub network_held: RefCell<Vec<(String, Row)>>,
     pub trash_data: RefCell<Option<Trash>>,
+    pub trash_armed: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -65,6 +72,7 @@ impl ObjectSubclass for PlacesPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        Expandable::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -83,6 +91,7 @@ impl ObjectImpl for PlacesPopover {
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("more").build(),
+                glib::subclass::Signal::builder("empty-trash").build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
@@ -92,11 +101,24 @@ impl ObjectImpl for PlacesPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.trash_row.connect_clicked(glib::clone!(
+        self.trash_open.connect_clicked(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("activated", &[&"trash".to_owned()])
         ));
+        self.trash_empty.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.press_empty_trash()
+        ));
+        self.trash_item.connect_notify_local(
+            Some("expanded"),
+            glib::clone!(
+                #[weak]
+                popover,
+                move |_, _| popover.disarm_empty_trash()
+            ),
+        );
         self.bookmarks_more.connect_clicked(glib::clone!(
             #[weak]
             popover,

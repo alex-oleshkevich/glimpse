@@ -11,7 +11,7 @@ template $PrintingPopover: Gtk.Widget {
     [hero]
     $Hero hero {
       icon-name: "printer-symbolic";
-      title: _("Printers");
+      title: _("Printing");
       subtitle: _("No print jobs");
     }
 
@@ -24,12 +24,8 @@ template $PrintingPopover: Gtk.Widget {
       ]
 
       $Section jobs {
-        empty: true;
-
-        [placeholder]
-        $Placeholder empty_jobs {
-          icon-name: "printer-symbolic";
-        }
+        visible: false;
+        title: _("Print jobs");
 
         Gtk.Box job_rows {
           orientation: vertical;

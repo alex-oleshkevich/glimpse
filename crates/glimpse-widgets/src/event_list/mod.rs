@@ -3,19 +3,31 @@ mod row;
 
 pub use row::EventRow;
 
+use gettextrs::ngettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty};
+use crate::reconcile::by_key;
+use crate::{Expandable, Fact, FactList, Row, none_if_empty};
 
-const OVERFLOW_ICON: &str = "go-next-symbolic";
-const QUIET: &str = "row--quiet";
+const MORE_ICON: &str = "view-more-symbolic";
+const PAST: &str = "event-list__row--past";
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Event {
+    pub id: String,
     pub summary: String,
     pub detail: String,
     pub when: String,
     pub color: Option<gdk::RGBA>,
+    pub past: bool,
+    pub links: Vec<Link>,
+    pub facts: Vec<Fact>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Link {
+    pub title: String,
+    pub url: String,
 }
 
 glib::wrapper! {
@@ -52,7 +64,7 @@ impl EventList {
     }
 
     pub fn overflows(&self) -> bool {
-        self.imp().overflow.borrow().is_some()
+        self.imp().more.get_visible()
     }
 
     pub fn set_max_rows(&self, max: u32) {
@@ -60,6 +72,15 @@ impl EventList {
             return;
         }
         self.render();
+    }
+
+    pub fn fold(&self) {
+        let imp = self.imp();
+        let earlier = imp.show_earlier.replace(false);
+        let all = imp.show_all.replace(false);
+        if earlier || all {
+            self.render();
+        }
     }
 
     pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -70,103 +91,129 @@ impl EventList {
         )
     }
 
-    pub fn connect_overflow<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_link_activated<F: Fn(&Self, String) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
         self.connect_closure(
-            "overflow",
+            "link-activated",
             false,
-            glib::closure_local!(move |list: Self| f(&list)),
+            glib::closure_local!(move |list: Self, url: String| f(&list, url)),
         )
     }
 
     fn render(&self) {
         let imp = self.imp();
         let events = imp.events.borrow();
-        let max = imp.max_rows.get() as usize;
-        let shown = match max {
-            0 => events.len(),
-            max => events.len().min(max),
+        let earlier = events.iter().take_while(|event| event.past).count();
+        let start = match imp.show_earlier.get() {
+            true => 0,
+            false => earlier,
         };
-        let leads = events[..shown].iter().any(|event| event.color.is_some());
-        let activatable = imp.activatable.get();
+        let end = match (imp.max_rows.get() as usize, imp.show_all.get()) {
+            (0, _) | (_, true) => events.len(),
+            (max, false) => events.len().min(earlier + max),
+        };
+        let shown = &events[start..end];
+        imp.cards
+            .borrow_mut()
+            .retain(|id, _| shown.iter().any(|event| &event.id == id));
+        let leads = shown.iter().any(|event| event.color.is_some());
 
-        let mut rows = imp.rows.borrow_mut();
-        for (index, event) in events.iter().take(shown).enumerate() {
-            if rows.len() == index {
-                let row = self.build_row(index as u32);
-                row.insert_after(self, rows.last());
-                rows.push(row);
-            }
-            let row = &rows[index];
+        by_key(
+            &imp.rows,
+            &mut imp.holders.borrow_mut(),
+            shown,
+            |event| event.id.clone(),
+            |event| self.build(event),
+            |holder, event| self.apply(holder, event, leads),
+        );
+
+        count(&imp.earlier, start, "{count} earlier", "{count} earlier");
+        count(
+            &imp.more,
+            events.len() - end,
+            "{count} more event",
+            "{count} more events",
+        );
+    }
+
+    fn build(&self, event: &Event) -> Expandable {
+        let row = EventRow::new();
+        let id = event.id.clone();
+        row.connect_clicked(glib::clone!(
+            #[weak(rename_to = list)]
+            self,
+            move |_| list.activate(&id)
+        ));
+        Expandable::new(&row)
+    }
+
+    fn activate(&self, id: &str) {
+        let imp = self.imp();
+        if !imp.activatable.get() {
+            return;
+        }
+        let index = imp.events.borrow().iter().position(|event| event.id == id);
+        if let Some(index) = index {
+            self.emit_by_name::<()>("activated", &[&(index as u32)]);
+        }
+    }
+
+    fn apply(&self, holder: &Expandable, event: &Event, leads: bool) {
+        let opens = !event.links.is_empty() || !event.facts.is_empty();
+        if let Some(row) = holder.head::<EventRow>() {
             let item: &Row = row.upcast_ref();
             item.set_title(Some(event.summary.as_str()));
             item.set_subtitle(none_if_empty(&event.detail));
-            item.set_activatable(activatable);
+            item.set_activatable(opens || self.imp().activatable.get());
+            crate::set_css_class(item, PAST, event.past);
             row.set_when(none_if_empty(&event.when));
             row.set_color(event.color, leads);
+            row.set_opens(opens);
         }
-
-        for row in rows.split_off(shown) {
-            row.unparent();
-        }
-
-        let hidden = events.len() - shown;
-        drop(rows);
-        drop(events);
-        self.sync_overflow(hidden);
-    }
-
-    fn build_row(&self, index: u32) -> EventRow {
-        let row = EventRow::new();
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| list.emit_by_name::<()>("activated", &[&index])
-        ));
-        row
-    }
-
-    fn sync_overflow(&self, hidden: usize) {
-        let imp = self.imp();
-        if hidden == 0 {
-            if let Some(row) = imp.overflow.take() {
-                row.unparent();
-            }
+        let mut cards = self.imp().cards.borrow_mut();
+        let unchanged = cards
+            .get(&event.id)
+            .is_some_and(|held| held.links == event.links && held.facts == event.facts);
+        if unchanged && holder.details::<gtk4::Widget>().is_some() == opens {
             return;
         }
-
-        let existing = imp.overflow.borrow().clone();
-        let row = match existing {
-            Some(row) => row,
-            None => {
-                let row = self.build_overflow();
-                imp.overflow.replace(Some(row.clone()));
-                row
-            }
-        };
-
-        row.set_title(Some(match hidden {
-            1 => "1 more event".to_owned(),
-            hidden => format!("{hidden} more events"),
-        }));
-        let rows = imp.rows.borrow();
-        row.insert_after(self, rows.last());
+        match opens {
+            true => holder.set_details(Some(&self.card(event))),
+            false => holder.set_details(None::<&gtk4::Widget>),
+        }
+        cards.insert(event.id.clone(), event.clone());
     }
 
-    fn build_overflow(&self) -> Row {
-        let row = Row::new();
-        row.add_css_class(QUIET);
-        row.set_trail(&gtk4::Image::from_icon_name(OVERFLOW_ICON));
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| list.emit_by_name::<()>("overflow", &[])
-        ));
-        row
+    fn card(&self, event: &Event) -> gtk4::Box {
+        let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        for link in &event.links {
+            let row = Row::new();
+            row.set_title(Some(link.title.as_str()));
+            let url = link.url.clone();
+            row.connect_clicked(glib::clone!(
+                #[weak(rename_to = list)]
+                self,
+                move |_| list.emit_by_name::<()>("link-activated", &[&url])
+            ));
+            card.append(&row);
+        }
+        if !event.facts.is_empty() {
+            let facts = FactList::new();
+            facts.set_facts(&event.facts);
+            card.append(&facts);
+        }
+        card
     }
 
     fn summary_at(&self, y: i32) -> Option<String> {
         let imp = self.imp();
-        let index = imp.rows.borrow().iter().position(|row| {
+        let holders = imp.holders.borrow();
+        let (id, _) = holders.iter().find(|(_, holder)| {
+            let Some(row) = holder.head::<gtk4::Widget>() else {
+                return false;
+            };
             let top = row
                 .compute_bounds(self)
                 .map(|bounds| bounds.y())
@@ -176,7 +223,30 @@ impl EventList {
         })?;
         imp.events
             .borrow()
-            .get(index)
+            .iter()
+            .find(|event| &event.id == id)
             .map(|event| event.summary.clone())
     }
+}
+
+fn count(row: &Row, hidden: usize, singular: &str, plural: &str) {
+    let visible = hidden > 0;
+    if row.get_visible() != visible {
+        row.set_visible(visible);
+    }
+    if visible {
+        row.set_title(Some(
+            ngettext(singular, plural, hidden as u32)
+                .replace("{count}", &hidden.to_string())
+                .as_str(),
+        ));
+    }
+}
+
+fn more_row() -> Row {
+    let row = Row::new();
+    row.set_lead_icon(Some(MORE_ICON));
+    row.set_activatable(true);
+    row.set_visible(false);
+    row
 }

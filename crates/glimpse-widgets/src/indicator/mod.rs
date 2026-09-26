@@ -16,6 +16,7 @@ const ATTENTION_CLASS: &str = "indicator--attention";
 const NOTICE_CLASS: &str = "indicator--notice";
 const WARNING_CLASS: &str = "indicator--warning";
 const ERROR_CLASS: &str = "indicator--error";
+const TEXT_CLASS: &str = "indicator--text";
 pub(crate) const DOT_SIZE: f32 = 7.0;
 
 #[derive(Debug, Default, Clone)]
@@ -80,6 +81,7 @@ impl Indicator {
             None => imp.icon.clear(),
         }
         imp.icon_slot.set_visible(icon.is_some());
+        self.sync_text_only();
     }
 
     pub fn set_overlay(&self, overlay: Option<&gio::Icon>) {
@@ -126,6 +128,15 @@ impl Indicator {
 
     pub fn set_label(&self, label: Option<&str>) {
         set_text(&self.imp().label, label);
+        self.sync_text_only();
+    }
+
+    fn sync_text_only(&self) {
+        let imp = self.imp();
+        let text_only = imp.label.get_visible() && !imp.icon_slot.get_visible();
+        if self.has_css_class(TEXT_CLASS) != text_only {
+            crate::set_css_class(self, TEXT_CLASS, text_only);
+        }
     }
 
     pub fn set_badge(&self, badge: Option<&str>) {

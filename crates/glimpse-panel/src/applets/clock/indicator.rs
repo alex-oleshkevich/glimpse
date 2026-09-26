@@ -127,6 +127,7 @@ impl Applet for Clock {
             let command = command.clone();
             shown.connect_footer_activated(move |_| run(&command));
         }
+        shown.connect_link_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.dress(&shown);
@@ -167,7 +168,7 @@ impl Clock {
             .unwrap_or_else(|| now.date_naive());
         let clock = glimpse_config::clock(self.twelve);
 
-        let (title, week) = popover::heading(day, self.settings.week_numbers);
+        let (title, week) = popover::heading(now.date_naive(), self.settings.week_numbers);
         shown.set_heading(&title, week.as_deref());
         shown.set_day_truncated(popover::truncated(day, self.truncated_from));
         shown.set_day(

@@ -44,8 +44,11 @@ for member in $members; do
         echo "$target: missing PropagatesReloadTo=$member.service"; exit 1;
     }
 done
-if grep -Eq '^(Wants|PropagatesReloadTo)=.*glimpse-lock\.service' "$target"; then
-    echo "$target: the on-demand locker must stay outside the suite lifecycle"; exit 1
+grep -Eq '^Wants=.*glimpse-lock\.service' "$target" || {
+    echo "$target: missing Wants=glimpse-lock.service, nothing else starts the locker"; exit 1;
+}
+if grep -v '^Wants=' "$target" | grep -q 'glimpse-lock\.service'; then
+    echo "$target: the locker may only be wanted, any stronger edge can stop it mid-lock"; exit 1
 fi
 if grep -l '^WantedBy=graphical-session.target$' data/systemd/*.service | grep .; then
     echo "member service is directly enabled by graphical-session.target"; exit 1

@@ -66,7 +66,7 @@ impl SessionSheet {
         if !imp.revealer.reveals_child() && !imp.has_actions() {
             return;
         }
-        crate::drawer::toggle(&imp.revealer);
+        crate::drawer::set(&imp.revealer, !imp.revealer.reveals_child());
     }
 
     pub fn close(&self) {

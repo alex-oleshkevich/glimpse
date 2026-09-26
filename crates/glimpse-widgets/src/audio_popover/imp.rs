@@ -1,11 +1,12 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Fader, Hero, PopoverShell, Readout, Row, Section};
+use crate::{Expandable, Fader, Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -14,6 +15,7 @@ pub struct Entry {
     pub icon: Option<String>,
     pub value: Option<String>,
     pub selected: bool,
+    pub muted_icon: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -41,23 +43,25 @@ pub struct AudioPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub readout: TemplateChild<Readout>,
-    #[template_child]
     pub output: TemplateChild<Fader>,
     #[template_child]
     pub outputs: TemplateChild<Section>,
     #[template_child]
-    pub output_rows: TemplateChild<gtk4::Box>,
+    pub output_device: TemplateChild<Expandable>,
     #[template_child]
-    pub more_outputs: TemplateChild<Row>,
+    pub output_current: TemplateChild<Row>,
+    #[template_child]
+    pub output_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub input: TemplateChild<Fader>,
     #[template_child]
     pub inputs: TemplateChild<Section>,
     #[template_child]
-    pub input_rows: TemplateChild<gtk4::Box>,
+    pub input_device: TemplateChild<Expandable>,
     #[template_child]
-    pub more_inputs: TemplateChild<Row>,
+    pub input_current: TemplateChild<Row>,
+    #[template_child]
+    pub input_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub apps: TemplateChild<Section>,
     #[template_child]
@@ -70,12 +74,12 @@ pub struct AudioPopover {
     pub outputs_list: RefCell<Vec<Entry>>,
     pub inputs_list: RefCell<Vec<Entry>>,
     pub apps_list: RefCell<Vec<Entry>>,
-    pub details: RefCell<Option<Details>>,
+    pub details: RefCell<Vec<Details>>,
     pub output_held: RefCell<Vec<(String, Row)>>,
     pub input_held: RefCell<Vec<(String, Row)>>,
-    pub app_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub blocks: RefCell<Vec<(String, gtk4::Box)>>,
-    pub block_devices: RefCell<Vec<(String, Row)>>,
+    pub app_held: RefCell<Vec<(String, Expandable)>>,
+    pub blocks: RefCell<HashMap<String, Vec<(String, gtk4::Box)>>>,
+    pub block_devices: RefCell<HashMap<String, Vec<(String, Row)>>>,
 }
 
 #[glib::object_subclass]
@@ -110,9 +114,6 @@ impl ObjectImpl for AudioPopover {
                     .build(),
                 glib::subclass::Signal::builder("device-selected")
                     .param_types([String::static_type(), String::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("app-selected")
-                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("app-level-changed")
                     .param_types([
@@ -183,16 +184,6 @@ impl ObjectImpl for AudioPopover {
             }
         ));
 
-        self.more_outputs.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("expanded", &[&"outputs".to_owned()])
-        ));
-        self.more_inputs.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("expanded", &[&"inputs".to_owned()])
-        ));
         self.more_apps.connect_clicked(glib::clone!(
             #[weak]
             popover,

@@ -108,6 +108,10 @@
     background-color: var(--gl-active);
 }
 
+.indicator-group.indicator-group--acknowledged {
+    background-color: var(--gl-accent-soft);
+}
+
 .indicator-group:focus-visible {
     outline: 2px solid var(--gl-accent-text);
     outline-offset: -2px;
@@ -120,6 +124,10 @@
 .indicator__icon {
     min-width: 1.5rem;
     min-height: 1.5rem;
+}
+
+.indicator--text .indicator__label {
+    min-width: 1.5rem;
 }
 
 .indicator__attention-dot {
@@ -302,8 +310,9 @@
     padding: var(--gl-popover-padding);
 }
 
-.popover-shell separator {
-    background-color: var(--gl-border);
+.popover-shell separator,
+popover separator {
+    background-color: transparent;
     min-height: 1px;
     margin: 0.28rem 0.55rem;
 }
@@ -606,16 +615,11 @@
 }
 
 .bluetooth-popover__device {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.bluetooth-popover__device .split-row__detail image {
-    transition: transform var(--gl-duration) var(--gl-ease);
-}
-
-.bluetooth-popover__device.open .split-row__detail image {
-    transform: rotate(90deg);
+.bluetooth-popover__device--warning .row__subtitle {
+    color: var(--gl-warning-text);
 }
 
 .clipboard-popover .popover-shell,
@@ -632,17 +636,50 @@
 
 .clipboard-list .split-row,
 .color-list .split-row {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.clipboard-list .split-row__detail image,
-.color-list .split-row__detail image {
+.clipboard-popover__search {
+    margin-bottom: 0.4rem;
+}
+
+.clip-tile {
+    border-radius: 0.9rem;
+}
+
+.clip-tile__body {
+    padding: 0;
+    border-radius: 0.9rem;
+    background-color: transparent;
+}
+
+.clip-tile__body picture {
+    transition: filter var(--gl-duration) var(--gl-ease);
+}
+
+.clip-tile__body:hover picture {
+    filter: brightness(1.12);
+}
+
+.clip-tile__body:active picture {
+    filter: brightness(0.92);
+}
+
+.clip-tile__badge {
+    margin: 0.45rem;
+    min-width: 1.6rem;
+    min-height: 1.6rem;
+    padding: 0;
+    border-radius: 999px;
+    background-color: alpha(var(--gl-surface), 0.7);
+    color: var(--gl-surface-fg);
+}
+
+.clip-tile__badge image {
     transition: transform var(--gl-duration) var(--gl-ease);
 }
 
-.clipboard-list .split-row.open .split-row__detail image,
-.color-list .split-row.open .split-row__detail image {
+expandable.open > .clip-tile .clip-tile__badge image {
     transform: rotate(90deg);
 }
 
@@ -672,11 +709,17 @@
     min-height: 3.2rem;
 }
 
-.clipboard-list picture {
-    border-radius: 0.25rem;
-    min-width: 1.5rem;
-    min-height: 1.5rem;
-    margin: 0.2rem;
+.clip-card__swatch,
+.color-card__swatch {
+    min-height: 2.5rem;
+    margin: 0.4rem 0.75rem;
+    border-radius: 0.7rem;
+}
+
+.clip-card__excerpt {
+    margin: 0.4rem 0.75rem;
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
 }
 
 .network-popover .popover-shell {
@@ -690,28 +733,11 @@
 }
 
 .network-popover__row {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.network-popover__row .split-row__detail image {
-    transition: transform var(--gl-duration) var(--gl-ease);
-}
-
-.network-popover__row.open .split-row__detail image {
-    transform: rotate(90deg);
-}
-
-.detail-card {
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
-    border: 1px solid var(--gl-border);
-    border-radius: 1.5rem;
-    margin: 0.75rem 0 0.25rem 0;
-    padding: 0.4rem;
-}
-
-.detail-card .row {
-    border-radius: 0.75rem;
+.network-popover__rule {
+    margin: 0.4rem 0;
 }
 
 expandable {
@@ -732,8 +758,15 @@ expandable {
     background-color: transparent;
 }
 
+.popover-shell expandable.receded > .row:hover,
+.popover-shell .receded expandable > .row:hover,
+.popover-shell expandable.receded > .split-row .split-row__detail:hover,
+.popover-shell .receded expandable > .split-row .split-row__detail:hover {
+    background-color: var(--gl-hover);
+}
+
 expandable.card {
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
+    background-color: var(--gl-notification);
     border-color: var(--gl-border);
     border-radius: 0.9rem;
     box-shadow: none;
@@ -763,6 +796,11 @@ expandable > revealer > * {
 
 expandable > revealer .row {
     border-radius: 0.7rem;
+}
+
+expandable > revealer .fader {
+    min-height: 2.85rem;
+    padding: 0 0.8rem;
 }
 
 .drawer-chevron {
@@ -856,6 +894,10 @@ expandable > revealer .row {
     color: var(--gl-muted);
 }
 
+.workspace-name-popover__taken {
+    color: var(--gl-warning-text);
+}
+
 .prompt__code {
     font-size: var(--gl-text-display, 2.4rem);
     font-weight: 700;
@@ -907,24 +949,23 @@ expandable > revealer .row {
 }
 
 .weather-popover__alerts,
-.weather-popover__alerts > box + box {
+.weather-popover__alerts > expandable + expandable {
     margin-top: 0.35rem;
-}
-
-.forecast-day.open {
-    background-color: var(--gl-hover);
-}
-
-.drawer-page {
-    min-width: 19rem;
 }
 
 .workspace-row--urgent .row__title {
     color: var(--gl-warning-text);
 }
 
-.row--quiet .row__title {
+.calendar-popover__truncated {
     font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+    padding: 0.3rem 0.75rem;
+}
+
+.event-list__row--past .row__title,
+.event-list__row--past .row__subtitle,
+.event-list__row--past .event-list__time {
     color: var(--gl-muted);
 }
 
@@ -1511,7 +1552,12 @@ window.notification-popup {
 }
 
 .fader__mute:checked {
-    color: var(--gl-dim);
+    color: var(--gl-warning-text);
+    background-color: transparent;
+}
+
+.fader__mute:checked:hover {
+    background-color: var(--gl-hover);
 }
 
 .fader__icon {
@@ -1588,17 +1634,37 @@ window.notification-popup {
     font-weight: 700;
 }
 
-.audio-popover .column > .fader {
+.audio-popover__level {
     margin: 0.3rem 0.65rem 0.5rem 0.65rem;
 }
 
 .audio-popover__device {
-    border-radius: 0.75rem;
     min-height: 3.2rem;
 }
 
-.audio-popover__app.open {
-    background-color: var(--gl-hover);
+.printing-popover__printer--warning .row__subtitle {
+    color: var(--gl-warning-text);
+}
+
+.row--warning .row__subtitle,
+.row--warning .row__value,
+.battery-popover__hero--warning .hero__icon,
+.battery-popover__hero--warning .readout__value {
+    color: var(--gl-warning-text);
+}
+
+.battery-popover__hero--error .hero__icon,
+.battery-popover__hero--error .readout__value {
+    color: var(--gl-danger-text);
+}
+
+.row--destructive .row__title {
+    color: var(--gl-danger-text);
+}
+
+.audio-popover__hero--muted .hero__icon,
+.audio-popover__muted {
+    color: var(--gl-warning-text);
 }
 
 .audio-popover__block + .audio-popover__block {
@@ -1736,7 +1802,8 @@ window.blurred .popover-shell {
     background-color: transparent;
 }
 
-window.blurred .notification {
+window.blurred .notification,
+window.blurred expandable.card {
     background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
 }
 

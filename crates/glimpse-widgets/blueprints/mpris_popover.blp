@@ -13,20 +13,24 @@ template $MprisPopover: Gtk.Widget {
       icon-name: "multimedia-player-symbolic";
     }
 
-    $Section others {
-      title: _("Other players");
+    Gtk.Box {
+      orientation: vertical;
 
       styles [
         "column",
       ]
 
-      $PlayerList list {}
+      $Fader volume {
+        visible: false;
+        toggleable: false;
+        icon-name: "audio-volume-high-symbolic";
+      }
 
-      [placeholder]
-      $Placeholder nothing {
-        icon-name: "multimedia-player-symbolic";
-        title: _("Nothing else playing");
-        description: _("Only one player is running.");
+      $Section others {
+        visible: false;
+        title: _("Other players");
+
+        $PlayerList list {}
       }
     }
 

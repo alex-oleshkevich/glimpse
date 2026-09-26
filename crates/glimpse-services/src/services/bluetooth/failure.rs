@@ -42,9 +42,16 @@ pub fn classify(action: Action, error: &zbus::Error) -> Result<(), Failure> {
     let token = detail.as_deref().unwrap_or_default();
 
     match (action, name) {
+        (Action::Scan, "InProgress") => {
+            tracing::warn!(
+                detail = token,
+                "bluez says a discovery is already starting; if the adapter is not discovering, \
+                 bluetoothd is stuck and nothing will be found until it is restarted"
+            );
+            return Ok(());
+        }
         (Action::Connect, "AlreadyConnected")
         | (Action::Pair, "AlreadyExists")
-        | (Action::Scan, "InProgress")
         | (Action::Forget, "DoesNotExist") => return Ok(()),
         (Action::Scan, "Failed") if token == NO_DISCOVERY => return Ok(()),
         _ => {}

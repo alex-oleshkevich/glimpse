@@ -117,6 +117,20 @@ pub fn switch_on(schedule: &str) -> bool {
     schedule != "off"
 }
 
+pub fn night_mode<'a>(schedule: &'a str, configured: &'a str) -> &'a str {
+    [schedule, configured]
+        .into_iter()
+        .find(|mode| switch_on(mode))
+        .unwrap_or("automatic")
+}
+
+pub fn source_icon(kind: BrightnessKind) -> &'static str {
+    match kind {
+        BrightnessKind::Keyboard => "keyboard-brightness-symbolic",
+        BrightnessKind::Display => "display-brightness-symbolic",
+    }
+}
+
 pub fn native_step(percent: u8, max: u32) -> u32 {
     if percent == 0 || max == 0 {
         return 0;
@@ -402,6 +416,25 @@ mod tests {
         assert!(switch_on("automatic"), "AC-5: on at midday under Automatic");
         assert!(switch_on("schedule"));
         assert!(!switch_on("off"));
+    }
+
+    #[test]
+    fn night_mode_is_the_mode_turning_the_light_on_would_use() {
+        assert_eq!(night_mode("schedule", "automatic"), "schedule");
+        assert_eq!(night_mode("off", "schedule"), "schedule");
+        assert_eq!(night_mode("off", "off"), "automatic");
+    }
+
+    #[test]
+    fn a_keyboard_backlight_carries_its_own_icon() {
+        assert_eq!(
+            source_icon(BrightnessKind::Keyboard),
+            "keyboard-brightness-symbolic"
+        );
+        assert_eq!(
+            source_icon(BrightnessKind::Display),
+            "display-brightness-symbolic"
+        );
     }
 
     #[test]

@@ -23,6 +23,7 @@ mod calendar;
 mod clipboard;
 mod color_picker;
 mod compositor;
+mod exec;
 mod geolocation;
 mod heartbeat;
 mod kdeconnect;
@@ -74,6 +75,20 @@ pub use color_picker::{
     ProcessPicker,
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
+pub use exec::{
+    Align, BoxProps, ButtonProps, Catalog as ExecCatalog, ClassName, DesktopCatalog, Edge, Element,
+    ElementKind, Ellipsize, Entry as ExecEntry, EntryProps, FaderProps, FooterProps, FromApplet,
+    HeroProps, INTERFACE as EXEC_INTERFACE, ImageProps, IndicatorProps, LabelProps,
+    MAX_CHILDREN_PER_PARENT, MAX_LINE, MAX_NODES, Node, Op, Orientation, Outgoing,
+    PlaceholderProps, Placement, PopoverProps, ProgressProps, ROOT, RowProps, ScaleProps,
+    SectionProps, SeparatorProps, SessionVerb, Severity, SpinnerProps, SwitchProps, SwitchRowProps,
+    Tree, Urgency, Violation, WireNode, Zone, expand as exec_expand,
+};
+pub use exec::{
+    BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies, Exec,
+    ExecHandle, ExecState, SlotState as ExecSlotState, Status as ExecStatus,
+    UserEvent as ExecUserEvent, unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
+};
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use kdeconnect::{
@@ -119,7 +134,7 @@ pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{
     Action as SessionAction, Capability as SessionCapability,
     Dependencies as SessionActionsDependencies, Inhibitor as SessionInhibitor, SessionActions,
-    SessionActionsHandle, SessionActionsState, SessionEntry, Updates as SessionUpdates,
+    SessionActionsHandle, SessionActionsState,
 };
 pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use system_monitor::{

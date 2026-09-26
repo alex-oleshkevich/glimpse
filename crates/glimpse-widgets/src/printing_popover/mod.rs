@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, SplitRow, none_if_empty, reconcile};
+use crate::{Expandable, Row, none_if_empty, reconcile};
 
 pub use imp::{Detail, Job, Printer};
 
@@ -46,6 +46,19 @@ impl PrintingPopover {
         self.render_printers();
     }
 
+    /// Closes one job's card: what the applet calls once the action taken from it succeeded.
+    pub fn collapse(&self, id: &str) {
+        if let Some((_, holder)) = self
+            .imp()
+            .job_held
+            .borrow()
+            .iter()
+            .find(|(held, _)| held == id)
+        {
+            holder.set_expanded(false);
+        }
+    }
+
     pub fn connect_cancelled<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "cancelled",
@@ -83,7 +96,7 @@ impl PrintingPopover {
             |job| self.build_job_row(job),
             |row, job| self.dress_job(row, job),
         );
-        imp.jobs.set_empty(jobs.is_empty());
+        imp.jobs.set_visible(!jobs.is_empty());
         imp.hero.set_subtitle(Some(summary_text(jobs.len())));
     }
 
@@ -103,90 +116,62 @@ impl PrintingPopover {
         imp.printers.set_visible(!printers.is_empty());
     }
 
-    /// A printer is the same shape as a job: a `$SplitRow` head over its own panel. The panel is a
-    /// `detail-card` of plain rows, filled by `reconcile::by_key` so a changing value updates its
-    /// row rather than rebuilding the card.
-    fn build_printer_row(&self) -> gtk4::Box {
-        let split = SplitRow::new();
-        split.set_detail_icon("go-next-symbolic".to_owned());
-        split.set_detail_tooltip(Some(gettext("Show this printer's details")));
-
-        let holder = crate::drawer::holder(&split);
-        if let Some(drawer) = crate::drawer::panel(&holder) {
-            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-            card.add_css_class("detail-card");
-            drawer.set_child(Some(&card));
-            split.connect_details(move |_| crate::drawer::toggle(&drawer));
-        }
-        holder
+    /// A printer's whole row opens its card of facts; a printer with none has no chevron and no
+    /// card, and its row does nothing.
+    fn build_printer_row(&self) -> Expandable {
+        Expandable::new(&opener_row(gettext("Show this printer's details")))
     }
 
-    fn dress_printer(&self, holder: &gtk4::Box, printer: &Printer) {
-        let Some(split) = crate::drawer::head::<SplitRow>(holder) else {
+    fn dress_printer(&self, holder: &Expandable, printer: &Printer) {
+        let Some(row) = holder.head::<Row>() else {
             return;
         };
-        let row = split.row();
-        row.set_activatable(false);
         row.set_title(none_if_empty(&printer.name));
         row.set_subtitle(none_if_empty(&printer.status));
+        crate::set_css_class(&row, WARNING, printer.warning);
         row.set_lead_icon(Some(match printer.network {
             true => "printer-network-symbolic",
             false => "printer-symbolic",
         }));
-
-        split.detail().set_visible(!printer.details.is_empty());
-
-        let Some(drawer) = crate::drawer::panel(holder) else {
+        let carded = !printer.details.is_empty();
+        set_opens(&row, carded);
+        if !carded {
+            holder.set_details(None::<&gtk4::Widget>);
             return;
-        };
-        if printer.details.is_empty() {
-            crate::drawer::set(&drawer, false);
         }
-        let Some(card) = drawer.child().and_downcast::<gtk4::Box>() else {
-            return;
-        };
-        let key = printer.id.clone();
+        let card = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&card));
+            card
+        });
+        let mut lines = self.imp().printer_lines.borrow_mut();
         reconcile::by_key(
             &card,
-            &mut self.imp().printer_lines.borrow_mut(),
+            lines.entry(printer.id.clone()).or_default(),
             &printer.details,
-            |detail| format!("{key}/{}", detail.label),
+            |detail| detail.label.clone(),
             |_| Row::new(),
             dress_detail,
         );
     }
 
-    /// A job is a `$SplitRow` head over its own `Gtk.Revealer`, exactly as `BluetoothPopover`
-    /// builds a device: the head carries the name and a spinner, the chevron opens the panel, and
-    /// the pause/resume/cancel buttons live in the panel rather than in the row.
-    ///
-    /// They cannot live in the row. `Row` is a `Gtk.Button`, so a button placed inside it is a
-    /// button inside a button — the outer gesture claims the press and the inner one never emits
-    /// `clicked`. `SplitRow` exists for exactly this reason and keeps its own control a sibling.
-    fn build_job_row(&self, job: &Job) -> gtk4::Box {
-        let split = SplitRow::new();
-        split.set_detail_icon("go-next-symbolic".to_owned());
-        split.set_detail_tooltip(Some(gettext("Show what can be done with this job")));
-
-        let holder = crate::drawer::holder(&split);
-
+    /// A job's whole row opens its card of Pause, Resume and Cancel, the same grammar as every other
+    /// popover's card: the row body does nothing else, so it is the opener. A job that can do none
+    /// of the three has no chevron and no card.
+    fn build_job_row(&self, job: &Job) -> Expandable {
+        let holder = Expandable::new(&opener_row(gettext("Show what can be done with this job")));
         let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        panel.add_css_class("detail-card");
         panel.append(&self.build_action_row(&job.id, gettext("Pause"), "paused"));
         panel.append(&self.build_action_row(&job.id, gettext("Resume"), "resumed"));
-        panel.append(&self.build_action_row(&job.id, gettext("Cancel"), "cancelled"));
-
-        if let Some(drawer) = crate::drawer::panel(&holder) {
-            drawer.set_child(Some(&panel));
-            split.connect_details(move |_| crate::drawer::toggle(&drawer));
-        }
-
+        let cancel = self.build_action_row(&job.id, gettext("Cancel"), "cancelled");
+        cancel.add_css_class(crate::DESTRUCTIVE);
+        panel.append(&cancel);
+        holder.set_details(Some(&panel));
         holder
     }
 
-    /// An action in the panel is a `$Row`, the same as every other list entry in this shell — an
-    /// icon button would be a second grammar for the same thing, and `BluetoothPopover` already
-    /// settled this one: its device panel is a `detail-card` of plain activatable rows.
+    /// An action in the card is a `$Row`, the same as every other list entry in this shell — an
+    /// icon button would be a second grammar for the same thing.
     fn build_action_row(&self, id: &str, label: String, signal: &'static str) -> Row {
         let row = Row::new();
         row.set_title(Some(label.as_str()));
@@ -200,28 +185,20 @@ impl PrintingPopover {
         row
     }
 
-    /// The head body activates nothing — every action is in the panel below — so the inner `Row`
-    /// stays non-activatable and the chevron is the only target.
-    fn dress_job(&self, holder: &gtk4::Box, job: &Job) {
-        let Some(split) = crate::drawer::head::<SplitRow>(holder) else {
+    fn dress_job(&self, holder: &Expandable, job: &Job) {
+        let Some(row) = holder.head::<Row>() else {
             return;
         };
-        let row = split.row();
         row.set_title(none_if_empty(&job.name));
         row.set_subtitle(none_if_empty(&job_subtitle(job)));
         row.set_busy(job.busy && job.progress.is_none());
-        row.set_activatable(false);
 
         let actionable = job.cancellable || job.pausable || job.resumable;
-        split.detail().set_visible(actionable);
-
-        let Some(drawer) = crate::drawer::panel(holder) else {
-            return;
-        };
+        set_opens(&row, actionable);
         if !actionable {
-            crate::drawer::set(&drawer, false);
+            holder.set_expanded(false);
         }
-        let Some(panel) = drawer.child().and_downcast::<gtk4::Box>() else {
+        let Some(panel) = holder.details::<gtk4::Box>() else {
             return;
         };
         let shown = [job.pausable, job.resumable, job.cancellable];
@@ -233,6 +210,29 @@ impl PrintingPopover {
             child = row.next_sibling();
             row.set_visible(visible);
         }
+    }
+}
+
+const WARNING: &str = "printing-popover__printer--warning";
+
+fn opener_row(tooltip: String) -> Row {
+    let row = Row::new();
+    let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+    chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+    chevron.add_css_class("drawer-chevron");
+    chevron.set_tooltip_text(Some(&tooltip));
+    row.set_trail(&chevron);
+    row
+}
+
+/// A row with a card to open is the opener; one without is a plain line of text with no chevron
+/// and nothing under the pointer.
+fn set_opens(row: &Row, opens: bool) {
+    row.set_activatable(opens);
+    if let Some(chevron) = row.trail()
+        && chevron.get_visible() != opens
+    {
+        chevron.set_visible(opens);
     }
 }
 
@@ -289,30 +289,30 @@ mod tests {
         }
     }
 
-    /// A job row is `$SplitRow`-over-drawer, per `build_job_row`'s own doc comment: the actions
-    /// cannot live in the row's trail, because `Row` is a `Gtk.Button` and a button nested inside
-    /// one never receives `clicked`. So a job's holder in `job_rows` is the drawer's `gtk4::Box`,
-    /// not the row itself, and the row is reached through it.
-    fn job_holder(job_rows: &gtk4::Box, index: usize) -> gtk4::Box {
-        let mut child = job_rows.first_child();
-        for _ in 0..index {
-            child = child.and_then(|widget| widget.next_sibling());
-        }
-        child.and_downcast::<gtk4::Box>().expect("job holder")
+    fn job_holder(popover: &PrintingPopover, id: &str) -> Expandable {
+        popover
+            .imp()
+            .job_held
+            .borrow()
+            .iter()
+            .find(|(held, _)| held == id)
+            .map(|(_, holder)| holder.clone())
+            .expect("a held job")
     }
 
-    /// The pause/resume/cancel actions are plain `$Row`s in the drawer panel, in that order, as
-    /// `build_job_row` appends them and `dress_job` shows or hides them by the same order.
-    fn action_row(holder: &gtk4::Box, index: usize) -> Row {
-        let panel = crate::drawer::panel(holder)
-            .and_then(|revealer| revealer.child())
-            .and_downcast::<gtk4::Box>()
-            .expect("actions panel");
+    fn actions(holder: &Expandable) -> Vec<Row> {
+        let panel = holder
+            .details::<gtk4::Box>()
+            .expect("a job carries its actions");
+        let mut rows = Vec::new();
         let mut child = panel.first_child();
-        for _ in 0..index {
-            child = child.and_then(|widget| widget.next_sibling());
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if let Ok(row) = widget.downcast::<Row>() {
+                rows.push(row);
+            }
         }
-        child.and_downcast::<Row>().expect("action row")
+        rows
     }
 
     #[test]
@@ -327,36 +327,25 @@ mod tests {
         let imp = popover.imp();
 
         assert!(
-            imp.empty_jobs.is_visible(),
-            "an untouched popover shows the empty state"
+            !imp.jobs.get_visible(),
+            "no jobs is no section at all; the header already says so"
         );
-        assert!(!imp.job_rows.is_visible());
+        assert_eq!(imp.hero.title().as_deref(), Some("Printing"));
         assert_eq!(imp.hero.subtitle().as_deref(), Some("No print jobs"));
 
         popover.set_jobs(&[job("1", Some((3, 12)))]);
-        assert!(!imp.empty_jobs.is_visible());
-        assert!(imp.job_rows.is_visible());
+        assert!(imp.jobs.get_visible());
         assert_eq!(imp.hero.subtitle().as_deref(), Some("1 print job"));
-        let holder = job_holder(&imp.job_rows, 0);
-        let split = crate::drawer::head::<SplitRow>(&holder).expect("split row");
-        let row = split.row();
+        let holder = job_holder(&popover, "1");
+        let row = holder.head::<Row>().expect("a job row");
         assert_eq!(
             row.subtitle().as_deref(),
             Some("HP LaserJet 400 · Page 3 of 12"),
             "progress replaces the status word on the second line rather than sitting beside it"
         );
-        assert_eq!(
-            row.value(),
-            None,
-            "the value slot is not used for job rows; actions live in the drawer panel instead"
-        );
         assert!(
-            !row.activatable(),
-            "the head body activates nothing; only the chevron opens the actions panel"
-        );
-        assert!(
-            split.detail().get_visible(),
-            "a cancellable job shows the chevron that opens its actions"
+            row.activatable(),
+            "a job with something to do opens its card from the whole row"
         );
 
         let renders_after_first = imp.renders.get();
@@ -366,10 +355,20 @@ mod tests {
             renders_after_first,
             "an unchanged job list must never re-enter render_jobs at all"
         );
-        let same_holder = job_holder(&imp.job_rows, 0);
         assert_eq!(
-            holder, same_holder,
+            job_holder(&popover, "1"),
+            holder,
             "an unchanged job list reuses its row rather than rebuilding it"
+        );
+
+        row.emit_clicked();
+        assert!(holder.expanded(), "the row opens the job's card");
+        let [pause, resume, cancel] =
+            <[Row; 3]>::try_from(actions(&holder)).expect("three actions");
+        assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
+        assert!(
+            cancel.has_css_class("row--destructive"),
+            "cancelling throws the job away, so it reads as destructive"
         );
 
         let cancelled = Rc::new(RefCell::new(Vec::new()));
@@ -377,37 +376,30 @@ mod tests {
             let cancelled = Rc::clone(&cancelled);
             move |_, id| cancelled.borrow_mut().push(id.to_owned())
         });
-        action_row(&holder, 2).emit_by_name::<()>("clicked", &[]);
-        assert_eq!(
-            *cancelled.borrow(),
-            ["1".to_owned()],
-            "clicking the cancel action must reach it and report the job's own id"
-        );
+        cancel.emit_clicked();
+        assert_eq!(*cancelled.borrow(), ["1".to_owned()]);
+        popover.collapse("1");
         assert!(
-            action_row(&holder, 2).activatable(),
-            "cancelling must not leave the action row unable to report a future click"
+            !holder.expanded(),
+            "an action that succeeded closes the card it was taken from"
         );
 
         popover.set_jobs(&[Job {
             pausable: true,
             ..job("2", None)
         }]);
-        let processing = job_holder(&imp.job_rows, 0);
+        let processing = actions(&job_holder(&popover, "2"));
+        assert!(processing[0].get_visible(), "a pausable job shows Pause");
         assert!(
-            action_row(&processing, 0).get_visible(),
-            "a pausable job shows Pause"
-        );
-        assert!(
-            !action_row(&processing, 1).get_visible(),
+            !processing[1].get_visible(),
             "a job that is not resumable hides Resume"
         );
-
         let paused = Rc::new(RefCell::new(Vec::new()));
         popover.connect_paused({
             let paused = Rc::clone(&paused);
             move |_, id| paused.borrow_mut().push(id.to_owned())
         });
-        action_row(&processing, 0).emit_by_name::<()>("clicked", &[]);
+        processing[0].emit_clicked();
         assert_eq!(*paused.borrow(), ["2".to_owned()]);
 
         popover.set_jobs(&[Job {
@@ -415,27 +407,31 @@ mod tests {
             cancellable: false,
             ..job("3", None)
         }]);
-        let held = job_holder(&imp.job_rows, 0);
+        let held = actions(&job_holder(&popover, "3"));
+        assert!(!held[0].get_visible(), "not pausable while held");
+        assert!(held[1].get_visible(), "a resumable job shows Resume");
         assert!(
-            !action_row(&held, 0).get_visible(),
-            "not pausable while held"
-        );
-        assert!(
-            action_row(&held, 1).get_visible(),
-            "a resumable job shows Resume"
-        );
-        assert!(
-            !action_row(&held, 2).get_visible(),
+            !held[2].get_visible(),
             "a job that is not cancellable hides Cancel"
         );
-
         let resumed = Rc::new(RefCell::new(Vec::new()));
         popover.connect_resumed({
             let resumed = Rc::clone(&resumed);
             move |_, id| resumed.borrow_mut().push(id.to_owned())
         });
-        action_row(&held, 1).emit_by_name::<()>("clicked", &[]);
+        held[1].emit_clicked();
         assert_eq!(*resumed.borrow(), ["3".to_owned()]);
+
+        popover.set_jobs(&[Job {
+            cancellable: false,
+            ..job("4", None)
+        }]);
+        let stuck = job_holder(&popover, "4");
+        let stuck_row = stuck.head::<Row>().expect("a job row");
+        assert!(
+            !stuck_row.activatable(),
+            "a job with nothing to do is a line of text, with no card to open"
+        );
 
         popover.set_jobs(&[
             Job {
@@ -456,33 +452,59 @@ mod tests {
         );
 
         popover.set_jobs(&[]);
-        assert!(imp.empty_jobs.is_visible());
+        assert!(!imp.jobs.get_visible());
         assert!(imp.job_rows.first_child().is_none());
         assert_eq!(imp.hero.subtitle().as_deref(), Some("No print jobs"));
 
         let printer_renders_before = imp.printer_renders.get();
-        popover.set_printers(&[Printer {
+        let kitchen = Printer {
             id: "kitchen".into(),
             name: "Kitchen".into(),
-            status: "Idle".into(),
+            status: "Out of paper".into(),
+            warning: true,
             network: true,
-            ..Default::default()
-        }]);
+            details: vec![Detail {
+                label: "Location".into(),
+                value: "Ground floor".into(),
+            }],
+        };
+        popover.set_printers(std::slice::from_ref(&kitchen));
         assert!(imp.printers.get_visible());
         assert_eq!(imp.printer_renders.get(), printer_renders_before + 1);
+        let printer = imp
+            .printer_held
+            .borrow()
+            .first()
+            .map(|(_, holder)| holder.clone())
+            .expect("a printer");
+        let printer_row = printer.head::<Row>().expect("a printer row");
+        assert!(
+            printer_row.has_css_class("printing-popover__printer--warning"),
+            "a printer's problem is said on its row, in the warning colour"
+        );
+        printer_row.emit_clicked();
+        assert!(
+            printer.expanded(),
+            "a printer with a location opens its card"
+        );
 
         let printer_renders_after = imp.printer_renders.get();
-        popover.set_printers(&[Printer {
-            id: "kitchen".into(),
-            name: "Kitchen".into(),
-            status: "Idle".into(),
-            network: true,
-            ..Default::default()
-        }]);
+        popover.set_printers(std::slice::from_ref(&kitchen));
         assert_eq!(
             imp.printer_renders.get(),
             printer_renders_after,
             "an unchanged printer list must never re-enter render_printers at all"
+        );
+
+        popover.set_printers(&[Printer {
+            details: Vec::new(),
+            warning: false,
+            status: "Idle".into(),
+            ..kitchen
+        }]);
+        assert!(
+            !printer.expanded() && !printer_row.activatable(),
+            "a printer with nothing to show has no card, and its row does nothing"
         );
 
         popover.set_printers(&[]);

@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, InhibitorList, PopoverShell, Row, drawer};
+use crate::{Expandable, Hero, InhibitorList, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/idle_popover.ui")]
@@ -17,9 +17,9 @@ pub struct IdlePopover {
     #[template_child]
     pub hold: TemplateChild<gtk4::Switch>,
     #[template_child]
-    pub hold_row: TemplateChild<Row>,
+    pub hold_card: TemplateChild<Expandable>,
     #[template_child]
-    pub hold_panel: TemplateChild<gtk4::Revealer>,
+    pub hold_row: TemplateChild<Row>,
     #[template_child]
     pub preset_15m: TemplateChild<Row>,
     #[template_child]
@@ -31,9 +31,7 @@ pub struct IdlePopover {
     #[template_child]
     pub preset_4h: TemplateChild<Row>,
     #[template_child]
-    pub preset_indefinite: TemplateChild<Row>,
-    #[template_child]
-    pub list_rule: TemplateChild<gtk4::Separator>,
+    pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<InhibitorList>,
     #[template_child]
@@ -92,35 +90,12 @@ impl ObjectImpl for IdlePopover {
             }
         ));
 
-        self.hold_row.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| {
-                popover.imp().list.close_detail();
-                let panel = &popover.imp().hold_panel;
-                drawer::toggle(panel);
-                popover.sync_dimming();
-            }
-        ));
-
-        self.list.connect_detail_toggled(glib::clone!(
-            #[weak]
-            popover,
-            move |_, open| {
-                if open {
-                    drawer::set(&popover.imp().hold_panel, false);
-                }
-                popover.sync_dimming();
-            }
-        ));
-
         for (button, seconds) in [
             (&self.preset_15m, 900u32),
             (&self.preset_30m, 1800),
             (&self.preset_1h, 3600),
             (&self.preset_2h, 7200),
             (&self.preset_4h, 14400),
-            (&self.preset_indefinite, 0),
         ] {
             button.connect_clicked(glib::clone!(
                 #[weak]

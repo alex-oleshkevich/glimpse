@@ -12,7 +12,6 @@ template $PlacesPopover: Gtk.Widget {
     $Hero hero {
       icon-name: "folder-symbolic";
       title: _("Places");
-      subtitle: _("Quick access");
     }
 
     Gtk.Box column {
@@ -22,6 +21,15 @@ template $PlacesPopover: Gtk.Widget {
       styles [
         "column",
       ]
+
+      $Section places {
+        visible: false;
+        title: _("Places");
+
+        Gtk.Box places_rows {
+          orientation: vertical;
+        }
+      }
 
       $Section bookmarks {
         visible: false;
@@ -42,15 +50,6 @@ template $PlacesPopover: Gtk.Widget {
         }
       }
 
-      $Section places {
-        visible: false;
-        title: _("Places");
-
-        Gtk.Box places_rows {
-          orientation: vertical;
-        }
-      }
-
       $Section network {
         visible: false;
         title: _("Network");
@@ -64,8 +63,39 @@ template $PlacesPopover: Gtk.Widget {
         visible: false;
         title: _("Trash");
 
-        $Row trash_row {
-          activatable: true;
+        $Expandable trash_item {
+          $Row trash_row {
+            activatable: true;
+
+            [trail]
+            Gtk.Image {
+              icon-name: "go-next-symbolic";
+              accessible-role: presentation;
+
+              styles [
+                "drawer-chevron",
+              ]
+            }
+          }
+
+          [details]
+          Gtk.Box {
+            orientation: vertical;
+
+            $Row trash_open {
+              title: _("Open the trash");
+              activatable: true;
+            }
+
+            $Row trash_empty {
+              title: _("Empty the trash");
+              activatable: true;
+
+              styles [
+                "row--destructive",
+              ]
+            }
+          }
         }
       }
     }

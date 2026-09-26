@@ -81,10 +81,8 @@ impl KdeconnectPopover {
         let imp = self.imp();
         let open = imp.nearby_open.get();
         set_css_class(&*imp.nearby_toggle, OPEN, open);
-        if imp.nearby_rows.get_visible() != open {
-            imp.nearby_rows.set_visible(open);
-        }
-        let more = open && imp.nearby_more.title().is_some();
+        crate::drawer::set(&imp.nearby_drawer, open);
+        let more = imp.nearby_more.title().is_some();
         if imp.nearby_more.get_visible() != more {
             imp.nearby_more.set_visible(more);
         }
@@ -166,6 +164,7 @@ impl KdeconnectPopover {
         for action in &device.actions {
             let row = Row::new();
             row.set_title(Some(action.label.as_str()));
+            crate::set_css_class(&row, crate::DESTRUCTIVE, action.destructive);
             let id = device.id.clone();
             let key = action.key.clone();
             row.connect_clicked(glib::clone!(

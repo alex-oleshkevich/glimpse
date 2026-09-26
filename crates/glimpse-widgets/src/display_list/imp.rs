@@ -2,17 +2,14 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
-use crate::Row;
+use crate::Expandable;
 
-use super::{DETAILS_OPEN_CHANGED, Detail, Display, ENABLE_REQUESTED};
+use super::{Display, ENABLE_REQUESTED};
 
 #[derive(Debug)]
 pub struct DisplayList {
     pub displays: RefCell<Vec<Display>>,
-    pub rows: RefCell<Vec<Row>>,
-    pub holders: RefCell<Vec<gtk4::Box>>,
-    pub details: RefCell<Vec<Detail>>,
-    pub details_open: Cell<bool>,
+    pub holders: RefCell<Vec<(String, Expandable)>>,
     pub output_power: Cell<bool>,
     #[cfg(test)]
     pub renders: Cell<u32>,
@@ -22,10 +19,7 @@ impl Default for DisplayList {
     fn default() -> Self {
         Self {
             displays: RefCell::default(),
-            rows: RefCell::default(),
             holders: RefCell::default(),
-            details: RefCell::default(),
-            details_open: Cell::default(),
             output_power: Cell::new(true),
             #[cfg(test)]
             renders: Cell::default(),
@@ -53,9 +47,6 @@ impl ObjectImpl for DisplayList {
                 glib::subclass::Signal::builder(ENABLE_REQUESTED)
                     .param_types([String::static_type(), bool::static_type()])
                     .build(),
-                glib::subclass::Signal::builder(DETAILS_OPEN_CHANGED)
-                    .param_types([bool::static_type()])
-                    .build(),
             ]
         })
     }
@@ -70,9 +61,7 @@ impl ObjectImpl for DisplayList {
     }
 
     fn dispose(&self) {
-        self.rows.borrow_mut().clear();
-        self.details.borrow_mut().clear();
-        for holder in self.holders.borrow_mut().drain(..) {
+        for (_, holder) in self.holders.borrow_mut().drain(..) {
             holder.unparent();
         }
     }

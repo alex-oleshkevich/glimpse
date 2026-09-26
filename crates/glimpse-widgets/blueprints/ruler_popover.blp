@@ -21,6 +21,11 @@ template $RulerPopover: Gtk.Widget {
         "column",
       ]
 
+      $Row measure {
+        title: _("Measure the screen");
+        lead-icon: "selection-mode-symbolic";
+      }
+
       $Section history_section {
         title: _("History");
         visible: false;

@@ -248,7 +248,13 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 
     let lock = fs::read_to_string(directory.join("glimpse-lock.service")).expect("lock unit");
     assert!(lock.contains("PartOf=graphical-session.target"));
-    assert!(!target.contains("glimpse-lock.service"));
+    assert!(!lock.contains("glimpse-session.target"));
+    let mentions: Vec<&str> = target
+        .lines()
+        .filter(|line| line.contains("glimpse-lock.service"))
+        .collect();
+    assert_eq!(mentions.len(), 1);
+    assert!(mentions[0].starts_with("Wants="));
 }
 
 #[test]
@@ -352,6 +358,71 @@ fn the_etc_portal_routing_is_configuration_in_every_package() {
             assert!(asset.get("config").is_some(), "{path} is not rpm %config");
         }
     }
+}
+
+#[test]
+fn the_default_idle_handler_script_ships_everywhere() {
+    let root = workspace_root();
+    let read = |path: &str| fs::read_to_string(root.join(path)).expect(path);
+
+    assert_eq!(
+        read("crates/glimpse-package/Cargo.toml")
+            .matches("data/bin/glimpse-dpms\"")
+            .count(),
+        3,
+        "the .deb, the Fedora .rpm and the openSUSE .rpm"
+    );
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        assert!(
+            read(script).contains("install -Dm755 data/bin/glimpse-dpms"),
+            "{script}"
+        );
+    }
+    assert!(read("data/config.default.toml").contains("\"glimpse-dpms off\""));
+}
+
+#[test]
+fn every_workspace_binary_is_built_and_reaches_every_package() {
+    let root = workspace_root();
+    let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
+    let listed: Vec<&str> = justfile
+        .lines()
+        .find_map(|line| line.strip_prefix("binaries :="))
+        .expect("justfile has a binaries list")
+        .trim()
+        .trim_matches('"')
+        .split_whitespace()
+        .collect();
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
+
+    let mut binaries: Vec<String> = fs::read_dir(root.join("crates"))
+        .expect("crates directory")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("src/main.rs").exists())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    binaries.sort();
+    assert!(!binaries.is_empty());
+
+    for binary in &binaries {
+        assert!(
+            listed.contains(&binary.as_str()),
+            "{binary} is missing from the justfile's binaries list"
+        );
+        assert_eq!(
+            package
+                .matches(&format!("target/release/{binary}\""))
+                .count(),
+            3,
+            "{binary} must ship in the .deb, the Fedora .rpm and the openSUSE .rpm"
+        );
+    }
+    assert_eq!(
+        listed.len(),
+        binaries.len(),
+        "the justfile lists a binary no crate builds"
+    );
 }
 
 #[test]
@@ -519,6 +590,30 @@ fn every_install_route_ships_the_commented_reference() {
                 ),
             "{kind}"
         );
+    }
+}
+
+#[test]
+fn every_install_route_ships_the_applet_sdk() {
+    let root = workspace_root();
+    for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
+        let body = fs::read_to_string(root.join(script)).expect(script);
+        assert!(body.contains("find sdk/applet -type f -print0"), "{script}");
+    }
+    let manifest = manifest(&root);
+    for kind in ["deb", "generate-rpm"] {
+        let listed = assets(&manifest, kind);
+        for source in [
+            "sdk/applet/*.ts",
+            "sdk/applet/template/*",
+            "sdk/applet/examples/todo/*",
+        ] {
+            assert!(
+                listed.iter().any(|(path, dest)| path.ends_with(source)
+                    && dest.contains("share/glimpse/sdk/applet")),
+                "{kind}: {source}"
+            );
+        }
     }
 }
 

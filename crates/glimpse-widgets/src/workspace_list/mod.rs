@@ -11,6 +11,7 @@ pub struct Workspace {
     pub label: String,
     pub detail: String,
     pub output: String,
+    pub display: String,
     pub focused: bool,
     pub urgent: bool,
     pub windows: Vec<Window>,
@@ -103,7 +104,13 @@ impl WorkspaceList {
             |(output, _)| output.clone(),
             |_| self.section(),
             |section, (output, group)| {
-                section.set_output(output);
+                section.set_output(
+                    group
+                        .first()
+                        .map(|workspace| workspace.display.as_str())
+                        .filter(|display| !display.is_empty())
+                        .unwrap_or(output),
+                );
                 section.set_workspaces(group);
             },
         );
@@ -138,7 +145,7 @@ mod tests {
         Workspace {
             id,
             label: format!("ws{id}"),
-            detail: "empty".to_owned(),
+            detail: "Empty".to_owned(),
             output: output.to_owned(),
             ..Workspace::default()
         }

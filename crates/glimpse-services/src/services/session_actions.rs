@@ -4,7 +4,6 @@ use futures_util::{Stream, StreamExt, stream};
 use glimpse_dbus::login1::{
     Login1InhibitorEntry, Login1ManagerProxy, Login1SessionProxy, session_path,
 };
-use glimpse_dbus::packagekit::{FILTER_NONE, PackageKitProxy, PackageKitTransactionProxy};
 use glimpse_utils::clean;
 use tokio::sync::oneshot;
 
@@ -15,49 +14,34 @@ use crate::{
 
 const INHIBITOR_MAX: usize = 8;
 const TEXT_MAX: usize = 128;
-const PACKAGEKIT: &str = "org.freedesktop.PackageKit";
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionActionsState {
     pub user: Option<String>,
-    pub session_type: Option<String>,
     pub signed_in_seconds: Option<u64>,
     pub windows: Option<usize>,
-    pub sessions: Vec<SessionEntry>,
     pub inhibitors: Vec<Inhibitor>,
     pub suspend: Capability,
     pub hibernate: Capability,
     pub reboot: Capability,
     pub power_off: Capability,
-    pub updates: Option<Updates>,
 }
 
 impl Default for SessionActionsState {
     fn default() -> Self {
         Self {
             user: None,
-            session_type: None,
             signed_in_seconds: None,
             windows: None,
-            sessions: Vec::new(),
             inhibitors: Vec::new(),
             suspend: Capability::Hidden,
             hibernate: Capability::Hidden,
             reboot: Capability::Hidden,
             power_off: Capability::Hidden,
-            updates: None,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SessionEntry {
-    pub id: String,
-    pub user: String,
-    pub kind: String,
-    pub active: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,11 +56,6 @@ impl Inhibitor {
     pub fn blocks(&self, what: &str) -> bool {
         self.what.split(':').any(|held| held == what)
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Updates {
-    pub available: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,19 +91,18 @@ pub enum Action {
     LogOut,
     Reboot,
     PowerOff,
-    Activate(String),
 }
 
 impl Action {
     pub fn confirm(&self) -> bool {
-        !matches!(self, Self::Lock | Self::Activate(_))
+        !matches!(self, Self::Lock)
     }
 
     pub fn inhibits(&self) -> Option<&'static str> {
         match self {
             Self::Suspend | Self::Hibernate => Some("sleep"),
             Self::Reboot | Self::PowerOff => Some("shutdown"),
-            Self::Lock | Self::LogOut | Self::Activate(_) => None,
+            Self::Lock | Self::LogOut => None,
         }
     }
 }
@@ -139,16 +117,13 @@ pub enum Command {
 pub enum Event {
     Logind(LogindSnapshot),
     Windows(Option<usize>),
-    Updates(Option<Updates>),
     Failed(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogindSnapshot {
     user: Option<String>,
-    session_type: Option<String>,
     signed_in_seconds: Option<u64>,
-    sessions: Vec<SessionEntry>,
     inhibitors: Vec<Inhibitor>,
     suspend: Capability,
     hibernate: Capability,
@@ -192,7 +167,6 @@ pub struct Dependencies {
 pub enum Watch {
     Logind,
     Compositor,
-    Updates,
 }
 
 impl Service for SessionActions {
@@ -222,7 +196,6 @@ impl Service for SessionActions {
                 |state| Event::Windows(state.windows.map(|windows| windows.windows.len())),
                 Event::Windows(None),
             ),
-            Sub::stream(Watch::Updates, updates_events),
         ]
     }
 
@@ -245,9 +218,6 @@ impl Service for SessionActions {
             }
             Input::Event(Event::Windows(windows)) => {
                 self.state.update(|state| state.windows = windows);
-            }
-            Input::Event(Event::Updates(updates)) => {
-                self.state.update(|state| state.updates = updates);
             }
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
             Input::Command(Command::Run { action, reply }) => self.run(ctx, action, reply),
@@ -278,9 +248,7 @@ impl SessionActions {
 
 fn apply_logind(state: &mut SessionActionsState, logind: LogindSnapshot) {
     state.user = logind.user;
-    state.session_type = logind.session_type;
     state.signed_in_seconds = logind.signed_in_seconds;
-    state.sessions = logind.sessions;
     state.inhibitors = logind.inhibitors;
     state.suspend = logind.suspend;
     state.hibernate = logind.hibernate;
@@ -336,28 +304,6 @@ where
     Box::pin(stream.map(|_| ()))
 }
 
-async fn updates_events(ctx: Ctx<SessionActions>) -> Events {
-    let Ok(bus) = ctx.system_bus().cloned() else {
-        return Box::pin(stream::once(async { Event::Updates(None) }));
-    };
-    let Ok(packagekit) = PackageKitProxy::new(&bus).await else {
-        return Box::pin(stream::once(async { Event::Updates(None) }));
-    };
-    let first = updates(&bus).await;
-    let Ok(changed) = packagekit.receive_updates_changed().await else {
-        return Box::pin(stream::once(async move { Event::Updates(first) }));
-    };
-    Box::pin(
-        stream::once(async move { Event::Updates(first) }).chain(changed.then({
-            let bus = bus.clone();
-            move |_| {
-                let bus = bus.clone();
-                async move { Event::Updates(updates(&bus).await) }
-            }
-        })),
-    )
-}
-
 async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, String> {
     let manager = Login1ManagerProxy::new(bus).await.map_err(say)?;
     let path = session_path(bus).await?;
@@ -367,15 +313,7 @@ async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, Strin
         .build()
         .await
         .map_err(say)?;
-    let (user, kind, seat, timestamp, session_id) = tokio::try_join!(
-        current.name(),
-        current.kind(),
-        current.seat(),
-        current.timestamp(),
-        current.id()
-    )
-    .map_err(say)?;
-    let sessions = same_seat_sessions(bus, &manager, &seat.0, Some(session_id.as_str())).await?;
+    let (user, timestamp) = tokio::try_join!(current.name(), current.timestamp()).map_err(say)?;
     let inhibitors = manager
         .list_inhibitors()
         .await
@@ -390,94 +328,13 @@ async fn snapshot_logind(bus: &zbus::Connection) -> Result<LogindSnapshot, Strin
     .map_err(say)?;
     Ok(LogindSnapshot {
         user: nonempty(user),
-        session_type: nonempty(kind),
         signed_in_seconds: signed_in(timestamp),
-        sessions,
         inhibitors,
         suspend: capability(&suspend),
         hibernate: capability(&hibernate),
         reboot: capability(&reboot),
         power_off: capability(&power_off),
     })
-}
-
-async fn updates(bus: &zbus::Connection) -> Option<Updates> {
-    let dbus = zbus::fdo::DBusProxy::new(bus).await.ok()?;
-    let name = zbus::names::BusName::try_from(PACKAGEKIT).ok()?;
-    if !dbus.name_has_owner(name).await.ok()? {
-        return None;
-    }
-    let packagekit = PackageKitProxy::new(bus).await.ok()?;
-    let path = packagekit.create_transaction().await.ok()?;
-    let transaction = PackageKitTransactionProxy::builder(bus)
-        .path(path)
-        .ok()?
-        .build()
-        .await
-        .ok()?;
-    let mut packages = transaction.receive_package().await.ok()?;
-    let mut finished = transaction.receive_finished().await.ok()?;
-    transaction.get_updates(FILTER_NONE).await.ok()?;
-
-    tokio::time::timeout(glimpse_dbus::DEADLINE, async move {
-        let mut available = false;
-        loop {
-            tokio::select! {
-                package = packages.next() => {
-                    package?;
-                    available = true;
-                }
-                finished = finished.next() => {
-                    finished?;
-                    return Some(Updates { available });
-                }
-            }
-        }
-    })
-    .await
-    .ok()?
-}
-
-async fn same_seat_sessions(
-    bus: &zbus::Connection,
-    manager: &Login1ManagerProxy<'_>,
-    seat: &str,
-    current_session: Option<&str>,
-) -> Result<Vec<SessionEntry>, String> {
-    let entries = manager.list_sessions().await.map_err(say)?;
-    let mut sessions = Vec::new();
-    for (id, _, user, entry_seat, path) in entries {
-        if !is_switch_target(&entry_seat, &id, seat, current_session) {
-            continue;
-        }
-        let Ok(session) = Login1SessionProxy::builder(bus)
-            .path(path)
-            .map_err(say)?
-            .build()
-            .await
-        else {
-            continue;
-        };
-        let Ok((active, class, kind)) =
-            tokio::try_join!(session.active(), session.class(), session.kind())
-        else {
-            continue;
-        };
-        if class != "user" {
-            continue;
-        }
-        sessions.push(SessionEntry {
-            id,
-            user: clean(&user, TEXT_MAX),
-            kind: clean(&kind, TEXT_MAX),
-            active,
-        });
-    }
-    Ok(sessions)
-}
-
-fn is_switch_target(entry_seat: &str, id: &str, seat: &str, current_session: Option<&str>) -> bool {
-    entry_seat == seat && Some(id) != current_session
 }
 
 async fn invoke(bus: &zbus::Connection, action: Action) -> Result<(), CommandError> {
@@ -499,7 +356,6 @@ async fn invoke(bus: &zbus::Connection, action: Action) -> Result<(), CommandErr
         }
         Action::Reboot => manager.reboot(true).await,
         Action::PowerOff => manager.power_off(true).await,
-        Action::Activate(id) => manager.activate_session(&id).await,
     }
     .map_err(|error| CommandError::Internal(error.to_string()))
 }
@@ -577,9 +433,8 @@ mod tests {
     }
 
     #[test]
-    fn lock_and_switch_do_not_confirm_power_actions_do() {
+    fn lock_does_not_confirm_power_actions_do() {
         assert!(!Action::Lock.confirm());
-        assert!(!Action::Activate("3".into()).confirm());
         assert!(Action::Reboot.confirm());
         assert!(Action::LogOut.confirm());
     }
@@ -652,36 +507,17 @@ mod tests {
     }
 
     #[test]
-    fn switch_targets_stay_on_the_current_seat_and_exclude_the_current_session() {
-        assert!(is_switch_target("seat0", "other", "seat0", Some("current")));
-        assert!(!is_switch_target(
-            "seat1",
-            "other",
-            "seat0",
-            Some("current")
-        ));
-        assert!(!is_switch_target(
-            "seat0",
-            "current",
-            "seat0",
-            Some("current")
-        ));
-    }
-
-    #[test]
     fn a_window_count_does_not_clobber_logind_fields() {
         let mut state = SessionActionsState {
             user: Some("alex".into()),
-            updates: Some(Updates { available: true }),
+            hibernate: Capability::Available,
             ..Default::default()
         };
         apply_logind(
             &mut state,
             LogindSnapshot {
                 user: Some("alex".into()),
-                session_type: Some("wayland".into()),
                 signed_in_seconds: Some(12),
-                sessions: Vec::new(),
                 inhibitors: Vec::new(),
                 suspend: Capability::Available,
                 hibernate: Capability::Hidden,
@@ -692,7 +528,6 @@ mod tests {
         state.windows = Some(4);
         assert_eq!(state.user.as_deref(), Some("alex"));
         assert_eq!(state.windows, Some(4));
-        assert_eq!(state.updates, Some(Updates { available: true }));
         assert_eq!(state.hibernate, Capability::Hidden);
     }
 }

@@ -1,17 +1,40 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::{Event, EventRow};
-use crate::Row;
+use super::{Event, more_row};
+use crate::{Expandable, Row};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EventList {
     pub events: RefCell<Vec<Event>>,
-    pub rows: RefCell<Vec<EventRow>>,
-    pub overflow: RefCell<Option<Row>>,
+    pub holders: RefCell<Vec<(String, Expandable)>>,
+    pub cards: RefCell<HashMap<String, Event>>,
+    pub earlier: Row,
+    pub rows: gtk4::Box,
+    pub more: Row,
     pub max_rows: Cell<u32>,
+    pub show_earlier: Cell<bool>,
+    pub show_all: Cell<bool>,
     pub activatable: Cell<bool>,
+}
+
+impl Default for EventList {
+    fn default() -> Self {
+        Self {
+            events: RefCell::default(),
+            holders: RefCell::default(),
+            cards: RefCell::default(),
+            earlier: more_row(),
+            rows: gtk4::Box::new(gtk4::Orientation::Vertical, 0),
+            more: more_row(),
+            max_rows: Cell::default(),
+            show_earlier: Cell::default(),
+            show_all: Cell::default(),
+            activatable: Cell::default(),
+        }
+    }
 }
 
 #[glib::object_subclass]
@@ -34,7 +57,9 @@ impl ObjectImpl for EventList {
                 glib::subclass::Signal::builder("activated")
                     .param_types([u32::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("overflow").build(),
+                glib::subclass::Signal::builder("link-activated")
+                    .param_types([String::static_type()])
+                    .build(),
             ]
         })
     }
@@ -46,6 +71,25 @@ impl ObjectImpl for EventList {
         if let Some(layout) = list.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_orientation(gtk4::Orientation::Vertical);
         }
+        self.earlier.set_parent(&*list);
+        self.rows.set_parent(&*list);
+        self.more.set_parent(&*list);
+        self.earlier.connect_clicked(glib::clone!(
+            #[weak]
+            list,
+            move |_| {
+                list.imp().show_earlier.set(true);
+                list.render();
+            }
+        ));
+        self.more.connect_clicked(glib::clone!(
+            #[weak]
+            list,
+            move |_| {
+                list.imp().show_all.set(true);
+                list.render();
+            }
+        ));
 
         list.set_has_tooltip(true);
         list.connect_query_tooltip(|list, _x, y, _keyboard, tooltip| match list.summary_at(y) {
@@ -58,12 +102,9 @@ impl ObjectImpl for EventList {
     }
 
     fn dispose(&self) {
-        for row in self.rows.borrow_mut().drain(..) {
-            row.unparent();
-        }
-        if let Some(row) = self.overflow.take() {
-            row.unparent();
-        }
+        self.earlier.unparent();
+        self.rows.unparent();
+        self.more.unparent();
     }
 }
 

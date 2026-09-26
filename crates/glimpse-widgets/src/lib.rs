@@ -15,7 +15,7 @@ mod color_picker_popover;
 mod display_list;
 mod display_popover;
 mod dots;
-pub mod drawer;
+mod drawer;
 mod event_list;
 mod expandable;
 mod fact_list;
@@ -59,7 +59,7 @@ mod progress;
 mod range_bar;
 pub mod raster;
 mod readout;
-mod reconcile;
+pub mod reconcile;
 mod removable_popover;
 pub(crate) mod row;
 mod ruler_popover;
@@ -94,7 +94,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
-pub use artwork::{artwork, thumbnail};
+pub use artwork::{Thumbnail, artwork, thumbnail};
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
@@ -113,13 +113,13 @@ pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
-pub use clipboard_list::{Actions as ClipActions, Clip, ClipboardList};
+pub use clipboard_list::{Actions as ClipActions, Clip, ClipAction, ClipboardList};
 pub use clipboard_popover::ClipboardPopover;
 pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
-pub use event_list::{Event, EventList, EventRow};
+pub use event_list::{Event, EventList, EventRow, Link as EventLink};
 pub use expandable::Expandable;
 pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
@@ -175,7 +175,7 @@ pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use session_popover::{
     ActionState as SessionActionState, HIBERNATE, LOCK, LOG_OUT, POWER_OFF, REBOOT, SUSPEND,
-    SessionChoice, SessionPopover,
+    SessionPopover,
 };
 pub use session_sheet::SessionSheet;
 pub use shot_banner::ShotBanner;
@@ -304,6 +304,8 @@ pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
     button.set_icon_name(icon);
     button.set_tooltip_text(Some(tooltip.as_str()));
 }
+
+pub(crate) const DESTRUCTIVE: &str = "row--destructive";
 
 pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {
     use gtk4::prelude::*;
@@ -508,8 +510,18 @@ mod tests {
         assert_eq!(label_of(&indicator).chars().count(), LABEL_MAX_CHARS);
         let label = label_widget(&indicator);
         assert!(label.is_visible());
+        assert!(
+            indicator.has_css_class("indicator--text"),
+            "a label with no icon is a text chip, which centers in the chip's width"
+        );
+        let icon: gtk4::gio::Icon = gtk4::gio::ThemedIcon::new("input-keyboard-symbolic").upcast();
+        indicator.set_icon(Some(&icon));
+        assert!(!indicator.has_css_class("indicator--text"));
+        indicator.set_icon(None);
+        assert!(indicator.has_css_class("indicator--text"));
         indicator.set_label(None);
         assert!(!label.is_visible(), "an emptied label reserves no space");
+        assert!(!indicator.has_css_class("indicator--text"));
 
         let image = child_named::<gtk4::Image>(&indicator, "indicator__icon");
         assert!(
@@ -795,7 +807,7 @@ mod tests {
         );
 
         let inhibitor_list = InhibitorList::new();
-        assert!(children_of::<gtk4::Box>(&inhibitor_list).is_empty());
+        assert!(children_of::<Expandable>(&inhibitor_list).is_empty());
         assert_eq!(
             inhibitor_list.measure(gtk4::Orientation::Vertical, -1).1,
             0,
@@ -817,28 +829,24 @@ mod tests {
         }
 
         inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let holders = children_of::<gtk4::Box>(&inhibitor_list);
+        let holders = children_of::<Expandable>(&inhibitor_list);
         assert_eq!(holders.len(), 2);
-        let first = holders[0].first_child().unwrap().downcast::<Row>().unwrap();
+        let first = holders[0].head::<Row>().expect("an inhibitor row");
+        let second = holders[1].head::<Row>().expect("an inhibitor row");
         let _chevron = child_named::<gtk4::Image>(&first, "drawer-chevron");
-        let first_panel = holders[0]
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let second_panel = holders[1]
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let card = first_panel
-            .child()
-            .unwrap()
-            .downcast::<gtk4::Box>()
-            .unwrap();
-        let cancel = children_of::<Row>(&card).remove(0);
-        assert!(cancel.activatable());
-        assert!(!first_panel.reveals_child());
+        let release_of = |holder: &Expandable| -> Row {
+            holder
+                .details::<gtk4::Box>()
+                .and_then(|card| card.last_child())
+                .and_downcast::<Row>()
+                .expect("a card ends with Release")
+        };
+        let release = release_of(&holders[0]);
+        assert!(
+            release.activatable() && release.has_css_class("row--destructive"),
+            "Release ends another app's hold, so it reads as destructive"
+        );
+        assert!(!holders[0].expanded());
 
         let touched_row = first.clone();
         touched_row.set_title(Some("Touched by hand"));
@@ -872,47 +880,26 @@ mod tests {
             move |_, id| reported.borrow_mut().push(id)
         });
         first.emit_clicked();
-        assert!(first_panel.reveals_child());
-        assert!(inhibitor_list.is_open());
-        assert!(cancel.get_visible());
+        assert!(holders[0].expanded());
         assert!(
             reported.borrow().is_empty(),
-            "opening details does not cancel"
+            "opening details does not release"
         );
-        let second = holders[1].first_child().unwrap().downcast::<Row>().unwrap();
-        second.emit_clicked();
-        assert!(!first_panel.reveals_child());
-        assert!(second_panel.reveals_child());
-        let second_card = second_panel
-            .child()
-            .unwrap()
-            .downcast::<gtk4::Box>()
-            .unwrap();
-        let second_cancel = children_of::<Row>(&second_card).remove(0);
-        assert!(!second_cancel.get_visible());
-        second.emit_clicked();
-        assert!(!second_panel.reveals_child());
-        first.emit_clicked();
-        cancel.emit_clicked();
+        assert!(
+            !second.activatable() && !holders[1].expanded(),
+            "a hold that prevents only idle and cannot be released has nothing to open"
+        );
+        release.emit_clicked();
         assert_eq!(*reported.borrow(), vec![1]);
 
         inhibitor_list.set_inhibitors(&[inhibitor(9, "Zoom", true), inhibitor(2, "OBS", false)]);
-        let reused = children_of::<gtk4::Box>(&inhibitor_list);
-        assert_eq!(
+        let reused = children_of::<Expandable>(&inhibitor_list);
+        assert_ne!(
             reused[0], holders[0],
-            "row 0 is reused in place, not rebuilt"
+            "another hold is another row, so a release can only ever name its own id"
         );
-        assert!(
-            !inhibitor_list.is_open(),
-            "a removed inhibitor closes its details"
-        );
-        cancel.emit_clicked();
-        assert_eq!(
-            *reported.borrow(),
-            vec![1, 9],
-            "the same action row now reports the id its row currently represents, not the id \
-             captured when the row was first built"
-        );
+        release_of(&reused[0]).emit_clicked();
+        assert_eq!(*reported.borrow(), vec![1, 9]);
 
         let entry_without_tabs = InhibitorEntry {
             id: 5,
@@ -928,36 +915,34 @@ mod tests {
             can_release: false,
         };
         inhibitor_list.set_inhibitors(&[entry_without_tabs]);
-        let holder_without_tabs = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
-        let row_without_tabs = holder_without_tabs
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap();
+        let holder_without_tabs = children_of::<Expandable>(&inhibitor_list).remove(0);
+        let row_without_tabs = holder_without_tabs.head::<Row>().expect("a row");
         let chip_icon = child_named::<gtk4::Image>(&row_without_tabs, "row__icon");
         assert_eq!(
             chip_icon.icon_name().as_deref(),
             Some("system-run-symbolic")
         );
-        let panel = holder_without_tabs
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        let cancel = children_of::<Row>(&card).remove(0);
         row_without_tabs.emit_clicked();
-        assert!(panel.reveals_child());
         assert!(
-            !cancel.get_visible(),
-            "an external inhibitor cannot be canceled"
+            holder_without_tabs.expanded(),
+            "a hold that prevents more than idle opens to say what, even when it cannot be released"
         );
+        assert!(
+            !release_of(&holder_without_tabs).get_visible(),
+            "an external inhibitor cannot be released"
+        );
+        let card = holder_without_tabs.details::<gtk4::Box>().expect("a card");
         let facts = children_of::<FactList>(&card).remove(0);
         let values = children_of::<Row>(&facts)
             .iter()
             .filter_map(Row::value)
             .collect::<Vec<_>>();
-        assert!(values.iter().any(|value| value.contains("Shutdown")));
+        assert_eq!(
+            values.len(),
+            1,
+            "the card says what it prevents and nothing the row says"
+        );
+        assert!(values[0].contains("Shutdown"));
         let hostile = "ё".repeat(TEXT_MAX_CHARS * 2);
         inhibitor_list.set_inhibitors(&[InhibitorEntry {
             id: 7,
@@ -967,12 +952,10 @@ mod tests {
             targets: InhibitorTargets::default(),
             can_release: false,
         }]);
-        let hostile_holder = children_of::<gtk4::Box>(&inhibitor_list).remove(0);
-        let hostile_row = hostile_holder
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap();
+        let hostile_row = children_of::<Expandable>(&inhibitor_list)
+            .remove(0)
+            .head::<Row>()
+            .expect("a row");
         let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
         let hostile_subtitle = child_named::<gtk4::Label>(&hostile_row, "row__subtitle");
         assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
@@ -1997,6 +1980,13 @@ mod tests {
             (20.0, 20.0),
             "a high below its low is clamped rather than drawn backwards"
         );
+        assert_eq!(
+            bar.now(),
+            None,
+            "a bar marks no reading until it is given one"
+        );
+        bar.set_now(Some(16.0));
+        assert_eq!(bar.now(), Some(16.0));
 
         let facts = FactList::new();
         facts.set_facts(&[Fact::new("Humidity", "78%"), Fact::new("Wind", "14 km/h")]);
@@ -2087,9 +2077,13 @@ mod tests {
             precipitation,
             low,
             high,
+            now: None,
         };
         forecast.set_days(&[
-            day("Today", Some(60), 12.0, 18.0),
+            Day {
+                now: Some(16.0),
+                ..day("Today", Some(60), 12.0, 18.0)
+            },
             day("Tomorrow", Some(0), 11.0, 20.0),
             day("Sunday", None, 7.0, 26.0),
         ]);
@@ -2106,6 +2100,13 @@ mod tests {
                 (7.0, 26.0)
             );
         }
+        let now_of = |bar: &gtk4::Widget| bar.clone().downcast::<RangeBar>().expect("bar").now();
+        assert_eq!(now_of(&bars[0]), Some(16.0));
+        assert_eq!(
+            now_of(&bars[1]),
+            None,
+            "only the day given a reading marks one"
+        );
         let chances = all_named(&forecast, "forecast__precipitation");
         let chance = |index: usize| {
             chances[index]
@@ -2120,17 +2121,20 @@ mod tests {
             "a zero chance of rain says nothing, and neither does an unknown one"
         );
 
-        let chosen = Rc::new(RefCell::new(Vec::new()));
-        forecast.connect_activated({
-            let chosen = Rc::clone(&chosen);
-            move |_, index| chosen.borrow_mut().push(index)
-        });
         assert!(
             children_of::<Row>(&forecast).is_empty(),
             "a day is parented with the panel that unfolds under it, not directly"
         );
-        forecast.imp().rows.borrow()[1].emit_clicked();
-        assert_eq!(*chosen.borrow(), [1u32]);
+        let second = forecast.imp().holders.borrow()[1].clone();
+        let second_day = second.head::<ForecastDay>().expect("a day row");
+        second_day.emit_clicked();
+        assert!(!second.expanded(), "a day with no detail does not open");
+        forecast.set_details(&[None, Some(gtk4::Label::new(None).upcast())]);
+        second_day.emit_clicked();
+        assert!(
+            second.expanded(),
+            "a day with a detail opens under its own row"
+        );
 
         let ends = |class: &str| {
             all_named(&forecast, class)
@@ -2339,19 +2343,28 @@ mod tests {
         );
 
         let event = |summary: &str, when: &str, color: Option<gdk::RGBA>| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: String::new(),
             when: when.to_owned(),
             color,
+            ..Default::default()
         };
         let blue = gdk::RGBA::new(0.2, 0.5, 0.9, 1.0);
 
         let events = EventList::new();
+        let heads = |list: &EventList| -> Vec<EventRow> {
+            list.imp()
+                .holders
+                .borrow()
+                .iter()
+                .filter_map(|(_, holder)| holder.head::<EventRow>())
+                .collect()
+        };
         events.set_events(&[
             event("Team standup", "09:30", Some(blue)),
             event("Design review", "14:00", None),
         ]);
-        let event_rows: Vec<Row> = children_of(&events);
+        let event_rows: Vec<Row> = heads(&events).into_iter().map(|row| row.upcast()).collect();
         assert_eq!(event_rows.len(), 2);
         assert_eq!(event_rows[0].title().as_deref(), Some("Team standup"));
         assert!(
@@ -2359,7 +2372,6 @@ mod tests {
             "one event with a color gives every row the same lead column, so the summaries \
              still line up"
         );
-
         assert_eq!(
             event_rows[0]
                 .imp()
@@ -2370,11 +2382,10 @@ mod tests {
             "an event carries one color, so its lead is one dot wide rather than the three the \
              calendar reserves"
         );
-
         assert!(
             !event_rows[0].can_target(),
-            "an event list nobody is listening to does not light up under the pointer: a hover \
-             is a promise that clicking does something"
+            "an event with nothing behind it and nobody listening does not light up under the \
+             pointer: a hover is a promise that clicking does something"
         );
         events.set_activatable(true);
         assert!(event_rows[0].can_target());
@@ -2386,88 +2397,110 @@ mod tests {
         });
         event_rows[1].emit_clicked();
         assert_eq!(*activated.borrow(), [1u32]);
+        events.set_activatable(false);
 
         events.set_events(&[event("Team standup", "09:30", None)]);
         assert!(
-            !children_of::<Row>(&events)[0].imp().lead.get_visible(),
+            !heads(&events)[0]
+                .upcast_ref::<Row>()
+                .imp()
+                .lead
+                .get_visible(),
             "with no color anywhere the lead column goes away rather than sitting empty"
         );
-        assert_eq!(
-            event_rows[0],
-            children_of::<Row>(&events)[0],
-            "a position reuses its row rather than rebuilding it"
+        assert!(
+            event_rows[0] == heads(&events)[0].clone().upcast::<Row>(),
+            "an event keeps its row across a refresh rather than rebuilding it"
         );
         assert!(
             event_rows[1].parent().is_none(),
             "a shorter list unparents the rows it no longer has events for"
         );
 
-        events.set_events(&[
-            event("One", "09:30", None),
-            event("Two", "10:00", None),
-            event("Three", "11:00", None),
-            event("Four", "12:00", None),
-        ]);
-        events.set_activatable(false);
-        events.set_max_rows(3);
-        let capped: Vec<Row> = children_of(&events);
-        assert_eq!(
-            capped.len(),
-            4,
-            "three events plus the row that counts the rest"
-        );
-        assert!(capped[3].has_css_class("row--quiet"));
+        let meeting = Event {
+            links: vec![EventLink {
+                title: "Join Google Meet".to_owned(),
+                url: "https://meet.google.com/abc".to_owned(),
+            }],
+            facts: vec![Fact::new("Calendar", "Work")],
+            ..event("Design review", "14:00", None)
+        };
+        events.set_events(&[event("Team standup", "09:30", None), meeting.clone()]);
+        let holder = events.imp().holders.borrow()[1].1.clone();
         assert!(
-            capped[3].activatable() && !capped[0].activatable(),
-            "the overflow row is a control, not an event: it exists only because the caller \
-             capped the list, and clicking it is the whole reason it is there"
+            heads(&events)[1].can_target() && !heads(&events)[0].can_target(),
+            "an event with a link or a fact opens; one with neither stays inert"
         );
-        assert_eq!(
-            capped[3].title().as_deref(),
-            Some("1 more event"),
-            "one hidden event is not `1 more events`"
+        heads(&events)[1].emit_clicked();
+        assert!(holder.expanded(), "the event row opens its own card");
+        let card = holder.details::<gtk4::Box>().expect("a card");
+        events.set_events(&[event("Team standup", "10:00", None), meeting.clone()]);
+        assert!(
+            holder.details::<gtk4::Box>().as_ref() == Some(&card),
+            "a refresh that leaves the card's content alone keeps the card, so a press on it lands"
         );
-        assert_eq!(capped[2].title().as_deref(), Some("Three"));
+        let links = Rc::new(RefCell::new(Vec::new()));
+        events.connect_link_activated({
+            let links = Rc::clone(&links);
+            move |_, url| links.borrow_mut().push(url)
+        });
+        card.first_child()
+            .and_downcast::<Row>()
+            .expect("the join row")
+            .emit_clicked();
+        assert_eq!(*links.borrow(), ["https://meet.google.com/abc"]);
 
-        events.set_events(&[event("One", "09:30", None)]);
-        assert_eq!(
-            children_of::<Row>(&events).len(),
-            1,
-            "a list that now fits drops the overflow row"
-        );
+        let past = |summary: &str| Event {
+            past: true,
+            ..event(summary, "over", None)
+        };
         events.set_events(&[
-            event("One", "09:30", None),
-            event("Two", "10:00", None),
+            past("One"),
+            past("Two"),
             event("Three", "11:00", None),
             event("Four", "12:00", None),
             event("Five", "13:00", None),
+            event("Six", "14:00", None),
         ]);
-        let regrown: Vec<Row> = children_of(&events);
-        assert_eq!(regrown.len(), 4);
-        assert!(
-            regrown[3].has_css_class("row--quiet")
-                && regrown[3].title().as_deref() == Some("2 more events"),
-            "the overflow row stays last when the list grows back under it"
+        events.set_max_rows(3);
+        let titles = |list: &EventList| -> Vec<String> {
+            heads(list)
+                .iter()
+                .map(|row| row.upcast_ref::<Row>().title().unwrap_or_default())
+                .collect()
+        };
+        assert_eq!(
+            titles(&events),
+            ["Three", "Four", "Five"],
+            "what is over folds away and the cap counts only what is left"
         );
-
-        let overflowed = Rc::new(Cell::new(0u32));
-        events.connect_overflow({
-            let overflowed = Rc::clone(&overflowed);
-            move |_| overflowed.set(overflowed.get() + 1)
-        });
-        regrown[3].emit_clicked();
-        assert_eq!(overflowed.get(), 1);
+        assert_eq!(events.imp().earlier.title().as_deref(), Some("2 earlier"));
+        assert_eq!(
+            events.imp().more.title().as_deref(),
+            Some("1 more event"),
+            "one hidden event is not `1 more events`"
+        );
+        events.imp().earlier.emit_clicked();
+        assert_eq!(titles(&events).len(), 5, "the fold opens in place");
+        assert!(!events.imp().earlier.get_visible());
+        assert!(heads(&events)[0].has_css_class("event-list__row--past"));
+        events.imp().more.emit_clicked();
+        assert_eq!(titles(&events).len(), 6);
+        assert!(!events.overflows());
+        events.fold();
+        assert_eq!(titles(&events).len(), 3, "folding restores both caps");
 
         events.set_max_rows(0);
-        assert_eq!(
-            children_of::<Row>(&events).len(),
-            5,
-            "no cap shows everything, with nothing left to count"
+        events.set_events(&[event("One", "09:30", None)]);
+        assert!(
+            !events.imp().earlier.get_visible() && !events.imp().more.get_visible(),
+            "a list that fits carries neither count"
         );
 
         events.set_events(&[event(&"ё".repeat(TEXT_MAX_CHARS * 2), "09:30", None)]);
         assert_eq!(
-            children_of::<Row>(&events)[0]
+            heads(&events)[0]
+                .upcast_ref::<Row>()
                 .title()
                 .unwrap_or_default()
                 .chars()
@@ -2481,7 +2514,8 @@ mod tests {
         buried.set_content(Some(&events));
         buried.set_empty(true);
         assert_eq!(
-            children_of::<Row>(&events)[0]
+            heads(&events)[0]
+                .upcast_ref::<Row>()
                 .title()
                 .unwrap_or_default()
                 .chars()
@@ -3146,6 +3180,7 @@ mod tests {
             label: label.to_owned(),
             detail: detail.to_owned(),
             icon_name: "audio-headphones-symbolic".to_owned(),
+            warning: false,
         };
         outputs.set_choices(&[
             choice("WH-1000XM5", "Bluetooth"),
@@ -3484,6 +3519,7 @@ mod tests {
                     label: "chats".to_owned(),
                     detail: "1 window".to_owned(),
                     output: "DP-2".to_owned(),
+                    display: "Dell U2723QE".to_owned(),
                     focused: false,
                     urgent: false,
                     windows: vec![WorkspaceWindow {
@@ -3499,6 +3535,7 @@ mod tests {
                     label: "browser".to_owned(),
                     detail: "1 window".to_owned(),
                     output: "DP-2".to_owned(),
+                    display: "Dell U2723QE".to_owned(),
                     focused: true,
                     urgent: false,
                     windows: vec![WorkspaceWindow {
@@ -3512,8 +3549,9 @@ mod tests {
                 Workspace {
                     id: 5,
                     label: "1".to_owned(),
-                    detail: "empty".to_owned(),
+                    detail: "Empty".to_owned(),
                     output: "eDP-1".to_owned(),
+                    display: String::new(),
                     focused: false,
                     urgent: false,
                     windows: Vec::new(),
@@ -3544,6 +3582,48 @@ mod tests {
             .expect("a section holds one column of rows");
         let holders = children_of::<Expandable>(&column);
         assert_eq!(holders.len(), 2, "DP-2 carries two of the three workspaces");
+        assert_eq!(
+            sections[0].imp().section.title().as_deref(),
+            Some("Dell U2723QE"),
+            "a section names its display, not its connector"
+        );
+        assert_eq!(
+            sections[1].imp().section.title().as_deref(),
+            Some("eDP-1"),
+            "a display with no name falls back to its connector rather than an empty header"
+        );
+        assert_eq!(popover.imp().hero.subtitle(), None);
+        assert_eq!(
+            holders[0]
+                .head::<SplitRow>()
+                .and_then(|split| split.row().value())
+                .as_deref(),
+            Some("1 window"),
+            "the window count sits in the row's value slot"
+        );
+        let empty = children_of::<Expandable>(
+            &child_named::<gtk4::Box>(&sections[1], "section__content")
+                .first_child()
+                .and_downcast::<gtk4::Box>()
+                .expect("a section holds one column of rows"),
+        )[0]
+        .clone();
+        empty
+            .head::<SplitRow>()
+            .expect("an empty workspace keeps its chevron")
+            .emit_by_name::<()>("details", &[]);
+        let placeholder = children_of::<Row>(
+            &empty
+                .details::<gtk4::Box>()
+                .expect("an empty workspace's card is filled"),
+        );
+        assert!(
+            placeholder.len() == 1
+                && placeholder[0].get_visible()
+                && placeholder[0].title().as_deref() == Some("No windows"),
+            "an empty workspace's card says so rather than opening on nothing"
+        );
+        empty.set_expanded(false);
 
         let head = |holder: &Expandable| {
             holder
@@ -3612,7 +3692,10 @@ mod tests {
                 .details::<gtk4::Box>()
                 .expect("the panel holds a rows box once it has been filled")
         };
-        let windows = children_of::<Row>(&rows_box(&holders[0]));
+        let windows: Vec<Row> = children_of::<Row>(&rows_box(&holders[0]))
+            .into_iter()
+            .filter(|row| row.get_visible())
+            .collect();
         assert_eq!(
             windows.len(),
             1,
@@ -3633,6 +3716,14 @@ mod tests {
             "a press on anything dimmed closes the card and is claimed, so the row never acts"
         );
         head(&holders[0]).emit_by_name::<()>("details", &[]);
+        assert!(
+            !popover
+                .imp()
+                .shell
+                .dismiss_from(head(&holders[1]).detail().upcast_ref())
+                && holders[0].expanded(),
+            "a press on another card's chevron goes through, so it switches cards in one click"
+        );
 
         let focused: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
         popover.connect_window_activated({
@@ -3724,13 +3815,11 @@ mod tests {
 
         let popover = CalendarPopover::new();
         let event = |summary: &str| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: String::new(),
             when: "09:00 · 1 h".to_owned(),
-            color: None,
+            ..Default::default()
         };
-        let drawer = || child_named::<gtk4::Revealer>(&popover, "calendar-popover__drawer");
-
         let footer = || child_named::<gtk4::Box>(&popover, "popover-shell__footer");
 
         popover.set_footer(None);
@@ -3756,62 +3845,42 @@ mod tests {
         let few: Vec<Event> = (0..3)
             .map(|index| event(&format!("event {index}")))
             .collect();
-        popover.set_day("Today", &few);
-        assert!(
-            !drawer().reveals_child(),
-            "three events fit, so nothing was hidden and the drawer has nothing to hold"
-        );
-
+        let shown = || popover.imp().events.imp().holders.borrow().len();
         let many: Vec<Event> = (0..9)
             .map(|index| event(&format!("event {index}")))
             .collect();
         popover.set_day("Today", &many);
-        assert!(
-            !drawer().reveals_child(),
-            "the overflow row is an offer, not a drawer that springs open on its own"
-        );
-
-        let overflow = child_named::<EventList>(&popover, "calendar-popover__events");
-        overflow.emit_by_name::<()>("overflow", &[]);
-        assert!(
-            drawer().reveals_child(),
-            "taking that offer is what the drawer is wired to"
-        );
-
-        overflow.emit_by_name::<()>("overflow", &[]);
-        assert!(
-            !drawer().reveals_child(),
-            "the control that opens a drawer is the one that closes it"
-        );
-        overflow.emit_by_name::<()>("overflow", &[]);
-
-        popover.set_day("Today", &few);
-        assert!(
-            !drawer().reveals_child(),
-            "back under the cap the drawer closes rather than standing open on nothing"
-        );
-
-        popover.set_day("Tuesday", &few);
         assert_eq!(
-            popover.imp().everything.title().as_deref(),
-            Some("Tuesday"),
-            "the drawer holds the whole of one day, so it is named after that day"
+            shown(),
+            4,
+            "four events and a row counting the rest; nothing springs open on its own"
         );
 
-        let placeholder = || popover.imp().states.visible_child_name();
+        popover.imp().events.imp().more.emit_clicked();
         assert_eq!(
-            placeholder().as_deref(),
-            Some("nothing"),
-            "a day with nothing on it is the wording the template opens with"
+            shown(),
+            9,
+            "taking the offer shows the rest in place, never in a column beside the list"
+        );
+        popover.set_day("Today", &many);
+        assert_eq!(shown(), 9, "a refresh of the same day keeps it shown");
+
+        popover.set_day("Tuesday", &many);
+        assert_eq!(shown(), 4, "another day starts capped again");
+
+        popover.set_day("Tuesday, 29 Sep", &[]);
+        assert!(
+            !popover.imp().day.get_visible(),
+            "a day with nothing on it shows nothing: the grid's missing dot already said so"
         );
         popover.set_day_truncated(true);
-        assert_eq!(
-            placeholder().as_deref(),
-            Some("truncated"),
-            "both wordings live in the template, so neither is a Rust string no translator sees"
+        assert!(
+            popover.imp().day.get_visible() && popover.imp().truncated.get_visible(),
+            "a day the calendar could not send in full says so, since the grid cannot"
         );
         popover.set_day_truncated(false);
-        assert_eq!(placeholder().as_deref(), Some("nothing"));
+        popover.set_day("Today", &few);
+        assert!(popover.imp().day.get_visible());
 
         popover.imp().calendar.show_month(2026, 12);
         let months = Rc::new(RefCell::new(Vec::new()));
@@ -3906,15 +3975,11 @@ mod tests {
         });
 
         mpris.set_others(None);
-        assert!(
-            !mpris.imp().others.is_visible(),
-            "a section switched off is hidden, not shown holding its own placeholder"
-        );
-
+        assert!(!mpris.imp().others.get_visible());
         mpris.set_others(Some(&[]));
         assert!(
-            mpris.imp().others.is_visible() && mpris.imp().others.empty(),
-            "one player running is not an empty popover, it is a popover with no others"
+            !mpris.imp().others.get_visible(),
+            "one player running shows no section at all rather than one saying so"
         );
         mpris.set_others(Some(&[
             Player {
@@ -3934,7 +3999,33 @@ mod tests {
                 playing: true,
             },
         ]));
-        assert!(!mpris.imp().others.empty());
+        assert!(mpris.imp().others.get_visible());
+
+        let volumes = Rc::new(RefCell::new(Vec::new()));
+        mpris.connect_volume_changed({
+            let volumes = volumes.clone();
+            move |_, volume| volumes.borrow_mut().push(volume)
+        });
+        assert!(!mpris.imp().volume.get_visible());
+        mpris.set_volume(Some(0.4));
+        assert!(mpris.imp().volume.get_visible());
+        assert!((mpris.imp().volume.value() - 40.0).abs() < f64::EPSILON);
+        mpris.set_volume(Some(f64::NAN));
+        assert!(
+            (mpris.imp().volume.value() - 40.0).abs() < f64::EPSILON,
+            "a NaN from the bus leaves the slider where it was"
+        );
+        assert!(
+            volumes.borrow().is_empty(),
+            "following the player is not a request to change it"
+        );
+        mpris
+            .imp()
+            .volume
+            .emit_by_name::<()>("changed", &[&70.0f64]);
+        assert_eq!(volumes.borrow().as_slice(), [0.7]);
+        mpris.set_volume(None);
+        assert!(!mpris.imp().volume.get_visible());
 
         let rows = mpris.imp().list.imp().rows.borrow().clone();
         rows[1].emit_by_name::<()>("clicked", &[]);
@@ -3972,10 +4063,53 @@ mod tests {
                 .and_downcast::<gtk4::Revealer>()
         };
         let alert_notices = |weather: &WeatherPopover| -> Vec<Notice> {
-            children_of::<gtk4::Box>(&weather.imp().alerts.get())
+            children_of::<Expandable>(&weather.imp().alerts.get())
                 .iter()
-                .filter_map(|holder| holder.first_child().and_downcast::<Notice>())
+                .filter_map(Expandable::head::<Notice>)
                 .collect()
+        };
+        let opened = |weather: &WeatherPopover| -> Option<String> {
+            let imp = weather.imp();
+            if let Some(day) = imp
+                .days
+                .imp()
+                .holders
+                .borrow()
+                .iter()
+                .position(Expandable::expanded)
+            {
+                return Some(day_page(day as u32));
+            }
+            imp.notices
+                .borrow()
+                .iter()
+                .position(Expandable::expanded)
+                .map(alert_page)
+        };
+        let press = |weather: &WeatherPopover, key: &str| {
+            let imp = weather.imp();
+            if let Some(day) = key
+                .strip_prefix("day")
+                .and_then(|at| at.parse::<usize>().ok())
+            {
+                imp.days.imp().holders.borrow()[day]
+                    .head::<ForecastDay>()
+                    .expect("a day row")
+                    .emit_clicked();
+            }
+            if let Some(alert) = key
+                .strip_prefix("alert")
+                .and_then(|at| at.parse::<usize>().ok())
+            {
+                imp.notices.borrow()[alert]
+                    .head::<Notice>()
+                    .expect("a notice")
+                    .emit_by_name::<()>("clicked", &[]);
+            }
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
         };
 
         let page = |key: &str, title: &str| WeatherPage {
@@ -4006,13 +4140,14 @@ mod tests {
             precipitation: None,
             low: 11.0,
             high: 18.0,
+            now: None,
         }]);
         assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
 
-        assert_eq!(weather.is_open(), None);
-        weather.open("day0");
+        assert_eq!(opened(&weather), None);
+        press(&weather, "day0");
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "a detail nothing built cannot be opened"
         );
@@ -4024,6 +4159,7 @@ mod tests {
                 precipitation: None,
                 low: 11.0,
                 high: 18.0,
+                now: None,
             },
             Day {
                 label: "Wednesday".to_owned(),
@@ -4031,11 +4167,12 @@ mod tests {
                 precipitation: None,
                 low: 12.0,
                 high: 19.0,
+                now: None,
             },
         ]);
         weather.set_pages(&[page("day0", "Tomorrow"), page("day1", "Wednesday")]);
-        weather.open("day0");
-        assert_eq!(weather.is_open().as_deref(), Some("day0"));
+        press(&weather, "day0");
+        assert_eq!(opened(&weather).as_deref(), Some("day0"));
         assert!(
             day_panel(0).is_some_and(|panel| panel.is_ancestor(&weather.imp().days.get())),
             "a day's detail unfolds inside the list it belongs to, not beside the column"
@@ -4045,13 +4182,12 @@ mod tests {
             "every day travels with its own panel, so the list's children are holders"
         );
         assert!(
-            weather.imp().hero.has_css_class("receded")
-                && weather.imp().hourly.has_css_class("receded"),
+            dimmed(weather.imp().hero.upcast_ref()) && dimmed(weather.imp().hours.upcast_ref()),
             "an open detail is read against a quiet card, so everything else recedes"
         );
-        weather.open("day1");
+        press(&weather, "day1");
         assert_eq!(
-            weather.is_open().as_deref(),
+            opened(&weather).as_deref(),
             Some("day1"),
             "another day switches rather than closing"
         );
@@ -4059,22 +4195,22 @@ mod tests {
             day_panel(0).is_some_and(|panel| !panel.reveals_child()),
             "opening one day closes the one that was open"
         );
-        weather.open("day1");
+        press(&weather, "day1");
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "the control that opened the detail is the one that closes it"
         );
 
-        weather.open("day1");
+        press(&weather, "day1");
         weather.set_pages(&[page("day0", "Tomorrow")]);
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "a detail must not stand open on a page that has gone away"
         );
         assert!(
-            !weather.imp().hero.has_css_class("receded"),
+            !dimmed(weather.imp().hero.upcast_ref()),
             "and the card it was read against comes back up with it"
         );
 
@@ -4106,11 +4242,11 @@ mod tests {
         );
 
         raised[0].emit_by_name::<()>("clicked", &[]);
-        assert_eq!(weather.is_open().as_deref(), Some("alert0"));
+        assert_eq!(opened(&weather).as_deref(), Some("alert0"));
 
         raised[0].emit_by_name::<()>("clicked", &[]);
         assert_eq!(
-            weather.is_open(),
+            opened(&weather),
             None,
             "one handler, not one per reconcile: a second click closes rather than reopening"
         );
@@ -4122,9 +4258,9 @@ mod tests {
             Severity::Error,
         )]);
         ordered.set_pages(&[page("alert0", "Storm")]);
-        ordered.open("alert0");
+        press(&ordered, "alert0");
         assert_eq!(
-            ordered.is_open().as_deref(),
+            opened(&ordered).as_deref(),
             Some("alert0"),
             "a notice and its page arrive through different setters, and neither order may lose it"
         );
@@ -4322,10 +4458,6 @@ mod tests {
         );
 
         let popover = BluetoothPopover::new();
-        assert!(
-            popover.imp().nearby.property::<bool>("empty"),
-            "a section with no rows starts empty, or the first scan draws a heading over nothing"
-        );
         popover.set_adapter(
             "Bluetooth",
             "No device connected",
@@ -4334,7 +4466,7 @@ mod tests {
             true,
         );
         assert!(popover.imp().power.is_active());
-        assert!(!popover.imp().connected.get_visible());
+        assert!(!popover.imp().devices.get_visible());
 
         let entry = |id: &str, place: BluetoothPlace| BluetoothEntry {
             id: id.to_owned(),
@@ -4343,42 +4475,61 @@ mod tests {
             icon: "audio-headset-symbolic".to_owned(),
             place,
             value: String::new(),
-            selected: false,
             busy: false,
+            warning: false,
         };
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
             entry("c", BluetoothPlace::Paired),
         ]);
-        assert!(popover.imp().connected.get_visible());
-        assert_eq!(popover.imp().paired_held.borrow().len(), 2);
-        assert!(
-            !popover.imp().nearby.get_visible(),
-            "nearby is a scan, not a resting state"
+        assert!(popover.imp().devices.get_visible());
+        assert_eq!(
+            popover.imp().devices_held.borrow().len(),
+            3,
+            "connected and paired devices are one list"
         );
 
-        let first = popover
-            .imp()
-            .connected_held
-            .borrow()
-            .first()
-            .cloned()
-            .expect("a connected row")
-            .1;
+        let holder = |id: &str| -> Expandable {
+            let imp = popover.imp();
+            for held in [&imp.devices_held, &imp.nearby_held] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder.clone();
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+        let rows_of = |id: &str| -> Vec<Row> {
+            children_of::<Row>(
+                &holder(id)
+                    .details::<gtk4::Box>()
+                    .expect("an opened device has a card"),
+            )
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+
+        let first = holder("a");
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
         ]);
         assert_eq!(
-            popover
-                .imp()
-                .connected_held
-                .borrow()
-                .first()
-                .map(|(_, holder)| holder.clone()),
-            Some(first),
-            "a key that stays keeps its widget, and its panel with it"
+            holder("a"),
+            first,
+            "a key that stays keeps its widget, and its card with it"
+        );
+        assert!(
+            holder("a").head::<SplitRow>().is_none(),
+            "a device in use opens its card from the whole row, so a click can never disconnect it"
+        );
+        assert!(
+            holder("b")
+                .head::<SplitRow>()
+                .is_some_and(|split| split.detail().get_visible()),
+            "a paired device connects on its body and opens its card from the chevron"
         );
 
         let acted = Rc::new(RefCell::new(Vec::new()));
@@ -4386,51 +4537,25 @@ mod tests {
             let acted = Rc::clone(&acted);
             move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
         });
+        let activated = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id.to_owned())
+        });
 
-        let panel = |id: &str| -> gtk4::Revealer {
-            let imp = popover.imp();
-            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
-                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                    return holder
-                        .last_child()
-                        .and_downcast::<gtk4::Revealer>()
-                        .expect("a device row carries its own panel");
-                }
-            }
-            panic!("no row is holding {id}");
+        let trust = |on: bool| BluetoothLine {
+            action: "trust".to_owned(),
+            title: "Connect automatically".to_owned(),
+            toggle: Some(on),
+            ..Default::default()
         };
-        let panel_rows = |id: &str| -> Vec<Row> {
-            let page = panel(id)
-                .child()
-                .and_downcast::<gtk4::Box>()
-                .expect("an opened panel has a page");
-            children_of::<Row>(&page)
+        let forget = BluetoothLine {
+            action: "forget".to_owned(),
+            title: "Forget this device".to_owned(),
+            activates: true,
+            ..Default::default()
         };
-        let head = |id: &str| -> gtk4::Widget {
-            let imp = popover.imp();
-            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
-                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                    return holder.first_child().expect("a holder leads with its row");
-                }
-            }
-            panic!("no row is holding {id}");
-        };
-
-        assert!(
-            popover
-                .imp()
-                .paired_held
-                .borrow()
-                .iter()
-                .all(|(_, holder)| {
-                    holder
-                        .last_child()
-                        .and_downcast::<gtk4::Revealer>()
-                        .is_some_and(|panel| !panel.reveals_child())
-                }),
-            "a device reveals nothing until it is selected"
-        );
-        popover.set_details(Some(&BluetoothDetails {
+        let in_use = |on: bool| BluetoothDetails {
             id: "a".to_owned(),
             lines: vec![
                 BluetoothLine {
@@ -4439,40 +4564,42 @@ mod tests {
                     activates: true,
                     ..Default::default()
                 },
+                trust(on),
                 BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(false),
+                    action: "battery".to_owned(),
+                    title: "Battery".to_owned(),
+                    value: "72%".to_owned(),
                     ..Default::default()
                 },
-                BluetoothLine {
-                    action: "address".to_owned(),
-                    title: "Address".to_owned(),
-                    value: "F8:4E:17:BC:EE:D5".to_owned(),
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "forget".to_owned(),
-                    title: "Forget this device".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
+                forget.clone(),
             ],
-        }));
+        };
+        let paired = BluetoothDetails {
+            id: "b".to_owned(),
+            lines: vec![trust(true), forget.clone()],
+        };
+        popover.set_details(&[in_use(false), paired.clone()]);
         assert!(
-            panel("a").reveals_child(),
-            "the detail belongs under the device it describes, not beside the list"
-        );
-        assert!(
-            !head("a").has_css_class("receded"),
-            "the device that was opened is the one thing that must not recede"
-        );
-        assert!(
-            head("b").has_css_class("receded") && popover.imp().hero.has_css_class("receded"),
-            "everything the panel is read against recedes while it is open"
+            !holder("a").expanded(),
+            "handing the details over opens nothing"
         );
 
-        let lines = panel_rows("a");
+        holder("a")
+            .head::<Row>()
+            .expect("a plain row")
+            .emit_clicked();
+        assert!(
+            holder("a").expanded() && activated.borrow().is_empty(),
+            "the whole row of a device in use opens its card and reports nothing"
+        );
+        let a_head = holder("a").head::<gtk4::Widget>().expect("a head");
+        let b_head = holder("b").head::<gtk4::Widget>().expect("a head");
+        assert!(
+            !dimmed(&a_head) && dimmed(&b_head) && dimmed(popover.imp().hero.upcast_ref()),
+            "everything the card is read against recedes while it is open"
+        );
+
+        let lines = rows_of("a");
         assert_eq!(lines.len(), 4);
         assert!(
             lines[1].clone().downcast::<SwitchRow>().is_ok(),
@@ -4506,29 +4633,7 @@ mod tests {
             .and_downcast::<gtk4::Switch>()
             .expect("a toggle row carries a switch");
         assert!(!switch.is_active());
-        popover.set_details(Some(&BluetoothDetails {
-            id: "a".to_owned(),
-            lines: vec![
-                BluetoothLine {
-                    action: "disconnect".to_owned(),
-                    title: "Disconnect".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(true),
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "address".to_owned(),
-                    title: "Address".to_owned(),
-                    value: "F8:4E:17:BC:EE:D5".to_owned(),
-                    ..Default::default()
-                },
-            ],
-        }));
+        popover.set_details(&[in_use(true), paired.clone()]);
         assert!(
             switch.is_active(),
             "a reused row must follow the backend, not the last click"
@@ -4539,66 +4644,98 @@ mod tests {
             "redressing the switch is not the user toggling it"
         );
 
-        popover.set_details(Some(&BluetoothDetails {
-            id: "b".to_owned(),
-            lines: vec![
-                BluetoothLine {
-                    action: "disconnect".to_owned(),
-                    title: "Disconnect".to_owned(),
-                    activates: true,
-                    ..Default::default()
-                },
-                BluetoothLine {
-                    action: "trust".to_owned(),
-                    title: "Connect automatically".to_owned(),
-                    toggle: Some(false),
-                    ..Default::default()
-                },
-            ],
-        }));
+        holder("b")
+            .head::<SplitRow>()
+            .expect("a split row")
+            .emit_by_name::<()>("details", &[]);
         assert!(
-            !panel("a").reveals_child() && panel("b").reveals_child(),
+            !holder("a").expanded() && holder("b").expanded(),
             "opening one device closes the one that was open"
         );
         acted.borrow_mut().clear();
-        panel_rows("b")[0].emit_by_name::<()>("clicked", &[]);
+        rows_of("b")[1].emit_by_name::<()>("clicked", &[]);
         assert_eq!(
             *acted.borrow(),
-            ["b/disconnect"],
+            ["b/forget"],
             "a row whose action key repeats across devices must not act on the one no longer shown"
         );
+        popover.collapse("b");
+        assert!(
+            !holder("b").expanded(),
+            "an action that succeeded closes the card it was taken from"
+        );
+        holder("b")
+            .head::<SplitRow>()
+            .expect("a split row")
+            .emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            *activated.borrow(),
+            ["b"],
+            "a paired device's body connects"
+        );
 
-        popover.set_scanning(true);
+        let mut fragile = entry("b", BluetoothPlace::Paired);
+        fragile.warning = true;
+        popover.set_entries(&[entry("a", BluetoothPlace::Connected), fragile]);
+        assert!(
+            holder("b").head::<SplitRow>().is_some_and(|split| split
+                .row()
+                .has_css_class("bluetooth-popover__device--warning")),
+            "a pairing that will not survive a restart is marked on the row itself"
+        );
+
+        let pressed = Rc::new(Cell::new(0u32));
+        popover.connect_nearby_toggled({
+            let pressed = Rc::clone(&pressed);
+            move |_| pressed.set(pressed.get() + 1)
+        });
+
+        popover.set_nearby(0, true);
+        assert!(
+            !popover.imp().nearby.get_visible(),
+            "nothing found is no header at all, never an open list over nothing"
+        );
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
             entry("b", BluetoothPlace::Paired),
             entry("n", BluetoothPlace::Nearby),
         ]);
-        popover.set_details(Some(&BluetoothDetails {
-            id: "n".to_owned(),
-            lines: vec![BluetoothLine {
-                action: "pair".to_owned(),
-                title: "Pair this device".to_owned(),
-                activates: true,
-                ..Default::default()
-            }],
-        }));
+        popover.set_nearby(1, false);
         assert!(
-            panel("n").reveals_child() && popover.imp().hero.has_css_class("receded"),
-            "a nearby device opens like any other"
+            popover.imp().nearby.get_visible()
+                && !popover.imp().nearby_list.reveals_child()
+                && !popover.imp().search.has_css_class("open"),
+            "closed, Nearby devices is one header line, the same as Other networks"
         );
-        popover.set_scanning(false);
+        popover.set_nearby(1, true);
         assert!(
-            !popover.imp().hero.has_css_class("receded")
-                && !head("a").has_css_class("receded")
-                && !panel("n").reveals_child(),
-            "the scan ending takes the nearby card away, so nothing may stay dimmed against it"
+            popover.imp().nearby_list.reveals_child() && popover.imp().search.has_css_class("open"),
+            "open, its chevron turns and the list shows"
         );
-        popover.set_details(None);
-        popover.set_entries(&[
-            entry("a", BluetoothPlace::Connected),
-            entry("b", BluetoothPlace::Paired),
-        ]);
+        let nearby = holder("n").head::<SplitRow>().expect("a split row");
+        assert!(
+            !nearby.detail().get_visible(),
+            "a nearby device has nothing to manage, so it has no chevron"
+        );
+        nearby.emit_by_name::<()>("details", &[]);
+        assert!(!holder("n").expanded(), "and no card to open");
+        nearby.emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            *activated.borrow(),
+            ["b", "n"],
+            "its body is the one action: pair it"
+        );
+        assert_eq!(
+            pressed.get(),
+            0,
+            "redressing the header is not the user pressing it"
+        );
+        popover.imp().search.emit_clicked();
+        assert_eq!(pressed.get(), 1, "the header is the toggle");
+
+        popover.set_controls_sensitive(false);
+        assert!(!popover.imp().search.get_sensitive());
+        popover.set_controls_sensitive(true);
 
         let width =
             |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
@@ -4627,15 +4764,24 @@ mod tests {
                 "a hero subtitle that grows with the device list widened the whole card"
             );
 
-            probe.set_details(Some(&BluetoothDetails {
+            probe.set_details(&[BluetoothDetails {
                 id: "a".to_owned(),
                 lines: vec![BluetoothLine {
-                    action: "services".to_owned(),
-                    title: "Services".to_owned(),
+                    action: "codec".to_owned(),
+                    title: "Codec".to_owned(),
                     value: "Audio, Calls, Remote control, Network, File transfer".to_owned(),
                     ..Default::default()
                 }],
-            }));
+            }]);
+            let opened = probe
+                .imp()
+                .devices_held
+                .borrow()
+                .first()
+                .map(|(_, holder)| holder.clone())
+                .expect("the device");
+            opened.head::<Row>().expect("a plain row").emit_clicked();
+            assert!(opened.expanded());
             assert_eq!(
                 width(&probe),
                 floor,
@@ -4643,7 +4789,6 @@ mod tests {
                  resizes the card under the pointer that opened it"
             );
 
-            probe.set_details(None);
             let answers = Rc::new(RefCell::new(Vec::new()));
             probe.connect_answered({
                 let answers = Rc::clone(&answers);
@@ -4660,6 +4805,10 @@ mod tests {
                 cancel: "Cancel".to_owned(),
                 destructive: false,
             }));
+            assert!(
+                !opened.expanded(),
+                "a prompt takes the card over, so a device card left open behind it would dim it"
+            );
             assert_eq!(
                 width(&probe),
                 floor,
@@ -4726,76 +4875,6 @@ mod tests {
             );
             assert!(probe.imp().hero.get_sensitive() && probe.imp().footer.get_sensitive());
         }
-        popover.set_details(None);
-        let closed = width(&popover);
-        popover.set_details(Some(&BluetoothDetails {
-            id: "a".to_owned(),
-            lines: vec![BluetoothLine {
-                action: "address".to_owned(),
-                title: "Address".to_owned(),
-                value: "F8:4E:17:BC:EE:D5".to_owned(),
-                ..Default::default()
-            }],
-        }));
-        assert_eq!(
-            width(&popover),
-            closed,
-            "a card that widens when a device opens moves every row under the pointer that opened it"
-        );
-
-        popover.set_details(None);
-        assert!(!panel("a").reveals_child() && !panel("b").reveals_child());
-        assert!(
-            !head("a").has_css_class("receded") && !popover.imp().hero.has_css_class("receded"),
-            "closing the panel gives the card back"
-        );
-
-        let flips = Rc::new(RefCell::new(Vec::new()));
-        popover.connect_scanning({
-            let flips = Rc::clone(&flips);
-            move |_, on| flips.borrow_mut().push(("search", on))
-        });
-        popover.connect_discoverable({
-            let flips = Rc::clone(&flips);
-            move |_, on| flips.borrow_mut().push(("discoverable", on))
-        });
-
-        assert!(!popover.imp().search.active());
-        popover.set_scanning(true);
-        assert!(popover.imp().search.active());
-        assert!(popover.imp().nearby.get_visible());
-        assert!(
-            popover.imp().nearby.property::<bool>("empty"),
-            "a scan with nothing found yet shows the placeholder, not a header over nothing"
-        );
-        popover.set_scanning(false);
-        assert!(!popover.imp().search.active());
-
-        popover.set_discoverable(true);
-        assert!(popover.imp().discoverable.active());
-        popover.set_discoverable(false);
-        assert!(
-            flips.borrow().is_empty(),
-            "reconciling a switch from the adapter must not look like the user flipping it, or \
-             every published state would fire a command back at bluez"
-        );
-
-        popover.set_discoverable(true);
-        flips.borrow_mut().clear();
-        popover.imp().search.emit_clicked();
-        popover.imp().discoverable.emit_clicked();
-        assert_eq!(
-            *flips.borrow(),
-            [("search", true), ("discoverable", false)],
-            "a press moves the knob, and the knob's notify is the one emitter"
-        );
-        assert!(popover.imp().search.active() && !popover.imp().discoverable.active());
-
-        popover.set_controls_sensitive(false);
-        assert!(
-            !popover.imp().search.get_sensitive() && !popover.imp().discoverable.get_sensitive()
-        );
-        popover.set_controls_sensitive(true);
 
         let dialog = PairingDialog::new();
         let answers = Rc::new(RefCell::new(Vec::new()));
@@ -4895,15 +4974,15 @@ mod tests {
                 title: "Skylink".to_owned(),
                 subtitle: "WPA2 \u{b7} 5 GHz".to_owned(),
                 icon: "network-wireless-signal-good-symbolic".to_owned(),
-                place: NetworkPlace::Networks,
+                place: NetworkPlace::Other,
                 secured: true,
-                selected: true,
+                selected: false,
                 busy: false,
             },
             NetworkEntry {
                 id: "/s/1".to_owned(),
                 title: "Skylink 2G".to_owned(),
-                place: NetworkPlace::Known,
+                place: NetworkPlace::Wifi,
                 ..Default::default()
             },
         ];
@@ -4916,7 +4995,7 @@ mod tests {
 
         let held = all_named(&network, "network-popover__row");
         let mut renamed = entries.clone();
-        renamed[0].title = "Skylink 5G".to_owned();
+        renamed[1].title = "Skylink 5G".to_owned();
         network.set_entries(&renamed);
         let again = all_named(&network, "network-popover__row");
         assert!(
@@ -4938,8 +5017,8 @@ mod tests {
         let net_panel = |id: &str| -> gtk4::Revealer {
             let imp = network.imp();
             for held in [
-                &imp.network_held,
-                &imp.known_held,
+                &imp.other_held,
+                &imp.wifi_held,
                 &imp.wired_held,
                 &imp.vpn_held,
             ] {
@@ -4955,8 +5034,8 @@ mod tests {
         let net_head = |id: &str| -> gtk4::Widget {
             let imp = network.imp();
             for held in [
-                &imp.network_held,
-                &imp.known_held,
+                &imp.other_held,
+                &imp.wifi_held,
                 &imp.wired_held,
                 &imp.vpn_held,
             ] {
@@ -4995,7 +5074,7 @@ mod tests {
 
         assert!(
             !net_panel("/ap/1").reveals_child(),
-            "a network reveals nothing until it is selected"
+            "a network reveals nothing until its chevron opens it"
         );
 
         let lines = vec![
@@ -5018,18 +5097,34 @@ mod tests {
                 ..Default::default()
             },
         ];
-        network.set_details(Some(&NetworkDetails {
-            id: "/ap/1".to_owned(),
+        let card = |id: &str| NetworkDetails {
+            id: id.to_owned(),
             lines: lines.clone(),
-        }));
+        };
+        let chevron = |id: &str| {
+            net_head(id)
+                .downcast::<SplitRow>()
+                .expect("a split row")
+                .emit_by_name::<()>("details", &[])
+        };
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+        network.set_details(&[card("/ap/1"), card("/s/1")]);
+        assert!(
+            !net_panel("/ap/1").reveals_child(),
+            "handing the details over opens nothing; the chevron does"
+        );
+        chevron("/ap/1");
         assert!(
             net_panel("/ap/1").reveals_child(),
             "the detail belongs under the network it describes, not beside the list"
         );
         assert!(
-            !net_head("/ap/1").has_css_class("receded")
-                && net_head("/s/1").has_css_class("receded")
-                && network.imp().hero.has_css_class("receded"),
+            !dimmed(&net_head("/ap/1"))
+                && dimmed(&net_head("/s/1"))
+                && dimmed(network.imp().hero.upcast_ref()),
             "everything the panel is read against recedes while it is open"
         );
         let opened = net_rows("/ap/1");
@@ -5044,10 +5139,7 @@ mod tests {
             let acted = Rc::clone(&acted);
             move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
         });
-        network.set_details(Some(&NetworkDetails {
-            id: "/s/1".to_owned(),
-            lines,
-        }));
+        chevron("/s/1");
         assert!(
             !net_panel("/ap/1").reveals_child() && net_panel("/s/1").reveals_child(),
             "opening one network closes the one that was open"
@@ -5059,22 +5151,48 @@ mod tests {
             "a row whose action key repeats across networks must not forget the one no longer shown"
         );
 
-        network.set_details(None);
+        network.set_details(&[card("/ap/1")]);
         assert!(
             !net_panel("/s/1").reveals_child()
-                && !net_head("/ap/1").has_css_class("receded")
-                && !network.imp().hero.has_css_class("receded"),
-            "closing the card takes the dimming with it"
+                && !dimmed(&net_head("/ap/1"))
+                && !dimmed(network.imp().hero.upcast_ref()),
+            "a network whose detail is gone closes, and takes the dimming with it"
+        );
+
+        let joined = Rc::new(RefCell::new(Vec::new()));
+        network.connect_activated({
+            let joined = Rc::clone(&joined);
+            move |_, id| joined.borrow_mut().push(id.to_owned())
+        });
+        let mut connected = entries.clone();
+        connected[0].selected = true;
+        network.set_entries(&connected);
+        let head = net_head("/ap/1");
+        assert!(
+            !head.is::<SplitRow>(),
+            "a network in use is one row with no join target, so a click cannot disconnect it"
+        );
+        head.downcast::<Row>()
+            .expect("a plain row")
+            .emit_by_name::<()>("clicked", &[]);
+        assert!(
+            net_panel("/ap/1").reveals_child() && joined.borrow().is_empty(),
+            "its whole row opens its card, where Disconnect lives, and reports nothing"
+        );
+        network.set_entries(&entries);
+        assert!(
+            net_head("/ap/1").is::<SplitRow>(),
+            "once it is no longer in use its row joins again"
         );
 
         network.set_entries(&[]);
         assert!(
-            !network.imp().networks.get_visible(),
+            !network.imp().other.get_visible(),
             "with no networks and no scan there is nothing to head"
         );
         network.set_scanning(true);
         assert!(
-            network.imp().networks.get_visible() && network.imp().networks.empty(),
+            network.imp().other.get_visible() && network.imp().other.empty(),
             "a scan that has found nothing yet is the whole reason the placeholder exists; a \
              hidden section shows it to nobody"
         );
@@ -5234,8 +5352,25 @@ mod tests {
             "the retry says the last password was refused"
         );
 
-        network.set_overflow(Some("3 more networks"));
-        network.set_overflow(None);
+        network.set_others(3, false, None);
+        let header = &network.imp().more;
+        assert!(
+            header.get_visible()
+                && header.value().is_none()
+                && !header.has_css_class("open")
+                && !network.imp().all.get_visible(),
+            "closed, Other networks is one header line, with no count beside it"
+        );
+        network.set_others(12, true, Some("4 more networks"));
+        assert!(
+            header.has_css_class("open") && network.imp().all.get_visible(),
+            "open and capped, the header turns and the list ends in a row that shows the rest"
+        );
+        network.set_others(0, false, None);
+        assert!(
+            !header.get_visible(),
+            "no stranger in range, no header to open"
+        );
 
         let audio = AudioPopover::new();
         assert_eq!(audio.imp().hero.title().as_deref(), Some("Sound"));
@@ -5245,8 +5380,15 @@ mod tests {
             "neither fader is accented; both take the default white track the brightness fader uses"
         );
 
-        audio.set_readout(Some("42%"));
-        assert_eq!(audio.imp().readout.value().as_deref(), Some("42%"));
+        audio.set_heading("audio-volume-muted-symbolic", Some("Speakers"), true);
+        assert!(
+            audio.imp().hero.subtitle().as_deref() == Some("Speakers")
+                && audio.imp().hero.has_css_class("audio-popover__hero--muted"),
+            "the header follows the output: its device, and the warning colour while muted"
+        );
+        audio.set_heading("audio-volume-high-symbolic", Some("Speakers"), false);
+        assert!(!audio.imp().hero.has_css_class("audio-popover__hero--muted"));
+
         audio.set_footer(Some("Sound settings"));
         assert!(audio.imp().footer.get_visible());
 
@@ -5265,50 +5407,46 @@ mod tests {
             },
         ];
         audio.set_outputs(&out_entries);
-        assert_eq!(
-            all_named(&audio, "audio-popover__device").len(),
-            2,
-            "one row per output device"
-        );
         assert!(audio.imp().outputs.get_visible());
-
-        let held = all_named(&audio, "audio-popover__device");
-        audio.set_outputs(&out_entries);
         assert_eq!(
-            all_named(&audio, "audio-popover__device"),
-            held,
-            "an unchanged slice is not re-applied"
+            audio.imp().output_current.title().as_deref(),
+            Some("Speakers"),
+            "one row names the device in use"
+        );
+        let listed = || children_of::<Row>(&audio.imp().output_rows.get());
+        assert_eq!(listed().len(), 2, "its card lists every output device");
+        assert!(
+            !audio.imp().output_device.expanded(),
+            "the list stays closed until the row opens it"
         );
 
+        let held = listed();
         let mut renamed = out_entries.clone();
         renamed[0].title = "Studio monitors".to_owned();
         audio.set_outputs(&renamed);
-        let again = all_named(&audio, "audio-popover__device");
         assert!(
-            held[0] == again[0],
+            held[0] == listed()[0],
             "a row whose content changed is updated in place, not replaced"
         );
         assert_eq!(
-            again[0]
-                .clone()
-                .downcast::<Row>()
-                .expect("a device row")
-                .title()
-                .map(|title| title.to_string()),
-            Some("Studio monitors".to_owned())
+            audio.imp().output_current.title().as_deref(),
+            Some("Studio monitors")
         );
 
+        audio.imp().output_current.emit_clicked();
+        assert!(audio.imp().output_device.expanded());
         let selected = Rc::new(RefCell::new(Vec::new()));
         audio.connect_device_selected({
             let selected = Rc::clone(&selected);
             move |_, dir, id| selected.borrow_mut().push(format!("{dir}/{id}"))
         });
-        again[1]
-            .clone()
-            .downcast::<Row>()
-            .expect("a device row")
-            .emit_clicked();
+        listed()[1].emit_clicked();
         assert_eq!(*selected.borrow(), ["output/sink-2"]);
+        audio.collapse("output");
+        assert!(
+            !audio.imp().output_device.expanded(),
+            "a switch that succeeded closes the card it was chosen from"
+        );
 
         audio.set_outputs(&[]);
         assert!(
@@ -5323,6 +5461,11 @@ mod tests {
             ..Default::default()
         }]);
         assert!(audio.imp().inputs.get_visible());
+        assert_eq!(
+            audio.imp().input_current.title().as_deref(),
+            Some("Microphone"),
+            "with no default reported the first device names the row"
+        );
 
         let levels = Rc::new(RefCell::new(Vec::new()));
         audio.connect_level_changed({
@@ -5350,7 +5493,7 @@ mod tests {
             AudioEntry {
                 id: "app-a".to_owned(),
                 title: "Firefox".to_owned(),
-                value: Some("64%".to_owned()),
+                muted_icon: Some("audio-volume-muted-symbolic".to_owned()),
                 ..Default::default()
             },
             AudioEntry {
@@ -5363,39 +5506,36 @@ mod tests {
         assert_eq!(all_named(&audio, "audio-popover__app").len(), 2);
         assert!(audio.imp().apps.get_visible());
 
-        let app_panel = |id: &str| -> gtk4::Revealer {
-            let imp = audio.imp();
-            let held = imp.app_held.borrow();
-            let (_, holder) = held.iter().find(|(key, _)| key == id).expect("a held app");
-            holder
-                .last_child()
-                .and_downcast::<gtk4::Revealer>()
-                .expect("an app row carries its own panel")
+        let app = |id: &str| -> Expandable {
+            audio
+                .imp()
+                .app_held
+                .borrow()
+                .iter()
+                .find(|(key, _)| key == id)
+                .map(|(_, holder)| holder.clone())
+                .expect("a held app")
         };
-        let app_head = |id: &str| -> gtk4::Widget {
-            let imp = audio.imp();
-            let held = imp.app_held.borrow();
-            let (_, holder) = held.iter().find(|(key, _)| key == id).expect("a held app");
-            holder.first_child().expect("a holder leads with its row")
+        let app_head = |id: &str| -> Row { app(id).head::<Row>().expect("an app row") };
+        let muted_glyph = |id: &str| -> gtk4::Image {
+            app_head(id)
+                .trail()
+                .and_then(|trail| trail.first_child())
+                .and_downcast::<gtk4::Image>()
+                .expect("an app row's trail leads with its muted glyph")
         };
-
         assert!(
-            !app_panel("app-a").reveals_child(),
-            "an application reveals nothing until it is selected"
+            muted_glyph("app-a").get_visible()
+                && muted_glyph("app-a").has_css_class("audio-popover__muted")
+                && !muted_glyph("app-b").get_visible(),
+            "a muted app shows the muted glyph, in the warning colour, instead of a word"
         );
 
-        let app_selected = Rc::new(RefCell::new(Vec::new()));
-        audio.connect_app_selected({
-            let app_selected = Rc::clone(&app_selected);
-            move |_, id| app_selected.borrow_mut().push(id.to_owned())
-        });
-        app_head("app-a")
-            .downcast::<Row>()
-            .expect("an app row")
-            .emit_clicked();
-        assert_eq!(*app_selected.borrow(), ["app-a"]);
-
-        audio.set_details(Some(&AudioDetails {
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+        let single_role = AudioDetails {
             id: "app-a".to_owned(),
             blocks: vec![AudioBlock {
                 dir: "output".to_owned(),
@@ -5409,34 +5549,57 @@ mod tests {
                 }],
                 ..Default::default()
             }],
-        }));
+        };
+        let two_roles = AudioDetails {
+            id: "app-b".to_owned(),
+            blocks: vec![
+                AudioBlock {
+                    dir: "output".to_owned(),
+                    heading: Some("Output".to_owned()),
+                    volume: 40.0,
+                    adjustable: true,
+                    ..Default::default()
+                },
+                AudioBlock {
+                    dir: "input".to_owned(),
+                    heading: Some("Input".to_owned()),
+                    muted: true,
+                    adjustable: false,
+                    devices: vec![AudioEntry {
+                        id: "source-1".to_owned(),
+                        title: "Microphone".to_owned(),
+                        selected: true,
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                },
+            ],
+        };
+        audio.set_details(&[single_role, two_roles.clone()]);
         assert!(
-            app_panel("app-a").reveals_child(),
+            !app("app-a").expanded(),
+            "handing the details over opens nothing; the row does"
+        );
+
+        app_head("app-a").emit_clicked();
+        assert!(
+            app("app-a").expanded() && app("app-a").has_css_class("open"),
             "the card belongs under the application it describes, not beside the list"
         );
         assert!(
-            app_head("app-a").has_css_class("open") && !app_head("app-a").has_css_class("receded"),
-            "recede marks exactly one row open"
+            dimmed(app_head("app-b").upcast_ref())
+                && dimmed(audio.imp().output.upcast_ref())
+                && dimmed(audio.imp().hero.upcast_ref())
+                && !dimmed(app_head("app-a").upcast_ref()),
+            "everything the card is read against recedes while it is open"
         );
-        assert!(
-            app_head("app-b").has_css_class("receded") && !app_head("app-b").has_css_class("open"),
-            "and every other application row recedes"
-        );
-        assert!(
-            audio.imp().output.has_css_class("receded")
-                && audio.imp().input.has_css_class("receded"),
-            "both master faders recede while a card is open"
-        );
-        assert!(audio.imp().hero.has_css_class("receded"));
-        assert!(audio.imp().footer.has_css_class("receded"));
 
         let card_blocks = |id: &str| -> Vec<gtk4::Box> {
-            let panel = app_panel(id);
-            let card = panel
-                .child()
-                .and_downcast::<gtk4::Box>()
-                .expect("an opened panel has a card");
-            children_of::<gtk4::Box>(&card)
+            children_of::<gtk4::Box>(
+                &app(id)
+                    .details::<gtk4::Box>()
+                    .expect("an opened app has a card"),
+            )
         };
         let heading_label = |block: &gtk4::Box| -> gtk4::Label {
             children_of::<gtk4::Label>(block)
@@ -5470,36 +5633,11 @@ mod tests {
         assert_eq!(block_fader(&single[0]).value(), 64.0);
         assert!(block_fader(&single[0]).is_sensitive());
 
-        audio.set_details(Some(&AudioDetails {
-            id: "app-b".to_owned(),
-            blocks: vec![
-                AudioBlock {
-                    dir: "output".to_owned(),
-                    heading: Some("Output".to_owned()),
-                    volume: 40.0,
-                    adjustable: true,
-                    ..Default::default()
-                },
-                AudioBlock {
-                    dir: "input".to_owned(),
-                    heading: Some("Input".to_owned()),
-                    muted: true,
-                    adjustable: false,
-                    devices: vec![AudioEntry {
-                        id: "source-1".to_owned(),
-                        title: "Microphone".to_owned(),
-                        selected: true,
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                },
-            ],
-        }));
+        app_head("app-b").emit_clicked();
         assert!(
-            !app_panel("app-a").reveals_child(),
+            !app("app-a").expanded() && app("app-b").expanded(),
             "opening one application closes the one that was open"
         );
-        assert!(app_panel("app-b").reveals_child());
 
         let pair = card_blocks("app-b");
         assert_eq!(
@@ -5522,6 +5660,11 @@ mod tests {
         let device_rows = children_of::<Row>(&block_devices_box(&pair[1]));
         assert_eq!(device_rows.len(), 1);
         assert!(device_rows[0].selected());
+        assert_eq!(
+            children_of::<Row>(&block_devices_box(&card_blocks("app-a")[0])).len(),
+            1,
+            "refreshing one app's card leaves another app's rows where they are"
+        );
 
         let moved = Rc::new(RefCell::new(Vec::new()));
         audio.connect_app_moved({
@@ -5551,24 +5694,17 @@ mod tests {
         block_fader(&pair[1]).emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(*app_toggles.borrow(), ["app-b/input/true"]);
 
-        audio.set_details(None);
+        audio.collapse("app-b");
         assert!(
-            !app_panel("app-a").reveals_child() && !app_panel("app-b").reveals_child(),
-            "set_details(None) closes every holder"
-        );
-        assert!(
-            !app_head("app-a").has_css_class("receded")
-                && !app_head("app-b").has_css_class("receded"),
-            "closing the card takes the dimming with it"
+            !app("app-b").expanded() && !dimmed(app_head("app-a").upcast_ref()),
+            "a move that succeeded closes the card, and takes the dimming with it"
         );
 
-        audio.set_details(Some(&AudioDetails {
-            id: "app-ghost".to_owned(),
-            blocks: Vec::new(),
-        }));
+        audio.set_details(&[two_roles]);
+        app_head("app-a").emit_clicked();
         assert!(
-            !app_panel("app-a").reveals_child() && !app_panel("app-b").reveals_child(),
-            "an id not in the list opens nothing"
+            !app("app-a").expanded(),
+            "an app whose detail is gone has no card to open"
         );
 
         audio.set_apps(&[]);
@@ -5578,20 +5714,17 @@ mod tests {
         );
         audio.set_apps(&apps);
 
-        audio.set_overflow(Some("2 more outputs"), None, Some("3 more apps"));
-        assert!(audio.imp().more_outputs.get_visible());
-        assert!(!audio.imp().more_inputs.get_visible());
+        audio.set_more_apps(Some("3 more apps"));
         assert!(audio.imp().more_apps.get_visible());
-
         let expanded = Rc::new(RefCell::new(Vec::new()));
         audio.connect_expanded({
             let expanded = Rc::clone(&expanded);
             move |_, place| expanded.borrow_mut().push(place.to_owned())
         });
-        audio.imp().more_outputs.emit_clicked();
-        assert_eq!(*expanded.borrow(), ["outputs"]);
-        audio.set_overflow(None, None, None);
-        assert!(!audio.imp().more_outputs.get_visible() && !audio.imp().more_apps.get_visible());
+        audio.imp().more_apps.emit_clicked();
+        assert_eq!(*expanded.borrow(), ["apps"]);
+        audio.set_more_apps(None);
+        assert!(!audio.imp().more_apps.get_visible());
 
         let footer_activated = Rc::new(Cell::new(0u32));
         audio.connect_footer_activated({
@@ -5610,6 +5743,7 @@ mod tests {
         let source = |key: &str, name: &str, value: f64, maximum: f64, floor: f64| Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum,
             floor,
@@ -5734,6 +5868,7 @@ mod tests {
             current_mode: Some(mode.clone()),
             logical: Some(logical.clone()),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -5745,34 +5880,43 @@ mod tests {
             current_mode: Some(mode.clone()),
             logical: Some(logical.clone()),
             enabled: true,
+            built_in: false,
         };
 
-        let detail_of = |holder: &gtk4::Box| -> (FactList, SwitchRow) {
-            let body = crate::drawer::panel(holder)
-                .and_then(|panel| panel.child())
-                .expect("a detail body");
-            let facts = body
+        let detail_of = |holder: &Expandable| -> (FactList, SwitchRow) {
+            let body = holder.details::<gtk4::Box>().expect("a detail body");
+            let switch = body
                 .first_child()
-                .and_downcast::<FactList>()
-                .expect("a fact list");
-            let switch = facts
-                .next_sibling()
                 .and_downcast::<SwitchRow>()
-                .expect("a switch row");
+                .expect("the enable switch leads the detail");
+            let facts = switch
+                .next_sibling()
+                .and_downcast::<FactList>()
+                .expect("the fact list follows the switch");
             (facts, switch)
         };
-        let heads_of = |holders: &[gtk4::Box]| -> Vec<Row> {
-            holders.iter().filter_map(crate::drawer::head).collect()
+        let heads_of = |holders: &[Expandable]| -> Vec<Row> {
+            holders.iter().filter_map(Expandable::head).collect()
         };
 
         displays.set_displays(&[built_in.clone(), external.clone()]);
         let heads: Vec<Row> = heads_of(&children_of(&displays));
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         assert_eq!(heads.len(), 2);
         assert_eq!(holders.len(), 2);
         for head in &heads {
             let _chevron = child_named::<gtk4::Image>(head, "drawer-chevron");
         }
+        assert_eq!(heads[0].lead_icon().as_deref(), Some("computer-symbolic"));
+        assert_eq!(
+            heads[1].lead_icon().as_deref(),
+            Some("video-display-symbolic")
+        );
+        assert_eq!(
+            heads[0].subtitle().as_deref(),
+            Some("1920 × 1080 · 60 Hz"),
+            "an enabled display's head carries its current mode"
+        );
 
         let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
         let (external_facts, external_switch) = detail_of(&holders[1]);
@@ -5780,11 +5924,18 @@ mod tests {
         let external_fact_rows: Vec<Row> = children_of(&external_facts);
         assert_eq!(
             built_in_fact_rows.len(),
-            4,
+            3,
             "the connector always leads the detail; a display with no make, model or serial omits \
              those lines rather than rendering Unknown or an empty row"
         );
-        assert_eq!(external_fact_rows.len(), 7);
+        assert_eq!(external_fact_rows.len(), 6);
+        assert!(
+            built_in_fact_rows
+                .iter()
+                .chain(&external_fact_rows)
+                .all(|row| row.title().as_deref() != Some("Current mode")),
+            "the current mode is the head's subtitle, never repeated as a fact"
+        );
         assert!(
             !built_in_fact_rows
                 .iter()
@@ -5812,7 +5963,7 @@ mod tests {
         let mut off = external.clone();
         off.enabled = false;
         displays.set_displays(&[solo.clone(), off.clone()]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let (_, solo_switch) = detail_of(&holders[0]);
         let (_, off_switch) = detail_of(&holders[1]);
         assert!(
@@ -5833,6 +5984,12 @@ mod tests {
             "a disabled output is never locked, or its user would be stranded"
         );
         assert!(!off_switch.active());
+        let off_heads: Vec<Row> = heads_of(&holders);
+        assert_eq!(
+            off_heads[1].subtitle().as_deref(),
+            Some("Off"),
+            "a disabled display's head says so instead of a mode"
+        );
 
         let enable_requests = Rc::new(RefCell::new(Vec::<(String, bool)>::new()));
         displays.connect_enable_requested({
@@ -5847,38 +6004,25 @@ mod tests {
         );
 
         displays.set_displays(&[built_in.clone(), external.clone()]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let heads: Vec<Row> = heads_of(&holders);
-        let panel_of = |holder: &gtk4::Box| crate::drawer::panel(holder).expect("a revealer");
-
-        assert!(!panel_of(&holders[0]).reveals_child());
-        assert!(!heads[0].has_css_class(crate::drawer::OPEN));
+        assert!(!holders[0].expanded());
+        assert!(!holders[0].has_css_class(crate::drawer::OPEN));
 
         heads[0].emit_clicked();
         assert!(
-            panel_of(&holders[0]).reveals_child() && heads[0].has_css_class(crate::drawer::OPEN),
+            holders[0].expanded() && holders[0].has_css_class(crate::drawer::OPEN),
             "activating a head opens its own detail"
         );
-        assert!(
-            !panel_of(&holders[1]).reveals_child()
-                && heads[1].has_css_class(crate::drawer::RECEDED)
-                && !heads[1].has_css_class(crate::drawer::OPEN),
-            "every other holder recedes, derived from what is revealed rather than from \
-             remembered state"
-        );
 
         heads[0].emit_clicked();
         assert!(
-            !panel_of(&holders[0]).reveals_child() && !heads[0].has_css_class(crate::drawer::OPEN),
+            !holders[0].expanded() && !holders[0].has_css_class(crate::drawer::OPEN),
             "activating the open head again closes it"
         );
-        assert!(
-            !heads[1].has_css_class(crate::drawer::RECEDED),
-            "closing the only open detail lifts the receded state everywhere"
-        );
 
         heads[0].emit_clicked();
-        assert!(panel_of(&holders[0]).reveals_child());
+        assert!(holders[0].expanded());
         let kept_head = heads[0].clone();
         let renders_before = displays.imp().renders.get();
         displays.set_displays(&[built_in.clone(), external.clone()]);
@@ -5891,7 +6035,7 @@ mod tests {
         assert_eq!(heads_after.len(), 2);
         assert_eq!(heads_after[0], kept_head, "rows are reused, not rebuilt");
         assert!(
-            panel_of(&holders[0]).reveals_child(),
+            holders[0].expanded(),
             "an unchanged slice must not close a detail the user has open"
         );
 
@@ -5904,8 +6048,13 @@ mod tests {
             ..Display::default()
         };
         displays.set_displays(&[hostile]);
-        let holders: Vec<gtk4::Box> = children_of(&displays);
+        let holders: Vec<Expandable> = children_of(&displays);
         let (hostile_facts, _) = detail_of(&holders[0]);
+        assert_eq!(
+            heads_of(&holders)[0].subtitle(),
+            None,
+            "an enabled display with no current mode has no subtitle"
+        );
         assert!(
             children_of::<Row>(&hostile_facts).iter().all(|row| {
                 row.value()
@@ -5925,13 +6074,13 @@ mod tests {
         let mut gate_off = external.clone();
         gate_off.enabled = false;
         gate.set_displays(&[built_in.clone(), gate_off.clone()]);
-        let gate_holders: Vec<gtk4::Box> = children_of(&gate);
+        let gate_holders: Vec<Expandable> = children_of(&gate);
         assert_eq!(gate_holders.len(), 2);
 
-        let facts_of = |holder: &gtk4::Box| -> FactList {
-            crate::drawer::panel(holder)
-                .and_then(|panel| panel.child())
-                .and_then(|body| body.first_child())
+        let facts_of = |holder: &Expandable| -> FactList {
+            holder
+                .details::<gtk4::Box>()
+                .and_then(|body| body.last_child())
                 .and_downcast::<FactList>()
                 .expect("a fact list")
         };
@@ -5944,44 +6093,46 @@ mod tests {
 
         let gate_heads: Vec<Row> = heads_of(&gate_holders);
         gate_heads[0].emit_clicked();
-        let gate_panel = crate::drawer::panel(&gate_holders[0]).expect("a revealer");
+        let gate_panel = gate_holders[0].clone();
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "the detail opens before the gate changes"
         );
 
         gate.set_output_power(false);
-        let gate_holders_off: Vec<gtk4::Box> = children_of(&gate);
+        let gate_holders_off: Vec<Expandable> = children_of(&gate);
         assert_eq!(
             gate_holders_off, gate_holders,
             "gating the switches off reuses the existing rows rather than rebuilding them"
         );
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "AC-6: closing the gate on a display that is not changing must not shut an open \
              detail under the user's hand"
         );
         for holder in &gate_holders_off {
             assert!(
-                facts_of(holder).next_sibling().is_none(),
+                facts_of(holder)
+                    .prev_sibling()
+                    .is_none_or(|switch| !switch.get_visible()),
                 "AC-2/AC-5: output_power false omits the enable switch entirely, even on the \
                  sole enabled output, rather than leaving it present and locked"
             );
         }
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[0])).len(),
-            4,
+            3,
             "AC-3: the built-in display's own facts survive the gate"
         );
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[1])).len(),
-            7,
+            6,
             "AC-3: so do the external display's, connector through position"
         );
 
         gate.set_output_power(true);
         assert!(
-            gate_panel.reveals_child(),
+            gate_panel.expanded(),
             "AC-6: reopening the gate must not shut the detail either"
         );
         let (_, gate_built_in_switch_again) = detail_of(&gate_holders[0]);
@@ -6008,6 +6159,7 @@ mod tests {
         let level = |key: &str, name: &str, value: f64| Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum: 100.0,
             floor: 0.0,
@@ -6017,6 +6169,10 @@ mod tests {
         assert!(
             brightness.imp().primary.get_visible(),
             "AC-1: one source renders the primary fader"
+        );
+        assert!(
+            !brightness.imp().primary_name.get_visible(),
+            "a lone source needs no name above its rail"
         );
         assert!(
             !brightness.imp().devices.get_visible(),
@@ -6041,6 +6197,7 @@ mod tests {
         brightness.set_sources(&[Source {
             key: "built-in".to_owned(),
             name: "Built-in".to_owned(),
+            icon: String::new(),
             value: 200_000.0,
             maximum: 400_000.0,
             floor: 0.0,
@@ -6073,6 +6230,14 @@ mod tests {
             brightness.imp().primary.get_visible() && brightness.imp().devices.get_visible(),
             "AC-1: three sources render both the primary fader and the source list"
         );
+        assert!(
+            brightness.imp().primary_name.get_visible(),
+            "beside other sources the primary rail is named, or nothing says which screen it drives"
+        );
+        assert_eq!(
+            brightness.imp().primary_name.title().as_deref(),
+            Some("Built-in")
+        );
         assert_eq!(
             brightness.imp().primary.value(),
             40.0,
@@ -6095,6 +6260,25 @@ mod tests {
              the primary rail"
         );
 
+        brightness.set_sources(&[
+            level("built-in", "Built-in", 40.0),
+            Source {
+                icon: "keyboard-brightness-symbolic".to_owned(),
+                ..level("kbd", "Keyboard", 30.0)
+            },
+        ]);
+        let keyboard: Vec<Fader> = children_of(&*brightness.imp().devices);
+        assert_eq!(
+            keyboard[0].icon_name().as_deref(),
+            Some("keyboard-brightness-symbolic"),
+            "a keyboard backlight carries its own glyph rather than a display's"
+        );
+        assert_eq!(
+            brightness.imp().primary.icon_name().as_deref(),
+            Some("display-brightness-symbolic"),
+            "an empty icon falls back to the display glyph"
+        );
+
         brightness.set_sources(&[]);
         assert!(
             !brightness.imp().primary.get_visible() && !brightness.imp().devices.get_visible(),
@@ -6110,27 +6294,57 @@ mod tests {
         brightness.set_night_light(Some(&NightLight {
             enabled: false,
             temperature: 6500,
+            ..Default::default()
         }));
         assert!(brightness.imp().night_light.get_visible());
         assert!(brightness.imp().night_light.is_sensitive());
+        let night_head = brightness.imp().night_head.get();
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Off"),
+            "the row says the light is off, since its switch is inside the card"
+        );
         assert!(
-            !brightness.imp().temperature.get_visible(),
-            "AC-3: the temperature rail is hidden, not merely insensitive, while the switch is off"
+            brightness.imp().temperature.get_visible()
+                && !brightness.imp().temperature.is_sensitive(),
+            "a light that is off keeps its rail in the card, disabled rather than hidden"
         );
 
         brightness.set_night_light(Some(&NightLight {
             enabled: true,
             temperature: 4200,
+            schedule: "automatic".to_owned(),
+            serving: true,
+            ..Default::default()
         }));
-        assert!(brightness.imp().temperature.get_visible());
+        assert!(brightness.imp().enabled.active());
+        assert!(brightness.imp().temperature.is_sensitive());
+        assert!(
+            !brightness.imp().schedules.get_visible(),
+            "one schedule is nothing to choose"
+        );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Sunset to sunrise · 4200 K"),
+            "the head says which schedule is running and how warm it is now"
+        );
+        brightness
+            .imp()
+            .temperature
+            .emit_by_name::<()>("moved", &[&3400.0f64]);
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Sunset to sunrise · 3400 K"),
+            "the subtitle follows the rail while it is dragged, before any reply"
+        );
         assert_eq!(brightness.imp().temperature.value(), 4200.0);
         assert!(
             brightness
                 .imp()
                 .temperature
                 .tooltip_text()
-                .is_some_and(|text| text.contains("4200")),
-            "the temperature rail carries its exact value in a tooltip too"
+                .is_some_and(|text| text.contains("3400")),
+            "the temperature rail carries its exact value in a tooltip too, following the drag"
         );
         assert!(
             brightness.imp().temperature.has_css_class("fader--warm"),
@@ -6152,19 +6366,22 @@ mod tests {
             4200.0,
             "AC-5: the last-good values stay on screen rather than resetting"
         );
-        assert!(
-            brightness.imp().temperature.get_visible(),
-            "the last-known state was 'on', so the rail stays up while greyed"
-        );
 
         brightness.set_night_light(Some(&NightLight {
             enabled: true,
             temperature: 3000,
+            ..Default::default()
         }));
         assert!(
             brightness.imp().night_light.is_sensitive(),
             "a fresh snapshot lifts the greyed state"
         );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Not reaching any display"),
+            "a provider that applies nothing says so rather than looking broken"
+        );
+        assert!(night_head.has_css_class("row--warning"));
 
         let brightness_changed = Rc::new(RefCell::new(Vec::<(String, f64)>::new()));
         brightness.connect_changed({
@@ -6205,20 +6422,66 @@ mod tests {
             .enabled
             .emit_by_name::<()>("toggled", &[&false]);
         assert_eq!(*night_toggled.borrow(), [false]);
-        assert!(
-            !brightness.imp().temperature.get_visible(),
-            "UI state never waits on a round trip: the rail follows the knob optimistically, \
-             before any set_night_light call reconciles it"
-        );
 
         brightness
             .imp()
             .enabled
             .emit_by_name::<()>("toggled", &[&true]);
         assert_eq!(*night_toggled.borrow(), [false, true]);
+
+        brightness.set_night_light(Some(&NightLight {
+            enabled: true,
+            temperature: 3000,
+            schedule: "schedule".to_owned(),
+            fixed_hours: true,
+            serving: true,
+        }));
+        assert!(brightness.imp().schedules.get_visible());
+        night_head.emit_clicked();
         assert!(
-            brightness.imp().temperature.get_visible(),
-            "and reappears the same optimistic way when the knob flips back"
+            brightness.imp().night_light.expanded(),
+            "the row opens the night light card"
+        );
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&false]);
+        assert!(
+            brightness.imp().night_light.expanded() && !brightness.imp().temperature.is_sensitive(),
+            "switching the light off disables the rail at once and leaves the card open"
+        );
+        brightness
+            .imp()
+            .enabled
+            .emit_by_name::<()>("toggled", &[&true]);
+        assert!(brightness.imp().temperature.is_sensitive());
+        night_head.emit_clicked();
+        assert!(
+            !brightness.imp().night_light.expanded(),
+            "and closes it again"
+        );
+        assert_eq!(
+            brightness.imp().schedules.selected(),
+            Some(1),
+            "the configured hours are the schedule in force"
+        );
+        assert_eq!(
+            night_head.subtitle().as_deref(),
+            Some("Fixed hours · 3000 K")
+        );
+        let scheduled = Rc::new(RefCell::new(Vec::<String>::new()));
+        brightness.connect_night_light_scheduled({
+            let scheduled = Rc::clone(&scheduled);
+            move |_, schedule| scheduled.borrow_mut().push(schedule.to_owned())
+        });
+        brightness
+            .imp()
+            .schedules
+            .emit_by_name::<()>("activated", &[&0u32]);
+        assert_eq!(
+            *scheduled.borrow(),
+            ["automatic"],
+            "a choice reports the provider's own spelling of its mode"
         );
 
         let night_changed = Rc::new(RefCell::new(Vec::<f64>::new()));
@@ -6254,7 +6517,7 @@ mod tests {
             display_popover.imp().section.get_visible(),
             "AC-9: two outputs render the section"
         );
-        let popover_holders: Vec<gtk4::Box> = children_of(&*display_popover.imp().devices);
+        let popover_holders: Vec<Expandable> = children_of(&*display_popover.imp().devices);
         assert_eq!(
             heads_of(&popover_holders).len(),
             2,
@@ -6284,7 +6547,7 @@ mod tests {
              is unsupported"
         );
         assert_eq!(
-            children_of::<gtk4::Box>(&*display_popover.imp().devices).len(),
+            children_of::<Expandable>(&*display_popover.imp().devices).len(),
             2,
             "gating output power keeps both outputs listed"
         );
@@ -6335,36 +6598,23 @@ mod tests {
         assert!(display_popover.imp().footer.get_visible());
 
         let popover_heads: Vec<Row> = heads_of(&children_of(&*display_popover.imp().devices));
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class(crate::drawer::RECEDED))
+        };
+        let chrome: [gtk4::Widget; 3] = [
+            display_popover.imp().hero.clone().upcast(),
+            display_popover.imp().blank.clone().upcast(),
+            display_popover.imp().footer.clone().upcast(),
+        ];
         popover_heads[0].emit_clicked();
         assert!(
-            display_popover
-                .imp()
-                .hero
-                .has_css_class(crate::drawer::RECEDED)
-                && display_popover
-                    .imp()
-                    .blank
-                    .has_css_class(crate::drawer::RECEDED)
-                && display_popover
-                    .imp()
-                    .footer
-                    .has_css_class(crate::drawer::RECEDED),
+            chrome.iter().all(dimmed) && !dimmed(popover_heads[0].upcast_ref()),
             "opening display details dims the popover chrome while preserving the open row"
         );
         popover_heads[0].emit_clicked();
         assert!(
-            !display_popover
-                .imp()
-                .hero
-                .has_css_class(crate::drawer::RECEDED)
-                && !display_popover
-                    .imp()
-                    .blank
-                    .has_css_class(crate::drawer::RECEDED)
-                && !display_popover
-                    .imp()
-                    .footer
-                    .has_css_class(crate::drawer::RECEDED),
+            !chrome.iter().any(dimmed),
             "closing details restores the popover chrome"
         );
 
@@ -6376,14 +6626,15 @@ mod tests {
         display_popover.imp().footer.emit_clicked();
         assert_eq!(popover_footer.get(), 1);
         let idle = IdlePopover::new();
+        let idle_window = gtk4::Window::new();
+        idle_window.set_child(Some(&idle));
         let idle_hold = idle.imp().hold.clone();
         let idle_hold_row = idle.imp().hold_row.clone();
+        let idle_hold_card = idle.imp().hold_card.clone();
         let _hold_chevron = child_named::<gtk4::Image>(&idle_hold_row, "drawer-chevron");
-        let idle_hold_panel = idle.imp().hold_panel.clone();
-        let idle_list_rule = idle.imp().list_rule.clone();
         assert!(
-            !idle_list_rule.get_visible(),
-            "no entries yet, so the hairline above the list shows nothing"
+            !idle.imp().others.get_visible(),
+            "no other app holding means no \"Kept awake by\" section at all"
         );
 
         idle.set_heading("preferences-desktop-screensaver-symbolic", "Idle", None);
@@ -6404,59 +6655,36 @@ mod tests {
         assert_eq!(*idle_toggled.borrow(), [true]);
 
         assert!(
-            !idle_hold_panel.reveals_child(),
+            !idle_hold_card.expanded(),
             "the duration choices start closed"
         );
-        assert!(
-            idle_hold_panel
-                .child()
-                .is_some_and(|card| card.has_css_class("detail-card")),
-            "duration choices use the same detail card as other drawers"
+        assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+        idle.set_hold_label(Some("Awake until 15:40"));
+        assert_eq!(
+            idle_hold_row.title().as_deref(),
+            Some("Awake until 15:40"),
+            "while a timed hold runs, the row names what a preset would replace"
         );
+        idle.set_hold_label(None);
+        assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
         idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
         idle.set_footer(Some("Idle settings"));
         idle_hold_row.emit_clicked();
         assert!(
-            idle_hold_panel.reveals_child()
-                && idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
-                && idle.imp().hero.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
-                && idle.imp().footer.has_css_class(crate::drawer::RECEDED)
-                && idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .hero_rule
-                    .has_css_class(crate::drawer::RECEDED)
-                && idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .footer_rule
-                    .has_css_class(crate::drawer::RECEDED),
-            "the duration row opens its choices and dims the resting popover"
+            idle_hold_card.expanded()
+                && dimmed(idle.imp().hero.upcast_ref())
+                && dimmed(idle.imp().list.upcast_ref())
+                && dimmed(idle.imp().footer.upcast_ref()),
+            "the duration row opens its choices and dims the rest of the popover"
         );
         idle_hold_row.emit_clicked();
         assert!(
-            !idle_hold_panel.reveals_child()
-                && !idle.imp().hold_row.has_css_class(crate::drawer::OPEN)
-                && !idle.imp().hero.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().list.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().list_rule.has_css_class(crate::drawer::RECEDED)
-                && !idle.imp().footer.has_css_class(crate::drawer::RECEDED)
-                && !idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .hero_rule
-                    .has_css_class(crate::drawer::RECEDED)
-                && !idle
-                    .imp()
-                    .shell
-                    .imp()
-                    .footer_rule
-                    .has_css_class(crate::drawer::RECEDED),
+            !idle_hold_card.expanded() && !dimmed(idle.imp().hero.upcast_ref()),
             "the same duration row closes its choices and restores the popover"
         );
 
@@ -6471,7 +6699,6 @@ mod tests {
             (&idle.imp().preset_1h, 3600),
             (&idle.imp().preset_2h, 7200),
             (&idle.imp().preset_4h, 14400),
-            (&idle.imp().preset_indefinite, 0),
         ] {
             button.emit_clicked();
             assert_eq!(
@@ -6480,36 +6707,40 @@ mod tests {
                 "each preset button must ask for its own duration, not a neighbour's"
             );
         }
-        assert_eq!(*idle_requested.borrow(), [900, 1800, 3600, 7200, 14400, 0]);
+        assert_eq!(
+            *idle_requested.borrow(),
+            [900, 1800, 3600, 7200, 14400],
+            "no preset asks for an indefinite hold: the switch is that"
+        );
+        idle_hold_row.emit_clicked();
+        idle.collapse_hold();
+        assert!(
+            !idle_hold_card.expanded(),
+            "a hold that was set closes the choices it was picked from"
+        );
 
         idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
-        assert!(
-            idle_list_rule.get_visible(),
-            "an entry pulls the hairline above the list back in"
-        );
+        assert!(idle.imp().others.get_visible());
         let idle_released = Rc::new(RefCell::new(Vec::<u64>::new()));
         idle.connect_release_requested({
             let idle_released = Rc::clone(&idle_released);
             move |_, id| idle_released.borrow_mut().push(id)
         });
-        let holder = children_of::<gtk4::Box>(&*idle.imp().list).remove(0);
-        let tile = holder.first_child().unwrap().downcast::<Row>().unwrap();
-        let panel = holder
-            .last_child()
-            .unwrap()
-            .downcast::<gtk4::Revealer>()
-            .unwrap();
-        tile.emit_clicked();
-        assert!(panel.reveals_child());
-        assert!(idle.imp().hero.has_css_class(crate::drawer::RECEDED));
-        let card = panel.child().unwrap().downcast::<gtk4::Box>().unwrap();
-        children_of::<Row>(&card).remove(0).emit_clicked();
+        let holder = children_of::<Expandable>(&*idle.imp().list).remove(0);
+        holder.head::<Row>().expect("a row").emit_clicked();
+        assert!(holder.expanded() && dimmed(idle.imp().hero.upcast_ref()));
+        holder
+            .details::<gtk4::Box>()
+            .and_then(|card| card.last_child())
+            .and_downcast::<Row>()
+            .expect("Release")
+            .emit_clicked();
         assert_eq!(*idle_released.borrow(), [1]);
 
         idle.set_inhibitors(&[]);
         assert!(
-            !idle_list_rule.get_visible() && !idle.imp().hero.has_css_class(crate::drawer::RECEDED),
-            "the hairline and dimming clear when the list empties"
+            !idle.imp().others.get_visible() && !dimmed(idle.imp().hero.upcast_ref()),
+            "the section and the dimming clear when the list empties"
         );
 
         let idle_footer_activated = Rc::new(Cell::new(0u32));
@@ -6561,37 +6792,6 @@ mod tests {
         );
         session.imp().lock.emit_clicked();
         assert_eq!(*session_actions.borrow(), [LOCK]);
-        session.set_updates(Some("Updates available"));
-        assert!(session.imp().updates_section.get_visible());
-        assert_eq!(
-            session.imp().updates.value().as_deref(),
-            Some("Updates available")
-        );
-        session.set_updates(None);
-        assert!(!session.imp().updates_section.get_visible());
-        session.set_sessions(&[SessionChoice {
-            id: "other".to_owned(),
-            user: "Other user".to_owned(),
-            subtitle: Some("wayland".to_owned()),
-        }]);
-        assert!(session.imp().sessions_section.get_visible());
-        let activated = Rc::new(RefCell::new(Vec::new()));
-        session.connect_activate_session({
-            let activated = Rc::clone(&activated);
-            move |_, id| activated.borrow_mut().push(id.to_owned())
-        });
-        session
-            .imp()
-            .sessions
-            .first_child()
-            .unwrap()
-            .downcast::<Row>()
-            .unwrap()
-            .emit_clicked();
-        assert_eq!(*activated.borrow(), ["other"]);
-        session.set_sessions(&[]);
-        assert!(session.imp().sessions.first_child().is_none());
-        assert!(!session.imp().sessions_section.get_visible());
 
         let battery = BatteryPopover::new();
         assert!(
@@ -6604,9 +6804,27 @@ mod tests {
             Some("battery-full-charged-symbolic"),
             Some("Fully charged"),
             Some(100),
+            None,
         );
         assert_eq!(battery.imp().readout.value().as_deref(), Some("100"));
         assert!(battery.imp().readout.get_visible());
+        battery.set_heading(
+            Some("battery-level-10-symbolic"),
+            Some("12 m left"),
+            Some(9),
+            Some(Severity::Error),
+        );
+        assert!(
+            battery
+                .imp()
+                .hero
+                .has_css_class("battery-popover__hero--error")
+                && !battery
+                    .imp()
+                    .hero
+                    .has_css_class("battery-popover__hero--warning"),
+            "a critical battery colors the hero as the chip does"
+        );
         battery.set_profiles(&[], None);
         assert!(!battery.imp().profiles_section.get_visible());
         battery.set_profiles(
@@ -6614,6 +6832,7 @@ mod tests {
                 label: "Balanced".to_owned(),
                 detail: String::new(),
                 icon_name: "power-profile-balanced-symbolic".to_owned(),
+                warning: false,
             }],
             Some(0),
         );
@@ -6622,28 +6841,50 @@ mod tests {
         assert!(!battery.imp().devices_section.get_visible());
         battery.set_devices(&[BatteryDevice {
             name: "MX Master 3S".to_owned(),
-            subtitle: "Mouse".to_owned(),
+            subtitle: String::new(),
             icon_name: "input-mouse-symbolic".to_owned(),
-            value: "41%".to_owned(),
+            value: "12%".to_owned(),
+            warning: true,
         }]);
         assert!(battery.imp().devices_section.get_visible());
-        battery.set_details(&[], None);
-        assert!(!battery.imp().details_holder.get_visible());
-        assert!(!battery.imp().details_panel.reveals_child());
-        battery.set_details(
-            &[Fact::new("Charge", "100%")],
-            Some(&BatteryChargeLimit {
-                enabled: false,
-                subtitle: "Stops at 80% to slow wear".to_owned(),
-            }),
+        assert!(
+            children_of::<Row>(&*battery.imp().devices_box)[0].has_css_class("row--warning"),
+            "a device running low reads amber"
         );
-        assert!(battery.imp().details_holder.get_visible());
+        battery.set_health(None, false, &[]);
+        assert!(!battery.imp().details.get_visible());
+        assert!(!battery.imp().details.expanded());
+        battery.set_charge_limit(None);
+        assert!(!battery.imp().charge_limit.get_visible());
+        battery.set_health(Some("74%"), true, &[Fact::new("Cycles", "812")]);
+        assert!(battery.imp().details.get_visible());
+        assert_eq!(battery.imp().details_row.value().as_deref(), Some("74%"));
+        assert!(battery.imp().details_row.has_css_class("row--warning"));
+        assert!(
+            battery.imp().details_row.subtitle().is_none(),
+            "the health row carries its value and nothing under it"
+        );
+        battery.set_charge_limit(Some(&BatteryChargeLimit {
+            enabled: false,
+            title: "Limit charge to 80%".to_owned(),
+            subtitle: "Slows battery wear".to_owned(),
+        }));
         assert!(battery.imp().charge_limit.get_visible());
         assert!(!battery.imp().charge_limit.active());
+        assert!(
+            !battery
+                .imp()
+                .charge_limit
+                .is_ancestor(&*battery.imp().details),
+            "the charge limit is a control in the column, never inside the health card"
+        );
         battery.imp().details_row.emit_clicked();
-        assert!(battery.imp().details_panel.reveals_child());
-        battery.close_details();
-        assert!(!battery.imp().details_panel.reveals_child());
+        assert!(battery.imp().details.expanded());
+        battery.set_health(None, false, &[]);
+        assert!(
+            !battery.imp().details.expanded(),
+            "a card whose details go away closes"
+        );
         let battery_profiles = Rc::new(Cell::new(None));
         battery.connect_profile_activated({
             let battery_profiles = Rc::clone(&battery_profiles);
@@ -6728,14 +6969,25 @@ mod tests {
             let color_activated = Rc::clone(&color_activated);
             move |_, id| color_activated.set(Some(id))
         });
-        let second = drawer::head::<SplitRow>(&colors.imp().holders.borrow()[1]).unwrap();
-        second.emit_by_name::<()>("activated", &[]);
+        let second = colors.imp().holders.borrow()[1].1.clone();
+        let split = second
+            .head::<SplitRow>()
+            .expect("a shade leads with its row");
+        split.emit_by_name::<()>("activated", &[]);
         assert_eq!(color_activated.get(), Some(9));
 
-        colors.set_open(Some(9));
-        let panel = drawer::panel(&colors.imp().holders.borrow()[1]).unwrap();
-        assert!(panel.reveals_child());
-        let card = panel.child().and_downcast::<gtk4::Box>().unwrap();
+        split.emit_by_name::<()>("details", &[]);
+        assert!(second.expanded(), "the chevron opens its own shade");
+        let card = second
+            .details::<gtk4::Box>()
+            .expect("the notations are built on first open");
+        assert_eq!(
+            card.first_child()
+                .and_downcast::<Swatch>()
+                .and_then(|strip| strip.color()),
+            Some(rgba([9, 0, 0])),
+            "the card opens on a strip of the color itself, wide enough to judge"
+        );
         let notation = card.last_child().and_downcast::<Row>().unwrap();
         assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
         let color_copied = Rc::new(RefCell::new(None));
@@ -6750,25 +7002,62 @@ mod tests {
             shade(7, "#070000"),
             shade(9, "#090000"),
         ]);
-        let moved = drawer::panel(&colors.imp().holders.borrow()[2]).unwrap();
-        assert!(moved.reveals_child());
-        assert!(
-            moved.child().is_some(),
-            "the open color moved a row down and its detail must follow it"
+        assert_eq!(
+            colors.imp().holders.borrow()[2].1,
+            second,
+            "a new color arriving above keeps the open one's row, so its card follows the shade"
         );
+        assert!(second.expanded() && second.details::<gtk4::Widget>().is_some());
         assert!(
-            drawer::panel(&colors.imp().holders.borrow()[1])
-                .unwrap()
-                .child()
-                .is_none()
+            colors.imp().holders.borrow()[0]
+                .1
+                .details::<gtk4::Widget>()
+                .is_none(),
+            "a shade nobody opened carries no card"
         );
 
         colors.set_shades(&[shade(7, "#070000")]);
         assert_eq!(colors.imp().holders.borrow().len(), 1);
+        assert!(!colors.imp().more.get_visible());
+
+        let many: Vec<Shade> = (1..=10)
+            .map(|id| shade(id, &format!("#{id:02}0000")))
+            .collect();
+        colors.set_shades(&many);
+        assert_eq!(
+            colors.imp().holders.borrow().len(),
+            8,
+            "a long palette folds past eight rows"
+        );
+        assert!(colors.imp().more.get_visible());
+        assert_eq!(colors.imp().more.title().as_deref(), Some("2 more colors"));
+        colors.imp().more.emit_clicked();
+        assert_eq!(
+            colors.imp().holders.borrow().len(),
+            10,
+            "the fold opens in place"
+        );
+        assert!(!colors.imp().more.get_visible());
+        colors.set_shades(&[shade(7, "#070000")]);
 
         let picker = ColorPickerPopover::new();
         picker.set_shades(&[]);
-        assert!(picker.imp().palette_section.empty());
+        assert!(
+            !picker.imp().palette_section.get_visible(),
+            "an empty palette is not a section with a placeholder in it"
+        );
+        assert_eq!(
+            picker.imp().hero.subtitle().as_deref(),
+            Some("Nothing picked yet"),
+            "the hero says there is nothing yet"
+        );
+        let pick_requested = Rc::new(Cell::new(0));
+        picker.connect_pick_requested({
+            let pick_requested = Rc::clone(&pick_requested);
+            move |_| pick_requested.set(pick_requested.get() + 1)
+        });
+        picker.imp().pick.emit_clicked();
+        assert_eq!(pick_requested.get(), 1);
         picker.set_latest(None);
         assert!(!picker.imp().latest.get_visible());
         let resting = picker.imp().hero.title();
@@ -6779,9 +7068,8 @@ mod tests {
         assert_eq!(picker.imp().hero.title(), resting);
         picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
         picker.set_shades(&[shade(7, "#070000")]);
-        assert!(!picker.imp().palette_section.empty());
-        picker.set_open(Some(7));
-        assert!(picker.imp().hero.has_css_class(drawer::RECEDED));
+        assert!(picker.imp().palette_section.get_visible());
+        assert_eq!(picker.imp().hero.subtitle(), None);
 
         let built = gtk4::Builder::from_string(
             r#"<interface>
@@ -6834,6 +7122,27 @@ mod tests {
         head.emit_by_name::<()>("clicked", &[]);
         assert!(!expandable.expanded(), "and the same row closes them");
 
+        let bare = PopoverShell::new();
+        let section = gtk4::Label::new(Some("Other players"));
+        bare.set_hero(&gtk4::Label::new(Some("Now playing")));
+        bare.set_content(&section);
+        bare.append_to_footer(&Row::new());
+        let rules = |shell: &PopoverShell| {
+            (
+                shell.imp().hero_rule.get_visible(),
+                shell.imp().footer_rule.get_visible(),
+            )
+        };
+        assert_eq!(rules(&bare), (true, true));
+        section.set_visible(false);
+        assert_eq!(
+            rules(&bare),
+            (true, false),
+            "an empty content slot leaves one rule between hero and footer, not two"
+        );
+        assert!(!bare.imp().content_box.get_visible());
+        section.set_visible(true);
+        assert_eq!(rules(&bare), (true, true));
         let system_monitor = SystemMonitorPopover::new();
         let tile = |id: &str, fraction| SystemMonitorUsage {
             id: id.to_owned(),
@@ -6853,6 +7162,13 @@ mod tests {
 
         let ruler = RulerPopover::new();
         let ruler_imp = ruler.imp();
+        let measure_requested = Rc::new(Cell::new(0));
+        ruler.connect_measure_requested({
+            let measure_requested = Rc::clone(&measure_requested);
+            move |_| measure_requested.set(measure_requested.get() + 1)
+        });
+        ruler_imp.measure.emit_clicked();
+        assert_eq!(measure_requested.get(), 1);
 
         assert!(
             !ruler_imp.history_section.get_visible(),
@@ -6984,25 +7300,17 @@ mod tests {
             id,
             title: "Марта🙂 a rather long clipboard entry that keeps going".to_owned(),
             icon: "text-x-generic-symbolic".to_owned(),
-            image: None,
             pinned,
+            ..Default::default()
         };
         clipboard.set_pinned(&[clip(1, true)]);
         clipboard.set_recent(&[clip(2, false), clip(3, false)]);
 
-        let rows = |list: &ClipboardList| {
-            let mut found = Vec::new();
-            let mut child = list.first_child();
-            while let Some(holder) = child {
-                child = holder.next_sibling();
-                if let Some(split) = holder
-                    .downcast_ref::<gtk4::Box>()
-                    .and_then(drawer::head::<SplitRow>)
-                {
-                    found.push(split);
-                }
-            }
-            found
+        let rows = |list: &ClipboardList| children_of::<Expandable>(list);
+        let head = |holder: &Expandable| {
+            holder
+                .head::<SplitRow>()
+                .expect("a clip leads with its row")
         };
         assert_eq!(rows(&clipboard.imp().recent).len(), 2);
         assert!(
@@ -7014,23 +7322,27 @@ mod tests {
             |popover: &ClipboardPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
         let floor = width(&clipboard);
 
-        clipboard.set_open(Some(2));
+        let dimmed = |widget: &gtk4::Widget| {
+            std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+                .any(|widget| widget.has_css_class("receded"))
+        };
+        let opened = rows(&clipboard.imp().recent)[0].clone();
+        head(&opened).emit_by_name::<()>("details", &[]);
         assert!(
-            clipboard.imp().hero.has_css_class("receded"),
+            dimmed(clipboard.imp().hero.upcast_ref()),
             "the hero is read against the open panel and must recede with everything else"
         );
         assert!(
-            clipboard.imp().clear.has_css_class("receded")
-                && clipboard.imp().footer.has_css_class("receded"),
+            dimmed(clipboard.imp().clear.upcast_ref())
+                && dimmed(clipboard.imp().footer.upcast_ref()),
             "a footer row that stays lit still looks pressable while a card asks a question"
         );
-        let opened = &rows(&clipboard.imp().recent)[0];
         assert!(
-            opened.has_css_class("open") && !opened.has_css_class("receded"),
+            opened.has_css_class("open") && !dimmed(opened.upcast_ref()),
             "the row that was opened is the one thing that must not recede"
         );
         assert!(
-            rows(&clipboard.imp().recent)[1].has_css_class("receded"),
+            dimmed(rows(&clipboard.imp().recent)[1].upcast_ref()),
             "its neighbour recedes"
         );
         assert_eq!(
@@ -7039,21 +7351,26 @@ mod tests {
             "opening a detail must not resize the card under the pointer that opened it"
         );
 
-        clipboard.set_open(None);
-        assert!(!clipboard.imp().hero.has_css_class("receded"));
+        head(&opened).emit_by_name::<()>("details", &[]);
+        assert!(!dimmed(clipboard.imp().hero.upcast_ref()));
 
         // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
-        clipboard.set_open(Some(2));
-        let panel_of = |list: &ClipboardList, index: usize| {
-            let holder = list.observe_children().item(index as u32)?;
-            drawer::panel(holder.downcast_ref::<gtk4::Box>()?)?.child()
-        };
-        let before = panel_of(&clipboard.imp().recent, 0).expect("an open panel");
-        clipboard.set_recent(&[clip(2, false), clip(3, false)]);
+        head(&opened).emit_by_name::<()>("details", &[]);
+        let before = opened.details::<gtk4::Box>().expect("an open panel");
+        clipboard.set_recent(&[clip(2, true), clip(3, false)]);
         assert_eq!(
-            panel_of(&clipboard.imp().recent, 0).as_ref(),
+            opened.details::<gtk4::Box>().as_ref(),
             Some(&before),
-            "an unrelated republish must leave the open panel's buttons alone"
+            "a republish must leave the open panel's buttons alone, even one that changes them"
+        );
+        assert_eq!(
+            before
+                .first_child()
+                .and_downcast::<Row>()
+                .and_then(|pin| pin.title())
+                .as_deref(),
+            Some("Unpin"),
+            "and the pin row's wording follows the entry"
         );
 
         let cleared = Rc::new(Cell::new(false));
@@ -7069,19 +7386,133 @@ mod tests {
             let restored = Rc::clone(&restored);
             move |_, id| restored.set(Some(id))
         });
-        rows(&clipboard.imp().recent)[1].emit_by_name::<()>("activated", &[]);
+        head(&rows(&clipboard.imp().recent)[1]).emit_by_name::<()>("activated", &[]);
         assert_eq!(
             restored.get(),
             Some(3),
             "a row emits the entry it currently holds, not the one it was built for"
         );
 
-        // An empty Recent beside a populated Pinned would otherwise read "Nothing copied yet".
         clipboard.set_recent(&[]);
         assert!(
             !clipboard.imp().recent_section.get_visible(),
             "an empty Recent hides rather than contradicting the Pinned list above it"
         );
+
+        let acted = Rc::new(RefCell::new(Vec::new()));
+        clipboard.connect_acted({
+            let acted = Rc::clone(&acted);
+            move |_, id, key| acted.borrow_mut().push((id, key))
+        });
+        let long = "a long line of text that the row cannot hold whole";
+        let texture: gdk::Texture = gdk::MemoryTexture::new(
+            32,
+            18,
+            gdk::MemoryFormat::R8g8b8,
+            &glib::Bytes::from(&vec![128u8; 32 * 18 * 3]),
+            32 * 3,
+        )
+        .upcast();
+        clipboard.set_recent(&[
+            Clip {
+                id: 10,
+                title: "#1e88e5".to_owned(),
+                subtitle: "Color".to_owned(),
+                swatch: Some(gdk::RGBA::new(0.1, 0.5, 0.9, 1.0)),
+                actions: vec![ClipAction {
+                    key: "rgb".to_owned(),
+                    title: "Copy as RGB".to_owned(),
+                    value: "rgb(30 136 229)".to_owned(),
+                }],
+                facts: vec![Fact::new("Size", "7 B")],
+                ..Default::default()
+            },
+            Clip {
+                id: 11,
+                title: "Image · 1 kB".to_owned(),
+                image: Some(texture),
+                ..Default::default()
+            },
+            Clip {
+                id: 12,
+                title: long.to_owned(),
+                excerpt: long.to_owned(),
+                ..Default::default()
+            },
+        ]);
+        let cells = rows(&clipboard.imp().recent);
+        let color = head(&cells[0]);
+        assert!(
+            color.row().lead().and_downcast::<Swatch>().is_some(),
+            "a color leads with its own swatch"
+        );
+        color.emit_by_name::<()>("details", &[]);
+        let card = cells[0].details::<gtk4::Box>().expect("a color card");
+        assert!(card.first_child().and_downcast::<Swatch>().is_some());
+        children_of::<Row>(&card)
+            .into_iter()
+            .find(|row| row.title().as_deref() == Some("Copy as RGB"))
+            .expect("the type's own action")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(*acted.borrow(), [(10, "rgb".to_owned())]);
+
+        let tile = cells[1]
+            .head::<gtk4::Overlay>()
+            .expect("an image is a tile, not a row");
+        tile.child()
+            .and_downcast::<gtk4::Button>()
+            .expect("the tile's body is a button")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            restored.get(),
+            Some(11),
+            "a click on the image copies it back"
+        );
+        assert!(!cells[1].expanded(), "and does not open the card");
+        let badge = children_of::<gtk4::Button>(&tile)
+            .into_iter()
+            .find(|button| button.has_css_class("clip-tile__badge"))
+            .expect("a badge");
+        badge.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[1].expanded(), "the badge opens the card");
+
+        let before = width(&clipboard);
+        head(&cells[2]).emit_by_name::<()>("details", &[]);
+        assert_eq!(
+            width(&clipboard),
+            before,
+            "a long excerpt wraps inside the card rather than widening the popover"
+        );
+
+        let more = Rc::new(Cell::new(0));
+        clipboard.connect_more({
+            let more = Rc::clone(&more);
+            move |_| more.set(more.get() + 1)
+        });
+        clipboard.set_overflow(Some("3 more"));
+        clipboard.set_recent(&[]);
+        assert!(
+            clipboard.imp().recent_section.get_visible(),
+            "entries still behind the overflow row keep the section up"
+        );
+        clipboard.imp().more.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(more.get(), 1);
+
+        let searched = Rc::new(RefCell::new(String::new()));
+        clipboard.connect_searched({
+            let searched = Rc::clone(&searched);
+            move |_, query| {
+                searched.replace(query);
+            }
+        });
+        clipboard.set_searchable(true);
+        assert!(clipboard.imp().search.get_visible());
+        clipboard.imp().search.set_text("review");
+        clipboard
+            .imp()
+            .search
+            .emit_by_name::<()>("search-changed", &[]);
+        assert_eq!(*searched.borrow(), "review");
     }
 
     /// Separate from `widgets()` for the same reason as `clipboard_widgets`: one failure earlier in
@@ -7111,6 +7542,34 @@ mod tests {
             title: title.to_owned(),
             ..Default::default()
         };
+
+        let emptied = Rc::new(Cell::new(0));
+        popover.connect_empty_trash({
+            let emptied = Rc::clone(&emptied);
+            move |_| emptied.set(emptied.get() + 1)
+        });
+        popover.set_trash(Some(PlacesTrash { items: 3 }));
+        imp.trash_empty.emit_clicked();
+        assert_eq!(emptied.get(), 0, "the first press only asks");
+        assert_eq!(
+            imp.trash_empty.title().as_deref(),
+            Some("Delete 3 items for good?")
+        );
+        imp.trash_item.set_expanded(true);
+        imp.trash_item.set_expanded(false);
+        assert_eq!(
+            imp.trash_empty.title().as_deref(),
+            Some("Empty the trash"),
+            "closing the card takes the question back"
+        );
+        imp.trash_empty.emit_clicked();
+        imp.trash_empty.emit_clicked();
+        assert_eq!(emptied.get(), 1, "the second press empties");
+        popover.set_trash(Some(PlacesTrash { items: 0 }));
+        assert!(
+            !imp.trash_empty.get_visible(),
+            "an empty trash offers nothing to empty"
+        );
 
         popover.set_places(&[]);
         popover.set_bookmarks(&[]);
@@ -7239,59 +7698,55 @@ mod tests {
             "an untouched popover lists no device"
         );
 
-        // AC-1, a drive with two volumes carries a real eject control on the drive row alone; AC-2,
-        // its mounted volume carries a real unmount control; AC-3, that mounted volume's body stays
-        // clickable.
-        popover.set_devices(&[RemovableDrive {
+        let photos = |mounted: bool| RemovableVolume {
+            id: "photos".to_owned(),
+            title: "Photos".to_owned(),
+            subtitle: "24 GB free of 64 GB".to_owned(),
+            fraction: mounted.then_some(0.625),
+            mounted,
+            facts: vec![Fact::new("Filesystem", "exfat")],
+            ..Default::default()
+        };
+        let cruzer = |photos: RemovableVolume, backup_busy: bool| RemovableDrive {
             id: "cruzer".to_owned(),
             title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
+            subtitle: "2 volumes".to_owned(),
             ejectable: true,
-            activatable: true,
+            facts: vec![Fact::new("Size", "128 GB")],
             volumes: vec![
-                RemovableVolume {
-                    id: "photos".to_owned(),
-                    title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
-                    activatable: true,
-                    fraction: Some(0.625),
-                    mounted: true,
-                    ..Default::default()
-                },
+                photos,
                 RemovableVolume {
                     id: "backup".to_owned(),
                     title: "Backup".to_owned(),
                     subtitle: "Not mounted".to_owned(),
-                    activatable: true,
+                    busy: backup_busy,
                     ..Default::default()
                 },
             ],
             ..Default::default()
-        }]);
-        assert!(imp.devices.get_visible());
-        let cells = children_of::<gtk4::Box>(&*imp.devices_rows);
-        assert_eq!(cells.len(), 3, "one drive header plus its two volumes");
-
-        let split_of = |cell: &gtk4::Box| cell.first_child().and_downcast::<SplitRow>();
-        let row_of = |cell: &gtk4::Box| -> Row {
-            match split_of(cell) {
-                Some(split) => split.row(),
-                None => cell.first_child().and_downcast::<Row>().expect("a row"),
+        };
+        let expandables = || children_of::<Expandable>(&*imp.devices_rows);
+        let card_rows = |holder: &Expandable| {
+            let Some(card) = holder.details::<gtk4::Box>() else {
+                return Vec::new();
+            };
+            let mut rows = children_of::<Row>(&card);
+            for facts in children_of::<FactList>(&card) {
+                rows.extend(children_of::<Row>(&facts));
             }
+            rows
+        };
+        let titled = |holder: &Expandable, title: &str| {
+            card_rows(holder)
+                .into_iter()
+                .find(|row| row.title().as_deref() == Some(title))
         };
 
-        let header_split = split_of(&cells[0]).expect("AC-1: the drive row is a real $SplitRow");
-        assert_eq!(
-            header_split.row().title().as_deref(),
-            Some("SanDisk Cruzer")
-        );
-        assert_eq!(cells[0].margin_start(), 0);
-        assert_eq!(
-            header_split.detail_icon(),
-            "media-eject-symbolic",
-            "the drive row's trailing control ejects"
-        );
-
+        let activated = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id.to_owned())
+        });
         let ejected = Rc::new(RefCell::new(None));
         popover.connect_eject({
             let ejected = Rc::clone(&ejected);
@@ -7299,23 +7754,6 @@ mod tests {
                 ejected.replace(Some(id.to_owned()));
             }
         });
-        header_split.detail().emit_by_name::<()>("clicked", &[]);
-        assert_eq!(
-            ejected.borrow().as_deref(),
-            Some("cruzer"),
-            "AC-1: the trailing button emits a typed signal carrying the drive id"
-        );
-
-        assert!(
-            split_of(&cells[1]).is_some(),
-            "AC-2: a mounted volume carries a real trailing control"
-        );
-        assert_eq!(
-            cells[1].margin_start(),
-            24,
-            "a volume nests under its drive"
-        );
-
         let unmounted = Rc::new(RefCell::new(None));
         popover.connect_unmount({
             let unmounted = Rc::clone(&unmounted);
@@ -7323,126 +7761,158 @@ mod tests {
                 unmounted.replace(Some(id.to_owned()));
             }
         });
-        split_of(&cells[1])
-            .expect("a split row")
-            .detail()
+
+        popover.set_devices(&[cruzer(photos(true), false)]);
+        assert!(imp.devices.get_visible());
+        let cells = expandables();
+        assert_eq!(cells.len(), 3, "one drive header plus its two volumes");
+        assert_eq!(cells[0].margin_start(), 0);
+        assert_eq!(
+            cells[1].margin_start(),
+            24,
+            "a volume nests under its drive"
+        );
+
+        let header = cells[0].head::<Row>().expect("the drive row opens a card");
+        header.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[0].expanded(), "a drive row opens its card");
+        titled(&cells[0], "Eject")
+            .expect("the drive's card ejects")
             .emit_by_name::<()>("clicked", &[]);
-        assert_eq!(
-            unmounted.borrow().as_deref(),
-            Some("photos"),
-            "AC-2: the trailing button emits a typed signal carrying the volume id"
-        );
-
-        // AC-6: an unmounted volume offers no trailing control at all.
+        assert_eq!(ejected.borrow().as_deref(), Some("cruzer"));
         assert!(
-            split_of(&cells[2]).is_none(),
-            "AC-6: an unmounted volume is a plain row with no trailing control"
+            titled(&cells[0], "Size").is_some(),
+            "the drive's facts sit in its card"
         );
 
-        // AC-4: a capacity bar renders under the row, full width, never in the trail slot, and no
-        // percentage text is set anywhere.
-        let photos_bar = cells[1]
-            .last_child()
+        let mounted = cells[1]
+            .head::<Row>()
+            .expect("a mounted volume is a plain opener");
+        mounted.emit_by_name::<()>("clicked", &[]);
+        assert!(cells[1].expanded(), "a volume in use opens its card");
+        assert!(
+            activated.borrow().is_empty(),
+            "opening the card is not opening the files"
+        );
+        let bar = cells[1]
+            .details::<gtk4::Box>()
+            .and_then(|card| card.first_child())
             .and_downcast::<gtk4::ProgressBar>()
-            .expect("a progress bar under the mounted volume");
-        assert!((photos_bar.fraction() - 0.625).abs() < f64::EPSILON);
+            .expect("the capacity bar leads the card");
+        assert!((bar.fraction() - 0.625).abs() < f64::EPSILON);
+        titled(&cells[1], "Open")
+            .expect("an Open row")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(activated.borrow().as_slice(), ["cruzer/photos"]);
+        titled(&cells[1], "Unmount")
+            .expect("a volume of a shared drive unmounts rather than ejects")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(unmounted.borrow().as_deref(), Some("photos"));
+        assert!(titled(&cells[1], "Eject").is_none());
+
+        let idle = cells[2]
+            .head::<Row>()
+            .expect("nothing to show makes a plain row");
         assert!(
-            row_of(&cells[1]).activatable(),
-            "AC-3: a mounted volume's body stays a click target even under a capacity bar"
+            cells[2].details::<gtk4::Widget>().is_none(),
+            "an unmounted volume with no facts has no card"
         );
-        assert!(
-            cells[2]
-                .last_child()
-                .and_downcast::<gtk4::ProgressBar>()
-                .is_none(),
-            "an unmounted volume with no known usage carries no bar"
+        idle.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            activated.borrow().last().map(String::as_str),
+            Some("cruzer/backup"),
+            "clicking an unmounted volume mounts it"
         );
 
-        // AC-6 continued: an unchanged list reuses the same widget instances rather than tearing
-        // down and rebuilding the trailing control on every dress.
-        let header_widget = cells[0].first_child();
-        let photos_widget = cells[1].first_child();
+        let card = cells[1].details::<gtk4::Widget>();
+        let mut grown = photos(true);
+        grown.fraction = Some(0.75);
+        popover.set_devices(&[cruzer(grown, true)]);
+        let after = expandables();
+        assert_eq!(after[1], cells[1], "an unrelated update keeps the same row");
+        assert_eq!(
+            after[1].details::<gtk4::Widget>(),
+            card,
+            "a capacity change updates the bar in place rather than rebuilding the card"
+        );
+        assert!((bar.fraction() - 0.75).abs() < f64::EPSILON);
+        assert!(
+            after[2].head::<Row>().expect("a row").busy(),
+            "work in flight spins"
+        );
+
+        popover.set_devices(&[cruzer(photos(false), false)]);
+        let after = expandables();
+        let split = after[1]
+            .head::<SplitRow>()
+            .expect("an unmounted volume with a card mounts from its row");
+        assert!(!after[1].expanded(), "a successful unmount closes the card");
+        split.row().emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            activated.borrow().last().map(String::as_str),
+            Some("cruzer/photos")
+        );
+        split.detail().emit_by_name::<()>("clicked", &[]);
+        assert!(after[1].expanded(), "the chevron opens the card");
+        assert!(titled(&after[1], "Open").is_none());
+        assert!(titled(&after[1], "Unmount").is_none());
+
         popover.set_devices(&[RemovableDrive {
-            id: "cruzer".to_owned(),
-            title: "SanDisk Cruzer".to_owned(),
-            subtitle: "USB drive \u{b7} 2 volumes".to_owned(),
+            id: "stick".to_owned(),
+            title: "KINGSTON".to_owned(),
+            subtitle: "No space left".to_owned(),
             ejectable: true,
-            activatable: true,
-            volumes: vec![
-                RemovableVolume {
-                    id: "photos".to_owned(),
-                    title: "Photos".to_owned(),
-                    subtitle: "24 GB free of 64 GB \u{b7} exfat".to_owned(),
-                    activatable: true,
-                    fraction: Some(0.625),
-                    mounted: true,
-                    ..Default::default()
-                },
-                RemovableVolume {
-                    id: "backup".to_owned(),
-                    title: "Backup".to_owned(),
-                    subtitle: "Not mounted".to_owned(),
-                    activatable: true,
-                    busy: true,
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        }]);
-        let cells_after = children_of::<gtk4::Box>(&*imp.devices_rows);
-        assert_eq!(
-            cells_after[0].first_child(),
-            header_widget,
-            "an unrelated update reuses the same eject control rather than rebuilding it"
-        );
-        assert_eq!(
-            cells_after[1].first_child(),
-            photos_widget,
-            "an unrelated update reuses the same unmount control rather than rebuilding it"
-        );
-
-        // AC-5: work in flight is a spinner, never a word, and it suppresses the trailing control.
-        popover.set_devices(&[RemovableDrive {
-            id: "busy".to_owned(),
-            title: "External SSD".to_owned(),
-            busy: true,
-            activatable: true,
             volumes: vec![RemovableVolume {
                 id: "vol".to_owned(),
-                title: "External SSD".to_owned(),
-                subtitle: "210 GB free of 500 GB \u{b7} ext4".to_owned(),
-                activatable: true,
-                busy: true,
+                title: "KINGSTON".to_owned(),
+                subtitle: "No space left".to_owned(),
                 mounted: true,
+                warning: true,
                 ..Default::default()
             }],
             ..Default::default()
         }]);
-        let busy_cells = children_of::<gtk4::Box>(&*imp.devices_rows);
-        let busy_row = row_of(&busy_cells[0]);
-        assert!(busy_row.busy());
-        assert_eq!(
-            busy_row.subtitle().as_deref(),
-            Some("210 GB free of 500 GB \u{b7} ext4")
-        );
+        let single = &expandables()[0];
         assert!(
-            split_of(&busy_cells[0]).is_none(),
-            "busy suppresses the trailing control rather than layering a word over it"
+            single
+                .head::<Row>()
+                .expect("a row")
+                .has_css_class("row--warning")
+        );
+        titled(single, "Eject")
+            .expect("a drive's only volume ejects the drive")
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(ejected.borrow().as_deref(), Some("stick"));
+        assert_eq!(
+            card_rows(single)
+                .iter()
+                .filter(|row| row.has_css_class("row--destructive"))
+                .count(),
+            1,
+            "Eject is the card's one red action"
         );
 
-        // AC-7: a hostile multibyte label is capped by characters, not bytes, and the card holds
-        // its width.
+        popover.set_devices(&[RemovableDrive {
+            id: "dvd".to_owned(),
+            title: "DVD-RW".to_owned(),
+            subtitle: "No media".to_owned(),
+            ejectable: true,
+            dimmed: true,
+            ..Default::default()
+        }]);
+        let empty = &expandables()[0];
+        assert!(empty.details::<gtk4::Widget>().is_none());
+        assert!(!empty.head::<Row>().expect("a row").activatable());
+
         let width =
             |popover: &RemovablePopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
         let drive = |id: &str, label: &str| RemovableDrive {
             id: id.to_owned(),
             title: label.to_owned(),
-            activatable: true,
             volumes: vec![RemovableVolume {
                 id: "v".to_owned(),
                 title: label.to_owned(),
                 subtitle: label.to_owned(),
-                activatable: true,
                 ..Default::default()
             }],
             ..Default::default()
@@ -7586,6 +8056,33 @@ mod tests {
         imp.name.emit_activate();
         assert_eq!(submitted.borrow().as_deref(), Some("chat"));
 
+        popover.set_taken(&[(
+            "Chat".to_owned(),
+            "Already the name of Workspace 2".to_owned(),
+        )]);
+        assert!(
+            imp.taken.get_visible(),
+            "a name another workspace holds warns at once"
+        );
+        submitted.replace(None);
+        imp.name.emit_activate();
+        assert_eq!(
+            submitted.borrow().as_deref(),
+            None,
+            "and Enter does nothing"
+        );
+        imp.name.set_text("code");
+        assert!(!imp.taken.get_visible());
+
+        popover.set_recent(&["music".to_owned()]);
+        assert!(imp.recent.get_visible());
+        imp.recent_rows
+            .first_child()
+            .and_downcast::<Row>()
+            .expect("a recent name")
+            .emit_clicked();
+        assert_eq!(submitted.borrow().as_deref(), Some("music"));
+
         imp.name
             .emit_by_name::<()>("icon-press", &[&gtk4::EntryIconPosition::Secondary]);
         assert_eq!(imp.name.text(), "", "the clear icon empties the entry");
@@ -7626,6 +8123,7 @@ mod tests {
         let action = |key: &str| KdeconnectAction {
             key: key.to_owned(),
             label: key.to_owned(),
+            destructive: key == "unpair",
         };
         let phone = KdeconnectDevice {
             id: "b98d".to_owned(),
@@ -7714,11 +8212,10 @@ mod tests {
             Some("3 more"),
         );
         assert!(imp.nearby.get_visible());
-        assert!(!imp.nearby_rows.get_visible(), "nearby starts closed");
-        assert!(!imp.nearby_more.get_visible(), "and so does its count");
+        assert!(!imp.nearby_drawer.reveals_child(), "nearby starts closed");
         imp.nearby_toggle.emit_clicked();
         assert!(popover.nearby_open());
-        assert!(imp.nearby_rows.get_visible());
+        assert!(imp.nearby_drawer.reveals_child());
         assert!(imp.nearby_more.get_visible());
         assert!(imp.nearby_toggle.has_css_class("open"));
         let splits = children_of::<SplitRow>(&*imp.nearby_rows);
@@ -7752,7 +8249,7 @@ mod tests {
         imp.nearby_toggle.emit_clicked();
         assert!(!popover.nearby_open());
         assert!(
-            !imp.nearby_rows.get_visible(),
+            !imp.nearby_drawer.reveals_child(),
             "the header closes what it opened"
         );
 

@@ -86,7 +86,7 @@ fn apply(holder: &Expandable, workspace: &Workspace) {
     };
     let row = split.row();
     row.set_title(Some(workspace.label.as_str()));
-    row.set_subtitle((!workspace.detail.is_empty()).then_some(workspace.detail.as_str()));
+    row.set_value((!workspace.detail.is_empty()).then_some(workspace.detail.as_str()));
     row.set_selectable(true);
     row.set_selected(workspace.focused);
     crate::set_css_class(&split, URGENT, workspace.urgent);

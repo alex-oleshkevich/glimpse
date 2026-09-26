@@ -8,6 +8,7 @@ mod clock;
 mod color_picker;
 mod command;
 mod display;
+pub(crate) mod exec;
 mod heartbeat;
 pub(crate) mod idle;
 mod kdeconnect;
@@ -37,9 +38,9 @@ use glimpse_dbus::{
 };
 use glimpse_services::{
     AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, HeartbeatHandle, KdeconnectHandle, KeyboardHandle,
-    MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle, RemovableHandle,
-    RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
+    ColorPickerHandle, CompositorHandle, ExecHandle, HeartbeatHandle, KdeconnectHandle,
+    KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle,
+    RemovableHandle, RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -56,6 +57,14 @@ pub fn configured(
     };
     config.regional = regional.clone();
     Some(config)
+}
+
+pub(crate) fn output_name(connector: &str, outputs: &[glimpse_services::OutputInfo]) -> String {
+    match outputs.iter().find(|output| output.connector == connector) {
+        Some(output) if output.built_in => gettextrs::gettext("Built-in display"),
+        Some(output) => output.label.clone().unwrap_or_else(|| connector.to_owned()),
+        None => connector.to_owned(),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -86,6 +95,8 @@ pub fn build(
     privacy: &PrivacyHandle,
     system_monitor: &SystemMonitorHandle,
     ruler: &RulerHandle,
+    exec: &ExecHandle,
+    placement: glimpse_services::Placement,
     dialog: Option<&relm4::Sender<crate::app::AppInput>>,
 ) -> Option<Builder> {
     match &config.kind {
@@ -238,9 +249,10 @@ pub fn build(
         }
         AppletKind::Places(_) => {
             let places = places.clone();
+            let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(places.subscribe());
-                Box::new(places::Places::start(places))
+                Box::new(places::Places::start(places, notifications))
             }))
         }
         AppletKind::Printing(_) => {
@@ -270,10 +282,17 @@ pub fn build(
         AppletKind::Privacy(_) => {
             let privacy = privacy.clone();
             let compositor = compositor.clone();
+            let audio = audio.clone();
             let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(privacy.subscribe());
-                Box::new(privacy::Privacy::start(privacy, compositor, notifications))
+                ctx.watch(audio.subscribe());
+                Box::new(privacy::Privacy::start(
+                    privacy,
+                    compositor,
+                    audio,
+                    notifications,
+                ))
             }))
         }
         AppletKind::ColorPicker {} => {
@@ -319,13 +338,39 @@ pub fn build(
                 Box::new(ruler::Ruler::start(ruler, notifications))
             }))
         }
-        AppletKind::Exec {} => None,
+        AppletKind::Exec(_) => {
+            let exec = exec.clone();
+            let session_actions = session_actions.clone();
+            let notifications = notifications.clone();
+            let dialog = dialog.cloned()?;
+            Some(Box::new(move |ctx| {
+                ctx.watch(exec.subscribe());
+                Box::new(exec::Exec::start(
+                    ctx.name(),
+                    exec,
+                    session_actions,
+                    notifications,
+                    dialog,
+                    placement,
+                ))
+            }))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_placement() -> glimpse_services::Placement {
+        glimpse_services::Placement {
+            output: None,
+            position: glimpse_services::Edge::Top,
+            orientation: glimpse_services::Orientation::Horizontal,
+            zone: glimpse_services::Zone::Center,
+            size: 32,
+        }
+    }
 
     fn custom(name: &str, extends: AppletConfig) -> BTreeMap<String, AppletConfig> {
         BTreeMap::from([(name.to_owned(), extends)])
@@ -457,6 +502,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "printing now has an implementation");
@@ -499,6 +546,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "privacy now has an implementation");
@@ -541,6 +590,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "clipboard now has an implementation");
@@ -584,6 +635,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "places has an implementation");
@@ -627,6 +680,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "removable has an implementation");
@@ -670,6 +725,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "system-monitor has an implementation");
@@ -712,6 +769,8 @@ mod tests {
             &services.privacy,
             &services.system_monitor,
             &services.ruler,
+            &services.exec(),
+            test_placement(),
             None,
         );
         assert!(built.is_some(), "audio now has an implementation");
@@ -756,6 +815,8 @@ mod tests {
                 &services.privacy,
                 &services.system_monitor,
                 &services.ruler,
+                &services.exec(),
+                test_placement(),
                 None,
             )
             .is_none(),
@@ -789,6 +850,8 @@ mod tests {
                 &services.privacy,
                 &services.system_monitor,
                 &services.ruler,
+                &services.exec(),
+                test_placement(),
                 Some(&dialog),
             )
             .is_some(),
@@ -846,6 +909,8 @@ mod tests {
                 &services.privacy,
                 &services.system_monitor,
                 &services.ruler,
+                &services.exec(),
+                test_placement(),
                 None,
             );
             assert!(

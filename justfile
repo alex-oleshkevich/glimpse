@@ -6,12 +6,12 @@ set positional-arguments
 
 # Single source of truth for every script that walks the shipped binaries, passed to them as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
-# still hand-duplicate it, as do the scripts' own no-just fallback defaults.
+# still hand-duplicate it.
 # How a recipe that writes outside the tree becomes root. `sudo` because these are run from a
 # terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
 elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
 
-binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-applet glimpse-ruler glimpse-shot"
 
 [doc("list recipes")]
 default:
@@ -151,6 +151,10 @@ test-one CRATE TEST:
 
 [doc("everything CI runs")]
 verify: fmt-check check lint test check-strings
+
+[doc("run the applet SDK tests")]
+sdk-test:
+    "${GLIMPSE_DENO:-deno}" test --allow-read --allow-env --config sdk/applet/deno.json sdk/applet
 
 [doc("search crates.io before writing something by hand")]
 search QUERY:

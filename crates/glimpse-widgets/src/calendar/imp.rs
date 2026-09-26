@@ -13,6 +13,7 @@ const TODAY: &str = "calendar__cell--today";
 const SELECTED: &str = "calendar__cell--selected";
 const MONTH_VIEW: &str = "month";
 const YEAR_VIEW: &str = "year";
+const SLIDE_MS: u32 = 220;
 
 pub struct Day {
     pub button: gtk4::Button,
@@ -38,11 +39,16 @@ pub struct Calendar {
     #[template_child]
     pub views: TemplateChild<gtk4::Stack>,
     #[template_child]
-    pub month: TemplateChild<gtk4::Grid>,
+    pub weekdays_row: TemplateChild<gtk4::Grid>,
+    #[template_child]
+    pub pages: TemplateChild<gtk4::Stack>,
     #[template_child]
     pub year: TemplateChild<gtk4::Grid>,
 
-    pub days: RefCell<Vec<Day>>,
+    pub days: RefCell<Vec<Vec<Day>>>,
+    pub grids: RefCell<Vec<gtk4::Grid>>,
+    pub front: Cell<usize>,
+    pub painted: Cell<Option<(i32, u32)>>,
     pub months: RefCell<Vec<gtk4::Button>>,
     pub weekdays: RefCell<Vec<gtk4::Label>>,
     pub events: RefCell<HashMap<Ymd, Vec<gdk::RGBA>>>,
@@ -137,9 +143,10 @@ impl Calendar {
             label.set_text(&format_weekday(weekday));
         }
 
+        let front = self.flip(year, month, year_view);
         let cells = month_grid(year, month, self.first_weekday());
         let events = self.events.borrow();
-        for (day, cell) in self.days.borrow().iter().zip(cells.iter()) {
+        for (day, cell) in self.days.borrow()[front].iter().zip(cells.iter()) {
             day.date.set(cell.date);
             day.label.set_text(&cell.date.day.to_string());
             let weekday = super::grid::weekday(cell.date.year, cell.date.month, cell.date.day);
@@ -154,12 +161,44 @@ impl Calendar {
                 None => day.dots.set_colors(&[]),
             }
         }
+        drop(events);
+        if let Some(grid) = self.grids.borrow().get(front) {
+            self.pages.set_visible_child(grid);
+        }
 
         for (index, button) in self.months.borrow().iter().enumerate() {
             let this = index as u32 + 1;
             set_css_class(button, TODAY, (year, this) == (today.year, today.month));
             set_css_class(button, SELECTED, this == month);
         }
+    }
+}
+
+impl Calendar {
+    fn flip(&self, year: i32, month: u32, year_view: bool) -> usize {
+        let front = self.front.get();
+        let Some(before) = self.painted.replace(Some((year, month))) else {
+            return front;
+        };
+        let animate = before != (year, month)
+            && !year_view
+            && self.obj().is_mapped()
+            && !self.views.is_transition_running();
+        if !animate {
+            self.pages
+                .set_transition_type(gtk4::StackTransitionType::None);
+            return front;
+        }
+        self.pages
+            .set_transition_type(match (year, month) > before {
+                true => gtk4::StackTransitionType::SlideLeft,
+                false => gtk4::StackTransitionType::SlideRight,
+            });
+        self.pages
+            .set_transition_duration(crate::theme::animation_ms(SLIDE_MS));
+        let back = 1 - front;
+        self.front.set(back);
+        back
     }
 }
 
@@ -243,11 +282,27 @@ impl Calendar {
         for column in 0..COLUMNS {
             let label = gtk4::Label::new(None);
             label.add_css_class("calendar__weekday");
-            self.month.attach(&label, column as i32, 0, 1, 1);
+            self.weekdays_row.attach(&label, column as i32, 0, 1, 1);
             weekdays.push(label);
         }
         self.weekdays.replace(weekdays);
 
+        let mut grids = Vec::new();
+        let mut child = self.pages.first_child();
+        while let Some(grid) = child.and_downcast::<gtk4::Grid>() {
+            child = grid.next_sibling();
+            grids.push(grid);
+        }
+        let pages = grids
+            .iter()
+            .enumerate()
+            .map(|(page, grid)| self.build_page(grid, page))
+            .collect();
+        self.days.replace(pages);
+        self.grids.replace(grids);
+    }
+
+    fn build_page(&self, grid: &gtk4::Grid, page: usize) -> Vec<Day> {
         let mut days = Vec::with_capacity(CELLS);
         for index in 0..CELLS {
             let label = gtk4::Label::new(None);
@@ -267,13 +322,21 @@ impl Calendar {
                 .child(&stack)
                 .build();
             button.add_css_class("calendar__day");
-            self.month.attach(
+            grid.attach(
                 &button,
                 (index % COLUMNS) as i32,
-                (index / COLUMNS) as i32 + 1,
+                (index / COLUMNS) as i32,
                 1,
                 1,
             );
+
+            let calendar = self.obj().clone();
+            button.connect_clicked(move |_| {
+                let imp = calendar.imp();
+                let date = imp.days.borrow()[page][index].date.get();
+                imp.shown.set((date.year, date.month));
+                imp.select(date);
+            });
 
             days.push(Day {
                 button,
@@ -282,17 +345,7 @@ impl Calendar {
                 date: Cell::new(Ymd::new(1970, 1, 1)),
             });
         }
-
-        for (index, day) in days.iter().enumerate() {
-            let calendar = self.obj().clone();
-            day.button.connect_clicked(move |_| {
-                let imp = calendar.imp();
-                let date = imp.days.borrow()[index].date.get();
-                imp.shown.set((date.year, date.month));
-                imp.select(date);
-            });
-        }
-        self.days.replace(days);
+        days
     }
 
     fn build_year(&self) {

@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gettextrs::{gettext, ngettext};
 use glimpse_config::{
     Applet as AppletConfig, AppletKind, PagerConfig, PagerMode, PagerScope, PagerShape,
 };
 use glimpse_services::CompositorHandle;
-use glimpse_services::{WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef};
+use glimpse_services::{OutputInfo, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{
     Focus, Pager as Strip, Shape, Slot, Workspace, WorkspaceWindow, WorkspacesPopover,
 };
@@ -14,6 +15,7 @@ use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
+use crate::applets::output_name;
 use crate::applets::workspace::{Facts, render, workspace_token};
 
 pub struct Pager {
@@ -23,6 +25,7 @@ pub struct Pager {
     output: Option<String>,
     workspaces: Vec<WorkspaceInfo>,
     windows: Vec<WindowInfo>,
+    outputs: Vec<OutputInfo>,
     compositor: CompositorHandle,
 }
 
@@ -96,6 +99,7 @@ impl Applet for Pager {
             .map(|value| value.workspaces)
             .unwrap_or_default();
         self.windows = state.windows.map(|value| value.windows).unwrap_or_default();
+        self.outputs = state.outputs.map(|value| value.outputs).unwrap_or_default();
         self.render();
     }
 }
@@ -113,6 +117,7 @@ impl Pager {
                 .map(|value| value.workspaces)
                 .unwrap_or_default(),
             windows: state.windows.map(|value| value.windows).unwrap_or_default(),
+            outputs: state.outputs.map(|value| value.outputs).unwrap_or_default(),
             compositor,
         }
     }
@@ -122,12 +127,13 @@ impl Pager {
             .map(|workspace| Workspace {
                 id: workspace.id,
                 label: workspace_token(workspace),
-                detail: match workspace.windows {
-                    0 => "empty".to_owned(),
-                    1 => "1 window".to_owned(),
-                    many => format!("{many} windows"),
-                },
+                detail: windows_label(workspace.windows),
                 output: workspace.output.clone().unwrap_or_default(),
+                display: workspace
+                    .output
+                    .as_deref()
+                    .map(|connector| output_name(connector, &self.outputs))
+                    .unwrap_or_default(),
                 focused: workspace.focused,
                 urgent: workspace.urgent,
                 windows: self.windows_on(workspace.id),
@@ -206,6 +212,14 @@ impl Pager {
                     .collect()
             }
         }
+    }
+}
+
+fn windows_label(count: u32) -> String {
+    match count {
+        0 => gettext("Empty"),
+        count => ngettext("{count} window", "{count} windows", count)
+            .replace("{count}", &count.to_string()),
     }
 }
 
@@ -464,6 +478,13 @@ mod tests {
                 "every state falls back to `label`, so setting one does not blank the others"
             );
         }
+    }
+
+    #[test]
+    fn a_workspace_counts_its_windows_and_calls_none_empty() {
+        assert_eq!(windows_label(0), "Empty");
+        assert_eq!(windows_label(1), "1 window");
+        assert_eq!(windows_label(3), "3 windows");
     }
 
     #[test]

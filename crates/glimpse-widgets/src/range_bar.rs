@@ -2,6 +2,7 @@ use gtk4::{glib, graphene, prelude::*, subclass::prelude::*};
 use std::cell::Cell;
 
 const THICKNESS: f32 = 4.0;
+const MARKER: f32 = 10.0;
 const MIN_WIDTH: i32 = 24;
 const NATURAL_WIDTH: i32 = 96;
 const TRACK_ALPHA: f32 = 0.22;
@@ -15,6 +16,7 @@ mod imp {
         pub high: Cell<f64>,
         pub minimum: Cell<f64>,
         pub maximum: Cell<f64>,
+        pub now: Cell<Option<f64>>,
     }
 
     impl Default for RangeBar {
@@ -24,6 +26,7 @@ mod imp {
                 high: Cell::new(0.0),
                 minimum: Cell::new(0.0),
                 maximum: Cell::new(1.0),
+                now: Cell::new(None),
             }
         }
     }
@@ -44,7 +47,7 @@ mod imp {
 
     impl WidgetImpl for RangeBar {
         fn measure(&self, orientation: gtk4::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
-            let thickness = THICKNESS.ceil() as i32;
+            let thickness = MARKER.ceil() as i32;
             match orientation {
                 gtk4::Orientation::Horizontal => (MIN_WIDTH, NATURAL_WIDTH, -1, -1),
                 _ => (thickness, thickness, -1, -1),
@@ -74,6 +77,20 @@ mod imp {
             let start = at(self.low.get()).min(width - THICKNESS).max(0.0);
             let end = at(self.high.get()).max(start + THICKNESS).min(width);
             fill(snapshot, &color, start, end, y);
+
+            if let Some(now) = self.now.get() {
+                let centre = at(now).clamp(MARKER / 2.0, width - MARKER / 2.0);
+                let bounds = graphene::Rect::new(
+                    centre - MARKER / 2.0,
+                    (height - MARKER) / 2.0,
+                    MARKER,
+                    MARKER,
+                );
+                snapshot
+                    .push_rounded_clip(&gtk4::gsk::RoundedRect::from_rect(bounds, MARKER / 2.0));
+                snapshot.append_color(&color, &bounds);
+                snapshot.pop();
+            }
         }
     }
 
@@ -122,6 +139,19 @@ impl RangeBar {
         imp.minimum.set(minimum);
         imp.maximum.set(maximum);
         self.queue_draw();
+    }
+
+    pub fn set_now(&self, now: Option<f64>) {
+        let imp = self.imp();
+        if imp.now.get() == now {
+            return;
+        }
+        imp.now.set(now);
+        self.queue_draw();
+    }
+
+    pub fn now(&self) -> Option<f64> {
+        self.imp().now.get()
     }
 
     pub fn range(&self) -> (f64, f64) {

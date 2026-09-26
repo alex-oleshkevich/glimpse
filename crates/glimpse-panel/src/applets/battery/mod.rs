@@ -19,6 +19,7 @@ pub struct Battery {
     settings: BatteryAppletConfig,
     tooltip_format: Option<String>,
     footer: Option<(String, Vec<String>)>,
+    twelve: bool,
     spec: Vec<IndicatorSpec>,
     icon: Option<(String, gio::Icon)>,
     shown: glib::WeakRef<BatteryPopover>,
@@ -33,6 +34,7 @@ impl Battery {
             settings: BatteryAppletConfig::default(),
             tooltip_format: None,
             footer: None,
+            twelve: false,
             spec: Vec::new(),
             icon: None,
             shown: glib::WeakRef::new(),
@@ -74,24 +76,33 @@ impl Battery {
         }
     }
 
+    fn full_at(&self) -> Option<String> {
+        let seconds = self.state.display.as_ref()?.time_to_full?;
+        let at = chrono::Local::now() + chrono::Duration::seconds(i64::from(seconds));
+        Some(at.format(glimpse_config::clock(self.twelve)).to_string())
+    }
+
     fn dress(&self, shown: &BatteryPopover) {
-        match self.state.display.as_ref() {
-            Some(charge) => {
-                let (icon, subtitle, percentage) = render::heading(charge);
-                shown.set_heading(Some(&icon), subtitle.as_deref(), Some(percentage));
-            }
-            None => shown.set_heading(Some("battery-missing-symbolic"), None, None),
+        match render::heading(&self.state, self.full_at().as_deref()) {
+            Some(heading) => shown.set_heading(
+                Some(&heading.icon),
+                heading.subtitle.as_deref(),
+                Some(heading.percentage),
+                heading.severity,
+            ),
+            None => shown.set_heading(Some("battery-missing-symbolic"), None, None, None),
         }
         let (choices, selected) = render::profiles(self.state.profile.as_ref());
         shown.set_profiles(&choices, selected);
         shown.set_devices(&render::devices(&self.state));
-        match self.state.internals.first() {
-            Some(supply) => shown.set_details(
-                &render::facts(supply),
-                render::charge_limit(supply).as_ref(),
-            ),
-            None => shown.set_details(&[], None),
-        }
+        let supply = self.state.internals.first();
+        let health = supply.and_then(render::health);
+        shown.set_health(
+            health.as_ref().map(|(value, _)| value.as_str()),
+            health.as_ref().is_some_and(|(_, warning)| *warning),
+            &supply.map(render::facts).unwrap_or_default(),
+        );
+        shown.set_charge_limit(supply.and_then(render::charge_limit).as_ref());
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 }
@@ -103,6 +114,7 @@ impl Applet for Battery {
         };
         self.settings = settings.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
+        self.twelve = config.regional.twelve_hour();
         self.footer = config
             .common
             .settings()
@@ -122,7 +134,6 @@ impl Applet for Battery {
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = BatteryPopover::new();
-        shown.close_details();
 
         let battery = self.battery.clone();
         let notifications = self.notifications.clone();

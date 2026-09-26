@@ -12,12 +12,6 @@ template $AudioPopover: Gtk.Widget {
     $Hero hero {
       icon-name: "audio-volume-high-symbolic";
       title: _("Sound");
-
-      [slot]
-      $Readout readout {
-        valign: center;
-        visible: false;
-      }
     }
 
     Gtk.Box column {
@@ -28,8 +22,6 @@ template $AudioPopover: Gtk.Widget {
         "column",
       ]
 
-      $Fader output {}
-
       $Section outputs {
         visible: false;
         title: _("Output");
@@ -37,14 +29,33 @@ template $AudioPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          Gtk.Box output_rows {
-            orientation: vertical;
+          $Fader output {
+            styles [
+              "audio-popover__level",
+            ]
           }
 
-          $Row more_outputs {
-            visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+          $Expandable output_device {
+            $Row output_current {
+              [trail]
+              Gtk.Image {
+                icon-name: "go-next-symbolic";
+                accessible-role: presentation;
+
+                styles [
+                  "drawer-chevron",
+                ]
+              }
+
+              styles [
+                "audio-popover__device",
+              ]
+            }
+
+            [details]
+            Gtk.Box output_rows {
+              orientation: vertical;
+            }
           }
         }
       }
@@ -56,16 +67,33 @@ template $AudioPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Fader input {}
-
-          Gtk.Box input_rows {
-            orientation: vertical;
+          $Fader input {
+            styles [
+              "audio-popover__level",
+            ]
           }
 
-          $Row more_inputs {
-            visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+          $Expandable input_device {
+            $Row input_current {
+              [trail]
+              Gtk.Image {
+                icon-name: "go-next-symbolic";
+                accessible-role: presentation;
+
+                styles [
+                  "drawer-chevron",
+                ]
+              }
+
+              styles [
+                "audio-popover__device",
+              ]
+            }
+
+            [details]
+            Gtk.Box input_rows {
+              orientation: vertical;
+            }
           }
         }
       }

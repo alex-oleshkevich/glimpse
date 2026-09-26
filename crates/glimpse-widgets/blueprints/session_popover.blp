@@ -25,7 +25,7 @@ template $SessionPopover: Gtk.Widget {
 
           $Row hibernate {
             title: _("Hibernate");
-            lead-icon: "drive-harddisk-symbolic";
+            lead-icon: "document-save-symbolic";
           }
         }
       }
@@ -48,24 +48,6 @@ template $SessionPopover: Gtk.Widget {
             title: _("Shut down");
             lead-icon: "system-shutdown-symbolic";
           }
-        }
-      }
-
-      $Section sessions_section {
-        title: _("Switch user");
-        visible: false;
-
-        Gtk.Box sessions {
-          orientation: vertical;
-        }
-      }
-
-      $Section updates_section {
-        visible: false;
-
-        $Row updates {
-          title: _("Updates");
-          activatable: false;
         }
       }
     }

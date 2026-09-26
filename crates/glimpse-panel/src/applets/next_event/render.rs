@@ -1,6 +1,5 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta, Utc};
 use gettextrs::gettext;
-use glimpse_services::MeetingProvider;
 use glimpse_widgets::{Event, Fact};
 
 use crate::applets::agenda::{self, Occasion};
@@ -8,7 +7,6 @@ use crate::applets::tokens;
 
 const MOST_ROWS: usize = 20;
 const TITLE: usize = 24;
-const JOIN: usize = 48;
 const ELLIPSIS: char = '…';
 const HOUR_MINUTES: i64 = 60;
 const DAY_HOURS: i64 = 24;
@@ -186,7 +184,11 @@ pub fn upcoming(
 
 fn row(now: DateTime<Local>, event: &Occasion, clock: &str) -> Event {
     let day = shown_day(now, event);
-    let mut row = agenda::row(now, day, event, clock);
+    let mut row = Event {
+        links: agenda::links(event),
+        facts: agenda::facts(event),
+        ..agenda::row(now, day, event, clock)
+    };
     if day != now.date_naive() {
         row.when = format!("{} {}", event.start.format("%a"), row.when);
     }
@@ -211,47 +213,6 @@ fn clashes(conflicts: &[String]) -> String {
     }
 }
 
-pub struct Join {
-    pub title: String,
-    pub subtitle: String,
-    pub url: String,
-}
-
-pub fn join(event: &Occasion) -> Option<Join> {
-    let url = event.meeting_url.as_deref()?;
-    let meeting = glimpse_services::meeting(url)?;
-    Some(Join {
-        title: join_title(meeting.provider),
-        subtitle: glimpse_utils::clean(&meeting.location, JOIN),
-        url: url.to_owned(),
-    })
-}
-
-fn join_title(provider: MeetingProvider) -> String {
-    match provider {
-        MeetingProvider::GoogleMeet => gettext("Join Google Meet"),
-        MeetingProvider::Zoom => gettext("Join Zoom"),
-        MeetingProvider::Teams => gettext("Join Microsoft Teams"),
-        MeetingProvider::Webex => gettext("Join Webex"),
-        MeetingProvider::Other => gettext("Join meeting"),
-    }
-}
-
-pub struct Open {
-    pub title: String,
-    pub subtitle: String,
-    pub url: String,
-}
-
-pub fn open_event(event: &Occasion) -> Option<Open> {
-    let url = event.event_url.as_deref()?;
-    Some(Open {
-        title: gettext("Open event"),
-        subtitle: glimpse_utils::clean(url, JOIN),
-        url: url.to_owned(),
-    })
-}
-
 pub fn conflicts(events: &[Occasion], chosen: Option<usize>) -> Vec<String> {
     let Some(event) = chosen.and_then(|index| events.get(index)) else {
         return Vec::new();
@@ -274,15 +235,6 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
     if !event.calendar.is_empty() {
         facts.push(Fact::new(gettext("Calendar"), event.calendar.clone()));
     }
-    if !event.location.is_empty() {
-        facts.push(Fact::new(gettext("Location"), event.location.clone()));
-    }
-    if !event.all_day {
-        facts.push(Fact::new(
-            gettext("Duration"),
-            agenda::span(event.end - event.start),
-        ));
-    }
     if let Some(organizer) = &event.organizer {
         facts.push(Fact::new(gettext("Organizer"), organizer.clone()));
     }
@@ -296,18 +248,14 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
                 .replace("{accepted}", &guests.accepted.to_string()),
         ));
     }
-    facts.push(Fact::new(
-        gettext("Status"),
-        match event.tentative {
-            true => gettext("Tentative"),
-            false => gettext("Confirmed"),
-        },
-    ));
+    if event.tentative {
+        facts.push(Fact::new(gettext("Status"), gettext("Tentative")));
+    }
     if !event.description.is_empty() {
         facts.push(Fact::new(gettext("Description"), event.description.clone()));
     }
     if !conflicts.is_empty() {
-        facts.push(Fact::new(gettext("Conflicts"), conflicts.join(", ")));
+        facts.push(Fact::warning(gettext("Conflicts"), conflicts.join(", ")));
     }
     facts
 }
@@ -719,25 +667,28 @@ mod tests {
     #[test]
     fn join_is_labelled_from_the_host_and_absent_when_there_is_no_url() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert!(join(&meeting).is_none());
+        assert!(agenda::join(&meeting).is_none());
 
         meeting.meeting_url = Some("https://meet.google.com/aaa-bbbb-ccc".to_owned());
-        let shown = join(&meeting).expect("a meet url");
+        let shown = agenda::join(&meeting).expect("a meet url");
         assert_eq!(shown.title, "Join Google Meet");
         assert_eq!(shown.subtitle, "meet.google.com/aaa-bbbb-ccc");
         assert_eq!(shown.url, "https://meet.google.com/aaa-bbbb-ccc");
 
         meeting.meeting_url = Some("https://zoom.us/j/123".to_owned());
-        assert_eq!(join(&meeting).expect("zoom").title, "Join Zoom");
+        assert_eq!(agenda::join(&meeting).expect("zoom").title, "Join Zoom");
 
         meeting.meeting_url = Some("https://teams.microsoft.com/l/meetup-join/19".to_owned());
-        assert_eq!(join(&meeting).expect("teams").title, "Join Microsoft Teams");
+        assert_eq!(
+            agenda::join(&meeting).expect("teams").title,
+            "Join Microsoft Teams"
+        );
 
         meeting.meeting_url = Some("https://calendar.example/event".to_owned());
-        assert_eq!(join(&meeting).expect("other").title, "Join meeting");
+        assert_eq!(agenda::join(&meeting).expect("other").title, "Join meeting");
 
         meeting.meeting_url = Some("https://user:pass@zoom.us/j/123".to_owned());
-        let shown = join(&meeting).expect("userinfo");
+        let shown = agenda::join(&meeting).expect("userinfo");
         assert_eq!(shown.title, "Join Zoom");
         assert_eq!(shown.subtitle, "zoom.us/j/123");
         assert!(
@@ -747,18 +698,21 @@ mod tests {
 
         meeting.meeting_url = Some("https://acme.webex.com/meet/sam".to_owned());
         assert_eq!(
-            join(&meeting).expect("webex").title,
+            agenda::join(&meeting).expect("webex").title,
             "Join Webex",
             "the service accepts a webex link as a meeting, so the row has to name it — the two \
              lists drifting is what sharing one classifier prevents"
         );
 
         meeting.meeting_url = Some("https://acme.zoom.us/j/123".to_owned());
-        assert_eq!(join(&meeting).expect("subdomain").title, "Join Zoom");
+        assert_eq!(
+            agenda::join(&meeting).expect("subdomain").title,
+            "Join Zoom"
+        );
 
         meeting.meeting_url = Some("https://notzoom.us/j/123".to_owned());
         assert_eq!(
-            join(&meeting).expect("lookalike").title,
+            agenda::join(&meeting).expect("lookalike").title,
             "Join meeting",
             "a suffix match must not treat notzoom.us as zoom.us"
         );
@@ -767,29 +721,25 @@ mod tests {
     #[test]
     fn open_event_reads_the_events_own_url_and_is_absent_without_one() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert!(open_event(&meeting).is_none());
+        assert!(agenda::open_event(&meeting).is_none());
 
         meeting.event_url = Some("https://calendar.example/event/abc123".to_owned());
-        let shown = open_event(&meeting).expect("an event url");
+        let shown = agenda::open_event(&meeting).expect("an event url");
         assert_eq!(shown.title, "Open event");
         assert_eq!(shown.url, "https://calendar.example/event/abc123");
         assert_eq!(shown.subtitle, "https://calendar.example/event/abc123");
     }
 
     #[test]
-    fn facts_omit_empty_rows_and_a_solo_attendee() {
+    fn facts_hold_only_what_the_heading_does_not_already_say() {
         let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
-        assert_eq!(
-            facts(&meeting, &[])
-                .into_iter()
-                .map(|fact| fact.label)
-                .collect::<Vec<_>>(),
-            vec!["Duration".to_owned(), "Status".to_owned()],
-            "duration and status are read off every timed event, not only a decorated one"
+        meeting.location = "Room 2".to_owned();
+        assert!(
+            facts(&meeting, &[]).is_empty(),
+            "location and length are in the heading, and a confirmed event is the ordinary case"
         );
 
         meeting.calendar = "Work".to_owned();
-        meeting.location = "Room 2".to_owned();
         meeting.organizer = Some("Marta".to_owned());
         meeting.guests = Some(GuestCounts {
             total: 2,
@@ -806,8 +756,6 @@ mod tests {
             shown,
             vec![
                 ("Calendar".to_owned(), "Work".to_owned()),
-                ("Location".to_owned(), "Room 2".to_owned()),
-                ("Duration".to_owned(), "1 h".to_owned()),
                 ("Organizer".to_owned(), "Marta".to_owned()),
                 ("Guests".to_owned(), "2 · 1 accepted".to_owned()),
                 ("Status".to_owned(), "Tentative".to_owned()),
@@ -822,31 +770,47 @@ mod tests {
             total: 1,
             accepted: 1,
         });
-        meeting.tentative = false;
-        meeting.organizer = None;
-        meeting.description = String::new();
-        let labels: Vec<String> = facts(&meeting, &[])
-            .into_iter()
-            .map(|fact| fact.label)
-            .collect();
-        assert_eq!(
-            labels,
-            vec![
-                "Calendar".to_owned(),
-                "Location".to_owned(),
-                "Duration".to_owned(),
-                "Status".to_owned(),
-            ]
+        assert!(
+            !facts(&meeting, &[])
+                .iter()
+                .any(|fact| fact.label == "Guests"),
+            "a solo attendee is not a guest list"
         );
 
-        let mut holiday = event("Conference", at(4, 0, 0), at(4, 23, 59));
-        holiday.all_day = true;
-        assert!(
-            !facts(&holiday, &[])
-                .iter()
-                .any(|fact| fact.label == "Duration"),
-            "a day has no minute count worth showing"
+        let clash = facts(&meeting, &["Retro".to_owned()]);
+        let last = clash.last().expect("a conflict fact");
+        assert_eq!(last.label, "Conflicts");
+        assert!(last.warning, "a conflict is a problem, so it reads amber");
+        assert!(clash[..clash.len() - 1].iter().all(|fact| !fact.warning));
+    }
+
+    #[test]
+    fn an_upcoming_row_carries_the_same_card_as_the_calendar() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        let now = at(4, 13, 0);
+        let plain = upcoming(
+            now,
+            std::slice::from_ref(&meeting),
+            None,
+            TimeDelta::hours(4),
+            5,
+            "%H:%M",
         );
+        assert!(plain[0].links.is_empty() && plain[0].facts.is_empty());
+
+        meeting.calendar = "Work".to_owned();
+        meeting.meeting_url = Some("https://meet.google.com/abc-defg-hij".to_owned());
+        let carded = upcoming(
+            now,
+            std::slice::from_ref(&meeting),
+            None,
+            TimeDelta::hours(4),
+            5,
+            "%H:%M",
+        );
+        assert_eq!(carded[0].links, agenda::links(&meeting));
+        assert_eq!(carded[0].facts, agenda::facts(&meeting));
+        assert_eq!(carded[0].links[0].title, "Join Google Meet");
     }
 
     #[test]

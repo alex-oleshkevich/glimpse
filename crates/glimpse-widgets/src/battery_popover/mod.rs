@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Fact, Row, drawer, none_if_empty};
+use crate::{Choice, Fact, Row, Severity, none_if_empty};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Device {
@@ -10,11 +10,13 @@ pub struct Device {
     pub subtitle: String,
     pub icon_name: String,
     pub value: String,
+    pub warning: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChargeLimit {
     pub enabled: bool,
+    pub title: String,
     pub subtitle: String,
 }
 
@@ -40,8 +42,19 @@ impl BatteryPopover {
         icon_name: Option<&str>,
         subtitle: Option<&str>,
         percentage: Option<u8>,
+        severity: Option<Severity>,
     ) {
         let imp = self.imp();
+        crate::set_css_class(
+            &*imp.hero,
+            "battery-popover__hero--warning",
+            severity == Some(Severity::Warning),
+        );
+        crate::set_css_class(
+            &*imp.hero,
+            "battery-popover__hero--error",
+            severity == Some(Severity::Error),
+        );
         imp.hero.set_icon_name(icon_name);
         imp.hero.set_subtitle(subtitle);
         match percentage {
@@ -85,45 +98,46 @@ impl BatteryPopover {
             row.set_lead_icon(none_if_empty(&device.icon_name));
             row.set_value(none_if_empty(&device.value));
             row.set_activatable(false);
+            crate::set_css_class(&row, "row--warning", device.warning);
             imp.devices_box.append(&row);
         }
     }
 
-    pub fn set_details(&self, facts: &[Fact], charge_limit: Option<&ChargeLimit>) {
+    pub fn set_health(&self, value: Option<&str>, warning: bool, facts: &[Fact]) {
         let imp = self.imp();
-        let has_details = !facts.is_empty() || charge_limit.is_some();
-        if imp.details_holder.get_visible() != has_details {
-            imp.details_holder.set_visible(has_details);
+        let shown = value.is_some() || !facts.is_empty();
+        if imp.details.get_visible() != shown {
+            imp.details.set_visible(shown);
         }
-        if !has_details {
-            self.close_details();
+        if !shown {
+            imp.details.set_expanded(false);
         }
+        if imp.details_row.value().as_deref() != value {
+            imp.details_row.set_value(value);
+        }
+        crate::set_css_class(&*imp.details_row, "row--warning", warning);
         imp.facts.set_facts(facts);
-        match charge_limit {
-            Some(limit) => {
-                if !imp.charge_limit.get_visible() {
-                    imp.charge_limit.set_visible(true);
-                }
-                let row = imp.charge_limit.upcast_ref::<Row>();
-                if row.subtitle().as_deref() != Some(limit.subtitle.as_str()) {
-                    row.set_subtitle(Some(limit.subtitle.as_str()));
-                }
-                if imp.charge_limit.active() != limit.enabled {
-                    imp.charge_limit.set_active(limit.enabled);
-                }
-            }
-            None => {
-                if imp.charge_limit.get_visible() {
-                    imp.charge_limit.set_visible(false);
-                }
-            }
-        }
-        self.sync_dimming();
     }
 
-    pub fn close_details(&self) {
-        drawer::set(&self.imp().details_panel, false);
-        self.sync_dimming();
+    pub fn set_charge_limit(&self, limit: Option<&ChargeLimit>) {
+        let imp = self.imp();
+        let visible = limit.is_some();
+        if imp.charge_limit.get_visible() != visible {
+            imp.charge_limit.set_visible(visible);
+        }
+        let Some(limit) = limit else {
+            return;
+        };
+        let row = imp.charge_limit.upcast_ref::<Row>();
+        if row.title().as_deref() != Some(limit.title.as_str()) {
+            row.set_title(Some(limit.title.as_str()));
+        }
+        if row.subtitle().as_deref() != Some(limit.subtitle.as_str()) {
+            row.set_subtitle(Some(limit.subtitle.as_str()));
+        }
+        if imp.charge_limit.active() != limit.enabled {
+            imp.charge_limit.set_active(limit.enabled);
+        }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -158,21 +172,5 @@ impl BatteryPopover {
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
-    }
-
-    fn sync_dimming(&self) {
-        let imp = self.imp();
-        let open = imp.details_panel.reveals_child();
-        crate::set_css_class(&*imp.details_row, drawer::OPEN, open);
-        for widget in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.profiles_section.upcast_ref(),
-            imp.devices_section.upcast_ref(),
-            imp.footer.upcast_ref(),
-            imp.shell.imp().hero_rule.upcast_ref(),
-            imp.shell.imp().footer_rule.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, open);
-        }
     }
 }

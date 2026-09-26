@@ -1,8 +1,9 @@
 mod imp;
 
+use gettextrs::gettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Shade, drawer, none_if_empty};
+use crate::{Shade, none_if_empty};
 
 glib::wrapper! {
     pub struct ColorPickerPopover(ObjectSubclass<imp::ColorPickerPopover>)
@@ -36,18 +37,13 @@ impl ColorPickerPopover {
     pub fn set_shades(&self, shades: &[Shade]) {
         let imp = self.imp();
         imp.palette.set_shades(shades);
-        imp.palette_section.set_empty(shades.is_empty());
-    }
-
-    pub fn set_open(&self, open: Option<u64>) {
-        let imp = self.imp();
-        imp.palette.set_open(open);
-        for chrome in [
-            imp.hero.upcast_ref::<gtk4::Widget>(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(chrome, drawer::RECEDED, open.is_some());
-        }
+        imp.palette_section.set_visible(!shades.is_empty());
+        imp.hero.set_subtitle(
+            shades
+                .is_empty()
+                .then(|| gettext("Nothing picked yet"))
+                .as_deref(),
+        );
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -64,19 +60,19 @@ impl ColorPickerPopover {
         )
     }
 
-    pub fn connect_detailed<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "detailed",
-            false,
-            glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
-        )
-    }
-
     pub fn connect_copied<F: Fn(&Self, u64, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "copied",
             false,
             glib::closure_local!(move |popover: Self, id: u64, key: String| f(&popover, id, &key)),
+        )
+    }
+
+    pub fn connect_pick_requested<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "pick-requested",
+            false,
+            glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
 

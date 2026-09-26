@@ -1,11 +1,12 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Volume {
@@ -13,12 +14,11 @@ pub struct Volume {
     pub title: String,
     pub subtitle: String,
     pub icon: String,
-    pub value: String,
     pub fraction: Option<f64>,
-    pub activatable: bool,
     pub busy: bool,
-    pub read_only: bool,
     pub mounted: bool,
+    pub warning: bool,
+    pub facts: Vec<Fact>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -27,11 +27,10 @@ pub struct Drive {
     pub title: String,
     pub subtitle: String,
     pub icon: String,
-    pub value: String,
     pub ejectable: bool,
     pub busy: bool,
-    pub activatable: bool,
     pub dimmed: bool,
+    pub facts: Vec<Fact>,
     pub volumes: Vec<Volume>,
 }
 
@@ -52,7 +51,8 @@ pub struct RemovablePopover {
     pub footer: TemplateChild<Row>,
 
     pub devices_data: RefCell<Vec<Drive>>,
-    pub devices_held: RefCell<Vec<(String, gtk4::Box)>>,
+    pub devices_held: RefCell<Vec<(String, Expandable)>>,
+    pub(super) cards: RefCell<HashMap<String, super::Card>>,
 }
 
 #[glib::object_subclass]

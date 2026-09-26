@@ -126,6 +126,7 @@ fn printer(printer: &ServicePrinter) -> PrintingPrinter {
         id: cap(&printer.name),
         name: cap(&printer.name),
         status: printer_status(printer),
+        warning: troubled(printer),
         network: false,
         details: printer_details(printer),
     }
@@ -135,47 +136,31 @@ fn detail(label: String, value: String) -> PrintingDetail {
     PrintingDetail { label, value }
 }
 
-/// Only what the printer actually answered. A row reading "Location —" is worse than no row, and
-/// cups leaves most of these empty on a queue that never filled them in.
+/// A printer's card holds only where it is: the specs a queue reports — colour, sides, paper,
+/// resolution — are nothing a person acts on from a panel, and a problem is the row's own
+/// subtitle. A printer with no location has no card at all.
 fn printer_details(printer: &ServicePrinter) -> Vec<PrintingDetail> {
-    let mut details = Vec::new();
-
-    if !printer.location.is_empty() {
-        details.push(detail(gettext("Location"), printer.location.clone()));
+    match printer.location.is_empty() {
+        true => Vec::new(),
+        false => vec![detail(gettext("Location"), printer.location.clone())],
     }
+}
+
+fn troubled(printer: &ServicePrinter) -> bool {
+    printer.state == PrinterState::Stopped
+        || !printer.accepting_jobs
+        || !printer.state_message.is_empty()
+}
+
+/// The row's second line: the printer's own message when it reports one, since that is the
+/// problem a person opened the popover about, then a refusal to take jobs, then its state.
+fn printer_status(printer: &ServicePrinter) -> String {
     if !printer.state_message.is_empty() {
-        details.push(detail(gettext("Reported"), printer.state_message.clone()));
+        return cap(&printer.state_message);
     }
     if !printer.accepting_jobs {
-        details.push(detail(gettext("Accepting jobs"), gettext("No")));
+        return gettext("Not accepting jobs");
     }
-    details.push(detail(gettext("Prints"), prints_summary(printer)));
-    if !printer.media_ready.is_empty() {
-        details.push(detail(
-            gettext("Paper loaded"),
-            printer.media_ready.join(", "),
-        ));
-    }
-    if !printer.resolution.is_empty() {
-        details.push(detail(gettext("Resolution"), printer.resolution.clone()));
-    }
-
-    details
-}
-
-fn prints_summary(printer: &ServicePrinter) -> String {
-    let color = match printer.color {
-        true => gettext("Color"),
-        false => gettext("Black & white"),
-    };
-    let sides = match printer.duplex {
-        true => gettext("double-sided"),
-        false => gettext("single-sided"),
-    };
-    format!("{color} · {sides}")
-}
-
-fn printer_status(printer: &ServicePrinter) -> String {
     match printer.state {
         PrinterState::Idle => gettext("Idle"),
         PrinterState::Processing => gettext("Printing"),
@@ -374,41 +359,52 @@ mod tests {
     }
 
     #[test]
-    fn a_printer_detail_is_only_rendered_when_the_printer_answered_it() {
+    fn a_printer_card_holds_only_its_location() {
         let bare = printer_at("Office", PrinterState::Idle);
-        let bare_details = printer_details(&bare);
-        let labels: Vec<&str> = bare_details
-            .iter()
-            .map(|detail| detail.label.as_str())
-            .collect();
-        assert_eq!(
-            labels,
-            vec!["Prints"],
-            "an empty location or resolution renders no row at all, never one reading a dash"
+        assert!(
+            printer_details(&bare).is_empty(),
+            "a printer with no location has no card at all"
         );
 
-        let mut full = printer_at("Office", PrinterState::Stopped);
+        let mut full = printer_at("Office", PrinterState::Idle);
         full.location = "Study".to_owned();
-        full.state_message = "Paper jam in tray 2".to_owned();
-        full.accepting_jobs = false;
         full.color = true;
         full.duplex = true;
-        full.media_ready = vec!["A4".to_owned(), "Letter".to_owned()];
+        full.media_ready = vec!["A4".to_owned()];
         full.resolution = "600 dpi".to_owned();
-
         let details = printer_details(&full);
-        let by_label = |label: &str| {
-            details
-                .iter()
-                .find(|detail| detail.label == label)
-                .map(|detail| detail.value.clone())
-        };
-        assert_eq!(by_label("Location").as_deref(), Some("Study"));
-        assert_eq!(by_label("Reported").as_deref(), Some("Paper jam in tray 2"));
-        assert_eq!(by_label("Accepting jobs").as_deref(), Some("No"));
-        assert_eq!(by_label("Prints").as_deref(), Some("Color · double-sided"));
-        assert_eq!(by_label("Paper loaded").as_deref(), Some("A4, Letter"));
-        assert_eq!(by_label("Resolution").as_deref(), Some("600 dpi"));
+        assert_eq!(
+            details.len(),
+            1,
+            "specs are nothing a person acts on from a panel"
+        );
+        assert_eq!(details[0].label, "Location");
+        assert_eq!(details[0].value, "Study");
+    }
+
+    #[test]
+    fn a_printer_problem_is_the_rows_own_subtitle_in_the_warning_colour() {
+        let idle = printer_at("Office", PrinterState::Idle);
+        let calm = printer(&idle);
+        assert!(!calm.warning);
+
+        let mut jammed = printer_at("Office", PrinterState::Idle);
+        jammed.state_message = "Paper jam in tray 2".to_owned();
+        let row = printer(&jammed);
+        assert!(row.warning);
+        assert_eq!(row.status, "Paper jam in tray 2");
+
+        let mut refusing = printer_at("Office", PrinterState::Idle);
+        refusing.accepting_jobs = false;
+        let row = printer(&refusing);
+        assert!(row.warning);
+        assert_eq!(row.status, gettext("Not accepting jobs"));
+
+        let stopped = printer(&printer_at("Office", PrinterState::Stopped));
+        assert!(
+            stopped.warning,
+            "a stopped queue is a problem even with no message"
+        );
     }
 
     #[test]

@@ -23,6 +23,7 @@ for f in data/portals/*-portals.conf; do
 done
 [[ -d "$portaletcdir" ]] && rmdir --ignore-fail-on-non-empty "$portaletcdir"
 rm -f "$bindir/glimpse-notificationd"
+rm -f "$bindir/glimpse-dpms"
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"
 rm -rf "$sharedir"

@@ -31,6 +31,10 @@ pub trait Applet: 'static {
         let _ = orientation;
     }
 
+    fn place(&mut self, placement: glimpse_services::Placement) {
+        let _ = placement;
+    }
+
     fn indicators(&self) -> Vec<IndicatorSpec> {
         Vec::new()
     }
@@ -192,6 +196,10 @@ impl Opener {
 
     pub fn wake(&self) {
         let _ = self.0.send(runtime::HostInput::Woken);
+    }
+
+    pub fn acknowledge(&self) {
+        let _ = self.0.send(runtime::HostInput::Acknowledged);
     }
 
     pub fn typing(&self, typing: bool) {

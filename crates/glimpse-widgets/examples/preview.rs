@@ -272,14 +272,14 @@ mod fixtures {
     use glimpse_widgets::{
         Action, Advisory, BatteryChargeLimit, BatteryDevice, BatteryPopover, Body,
         BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
-        DisplayMode, DisplayPopover, Event, EventList, Fact, FactList, Focus, Group, Hero, Hour,
-        Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets,
-        NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player,
-        PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
-        PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState, SessionSheet, Severity,
-        Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail, SystemMonitorPopover,
-        SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
-        WeatherPopover, WorldClock, Ymd, Zone,
+        DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
+        Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
+        InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF,
+        Pager, Player, PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter,
+        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState,
+        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
+        SystemMonitorDetail, SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip,
+        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -301,9 +301,12 @@ mod fixtures {
     const ICON: &str = "icon__";
     const OVERLAY: &str = "overlay__";
     const LABEL: &str = "label__";
+    const BADGE: &str = "badge__";
+    const DOT: &str = "dot__";
     const SEVERITY: &str = "severity__";
     const ATTENTION: &str = "state__attention";
     const NOTICE: &str = "state__notice";
+    const EXPANDED: &str = "state__open";
 
     pub fn apply(
         name: &str,
@@ -322,7 +325,7 @@ mod fixtures {
                     calendar_events(&calendar);
                 }
                 if let Some(events) = find::<EventList>(root) {
-                    agenda(&events, find::<gtk4::Revealer>(root));
+                    agenda(&events);
                 }
                 if let Some(clocks) = find::<WorldClock>(root) {
                     world_clock(&clocks);
@@ -357,6 +360,7 @@ mod fixtures {
         after(root);
         pager(root);
         busy(root);
+        expanded(root);
         indicators(root);
         scheme_toggle(root, sheets);
     }
@@ -731,10 +735,17 @@ mod fixtures {
     /// The real `$WeatherPopover`, filled through the setters the applet uses, so the preview
     /// shows the shipped widget rather than a hand-copied arrangement of its parts.
     fn weather_popover(root: &gtk4::Widget) {
-        let Some(popover) = find::<WeatherPopover>(root) else {
-            return;
-        };
+        for popover in collect::<WeatherPopover>(root) {
+            weather(&popover);
+            if popover.has_css_class("demo__today")
+                && let Some(today) = collect::<Expandable>(popover.upcast_ref()).first()
+            {
+                today.set_expanded(true);
+            }
+        }
+    }
 
+    fn weather(popover: &WeatherPopover) {
         popover.set_heading(
             "weather-showers-symbolic",
             "Vilnius",
@@ -758,13 +769,14 @@ mod fixtures {
         popover.set_days(
             &DAYS
                 .iter()
-                .skip(1)
-                .map(|day| Day {
+                .enumerate()
+                .map(|(index, day)| Day {
                     label: day.label.to_owned(),
                     icon_name: day.icon_name.to_owned(),
                     precipitation: day.precipitation,
                     low: day.low,
                     high: day.high,
+                    now: (index == 0).then_some(16.0),
                 })
                 .collect::<Vec<_>>(),
         );
@@ -796,19 +808,28 @@ mod fixtures {
 
         let mut pages: Vec<WeatherPage> = DAYS
             .iter()
-            .skip(1)
             .enumerate()
             .map(|(index, day)| WeatherPage {
                 key: glimpse_widgets::day_page(index as u32),
                 title: day.label.to_owned(),
                 description: Some(day.condition.to_owned()),
-                facts: vec![
-                    Fact::new("High", format!("{}°", day.high)),
-                    Fact::new("Low", format!("{}°", day.low)),
-                    Fact::new("Sunrise", "05:59"),
-                    Fact::new("Sunset", "20:08"),
-                    Fact::new("Day length", "14 h 9 min"),
-                ],
+                facts: match index {
+                    0 => vec![
+                        Fact::new("Wind", "12 km/h NW"),
+                        Fact::new("Humidity", "78%"),
+                        Fact::new("Precipitation", "0.4 mm"),
+                        Fact::new("Sunrise", "07:03"),
+                        Fact::new("Sunset", "19:02"),
+                        Fact::new("Day length", "11 h 59 min"),
+                    ],
+                    _ => vec![
+                        Fact::new("High", format!("{}°", day.high)),
+                        Fact::new("Low", format!("{}°", day.low)),
+                        Fact::new("Sunrise", "05:59"),
+                        Fact::new("Sunset", "20:08"),
+                        Fact::new("Day length", "14 h 9 min"),
+                    ],
+                },
             })
             .collect();
 
@@ -1007,6 +1028,7 @@ mod fixtures {
                         label: (*label).to_owned(),
                         detail: (*detail).to_owned(),
                         icon_name: (*icon_name).to_owned(),
+                        warning: false,
                     })
                     .collect::<Vec<_>>(),
             );
@@ -1121,6 +1143,7 @@ mod fixtures {
             |key: &str, name: &str, value: f64, maximum: f64, floor: f64| glimpse_widgets::Source {
                 key: key.to_owned(),
                 name: name.to_owned(),
+                icon: String::new(),
                 value,
                 maximum,
                 floor,
@@ -1152,6 +1175,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(2.0)),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -1163,6 +1187,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(1.25)),
             enabled: true,
+            built_in: false,
         };
 
         for list in tagged::<DisplayList>(root, "one") {
@@ -1187,9 +1212,10 @@ mod fixtures {
             return;
         };
         popover.set_heading(
-            Some("battery-full-charged-symbolic"),
-            Some("Fully charged"),
-            Some(100),
+            Some("battery-level-70-symbolic"),
+            Some("3 h 12 m left"),
+            Some(74),
+            None,
         );
         popover.set_profiles(
             &[
@@ -1197,47 +1223,70 @@ mod fixtures {
                     label: "Power saver".to_owned(),
                     detail: "Longer battery life, slower response".to_owned(),
                     icon_name: "power-profile-power-saver-symbolic".to_owned(),
+                    warning: false,
                 },
                 Choice {
                     label: "Balanced".to_owned(),
-                    detail: "The default trade-off".to_owned(),
                     icon_name: "power-profile-balanced-symbolic".to_owned(),
+                    ..Default::default()
                 },
                 Choice {
                     label: "Performance".to_owned(),
-                    detail: String::new(),
+                    detail: "Held back — too hot".to_owned(),
                     icon_name: "power-profile-performance-symbolic".to_owned(),
+                    warning: true,
                 },
             ],
             Some(1),
         );
-        popover.set_devices(&[BatteryDevice {
-            name: "MX Master 3S".to_owned(),
-            subtitle: "Mouse".to_owned(),
-            icon_name: "input-mouse-symbolic".to_owned(),
-            value: "41%".to_owned(),
-        }]);
-        popover.set_details(
+        popover.set_charge_limit(Some(&BatteryChargeLimit {
+            enabled: true,
+            title: "Limit charge to 80%".to_owned(),
+            subtitle: "Slows battery wear".to_owned(),
+        }));
+        popover.set_health(
+            Some("87%"),
+            false,
             &[
-                Fact::new("Charge", "100%"),
-                Fact::new("Energy", "87.0 / 87.0 Wh"),
-                Fact::new("Health", "97%"),
-                Fact::new("Voltage", "17.2 V"),
+                Fact::new("Energy", "41.2 / 52.0 Wh"),
+                Fact::new("Capacity when new", "57.0 Wh"),
+                Fact::new("Cycles", "312"),
+                Fact::new("Voltage", "12.1 V"),
                 Fact::new("Technology", "Li-ion"),
                 Fact::new("Model", "A32-K55"),
                 Fact::new("Vendor", "ASUS"),
             ],
-            Some(&BatteryChargeLimit {
-                enabled: false,
-                subtitle: "Stops at 80% to slow wear".to_owned(),
-            }),
         );
+        popover.set_devices(&[
+            BatteryDevice {
+                name: "MX Master 3S".to_owned(),
+                subtitle: String::new(),
+                icon_name: "input-mouse-symbolic".to_owned(),
+                value: "41%".to_owned(),
+                warning: false,
+            },
+            BatteryDevice {
+                name: "WH-1000XM4".to_owned(),
+                subtitle: "Charging".to_owned(),
+                icon_name: "audio-headphones-symbolic".to_owned(),
+                value: "18%".to_owned(),
+                warning: false,
+            },
+            BatteryDevice {
+                name: "Keychron K3".to_owned(),
+                subtitle: String::new(),
+                icon_name: "input-keyboard-symbolic".to_owned(),
+                value: "9%".to_owned(),
+                warning: true,
+            },
+        ]);
     }
 
     fn brightness_popover_states(root: &gtk4::Widget) {
         let level = |key: &str, name: &str, value: f64| glimpse_widgets::Source {
             key: key.to_owned(),
             name: name.to_owned(),
+            icon: String::new(),
             value,
             maximum: 100.0,
             floor: 0.0,
@@ -1265,6 +1314,17 @@ mod fixtures {
             popover.set_night_light(Some(&NightLight {
                 enabled: false,
                 temperature: 6500,
+                ..Default::default()
+            }));
+        }
+        for popover in tagged::<BrightnessPopover>(root, "day") {
+            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
+            popover.set_night_light(Some(&NightLight {
+                enabled: true,
+                temperature: 6500,
+                schedule: "automatic".to_owned(),
+                serving: true,
+                ..Default::default()
             }));
         }
         for popover in tagged::<BrightnessPopover>(root, "on") {
@@ -1272,6 +1332,9 @@ mod fixtures {
             popover.set_night_light(Some(&NightLight {
                 enabled: true,
                 temperature: 4200,
+                schedule: "automatic".to_owned(),
+                serving: true,
+                ..Default::default()
             }));
         }
     }
@@ -1290,6 +1353,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(2.0)),
             enabled: true,
+            built_in: true,
             ..Display::default()
         };
         let external = Display {
@@ -1301,6 +1365,7 @@ mod fixtures {
             current_mode: Some(mode.clone()),
             logical: Some(logical(1.25)),
             enabled: true,
+            built_in: false,
         };
 
         for popover in tagged::<DisplayPopover>(root, "one") {
@@ -3303,6 +3368,20 @@ mod fixtures {
         }
     }
 
+    fn expanded(root: &gtk4::Widget) {
+        for host in collect::<gtk4::Widget>(root) {
+            if !host.has_css_class(EXPANDED) {
+                continue;
+            }
+            match host.downcast_ref::<Expandable>() {
+                Some(expandable) => expandable.set_expanded(true),
+                None => collect::<Expandable>(&host)
+                    .iter()
+                    .for_each(|expandable| expandable.set_expanded(true)),
+            }
+        }
+    }
+
     fn indicators(root: &gtk4::Widget) {
         for indicator in collect::<Indicator>(root) {
             let classes = indicator.css_classes();
@@ -3316,6 +3395,8 @@ mod fixtures {
             let icon = named(ICON);
             let overlay = named(OVERLAY);
             let label = named(LABEL);
+            let badge = named(BADGE);
+            let dot = named(DOT);
             let severity = named(SEVERITY);
             let attention = flagged(ATTENTION);
             let notice = flagged(NOTICE);
@@ -3323,6 +3404,8 @@ mod fixtures {
             if icon.is_none()
                 && overlay.is_none()
                 && label.is_none()
+                && badge.is_none()
+                && dot.is_none()
                 && severity.is_none()
                 && !attention
                 && !notice
@@ -3344,6 +3427,17 @@ mod fixtures {
 
             if let Some(label) = label {
                 indicator.set_label(Some(&label));
+            }
+
+            if let Some(badge) = badge {
+                indicator.set_badge(Some(&badge));
+            }
+
+            if let Some(dot) = dot {
+                match gtk4::gdk::RGBA::parse(format!("#{dot}")) {
+                    Ok(color) => indicator.set_dot(Some(color)),
+                    Err(_) => eprintln!("{DOT}{dot} is not a hex color"),
+                }
             }
 
             match severity.as_deref() {
@@ -3617,18 +3711,6 @@ mod fixtures {
                         },
                         true,
                     ),
-                    entry(
-                        4,
-                        InhibitorSource::ManualHold,
-                        "Keep awake",
-                        "manual hold · until 16:24",
-                        InhibitorTargets {
-                            idle: true,
-                            suspend: true,
-                            ..InhibitorTargets::default()
-                        },
-                        true,
-                    ),
                 ]),
                 _ => {}
             }
@@ -3692,6 +3774,7 @@ mod fixtures {
                             id: "laserjet".into(),
                             name: "HP LaserJet 400".into(),
                             status: "Default · paper jam".into(),
+                            warning: true,
                             network: false,
                             details: vec![
                                 PrintingDetail {
@@ -3712,6 +3795,7 @@ mod fixtures {
                             id: "kitchen".into(),
                             name: "Kitchen".into(),
                             status: "IPP Everywhere · idle".into(),
+                            warning: false,
                             network: true,
                             details: vec![
                                 PrintingDetail {
@@ -3755,25 +3839,18 @@ mod fixtures {
                 "in_use" => {
                     popover.set_usages(&[
                         PrivacyUsage {
-                            id: "camera".into(),
-                            icon: "camera-web-symbolic".into(),
-                            title: "Camera".into(),
-                            detail: Some("Zoom · since 14:02".into()),
-                            stoppable: false,
-                        },
-                        PrivacyUsage {
-                            id: "microphone".into(),
-                            icon: "audio-input-microphone-symbolic".into(),
-                            title: "Microphone".into(),
-                            detail: Some("Zoom · since 14:02".into()),
-                            stoppable: false,
-                        },
-                        PrivacyUsage {
-                            id: "screen".into(),
-                            icon: "video-display-symbolic".into(),
-                            title: "Screen".into(),
-                            detail: Some("OBS Studio · sharing DP-1 since 13:41".into()),
+                            id: "app:Google Chrome".into(),
+                            icon: "google-chrome".into(),
+                            title: "Google Chrome".into(),
+                            detail: Some("Camera · Microphone · Sharing Dell U2723QE".into()),
                             stoppable: true,
+                        },
+                        PrivacyUsage {
+                            id: "app:Telegram".into(),
+                            icon: "telegram".into(),
+                            title: "Telegram".into(),
+                            detail: Some("Microphone".into()),
+                            stoppable: false,
                         },
                         PrivacyUsage {
                             id: "location".into(),
@@ -3783,7 +3860,7 @@ mod fixtures {
                             stoppable: false,
                         },
                     ]);
-                    popover.set_screen_shared(Some("OBS Studio · sharing DP-1 since 13:41"));
+                    popover.set_microphone_muted(Some(false));
                 }
                 _ => {
                     eprintln!("{DEMO}{case} names no privacy case");
@@ -4114,17 +4191,19 @@ mod fixtures {
         found
     }
 
-    fn agenda(events: &EventList, drawer: Option<gtk4::Revealer>) {
+    fn agenda(events: &EventList) {
         let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
         let work = color("#3584e4");
         let home = color("#2ec27e");
         let birthday = color("#e01b24");
 
         let event = |summary: &str, detail: &str, when: &str, color| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
             detail: detail.to_owned(),
             when: when.to_owned(),
             color: Some(color),
+            ..Default::default()
         };
 
         let today = [
@@ -4142,18 +4221,6 @@ mod fixtures {
 
         events.set_max_rows(4);
         events.set_events(&today);
-
-        if let Some(drawer) = drawer.as_ref()
-            && let Some(child) = drawer.child()
-            && let Some(all) = find::<EventList>(&child)
-        {
-            all.set_events(&today);
-        }
-        events.connect_overflow(move |_| {
-            if let Some(drawer) = drawer.as_ref() {
-                glimpse_widgets::drawer::toggle(drawer);
-            }
-        });
     }
 
     fn next_event(root: &gtk4::Widget) {
@@ -4175,10 +4242,12 @@ mod fixtures {
         let work = color("#3584e4");
         let home = color("#2ec27e");
         let event = |summary: &str, detail: &str, when: &str, color| Event {
+            id: summary.to_owned(),
             summary: summary.to_owned(),
             detail: detail.to_owned(),
             when: when.to_owned(),
             color: Some(color),
+            ..Default::default()
         };
 
         events.set_events(&[

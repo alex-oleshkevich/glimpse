@@ -8,6 +8,7 @@ use crate::Row;
 pub struct Fact {
     pub label: String,
     pub value: String,
+    pub warning: bool,
 }
 
 impl Fact {
@@ -15,6 +16,14 @@ impl Fact {
         Self {
             label: label.into(),
             value: value.into(),
+            warning: false,
+        }
+    }
+
+    pub fn warning(label: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            warning: true,
+            ..Self::new(label, value)
         }
     }
 }
@@ -53,6 +62,7 @@ impl FactList {
             }
             rows[index].set_title(Some(fact.label.as_str()));
             rows[index].set_value(Some(fact.value.as_str()));
+            crate::set_css_class(&rows[index], "row--warning", fact.warning);
         }
         for row in rows.split_off(facts.len()) {
             row.unparent();

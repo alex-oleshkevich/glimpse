@@ -18,9 +18,7 @@ esac
 asset="glimpse-${version}-${arch}.tar.zst"
 pkgroot="dist/pkgroot"
 PREFIX=/usr DESTDIR="$pkgroot" source scripts/glimpse-paths.sh
-# GLIMPSE_BINARIES is set by `just package-binary` from the justfile's single source of
-# truth; the fallback here only matters for a direct, non-just invocation of this script.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:?set by the justfile; run through just}"
 
 rm -rf "$pkgroot"
 mkdir -p \
@@ -48,12 +46,17 @@ for bin in "${binaries[@]}"; do
     install -Dm755 "target/release/$bin" "$pkgroot/usr/bin/$bin"
 done
 
+install -Dm755 data/bin/glimpse-dpms "$pkgroot/usr/bin/glimpse-dpms"
 install -Dm644 data/config.default.toml "$pkgroot/usr/share/glimpse/config.default.toml"
 install -Dm644 data/config.commented.toml "$pkgroot/usr/share/glimpse/config.commented.toml"
 install -Dm644 data/config.schema.json "$pkgroot/usr/share/glimpse/config.schema.json"
 install -Dm644 data/language-codes.json "$pkgroot/usr/share/glimpse/language-codes.json"
 install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.aresa.Glimpse.Shot.desktop"
+
+while IFS= read -r -d '' f; do
+    install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
+done < <(find sdk/applet -type f -print0)
 
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"

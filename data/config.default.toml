@@ -46,6 +46,11 @@ respect-inhibitors = true
 
 [[idle.profiles.ac.listeners]]
 timeout = 900
+on-idle = "glimpse-dpms off"
+on-resume = "glimpse-dpms on"
+
+[[idle.profiles.ac.listeners]]
+timeout = 1800
 on-idle = "loginctl lock-session"
 on-resume = ""
 
@@ -56,8 +61,8 @@ on-resume = ""
 
 [[idle.profiles.battery.listeners]]
 timeout = 900
-on-idle = "loginctl lock-session"
-on-resume = ""
+on-idle = "glimpse-dpms off"
+on-resume = "glimpse-dpms on"
 
 [[idle.profiles.battery.listeners]]
 timeout = 1800

@@ -5,7 +5,7 @@ use glimpse_services::{
     Drive as ServiceDrive, RemovableCapacity, RemovableFailure, RemovableState,
     Volume as ServiceVolume, VolumeId,
 };
-use glimpse_widgets::{RemovableDrive, RemovableVolume};
+use glimpse_widgets::{Fact, RemovableDrive, RemovableVolume};
 
 pub const ICON: &str = "drive-removable-media-symbolic";
 const NAME_CAP: usize = 60;
@@ -131,6 +131,16 @@ fn drive_icon(drive: &ServiceDrive) -> &'static str {
     media_icon(drive.media)
 }
 
+fn drive_facts(drive: &ServiceDrive) -> Vec<Fact> {
+    match drive.media_available {
+        true => vec![Fact::new(
+            gettext("Size"),
+            glimpse_utils::size::bytes(drive.size),
+        )],
+        false => Vec::new(),
+    }
+}
+
 fn drive_subtitle(drive: &ServiceDrive) -> String {
     match drive.volumes.len() {
         0 if !drive.media_available => gettext("No media"),
@@ -159,20 +169,43 @@ fn capacity_text(capacity: RemovableCapacity) -> String {
         .replace("{total}", &glimpse_utils::size::bytes(capacity.total))
 }
 
+fn full(volume: &ServiceVolume) -> bool {
+    volume
+        .mount
+        .as_ref()
+        .and_then(|mount| mount.capacity)
+        .is_some_and(|capacity| capacity.available == 0)
+}
+
 fn volume_subtitle(volume: &ServiceVolume) -> String {
-    let fs = volume.fs.as_deref().unwrap_or_default();
     match &volume.mount {
-        Some(mount) => match mount.capacity {
-            Some(capacity) if capacity.available == 0 => join(&[&gettext("No space left"), fs]),
-            Some(capacity) => join(&[&capacity_text(capacity), fs]),
-            None => fs.to_owned(),
-        },
+        Some(_) if full(volume) => gettext("No space left"),
+        Some(mount) => mount.capacity.map(capacity_text).unwrap_or_default(),
         None => join(&[
             &gettext("Not mounted"),
             &glimpse_utils::size::bytes(volume.size),
-            fs,
         ]),
     }
+}
+
+fn volume_facts(volume: &ServiceVolume) -> Vec<Fact> {
+    let filesystem = volume
+        .fs
+        .as_deref()
+        .filter(|fs| !fs.is_empty())
+        .map(|fs| Fact::new(gettext("Filesystem"), cap(fs)));
+    let mounted_at = volume
+        .mount
+        .as_ref()
+        .map(|mount| Fact::new(gettext("Mounted at"), cap(&mount.at.to_string_lossy())));
+    let read_only = volume
+        .read_only
+        .then(|| Fact::new(gettext("Access"), gettext("Read-only")));
+    filesystem
+        .into_iter()
+        .chain(mounted_at)
+        .chain(read_only)
+        .collect()
 }
 
 fn volume_title(volume: &ServiceVolume, drive: &ServiceDrive) -> String {
@@ -198,12 +231,11 @@ fn volume_row(volume: &ServiceVolume, drive: &ServiceDrive, icon: &str) -> Remov
         title: volume_title(volume, drive),
         subtitle: volume_subtitle(volume),
         icon: icon.to_owned(),
-        value: String::new(),
         fraction: fraction(capacity),
-        activatable: true,
         busy: drive.busy.is_some() || volume.busy.is_some(),
-        read_only: volume.read_only,
         mounted: volume.mount.is_some(),
+        warning: full(volume),
+        facts: volume_facts(volume),
     }
 }
 
@@ -214,11 +246,10 @@ fn drive_row(drive: &ServiceDrive) -> RemovableDrive {
         title: cap(&drive.name),
         subtitle: drive_subtitle(drive),
         icon: icon.to_owned(),
-        value: String::new(),
         ejectable: drive.ejectable,
         busy: drive.busy.is_some(),
-        activatable: false,
         dimmed: !drive.media_available && drive.volumes.is_empty(),
+        facts: drive_facts(drive),
         volumes: drive
             .volumes
             .iter()
@@ -347,9 +378,10 @@ mod tests {
     }
 
     #[test]
-    fn an_unmounted_volume_reads_not_mounted_then_size_then_filesystem() {
-        let subtitle = volume_subtitle(&volume("/v1", "Backup", "exfat", None));
-        assert_eq!(subtitle, "Not mounted · 64 GB · exfat");
+    fn an_unmounted_volume_reads_not_mounted_then_size_and_keeps_its_filesystem_in_the_card() {
+        let unmounted = volume("/v1", "Backup", "exfat", None);
+        assert_eq!(volume_subtitle(&unmounted), "Not mounted · 64 GB");
+        assert_eq!(volume_facts(&unmounted), [Fact::new("Filesystem", "exfat")]);
     }
 
     #[test]
@@ -361,8 +393,19 @@ mod tests {
                 total: 64_000_000_000,
             }),
         };
-        let subtitle = volume_subtitle(&volume("/v1", "Full", "exfat", Some(mount)));
-        assert_eq!(subtitle, "No space left · exfat");
+        let mut full = volume("/v1", "Full", "exfat", Some(mount));
+        full.read_only = true;
+        assert_eq!(volume_subtitle(&full), "No space left");
+        let row = volume_row(&full, &drive("/drive0", vec![full.clone()]), ICON);
+        assert!(row.warning, "a full volume is a problem, so it reads amber");
+        assert_eq!(
+            row.facts,
+            [
+                Fact::new("Filesystem", "exfat"),
+                Fact::new("Mounted at", "/run/media/alex/Full"),
+                Fact::new("Access", "Read-only"),
+            ]
+        );
     }
 
     #[test]

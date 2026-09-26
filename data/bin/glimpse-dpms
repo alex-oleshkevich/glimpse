@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+case "${1:-}" in
+    off | on) ;;
+    *)
+        echo "usage: glimpse-dpms off|on" >&2
+        exit 2
+        ;;
+esac
+
+if [ -n "${NIRI_SOCKET:-}" ]; then
+    exec niri msg action "power-$1-monitors"
+fi
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    exec hyprctl dispatch dpms "$1"
+fi
+echo "glimpse-dpms: no supported compositor; needs niri or Hyprland" >&2
+exit 1

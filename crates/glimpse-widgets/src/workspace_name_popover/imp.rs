@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, gdk, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row};
+use crate::{Hero, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/workspace_name_popover.ui")]
@@ -17,8 +17,17 @@ pub struct WorkspaceNamePopover {
     #[template_child]
     pub name: TemplateChild<gtk4::Entry>,
     #[template_child]
+    pub taken: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub recent: TemplateChild<Section>,
+    #[template_child]
+    pub recent_rows: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub footer: TemplateChild<Row>,
     pub given: RefCell<String>,
+    pub taken_names: RefCell<Vec<(String, String)>>,
+    pub recent_names: RefCell<Vec<String>>,
+    pub recent_held: RefCell<Vec<(String, Row)>>,
 }
 
 #[glib::object_subclass]
@@ -28,6 +37,7 @@ impl ObjectSubclass for WorkspaceNamePopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        Section::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -59,8 +69,15 @@ impl ObjectImpl for WorkspaceNamePopover {
             #[weak]
             popover,
             move |entry| {
-                popover.emit_by_name::<()>("submitted", &[&entry.text().to_string()]);
+                if popover.clash().is_none() {
+                    popover.emit_by_name::<()>("submitted", &[&entry.text().to_string()]);
+                }
             }
+        ));
+        self.name.connect_changed(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.show_clash()
         ));
 
         self.name.connect_icon_press(|entry, position| {

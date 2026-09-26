@@ -62,6 +62,7 @@ impl Applet for Printing {
             let notifications = self.notifications.clone();
             let opener = seat.opener();
             let pending = Rc::clone(&self.pending);
+            let popover = shown.downgrade();
             move |_, id| {
                 let Ok(id) = id.parse::<u32>() else {
                     return;
@@ -76,6 +77,7 @@ impl Applet for Printing {
                     "printing.cancel_job",
                     gettext("Could not cancel the print job"),
                     &opener,
+                    &popover,
                     &pending,
                     id,
                     printing.clone(),
@@ -89,6 +91,7 @@ impl Applet for Printing {
             let notifications = self.notifications.clone();
             let opener = seat.opener();
             let pending = Rc::clone(&self.pending);
+            let popover = shown.downgrade();
             move |_, id| {
                 let Ok(id) = id.parse::<u32>() else {
                     return;
@@ -103,6 +106,7 @@ impl Applet for Printing {
                     "printing.pause_job",
                     gettext("Could not pause the print job"),
                     &opener,
+                    &popover,
                     &pending,
                     id,
                     printing.clone(),
@@ -116,6 +120,7 @@ impl Applet for Printing {
             let notifications = self.notifications.clone();
             let opener = seat.opener();
             let pending = Rc::clone(&self.pending);
+            let popover = shown.downgrade();
             move |_, id| {
                 let Ok(id) = id.parse::<u32>() else {
                     return;
@@ -130,6 +135,7 @@ impl Applet for Printing {
                     "printing.resume_job",
                     gettext("Could not resume the print job"),
                     &opener,
+                    &popover,
                     &pending,
                     id,
                     printing.clone(),
@@ -154,6 +160,7 @@ fn act(
     operation: &'static str,
     summary: String,
     opener: &Opener,
+    popover: &glib::WeakRef<PrintingPopover>,
     pending: &Rc<RefCell<HashSet<u32>>>,
     id: u32,
     printing: PrintingHandle,
@@ -166,12 +173,16 @@ fn act(
         summary,
     };
     let opener = opener.clone();
+    let popover = popover.clone();
     let pending = Rc::clone(pending);
     relm4::spawn_local(async move {
         let outcome = command.await;
         pending.borrow_mut().remove(&id);
         match outcome {
             Ok(()) => {
+                if let Some(popover) = popover.upgrade() {
+                    popover.collapse(&id.to_string());
+                }
                 let _ = printing.refresh().await;
             }
             Err(error) => report_failure(operation, report, wording(&error), error).await,

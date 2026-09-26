@@ -8,6 +8,10 @@ const MEDIUM: &str = "audio-volume-medium-symbolic";
 const HIGH: &str = "audio-volume-high-symbolic";
 const OVERAMPLIFIED: &str = "audio-volume-overamplified-symbolic";
 const MIC_MUTED: &str = "microphone-disabled-symbolic";
+const MIC_SILENT: &str = "microphone-sensitivity-muted-symbolic";
+const MIC_LOW: &str = "microphone-sensitivity-low-symbolic";
+const MIC_MEDIUM: &str = "microphone-sensitivity-medium-symbolic";
+const MIC_HIGH: &str = "microphone-sensitivity-high-symbolic";
 
 const HEADSET: &str = "audio-headset-symbolic";
 const HEADPHONES: &str = "audio-headphones-symbolic";
@@ -22,6 +26,21 @@ const APP_FALLBACK: &str = "application-x-executable-symbolic";
 pub fn chip(state: &AudioState) -> Option<&'static str> {
     let output = state.default_output()?;
     Some(level_icon(output.volume, output.muted))
+}
+
+/// The glyph a fader carries: a speaker's levels for playback, a microphone's for capture, and the
+/// muted glyph of either the moment it is muted, so muting reads as a different icon rather than
+/// only a colour.
+pub fn fader_icon(direction: AudioDirection, volume: u32, muted: bool) -> &'static str {
+    match direction {
+        AudioDirection::Output => level_icon(volume, muted),
+        AudioDirection::Input if muted || volume == 0 => MIC_SILENT,
+        AudioDirection::Input => match volume {
+            1..=32 => MIC_LOW,
+            33..=65 => MIC_MEDIUM,
+            _ => MIC_HIGH,
+        },
+    }
 }
 
 pub fn level_icon(volume: u32, muted: bool) -> &'static str {
@@ -140,6 +159,19 @@ pub fn cap(text: &str, chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_muted_fader_carries_its_own_glyph_and_capture_is_a_microphone() {
+        assert_eq!(fader_icon(AudioDirection::Output, 60, true), MUTED);
+        assert_eq!(fader_icon(AudioDirection::Input, 60, true), MIC_SILENT);
+        assert_eq!(fader_icon(AudioDirection::Input, 0, false), MIC_SILENT);
+        assert_eq!(
+            fader_icon(AudioDirection::Input, 60, false),
+            MIC_MEDIUM,
+            "a microphone's level is a microphone, never a speaker"
+        );
+        assert_eq!(fader_icon(AudioDirection::Output, 60, false), MEDIUM);
+    }
     use glimpse_services::{AudioAppId, AudioDeviceId};
 
     fn device(id: &str, volume: u32, muted: bool, default: bool) -> AudioDevice {

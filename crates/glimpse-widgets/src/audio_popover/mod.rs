@@ -2,14 +2,15 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Fader, Row, drawer, none_if_empty, reconcile, set_footer_row};
+use crate::{Expandable, Fader, Row, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Block, Details, Entry};
 
 const DEVICE: &str = "audio-popover__device";
 const APP: &str = "audio-popover__app";
 const BLOCK: &str = "audio-popover__block";
-const DETAIL: &str = "detail-card";
+const MUTED: &str = "audio-popover__hero--muted";
+const MUTED_GLYPH: &str = "audio-popover__muted";
 const HEADING: &str = "section__title";
 
 glib::wrapper! {
@@ -36,7 +37,6 @@ impl AudioPopover {
         }
         imp.outputs_list.replace(entries.to_vec());
         self.render_devices();
-        self.render_details();
     }
 
     pub fn set_inputs(&self, entries: &[Entry]) {
@@ -46,7 +46,6 @@ impl AudioPopover {
         }
         imp.inputs_list.replace(entries.to_vec());
         self.render_devices();
-        self.render_details();
     }
 
     pub fn set_apps(&self, entries: &[Entry]) {
@@ -56,7 +55,6 @@ impl AudioPopover {
         }
         imp.apps_list.replace(entries.to_vec());
         self.render_apps();
-        self.render_details();
     }
 
     pub fn set_output_level(&self, volume: f64, muted: bool, icon: Option<&str>) {
@@ -73,30 +71,54 @@ impl AudioPopover {
         imp.input.set_icon_name(icon);
     }
 
-    pub fn set_details(&self, details: Option<&Details>) {
+    /// The header follows the output: its glyph, the device it plays on, and the warning colour
+    /// while it is muted — the same muted glyph and colour every muted fader and app carries.
+    pub fn set_heading(&self, icon: &str, device: Option<&str>, muted: bool) {
+        let hero = &self.imp().hero;
+        hero.set_icon_name(Some(icon));
+        hero.set_subtitle(device);
+        crate::set_css_class(&**hero, MUTED, muted);
+    }
+
+    /// Every listed app's detail, keyed by `Details::id`. A card is built the first time its app
+    /// is opened and refreshed from here afterwards; an app whose detail is gone closes.
+    pub fn set_details(&self, details: &[Details]) {
         let imp = self.imp();
-        if imp.details.borrow().as_ref() == details {
+        if imp.details.borrow().as_slice() == details {
             return;
         }
-        imp.details.replace(details.cloned());
-        self.render_details();
+        imp.details.replace(details.to_vec());
+        let held = imp.app_held.borrow().clone();
+        for (id, holder) in held {
+            if holder.details::<gtk4::Widget>().is_some() {
+                self.fill(&id, &holder);
+            }
+        }
+    }
+
+    /// Closes a card once the choice made in it succeeded: `output` and `input` are the device
+    /// cards, anything else an app's.
+    pub fn collapse(&self, id: &str) {
+        let imp = self.imp();
+        match id {
+            "output" => imp.output_device.set_expanded(false),
+            "input" => imp.input_device.set_expanded(false),
+            app => {
+                if let Some((_, holder)) =
+                    imp.app_held.borrow().iter().find(|(held, _)| held == app)
+                {
+                    holder.set_expanded(false);
+                }
+            }
+        }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
         set_footer_row(&self.imp().footer, label);
     }
 
-    pub fn set_readout(&self, value: Option<&str>) {
-        let readout = &self.imp().readout;
-        readout.set_value(value);
-        readout.set_visible(value.is_some());
-    }
-
-    pub fn set_overflow(&self, outputs: Option<&str>, inputs: Option<&str>, apps: Option<&str>) {
-        let imp = self.imp();
-        set_footer_row(&imp.more_outputs, outputs);
-        set_footer_row(&imp.more_inputs, inputs);
-        set_footer_row(&imp.more_apps, apps);
+    pub fn set_more_apps(&self, apps: Option<&str>) {
+        set_footer_row(&self.imp().more_apps, apps);
     }
 
     pub fn connect_level_changed<F: Fn(&Self, &str, f64) + 'static>(
@@ -148,17 +170,6 @@ impl AudioPopover {
             glib::closure_local!(move |popover: Self, dir: String, id: String| f(
                 &popover, &dir, &id
             )),
-        )
-    }
-
-    pub fn connect_app_selected<F: Fn(&Self, &str) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "app-selected",
-            false,
-            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
 
@@ -252,6 +263,14 @@ impl AudioPopover {
             );
             section.set_visible(!entries.is_empty());
         }
+        for (list, current) in [
+            (&imp.outputs_list, &imp.output_current),
+            (&imp.inputs_list, &imp.input_current),
+        ] {
+            let list = list.borrow();
+            let chosen = list.iter().find(|entry| entry.selected).or(list.first());
+            current.set_title(chosen.map(|entry| entry.title.as_str()));
+        }
     }
 
     fn build_device(&self, dir: &str, id: &str) -> Row {
@@ -276,69 +295,85 @@ impl AudioPopover {
             &mut imp.app_held.borrow_mut(),
             &entries,
             |entry| entry.id.clone(),
-            |entry| drawer::holder(&self.build_app(&entry.id)),
+            |entry| Expandable::new(&self.build_app(&entry.id)),
             |holder, entry| {
-                if let Some(row) = drawer::head::<Row>(holder) {
-                    dress_row(&row, entry);
+                if let Some(row) = holder.head::<Row>() {
+                    dress_app(&row, entry);
                 }
             },
         );
         imp.apps.set_visible(!entries.is_empty());
+        let live: Vec<String> = entries.iter().map(|entry| entry.id.clone()).collect();
+        imp.blocks.borrow_mut().retain(|id, _| live.contains(id));
+        imp.block_devices
+            .borrow_mut()
+            .retain(|key, _| live.iter().any(|id| key.starts_with(&format!("{id}/"))));
     }
 
+    /// An app's whole row opens its card; the trail carries the muted glyph beside the chevron,
+    /// so a muted app is marked the way a muted fader is.
     fn build_app(&self, id: &str) -> Row {
         let row = Row::new();
         row.add_css_class(APP);
-        row.set_activatable(true);
+        let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+        let muted = gtk4::Image::new();
+        muted.set_visible(false);
+        muted.add_css_class(MUTED_GLYPH);
+        trail.append(&muted);
+        let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        chevron.add_css_class("drawer-chevron");
+        trail.append(&chevron);
+        row.set_trail(&trail);
         let key = id.to_owned();
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("app-selected", &[&key])
+            move |_| popover.open(&key)
         ));
         row
     }
 
-    fn render_details(&self) {
-        let details = self.imp().details.borrow().clone();
-        let wanted = details.as_ref().map(|details| details.id.as_str());
-        let held = self.imp().app_held.borrow().clone();
-        let open = held.into_iter().find(|(id, _)| wanted == Some(id.as_str()));
-
-        for (id, holder) in self.imp().app_held.borrow().iter() {
-            if let Some(panel) = drawer::panel(holder) {
-                drawer::set(&panel, open.as_ref().is_some_and(|(open, _)| open == id));
-            }
+    fn open(&self, id: &str) {
+        let holder = self
+            .imp()
+            .app_held
+            .borrow()
+            .iter()
+            .find(|(held, _)| held == id)
+            .map(|(_, holder)| holder.clone());
+        if let Some(holder) = holder
+            && holder.details::<gtk4::Widget>().is_none()
+        {
+            self.fill(id, &holder);
         }
-
-        if let (Some(details), Some((_, holder))) = (details.as_ref(), open.as_ref()) {
-            self.fill(holder, details);
-        }
-
-        self.recede(open.as_ref().map(|(id, _)| id.as_str()));
     }
 
-    fn fill(&self, holder: &gtk4::Box, details: &Details) {
-        let Some(panel) = drawer::panel(holder) else {
+    fn fill(&self, id: &str, holder: &Expandable) {
+        let imp = self.imp();
+        let Some(details) = imp
+            .details
+            .borrow()
+            .iter()
+            .find(|details| details.id == id)
+            .cloned()
+        else {
+            holder.set_details(None::<&gtk4::Widget>);
             return;
         };
-        let card = match panel.child().and_downcast::<gtk4::Box>() {
-            Some(card) => card,
-            None => {
-                let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                card.add_css_class(DETAIL);
-                panel.set_child(Some(&card));
-                card
-            }
-        };
-        let id = details.id.clone();
+        let card = holder.details::<gtk4::Box>().unwrap_or_else(|| {
+            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            holder.set_details(Some(&card));
+            card
+        });
+        let mut blocks = imp.blocks.borrow_mut();
         reconcile::by_key(
             &card,
-            &mut self.imp().blocks.borrow_mut(),
+            blocks.entry(id.to_owned()).or_default(),
             &details.blocks,
-            |block| format!("{id}/{}", block.dir),
-            |block| self.build_block(&id, block),
-            |widget, block| self.dress_block(widget, &id, block),
+            |block| block.dir.clone(),
+            |block| self.build_block(id, block),
+            |widget, block| self.dress_block(widget, id, block),
         );
     }
 
@@ -394,11 +429,12 @@ impl AudioPopover {
         let devices = devices_of(container);
         let app = app_id.to_owned();
         let dir = block.dir.clone();
+        let mut held = self.imp().block_devices.borrow_mut();
         reconcile::by_key(
             &devices,
-            &mut self.imp().block_devices.borrow_mut(),
+            held.entry(format!("{app}/{dir}")).or_default(),
             &block.devices,
-            |entry| format!("{app}/{dir}/{}", entry.id),
+            |entry| entry.id.clone(),
             |entry| self.build_block_device(&app, &dir, &entry.id),
             dress_row,
         );
@@ -416,37 +452,6 @@ impl AudioPopover {
             move |_| popover.emit_by_name::<()>("app-moved", &[&app, &dir, &key])
         ));
         row
-    }
-
-    fn recede(&self, open: Option<&str>) {
-        let imp = self.imp();
-        for (id, holder) in imp.app_held.borrow().iter() {
-            let Some(head) = holder.first_child() else {
-                continue;
-            };
-            crate::set_css_class(&head, drawer::RECEDED, open.is_some_and(|open| open != id));
-            crate::set_css_class(&head, drawer::OPEN, open == Some(id.as_str()));
-        }
-
-        let outputs = imp.output_held.borrow();
-        let inputs = imp.input_held.borrow();
-        for (_, row) in outputs.iter().chain(inputs.iter()) {
-            crate::set_css_class(row, drawer::RECEDED, open.is_some());
-        }
-        drop(outputs);
-        drop(inputs);
-
-        for widget in [
-            imp.output.upcast_ref::<gtk4::Widget>(),
-            imp.input.upcast_ref(),
-            imp.more_outputs.upcast_ref(),
-            imp.more_inputs.upcast_ref(),
-            imp.more_apps.upcast_ref(),
-            imp.footer.upcast_ref(),
-        ] {
-            crate::set_css_class(widget, drawer::RECEDED, open.is_some());
-        }
-        crate::set_css_class(&*imp.hero, drawer::RECEDED, open.is_some());
     }
 }
 
@@ -469,6 +474,22 @@ fn devices_of(container: &gtk4::Box) -> gtk4::Box {
         .next_sibling()
         .and_downcast()
         .expect("a block carries its device rows after the fader")
+}
+
+fn dress_app(row: &Row, entry: &Entry) {
+    dress_row(row, entry);
+    let muted = row
+        .trail()
+        .and_then(|trail| trail.first_child())
+        .and_downcast::<gtk4::Image>();
+    if let Some(muted) = muted {
+        muted.set_visible(entry.muted_icon.is_some());
+        if let Some(icon) = &entry.muted_icon
+            && muted.icon_name().as_deref() != Some(icon.as_str())
+        {
+            muted.set_icon_name(Some(icon));
+        }
+    }
 }
 
 fn dress_row(row: &Row, entry: &Entry) {

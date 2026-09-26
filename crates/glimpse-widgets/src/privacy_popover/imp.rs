@@ -7,7 +7,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, Notice, Placeholder, PopoverShell, Section, SplitRow};
+use crate::{Expandable, Hero, PopoverShell, Section, SwitchRow};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Usage {
@@ -15,8 +15,6 @@ pub struct Usage {
     pub icon: String,
     pub title: String,
     pub detail: Option<String>,
-    /// Whether this usage carries a session the compositor can be asked to stop — only a
-    /// `PipeWire` screencast does. Everything else reports and is never pressed.
     pub stoppable: bool,
 }
 
@@ -28,16 +26,14 @@ pub struct PrivacyPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub screen_notice: TemplateChild<Notice>,
-    #[template_child]
     pub usages: TemplateChild<Section>,
     #[template_child]
-    pub empty_usages: TemplateChild<Placeholder>,
-    #[template_child]
     pub usage_rows: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub mute: TemplateChild<SwitchRow>,
 
     pub usage_data: RefCell<Vec<Usage>>,
-    pub usage_held: RefCell<Vec<(String, SplitRow)>>,
+    pub usage_held: RefCell<Vec<(String, Expandable)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }
@@ -66,8 +62,21 @@ impl ObjectImpl for PrivacyPopover {
                 glib::subclass::Signal::builder("stop-activated")
                     .param_types([String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("mute-toggled")
+                    .param_types([bool::static_type()])
+                    .build(),
             ]
         })
+    }
+
+    fn constructed(&self) {
+        self.parent_constructed();
+        let popover = self.obj();
+        self.mute.connect_toggled(glib::clone!(
+            #[weak]
+            popover,
+            move |_, on| popover.emit_by_name::<()>("mute-toggled", &[&on])
+        ));
     }
 
     fn dispose(&self) {

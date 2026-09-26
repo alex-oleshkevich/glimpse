@@ -76,16 +76,13 @@ impl Ruler {
             summary,
         }
     }
+}
 
-    fn measure(&self) {
-        let service = self.service.clone();
-        spawn_reported(
-            "ruler.measure",
-            self.report(gettext("Could not measure the screen")),
-            wording,
-            async move { service.measure().await },
-        );
-    }
+fn measure(service: &RulerHandle, report: Report) {
+    let service = service.clone();
+    spawn_reported("ruler.measure", report, wording, async move {
+        service.measure().await
+    });
 }
 
 fn wording(error: &CommandError) -> Option<String> {
@@ -130,7 +127,10 @@ impl Applet for Ruler {
             }
             Input::Pointer(Pointer::Press(Button::Right)) => {
                 if !self.state.measuring {
-                    self.measure();
+                    measure(
+                        &self.service,
+                        self.report(gettext("Could not measure the screen")),
+                    );
                 }
                 return;
             }
@@ -154,6 +154,17 @@ impl Applet for Ruler {
             move |_, id| {
                 copy(&service, report.clone(), id);
                 opener.close_popover();
+            }
+        });
+        shown.connect_measure_requested({
+            let service = self.service.clone();
+            let report = self.report(gettext("Could not measure the screen"));
+            let opener = opener.clone();
+            move |_| {
+                opener.close_popover();
+                if !service.snapshot().measuring {
+                    measure(&service, report.clone());
+                }
             }
         });
         if let Some((_, command)) = &self.footer {

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::none_if_empty;
+use crate::{Row, none_if_empty, reconcile};
 
 glib::wrapper! {
     pub struct WorkspaceNamePopover(ObjectSubclass<imp::WorkspaceNamePopover>)
@@ -37,6 +37,62 @@ impl WorkspaceNamePopover {
         if untouched {
             imp.name.set_text(name);
         }
+    }
+
+    pub fn set_taken(&self, taken: &[(String, String)]) {
+        let imp = self.imp();
+        if imp.taken_names.borrow().as_slice() == taken {
+            return;
+        }
+        imp.taken_names.replace(taken.to_vec());
+        self.show_clash();
+    }
+
+    pub fn set_recent(&self, names: &[String]) {
+        let imp = self.imp();
+        if imp.recent_names.borrow().as_slice() == names {
+            return;
+        }
+        imp.recent_names.replace(names.to_vec());
+        imp.recent.set_visible(!names.is_empty());
+        reconcile::by_key(
+            &*imp.recent_rows,
+            &mut imp.recent_held.borrow_mut(),
+            names,
+            |name| name.clone(),
+            |name| {
+                let row = Row::new();
+                let name = name.clone();
+                row.connect_clicked(glib::clone!(
+                    #[weak(rename_to = popover)]
+                    self,
+                    move |_| popover.emit_by_name::<()>("submitted", &[&name])
+                ));
+                row
+            },
+            |row, name| row.set_title(none_if_empty(name)),
+        );
+    }
+
+    pub(crate) fn clash(&self) -> Option<String> {
+        let imp = self.imp();
+        let typed = imp.name.text();
+        let typed = typed.trim();
+        imp.taken_names
+            .borrow()
+            .iter()
+            .find(|(name, _)| !typed.is_empty() && name.eq_ignore_ascii_case(typed))
+            .map(|(_, message)| message.clone())
+    }
+
+    pub(crate) fn show_clash(&self) {
+        let imp = self.imp();
+        let clash = self.clash();
+        imp.taken.set_label(clash.as_deref().unwrap_or_default());
+        if imp.taken.get_visible() != clash.is_some() {
+            imp.taken.set_visible(clash.is_some());
+        }
+        crate::set_css_class(&*imp.name, "error", clash.is_some());
     }
 
     pub fn focus_entry(&self) {

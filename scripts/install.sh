@@ -7,6 +7,8 @@ for b in "${binaries[@]}"; do
     install -Dm755 "target/release/$b" "$bindir/$b"
 done
 
+install -Dm755 data/bin/glimpse-dpms "$bindir/glimpse-dpms"
+
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$unitdir/$(basename "$f")"
 done
@@ -49,6 +51,10 @@ install -Dm644 data/config.commented.toml "$sharedir/config.commented.toml"
 install -Dm644 data/config.schema.json "$sharedir/config.schema.json"
 install -Dm644 data/language-codes.json "$sharedir/language-codes.json"
 install -Dm644 LICENSE "$sharedir/LICENSE"
+
+while IFS= read -r -d '' f; do
+    install -Dm644 "$f" "$sharedir/$f"
+done < <(find sdk/applet -type f -print0)
 
 for f in data/themes/*/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/themes/$(basename "$(dirname "$f")")/$(basename "$f")"
