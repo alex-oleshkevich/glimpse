@@ -36,11 +36,9 @@ done
 cargo build --release "${cargo_args[@]}"
 
 for bin in "${binaries[@]}"; do
-    # shadow-rs's --version output is multi-line (pkg_version:X.Y.Z on its own line),
-    # not the plain clap "name version" this compared against before.
-    actual_version="$(target/release/"$bin" --version | sed -n 's/^pkg_version://p')"
+    actual_version="$(target/release/"$bin" --version | sed -n -e 's/^pkg_version://p' -e "s/^$bin \([0-9].*\)$/\1/p")"
     if [[ "$actual_version" != "$version" ]]; then
-        echo "error: $bin --version reports pkg_version '$actual_version', expected '$version'" >&2
+        echo "error: $bin --version reports '$actual_version', expected '$version'" >&2
         exit 1
     fi
     install -Dm755 "target/release/$bin" "$pkgroot/usr/bin/$bin"

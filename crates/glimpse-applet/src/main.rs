@@ -14,6 +14,7 @@ use anyhow::{Result, bail};
 use clap::Parser;
 
 #[derive(Parser)]
+#[command(version)]
 struct Cli {
     #[arg(long)]
     allow_net: Option<String>,
@@ -186,6 +187,15 @@ mod tests {
         ] {
             assert!(Cli::try_parse_from(["glimpse-applet", grant, "main.ts"]).is_err());
         }
+    }
+
+    #[test]
+    fn version_flag_reports_workspace_version() {
+        let error = Cli::try_parse_from(["glimpse-applet", "--version"])
+            .err()
+            .unwrap();
+        assert_eq!(error.kind(), clap::error::ErrorKind::DisplayVersion);
+        assert!(error.to_string().contains(env!("CARGO_PKG_VERSION")));
     }
 
     #[test]
