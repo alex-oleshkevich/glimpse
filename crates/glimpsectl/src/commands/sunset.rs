@@ -39,7 +39,7 @@ pub async fn sunset_mode(connection: &Connection, mode: Mode) -> Result<()> {
     Ok(())
 }
 
-fn mode(snapshot: &NightLightSnapshot) -> String {
+pub fn mode(snapshot: &NightLightSnapshot) -> String {
     match snapshot.overridden {
         true => format!(
             "{}  {}",
@@ -50,7 +50,7 @@ fn mode(snapshot: &NightLightSnapshot) -> String {
     }
 }
 
-fn temperature(snapshot: &NightLightSnapshot) -> String {
+pub fn temperature(snapshot: &NightLightSnapshot) -> String {
     match snapshot.manual {
         true => format!(
             "{}  {}",
@@ -61,7 +61,7 @@ fn temperature(snapshot: &NightLightSnapshot) -> String {
     }
 }
 
-fn serving(snapshot: &NightLightSnapshot) -> String {
+pub fn serving(snapshot: &NightLightSnapshot) -> String {
     match snapshot.serving {
         true => styled::good("yes"),
         false => format!(
@@ -74,53 +74,4 @@ fn serving(snapshot: &NightLightSnapshot) -> String {
 
 fn kelvin(temperature: u32) -> String {
     format!("{temperature} K")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn snapshot() -> NightLightSnapshot {
-        NightLightSnapshot {
-            schedule: "automatic".to_owned(),
-            overridden: false,
-            temperature: 6500,
-            target: 4200,
-            active: false,
-            serving: true,
-            reason: String::new(),
-            configured: "automatic".to_owned(),
-            manual: false,
-        }
-    }
-
-    #[test]
-    fn an_overridden_mode_says_that_the_document_is_not_the_one_talking() {
-        let mut overridden = snapshot();
-        overridden.schedule = "off".to_owned();
-        overridden.overridden = true;
-
-        assert!(mode(&overridden).contains("off"));
-        assert!(mode(&overridden).contains("override"));
-        assert!(!mode(&snapshot()).contains("override"));
-    }
-
-    #[test]
-    fn a_manual_temperature_says_so_and_a_scheduled_one_does_not() {
-        let mut manual = snapshot();
-        manual.manual = true;
-
-        assert!(temperature(&manual).contains("manual"));
-        assert!(!temperature(&snapshot()).contains("manual"));
-    }
-
-    #[test]
-    fn a_provider_that_is_not_serving_shows_why() {
-        let mut degraded = snapshot();
-        degraded.serving = false;
-        degraded.reason = "another gamma client holds the outputs".to_owned();
-
-        assert!(serving(&degraded).contains("another gamma client"));
-        assert!(!serving(&snapshot()).contains('-'));
-    }
 }

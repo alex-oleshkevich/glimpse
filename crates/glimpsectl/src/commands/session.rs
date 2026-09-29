@@ -38,21 +38,6 @@ pub async fn session_declare(connection: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn should_declare(current: Option<&str>) -> bool {
+pub fn should_declare(current: Option<&str>) -> bool {
     current == Some("niri")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_a_plain_niri_session_is_declared() {
-        assert!(!should_declare(None));
-        assert!(!should_declare(Some("glimpse:niri")));
-        assert!(!should_declare(Some("Hyprland")));
-        assert!(!should_declare(Some("niri:x")));
-        assert!(!should_declare(Some("")));
-        assert!(should_declare(Some("niri")));
-    }
 }

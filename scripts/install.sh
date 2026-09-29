@@ -54,7 +54,7 @@ install -Dm644 LICENSE "$sharedir/LICENSE"
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$sharedir/$f"
-done < <(find sdk/applet -type f ! -name index.test.ts ! -path 'sdk/applet/fixtures/*' ! -path '*/node_modules/*' ! -path '*/build/*' -print0)
+done < <(find sdk/applet -type f ! -name index.test.ts ! -path 'sdk/applet/fixtures/*' ! -path 'sdk/applet/template/*' ! -path '*/node_modules/*' ! -path '*/build/*' -print0)
 
 for f in data/themes/*/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/themes/$(basename "$(dirname "$f")")/$(basename "$f")"

@@ -21,6 +21,7 @@ glimpsectl applets restart me.example.Clock
 
 ## Contents
 
+- `lib.rs` — the modules, public so `tests/` can reach them
 - `main.rs` — flag resolution, the session-bus connection, subcommand dispatch, exit codes
 - `cli.rs` — the argument surface and `needs_session_bus`
 - `commands/` — one module per command group, each printing its own output
@@ -29,7 +30,7 @@ glimpsectl applets restart me.example.Clock
 
 ## Rules
 
-**`applets run` execs Deno**, so the applet keeps the launcher's process and exit status, and `--watch` is Deno's watcher. It never opens D-Bus. Only network, read and environment grants are expressible, and `NODE_ENV` is always granted. A missing Deno exits 3.
+`applets run` execs the given file; its shebang picks the runtime. Sandbox grants live in the user's config, never in the desktop entry.
 
 **There are no generic commands.** Every command names one operation on one provider, with a typed
 request and a typed result, so the help text is the whole surface rather than a starting point for

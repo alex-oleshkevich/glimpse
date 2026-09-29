@@ -618,6 +618,7 @@ fn every_install_route_ships_the_applet_sdk() {
         assert!(selected.contains("sdk/applet/index.ts"), "{script}");
         assert!(!selected.contains("index.test.ts"), "{script}");
         assert!(!selected.contains("sdk/applet/fixtures/"), "{script}");
+        assert!(!selected.contains("sdk/applet/template/"), "{script}");
         assert!(!selected.contains("node_modules/"), "{script}");
     }
     let manifest = manifest(&root);
@@ -627,7 +628,6 @@ fn every_install_route_ships_the_applet_sdk() {
             "sdk/applet/index.ts",
             "sdk/applet/reconciler.ts",
             "sdk/applet/jsx-runtime.ts",
-            "sdk/applet/template/*",
             "sdk/applet/examples/todo/index.tsx",
         ] {
             assert!(

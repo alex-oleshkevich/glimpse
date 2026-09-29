@@ -80,7 +80,7 @@ pub async fn weather_refresh(connection: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn row(place: &PlaceWeather, units: Option<UnitSystem>) -> [String; 4] {
+pub fn row(place: &PlaceWeather, units: Option<UnitSystem>) -> [String; 4] {
     let (temperature, condition) = match &place.current {
         Some(current) => (
             format!("{:.0}{}", current.temperature, degrees(units)),
@@ -96,7 +96,7 @@ fn row(place: &PlaceWeather, units: Option<UnitSystem>) -> [String; 4] {
     ]
 }
 
-fn name(place: &PlaceWeather) -> String {
+pub fn name(place: &PlaceWeather) -> String {
     if let Some(city) = &place.city {
         return match &place.country_code {
             Some(code) => format!("{city}, {code}"),
@@ -120,7 +120,7 @@ fn alerts(count: usize) -> String {
     }
 }
 
-fn degrees(units: Option<UnitSystem>) -> &'static str {
+pub fn degrees(units: Option<UnitSystem>) -> &'static str {
     match units {
         Some(UnitSystem::Imperial) => "°F",
         _ => "°C",
@@ -150,69 +150,5 @@ fn condition(condition: Condition) -> &'static str {
         Condition::Thunderstorm => "thunderstorm",
         Condition::ThunderstormWithHail => "thunderstorm with hail",
         Condition::Unknown => ABSENT,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use glimpse_dbus::weather::GeoCoordinates;
-
-    fn place(place: WatchedPlace) -> PlaceWeather {
-        PlaceWeather {
-            place,
-            coordinates: GeoCoordinates {
-                latitude: 52.52,
-                longitude: 13.405,
-            },
-            city: None,
-            country_code: None,
-            utc_offset_seconds: 0,
-            current: None,
-            hours: Vec::new(),
-            days: Vec::new(),
-            alerts: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn a_resolved_place_reads_as_its_city_and_country() {
-        let mut resolved = place(WatchedPlace::Here);
-        resolved.city = Some("Berlin".to_owned());
-        resolved.country_code = Some("DE".to_owned());
-        assert_eq!(name(&resolved), "Berlin, DE");
-    }
-
-    #[test]
-    fn an_unresolved_place_falls_back_to_what_was_asked_for() {
-        assert_eq!(name(&place(WatchedPlace::Here)), "here");
-        assert_eq!(
-            name(&place(WatchedPlace::Location {
-                name: "Berlin, DE".to_owned()
-            })),
-            "Berlin, DE"
-        );
-        assert_eq!(
-            name(&place(WatchedPlace::Coordinates {
-                latitude: 52.52,
-                longitude: 13.405
-            })),
-            "52.520, 13.405"
-        );
-    }
-
-    #[test]
-    fn a_place_with_no_reading_says_so_rather_than_printing_a_zero() {
-        let [_, temperature, condition, alerts] = row(&place(WatchedPlace::Here), None);
-        assert_eq!(temperature, ABSENT);
-        assert_eq!(condition, ABSENT);
-        assert_eq!(alerts, ABSENT);
-    }
-
-    #[test]
-    fn units_decide_the_degree_symbol() {
-        assert_eq!(degrees(Some(UnitSystem::Imperial)), "°F");
-        assert_eq!(degrees(Some(UnitSystem::Metric)), "°C");
-        assert_eq!(degrees(None), "°C");
     }
 }
