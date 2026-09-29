@@ -22,7 +22,7 @@ for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-su
     "$output/bin/$binary" --version >/dev/null
 done
 
-for file in "$output/bin/glimpse-dpms" "$output/share/glimpse/config.default.toml" "$output/share/glimpse/config.commented.toml" "$output/share/glimpse/config.schema.json" "$output/share/glimpse/themes/adwaita/default.jpg" "$output/share/glimpse/sdk/applet/examples/todo/main.tsx" "$output/share/locale/ru/LC_MESSAGES/glimpse.mo" "$output/lib/systemd/user/glimpse-session.target" "$output/share/dbus-1/services/me.aresa.Glimpse.Idle.service" "$output/share/xdg-desktop-portal/portals/glimpse.portal" "$output/share/xdg-desktop-portal/portals/glimpse-shot.portal" "$output/share/dbus-1/services/me.aresa.Glimpse.Shot.service" "$output/share/applications/me.aresa.Glimpse.Shot.desktop" "$output/lib/systemd/user/glimpse-desktop.service"; do
+for file in "$output/bin/glimpse-dpms" "$output/share/glimpse/config.default.toml" "$output/share/glimpse/config.commented.toml" "$output/share/glimpse/config.schema.json" "$output/share/glimpse/themes/adwaita/default.jpg" "$output/share/glimpse/sdk/applet/examples/todo/index.tsx" "$output/share/locale/ru/LC_MESSAGES/glimpse.mo" "$output/lib/systemd/user/glimpse-session.target" "$output/share/dbus-1/services/me.aresa.Glimpse.Idle.service" "$output/share/xdg-desktop-portal/portals/glimpse.portal" "$output/share/xdg-desktop-portal/portals/glimpse-shot.portal" "$output/share/dbus-1/services/me.aresa.Glimpse.Shot.service" "$output/share/applications/me.aresa.Glimpse.Shot.desktop" "$output/lib/systemd/user/glimpse-desktop.service"; do
     test -e "$file"
 done
 

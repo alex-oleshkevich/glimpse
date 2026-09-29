@@ -42,6 +42,7 @@ async fn start_scope(ctx: &Ctx<Exec>, pid: u32, id: &str) -> Result<(), String> 
         ("PIDs", Value::from(vec![pid])),
         ("Slice", Value::from("app.slice")),
         ("CollectMode", Value::from("inactive-or-failed")),
+        ("MemoryMax", Value::U64(256 << 20)),
     ];
     proxy
         .start_transient_unit(&unit_name(id, pid), "fail", &properties, &[])

@@ -183,9 +183,13 @@ no commands at all.
 `Hello`; every `Hello` resets its tree and advances the generation, so stale UI events cannot reach
 a reloaded applet. Placement and options changes go over its stdin without respawning it. A failed
 child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
-a row is stopped. The source resolves desktop entries off the async worker, spawns on that worker for
-PDEATHSIG, and adopts the pid into a transient scope before waiting; stopping a child kills its process
-group and that whole scope. **A user press or activation arms a one-use, two-second gate** for copy,
+a row is stopped. The source resolves desktop entries and builds the sandbox off the async worker,
+spawns on that worker for PDEATHSIG, and Landlock-confines the child to its configured `sandbox`.
+A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unconfined` is set;
+PATH entries under the home directory receive no implicit grant. The host passes the applet's
+persistent state directory as `state` in `hello`. Stopping a child kills its
+process group and adopted scope; MemoryMax applies only when scope adoption succeeds.
+**A user press or activation arms a one-use, two-second gate** for copy,
 URI and session requests; close-popover needs the gate without spending it, and notifications bypass
 it at one per second. Lines past the rate cap are read later, never fatal; invalid JSON, oversized
 lines, invalid trees, more than five `Hello`s in ten seconds and a full stdin queue stop only the

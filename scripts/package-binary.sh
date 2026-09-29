@@ -54,7 +54,7 @@ install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
-done < <(find sdk/applet -type f ! -name mod_test.ts ! -path 'sdk/applet/fixtures/*' -print0)
+done < <(find sdk/applet -type f ! -name index.test.ts ! -path 'sdk/applet/fixtures/*' ! -path '*/node_modules/*' ! -path '*/build/*' -print0)
 
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"
