@@ -1,12 +1,11 @@
 use std::env;
-use std::ffi::OsString;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt, symlink};
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail, ensure};
 use glimpse_config::{AppletKind, DATA_DIR, is_desktop_id, placed_applets};
@@ -20,20 +19,11 @@ use tokio::signal::unix::{SignalKind, signal};
 
 use crate::cli::{NewAppletArgs, RunAppletArgs};
 
-const MAIN: &str = include_str!("../../../../sdk/applet/template/main.tsx");
-const INDICATOR: &str = include_str!("../../../../sdk/applet/template/main.indicator.tsx");
-const DENO: &str = include_str!("../../../../sdk/applet/template/deno.json");
-const DESKTOP: &str = include_str!("../../../../sdk/applet/template/applet.desktop");
-const README: &str = include_str!("../../../../sdk/applet/template/README.md");
-const GITIGNORE: &str = include_str!("../../../../sdk/applet/template/gitignore");
-
 struct Answers {
     id: String,
     name: String,
     description: String,
     icon: String,
-    popover: bool,
-    allow_net: String,
     dir: PathBuf,
 }
 
@@ -99,7 +89,7 @@ fn words(id: &str) -> (String, String) {
     (spaced, kebab)
 }
 
-fn desktop_escape(value: &str) -> String {
+pub fn desktop_escape(value: &str) -> String {
     value
         .replace('\\', "\\\\")
         .replace('\n', "\\n")
@@ -107,7 +97,7 @@ fn desktop_escape(value: &str) -> String {
         .replace('\t', "\\t")
 }
 
-fn exec_quote(value: &str) -> String {
+pub fn exec_quote(value: &str) -> String {
     let quoted = value.is_empty()
         || value
             .chars()
