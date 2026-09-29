@@ -5,10 +5,18 @@
   },
   "imports": {
     "react": "npm:react@19.3.0",
+    "react-runtime": "npm:react@19.3.0/jsx-runtime",
     "react/jsx-runtime": "./mod.ts",
     "react/jsx-dev-runtime": "./mod.ts",
-    "react-reconciler": "npm:react-reconciler@0.33.0",
-    "react-reconciler/constants.js": "npm:react-reconciler@0.33.0/constants.js"
+    "react-reconciler": "npm:react-reconciler@0.34.0",
+    "react-reconciler/constants.js": "npm:react-reconciler@0.34.0/constants.js"
+  },
+  "lint": {
+    "exclude": ["template/"],
+    "rules": { "exclude": ["no-namespace"] }
+  },
+  "fmt": {
+    "exclude": ["template/", "PROTOCOL.md"]
   },
   "tasks": {
     "test": "deno test --allow-read --allow-env"

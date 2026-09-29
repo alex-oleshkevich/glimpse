@@ -15,8 +15,8 @@ import {
 installProcess();
 redirectConsole();
 
-const react = await import("npm:react@19.3.0");
-const runtime = await import("npm:react@19.3.0/jsx-runtime");
+const react = await import("react");
+const runtime = await import("react-runtime");
 
 type JsxFn = (type: unknown, props: unknown, key?: unknown) => unknown;
 
@@ -86,6 +86,7 @@ type Align = "fill" | "start" | "end" | "center" | "baseline";
 export const Indicator = "indicator" as unknown as FC<{
   icon?: string;
   tooltip?: string;
+  text?: string;
   badge?: string;
   overlay?: string;
   dot?: string;
@@ -126,7 +127,6 @@ export const Row = "row" as unknown as FC<{
   busy?: boolean;
   className?: ClassName;
   onActivate?: () => void;
-  children?: Node;
 }>;
 
 export const SwitchRow = "switchrow" as unknown as FC<{
@@ -183,6 +183,7 @@ export const Box = "box" as unknown as FC<{
 }>;
 
 export const Label = "label" as unknown as FC<{
+  text?: string;
   wrap?: boolean;
   xalign?: number;
   ellipsize?: "none" | "start" | "middle" | "end";
@@ -199,6 +200,7 @@ export const Image = "image" as unknown as FC<{
 }>;
 
 export const Button = "button" as unknown as FC<{
+  text?: string;
   icon?: string;
   tooltip?: string;
   sensitive?: boolean;
@@ -229,6 +231,7 @@ export const Spinner = "spinner" as unknown as FC<{
 }>;
 
 export const Progress = "progress" as unknown as FC<{
+  text?: string;
   fraction?: number;
   className?: ClassName;
   children?: Node;

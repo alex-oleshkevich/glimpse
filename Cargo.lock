@@ -1274,8 +1274,6 @@ dependencies = [
  "anyhow",
  "clap",
  "glimpse-utils",
- "notify",
- "rustix",
 ]
 
 [[package]]

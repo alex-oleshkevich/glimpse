@@ -1,4 +1,3 @@
-import React from "npm:react@19.3.0";
 import {
   Button,
   copy,

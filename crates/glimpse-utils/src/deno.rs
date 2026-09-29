@@ -10,7 +10,8 @@ fn find(
     is_executable: impl Fn(&Path) -> bool,
 ) -> Option<PathBuf> {
     if let Some(deno) = glimpse_deno.filter(|deno| !deno.is_empty()) {
-        return Some(deno.into());
+        let deno = PathBuf::from(deno);
+        return is_executable(&deno).then_some(deno);
     }
     if let Some(path) = path {
         for dir in env::split_paths(&path) {
@@ -46,7 +47,8 @@ mod tests {
         let path = OsString::from("/first:/second");
         let home = PathBuf::from("/home/test");
         let executable = |candidate: &Path| {
-            candidate == Path::new("/second/deno")
+            candidate == Path::new("/custom/deno")
+                || candidate == Path::new("/second/deno")
                 || candidate == Path::new("/home/test/.deno/bin/deno")
         };
 
@@ -58,6 +60,15 @@ mod tests {
                 executable
             ),
             Some(PathBuf::from("/custom/deno"))
+        );
+        assert_eq!(
+            find(
+                Some("/missing/deno".into()),
+                Some(path.clone()),
+                Some(home.clone()),
+                executable
+            ),
+            None
         );
         assert_eq!(
             find(None, Some(path.clone()), Some(home.clone()), executable),

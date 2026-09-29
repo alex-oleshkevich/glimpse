@@ -2,13 +2,8 @@ mod errors;
 
 use std::ffi::OsString;
 use std::os::unix::process::CommandExt;
-use std::process::Stdio;
-use std::sync::mpsc;
-use std::time::Duration;
-
-use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::path::PathBuf;
-use std::process::{Child, Command, ExitCode};
+use std::process::{Command, ExitCode};
 
 use anyhow::{Result, bail};
 use clap::Parser;
@@ -16,15 +11,23 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(version)]
 struct Cli {
-    #[arg(long)]
+    #[arg(long, value_parser = grant_list)]
     allow_net: Option<String>,
-    #[arg(long)]
+    #[arg(long, value_parser = grant_list)]
     allow_read: Option<String>,
-    #[arg(long)]
+    #[arg(long, value_parser = grant_list)]
     allow_env: Option<String>,
     #[arg(long)]
     watch: bool,
     entry: PathBuf,
+}
+
+fn grant_list(value: &str) -> Result<String, String> {
+    if value.split(',').any(|item| item.trim().is_empty()) {
+        Err("grant list must contain nonempty values".into())
+    } else {
+        Ok(value.into())
+    }
 }
 
 fn argv(cli: &Cli) -> Vec<OsString> {
@@ -34,8 +37,11 @@ fn argv(cli: &Cli) -> Vec<OsString> {
         "--no-prompt".into(),
         "--v8-flags=--max-old-space-size=128".into(),
     ];
+    if cli.watch {
+        args.push("--watch".into());
+    }
     let mut allowed_env = OsString::from("--allow-env=NODE_ENV");
-    if let Some(vars) = cli.allow_env.as_deref().filter(|vars| !vars.is_empty()) {
+    if let Some(vars) = cli.allow_env.as_deref() {
         allowed_env.push(",");
         allowed_env.push(vars);
     }
@@ -62,65 +68,7 @@ fn run(cli: Cli) -> Result<()> {
         bail!("unsupported applet entry: {}", cli.entry.display());
     }
     let deno = glimpse_utils::deno().ok_or(errors::DenoNotFound)?;
-    if cli.watch {
-        return watch(&deno, &cli);
-    }
     Err(Command::new(deno).args(argv(&cli)).exec().into())
-}
-
-fn watched_child(deno: &std::path::Path, cli: &Cli) -> Result<Child> {
-    let mut command = Command::new(deno);
-    command
-        .args(argv(cli))
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    unsafe {
-        command.pre_exec(|| {
-            let parent = rustix::process::getppid();
-            rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::KILL))?;
-            if rustix::process::getppid() != parent {
-                unsafe extern "C" {
-                    fn _exit(status: i32) -> !;
-                }
-                _exit(1);
-            }
-            Ok(())
-        });
-    }
-    Ok(command.spawn()?)
-}
-
-fn watch(deno: &std::path::Path, cli: &Cli) -> Result<()> {
-    let entry = cli.entry.canonicalize()?;
-    let parent = entry
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("applet entry has no parent"))?;
-    let (send, receive) = mpsc::channel();
-    let mut watcher = notify::recommended_watcher(move |event| {
-        let _ = send.send(event);
-    })?;
-    watcher.watch(parent, RecursiveMode::Recursive)?;
-    let mut child = watched_child(deno, cli)?;
-    loop {
-        if let Some(status) = child.try_wait()? {
-            std::process::exit(status.code().unwrap_or(1));
-        }
-        match receive.recv_timeout(Duration::from_millis(100)) {
-            Ok(Ok(Event {
-                kind: EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_),
-                ..
-            })) => {
-                while receive.recv_timeout(Duration::from_millis(150)).is_ok() {}
-                child.kill()?;
-                child.wait()?;
-                child = watched_child(deno, cli)?;
-            }
-            Ok(Err(error)) => return Err(error.into()),
-            Ok(Ok(_)) | Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => bail!("applet source watcher stopped"),
-        }
-    }
 }
 
 fn main() -> ExitCode {
@@ -168,6 +116,7 @@ mod tests {
                 "-q",
                 "--no-prompt",
                 "--v8-flags=--max-old-space-size=128",
+                "--watch",
                 "--allow-env=NODE_ENV,A,B",
                 "--allow-net=api.example",
                 "--allow-read=/tmp",
@@ -184,6 +133,20 @@ mod tests {
             "--allow-write",
             "--allow-ffi",
             "--allow-sys",
+        ] {
+            assert!(Cli::try_parse_from(["glimpse-applet", grant, "main.ts"]).is_err());
+        }
+    }
+
+    #[test]
+    fn empty_grants_are_rejected() {
+        for grant in [
+            "--allow-net=",
+            "--allow-net=a,",
+            "--allow-read=,a",
+            "--allow-read=a,,b",
+            "--allow-env=",
+            "--allow-net=a, ",
         ] {
             assert!(Cli::try_parse_from(["glimpse-applet", grant, "main.ts"]).is_err());
         }
