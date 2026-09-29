@@ -1916,8 +1916,11 @@ mod tests {
         assert!(editor.scroll_stroke(-1.0));
         assert_eq!(editor.style.stroke, Stroke::Medium);
         editor.set_tool(Tool::Blur);
+        assert!(editor.scroll_stroke(-1.0));
+        assert_eq!(editor.style.stroke, Stroke::Thick);
+        editor.set_tool(Tool::Rect);
         assert!(!editor.scroll_stroke(-1.0));
-        assert_eq!(editor.style.stroke, Stroke::Medium);
+        assert_eq!(editor.style.stroke, Stroke::Thick);
     }
 
     #[test]

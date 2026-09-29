@@ -549,9 +549,12 @@ fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
             .is_file()
     );
 
+    let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
+    assert!(justfile.contains("glimpse-ruler glimpse-shot"));
+    assert!(justfile.contains("GLIMPSE_BINARIES=\"{{ binaries }}\" scripts/package-binary.sh"));
     for script in ["scripts/glimpse-paths.sh", "scripts/package-binary.sh"] {
         let text = fs::read_to_string(root.join(script)).expect(script);
-        assert!(text.contains("glimpse-ruler glimpse-shot"), "{script}");
+        assert!(text.contains("${GLIMPSE_BINARIES:?"), "{script}");
     }
     for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
         let text = fs::read_to_string(root.join(script)).expect(script);

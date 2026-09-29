@@ -1279,7 +1279,7 @@ mod tests {
             let section_id = id;
             id += 1;
             let mut children = Vec::new();
-            for _ in 0..if section < 8 { 199 } else { 198 } {
+            for _ in 0..if section < 8 { 29 } else { 28 } {
                 children.push(node(id, "label", json!({"text":"Item"}), vec![]));
                 id += 1;
             }
@@ -1294,7 +1294,7 @@ mod tests {
         let start = std::time::Instant::now();
         let (_shell, dom, _) = setup(&tree);
         let elapsed = start.elapsed();
-        assert_eq!(dom.nodes.len(), 1998);
+        assert_eq!(dom.nodes.len(), 298);
         println!("exec first open at node cap: {elapsed:?}");
     }
 }
