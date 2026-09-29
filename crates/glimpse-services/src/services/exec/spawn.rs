@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
@@ -5,9 +6,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, Stream, StreamExt, stream};
-use tokio::process::{Child, ChildStdout, Command};
+use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use tokio::sync::mpsc;
-use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
+use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec, LinesCodecError};
 use tokio_util::sync::CancellationToken;
 
 use crate::Ctx;
@@ -25,6 +26,7 @@ struct ChildStream {
     resolved: Option<super::Entry>,
     child: Option<Child>,
     group: Option<rustix::process::Pid>,
+    scope: Option<String>,
     scope_warned: Arc<AtomicBool>,
     queue_full: Arc<AtomicBool>,
     stdout: Option<FramedRead<ChildStdout, LinesCodec>>,
@@ -34,8 +36,14 @@ struct ChildStream {
     tree: Tree,
     updates: u32,
     window: Instant,
+    hellos: VecDeque<Instant>,
     done: bool,
 }
+
+const MAX_HELLOS: usize = 5;
+const HELLO_WINDOW: Duration = Duration::from_secs(10);
+const STDERR_LINE: usize = 4096;
+const STDERR_LINES_PER_SECOND: u32 = 50;
 
 pub(super) struct SourceArgs {
     pub slot: u64,
@@ -75,6 +83,7 @@ pub async fn source(
             resolved: None,
             child: None,
             group: None,
+            scope: None,
             scope_warned: args.scope_warned,
             queue_full: Arc::new(AtomicBool::new(false)),
             stdout: None,
@@ -84,6 +93,7 @@ pub async fn source(
             tree: Tree::default(),
             updates: 0,
             window: Instant::now(),
+            hellos: VecDeque::new(),
             done: false,
         },
         |mut source| async move { source.next().await.map(|event| (event, source)) },
@@ -109,6 +119,12 @@ impl ChildStream {
     fn kill_group(&self) {
         if let Some(group) = self.group {
             let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+        }
+        if let Some(unit) = self.scope.clone()
+            && let Ok(bus) = self.ctx.session_bus()
+            && let Ok(runtime) = tokio::runtime::Handle::try_current()
+        {
+            runtime.spawn(scope::kill(bus.clone(), unit));
         }
     }
 
@@ -177,6 +193,13 @@ impl ChildStream {
                     None
                 }
                 Ok(FromApplet::Hello { v: 1 }) => {
+                    let now = Instant::now();
+                    self.hellos
+                        .retain(|at| now.duration_since(*at) < HELLO_WINDOW);
+                    self.hellos.push_back(now);
+                    if self.hellos.len() > MAX_HELLOS {
+                        return self.finish("too many hellos".to_owned(), true).await;
+                    }
                     self.spoke = true;
                     self.tree = Tree::default();
                     Some(Event::Hello {
@@ -233,7 +256,7 @@ impl ChildStream {
             .args(entry.argv.iter().skip(1))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .process_group(0)
             .kill_on_drop(true);
         if let Some(cwd) = &entry.cwd {
@@ -259,7 +282,12 @@ impl ChildStream {
         if let Some(pid) = child.id() {
             tracing::info!(applet = %self.id, slot = self.slot, pid, "applet spawned");
             self.group = rustix::process::Pid::from_raw(pid as i32);
-            scope::adopt(&self.ctx, pid, &self.id, &self.scope_warned).await;
+            if scope::adopt(&self.ctx, pid, &self.id, &self.scope_warned).await {
+                self.scope = Some(scope::unit_name(&self.id, pid));
+            }
+        }
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(drain(stderr, self.id.clone()));
         }
         let Some(stdin) = child.stdin.take() else {
             return self.failed("stdin unavailable".to_owned());
@@ -329,6 +357,49 @@ impl ChildStream {
             reason,
             resolved: self.resolved.clone(),
         })
+    }
+}
+
+async fn drain(stderr: ChildStderr, id: String) {
+    let mut lines = FramedRead::new(stderr, LinesCodec::new_with_max_length(STDERR_LINE));
+    let mut window = Instant::now();
+    let mut kept = 0;
+    let mut dropped = 0;
+    let mut errored = false;
+    loop {
+        let line = match lines.next().await {
+            Some(Ok(line)) => line,
+            Some(Err(LinesCodecError::MaxLineLengthExceeded)) => {
+                errored = true;
+                continue;
+            }
+            Some(Err(LinesCodecError::Io(error)))
+                if error.kind() == std::io::ErrorKind::InvalidData =>
+            {
+                errored = true;
+                continue;
+            }
+            None if std::mem::take(&mut errored) => continue,
+            Some(Err(_)) | None => break,
+        };
+        errored = false;
+        if window.elapsed() >= Duration::from_secs(1) {
+            if dropped > 0 {
+                tracing::warn!(target: "glimpse_applet", applet = %id, dropped, "applet stderr rate exceeded");
+            }
+            window = Instant::now();
+            kept = 0;
+            dropped = 0;
+        }
+        if kept < STDERR_LINES_PER_SECOND {
+            kept += 1;
+            tracing::info!(target: "glimpse_applet", applet = %id, "{}", glimpse_utils::clean(&line, 1024));
+        } else {
+            dropped += 1;
+        }
+    }
+    if dropped > 0 {
+        tracing::warn!(target: "glimpse_applet", applet = %id, dropped, "applet stderr rate exceeded");
     }
 }
 

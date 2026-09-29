@@ -496,6 +496,7 @@ pub async fn applets_dev(dir: &Path, config_path: Option<PathBuf>) -> Result<()>
         println!("Add `center = [\"{id}\"]` to a panel applet zone.");
     }
     println!("Linked {}. Press Ctrl-C to unlink.", link.display());
+    eprintln!("logs: journalctl --user -u glimpse-panel -f");
     tokio::select! {
         _ = interrupt.recv() => {},
         _ = terminate.recv() => {},
@@ -552,6 +553,35 @@ fn remove_symlink(path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn staging(destination: &Path) -> Result<PathBuf> {
+    let name = destination
+        .file_name()
+        .context("destination has no file name")?
+        .to_string_lossy();
+    let temp = destination.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
+    match fs::remove_file(&temp) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error.into()),
+        _ => Ok(temp),
+    }
+}
+
+fn commit(temp: &Path, destination: &Path, written: Result<()>) -> Result<()> {
+    let result = written.and_then(|()| Ok(fs::rename(temp, destination)?));
+    if result.is_err() {
+        let _ = fs::remove_file(temp);
+    }
+    result
+}
+
+fn write_new(path: &Path, contents: &[u8]) -> Result<()> {
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?
+        .write_all(contents)?;
+    Ok(())
+}
+
 async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<()> {
     ensure!(prefix.is_absolute(), "--prefix must be absolute");
     let out = if out.is_absolute() {
@@ -576,22 +606,26 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<
     let applet_dir = target.parent().context("bundle path has no parent")?;
     remove_symlink(applet_dir)?;
     fs::create_dir_all(applet_dir)?;
-    remove_symlink(&target)?;
     let deno = glimpse_utils::deno().context("Deno not found")?;
+    let temp = staging(&target)?;
     let output = Command::new(deno)
         .arg("bundle")
         .arg("--minify")
         .arg("main.tsx")
         .arg("-o")
-        .arg(&target)
+        .arg(&temp)
         .current_dir(dir)
         .output()
-        .await?;
-    ensure!(
-        output.status.success(),
-        "deno bundle failed:\n{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+        .await;
+    let bundled = output.map_err(anyhow::Error::from).and_then(|output| {
+        ensure!(
+            output.status.success(),
+            "deno bundle failed:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(())
+    });
+    commit(&temp, &target, bundled)?;
     let mut argv = entry.argv.clone();
     argv.retain(|arg| arg != "--watch");
     let script = argv
@@ -618,16 +652,17 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<
     let desktop = rewrite_desktop(&source, &command);
     let destination = data_out.join("applications").join(format!("{id}.desktop"));
     fs::create_dir_all(destination.parent().context("desktop path has no parent")?)?;
-    remove_symlink(&destination)?;
-    fs::write(destination, desktop)?;
+    let temp = staging(&destination)?;
+    commit(&temp, &destination, write_new(&temp, desktop.as_bytes()))?;
     let icon = dir.join("icon.svg");
     if icon.is_file() {
         let destination = data_out
             .join("icons/hicolor/scalable/apps")
             .join(format!("{id}.svg"));
         fs::create_dir_all(destination.parent().context("icon path has no parent")?)?;
-        remove_symlink(&destination)?;
-        fs::copy(icon, destination)?;
+        let icon = fs::read(icon)?;
+        let temp = staging(&destination)?;
+        commit(&temp, &destination, write_new(&temp, &icon))?;
     }
     println!("Bundled {id} under {}", out.display());
     Ok(())

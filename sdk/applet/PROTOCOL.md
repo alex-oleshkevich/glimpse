@@ -2,7 +2,8 @@
 
 The panel is the host. An applet is a child process. They exchange UTF-8 NDJSON on the
 child's stdin and stdout: one JSON object per line, separated by `\n`. The host also
-accepts a trailing `\r`. The panel discards stderr; it is not part of the protocol.
+accepts a trailing `\r`. Stderr is not part of the protocol; the panel logs it, at most 50
+lines a second, each line up to 4 KiB.
 
 Each line is at most 1 MiB (1,048,576 bytes), not counting the newline. A longer line is
 rejected. A single JSON value nests at most 128 levels; a deeper tree is built across
@@ -17,7 +18,8 @@ Object keys added by a newer peer are ignored. A commit is applied as a whole ba
 not at all: if any operation in the batch is rejected, the tree does not change. The host
 then stops that applet. The caps below are what the validator enforces, except the line
 rate, which the host counts itself: past the cap it stops reading until the next second,
-so the applet blocks on its pipe.
+so the applet blocks on its pipe. More than 5 `hello`s within any 10 seconds stops the applet
+with the reason `too many hellos`, and it restarts like any stopped applet.
 
 ## Host to applet
 

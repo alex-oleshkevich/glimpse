@@ -15,11 +15,21 @@ pub fn unit_pattern(id: &str) -> String {
     format!("app-glimpse-{}-*.scope", id.replace('-', "\\x2d"))
 }
 
-pub async fn adopt(ctx: &Ctx<Exec>, pid: u32, id: &str, warned: &AtomicBool) {
-    if let Err(error) = start_scope(ctx, pid, id).await
+pub async fn adopt(ctx: &Ctx<Exec>, pid: u32, id: &str, warned: &AtomicBool) -> bool {
+    let result = start_scope(ctx, pid, id).await;
+    if let Err(error) = &result
         && !warned.swap(true, Ordering::Relaxed)
     {
         tracing::warn!(%error, applet = %id, "cannot adopt applet scope");
+    }
+    result.is_ok()
+}
+
+pub async fn kill(bus: zbus::Connection, unit: String) {
+    if let Ok(proxy) = Systemd1ManagerProxy::new(&bus).await {
+        let _ = proxy
+            .kill_unit(&unit, "all", rustix::process::Signal::KILL.as_raw())
+            .await;
     }
 }
 

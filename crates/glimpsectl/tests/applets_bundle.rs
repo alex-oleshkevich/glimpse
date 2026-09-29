@@ -101,6 +101,17 @@ fn bundle_preserves_actions_and_uninstall_refuses_other_desktops() -> anyhow::Re
         prefix.join("share/me.example.Bundle/applet.js").display()
     )));
     assert_eq!(fs::read_to_string(victim)?, "untouched");
+    for path in [
+        applications.join("me.example.Bundle.desktop"),
+        icons.join("me.example.Bundle.svg"),
+        applet_out.join("applet.js"),
+    ] {
+        assert!(!path.is_symlink(), "{}", path.display());
+    }
+    assert_eq!(fs::read_to_string(applet_out.join("applet.js"))?, "bundled");
+    for dir in [&applications, &icons, &applet_out] {
+        assert_eq!(fs::read_dir(dir)?.count(), 1, "{}", dir.display());
+    }
     assert_eq!(
         fs::read_to_string(icons.join("me.example.Bundle.svg"))?,
         "<svg/>"

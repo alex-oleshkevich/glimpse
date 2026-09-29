@@ -285,6 +285,7 @@ struct Slot {
     serial: u64,
     failed_at: Option<Instant>,
     failures: u32,
+    catalog_misses: u32,
     resolving: bool,
 }
 
@@ -529,7 +530,7 @@ impl Service for Exec {
         if self
             .slots
             .values()
-            .any(|slot| matches!(slot.public.status, Status::Failed(_)))
+            .any(|slot| matches!(slot.public.status, Status::Failed(_) | Status::Running))
         {
             subs.push(Sub::interval(SubKey::Retry, RETRY, |_ctx| async {
                 Event::Retry
@@ -619,6 +620,7 @@ impl Service for Exec {
                         serial: 0,
                         failed_at: None,
                         failures: 0,
+                        catalog_misses: 0,
                         resolving: false,
                     },
                 );
@@ -799,7 +801,7 @@ impl Service for Exec {
             }
             Input::Event(Event::Retry) => {
                 for (&slot, state) in &mut self.slots {
-                    if matches!(state.public.status, Status::Failed(_))
+                    if matches!(state.public.status, Status::Failed(_) | Status::Running)
                         && !state.resolving
                         && self.config.applets.contains_key(&state.public.applet)
                     {
@@ -831,8 +833,31 @@ impl Service for Exec {
             }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.resolving = false;
+                    state.catalog_misses = match &resolved {
+                        Some(Err(_)) => state.catalog_misses.saturating_add(1),
+                        _ => 0,
+                    };
                 }
-                if let Some(state) = self.slots.get_mut(&slot)
+                if let Some(Err(reason)) = &resolved
+                    && self.slots.get(&slot).is_some_and(|s| s.catalog_misses >= 2)
+                    && let Some(state) = self
+                        .slots
+                        .get_mut(&slot)
+                        .filter(|s| s.spawn == spawn && matches!(s.public.status, Status::Running))
+                {
+                    tracing::warn!(applet = %state.public.applet, %reason, "applet entry vanished");
+                    if let Some(link) = state.link.take() {
+                        link.stop.cancel();
+                    }
+                    state.stop.cancel();
+                    self.next_spawn += 1;
+                    state.spawn = self.next_spawn;
+                    state.public.tree = Arc::new(Tree::default());
+                    state.last_failed_reason = Some(reason.clone());
+                    state.catalog_refused = true;
+                    state.failed_at = Some(Instant::now());
+                    state.public.status = Status::Failed(reason.clone());
+                } else if let Some(state) = self.slots.get_mut(&slot)
                     && state.spawn == spawn
                     && matches!(state.public.status, Status::Failed(_))
                     && self.config.applets.contains_key(&state.public.applet)
@@ -1694,6 +1719,59 @@ time.sleep(30)
         assert!(!allowed_uri("file:///x"));
         assert!(!allowed_uri("javascript:alert(1)"));
         assert!(!allowed_uri(&format!("https://{}", "a".repeat(2048))));
+    }
+
+    #[tokio::test]
+    async fn a_thousand_stderr_lines_cannot_block_hello() {
+        let (_dir, entry, _output) = script(
+            "#!/usr/bin/env python3\nimport sys, time\nfor i in range(1000):\n    sys.stderr.write(f'line {i}\\n')\nsys.stderr.write('y' * 10000 + '\\n')\nsys.stderr.flush()\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nsys.stdin.readline()\ntime.sleep(30)\n",
+        );
+        let (handle, _sender, cancel, task, _selection) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn a_sixth_hello_within_ten_seconds_restarts_the_child() {
+        let (_dir, entry, _output) = script(
+            "#!/usr/bin/env python3\nimport time\nfor _ in range(6):\n    print('{\"t\":\"hello\",\"v\":1}', flush=True)\n    time.sleep(0.05)\ntime.sleep(30)\n",
+        );
+        let (handle, _sender, cancel, task, _selection) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Restarting { .. })).await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn a_vanished_entry_stops_the_running_child() {
+        let (_dir, entry, output) = script(
+            "#!/bin/sh\necho $$ > \"$1\"\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nwhile read -r line; do :; done\n",
+        );
+        let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
+        let (handle, _sender, cancel, task, _selection) = running(catalog.clone());
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        let pid = tokio::fs::read_to_string(&output).await.expect("pid");
+        *catalog.0.lock().expect("catalog") = Err("not installed".to_owned());
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert_eq!(failed.status, Status::Failed("not installed".to_owned()));
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while PathBuf::from(format!("/proc/{}", pid.trim())).exists() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("child killed");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
     }
 
     #[tokio::test]
