@@ -128,6 +128,24 @@ pub struct Exec {
     /// Passed to the applet as written.
     #[serde(default)]
     pub options: serde_json::Map<String, serde_json::Value>,
+    /// What the applet may touch beyond the system directories and its own state directory. Only
+    /// this table grants access; the desktop entry never does.
+    #[serde(default)]
+    pub sandbox: Sandbox,
+}
+
+/// The confinement an exec applet runs under. Everything not granted here is denied.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Sandbox {
+    /// Extra paths the applet may read and execute. Absolute, or starting with `~/`.
+    pub read: Vec<String>,
+    /// Extra paths the applet may read and write. Absolute, or starting with `~/`.
+    pub write: Vec<String>,
+    /// Whether the applet may reach the network: TCP, UDP and the system resolver.
+    pub network: bool,
+    /// Runs the applet with no confinement at all, for a kernel without Landlock.
+    pub unconfined: bool,
 }
 
 /// Settings for the tray applet. Which items exist is the applications' decision; this is only
@@ -809,6 +827,7 @@ impl Applet {
                 Self::from(Kind::Exec(Box::new(Exec {
                     applet: name.to_owned(),
                     options: serde_json::Map::new(),
+                    sandbox: Sandbox::default(),
                 })))
             })
         })
@@ -860,6 +879,18 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         && !is_desktop_id(&exec.applet)
     {
         return Err(toml::de::Error::custom("applet must be a desktop-file id"));
+    }
+    if let Kind::Exec(exec) = &kind
+        && exec
+            .sandbox
+            .read
+            .iter()
+            .chain(&exec.sandbox.write)
+            .any(|path| !path.starts_with('/') && !path.starts_with("~/"))
+    {
+        return Err(toml::de::Error::custom(
+            "sandbox paths must be absolute or start with ~/",
+        ));
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;
@@ -1171,6 +1202,35 @@ mod tests {
         };
         assert_eq!(exec.applet, "me.example.Pomodoro");
         assert_eq!(exec.options["work-minutes"], 25);
+        assert_eq!(exec.sandbox, super::Sandbox::default());
+    }
+
+    #[test]
+    fn exec_sandbox_grants_parse_and_relative_paths_are_refused() {
+        let config: crate::Config = toml::from_str(
+            "[applets.\"me.example.Weather\"]\nsandbox = { read = [\"~/code\"], write = [\"/srv/x\"], network = true }\n",
+        )
+        .expect("absolute and home-relative grants load");
+        let Kind::Exec(exec) = &config.applets["me.example.Weather"].kind else {
+            panic!("the desktop-id table resolves to exec");
+        };
+        assert_eq!(exec.sandbox.read, ["~/code"]);
+        assert_eq!(exec.sandbox.write, ["/srv/x"]);
+        assert!(exec.sandbox.network);
+        assert!(!exec.sandbox.unconfined);
+
+        for bad in [
+            "sandbox = { read = [\"code\"] }",
+            "sandbox = { write = [\"~code\"] }",
+            "sandbox = { exec = true }",
+        ] {
+            let error = toml::from_str::<crate::Config>(&format!(
+                "[applets.\"me.example.Weather\"]\n{bad}\n"
+            ))
+            .expect_err(bad)
+            .to_string();
+            assert!(error.contains("me.example.Weather"), "{bad}: {error}");
+        }
     }
 
     #[test]

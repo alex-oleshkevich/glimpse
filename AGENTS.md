@@ -41,7 +41,8 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl` or `niri msg`** from glimpse
   code — use D-Bus or the compositor IPC.
 - **No service crate has a Wayland dependency.** GTK stays in UI crates or `glimpse-widgets`.
-- Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/` only.
+- Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/` only; an applet's persistent data goes under
+  `glimpse-config`'s `state_dir()`.
 - `glimpsectl applets dev`, `install` and `uninstall` may write their documented symlink or applet
   files under the user's home; tests use a temporary home.
 - **Text from other apps is hostile**: cap, ellipsize, never build markup from it.

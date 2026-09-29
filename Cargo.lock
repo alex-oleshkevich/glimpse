@@ -1513,6 +1513,7 @@ dependencies = [
  "icalendar",
  "ipp",
  "iso8601",
+ "libc",
  "libpulse-binding",
  "pipewire",
  "png",

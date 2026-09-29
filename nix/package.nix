@@ -73,8 +73,6 @@ rustPlatform.buildRustPackage {
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
     substituteInPlace "$out/share/glimpse/sdk/applet/examples/todo/me.aresa.GlimpseTodo.desktop" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
-    substituteInPlace "$out/share/glimpse/sdk/applet/examples/todo/README.md" \
-      --replace-fail /usr/share/glimpse "$out/share/glimpse"
 
     while read -r language; do
       if [ -n "$language" ]; then

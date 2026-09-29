@@ -615,18 +615,20 @@ fn every_install_route_ships_the_applet_sdk() {
             .expect("the SDK selection runs");
         assert!(output.status.success(), "{script}");
         let selected = String::from_utf8_lossy(&output.stdout);
-        assert!(selected.contains("sdk/applet/mod.ts"), "{script}");
-        assert!(!selected.contains("mod_test.ts"), "{script}");
+        assert!(selected.contains("sdk/applet/index.ts"), "{script}");
+        assert!(!selected.contains("index.test.ts"), "{script}");
         assert!(!selected.contains("sdk/applet/fixtures/"), "{script}");
+        assert!(!selected.contains("node_modules/"), "{script}");
     }
     let manifest = manifest(&root);
     for kind in ["deb", "generate-rpm"] {
         let listed = assets(&manifest, kind);
         for source in [
-            "sdk/applet/mod.ts",
+            "sdk/applet/index.ts",
             "sdk/applet/reconciler.ts",
+            "sdk/applet/jsx-runtime.ts",
             "sdk/applet/template/*",
-            "sdk/applet/examples/todo/*",
+            "sdk/applet/examples/todo/index.tsx",
         ] {
             assert!(
                 listed.iter().any(|(path, dest)| path.ends_with(source)

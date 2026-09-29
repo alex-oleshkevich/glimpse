@@ -29,6 +29,14 @@ pub fn user_dir() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join(FOLDER_NAME))
 }
 
+pub fn state_dir() -> Option<PathBuf> {
+    dirs::state_dir().map(|dir| dir.join(FOLDER_NAME))
+}
+
+pub fn applet_dir(id: &str) -> Option<PathBuf> {
+    dirs::data_dir().map(|dir| dir.join(FOLDER_NAME).join("applets").join(id))
+}
+
 pub fn runtime_dir() -> Option<PathBuf> {
     runtime_dir_in(std::env::var_os("XDG_RUNTIME_DIR"))
 }
