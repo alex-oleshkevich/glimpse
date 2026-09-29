@@ -26,6 +26,7 @@ pub struct NotificationStack {
     pub animated: Cell<bool>,
     pub progress: Cell<f64>,
     pub animation: OnceCell<adw::TimedAnimation>,
+    pub front_bottom: Cell<i32>,
 }
 
 #[glib::object_subclass]
@@ -191,6 +192,7 @@ impl WidgetImpl for NotificationStack {
         drop(strips);
 
         front.allocate(width, front_height, -1, at(0, y));
+        self.front_bottom.set(y + front_height);
 
         let mut expanded_y = y + front_height + FAN_SPACING;
         for (index, row) in rows.iter().enumerate().skip(1) {
@@ -204,6 +206,26 @@ impl WidgetImpl for NotificationStack {
                 at(0, interpolate(collapsed_y, expanded_y, progress)),
             );
             expanded_y += row_height + FAN_SPACING;
+        }
+    }
+
+    fn snapshot(&self, snapshot: &gtk4::Snapshot) {
+        let obj = self.obj();
+        let strips = self.strips.borrow();
+        let width = obj.width() as f32;
+        let height = obj.height() as f32;
+        let mut child = obj.first_child();
+        while let Some(widget) = child {
+            match strips.iter().position(|strip| *strip == widget) {
+                Some(index) => {
+                    let top = self.covered_to(index) as f32;
+                    snapshot.push_clip(&graphene::Rect::new(0.0, top, width, height - top));
+                    obj.snapshot_child(&widget, snapshot);
+                    snapshot.pop();
+                }
+                None => obj.snapshot_child(&widget, snapshot),
+            }
+            child = widget.next_sibling();
         }
     }
 }
@@ -239,6 +261,11 @@ impl NotificationStack {
             expanded += row.measure(gtk4::Orientation::Vertical, width).1;
         }
         interpolate(collapsed, expanded, self.progress.get())
+    }
+
+    pub(crate) fn covered_to(&self, strip: usize) -> i32 {
+        let nearer = self.strips.borrow().len().saturating_sub(strip + 1) as i32;
+        self.front_bottom.get() + STEP * nearer
     }
 
     pub(crate) fn visual_depth(&self) -> usize {

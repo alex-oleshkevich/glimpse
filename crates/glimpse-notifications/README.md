@@ -36,7 +36,9 @@ One layer-shell surface owns the full stack. Every entry uses the shared `Notifi
 optional image slot updates without replacing the widget. It reserves a paint gutter around every
 card for its shadow and entrance translation, and narrows the Wayland input region to card bounds
 so the gutter and inter-card gaps remain click-through. Left click asks the compositor to focus the
-sender process where one is known and activates the notification; right click hides only the popup;
+sender's window — by process, else by application id, since an XWayland or sandboxed window belongs
+to another process — and activates the notification with an activation token taken before the card
+leaves the pointer; right click hides only the popup;
 close dismisses it into history; a named action invokes the sender action. Activation and actions go
 through the service, which alone decides whether the record closes — so a `resident` card keeps its
 popup and its history entry after a click. A

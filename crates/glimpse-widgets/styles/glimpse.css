@@ -1800,6 +1800,14 @@ window.blurred expandable.card {
     background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
 }
 
+window.blurred .notification-stack__strip {
+    background-color: color-mix(in srgb, var(--gl-notification-back) var(--gl-blur-opacity), transparent);
+}
+
+window.blurred .notification-stack__strip--far {
+    background-color: color-mix(in srgb, var(--gl-notification-back-far) var(--gl-blur-opacity), transparent);
+}
+
 window.blurred .notification--activatable:hover {
     background-color: color-mix(
         in srgb,

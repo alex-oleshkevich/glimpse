@@ -14,13 +14,14 @@ use glimpse_config::{
     user_dark_stylesheet, user_stylesheet, watch_config, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
+use glimpse_services::SessionStatus;
 use glimpse_services::{
     CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
-use glimpse_services::{SessionStatus, WindowRef};
 use glimpse_widgets::blur::{Blur, Shape};
 use glimpse_widgets::{
-    Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_image,
+    Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_icon,
+    notification_image,
 };
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
@@ -265,26 +266,22 @@ impl SimpleComponent for App {
             }
             Input::Activate(id) => {
                 let record = self.state.record(id).cloned();
+                let token = activation_token(&self.root);
                 self.hide_unless_resident(id, &sender);
-                if let Some(services) = &self.services {
+                if let (Some(services), Some(record)) = (&self.services, record) {
                     focus_and_activate(
                         services.notifications.clone(),
                         services.compositor.clone(),
-                        id,
-                        record.and_then(|record| record.app_pid),
-                        activation_token(&self.root),
+                        record,
+                        token,
                     );
                 }
             }
             Input::Invoke(id, action) => {
+                let token = activation_token(&self.root);
                 self.hide_unless_resident(id, &sender);
                 if let Some(services) = &self.services {
-                    invoke(
-                        services.notifications.clone(),
-                        id,
-                        action,
-                        activation_token(&self.root),
-                    );
+                    invoke(services.notifications.clone(), id, action, token);
                 }
             }
             Input::Settled(id) => self.settle(id, &sender),
@@ -458,10 +455,9 @@ impl App {
 
     fn fill(&self, card: &NotificationCard, record: &NotificationRecord) {
         let mut notification = from_record(record, gettext("now"));
-        notification.icon = record
-            .icon
-            .as_deref()
-            .map(|name| gio::ThemedIcon::new(name).upcast());
+        notification.icon = Some(notification_icon(
+            record.icon.as_deref().unwrap_or(&record.app_id),
+        ));
         notification.image = record
             .image
             .as_deref()
@@ -900,24 +896,23 @@ fn dismiss(notifications: NotificationsHandle, id: u32) {
 fn focus_and_activate(
     notifications: NotificationsHandle,
     compositor: CompositorHandle,
-    id: u32,
-    pid: Option<i32>,
+    record: NotificationRecord,
     activation_token: Option<String>,
 ) {
     relm4::spawn(async move {
-        if let Some(pid) = pid {
-            match tokio::time::timeout(
-                Duration::from_secs(5),
-                compositor.focus_window(WindowRef::Pid { pid }),
-            )
-            .await
-            {
-                Ok(Ok(())) => {}
-                Ok(Err(error)) => tracing::warn!(%error, "notification window focus failed"),
-                Err(_) => tracing::warn!("notification window focus timed out"),
+        match tokio::time::timeout(
+            Duration::from_secs(5),
+            compositor.focus_app(record.app_pid, &[&record.app_id, &record.app_name]),
+        )
+        .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::warn!(%error, app_id = record.app_id, "notification window focus failed")
             }
+            Err(_) => tracing::warn!("notification window focus timed out"),
         }
-        if let Err(error) = notifications.activate(id, activation_token).await {
+        if let Err(error) = notifications.activate(record.id, activation_token).await {
             tracing::warn!(%error, "notification activation failed");
         }
     });

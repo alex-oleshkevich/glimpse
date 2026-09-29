@@ -116,7 +116,9 @@ is no progress timer since the payload carries `position_us`, `position_at` and 
 **notifications** — `Store` holds no publisher and no connection, so bound handling and per-app
 clearing are testable without either. **The default action does not spend one of the three button
 slots** — it drives the card itself. **`NameTaken` is degraded, not fatal** — dunst, mako or a Plasma
-session may already own the name.
+session may already own the name. **`app_icon` is identity, never media**: only `image-data`,
+`image-path` and legacy `icon_data` fill the image slot, and a path passed as `app_icon` is the
+header icon.
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when free and hosts on whoever holds it when
 not; an empty item list is a normal state, never `degraded`. **A taken name is not a broken tray** —

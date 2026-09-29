@@ -89,7 +89,8 @@ matching on position would rebuild every row below the change and destroy hover 
 hides rows rather than dropping them, so expanding is a visibility flip. The stack has no
 `BoxLayout`: the cards behind must overlap the front one at its *measured* height, which
 `Gtk.Overlay` cannot report while taking its size from that same child, and paint order is child
-order, so strips are parented ahead of the front card.
+order, so strips are parented ahead of the front card and clipped to below whatever covers them — a
+blurred card is translucent and would show a strip through its own bottom.
 
 ## Popovers
 

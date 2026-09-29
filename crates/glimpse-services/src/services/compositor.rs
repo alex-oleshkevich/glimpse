@@ -231,6 +231,26 @@ impl CompositorHandle {
         result.await.map_err(|_| stopped())?
     }
 
+    pub async fn focus_app(&self, pid: Option<i32>, names: &[&str]) -> Result<(), CommandError> {
+        let by_pid = match pid {
+            Some(pid) => self.focus_window(WindowRef::Pid { pid }).await,
+            None => Err(CommandError::InvalidArgument(
+                "the application has no known process".to_owned(),
+            )),
+        };
+        if by_pid.is_ok() {
+            return by_pid;
+        }
+        let windows = self.snapshot().windows.map(|windows| windows.windows);
+        match app_window(windows.as_deref().unwrap_or_default(), names) {
+            Some(id) => self.focus_window(WindowRef::Id { id }).await,
+            None => {
+                tracing::debug!(?pid, ?names, "no window to focus");
+                Ok(())
+            }
+        }
+    }
+
     pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
         let (reply, result) = oneshot::channel();
         self.0.command(Command::FocusOutput { connector, reply })?;
@@ -837,6 +857,28 @@ fn window_target(reference: WindowRef, state: Option<&Snapshot>) -> Option<Windo
     }
 }
 
+fn app_window(windows: &[WindowInfo], names: &[&str]) -> Option<u64> {
+    let names: Vec<String> = names
+        .iter()
+        .map(|name| app_key(name))
+        .filter(|name| !name.is_empty())
+        .collect();
+    windows
+        .iter()
+        .filter(|window| {
+            window
+                .app_id
+                .as_deref()
+                .is_some_and(|app_id| names.contains(&app_key(app_id)))
+        })
+        .min_by_key(|window| window.id)
+        .map(|window| window.id)
+}
+
+fn app_key(name: &str) -> String {
+    name.trim().trim_end_matches(".desktop").to_lowercase()
+}
+
 fn command_error(error: &CompositorError) -> CommandError {
     match error {
         CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
@@ -1134,6 +1176,34 @@ mod tests {
             window_target(WindowRef::Pid { pid: 4265 }, Some(&state)),
             Some(WindowTarget::Id(WindowId(3)))
         );
+    }
+
+    #[test]
+    fn an_application_whose_window_belongs_to_another_process_is_found_by_its_app_id() {
+        let info = |id: u64, app_id: Option<&str>| WindowInfo {
+            id,
+            title: None,
+            app_id: app_id.map(str::to_owned),
+            workspace: None,
+            focused: false,
+            floating: false,
+            urgent: false,
+            order: None,
+        };
+        let windows = [
+            info(22, Some("Chatgpt")),
+            info(4, Some("org.telegram.desktop")),
+            info(9, Some("org.telegram.desktop")),
+            info(5, None),
+        ];
+
+        assert_eq!(app_window(&windows, &["chatgpt", "ChatGPT"]), Some(22));
+        assert_eq!(
+            app_window(&windows, &["org.telegram.desktop.desktop", "Telegram"]),
+            Some(4)
+        );
+        assert_eq!(app_window(&windows, &["name:ChatGPT", ""]), None);
+        assert_eq!(app_window(&windows, &[]), None);
     }
 
     /// Both refusals reach the caller as `InvalidArgs`, which does not invite a retry: there is
