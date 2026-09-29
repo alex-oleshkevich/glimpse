@@ -37,8 +37,9 @@ On Arch Linux, install the package from the AUR:
 yay -S glimpse-desktop-bin
 ```
 
-On Debian, Ubuntu, Fedora or openSUSE, the install script downloads the latest release as a `.deb`
-or `.rpm`, checks it against the published checksums and installs it:
+On Debian 14 (forky), Ubuntu 26.04, Fedora 44 or openSUSE Tumbleweed and newer, the install script
+downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums and
+installs it (older releases lack GTK 4.22 and libadwaita 1.9):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/install.sh | bash
