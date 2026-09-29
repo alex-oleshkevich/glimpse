@@ -31,6 +31,8 @@ pub enum FromApplet {
         action: SessionVerb,
     },
     ClosePopover,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -212,8 +214,11 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_tag_or_op_is_a_decode_error() {
-        assert!(serde_json::from_str::<FromApplet>(r#"{"t":"dance"}"#).is_err());
+    fn an_unknown_tag_decodes_as_unknown_and_an_unknown_op_does_not_decode() {
+        assert_eq!(
+            serde_json::from_str::<FromApplet>(r#"{"t":"dance","x":1}"#).expect("unknown"),
+            FromApplet::Unknown
+        );
         assert!(
             serde_json::from_str::<FromApplet>(r#"{"t":"commit","ops":[{"op":"explode","id":1}]}"#)
                 .is_err()

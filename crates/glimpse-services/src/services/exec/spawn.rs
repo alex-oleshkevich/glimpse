@@ -1,4 +1,5 @@
-use std::process::Stdio;
+use std::os::unix::process::ExitStatusExt;
+use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -23,6 +24,8 @@ struct ChildStream {
     id: String,
     resolved: Option<super::Entry>,
     child: Option<Child>,
+    group: Option<rustix::process::Pid>,
+    scope_warned: Arc<AtomicBool>,
     queue_full: Arc<AtomicBool>,
     stdout: Option<FramedRead<ChildStdout, LinesCodec>>,
     stop: CancellationToken,
@@ -39,12 +42,14 @@ pub(super) struct SourceArgs {
     pub spawn: u64,
     pub id: String,
     pub stop: CancellationToken,
+    pub scope_warned: Arc<AtomicBool>,
 }
 
 impl Drop for ChildStream {
     fn drop(&mut self) {
         self.stop.cancel();
         if let Some(mut child) = self.child.take() {
+            self.kill_group();
             let _ = child.start_kill();
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                 runtime.spawn(async move {
@@ -69,6 +74,8 @@ pub async fn source(
             id: args.id,
             resolved: None,
             child: None,
+            group: None,
+            scope_warned: args.scope_warned,
             queue_full: Arc::new(AtomicBool::new(false)),
             stdout: None,
             stop: args.stop,
@@ -84,31 +91,56 @@ pub async fn source(
 }
 
 impl ChildStream {
-    fn update_allowed(&mut self) -> bool {
+    async fn throttle(&mut self) {
         if self.window.elapsed() >= Duration::from_secs(1) {
             self.window = Instant::now();
             self.updates = 0;
         }
-        self.updates += 1;
-        self.updates <= MAX_UPDATES_PER_SECOND
+        if self.updates >= MAX_UPDATES_PER_SECOND {
+            tokio::select! {
+                _ = tokio::time::sleep_until((self.window + Duration::from_secs(1)).into()) => {}
+                _ = self.stop.cancelled() => {}
+            }
+            self.window = Instant::now();
+            self.updates = 0;
+        }
+    }
+
+    fn kill_group(&self) {
+        if let Some(group) = self.group {
+            let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+        }
     }
 
     async fn next(&mut self) -> Option<Event> {
-        if self.done {
-            return None;
+        loop {
+            if self.done {
+                return None;
+            }
+            if self.child.is_none() {
+                return self.start().await;
+            }
+            self.throttle().await;
+            if let Some(event) = self.read().await {
+                return Some(event);
+            }
         }
-        if self.child.is_none() {
-            return self.start().await;
-        }
+    }
+
+    async fn read(&mut self) -> Option<Event> {
         let (Some(child), Some(stdout)) = (self.child.as_mut(), self.stdout.as_mut()) else {
+            self.done = true;
             return None;
         };
         let result = tokio::select! {
             biased;
             line = stdout.next() => Read::Line(line),
             _ = self.stop.cancelled() => Read::Stop,
-            status = child.wait() => Read::Exit(status.map(|status| status.to_string()).unwrap_or_else(|error| error.to_string())),
+            status = child.wait() => Read::Exit(status.map(exit_reason).unwrap_or_else(|error| error.to_string())),
         };
+        if matches!(result, Read::Line(Some(Ok(_)))) {
+            self.updates += 1;
+        }
         match result {
             Read::Stop => {
                 self.finish(
@@ -123,14 +155,27 @@ impl ChildStream {
                 .await
             }
             Read::Exit(reason) => self.finish(reason, false).await,
-            Read::Line(None) => self.finish("stdout closed".to_owned(), true).await,
+            Read::Line(None) => {
+                let reason = match self.child.as_mut() {
+                    Some(child) => {
+                        match tokio::time::timeout(Duration::from_secs(1), child.wait()).await {
+                            Ok(Ok(status)) => exit_reason(status),
+                            Ok(Err(error)) => error.to_string(),
+                            Err(_) => "stdout closed".to_owned(),
+                        }
+                    }
+                    None => "stdout closed".to_owned(),
+                };
+                self.finish(reason, true).await
+            }
             Read::Line(Some(Err(error))) => {
                 self.finish(format!("invalid line: {error}"), true).await
             }
-            Read::Line(Some(Ok(_))) if !self.update_allowed() => {
-                self.finish("too many updates".to_owned(), true).await
-            }
             Read::Line(Some(Ok(line))) => match serde_json::from_str::<FromApplet>(&line) {
+                Ok(FromApplet::Unknown) => {
+                    tracing::debug!(applet = %self.id, "ignored an unknown message");
+                    None
+                }
                 Ok(FromApplet::Hello { v: 1 }) => {
                     self.spoke = true;
                     self.tree = Tree::default();
@@ -189,21 +234,19 @@ impl ChildStream {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
+            .process_group(0)
             .kill_on_drop(true);
         if let Some(cwd) = &entry.cwd {
             command.current_dir(cwd);
         }
+        let parent = rustix::process::getpid();
         unsafe {
-            command.pre_exec(|| {
-                let parent = rustix::process::getppid();
+            command.pre_exec(move || {
                 rustix::process::set_parent_process_death_signal(Some(
                     rustix::process::Signal::KILL,
                 ))?;
-                if rustix::process::getppid() != parent {
-                    unsafe extern "C" {
-                        fn _exit(status: i32) -> !;
-                    }
-                    _exit(1);
+                if rustix::process::getppid() != Some(parent) {
+                    return Err(rustix::io::Errno::SRCH.into());
                 }
                 Ok(())
             });
@@ -215,7 +258,8 @@ impl ChildStream {
         self.began = Instant::now();
         if let Some(pid) = child.id() {
             tracing::info!(applet = %self.id, slot = self.slot, pid, "applet spawned");
-            scope::adopt(&self.ctx, pid, &self.id).await;
+            self.group = rustix::process::Pid::from_raw(pid as i32);
+            scope::adopt(&self.ctx, pid, &self.id, &self.scope_warned).await;
         }
         let Some(stdin) = child.stdin.take() else {
             return self.failed("stdin unavailable".to_owned());
@@ -271,6 +315,7 @@ impl ChildStream {
         self.done = true;
         self.stop.cancel();
         if let Some(mut child) = self.child.take() {
+            self.kill_group();
             if kill {
                 let _ = child.start_kill();
             }
@@ -284,6 +329,14 @@ impl ChildStream {
             reason,
             resolved: self.resolved.clone(),
         })
+    }
+}
+
+fn exit_reason(status: ExitStatus) -> String {
+    match (status.code(), status.signal()) {
+        (Some(code), _) => format!("exited with status {code}"),
+        (None, Some(signal)) => format!("killed by signal {signal}"),
+        (None, None) => status.to_string(),
     }
 }
 

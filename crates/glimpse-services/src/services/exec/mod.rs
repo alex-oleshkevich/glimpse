@@ -6,6 +6,7 @@ mod wire;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
@@ -36,6 +37,7 @@ const MAX_UPDATES_PER_SECOND: u32 = 120;
 const RETRY: Duration = Duration::from_secs(5);
 const GESTURE: Duration = Duration::from_secs(2);
 const TEXT: &str = "text/plain;charset=utf-8";
+const URI_CAP: usize = 2048;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecState {
@@ -198,50 +200,69 @@ impl ExecHandle {
         self.0.health()
     }
 
-    async fn submit(
+    fn submit(
         &self,
         build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-    ) -> Result<(), CommandError> {
+    ) -> Pending {
         let (reply, answer) = oneshot::channel();
-        self.0.command(build(reply))?;
-        answer
-            .await
-            .map_err(|_| CommandError::Unavailable("`exec` stopped before answering".to_owned()))?
+        (self.0.command(build(reply)), answer)
     }
 
-    pub async fn attach(
+    pub fn attach(
         &self,
         slot: u64,
         applet: &str,
         placement: Placement,
-    ) -> Result<(), CommandError> {
-        self.submit(|reply| Command::Attach {
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Attach {
             slot,
             applet: applet.to_owned(),
             placement,
             reply,
-        })
-        .await
+        }))
     }
-    pub async fn place(&self, slot: u64, placement: Placement) -> Result<(), CommandError> {
-        self.submit(|reply| Command::Place {
+    pub fn place(
+        &self,
+        slot: u64,
+        placement: Placement,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Place {
             slot,
             placement,
             reply,
-        })
+        }))
+    }
+    pub fn detach(
+        &self,
+        slot: u64,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Detach { slot, reply }))
+    }
+    pub fn send_event(
+        &self,
+        event: UserEvent,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::SendEvent { event, reply }))
+    }
+    pub fn popover(
+        &self,
+        slot: u64,
+        open: bool,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Popover { slot, open, reply }))
+    }
+}
+
+type Pending = (
+    Result<(), CommandError>,
+    oneshot::Receiver<Result<(), CommandError>>,
+);
+
+async fn answered((sent, answer): Pending) -> Result<(), CommandError> {
+    sent?;
+    answer
         .await
-    }
-    pub async fn detach(&self, slot: u64) -> Result<(), CommandError> {
-        self.submit(|reply| Command::Detach { slot, reply }).await
-    }
-    pub async fn send_event(&self, event: UserEvent) -> Result<(), CommandError> {
-        self.submit(|reply| Command::SendEvent { event, reply })
-            .await
-    }
-    pub async fn popover(&self, slot: u64, open: bool) -> Result<(), CommandError> {
-        self.submit(|reply| Command::Popover { slot, open, reply })
-            .await
-    }
+        .map_err(|_| CommandError::Unavailable("`exec` stopped before answering".to_owned()))?
 }
 
 struct Slot {
@@ -262,7 +283,9 @@ struct Slot {
     warned_gate: bool,
     last_failed_reason: Option<String>,
     serial: u64,
-    detached: bool,
+    failed_at: Option<Instant>,
+    failures: u32,
+    resolving: bool,
 }
 
 pub struct Exec {
@@ -272,6 +295,7 @@ pub struct Exec {
     slots: BTreeMap<u64, Slot>,
     next_spawn: u64,
     next_generation: u64,
+    scope_warned: Arc<AtomicBool>,
 }
 
 impl Exec {
@@ -280,7 +304,6 @@ impl Exec {
             slots: self
                 .slots
                 .iter()
-                .filter(|(_, slot)| !slot.detached)
                 .map(|(id, slot)| (*id, slot.public.clone()))
                 .collect(),
         });
@@ -301,12 +324,15 @@ impl Exec {
             slot.public.tree = Arc::new(Tree::default());
             slot.entry = None;
             slot.catalog_refused = false;
+            slot.last_gesture = None;
+            slot.failed_at = None;
         }
     }
 
     fn send(slot: &mut Slot, message: Outgoing) {
         if let Some(link) = &slot.link
             && let Err(mpsc::error::TrySendError::Full(_)) = link.tx.try_send(message)
+            && let Some(link) = slot.link.take()
         {
             link.queue_full
                 .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -352,12 +378,21 @@ impl Exec {
             }
             return;
         }
+        if let FromApplet::OpenUri { uri } = &request
+            && !allowed_uri(uri)
+        {
+            tracing::warn!(applet = %slot.public.applet, "applet asked to open a refused uri");
+            return;
+        }
         if slot.last_gesture.is_none_or(|at| at.elapsed() > GESTURE) {
             if !slot.warned_gate {
                 tracing::warn!(applet = %slot.public.applet, "applet request without recent gesture");
                 slot.warned_gate = true;
             }
             return;
+        }
+        if !matches!(request, FromApplet::ClosePopover) {
+            slot.last_gesture = None;
         }
         match request {
             FromApplet::Copy { text } => {
@@ -389,6 +424,15 @@ impl Slot {
     }
 }
 
+fn allowed_uri(uri: &str) -> bool {
+    uri.len() <= URI_CAP
+        && uri.split_once(':').is_some_and(|(scheme, _)| {
+            ["http", "https", "mailto"]
+                .iter()
+                .any(|allowed| scheme.eq_ignore_ascii_case(allowed))
+        })
+}
+
 struct Note {
     name: String,
     id: String,
@@ -411,11 +455,9 @@ fn note(entry: &Entry, id: &str, request: &FromApplet) -> Option<Note> {
     Some(Note {
         name: entry.name.clone(),
         id: id.to_owned(),
-        icon: icon
-            .as_deref()
-            .or(entry.icon.as_deref())
-            .unwrap_or_default()
-            .to_owned(),
+        icon: tree::icon(icon.clone())
+            .or_else(|| entry.icon.clone())
+            .unwrap_or_default(),
         summary: glimpse_utils::clean(summary, 256),
         body: glimpse_utils::clean(body, 4096),
         urgency: match urgency {
@@ -459,6 +501,7 @@ impl Service for Exec {
                         spawn: spawn_id,
                         id: slot.applet_id.clone(),
                         stop: slot.stop.clone(),
+                        scope_warned: Arc::clone(&self.scope_warned),
                     };
                     subs.push(Sub::stream(
                         SubKey::Child {
@@ -488,11 +531,8 @@ impl Service for Exec {
             .values()
             .any(|slot| matches!(slot.public.status, Status::Failed(_)))
         {
-            subs.push(Sub::stream(SubKey::Retry, |_ctx| async {
-                futures_util::stream::unfold((), |_| async {
-                    tokio::time::sleep(RETRY).await;
-                    Some((Event::Retry, ()))
-                })
+            subs.push(Sub::interval(SubKey::Retry, RETRY, |_ctx| async {
+                Event::Retry
             }));
         }
         subs
@@ -510,6 +550,7 @@ impl Service for Exec {
             slots: BTreeMap::new(),
             next_spawn: 0,
             next_generation: 0,
+            scope_warned: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -576,7 +617,9 @@ impl Service for Exec {
                         warned_gate: false,
                         last_failed_reason,
                         serial: 0,
-                        detached: false,
+                        failed_at: None,
+                        failures: 0,
+                        resolving: false,
                     },
                 );
                 let _ = reply.send(Ok(()));
@@ -600,15 +643,7 @@ impl Service for Exec {
                 let _ = reply.send(result);
             }
             Input::Command(Command::Detach { slot, reply }) => {
-                if let Some(state) = self.slots.get_mut(&slot) {
-                    state.detached = true;
-                    state.stop.cancel();
-                    if let Some(link) = &state.link {
-                        link.stop.cancel();
-                    } else if !matches!(state.public.status, Status::Starting) {
-                        self.slots.remove(&slot);
-                    }
-                }
+                self.slots.remove(&slot);
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SendEvent { event, reply }) => {
@@ -655,11 +690,6 @@ impl Service for Exec {
                     state.public.icon = entry.icon.clone();
                     state.entry = Some(entry);
                     state.link = Some(link);
-                    if state.detached
-                        && let Some(link) = &state.link
-                    {
-                        link.stop.cancel();
-                    }
                 } else {
                     link.stop.cancel();
                 }
@@ -671,11 +701,13 @@ impl Service for Exec {
                     state.public.tree = Arc::new(Tree::default());
                     state.public.status = Status::Running;
                     state.last_failed_reason = None;
+                    state.last_gesture = None;
+                    state.failures = 0;
                     Self::send(
                         state,
                         Outgoing::Hello {
                             v: 1,
-                            name: state.public.title.clone(),
+                            name: state.public.applet.clone(),
                             options: state.options.clone(),
                             placement: state.placement.clone(),
                         },
@@ -715,13 +747,7 @@ impl Service for Exec {
                 reason,
                 resolved,
             }) => {
-                if self
-                    .slots
-                    .get(&slot)
-                    .is_some_and(|s| s.spawn == spawn && s.detached)
-                {
-                    self.slots.remove(&slot);
-                } else if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
+                if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
                     if let Some(entry) = resolved {
                         state.entry = Some(entry);
@@ -749,6 +775,8 @@ impl Service for Exec {
                             tracing::warn!(applet = %state.public.applet, %reason, "applet failed");
                         }
                         state.last_failed_reason = Some(reason.clone());
+                        state.failures = state.failures.saturating_add(1);
+                        state.failed_at = Some(Instant::now());
                         state.public.status = Status::Failed(reason);
                     }
                 }
@@ -770,10 +798,12 @@ impl Service for Exec {
                 }
             }
             Input::Event(Event::Retry) => {
-                for (&slot, state) in &self.slots {
+                for (&slot, state) in &mut self.slots {
                     if matches!(state.public.status, Status::Failed(_))
+                        && !state.resolving
                         && self.config.applets.contains_key(&state.public.applet)
                     {
+                        state.resolving = true;
                         let catalog = Arc::clone(&self.dependencies.catalog);
                         let id = state.applet_id.clone();
                         let spawn = state.spawn;
@@ -799,14 +829,22 @@ impl Service for Exec {
                 spawn,
                 resolved,
             }) => {
+                if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
+                    state.resolving = false;
+                }
                 if let Some(state) = self.slots.get_mut(&slot)
                     && state.spawn == spawn
                     && matches!(state.public.status, Status::Failed(_))
                     && self.config.applets.contains_key(&state.public.applet)
                 {
+                    let due = state
+                        .failed_at
+                        .is_some_and(|at| at.elapsed() >= backoff(state.failures));
                     match resolved {
                         Some(Ok(entry))
-                            if state.catalog_refused || state.entry.as_ref() != Some(&entry) =>
+                            if due
+                                || state.catalog_refused
+                                || state.entry.as_ref() != Some(&entry) =>
                         {
                             self.spawn_slot(slot)
                         }
@@ -1209,20 +1247,24 @@ mod tests {
         let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
         let (handle, _sender, cancel, task, _selection) = running(catalog.clone());
         handle.attach(1, "test", placement()).await.expect("attach");
-        status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
-        tokio::time::sleep(Duration::from_secs(6)).await;
-        assert!(matches!(
-            handle.snapshot().slots.get(&1).map(|s| &s.status),
-            Some(Status::Failed(_))
-        ));
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
         assert_eq!(
-            tokio::fs::read_to_string(output)
-                .await
-                .expect("spawns")
-                .lines()
-                .count(),
-            1
+            failed.status,
+            Status::Failed("exited with status 3".to_owned())
         );
+        tokio::time::timeout(Duration::from_secs(12), async {
+            loop {
+                if tokio::fs::read_to_string(&output)
+                    .await
+                    .is_ok_and(|spawns| spawns.lines().count() >= 2)
+                {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .expect("respawned on backoff with an unchanged entry");
         let (_good_dir, good, _good_output) = script(
             "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nwhile read -r line; do :; done\n",
         );
@@ -1311,7 +1353,7 @@ mod tests {
     #[tokio::test]
     async fn requests_require_a_recent_gesture() {
         let (_dir, entry, _output) = script(
-            "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"copy\",\"text\":\"accepted\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"session\",\"action\":\"lock\"}\\n{\"t\":\"close-popover\"}\\n'; done\n",
+            "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"file:///x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n{\"t\":\"session\",\"action\":\"lock\"}\\n'; done\n",
         );
         let (handle, _sender, cancel, task, selection) =
             running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
@@ -1358,7 +1400,7 @@ mod tests {
             loop {
                 let state = handle.snapshot();
                 if let Some(slot) = state.slots.get(&1)
-                    && slot.requests.len() == 3
+                    && slot.requests.len() == 2
                 {
                     return slot.clone();
                 }
@@ -1367,16 +1409,13 @@ mod tests {
         })
         .await
         .expect("requests");
-        assert_eq!(
-            accepted.requests[0].1,
-            BarRequest::OpenUri("https://example.com/open".to_owned())
-        );
+        assert_eq!(accepted.requests[0].1, BarRequest::ClosePopover);
         assert_eq!(
             accepted.requests[1].1,
-            BarRequest::Session(SessionVerb::Lock)
+            BarRequest::OpenUri("https://example.com/open".to_owned())
         );
-        assert_eq!(accepted.requests[2].1, BarRequest::ClosePopover);
-        assert_eq!(selection.offered()[0].data.as_ref(), b"accepted");
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(selection.offered().is_empty());
         tokio::time::sleep(Duration::from_secs(3)).await;
         handle
             .send_event(UserEvent {
@@ -1399,9 +1438,9 @@ mod tests {
                 .expect("slot")
                 .requests
                 .len(),
-            3
+            2
         );
-        assert_eq!(selection.offered().len(), 1);
+        assert!(selection.offered().is_empty());
         handle.detach(1).await.expect("detach");
         cancel.cancel();
         let _ = task.await;
@@ -1447,17 +1486,6 @@ elif mode == "many":
 elif mode == "cycle":
     print(json.dumps({"t": "commit", "ops": [{"op": "insert", "parent": 0, "node": {"id": 1, "type": "popover", "children": [{"id": 2, "type": "box", "children": [{"id": 3, "type": "box"}]}]}}]}), flush=True)
     print(json.dumps({"t": "commit", "ops": [{"op": "move", "parent": 3, "id": 2}]}), flush=True)
-elif mode == "flood":
-    for _ in range(500):
-        print('{"t":"commit","ops":[]}', flush=True)
-elif mode == "request-flood":
-    for _ in range(500):
-        print('{"t":"close-popover"}', flush=True)
-elif mode == "hello-flood":
-    for _ in range(200):
-        print('{"t":"hello","v":1}', flush=True)
-        sys.stdin.readline()
-        print('{"t":"commit","ops":[]}', flush=True)
 time.sleep(30)
 "##;
         let good_source = r##"#!/usr/bin/env python3
@@ -1467,15 +1495,7 @@ sys.stdin.readline()
 print(json.dumps({"t": "commit", "ops": [{"op": "insert", "parent": 0, "node": {"id": 1, "type": "indicator", "props": {"text": "alive"}}}]}), flush=True)
 time.sleep(30)
 "##;
-        for mode in [
-            "garbage",
-            "huge",
-            "many",
-            "cycle",
-            "flood",
-            "request-flood",
-            "hello-flood",
-        ] {
+        for mode in ["garbage", "huge", "many", "cycle"] {
             let (_bad_dir, mut bad, _bad_output) = script(bad_source);
             bad.argv.push(mode.to_owned());
             let (_good_dir, good, _good_output) = script(good_source);
@@ -1612,6 +1632,7 @@ time.sleep(30)
     }
 
     #[tokio::test]
+    #[ignore = "runs for 61 seconds"]
     async fn child_survives_the_blocking_pool_retirement_window() {
         let (_dir, entry, output) = script(
             "#!/usr/bin/env python3\nimport os, sys, time\nopen(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nsys.stdin.readline()\ntime.sleep(70)\n",
@@ -1635,6 +1656,44 @@ time.sleep(30)
         handle.detach(1).await.expect("detach");
         cancel.cancel();
         let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn an_unknown_message_and_a_flood_do_not_stop_the_child() {
+        let (_dir, entry, _output) = script(
+            "#!/usr/bin/env python3\nimport json, sys, time\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nsys.stdin.readline()\nprint('{\"t\":\"dance\"}', flush=True)\nfor _ in range(300):\n    print('{\"t\":\"commit\",\"ops\":[]}', flush=True)\nprint(json.dumps({\"t\": \"commit\", \"ops\": [{\"op\": \"insert\", \"parent\": 0, \"node\": {\"id\": 1, \"type\": \"indicator\"}}]}), flush=True)\ntime.sleep(30)\n",
+        );
+        let (handle, _sender, cancel, task, _selection) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let state = tokio::time::timeout(Duration::from_secs(6), async {
+            loop {
+                if let Some(state) = handle
+                    .snapshot()
+                    .slots
+                    .get(&1)
+                    .filter(|s| s.tree.children(ROOT).len() == 1)
+                {
+                    return state.clone();
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("tree after the flood");
+        assert_eq!(state.status, Status::Running);
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[test]
+    fn only_web_and_mail_uris_are_allowed() {
+        assert!(allowed_uri("https://example.com"));
+        assert!(allowed_uri("MAILTO:me@example.com"));
+        assert!(!allowed_uri("file:///x"));
+        assert!(!allowed_uri("javascript:alert(1)"));
+        assert!(!allowed_uri(&format!("https://{}", "a".repeat(2048))));
     }
 
     #[tokio::test]

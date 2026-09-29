@@ -6,8 +6,8 @@ accepts a trailing `\r`. The panel discards stderr; it is not part of the protoc
 
 Each line is at most 1 MiB (1,048,576 bytes), not counting the newline. A longer line is
 rejected. A single JSON value nests at most 128 levels; a deeper tree is built across
-commits. The message values `t` and `op` are a closed set. An unknown value, or a line
-that is not JSON, does not decode.
+commits. The operation value `op` is a closed set: an unknown `op`, or a line that is not
+JSON, does not decode. A message with an unknown `t` is ignored.
 
 The applet speaks first. The host does not send anything until it has read `hello`.
 
@@ -15,8 +15,9 @@ The only version is `1`, carried as `v` on both hellos.
 
 Object keys added by a newer peer are ignored. A commit is applied as a whole batch or
 not at all: if any operation in the batch is rejected, the tree does not change. The host
-then stops that applet. The caps below are what the validator enforces, except the commit
-rate, which the host counts itself.
+then stops that applet. The caps below are what the validator enforces, except the line
+rate, which the host counts itself: past the cap it stops reading until the next second,
+so the applet blocks on its pipe.
 
 ## Host to applet
 
@@ -69,9 +70,9 @@ A subscribed handler fired.
 | `id` | number | The element id |
 | `name` | string | The handler name, below |
 | `args` | array | The handler's arguments, in order. `[]` when it takes none |
-| `seq` | number or `null` | A number on `onChange`, otherwise `null` |
+| `seq` | number or `null` | A number on `onChange` and `onToggle`, otherwise `null` |
 
-`seq` is always present. It is a number only for `onChange`. The applet copies that
+`seq` is always present. It is a number only for `onChange` and `onToggle`. The applet copies that
 number onto the next `set` of the same element when the set confirms the edited value.
 A `set` with no `seq` is a deliberate replacement and is stored as sent. The host keeps
 a newer local edit on screen when a later `set` of `value` carries an older `seq`; the
@@ -82,7 +83,7 @@ stored tree still records that set.
 | `onPress` | indicator | `[button]` — pointer button code: `1` left, `2` middle, `3` right, otherwise the code as reported |
 | `onScroll` | indicator | `[dx, dy]` — scroll deltas, numbers |
 | `onActivate` | row | `[]` |
-| `onToggle` | switchrow, switch | `[active]` — boolean |
+| `onToggle` | switchrow, switch | `[active]` — boolean. `seq` is a number |
 | `onChange` | fader, scale | `[value]` — number. `seq` is a number |
 | `onMute` | fader | `[]` |
 | `onChange` | entry | `[value]` — string. `seq` is a number |
@@ -129,6 +130,10 @@ the node cap and the child cap are checked before the copy replaces the live tre
 | `icon` | string or absent | absent |
 | `urgency` | `low`, `normal`, `critical` | `normal` |
 
+`copy`, `open-uri`, `session` and `close-popover` are honored only within two seconds of
+a press, click, activation or submit. `copy`, `open-uri` and `session` each use up that
+gesture; `close-popover` does not. A scroll is not a gesture.
+
 ### `copy`
 
 | Field | Type |
@@ -140,6 +145,9 @@ the node cap and the child cap are checked before the copy replaces the live tre
 | Field | Type |
 | --- | --- |
 | `uri` | string |
+
+Only `http`, `https` and `mailto` URIs of at most 2,048 bytes are opened; any other is
+dropped.
 
 ### `session`
 
@@ -208,21 +216,22 @@ batch. Reordering is a move whose `parent` is already the parent.
 `props` is a merge, not a replacement. A value of `null` deletes that key. Any other
 key keeps its previous value. After the merge the element is derived again. The element
 type does not change. When `seq` is present it is stored on the element; when it is
-absent the stored seq stays.
+absent the stored seq is cleared.
 
-A key whose value has the wrong type is dropped, and the other keys still apply. The
-host logs each dropped key once per element. A number that is not finite is the same
-kind of drop. JSON itself cannot carry `NaN` or infinity; a non-finite number is still
+A key the element does not take, or whose value has the wrong type, is dropped and not
+stored, and the other keys still apply. A number that is not finite is the same kind of
+drop. JSON itself cannot carry `NaN` or infinity; a non-finite number is still
 rejected if one is presented to the decoder.
 
 ## Parent table
 
-The root holds any number of `indicator` elements and at most one `popover`.
+The root holds `indicator` and `popover` elements. The panel shows the first `popover`,
+and in it the first `hero` and the first `footer`.
 
 | Parent | Children |
 | --- | --- |
-| root | `indicator`, and at most one `popover` |
-| `popover` | at most one `hero`, at most one `footer`, and any body element |
+| root | `indicator`, `popover` |
+| `popover` | `hero`, `footer`, and any body element |
 | `section` | body elements except `section` |
 | `box` | body elements except `section` |
 | `footer` | `button`, `row`, `label`, `box` |
@@ -235,9 +244,8 @@ Body elements are `section`, `row`, `switchrow`, `fader`, `entry`, `placeholder`
 An unknown `type` is `unsupported`. Its name is the type string after text cleaning,
 capped at 64 characters. Markup in that name is kept literal.
 
-A second `popover`, `hero` or `footer` where one is already held is rejected. So is a
-child on a leaf, a `section` inside a `section` or a `box`, and any pair the table does
-not list.
+A child on a leaf is rejected, as are a `section` inside a `section` or a `box` and any
+pair the table does not list.
 
 ## Elements
 
@@ -280,7 +288,7 @@ Only under the root. No children.
 
 ### `popover`
 
-At most one, under the root.
+Under the root.
 
 | Prop | Type |
 | --- | --- |
@@ -290,7 +298,7 @@ Children follow the parent table. The order of `children` is the order on screen
 
 ### `hero`
 
-At most one, and only under `popover`. No children.
+Only under `popover`. No children.
 
 | Prop | Type |
 | --- | --- |
@@ -380,7 +388,7 @@ A leaf.
 
 ### `footer`
 
-At most one, and only under `popover`. Holds `button`, `row`, `label` and `box`.
+Only under `popover`. Holds `button`, `row`, `label` and `box`.
 
 | Prop | Type |
 | --- | --- |
@@ -490,8 +498,8 @@ A leaf.
 
 ### `unsupported`
 
-Any other `type`. No children. The name shown is the cleaned type string. Props are
-kept for a later `set` but the element carries only the name.
+Any other `type`. No children. The name shown is the cleaned type string. Its props are
+not stored.
 
 ## Caps
 
@@ -501,7 +509,8 @@ kept for a later `set` but the element carries only the name.
 | JSON nesting | 128 levels in one value | The decoder |
 | Nodes | 300, counting the root | The commit |
 | Children of one parent | 200 | The commit |
-| Hello and Commit updates | 120 per second combined | The host, not the tree |
+| Operations per commit | 1,200 | The commit |
+| Lines read | 120 per second; more are delayed, not rejected | The host, not the tree |
 | Text | 256 characters | The commit, via cleaning |
 | Element name | 64 characters | The commit, via cleaning |
 | `badge` | 8 characters | The commit, via cleaning |
@@ -514,10 +523,10 @@ A batch is rejected, and the previous tree kept, when it:
 
 - names an id that is not in the tree, or reuses one
 - moves an element under itself or under a descendant
-- puts a child where the parent table does not allow it, including a second `popover`,
-  `hero` or `footer`
-- would hold more than 300 nodes
-- would give one parent more than 200 children
+- puts a child where the parent table does not allow it
+- carries more than 1,200 operations
+- would hold more than 300 nodes once the whole batch is applied
+- would give one parent more than 200 children once the whole batch is applied
 - tries to `set`, `move` or `remove` the root
 
 `before` that is not a child of `parent` is the same kind of rejection. A line that does

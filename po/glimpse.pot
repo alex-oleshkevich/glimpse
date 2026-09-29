@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-26 11:19+0200\n"
+"POT-Creation-Date: 2026-09-29 12:48+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1008,26 +1008,26 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:655
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1100
+#: crates/glimpse-panel/src/applets/exec/dom.rs:667
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1118
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:660
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1105
+#: crates/glimpse-panel/src/applets/exec/dom.rs:672
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1123
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:93
-#: crates/glimpse-panel/src/applets/exec/mod.rs:128
+#: crates/glimpse-panel/src/applets/exec/mod.rs:94
+#: crates/glimpse-panel/src/applets/exec/mod.rs:130
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:189
+#: crates/glimpse-panel/src/applets/exec/mod.rs:191
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:230
+#: crates/glimpse-panel/src/applets/exec/mod.rs:232
 msgid "External applet is not running."
 msgstr ""
 
