@@ -177,6 +177,18 @@ pub fn applets_run(args: RunAppletArgs) -> Result<()> {
         .into())
 }
 
+fn run_argv(argv: &[String]) -> Vec<String> {
+    let arguments = argv
+        .windows(2)
+        .position(|pair| pair == ["applets", "run"])
+        .map_or(1, |at| at + 2);
+    ["glimpsectl", "applets", "run"]
+        .into_iter()
+        .map(str::to_owned)
+        .chain(argv.iter().skip(arguments).cloned())
+        .collect()
+}
+
 fn launcher_exec() -> String {
     let program = env::current_exe()
         .map(|path| path.display().to_string())
@@ -683,11 +695,7 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<
         .join("applet.js")
         .display()
         .to_string();
-    *argv.first_mut().context("empty Exec")? = "glimpsectl".to_owned();
-    if argv.get(1).map(String::as_str) != Some("applets") {
-        argv.splice(1..1, ["applets".to_owned(), "run".to_owned()]);
-    }
-    let command = argv
+    let command = run_argv(&argv)
         .iter()
         .map(|arg| exec_quote(arg))
         .collect::<Vec<_>>()
@@ -796,21 +804,20 @@ mod tests {
         assert_eq!(desktop_escape("a\\b\nc\rd\te"), "a\\\\b\\nc\\rd\\te");
     }
 
-    fn run_args(args: &[&str]) -> RunAppletArgs {
-        use clap::Parser as _;
-        match crate::cli::Cli::try_parse_from(["glimpsectl", "applets", "run"].iter().chain(args))
-            .unwrap()
-            .command
-        {
-            crate::cli::Command::Applets(crate::cli::AppletsCommand::Run(args)) => args,
-            _ => panic!("not the run command"),
+    fn run_args(entry: &str) -> RunAppletArgs {
+        RunAppletArgs {
+            allow_net: None,
+            allow_read: None,
+            allow_env: None,
+            watch: false,
+            entry: entry.into(),
         }
     }
 
     #[test]
     fn argv_has_fixed_flags_and_only_requested_grants() {
         assert_eq!(
-            deno_argv(&run_args(&["main.ts"])),
+            deno_argv(&run_args("main.ts")),
             [
                 "run",
                 "-q",
@@ -821,13 +828,13 @@ mod tests {
             ]
         );
         assert_eq!(
-            deno_argv(&run_args(&[
-                "--watch",
-                "--allow-env=A,B",
-                "--allow-net=api.example",
-                "--allow-read=/tmp",
-                "main.tsx",
-            ])),
+            deno_argv(&RunAppletArgs {
+                allow_net: Some("api.example".to_owned()),
+                allow_read: Some("/tmp".to_owned()),
+                allow_env: Some("A,B".to_owned()),
+                watch: true,
+                ..run_args("main.tsx")
+            }),
             [
                 "run",
                 "-q",
@@ -841,10 +848,40 @@ mod tests {
             ]
         );
         assert_eq!(
-            deno_argv(&run_args(&["--", "--allow-run=x.ts"]))
-                .last()
-                .unwrap(),
+            deno_argv(&run_args("--allow-run=x.ts")).last().unwrap(),
             "./--allow-run=x.ts"
+        );
+    }
+
+    #[test]
+    fn a_bundled_exec_runs_through_glimpsectl_without_global_flags() {
+        let owned = |args: &[&str]| args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
+        let expected = owned(&["glimpsectl", "applets", "run", "--allow-net=a", "/x.js"]);
+        assert_eq!(
+            run_argv(&owned(&[
+                "/bin/glimpsectl",
+                "applets",
+                "run",
+                "--allow-net=a",
+                "/x.js"
+            ])),
+            expected
+        );
+        assert_eq!(
+            run_argv(&owned(&[
+                "/bin/glimpsectl",
+                "--log",
+                "debug",
+                "applets",
+                "run",
+                "--allow-net=a",
+                "/x.js"
+            ])),
+            expected
+        );
+        assert_eq!(
+            run_argv(&owned(&["glimpse-applet", "--allow-net=a", "/x.js"])),
+            expected
         );
     }
 

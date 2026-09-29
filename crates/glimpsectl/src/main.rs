@@ -6,7 +6,6 @@ mod render;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result};
-use clap::Parser;
 use cli::{
     AppletsCommand, Cli, Command, ConfigCommand, NotificationsCommand, SessionCommand,
     SunsetCommand, WeatherCommand,
@@ -16,7 +15,7 @@ use glimpse_utils::init_app_tracing;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let cli = cli::parse();
     cli.color.write_global();
     init_app_tracing(&cli.log.log, cli.log.log_format);
 

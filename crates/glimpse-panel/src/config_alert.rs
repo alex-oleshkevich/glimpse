@@ -1,9 +1,13 @@
 use gettextrs::gettext;
-use glimpse_dbus::notifications::NotificationsProviderHandle;
+use std::time::Duration;
+
+use glimpse_dbus::notifications::{
+    NotificationUrgency, NotificationsProviderError, NotificationsProviderHandle,
+};
 use tokio::sync::watch;
 
-const APP_ID: &str = "me.aresa.Glimpse.Config";
 const ICON: &str = "dialog-warning-symbolic";
+const RETRY: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Problems {
@@ -50,25 +54,34 @@ pub fn spawn(
 ) -> watch::Sender<Option<String>> {
     let (sender, mut bodies) = watch::channel(body);
     let mut providers = notifications.subscribe();
+    let app_id = format!("{}.Config", crate::applet::app_id());
     relm4::spawn(async move {
         let mut serving = false;
-        let mut shown: Option<(u32, String)> = None;
+        let mut shown: Option<Option<String>> = None;
         loop {
             let now = providers.borrow_and_update().view.is_some();
             if now && !serving {
-                if let Err(error) = notifications.clear_application(APP_ID.to_owned()).await {
-                    tracing::debug!(%error, "could not withdraw an earlier configuration alert");
-                }
                 shown = None;
             }
             serving = now;
+            let mut failed = false;
             if serving {
                 let wanted = bodies.borrow_and_update().clone();
-                shown = show(&notifications, shown, wanted).await;
+                if shown.as_ref() != Some(&wanted) {
+                    match show(&notifications, &app_id, wanted.as_deref()).await {
+                        Ok(()) => shown = Some(wanted),
+                        Err(error) => {
+                            tracing::warn!(%error, "could not update the configuration alert");
+                            shown = None;
+                            failed = true;
+                        }
+                    }
+                }
             }
             let alive = tokio::select! {
                 changed = bodies.changed() => changed.is_ok(),
                 changed = providers.changed() => changed.is_ok(),
+                () = tokio::time::sleep(RETRY), if failed => true,
             };
             if !alive {
                 return;
@@ -80,39 +93,23 @@ pub fn spawn(
 
 async fn show(
     notifications: &NotificationsProviderHandle,
-    shown: Option<(u32, String)>,
-    wanted: Option<String>,
-) -> Option<(u32, String)> {
-    match (shown, wanted) {
-        (Some((id, body)), Some(wanted)) if body == wanted => Some((id, body)),
-        (shown, Some(wanted)) => {
-            let replaces = shown.map_or(0, |(id, _)| id);
-            let posted = notifications
-                .alert(
-                    replaces,
-                    &gettext("Glimpse"),
-                    APP_ID,
-                    ICON,
-                    &gettext("Glimpse configuration has errors"),
-                    &wanted,
-                )
-                .await;
-            match posted {
-                Ok(id) => Some((id, wanted)),
-                Err(error) => {
-                    tracing::warn!(%error, "could not show the configuration alert");
-                    None
-                }
-            }
-        }
-        (Some(_), None) => {
-            if let Err(error) = notifications.clear_application(APP_ID.to_owned()).await {
-                tracing::warn!(%error, "could not withdraw the configuration alert");
-            }
-            None
-        }
-        (None, None) => None,
+    app_id: &str,
+    body: Option<&str>,
+) -> Result<(), NotificationsProviderError> {
+    notifications.clear_application(app_id.to_owned()).await?;
+    if let Some(body) = body {
+        notifications
+            .post(
+                &gettext("Glimpse"),
+                app_id,
+                ICON,
+                &gettext("Glimpse configuration has errors"),
+                body,
+                NotificationUrgency::Normal,
+            )
+            .await?;
     }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -3,7 +3,8 @@ use shadow_rs::shadow;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::parser::ValueSource;
+use clap::{ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 
 fn clock(raw: &str) -> Result<NaiveTime, String> {
     glimpse_config::parse_clock(raw)
@@ -239,6 +240,34 @@ pub struct RunAppletArgs {
     pub entry: PathBuf,
 }
 
+pub fn parse() -> Cli {
+    let matches = Cli::command().get_matches();
+    if let Some(flag) = stray_run_flag(&matches) {
+        Cli::command()
+            .error(
+                clap::error::ErrorKind::ArgumentConflict,
+                format!("`applets run` does not take --{flag}"),
+            )
+            .exit();
+    }
+    Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit())
+}
+
+fn stray_run_flag(matches: &ArgMatches) -> Option<String> {
+    let Some(("applets", applets)) = matches.subcommand() else {
+        return None;
+    };
+    let Some(("run", run)) = applets.subcommand() else {
+        return None;
+    };
+    Cli::command()
+        .get_arguments()
+        .filter(|arg| arg.is_global_set())
+        .map(|arg| arg.get_id().as_str())
+        .find(|id| run.value_source(id) == Some(ValueSource::CommandLine))
+        .map(|id| id.replace('_', "-"))
+}
+
 fn grant_list(value: &str) -> Result<String, String> {
     if value.split(',').any(|item| item.trim().is_empty()) {
         Err("grant list must contain nonempty values".into())
@@ -278,7 +307,6 @@ impl Command {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::CommandFactory as _;
 
     #[test]
     fn the_argument_surface_is_well_formed() {
@@ -368,6 +396,22 @@ mod tests {
             panic!("not the run command");
         };
         assert_eq!(args.entry, PathBuf::from("--allow-run=x.ts"));
+    }
+
+    #[test]
+    fn applets_run_refuses_global_flags() {
+        let stray =
+            |args: &[&str]| stray_run_flag(&Cli::command().try_get_matches_from(args).unwrap());
+        assert_eq!(stray(&["glimpsectl", "applets", "run", "main.ts"]), None);
+        assert_eq!(
+            stray(&["glimpsectl", "applets", "run", "--json", "main.ts"]).as_deref(),
+            Some("json")
+        );
+        assert_eq!(
+            stray(&["glimpsectl", "--json", "applets", "run", "main.ts"]).as_deref(),
+            Some("json")
+        );
+        assert_eq!(stray(&["glimpsectl", "--json", "applets", "list"]), None);
     }
 
     #[test]
