@@ -2,6 +2,8 @@
 Description=Glimpse weather provider
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
+Requisite=glimpse-session.target
+After=glimpse-session.target
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
