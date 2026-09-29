@@ -1,6 +1,5 @@
 use crate::app::{AppInput, SessionDialog};
 use crate::applet::{Button, Direction, Pointer};
-use glimpse_services::Placement;
 use glimpse_services::{
     Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps,
     SessionVerb, Tree,
@@ -9,9 +8,11 @@ use glimpse_services::{SessionAction, SessionActionsState};
 use glimpse_widgets::{IndicatorSpec, Severity};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio};
-use serde_json::{Number, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+const CHIP_TEXT_CAP: usize = 32;
 
 pub fn indicators(
     tree: &Tree,
@@ -49,15 +50,6 @@ pub fn cached_icon(icons: &mut HashMap<String, gio::Icon>, name: &str) -> gio::I
         .clone()
 }
 
-pub fn place_placement(current: &mut Placement, next: Placement) -> bool {
-    if *current == next {
-        false
-    } else {
-        *current = next;
-        true
-    }
-}
-
 fn indicator(props: &IndicatorProps, icons: &mut impl FnMut(&str) -> gio::Icon) -> IndicatorSpec {
     IndicatorSpec {
         icon: props
@@ -72,7 +64,10 @@ fn indicator(props: &IndicatorProps, icons: &mut impl FnMut(&str) -> gio::Icon) 
             .map(icons),
         dot: props.dot.as_deref().and_then(|s| gdk::RGBA::parse(s).ok()),
         extension: None,
-        label: props.text.clone(),
+        label: props
+            .text
+            .as_deref()
+            .map(|text| glimpse_utils::clean(text, CHIP_TEXT_CAP)),
         tooltip: props.tooltip.clone(),
         badge: props.badge.clone(),
         attention: props.attention,
@@ -115,14 +110,6 @@ pub fn valid_icon(icon: &str) -> bool {
 
 pub fn keeps_newer_local_value(local: Option<u64>, incoming: Option<u64>) -> bool {
     matches!((local, incoming), (Some(local), Some(incoming)) if incoming < local)
-}
-
-pub fn number(value: f64) -> Option<Value> {
-    Number::from_f64(value).map(Value::Number)
-}
-
-pub fn scale_value(value: f64, min: f64, max: f64) -> f64 {
-    value.clamp(min, max)
 }
 
 pub fn scale_step(min: f64, max: f64, step: f64) -> f64 {
@@ -244,37 +231,6 @@ mod tests {
         assert_eq!(icons.len(), 65);
         cached_icon(&mut icons, "next");
         assert_eq!(icons.len(), 1);
-    }
-
-    #[test]
-    fn orientation_and_position_change_send_one_place() {
-        let mut current = super::super::placement(
-            glimpse_config::Position::Top,
-            32,
-            None,
-            crate::components::panel::Zone::Start,
-        );
-        let next = super::super::placement(
-            glimpse_config::Position::Left,
-            32,
-            None,
-            crate::components::panel::Zone::Start,
-        );
-        let mut sends = 0;
-        if place_placement(&mut current, next.clone()) {
-            sends += 1;
-        }
-        if place_placement(&mut current, next) {
-            sends += 1;
-        }
-        assert_eq!(sends, 1);
-    }
-
-    #[test]
-    fn number_rejects_non_finite_values() {
-        assert!(number(f64::NAN).is_none());
-        assert!(number(f64::INFINITY).is_none());
-        assert_eq!(number(2.5), Some(json!(2.5)));
     }
 
     #[test]

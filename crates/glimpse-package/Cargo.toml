@@ -36,6 +36,7 @@ depends = [
   "geoclue-2.0",
   "ddcutil",
 ]
+recommends = ["deno"]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
   ["target/release/glimpse-panel", "usr/bin/", "755"],
@@ -55,12 +56,11 @@ assets = [
   ["../../data/config.commented.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../data/language-codes.json", "usr/share/glimpse/", "644"],
-  ["../../sdk/applet/*.ts", "usr/share/glimpse/sdk/applet/", "644"],
+  ["../../sdk/applet/mod.ts", "usr/share/glimpse/sdk/applet/", "644"],
+  ["../../sdk/applet/reconciler.ts", "usr/share/glimpse/sdk/applet/", "644"],
   ["../../sdk/applet/*.json", "usr/share/glimpse/sdk/applet/", "644"],
   ["../../sdk/applet/*.lock", "usr/share/glimpse/sdk/applet/", "644"],
   ["../../sdk/applet/*.md", "usr/share/glimpse/sdk/applet/", "644"],
-  ["../../sdk/applet/fixtures/*.ndjson", "usr/share/glimpse/sdk/applet/fixtures/", "644"],
-  ["../../sdk/applet/fixtures/invalid/*.ndjson", "usr/share/glimpse/sdk/applet/fixtures/invalid/", "644"],
   ["../../sdk/applet/template/*", "usr/share/glimpse/sdk/applet/template/", "644"],
   ["../../sdk/applet/examples/todo/*", "usr/share/glimpse/sdk/applet/examples/todo/", "644"],
   ["../../data/themes/adwaita/*", "usr/share/glimpse/themes/adwaita/", "644"],
@@ -111,12 +111,11 @@ assets = [
   { source = "data/config.commented.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
-  { source = "sdk/applet/*.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
+  { source = "sdk/applet/mod.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
+  { source = "sdk/applet/reconciler.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.json", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.lock", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.md", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
-  { source = "sdk/applet/fixtures/*.ndjson", dest = "/usr/share/glimpse/sdk/applet/fixtures/", mode = "644" },
-  { source = "sdk/applet/fixtures/invalid/*.ndjson", dest = "/usr/share/glimpse/sdk/applet/fixtures/invalid/", mode = "644" },
   { source = "sdk/applet/template/*", dest = "/usr/share/glimpse/sdk/applet/template/", mode = "644" },
   { source = "sdk/applet/examples/todo/*", dest = "/usr/share/glimpse/sdk/applet/examples/todo/", mode = "644" },
   { source = "data/themes/adwaita/*", dest = "/usr/share/glimpse/themes/adwaita/", mode = "644" },
@@ -157,12 +156,11 @@ assets = [
   { source = "data/config.commented.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
-  { source = "sdk/applet/*.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
+  { source = "sdk/applet/mod.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
+  { source = "sdk/applet/reconciler.ts", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.json", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.lock", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
   { source = "sdk/applet/*.md", dest = "/usr/share/glimpse/sdk/applet/", mode = "644" },
-  { source = "sdk/applet/fixtures/*.ndjson", dest = "/usr/share/glimpse/sdk/applet/fixtures/", mode = "644" },
-  { source = "sdk/applet/fixtures/invalid/*.ndjson", dest = "/usr/share/glimpse/sdk/applet/fixtures/invalid/", mode = "644" },
   { source = "sdk/applet/template/*", dest = "/usr/share/glimpse/sdk/applet/template/", mode = "644" },
   { source = "sdk/applet/examples/todo/*", dest = "/usr/share/glimpse/sdk/applet/examples/todo/", mode = "644" },
   { source = "data/themes/adwaita/*", dest = "/usr/share/glimpse/themes/adwaita/", mode = "644" },
@@ -190,6 +188,9 @@ pulseaudio-libs = "*"
 systemd-libs = "*"
 ddcutil = "*"
 pam = "*"
+
+[package.metadata.generate-rpm.suggests]
+deno = "*"
 
 # Replaces the table above rather than merging into it. Those are Fedora names; openSUSE's differ for
 # every linked library, which auto-req already requires by soname, so only names that match stay.

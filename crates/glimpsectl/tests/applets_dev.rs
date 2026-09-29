@@ -1,10 +1,20 @@
 use std::fs;
+use std::os::unix::fs::{MetadataExt, symlink};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
 #[test]
 fn dev_unlinks_its_desktop_file_on_term() -> anyhow::Result<()> {
+    run_dev(libc::SIGTERM, false)
+}
+
+#[test]
+fn dev_replaces_its_own_symlink_and_unlinks_on_hup() -> anyhow::Result<()> {
+    run_dev(libc::SIGHUP, true)
+}
+
+fn run_dev(signal: i32, existing: bool) -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;
     let applet = root.path().join("applet");
     let data = root.path().join("data");
@@ -23,6 +33,16 @@ fn dev_unlinks_its_desktop_file_on_term() -> anyhow::Result<()> {
     )?;
     let config = root.path().join("config.toml");
     fs::write(&config, "")?;
+    let link = data
+        .join("applications")
+        .join("org.example.SignalTest.desktop");
+    let old_inode = if existing {
+        fs::create_dir_all(link.parent().expect("applications directory"))?;
+        symlink(applet.join("org.example.SignalTest.desktop"), &link)?;
+        Some(fs::symlink_metadata(&link)?.ino())
+    } else {
+        None
+    };
     let mut child = Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
         .arg("--config")
         .arg(&config)
@@ -32,18 +52,18 @@ fn dev_unlinks_its_desktop_file_on_term() -> anyhow::Result<()> {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()?;
-    let link = data
-        .join("applications")
-        .join("org.example.SignalTest.desktop");
     let deadline = Instant::now() + Duration::from_secs(5);
-    while !link.is_symlink() && Instant::now() < deadline {
+    while (!link.is_symlink()
+        || old_inode.is_some_and(|old| fs::symlink_metadata(&link).is_ok_and(|m| m.ino() == old)))
+        && Instant::now() < deadline
+    {
         if let Some(status) = child.try_wait()? {
             anyhow::bail!("dev exited before linking: {status}");
         }
         thread::sleep(Duration::from_millis(20));
     }
     assert!(link.is_symlink());
-    assert_eq!(unsafe { libc::kill(child.id() as i32, libc::SIGTERM) }, 0);
+    assert_eq!(unsafe { libc::kill(child.id() as i32, signal) }, 0);
     while Instant::now() < deadline {
         if let Some(status) = child.try_wait()? {
             assert!(status.success(), "dev exited with {status}");

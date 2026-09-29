@@ -1,8 +1,12 @@
 import {
+  openStore,
+  optionsStore,
+  placementStore,
   redirectConsole,
   restoreConsole,
   session,
   setEmit,
+  standardIo,
 } from "./reconciler.ts";
 import {
   Box,
@@ -35,25 +39,29 @@ function fixture(name: string): URL {
   return new URL(`./fixtures/${name}`, import.meta.url);
 }
 
-function assertBytes(actual: string[], path: URL): void {
-  const expected = Deno.readTextFileSync(path);
-  const got = `${actual.join("\n")}\n`;
-  if (got === expected) return;
-  const expectedLines = expected.split("\n");
-  const actualLines = got.split("\n");
-  for (
-    let index = 0;
-    index < Math.max(expectedLines.length, actualLines.length);
-    index++
-  ) {
-    if (expectedLines[index] !== actualLines[index]) {
-      throw new Error(
-        `${path.pathname} line ${index + 1}\nexpected: ${
-          expectedLines[index]
-        }\nactual:   ${actualLines[index]}\n--- actual ---\n${got}`,
-      );
-    }
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(
+        ([key, entry]) => [key, canonical(entry)],
+      ),
+    );
   }
+  return value;
+}
+
+function assertMessages(actual: string[], path: URL): void {
+  const expected = Deno.readTextFileSync(path).trim().split("\n").map((line) =>
+    JSON.parse(line)
+  );
+  const got = actual.map((line) => JSON.parse(line));
+  assert(
+    JSON.stringify(canonical(got)) === JSON.stringify(canonical(expected)),
+    `${path.pathname}\nexpected: ${JSON.stringify(expected)}\nactual: ${
+      JSON.stringify(got)
+    }`,
+  );
 }
 
 async function drive(element: unknown, messages: unknown[]): Promise<string[]> {
@@ -62,7 +70,13 @@ async function drive(element: unknown, messages: unknown[]): Promise<string[]> {
     writeLine: (line) => lines.push(line),
     lines: (async function* () {
       for (const message of messages) {
-        yield typeof message === "string" ? message : JSON.stringify(message);
+        if (Array.isArray(message)) {
+          yield message.map((item) =>
+            typeof item === "string" ? item : JSON.stringify(item)
+          );
+        } else {
+          yield typeof message === "string" ? message : JSON.stringify(message);
+        }
       }
     })(),
   });
@@ -157,6 +171,11 @@ function EntryApp() {
   );
 }
 
+function RawTextApp() {
+  const options = useOptions<{ text?: string }>();
+  return createElement(Popover, null, createElement(Box, null, options.text));
+}
+
 function EntryWithSibling() {
   const [value, setValue] = useState("x");
   const [text, setText] = useState("old");
@@ -203,9 +222,136 @@ function mockExit(
 }
 
 Deno.test("applet sdk", async (test) => {
+  await test.step("sends queued requests after SDK hello", async () => {
+    notify({ summary: "early" });
+    const lines = await drive(createElement(Indicator), [hostLine()]);
+    assert(lines[0] === '{"t":"hello","v":1}', lines.join("\n"));
+    assert(lines[1] === '{"t":"notify","summary":"early"}', lines.join("\n"));
+  });
+
   await test.step("hello fixture matches hello.ndjson", async () => {
     const lines = await drive(createElement(HelloApp), [hostLine()]);
-    assertBytes(lines, fixture("hello.ndjson"));
+    assertMessages(lines, fixture("hello.ndjson"));
+  });
+
+  await test.step("every host fixture line is handled", async () => {
+    const messages = Deno.readTextFileSync(fixture("host.ndjson")).trim()
+      .split("\n");
+    const lines = await drive(createElement(HelloApp), messages);
+    assert(lines.length === 2, lines.join("\n"));
+    assert(
+      optionsStore.get().enabled === true,
+      JSON.stringify(optionsStore.get()),
+    );
+    assert(
+      placementStore.get()?.size === 48,
+      JSON.stringify(placementStore.get()),
+    );
+    assert(openStore.get() === false, "popover stayed open");
+  });
+
+  await test.step("coalesces one input chunk into one commit", async () => {
+    const lines = await drive(createElement(OpsApp), [[
+      { t: "hello", v: 1, options: { step: 0 } },
+      { t: "options", options: { step: 1 } },
+      { t: "options", options: { step: 2 } },
+    ]]);
+    const commits = lines.slice(1).map((line) => JSON.parse(line));
+    assert(commits.length === 1, JSON.stringify(commits));
+    assert(commits[0].ops.length === 2, JSON.stringify(commits));
+  });
+
+  await test.step("text children ignore empty values and flatten arrays", async () => {
+    const lines = await drive(
+      createElement(
+        Popover,
+        null,
+        createElement(Label, null, ["Hi ", undefined, ["Ada", false]]),
+        createElement(Label, null, ["A", null, true, ["B"]]),
+      ),
+      [hostLine()],
+    );
+    const children = JSON.parse(lines[1]).ops[0].node.children;
+    assert(children[0].props.text === "Hi Ada", JSON.stringify(children));
+    assert(children[1].props.text === "AB", JSON.stringify(children));
+  });
+
+  await test.step("raw text children update without crashing", async () => {
+    const lines = await drive(createElement(RawTextApp), [
+      { t: "hello", v: 1, options: { text: "one" } },
+      { t: "options", options: { text: "two" } },
+    ]);
+    const initial = JSON.parse(lines[1]).ops[0].node.children[0].children[0];
+    assert(
+      initial.type === "label" && initial.props.text === "one",
+      JSON.stringify(initial),
+    );
+    const change = JSON.parse(lines[2]).ops[0];
+    assert(
+      change.op === "set" && change.props.text === "two",
+      JSON.stringify(change),
+    );
+  });
+
+  await test.step("wire text uses host caps", async () => {
+    const lines = await drive(
+      createElement(
+        Fragment,
+        null,
+        createElement(Indicator, {
+          badge: "b".repeat(20),
+          text: "t".repeat(300),
+        }),
+        createElement(
+          Popover,
+          null,
+          createElement(Entry, { value: "e".repeat(5000) }),
+        ),
+      ),
+      [hostLine()],
+    );
+    const nodes = JSON.parse(lines[1]).ops.map((op: { node: unknown }) =>
+      op.node
+    );
+    assert(nodes[0].props.badge.length === 8, JSON.stringify(nodes[0].props));
+    assert(nodes[0].props.text.length === 256, JSON.stringify(nodes[0].props));
+    assert(nodes[1].children[0].props.value.length === 4096, "entry cap");
+  });
+
+  await test.step("rejects oversized trees", async () => {
+    for (const counts of [[201], [150, 150]]) {
+      const exit = mockExit(false);
+      try {
+        const boxes = counts.map((count) =>
+          createElement(
+            Box,
+            null,
+            ...Array.from({ length: count }, (_, index) =>
+              createElement(Label, { key: String(index), text: "x" })),
+          )
+        );
+        const lines = await drive(createElement(Popover, null, ...boxes), [
+          hostLine(),
+        ]);
+        assert(lines.length === 1, lines.join("\n"));
+      } finally {
+        exit.restore();
+      }
+      assert(exit.code() === 70, `exit ${exit.code()}`);
+    }
+  });
+
+  await test.step("rejects outgoing lines over 1 MiB", () => {
+    let error: unknown;
+    try {
+      copy("x".repeat(1_048_576));
+    } catch (caught) {
+      error = caught;
+    }
+    assert(
+      error instanceof Error && error.name === "ProtocolLimitError",
+      String(error),
+    );
   });
 
   await test.step("icon tooltips reach the wire", async () => {
@@ -229,7 +375,7 @@ Deno.test("applet sdk", async (test) => {
       ),
       [hostLine()],
     );
-    assertBytes(lines, fixture("tooltip.ndjson"));
+    assertMessages(lines, fixture("tooltip.ndjson"));
   });
 
   await test.step("ops fixture matches ops.ndjson", async () => {
@@ -260,7 +406,7 @@ Deno.test("applet sdk", async (test) => {
     messages.push({ t: "options", options: { step: 8 } });
     const lines = await drive(createElement(OpsApp), messages);
     assert(lines[0] === '{"t":"hello","v":1}', `first line ${lines[0]}`);
-    assertBytes(lines.slice(1), fixture("ops.ndjson"));
+    assertMessages(lines.slice(1), fixture("ops.ndjson"));
   });
 
   await test.step("requests fixture matches requests.ndjson", () => {
@@ -289,7 +435,7 @@ Deno.test("applet sdk", async (test) => {
       hostSession(action);
     }
     closePopover();
-    assertBytes(lines, fixture("requests.ndjson"));
+    assertMessages(lines, fixture("requests.ndjson"));
   });
 
   await test.step("console output goes to stderr", async () => {
@@ -302,6 +448,29 @@ Deno.test("applet sdk", async (test) => {
     };
     try {
       redirectConsole();
+      const methods = [
+        "log",
+        "info",
+        "debug",
+        "dir",
+        "dirxml",
+        "table",
+        "count",
+        "countReset",
+        "time",
+        "timeLog",
+        "timeEnd",
+        "group",
+        "groupCollapsed",
+        "groupEnd",
+        "trace",
+      ];
+      for (const method of methods) {
+        (console as unknown as Record<string, (...args: unknown[]) => void>)
+          [method](
+            `from-${method}`,
+          );
+      }
       const lines = await drive(createElement(Loud), [hostLine()]);
       protocol.push(...lines);
     } finally {
@@ -326,6 +495,25 @@ Deno.test("applet sdk", async (test) => {
     assert(stderr.includes("from-log"), `stderr missed log: ${stderr}`);
     assert(stderr.includes("from-info"), `stderr missed info: ${stderr}`);
     assert(stderr.includes("from-debug"), `stderr missed debug: ${stderr}`);
+    for (
+      const method of [
+        "dir",
+        "dirxml",
+        "table",
+        "count",
+        "countReset",
+        "time",
+        "timeLog",
+        "timeEnd",
+        "group",
+        "groupCollapsed",
+        "groupEnd",
+        "trace",
+      ]
+    ) {
+      assert(stderr.includes(`from-${method}`), `stderr missed ${method}`);
+      assert(!joined.includes(`from-${method}`), `protocol contains ${method}`);
+    }
   });
 
   await test.step("mounts only after the host hello", async () => {
@@ -352,23 +540,6 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("a second host hello remounts from id 1", async () => {
-    const hello = hostLine();
-    const lines = await drive(createElement(HelloApp), [hello, hello]);
-    const hellos = lines.filter((line) => line === '{"t":"hello","v":1}');
-    assert(hellos.length === 1, `hello lines ${hellos.length}`);
-    const commits = lines.filter((line) => line.startsWith('{"t":"commit"'));
-    assert(
-      commits.length === 2,
-      `commits ${commits.length}: ${lines.join("\n")}`,
-    );
-    assert(
-      commits[0] === commits[1],
-      `remount differed\n${commits[0]}\n${commits[1]}`,
-    );
-    assert(commits[0].includes('"id":1,"type":"indicator"'), commits[0]);
-  });
-
   await test.step("an older seq does not overwrite the entry", async () => {
     const lines = await drive(createElement(EntryApp), [
       hostLine(),
@@ -390,6 +561,58 @@ Deno.test("applet sdk", async (test) => {
     assert(
       sets[1].includes('"value":"abc"') && sets[1].includes('"seq":6'),
       sets[1],
+    );
+  });
+
+  await test.step("a rejected edit confirms the controlled value", async () => {
+    const lines = await drive(
+      createElement(
+        Popover,
+        null,
+        createElement(Entry, { value: "x", onChange: () => {} }),
+      ),
+      [hostLine(), {
+        t: "event",
+        id: 2,
+        name: "onChange",
+        args: ["no"],
+        seq: 4,
+      }],
+    );
+    const commit = JSON.parse(lines[2]);
+    assert(commit.ops[0].seq === 4, JSON.stringify(commit));
+    assert(commit.ops[0].props.value === "x", JSON.stringify(commit));
+  });
+
+  await test.step("rejects incompatible host versions", async () => {
+    const exit = mockExit(false);
+    try {
+      const lines = await drive(createElement(Indicator), [{
+        t: "hello",
+        v: 2,
+      }]);
+      assert(lines.length === 1, lines.join("\n"));
+    } finally {
+      exit.restore();
+    }
+    assert(exit.code() === 1, `exit ${exit.code()}`);
+  });
+
+  await test.step("stdout writes all bytes", () => {
+    const original = Deno.stdout.writeSync;
+    const bytes: number[] = [];
+    Deno.stdout.writeSync = (chunk: Uint8Array) => {
+      bytes.push(...chunk.subarray(0, 2));
+      return Math.min(chunk.length, 2);
+    };
+    try {
+      standardIo().writeLine("hello");
+    } finally {
+      Deno.stdout.writeSync = original;
+    }
+    assert(
+      new TextDecoder().decode(new Uint8Array(bytes)) === "hello\n",
+      bytes.join(","),
     );
   });
 
@@ -417,22 +640,12 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("invalid parent is rejected before a commit", async () => {
-    const exit = mockExit(false);
-    let lines: string[] = [];
-    try {
-      lines = await drive(
-        createElement(Popover, null, createElement(Indicator, { icon: "x" })),
-        [hostLine()],
-      );
-    } finally {
-      exit.restore();
-    }
-    assert(exit.code() === 70, `exit ${exit.code()}`);
-    assert(
-      !lines.some((line) => line.includes('"t":"commit"')),
-      lines.join("\n"),
+  await test.step("unknown elements reach the host", async () => {
+    const lines = await drive(
+      createElement(Popover, null, createElement("future-widget")),
+      [hostLine()],
     );
+    assert(lines[1].includes('"type":"future-widget"'), lines[1]);
   });
 
   await test.step("a render throw exits 70", async () => {

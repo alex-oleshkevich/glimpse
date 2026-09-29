@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::Arc;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
@@ -11,6 +11,7 @@ use super::wire::{Op, Orientation, WireNode};
 pub const ROOT: u32 = 0;
 pub const MAX_NODES: usize = 300;
 pub const MAX_CHILDREN_PER_PARENT: usize = 200;
+pub const MAX_OPS: usize = 4 * MAX_NODES;
 
 const TEXT_CAP: usize = 256;
 const NAME_CAP: usize = 64;
@@ -20,6 +21,7 @@ const ENTRY_CAP: usize = 4096;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
     nodes: HashMap<u32, Arc<Node>>,
+    parents: HashMap<u32, u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -142,19 +144,19 @@ pub enum Element {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct PopoverProps {
     pub class_name: Option<ClassName>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct FooterProps {
     pub class_name: Option<ClassName>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct IndicatorProps {
     pub icon: Option<String>,
     pub text: Option<String>,
@@ -171,7 +173,7 @@ pub struct IndicatorProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct HeroProps {
     pub icon: Option<String>,
     pub title: Option<String>,
@@ -180,7 +182,7 @@ pub struct HeroProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SectionProps {
     pub title: Option<String>,
     pub count: Option<String>,
@@ -188,7 +190,7 @@ pub struct SectionProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct RowProps {
     pub icon: Option<String>,
     pub title: Option<String>,
@@ -201,7 +203,7 @@ pub struct RowProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SwitchRowProps {
     pub icon: Option<String>,
     pub title: Option<String>,
@@ -213,7 +215,7 @@ pub struct SwitchRowProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct FaderProps {
     pub icon: Option<String>,
     #[serde(default, deserialize_with = "de_finite_f64")]
@@ -229,7 +231,7 @@ pub struct FaderProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct EntryProps {
     pub placeholder: Option<String>,
     pub value: String,
@@ -239,7 +241,7 @@ pub struct EntryProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct PlaceholderProps {
     pub icon: Option<String>,
     pub title: Option<String>,
@@ -248,7 +250,7 @@ pub struct PlaceholderProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct BoxProps {
     pub orientation: Orientation,
     #[serde(default, deserialize_with = "de_finite_f64")]
@@ -262,7 +264,7 @@ pub struct BoxProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct LabelProps {
     pub text: Option<String>,
     pub wrap: bool,
@@ -275,7 +277,7 @@ pub struct LabelProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct ImageProps {
     pub icon: Option<String>,
     pub tooltip: Option<String>,
@@ -285,7 +287,7 @@ pub struct ImageProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct ButtonProps {
     pub text: Option<String>,
     pub icon: Option<String>,
@@ -297,7 +299,7 @@ pub struct ButtonProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SwitchProps {
     pub active: bool,
     #[serde(default = "yes")]
@@ -307,7 +309,7 @@ pub struct SwitchProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct ScaleProps {
     #[serde(default, deserialize_with = "de_finite_f64")]
     pub value: f64,
@@ -324,13 +326,13 @@ pub struct ScaleProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SpinnerProps {
     pub class_name: Option<ClassName>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProgressProps {
     #[serde(default, deserialize_with = "de_finite_f64")]
     pub fraction: f64,
@@ -339,7 +341,7 @@ pub struct ProgressProps {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SeparatorProps {
     pub orientation: Orientation,
     pub class_name: Option<ClassName>,
@@ -360,32 +362,45 @@ pub enum Violation {
         parent: ElementKind,
         child: ElementKind,
     },
-    #[error("{parent} already holds a {child}")]
-    AlreadyHolds {
-        parent: ElementKind,
-        child: ElementKind,
-    },
     #[error("more than 300 nodes")]
     TooManyNodes,
     #[error("parent {parent} has more than 200 children")]
     TooManyChildren { parent: u32 },
     #[error("the root cannot be changed")]
     Root,
+    #[error("more than 1200 operations in one commit")]
+    TooManyOps,
 }
 
 impl Default for Tree {
     fn default() -> Self {
         let mut nodes = HashMap::new();
         nodes.insert(ROOT, Arc::new(Node::root()));
-        Self { nodes }
+        Self {
+            nodes,
+            parents: HashMap::new(),
+        }
     }
 }
 
 impl Tree {
     pub fn apply(&self, ops: Vec<Op>) -> Result<Tree, Violation> {
+        if ops.len() > MAX_OPS {
+            return Err(Violation::TooManyOps);
+        }
         let mut next = self.clone();
         for op in ops {
             next.apply_one(op)?;
+        }
+        if next.nodes.len() > MAX_NODES {
+            return Err(Violation::TooManyNodes);
+        }
+        if let Some(parent) = next
+            .nodes
+            .iter()
+            .find_map(|(id, node)| (node.children.len() > MAX_CHILDREN_PER_PARENT).then_some(*id))
+        {
+            return Err(Violation::TooManyChildren { parent });
         }
         Ok(next)
     }
@@ -422,24 +437,13 @@ impl Tree {
     ) -> Result<(), Violation> {
         let parent_kind = self.kind_of_node(parent)?;
         self.known_sibling(parent, before, None)?;
-        let siblings = self.child_kinds(parent);
         let mut new_ids = HashSet::new();
         let mut built = Vec::new();
-        let top = compile(
-            wire,
-            parent_kind,
-            &siblings,
-            &self.nodes,
-            &mut new_ids,
-            &mut built,
-        )?;
-        if self.child_count(parent) + 1 > MAX_CHILDREN_PER_PARENT {
-            return Err(Violation::TooManyChildren { parent });
-        }
-        if self.nodes.len() + new_ids.len() > MAX_NODES {
-            return Err(Violation::TooManyNodes);
-        }
+        let top = compile(wire, parent_kind, &self.nodes, &mut new_ids, &mut built)?;
         for (id, node) in built {
+            for child in &node.children {
+                self.parents.insert(*child, id);
+            }
             self.nodes.insert(id, Arc::new(node));
         }
         self.place(parent, top, before);
@@ -457,11 +461,7 @@ impl Tree {
         }
         let old = self.parent_of(id).ok_or(Violation::UnknownId(id))?;
         self.known_sibling(parent, before, Some(id))?;
-        let siblings = self.kinds_except(parent, id);
-        admit(parent_kind, child_kind, &siblings)?;
-        if self.child_count_except(parent, id) + 1 > MAX_CHILDREN_PER_PARENT {
-            return Err(Violation::TooManyChildren { parent });
-        }
+        admit(parent_kind, child_kind)?;
         self.detach(old, id);
         self.place(parent, id, before);
         Ok(())
@@ -482,6 +482,7 @@ impl Tree {
         self.detach(parent, id);
         for id in drop {
             self.nodes.remove(&id);
+            self.parents.remove(&id);
         }
         Ok(())
     }
@@ -506,10 +507,8 @@ impl Tree {
                 node.raw.insert(key, value);
             }
         }
-        if let Some(seq) = seq {
-            node.seq = Some(seq);
-        }
-        node.element = rerealize(id, &node.element, &node.raw);
+        node.seq = seq;
+        (node.element, node.raw) = rerealize(id, &node.element, &node.raw);
         self.nodes.insert(id, Arc::new(node));
         Ok(())
     }
@@ -522,14 +521,12 @@ impl Tree {
     }
 
     fn parent_of(&self, id: u32) -> Option<u32> {
-        self.nodes
-            .iter()
-            .find_map(|(parent, node)| node.children.contains(&id).then_some(*parent))
+        self.parents.get(&id).copied()
     }
 
     fn under(&self, ancestor: u32, start: u32) -> bool {
         let mut cursor = start;
-        for _ in 0..MAX_NODES {
+        for _ in 0..=self.nodes.len() {
             if cursor == ancestor {
                 return true;
             }
@@ -566,45 +563,6 @@ impl Tree {
         Ok(())
     }
 
-    fn child_kinds(&self, parent: u32) -> Vec<ElementKind> {
-        self.nodes
-            .get(&parent)
-            .map(|node| {
-                node.children
-                    .iter()
-                    .filter_map(|id| self.nodes.get(id).map(|child| child.element.kind()))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    fn kinds_except(&self, parent: u32, except: u32) -> Vec<ElementKind> {
-        self.nodes
-            .get(&parent)
-            .map(|node| {
-                node.children
-                    .iter()
-                    .filter(|id| **id != except)
-                    .filter_map(|id| self.nodes.get(id).map(|child| child.element.kind()))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    fn child_count(&self, parent: u32) -> usize {
-        self.nodes
-            .get(&parent)
-            .map(|node| node.children.len())
-            .unwrap_or(0)
-    }
-
-    fn child_count_except(&self, parent: u32, except: u32) -> usize {
-        self.nodes
-            .get(&parent)
-            .map(|node| node.children.iter().filter(|id| **id != except).count())
-            .unwrap_or(0)
-    }
-
     fn place(&mut self, parent: u32, id: u32, before: Option<u32>) {
         let Some(arc) = self.nodes.get(&parent).cloned() else {
             return;
@@ -615,6 +573,7 @@ impl Tree {
             None => node.children.push(id),
         }
         self.nodes.insert(parent, Arc::new(node));
+        self.parents.insert(id, parent);
     }
 
     fn detach(&mut self, parent: u32, id: u32) {
@@ -624,6 +583,7 @@ impl Tree {
         let mut node = (*arc).clone();
         node.children.retain(|child| *child != id);
         self.nodes.insert(parent, Arc::new(node));
+        self.parents.remove(&id);
     }
 
     fn subtree(&self, id: u32) -> Vec<u32> {
@@ -737,22 +697,9 @@ fn kind_of(name: &str) -> Option<ElementKind> {
     })
 }
 
-fn admit(
-    parent: ElementKind,
-    child: ElementKind,
-    siblings: &[ElementKind],
-) -> Result<(), Violation> {
+fn admit(parent: ElementKind, child: ElementKind) -> Result<(), Violation> {
     if !kind_allowed(parent, child) {
         return Err(Violation::BadParent { parent, child });
-    }
-    let unique = matches!(
-        (parent, child),
-        (ElementKind::Root, ElementKind::Popover)
-            | (ElementKind::Popover, ElementKind::Hero)
-            | (ElementKind::Popover, ElementKind::Footer)
-    );
-    if unique && siblings.contains(&child) {
-        return Err(Violation::AlreadyHolds { parent, child });
     }
     Ok(())
 }
@@ -797,7 +744,6 @@ fn is_body(kind: ElementKind) -> bool {
 fn compile(
     wire: WireNode,
     parent_kind: ElementKind,
-    siblings: &[ElementKind],
     existing: &HashMap<u32, Arc<Node>>,
     new_ids: &mut HashSet<u32>,
     built: &mut Vec<(u32, Node)>,
@@ -811,103 +757,115 @@ fn compile(
     if existing.contains_key(&id) || !new_ids.insert(id) {
         return Err(Violation::DuplicateId(id));
     }
-    if children.len() > MAX_CHILDREN_PER_PARENT {
-        return Err(Violation::TooManyChildren { parent: id });
-    }
     let element_kind = kind_of(&kind).unwrap_or(ElementKind::Unsupported);
-    admit(parent_kind, element_kind, siblings)?;
+    admit(parent_kind, element_kind)?;
     let mut child_ids = Vec::with_capacity(children.len());
-    let mut child_kinds = Vec::with_capacity(children.len());
     for child in children {
-        let child_kind = kind_of(&child.kind).unwrap_or(ElementKind::Unsupported);
-        let child_id = compile(child, element_kind, &child_kinds, existing, new_ids, built)?;
-        child_ids.push(child_id);
-        child_kinds.push(child_kind);
+        child_ids.push(compile(child, element_kind, existing, new_ids, built)?);
     }
-    let element = realize_new(id, &kind, &props);
+    let (element, raw) = realize_new(id, &kind, &props);
     built.push((
         id,
         Node {
             element,
             children: child_ids,
             seq: None,
-            raw: props,
+            raw,
         },
     ));
     Ok(id)
 }
 
-fn realize_new(id: u32, type_name: &str, raw: &Map<String, Value>) -> Element {
+fn realize_new(
+    id: u32,
+    type_name: &str,
+    raw: &Map<String, Value>,
+) -> (Element, Map<String, Value>) {
     match kind_of(type_name) {
         Some(kind) => realize_kind(id, kind, raw),
-        None => Element::Unsupported(glimpse_utils::clean(type_name, NAME_CAP)),
+        None => (
+            Element::Unsupported(glimpse_utils::clean(type_name, NAME_CAP)),
+            Map::new(),
+        ),
     }
 }
 
-fn rerealize(id: u32, previous: &Element, raw: &Map<String, Value>) -> Element {
+fn rerealize(
+    id: u32,
+    previous: &Element,
+    raw: &Map<String, Value>,
+) -> (Element, Map<String, Value>) {
     match previous.kind() {
-        ElementKind::Unsupported | ElementKind::Root => previous.clone(),
+        ElementKind::Unsupported | ElementKind::Root => (previous.clone(), Map::new()),
         kind => realize_kind(id, kind, raw),
     }
 }
 
-fn realize_kind(id: u32, kind: ElementKind, raw: &Map<String, Value>) -> Element {
+fn realize_kind(
+    id: u32,
+    kind: ElementKind,
+    raw: &Map<String, Value>,
+) -> (Element, Map<String, Value>) {
+    let mut kept = Map::new();
+    let element = realize_into(id, kind, raw, &mut kept);
+    (element, kept)
+}
+
+fn realize_into(
+    id: u32,
+    kind: ElementKind,
+    raw: &Map<String, Value>,
+    kept: &mut Map<String, Value>,
+) -> Element {
     match kind {
         ElementKind::Root => Element::Root,
-        ElementKind::Popover => Element::Popover(read_props(id, raw)),
-        ElementKind::Footer => Element::Footer(read_props(id, raw)),
-        ElementKind::Indicator => Element::Indicator(finish_indicator(read_props(id, raw))),
-        ElementKind::Hero => Element::Hero(finish_hero(read_props(id, raw))),
-        ElementKind::Section => Element::Section(finish_section(read_props(id, raw))),
-        ElementKind::Row => Element::Row(finish_row(read_props(id, raw))),
-        ElementKind::SwitchRow => Element::SwitchRow(finish_switch_row(read_props(id, raw))),
-        ElementKind::Fader => Element::Fader(finish_fader(read_props(id, raw))),
-        ElementKind::Entry => Element::Entry(finish_entry(read_props(id, raw))),
-        ElementKind::Placeholder => Element::Placeholder(finish_placeholder(read_props(id, raw))),
-        ElementKind::Box => Element::Box(finish_box(read_props(id, raw))),
-        ElementKind::Label => Element::Label(finish_label(read_props(id, raw))),
-        ElementKind::Image => Element::Image(finish_image(read_props(id, raw))),
-        ElementKind::Button => Element::Button(finish_button(read_props(id, raw))),
-        ElementKind::Switch => Element::Switch(read_props(id, raw)),
-        ElementKind::Scale => Element::Scale(finish_scale(read_props(id, raw))),
-        ElementKind::Spinner => Element::Spinner(read_props(id, raw)),
-        ElementKind::Progress => Element::Progress(finish_progress(read_props(id, raw))),
-        ElementKind::Separator => Element::Separator(read_props(id, raw)),
+        ElementKind::Popover => Element::Popover(read_props(id, raw, kept)),
+        ElementKind::Footer => Element::Footer(read_props(id, raw, kept)),
+        ElementKind::Indicator => Element::Indicator(finish_indicator(read_props(id, raw, kept))),
+        ElementKind::Hero => Element::Hero(finish_hero(read_props(id, raw, kept))),
+        ElementKind::Section => Element::Section(finish_section(read_props(id, raw, kept))),
+        ElementKind::Row => Element::Row(finish_row(read_props(id, raw, kept))),
+        ElementKind::SwitchRow => Element::SwitchRow(finish_switch_row(read_props(id, raw, kept))),
+        ElementKind::Fader => Element::Fader(finish_fader(read_props(id, raw, kept))),
+        ElementKind::Entry => Element::Entry(finish_entry(read_props(id, raw, kept))),
+        ElementKind::Placeholder => {
+            Element::Placeholder(finish_placeholder(read_props(id, raw, kept)))
+        }
+        ElementKind::Box => Element::Box(finish_box(read_props(id, raw, kept))),
+        ElementKind::Label => Element::Label(finish_label(read_props(id, raw, kept))),
+        ElementKind::Image => Element::Image(finish_image(read_props(id, raw, kept))),
+        ElementKind::Button => Element::Button(finish_button(read_props(id, raw, kept))),
+        ElementKind::Switch => Element::Switch(read_props(id, raw, kept)),
+        ElementKind::Scale => Element::Scale(finish_scale(read_props(id, raw, kept))),
+        ElementKind::Spinner => Element::Spinner(read_props(id, raw, kept)),
+        ElementKind::Progress => Element::Progress(finish_progress(read_props(id, raw, kept))),
+        ElementKind::Separator => Element::Separator(read_props(id, raw, kept)),
         ElementKind::Unsupported => Element::Unsupported(String::new()),
     }
 }
 
-fn read_props<T: DeserializeOwned + Default>(id: u32, raw: &Map<String, Value>) -> T {
-    let mut filtered = Map::new();
+fn read_props<T: DeserializeOwned + Default>(
+    id: u32,
+    raw: &Map<String, Value>,
+    kept: &mut Map<String, Value>,
+) -> T {
     for (key, value) in raw {
         if value.is_null() {
             continue;
         }
         if accepts::<T>(key, value) {
-            filtered.insert(key.clone(), value.clone());
+            kept.insert(key.clone(), value.clone());
         } else {
-            note_dropped(id, key);
+            tracing::debug!(id, key, "dropped an unknown or wrongly typed property");
         }
     }
-    serde_json::from_value(Value::Object(filtered)).unwrap_or_default()
+    serde_json::from_value(Value::Object(kept.clone())).unwrap_or_default()
 }
 
 fn accepts<T: DeserializeOwned>(key: &str, value: &Value) -> bool {
     let mut trial = Map::new();
     trial.insert(key.to_owned(), value.clone());
     serde_json::from_value::<T>(Value::Object(trial)).is_ok()
-}
-
-fn note_dropped(id: u32, key: &str) {
-    static DROPPED: LazyLock<Mutex<HashSet<(u32, String)>>> =
-        LazyLock::new(|| Mutex::new(HashSet::new()));
-    let fresh = DROPPED
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
-        .insert((id, key.to_owned()));
-    if fresh {
-        tracing::warn!(id, key, "dropped a property whose value has the wrong type");
-    }
 }
 
 fn finish_indicator(mut props: IndicatorProps) -> IndicatorProps {
@@ -1031,7 +989,7 @@ fn dot(value: Option<String>) -> Option<String> {
     (!out.is_empty()).then_some(out)
 }
 
-fn icon(value: Option<String>) -> Option<String> {
+pub(super) fn icon(value: Option<String>) -> Option<String> {
     value.filter(|name| {
         !name.is_empty()
             && name
@@ -1460,10 +1418,7 @@ mod tests {
         assert_eq!(row.title.as_deref(), Some("Oat"));
         assert_eq!(row.subtitle.as_deref(), Some("later"));
         assert!(!row.busy);
-        assert_eq!(
-            updated.node(2).expect("row").raw.get("busy"),
-            Some(&json!("nope"))
-        );
+        assert!(!updated.node(2).expect("row").raw.contains_key("busy"));
 
         let cleared = updated
             .apply(vec![Op::Set {
@@ -1478,6 +1433,73 @@ mod tests {
         assert_eq!(row_of(&node.element).title, None);
         assert_eq!(row_of(&node.element).subtitle.as_deref(), Some("later"));
         assert_eq!(node.seq, Some(4));
+
+        let unsequenced = cleared
+            .apply(vec![Op::Set {
+                id: 2,
+                props: props(json!({"title": "Rye"})),
+                seq: None,
+            }])
+            .expect("unsequenced");
+        assert_eq!(unsequenced.node(2).expect("row").seq, None);
+    }
+
+    #[test]
+    fn an_unknown_key_is_not_kept() {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(2, "row", json!({"title": "Milk", "junk": "x"}), Vec::new()),
+                None,
+            )])
+            .expect("row")
+            .apply(vec![Op::Set {
+                id: 2,
+                props: props(json!({"more": "y".repeat(1000)})),
+                seq: None,
+            }])
+            .expect("set");
+        let node = tree.node(2).expect("row");
+        assert!(!node.raw.contains_key("junk"));
+        assert!(!node.raw.contains_key("more"));
+        assert_eq!(row_of(&node.element).title.as_deref(), Some("Milk"));
+        let unsupported = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(3, "canvas", json!({"a": 1}), Vec::new()),
+                None,
+            )])
+            .expect("unsupported");
+        assert!(unsupported.node(3).expect("canvas").raw.is_empty());
+    }
+
+    #[test]
+    fn a_footer_can_be_replaced_insert_first() {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(1, leaf(2, "footer"), None)])
+            .expect("footer");
+        let replaced = tree
+            .apply(vec![
+                insert(1, leaf(3, "footer"), None),
+                Op::Remove { parent: 1, id: 2 },
+            ])
+            .expect("replace");
+        assert_eq!(replaced.children(1), &[3]);
+    }
+
+    #[test]
+    fn too_many_ops_is_a_violation() {
+        let ops = (0..=super::MAX_OPS)
+            .map(|_| Op::Set {
+                id: 1,
+                props: Map::new(),
+                seq: None,
+            })
+            .collect();
+        assert_eq!(
+            hosted(&Tree::default()).apply(ops).expect_err("cap"),
+            Violation::TooManyOps
+        );
     }
 
     #[test]
@@ -1588,25 +1610,6 @@ mod tests {
             Violation::BadParent {
                 parent: ElementKind::Box,
                 child: ElementKind::Section,
-            }
-        );
-        assert_eq!(
-            tree.apply(vec![insert(ROOT, leaf(2, "popover"), None)])
-                .expect_err("second popover"),
-            Violation::AlreadyHolds {
-                parent: ElementKind::Root,
-                child: ElementKind::Popover,
-            }
-        );
-        let hero = tree
-            .apply(vec![insert(1, leaf(2, "hero"), None)])
-            .expect("hero");
-        assert_eq!(
-            hero.apply(vec![insert(1, leaf(3, "hero"), None)])
-                .expect_err("second hero"),
-            Violation::AlreadyHolds {
-                parent: ElementKind::Popover,
-                child: ElementKind::Hero,
             }
         );
         let footer = tree

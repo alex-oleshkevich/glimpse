@@ -3,7 +3,7 @@ use std::process::ExitCode;
 
 mod codes {
     pub const FAILED: u8 = 1;
-    pub const DENO_NOT_FOUND: u8 = 2;
+    pub const DENO_NOT_FOUND: u8 = 3;
 }
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn missing_deno_has_its_own_code_through_context() {
         let error = anyhow::Error::new(DenoNotFound).context("launching applet");
-        assert_eq!(code(&error), codes::DENO_NOT_FOUND);
+        assert_eq!(code(&error), 3);
         assert_eq!(code(&anyhow::anyhow!("failed")), codes::FAILED);
     }
 }

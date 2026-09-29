@@ -17,7 +17,6 @@ glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-services.workspace = true
 glimpse-utils.workspace = true
-libc.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 shadow-rs.workspace = true
@@ -28,6 +27,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+libc.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 

@@ -59,7 +59,9 @@ but reports `serving = false` or fails to reply, both `degraded` with the reason
 
 **`applets list` and `inspect` read desktop entries and placements locally**, query systemd for
 running scopes when a bus is there, and report `runtime: unavailable` when it is not. `list --json`
-returns `{runtime, applets}`. `restart` signals each running scope so the panel respawns it.
+returns `{runtime, applets}`; each refused row keeps its reason in `refused`, separate from `name`.
+`inspect --json` marks a vanished runtime unit unavailable without losing its peers. `restart`
+requires a running scope and signals each one so the panel respawns it.
 
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through

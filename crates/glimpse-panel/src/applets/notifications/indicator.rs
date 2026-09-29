@@ -10,8 +10,9 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, NotificationIndicatorSt
 use glimpse_dbus::notifications::NotificationRecord;
 use glimpse_dbus::notifications::{NotificationsProviderHandle, NotificationsProviderState};
 use glimpse_services::CompositorHandle;
-use glimpse_services::WindowRef;
-use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, notification_image};
+use glimpse_widgets::{
+    Group, IndicatorSpec, NotificationsPopover, notification_icon, notification_image,
+};
 use gtk4::gdk::prelude::DisplayExt;
 use gtk4::gio::prelude::AppLaunchContextExt;
 use gtk4::prelude::{Cast, WidgetExt};
@@ -218,10 +219,7 @@ impl Notifications {
     }
 
     fn filled(&mut self, records: &[NotificationRecord]) -> Vec<Group> {
-        prune_cache(
-            &mut self.icons,
-            records.iter().filter_map(|record| record.icon.as_deref()),
-        );
+        prune_cache(&mut self.icons, records.iter().map(icon_key));
         prune_cache(
             &mut self.images,
             records.iter().filter_map(|record| record.image.as_deref()),
@@ -236,7 +234,7 @@ impl Notifications {
                 else {
                     continue;
                 };
-                note.icon = record.icon.as_deref().map(|name| self.themed(name));
+                note.icon = Some(self.themed(icon_key(record)));
                 note.image = record.image.as_deref().and_then(|path| self.image(path));
             }
         }
@@ -246,7 +244,7 @@ impl Notifications {
     fn themed(&mut self, name: &str) -> gio::Icon {
         self.icons
             .entry(name.to_owned())
-            .or_insert_with(|| gio::ThemedIcon::new(name).upcast())
+            .or_insert_with(|| notification_icon(name))
             .clone()
     }
 
@@ -256,6 +254,10 @@ impl Notifications {
             .or_insert_with(|| notification_image(Path::new(path)))
             .clone()
     }
+}
+
+fn icon_key(record: &NotificationRecord) -> &str {
+    record.icon.as_deref().unwrap_or(&record.app_id)
 }
 
 fn dismiss(
@@ -320,22 +322,20 @@ fn activate(
     let compositor = compositor.clone();
     let activation_token = token(widget);
     relm4::spawn(async move {
-        if let Some(pid) = request.pid {
-            match tokio::time::timeout(
-                Duration::from_secs(5),
-                compositor.focus_window(WindowRef::Pid { pid }),
-            )
-            .await
-            {
-                Ok(Ok(())) => {}
-                Ok(Err(error)) => {
-                    tracing::warn!(operation = "compositor.focus_window", %error, "service command failed")
-                }
-                Err(_) => tracing::warn!(
-                    operation = "compositor.focus_window",
-                    "service command timed out"
-                ),
+        match tokio::time::timeout(
+            Duration::from_secs(5),
+            compositor.focus_app(request.app_pid, &[&request.app_id, &request.app_name]),
+        )
+        .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::warn!(operation = "compositor.focus_app", %error, "service command failed")
             }
+            Err(_) => tracing::warn!(
+                operation = "compositor.focus_app",
+                "service command timed out"
+            ),
         }
         if let Err(error) = notifications.activate(request.id, activation_token).await {
             tracing::warn!(operation = "notifications.activate", %error, "service command failed");
@@ -343,21 +343,12 @@ fn activate(
     });
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct Activation {
-    id: u32,
-    pid: Option<i32>,
-}
-
-fn activation(records: &[NotificationRecord], key: &str) -> Option<Activation> {
+fn activation(records: &[NotificationRecord], key: &str) -> Option<NotificationRecord> {
     let id = render::id_of(key)?;
-    let record = records
+    records
         .iter()
-        .find(|record| record.id == id && record.unread)?;
-    Some(Activation {
-        id,
-        pid: record.app_pid,
-    })
+        .find(|record| record.id == id && record.unread)
+        .cloned()
 }
 
 fn invocation(records: &[NotificationRecord], key: &str, action: &str) -> Option<u32> {
@@ -425,20 +416,10 @@ mod tests {
 
     #[test]
     fn any_unread_card_can_activate_and_default_action_is_optional() {
-        assert_eq!(
-            activation(&[record(&[], true)], "7"),
-            Some(Activation {
-                id: 7,
-                pid: Some(42),
-            })
-        );
-        assert_eq!(
-            activation(&[record(&[DEFAULT_ACTION], true)], "7"),
-            Some(Activation {
-                id: 7,
-                pid: Some(42),
-            })
-        );
+        for actions in [&[][..], &[DEFAULT_ACTION][..]] {
+            let live = record(actions, true);
+            assert_eq!(activation(std::slice::from_ref(&live), "7"), Some(live));
+        }
         assert!(activation(&[record(&[], false)], "7").is_none());
     }
 

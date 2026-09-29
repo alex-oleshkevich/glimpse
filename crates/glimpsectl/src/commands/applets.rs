@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
-use glimpse_config::{AppletKind, Config, is_desktop_id, placed_applets};
+use glimpse_config::{AppletKind, Config, is_desktop_id, resolve_applet};
 use glimpse_dbus::systemd1::{Systemd1ManagerProxy, Systemd1ScopeProxy, Systemd1UnitEntry};
 use glimpse_services::{DesktopCatalog, ExecCatalog, ExecEntry, exec_unit_pattern};
 use serde::Serialize;
@@ -29,6 +29,7 @@ struct Row {
     path: String,
     exec: String,
     state: String,
+    refused: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -44,9 +45,10 @@ struct Desktop {
 #[derive(Serialize)]
 struct RuntimeUnit {
     unit: String,
-    pids: Vec<u32>,
-    memory_current: u64,
-    active_enter_timestamp: u64,
+    status: &'static str,
+    pids: Option<Vec<u32>>,
+    memory_current: Option<u64>,
+    active_enter_timestamp: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -64,27 +66,28 @@ fn valid_id(id: &str) -> Result<()> {
 
 fn placements(config: &Config) -> BTreeMap<String, Vec<Placement>> {
     let mut result = BTreeMap::new();
-    for (instance, applet) in placed_applets(config) {
-        let AppletKind::Exec(exec) = applet.kind else {
-            continue;
-        };
-        for (panel, definition) in config.panels.iter().enumerate() {
-            for (zone, names) in [
-                ("left", &definition.left),
-                ("center", &definition.center),
-                ("right", &definition.right),
-            ] {
-                if names.iter().any(|name| name == instance) {
-                    result
-                        .entry(exec.applet.clone())
-                        .or_insert_with(Vec::new)
-                        .push(Placement {
-                            instance: instance.to_owned(),
-                            zone: zone.to_owned(),
-                            panel,
-                            options: exec.options.clone(),
-                        });
-                }
+    for (panel, definition) in config.panels.iter().enumerate() {
+        for (zone, names) in [
+            ("left", &definition.left),
+            ("center", &definition.center),
+            ("right", &definition.right),
+        ] {
+            for instance in names {
+                let Some(applet) = resolve_applet(instance, &config.applets) else {
+                    continue;
+                };
+                let AppletKind::Exec(exec) = applet.kind else {
+                    continue;
+                };
+                result
+                    .entry(exec.applet)
+                    .or_insert_with(Vec::new)
+                    .push(Placement {
+                        instance: instance.clone(),
+                        zone: zone.to_owned(),
+                        panel,
+                        options: exec.options,
+                    });
             }
         }
     }
@@ -100,9 +103,14 @@ fn rows(
     let mut result = Vec::new();
     for (id, entry) in installed {
         seen.insert(id.clone());
-        let (name, path, exec) = match entry {
-            Ok(entry) => (entry.name, entry.path.display().to_string(), entry.exec),
-            Err(reason) => (reason, "—".to_owned(), "—".to_owned()),
+        let (name, path, exec, refused) = match entry {
+            Ok(entry) => (
+                entry.name,
+                entry.path.display().to_string(),
+                entry.exec,
+                None,
+            ),
+            Err(reason) => ("—".to_owned(), "—".to_owned(), "—".to_owned(), Some(reason)),
         };
         result.push(Row {
             placement: placed.get(&id).map_or_else(
@@ -125,6 +133,7 @@ fn rows(
             name,
             path,
             exec,
+            refused,
         });
     }
     for (id, places) in placed {
@@ -140,6 +149,7 @@ fn rows(
                 path: "—".to_owned(),
                 exec: "—".to_owned(),
                 state: "not installed".to_owned(),
+                refused: None,
             });
         }
     }
@@ -217,10 +227,10 @@ pub async fn applets_list(config_path: Option<PathBuf>, json: bool) -> Result<()
             .with_empty("no external applets installed or placed")
             .with_rows(rows.into_iter().map(|row| {
                 [
-                    row.id,
-                    safe(&row.name),
+                    safe(&row.id),
+                    safe(row.refused.as_deref().unwrap_or(&row.name)),
                     row.placement,
-                    row.path,
+                    safe(&row.path),
                     safe(&row.exec),
                     row.state,
                 ]
@@ -263,9 +273,9 @@ fn desktop_detail(desktop: &Desktop) -> Result<String> {
         desktop
             .path
             .as_ref()
-            .map_or_else(|| "—".to_owned(), |path| path.display().to_string()),
+            .map_or_else(|| "—".to_owned(), |path| safe(&path.display().to_string())),
         safe(desktop.name.as_deref().unwrap_or("—")),
-        desktop.icon.as_deref().unwrap_or("—"),
+        safe(desktop.icon.as_deref().unwrap_or("—")),
         safe(desktop.exec.as_deref().unwrap_or("—")),
         safe(&serde_json::to_string(&desktop.argv)?)
     ))
@@ -277,29 +287,47 @@ async fn runtime(connection: &Connection, id: &str) -> Result<Runtime> {
     for entry in active_units(&manager, id).await? {
         let name = entry.0;
         let path = entry.6;
-        let processes = within(manager.get_unit_processes(&name)).await?;
-        let scope = within(
-            Systemd1ScopeProxy::builder(connection)
-                .path(path.clone())?
-                .cache_properties(CacheProperties::No)
-                .build(),
-        )
-        .await?;
-        let memory_current = within(scope.memory_current()).await?;
-        let unit = within(zbus::Proxy::new(
-            connection,
-            "org.freedesktop.systemd1",
-            path,
-            "org.freedesktop.systemd1.Unit",
-        ))
-        .await?;
-        let active_enter_timestamp =
-            within(unit.get_property::<u64>("ActiveEnterTimestamp")).await?;
-        units.push(RuntimeUnit {
-            unit: name,
-            pids: processes.into_iter().map(|(_, pid, _)| pid).collect(),
-            memory_current,
-            active_enter_timestamp,
+        let info = async {
+            let processes = within(manager.get_unit_processes(&name)).await?;
+            let scope = within(
+                Systemd1ScopeProxy::builder(connection)
+                    .path(path.clone())?
+                    .cache_properties(CacheProperties::No)
+                    .build(),
+            )
+            .await?;
+            let memory_current = within(scope.memory_current()).await?;
+            let unit = within(zbus::Proxy::new(
+                connection,
+                "org.freedesktop.systemd1",
+                path,
+                "org.freedesktop.systemd1.Unit",
+            ))
+            .await?;
+            let active_enter_timestamp =
+                within(unit.get_property::<u64>("ActiveEnterTimestamp")).await?;
+            Ok::<_, anyhow::Error>((
+                processes.into_iter().map(|(_, pid, _)| pid).collect(),
+                memory_current,
+                active_enter_timestamp,
+            ))
+        }
+        .await;
+        units.push(match info {
+            Ok((pids, memory_current, active_enter_timestamp)) => RuntimeUnit {
+                unit: name,
+                status: "running",
+                pids: Some(pids),
+                memory_current: Some(memory_current),
+                active_enter_timestamp: Some(active_enter_timestamp),
+            },
+            Err(_) => RuntimeUnit {
+                unit: name,
+                status: "unavailable",
+                pids: None,
+                memory_current: None,
+                active_enter_timestamp: None,
+            },
         });
     }
     Ok(Runtime {
@@ -359,7 +387,9 @@ pub async fn applets_restart(id: String) -> Result<()> {
     valid_id(&id)?;
     let connection = session().await.context("runtime: unavailable")?;
     let manager = manager(&connection).await.context("runtime: unavailable")?;
-    for unit in active_units(&manager, &id).await? {
+    let units = active_units(&manager, &id).await?;
+    anyhow::ensure!(!units.is_empty(), "no running scopes for {id}");
+    for unit in units {
         within(manager.kill_unit(&unit.0, "all", 15)).await?;
     }
     Ok(())
@@ -374,6 +404,26 @@ mod tests {
         let value = list_value(Vec::new(), true);
         assert_eq!(value["runtime"], "unavailable");
         assert_eq!(value["applets"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn list_json_keeps_refusal_out_of_name() {
+        let rows = rows(
+            vec![("me.example.Bad".to_owned(), Err("hidden".to_owned()))],
+            &BTreeMap::new(),
+            &BTreeSet::new(),
+        );
+        let value = list_value(rows, false);
+        assert_eq!(value["applets"][0]["name"], "—");
+        assert_eq!(value["applets"][0]["refused"], "hidden");
+    }
+
+    #[test]
+    fn placement_is_recorded_once_per_zone_occurrence() {
+        let mut config = Config::default();
+        config.panels[0].left = vec!["me.example.Clock".to_owned()];
+        config.panels.push(config.panels[0].clone());
+        assert_eq!(placements(&config)["me.example.Clock"].len(), 2);
     }
 
     fn entry(name: &str) -> ExecEntry {

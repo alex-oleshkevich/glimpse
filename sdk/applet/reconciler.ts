@@ -8,7 +8,7 @@ export type Placement = {
 
 export type Io = {
   writeLine: (line: string) => void;
-  lines: AsyncIterable<string>;
+  lines: AsyncIterable<string | string[]>;
 };
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
@@ -35,12 +35,11 @@ type Reconciler = {
 };
 
 type Session = {
-  live: boolean;
-  suppress: boolean;
   nextId: number;
   nodes: Map<number, HostNode>;
   ops: Op[];
-  orderBefore: Map<number, number[]>;
+  pending: Op[];
+  container: HostNode;
   reconciler: Reconciler;
   root: unknown;
 };
@@ -49,7 +48,6 @@ type Store<T> = {
   get: () => T;
   set: (value: T) => void;
   subscribe: (listener: () => void) => () => void;
-  clear: () => void;
 };
 
 type HostMessage =
@@ -75,76 +73,6 @@ const TEXT = new Set(["label", "indicator", "button", "progress"]);
 const SKIP = new Set(["children", "key", "ref"]);
 const encoder = new TextEncoder();
 
-const PROP_ORDER: Record<string, readonly string[]> = {
-  indicator: [
-    "icon",
-    "text",
-    "tooltip",
-    "badge",
-    "overlay",
-    "dot",
-    "severity",
-    "attention",
-    "notice",
-    "className",
-    "onPress",
-    "onScroll",
-  ],
-  popover: ["className"],
-  hero: ["icon", "title", "subtitle", "className"],
-  section: ["title", "count", "className"],
-  row: [
-    "icon",
-    "title",
-    "subtitle",
-    "value",
-    "selected",
-    "busy",
-    "className",
-    "onActivate",
-  ],
-  switchrow: [
-    "icon",
-    "title",
-    "subtitle",
-    "active",
-    "busy",
-    "className",
-    "onToggle",
-  ],
-  fader: [
-    "icon",
-    "value",
-    "maximum",
-    "floor",
-    "muted",
-    "className",
-    "onChange",
-    "onMute",
-  ],
-  entry: ["placeholder", "value", "className", "onChange", "onSubmit"],
-  placeholder: ["icon", "title", "description", "className"],
-  footer: ["className"],
-  box: [
-    "orientation",
-    "spacing",
-    "homogeneous",
-    "halign",
-    "valign",
-    "hexpand",
-    "vexpand",
-    "className",
-  ],
-  label: ["text", "wrap", "xalign", "ellipsize", "lines", "className"],
-  image: ["icon", "tooltip", "pixelSize", "className"],
-  button: ["text", "icon", "tooltip", "sensitive", "className", "onClick"],
-  switch: ["active", "sensitive", "className", "onToggle"],
-  scale: ["value", "min", "max", "step", "sensitive", "className", "onChange"],
-  spinner: ["className"],
-  progress: ["fraction", "text", "className"],
-  separator: ["orientation", "className"],
-};
-
 function createStore<T>(initial: T): Store<T> {
   let value = initial;
   const listeners = new Set<() => void>();
@@ -159,9 +87,6 @@ function createStore<T>(initial: T): Store<T> {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    clear() {
-      listeners.clear();
-    },
   };
 }
 
@@ -170,53 +95,89 @@ export const placementStore = createStore<Placement | null>(null);
 export const nameStore = createStore("");
 export const openStore = createStore(false);
 
-let emit = (message: unknown) => {
-  Deno.stdout.writeSync(encoder.encode(`${JSON.stringify(message)}\n`));
-};
+class ProtocolLimitError extends Error {
+  override name = "ProtocolLimitError";
+}
+
+function writeAll(
+  stream: { writeSync(bytes: Uint8Array): number },
+  text: string,
+): void {
+  const bytes = encoder.encode(text);
+  for (let offset = 0; offset < bytes.length;) {
+    const written = stream.writeSync(bytes.subarray(offset));
+    if (written === 0) throw new Error("zero-byte write");
+    offset += written;
+  }
+}
+
+function lineOf(message: unknown): string {
+  const line = JSON.stringify(message);
+  if (encoder.encode(line).byteLength > 1_048_576) {
+    throw new ProtocolLimitError("outgoing line exceeds 1 MiB");
+  }
+  return line;
+}
+
+let emit = (message: unknown) => writeAll(Deno.stdout, `${lineOf(message)}\n`);
+let helloWritten = false;
+const queued: unknown[] = [];
 
 export function setEmit(write: (message: unknown) => void): void {
   emit = write;
 }
 
 export function send(message: unknown): void {
-  emit(message);
+  if (helloWritten) emit(message);
+  else queued.push(message);
 }
 
-let consoleSaved = false;
-let originalLog = console.log;
-let originalInfo = console.info;
-let originalDebug = console.debug;
+const consoleMethods = [
+  "log",
+  "info",
+  "debug",
+  "dir",
+  "dirxml",
+  "table",
+  "count",
+  "countReset",
+  "time",
+  "timeLog",
+  "timeEnd",
+  "group",
+  "groupCollapsed",
+  "groupEnd",
+  "trace",
+] as const;
+const originalConsole = new Map<string, (...args: unknown[]) => void>();
 
 function writeStderr(...args: unknown[]): void {
   const text = args.map((value) => {
     if (typeof value === "string") return value;
-    try {
-      const encoded = JSON.stringify(value);
-      return encoded ?? String(value);
-    } catch {
-      return String(value);
-    }
+    return Deno.inspect(value);
   }).join(" ");
-  Deno.stderr.writeSync(encoder.encode(`${text}\n`));
+  writeAll(Deno.stderr, `${text}\n`);
 }
 
 export function redirectConsole(): void {
-  if (!consoleSaved) {
-    originalLog = console.log;
-    originalInfo = console.info;
-    originalDebug = console.debug;
-    consoleSaved = true;
+  const target = console as unknown as Record<
+    string,
+    (...args: unknown[]) => void
+  >;
+  if (originalConsole.size) return;
+  for (const method of consoleMethods) {
+    originalConsole.set(method, target[method]);
+    target[method] = writeStderr;
   }
-  console.log = writeStderr;
-  console.info = writeStderr;
-  console.debug = writeStderr;
 }
 
 export function restoreConsole(): void {
-  if (!consoleSaved) return;
-  console.log = originalLog;
-  console.info = originalInfo;
-  console.debug = originalDebug;
+  const target = console as unknown as Record<
+    string,
+    (...args: unknown[]) => void
+  >;
+  for (const [method, original] of originalConsole) target[method] = original;
+  originalConsole.clear();
 }
 
 export function installProcess(): void {
@@ -249,8 +210,8 @@ let eventPriority = 32;
 async function loadReconciler(): Promise<(config: object) => Reconciler> {
   if (reconcilerFactory) return reconcilerFactory;
   installProcess();
-  const loaded = await import("npm:react-reconciler@0.33.0");
-  const constants = await import("npm:react-reconciler@0.33.0/constants.js");
+  const loaded = await import("react-reconciler");
+  const constants = await import("react-reconciler/constants.js");
   eventPriority = constants.DefaultEventPriority ?? 32;
   const factory = loaded.default ?? loaded;
   reconcilerFactory = factory as (config: object) => Reconciler;
@@ -258,39 +219,32 @@ async function loadReconciler(): Promise<(config: object) => Reconciler> {
 }
 
 function textOf(children: unknown): string | undefined {
-  if (typeof children === "string" || typeof children === "number") {
-    return String(children);
-  }
-  if (
-    Array.isArray(children) &&
-    children.every((child) =>
-      typeof child === "string" || typeof child === "number"
-    )
-  ) {
-    return children.join("");
-  }
-  return undefined;
+  const values = [children].flat(Infinity).filter((child) =>
+    child !== null && child !== undefined && typeof child !== "boolean"
+  );
+  return values.length &&
+      values.every((child) =>
+        typeof child === "string" || typeof child === "number"
+      )
+    ? values.join("")
+    : undefined;
 }
 
-function orderedKeys(type: string, props: Props): string[] {
-  const preferred = PROP_ORDER[type] ?? [];
-  const rest = Object.keys(props).filter((key) =>
-    !preferred.includes(key) && !SKIP.has(key)
-  );
-  return [...preferred, ...rest];
+function capped(value: string, limit: number): string {
+  return [...value].slice(0, limit).join("");
 }
 
 function wireProps(type: string, props: Props): Props {
   const out: Props = {};
   const text = TEXT.has(type) ? textOf(props.children) : undefined;
-  for (const key of orderedKeys(type, props)) {
+  for (const key of Object.keys(props)) {
     if (SKIP.has(key)) continue;
     if (key === "text") {
-      if (text !== undefined) out.text = text;
+      if (text !== undefined) out.text = capped(text, 256);
       else if (
         typeof props.text === "string" || typeof props.text === "number"
       ) {
-        out.text = String(props.text);
+        out.text = capped(String(props.text), 256);
       }
       continue;
     }
@@ -301,7 +255,15 @@ function wireProps(type: string, props: Props): Props {
       continue;
     }
     if (value === undefined) continue;
-    out[key] = value;
+    out[key] = typeof value === "string"
+      ? capped(
+        value,
+        key === "badge" ? 8 : type === "entry" && key === "value" ? 4096 : 256,
+      )
+      : value;
+  }
+  if (text !== undefined && !Object.hasOwn(out, "text")) {
+    out.text = capped(text, 256);
   }
   return out;
 }
@@ -319,7 +281,7 @@ function diffProps(type: string, prev: Props, next: Props): Props | null {
   const seen = new Set<string>();
   const out: Props = {};
   let changed = false;
-  for (const key of [...orderedKeys(type, next), ...orderedKeys(type, prev)]) {
+  for (const key of [...Object.keys(after), ...Object.keys(before)]) {
     if (seen.has(key)) continue;
     seen.add(key);
     const hasBefore = Object.hasOwn(before, key);
@@ -370,60 +332,12 @@ function forget(session: Session, node: HostNode): void {
   node.attached = false;
 }
 
-const BODY = new Set([
-  "section",
-  "row",
-  "switchrow",
-  "fader",
-  "entry",
-  "placeholder",
-  "box",
-  "label",
-  "image",
-  "button",
-  "switch",
-  "scale",
-  "spinner",
-  "progress",
-  "separator",
-  "unsupported",
-]);
-
-function admit(parent: HostNode, child: HostNode): void {
-  const body = BODY.has(child.type);
-  const allowed = parent.type === "root"
-    ? child.type === "indicator" || child.type === "popover"
-    : parent.type === "popover"
-    ? child.type === "hero" || child.type === "footer" || body
-    : parent.type === "section" || parent.type === "box"
-    ? body && child.type !== "section"
-    : parent.type === "footer"
-    ? ["button", "row", "label", "box"].includes(child.type)
-    : false;
-  if (!allowed) {
-    throw new Error(`${child.type} cannot be a child of ${parent.type}`);
-  }
-  const unique = (parent.type === "root" && child.type === "popover") ||
-    (parent.type === "popover" && ["hero", "footer"].includes(child.type));
-  if (
-    unique &&
-    parent.children.some((item) => item !== child && item.type === child.type)
-  ) {
-    throw new Error(`${parent.type} already has a ${child.type}`);
-  }
-}
-
 function place(
   session: Session,
   parent: HostNode,
   child: HostNode,
   before: HostNode | null,
 ): void {
-  if (!session.live || session.suppress) return;
-  admit(parent, child);
-  if (child.attached && !session.orderBefore.has(parent.id)) {
-    session.orderBefore.set(parent.id, parent.children.map((item) => item.id));
-  }
   const existing = parent.children.indexOf(child);
   if (existing >= 0) parent.children.splice(existing, 1);
   const index = before
@@ -448,76 +362,12 @@ function place(
 }
 
 function unplace(session: Session, parent: HostNode, child: HostNode): void {
-  if (!session.live || session.suppress) return;
   const index = parent.children.indexOf(child);
   if (index >= 0) parent.children.splice(index, 1);
   if (child.attached && child.id !== 0) {
     session.ops.push({ op: "remove", parent: parent.id, id: child.id });
   }
   forget(session, child);
-}
-
-function lisIndices(seq: number[]): number[] {
-  const previous = new Array<number>(seq.length).fill(-1);
-  const tails: number[] = [];
-  for (let index = 0; index < seq.length; index++) {
-    let low = 0;
-    let high = tails.length;
-    while (low < high) {
-      const mid = (low + high) >> 1;
-      if (seq[tails[mid]] < seq[index]) low = mid + 1;
-      else high = mid;
-    }
-    if (low > 0) previous[index] = tails[low - 1];
-    if (low === tails.length) tails.push(index);
-    else tails[low] = index;
-  }
-  const chosen: number[] = [];
-  for (
-    let index = tails.length === 0 ? -1 : tails[tails.length - 1];
-    index >= 0;
-    index = previous[index]
-  ) {
-    chosen.push(index);
-  }
-  chosen.reverse();
-  return chosen;
-}
-
-function minimalMoveOps(session: Session): Op[] {
-  const parents = [...new Set(session.ops.map((op) => op.parent as number))];
-  const next: Op[] = [];
-  for (const parent of parents) {
-    const before = session.orderBefore.get(parent);
-    const node = session.nodes.get(parent);
-    if (!before || !node) {
-      next.push(...session.ops.filter((op) => op.parent === parent));
-      continue;
-    }
-    const after = node.children.map((child) => child.id);
-    const position = new Map(before.map((id, index) => [id, index]));
-    if (
-      after.length !== before.length || after.some((id) => !position.has(id))
-    ) {
-      next.push(...session.ops.filter((op) => op.parent === parent));
-      continue;
-    }
-    const stable = new Set(
-      lisIndices(after.map((id) => position.get(id) ?? 0)),
-    );
-    for (let index = 0; index < after.length; index++) {
-      if (stable.has(index)) continue;
-      let anchor: number | null = null;
-      for (let cursor = index + 1; cursor < after.length; cursor++) {
-        if (stable.has(cursor)) {
-          anchor = after[cursor];
-          break;
-        }
-      }
-      next.push({ op: "move", parent, id: after[index], before: anchor });
-    }
-  }
-  return next;
 }
 
 function makeHost(session: Session): object {
@@ -544,12 +394,11 @@ function makeHost(session: Session): object {
       return node;
     },
     createTextInstance(text: string) {
-      throw new Error(
-        `raw text "${text}" is not a child; put it on the text prop`,
-      );
+      const node = blankNode("label");
+      node.props = { text: capped(text, 256) };
+      return node;
     },
     appendInitialChild: (parent: HostNode, child: HostNode) => {
-      admit(parent, child);
       parent.children.push(child);
     },
     appendChild: (parent: HostNode, child: HostNode) =>
@@ -568,7 +417,6 @@ function makeHost(session: Session): object {
     removeChildFromContainer: (parent: HostNode, child: HostNode) =>
       unplace(session, parent, child),
     commitUpdate(node: HostNode, _type: string, prev: Props, next: Props) {
-      if (!session.live || session.suppress) return;
       bindHandlers(node, next);
       const diff = diffProps(node.type, prev, next);
       if (!diff) return;
@@ -577,7 +425,11 @@ function makeHost(session: Session): object {
         id: node.id,
         props: diff as Json,
       };
-      if (node.confirmSeq !== undefined && Object.hasOwn(diff, "value")) {
+      const controlled = CONTROLLED[node.type]?.[1];
+      if (
+        node.confirmSeq !== undefined && controlled &&
+        Object.hasOwn(diff, controlled)
+      ) {
         op.seq = node.confirmSeq;
         node.confirmSeq = undefined;
       }
@@ -587,18 +439,7 @@ function makeHost(session: Session): object {
     finalizeInitialChildren: () => false,
     prepareForCommit: () => null,
     resetAfterCommit() {
-      if (!session.live || session.suppress) {
-        session.ops = [];
-        session.orderBefore.clear();
-        return;
-      }
-      if (
-        session.ops.length > 0 && session.ops.every((op) => op.op === "move")
-      ) {
-        session.ops = minimalMoveOps(session);
-      }
-      session.orderBefore.clear();
-      if (session.ops.length > 0) send({ t: "commit", ops: session.ops });
+      session.pending.push(...session.ops);
       session.ops = [];
     },
     clearContainer: () => {},
@@ -629,60 +470,78 @@ function makeHost(session: Session): object {
       _currentValue2: null,
     },
     resetFormInstance: () => {},
-    bindToConsole: (method: string, args: unknown[]) =>
-      Function.prototype.bind.apply(console[method as "error"], [
-        console,
-        ...args,
-      ]),
     commitMount: () => {},
-    commitTextUpdate: () => {},
+    commitTextUpdate(node: HostNode, _previous: string, next: string) {
+      const text = capped(next, 256);
+      if (node.props.text === text) return;
+      node.props.text = text;
+      session.ops.push({ op: "set", id: node.id, props: { text } });
+    },
     resetTextContent: () => {},
     hideInstance: () => {},
     hideTextInstance: () => {},
     unhideInstance: () => {},
     unhideTextInstance: () => {},
-    getInstanceFromNode: () => null,
   };
 }
 
+const CONTROLLED: Record<string, [string, string]> = {
+  entry: ["onChange", "value"],
+  fader: ["onChange", "value"],
+  scale: ["onChange", "value"],
+  switch: ["onToggle", "active"],
+  switchrow: ["onToggle", "active"],
+};
+
 let current: Session | null = null;
 
-function flush(session: Session, fn?: () => void): void {
+function flush(session: Session, fn?: () => void, emitCommit = true): void {
   session.reconciler.flushSyncFromReconciler(fn);
   session.reconciler["flushPassiveEffects"]?.();
-}
-
-function retire(session: Session): void {
-  session.suppress = true;
-  try {
-    flush(session, () => {
-      session.reconciler.updateContainer(null, session.root, null, null);
+  for (const node of session.nodes.values()) {
+    const controlled = CONTROLLED[node.type]?.[1];
+    if (node.confirmSeq === undefined || !controlled) continue;
+    session.pending.push({
+      op: "set",
+      id: node.id,
+      props: { [controlled]: (node.props[controlled] ?? null) as Json },
+      seq: node.confirmSeq,
     });
-  } catch (error) {
-    console.error(error);
+    node.confirmSeq = undefined;
   }
-  session.live = false;
-  session.ops = [];
-  session.orderBefore.clear();
+  let count = 0;
+  const visit = (node: HostNode): void => {
+    if (++count > 300) throw new ProtocolLimitError("tree exceeds 300 nodes");
+    if (node.children.length > 200) {
+      throw new ProtocolLimitError("parent exceeds 200 children");
+    }
+    for (const child of node.children) visit(child);
+  };
+  visit(session.container);
+  if (session.pending.length > 1200) {
+    throw new ProtocolLimitError("commit exceeds 1200 operations");
+  }
+  if (emitCommit && session.pending.length) {
+    send({ t: "commit", ops: session.pending });
+    session.pending = [];
+  }
 }
 
 async function mountFresh(element: unknown): Promise<void> {
-  if (current) retire(current);
   const factory = await loadReconciler();
+  const container = blankNode("root");
+  container.id = 0;
+  container.attached = true;
   const session: Session = {
-    live: true,
-    suppress: false,
     nextId: 1,
     nodes: new Map(),
     ops: [],
-    orderBefore: new Map(),
+    pending: [],
+    container,
     reconciler: null as unknown as Reconciler,
     root: null,
   };
   session.reconciler = factory(makeHost(session));
-  const container = blankNode("root");
-  container.id = 0;
-  container.attached = true;
   session.root = session.reconciler.createContainer(
     container,
     0,
@@ -705,7 +564,7 @@ async function mountFresh(element: unknown): Promise<void> {
   current = session;
   flush(session, () => {
     session.reconciler.updateContainer(element, session.root, null, null);
-  });
+  }, false);
 }
 
 function dispatchEvent(message: HostMessage): void {
@@ -718,8 +577,7 @@ function dispatchEvent(message: HostMessage): void {
   const handler = node.handlers.get(message.name);
   if (!handler) return;
   if (
-    message.name === "onChange" &&
-    ["entry", "fader", "scale"].includes(node.type) &&
+    CONTROLLED[node.type]?.[0] === message.name &&
     typeof message.seq === "number" && Number.isFinite(message.seq)
   ) {
     if (node.appliedSeq !== undefined && message.seq < node.appliedSeq) return;
@@ -756,40 +614,58 @@ export async function session(element: unknown, io: Io): Promise<void> {
   redirectConsole();
   installProcess();
   await loadReconciler();
-  setEmit((message) => io.writeLine(JSON.stringify(message)));
-  io.writeLine(JSON.stringify({ t: "hello", v: 1 }));
-  for await (const line of io.lines) {
-    let message: HostMessage;
+  current = null;
+  helloWritten = false;
+  setEmit((message) => io.writeLine(lineOf(message)));
+  io.writeLine(lineOf({ t: "hello", v: 1 }));
+  helloWritten = true;
+  for (const message of queued.splice(0)) emit(message);
+  for await (const chunk of io.lines) {
     try {
-      message = JSON.parse(line) as HostMessage;
+      const buffered: HostMessage[] = [];
+      for (const line of Array.isArray(chunk) ? chunk : [chunk]) {
+        let message: HostMessage;
+        try {
+          message = JSON.parse(line) as HostMessage;
+        } catch (error) {
+          console.error(error);
+          continue;
+        }
+        if (
+          !message || typeof message !== "object" ||
+          typeof message.t !== "string"
+        ) continue;
+        if (message.t === "hello") {
+          if (current) continue;
+          if (message.v !== 1) {
+            console.error(`unsupported host protocol version: ${message.v}`);
+            Deno.exit(1);
+            return;
+          }
+          optionsStore.set(message.options ?? {});
+          placementStore.set(message.placement ?? null);
+          nameStore.set(typeof message.name === "string" ? message.name : "");
+          openStore.set(false);
+          await mountFresh(element);
+          continue;
+        }
+        if (current) buffered.push(message);
+      }
+      if (current) {
+        flush(current, () => {
+          for (const message of buffered) apply(message);
+        });
+      }
     } catch (error) {
+      if (!(error instanceof ProtocolLimitError)) throw error;
       console.error(error);
-      continue;
+      Deno.exit(70);
+      return;
     }
-    if (
-      !message || typeof message !== "object" || typeof message.t !== "string"
-    ) continue;
-    if (message.t === "hello") {
-      if (current) retire(current);
-      current = null;
-      optionsStore.clear();
-      placementStore.clear();
-      nameStore.clear();
-      openStore.clear();
-      optionsStore.set(message.options ?? {});
-      placementStore.set(message.placement ?? null);
-      nameStore.set(typeof message.name === "string" ? message.name : "");
-      openStore.set(false);
-      await mountFresh(element);
-      continue;
-    }
-    if (!current) continue;
-    const sessionNow = current;
-    flush(sessionNow, () => apply(message));
   }
 }
 
-export async function* stdinLines(): AsyncIterable<string> {
+export async function* stdinLines(): AsyncIterable<string[]> {
   const reader = Deno.stdin.readable.pipeThrough(new TextDecoderStream())
     .getReader();
   let buffer = "";
@@ -797,18 +673,20 @@ export async function* stdinLines(): AsyncIterable<string> {
     while (true) {
       const { value, done } = await reader.read();
       if (done) {
-        if (buffer.trim() !== "") yield buffer.replace(/\r$/, "");
+        if (buffer.trim() !== "") yield [buffer.replace(/\r$/, "")];
         return;
       }
       buffer += value;
+      const lines: string[] = [];
       let index = buffer.indexOf("\n");
       while (index >= 0) {
         let line = buffer.slice(0, index);
         buffer = buffer.slice(index + 1);
         if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.trim() !== "") yield line;
+        if (line.trim() !== "") lines.push(line);
         index = buffer.indexOf("\n");
       }
+      if (lines.length) yield lines;
     }
   } finally {
     reader.releaseLock();
@@ -818,7 +696,7 @@ export async function* stdinLines(): AsyncIterable<string> {
 export function standardIo(): Io {
   return {
     writeLine(line: string) {
-      Deno.stdout.writeSync(encoder.encode(`${line}\n`));
+      writeAll(Deno.stdout, `${line}\n`);
     },
     lines: stdinLines(),
   };

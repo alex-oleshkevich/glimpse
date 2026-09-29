@@ -118,7 +118,9 @@ is no progress timer since the payload carries `position_us`, `position_at` and 
 **notifications** — `Store` holds no publisher and no connection, so bound handling and per-app
 clearing are testable without either. **The default action does not spend one of the three button
 slots** — it drives the card itself. **`NameTaken` is degraded, not fatal** — dunst, mako or a Plasma
-session may already own the name.
+session may already own the name. **`app_icon` is identity, never media**: only `image-data`,
+`image-path` and legacy `icon_data` fill the image slot, and a path passed as `app_icon` is the
+header icon.
 
 **tray** — glimpse takes `org.kde.StatusNotifierWatcher` when free and hosts on whoever holds it when
 not; an empty item list is a normal state, never `degraded`. **A taken name is not a broken tray** —
@@ -179,13 +181,15 @@ no commands at all.
 
 **exec** — an attached slot owns one external process and one tree. The child speaks first with
 `Hello`; every `Hello` resets its tree and advances the generation, so stale UI events cannot reach
-a reloaded applet. Placement and options changes go over its stdin without respawning it. A child
-that exits before `Hello` stays `Failed` until its catalog entry or instance config changes; a missing entry is checked every five seconds, and one that spoke restarts after
-bounded backoff. The source resolves desktop entries off the async worker, spawns on that worker for
-PDEATHSIG, and adopts the pid into a transient scope before waiting. **Only a user event marked as a
-gesture opens a two-second gate** for copy, URI, session and close-popover requests; notifications
-bypass it and are limited to one per second. Invalid JSON, oversized lines, invalid trees, message
-floods and a full stdin queue stop only the offending child. The panel discards child stderr.
+a reloaded applet. Placement and options changes go over its stdin without respawning it. A failed
+child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
+a row is stopped. The source resolves desktop entries off the async worker, spawns on that worker for
+PDEATHSIG, and adopts the pid into a transient scope before waiting; stopping a child kills its process
+group and that whole scope. **A user press or activation arms a one-use, two-second gate** for copy,
+URI and session requests; close-popover needs the gate without spending it, and notifications bypass
+it at one per second. Lines past the rate cap are read later, never fatal; invalid JSON, oversized
+lines, invalid trees, more than five `Hello`s in ten seconds and a full stdin queue stop only the
+offending child. Child stderr goes to the log, capped and rate-limited.
 
 ## Rules
 

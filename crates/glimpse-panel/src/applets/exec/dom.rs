@@ -1,17 +1,19 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     rc::Rc,
     sync::Arc,
 };
 
 use gettextrs::gettext;
-use glimpse_services::{ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, Tree};
+use glimpse_services::{
+    ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, ROOT, Tree,
+};
 use glimpse_widgets::{
     Fader, Hero, Placeholder, PopoverShell, Row, Section, SwitchRow, reconcile::by_key,
 };
 use gtk4::{glib, prelude::*};
-use serde_json::Value;
+use serde_json::{Number, Value};
 
 use super::render;
 use crate::applet::Opener;
@@ -28,6 +30,9 @@ struct Mounted {
 
 pub struct Dom {
     shell: glib::WeakRef<PopoverShell>,
+    closed: Rc<Cell<bool>>,
+    popover_class: Option<&'static str>,
+    footer_class: Option<&'static str>,
     body: gtk4::Box,
     footer_nodes: gtk4::Box,
     hero_box: gtk4::Box,
@@ -60,8 +65,16 @@ impl Dom {
         let footer_nodes = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         footer_nodes.set_visible(false);
         shell.append_to_footer(&footer_nodes);
+        let closed = Rc::new(Cell::new(false));
+        shell.connect_unmap({
+            let closed = closed.clone();
+            move |_| closed.set(true)
+        });
         Self {
             shell: shell.downgrade(),
+            closed,
+            popover_class: None,
+            footer_class: None,
             body,
             footer_nodes,
             hero_box,
@@ -78,13 +91,13 @@ impl Dom {
     }
 
     pub fn is_alive(&self) -> bool {
-        self.shell.upgrade().is_some()
+        !self.closed.get() && self.shell.upgrade().is_some()
     }
 
     pub fn reconcile(&mut self, tree: &Tree, generation: u64) -> bool {
-        if self.shell.upgrade().is_none() {
+        let Some(shell) = self.shell.upgrade() else {
             return false;
-        }
+        };
         if self.generation != Some(generation) {
             self.clear();
             self.generation = Some(generation);
@@ -117,7 +130,12 @@ impl Dom {
         }
         self.hero_box
             .set_visible(self.hero_box.first_child().is_some());
-        let root_key = (generation, popover, ElementKind::Popover);
+        let popover_class = tree
+            .node(popover)
+            .and_then(|node| element_class(&node.element))
+            .map(render::class_name);
+        swap_class(shell.upcast_ref(), &mut self.popover_class, popover_class);
+        let root_key = (generation, ROOT, ElementKind::Popover);
         let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Hero(_) | Element::Footer(_)))).collect();
         self.reconcile_children(
             tree,
@@ -132,6 +150,15 @@ impl Dom {
             matches!(element, Element::Footer(_))
         }) {
             let key = (generation, id, ElementKind::Footer);
+            let footer_class = tree
+                .node(id)
+                .and_then(|node| element_class(&node.element))
+                .map(render::class_name);
+            swap_class(
+                self.footer_nodes.upcast_ref(),
+                &mut self.footer_class,
+                footer_class,
+            );
             if self.footer_key != Some(key) {
                 while let Some(child) = self.footer_nodes.first_child() {
                     self.footer_nodes.remove(&child);
@@ -151,6 +178,7 @@ impl Dom {
                 self.footer_nodes.remove(&child);
             }
             self.footer_key = None;
+            swap_class(self.footer_nodes.upcast_ref(), &mut self.footer_class, None);
         }
         self.footer_nodes
             .set_visible(self.footer_nodes.first_child().is_some());
@@ -184,6 +212,10 @@ impl Dom {
         self.nodes.clear();
         self.held.clear();
         self.footer_key = None;
+        swap_class(self.footer_nodes.upcast_ref(), &mut self.footer_class, None);
+        if let Some(shell) = self.shell.upgrade() {
+            swap_class(shell.upcast_ref(), &mut self.popover_class, None);
+        }
         self.opener.typing(false);
     }
 
@@ -227,13 +259,6 @@ impl Dom {
         let node = tree.node(id)?.clone();
         let key = (generation, id, node.element.kind());
         live.insert(key);
-        let rebuild = self
-            .nodes
-            .get(&key)
-            .is_some_and(|mounted| handlers_changed(&mounted.node.element, &node.element));
-        if rebuild && let Some(old) = self.nodes.remove(&key) {
-            old.widget.unparent();
-        }
         if !self.nodes.contains_key(&key) {
             let (widget, inner, handlers) = self.build(&node, key);
             self.nodes.insert(
@@ -279,133 +304,116 @@ impl Dom {
                 inner = Some(box_.clone());
                 box_.upcast()
             }
-            Element::Row(p) => {
+            Element::Row(_) => {
                 let row = Row::new();
-                if p.on_activate {
-                    let dispatch = self.dispatch.clone();
-                    let slot = self.slot;
-                    handlers.push(row.connect_clicked(move |_| {
-                        emit(&dispatch, slot, key, "onActivate", vec![], None, true)
-                    }));
-                }
+                let dispatch = self.dispatch.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_clicked(move |_| {
+                    emit(&dispatch, slot, key, "onActivate", vec![], None, true)
+                }));
                 row.upcast()
             }
-            Element::SwitchRow(p) => {
+            Element::SwitchRow(_) => {
                 let row = SwitchRow::new();
-                if p.on_toggle {
-                    let dispatch = self.dispatch.clone();
-                    let seq = self.seq.clone();
-                    let slot = self.slot;
-                    handlers.push(row.connect_toggled(move |_, active| {
-                        emit(
-                            &dispatch,
-                            slot,
-                            key,
-                            "onToggle",
-                            vec![Value::Bool(active)],
-                            Some(bump(&seq, key)),
-                            false,
-                        )
-                    }));
-                }
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_toggled(move |_, active| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onToggle",
+                        vec![Value::Bool(active)],
+                        Some(bump(&seq, key)),
+                        false,
+                    )
+                }));
                 row.upcast()
             }
-            Element::Fader(p) => {
+            Element::Fader(_) => {
                 let fader = Fader::new();
-                if p.on_change {
-                    let dispatch = self.dispatch.clone();
-                    let seq = self.seq.clone();
-                    let slot = self.slot;
-                    handlers.push(fader.connect_changed(move |_, value| {
-                        if let Some(value) = render::number(value) {
-                            emit(
-                                &dispatch,
-                                slot,
-                                key,
-                                "onChange",
-                                vec![value],
-                                Some(bump(&seq, key)),
-                                false,
-                            );
-                        }
-                    }));
-                }
-                if p.on_mute {
-                    let dispatch = self.dispatch.clone();
-                    let slot = self.slot;
-                    handlers.push(fader.connect_toggled(move |_, _| {
-                        emit(&dispatch, slot, key, "onMute", vec![], None, false)
-                    }));
-                }
-                fader.upcast()
-            }
-            Element::Entry(p) => {
-                let entry = gtk4::Entry::new();
-                if p.on_change {
-                    let dispatch = self.dispatch.clone();
-                    let seq = self.seq.clone();
-                    let slot = self.slot;
-                    handlers.push(entry.connect_changed(move |entry| {
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(fader.connect_changed(move |_, value| {
+                    if let Some(value) = Number::from_f64(value) {
                         emit(
                             &dispatch,
                             slot,
                             key,
                             "onChange",
-                            vec![Value::String(entry.text().to_string())],
+                            vec![Value::Number(value)],
                             Some(bump(&seq, key)),
                             false,
-                        )
-                    }));
-                }
-                if p.on_submit {
-                    let dispatch = self.dispatch.clone();
-                    let slot = self.slot;
-                    handlers.push(entry.connect_activate(move |entry| {
-                        emit(
-                            &dispatch,
-                            slot,
-                            key,
-                            "onSubmit",
-                            vec![Value::String(entry.text().to_string())],
-                            None,
-                            true,
-                        )
-                    }));
-                }
+                        );
+                    }
+                }));
+                let dispatch = self.dispatch.clone();
+                handlers.push(fader.connect_toggled(move |_, _| {
+                    emit(&dispatch, slot, key, "onMute", vec![], None, false)
+                }));
+                fader.upcast()
+            }
+            Element::Entry(_) => {
+                let entry = gtk4::Entry::new();
+                entry.set_max_length(4096);
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(entry.connect_changed(move |entry| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onChange",
+                        vec![Value::String(entry.text().to_string())],
+                        Some(bump(&seq, key)),
+                        false,
+                    )
+                }));
+                let dispatch = self.dispatch.clone();
+                handlers.push(entry.connect_activate(move |entry| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onSubmit",
+                        vec![Value::String(entry.text().to_string())],
+                        None,
+                        true,
+                    )
+                }));
                 entry.upcast()
             }
             Element::Placeholder(_) => Placeholder::new().upcast(),
             Element::Label(_) => gtk4::Label::new(None).upcast(),
             Element::Image(_) => gtk4::Image::new().upcast(),
-            Element::Button(p) => {
+            Element::Button(_) => {
                 let button = gtk4::Button::new();
-                if p.on_click {
-                    let dispatch = self.dispatch.clone();
-                    let slot = self.slot;
-                    handlers.push(button.connect_clicked(move |_| {
-                        emit(&dispatch, slot, key, "onClick", vec![], None, true)
-                    }));
-                }
+                let dispatch = self.dispatch.clone();
+                let slot = self.slot;
+                handlers.push(button.connect_clicked(move |_| {
+                    emit(&dispatch, slot, key, "onClick", vec![], None, true)
+                }));
                 button.upcast()
             }
-            Element::Switch(p) => {
+            Element::Switch(_) => {
                 let switch = gtk4::Switch::new();
-                if p.on_toggle {
-                    let dispatch = self.dispatch.clone();
-                    let seq = self.seq.clone();
-                    let slot = self.slot;
-                    handlers.push(switch.connect_active_notify(move |switch| {
-                        emit(
-                            &dispatch,
-                            slot,
-                            key,
-                            "onToggle",
-                            vec![Value::Bool(switch.is_active())],
-                            Some(bump(&seq, key)),
-                            false,
-                        )
-                    }));
-                }
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(switch.connect_active_notify(move |switch| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onToggle",
+                        vec![Value::Bool(switch.is_active())],
+                        Some(bump(&seq, key)),
+                        false,
+                    )
+                }));
                 switch.upcast()
             }
             Element::Scale(p) => {
@@ -416,24 +424,22 @@ impl Dom {
                     render::scale_step(p.min, p.max, p.step),
                 );
                 scale.set_draw_value(false);
-                if p.on_change {
-                    let dispatch = self.dispatch.clone();
-                    let seq = self.seq.clone();
-                    let slot = self.slot;
-                    handlers.push(scale.connect_value_changed(move |scale| {
-                        if let Some(value) = render::number(scale.value()) {
-                            emit(
-                                &dispatch,
-                                slot,
-                                key,
-                                "onChange",
-                                vec![value],
-                                Some(bump(&seq, key)),
-                                false,
-                            );
-                        }
-                    }));
-                }
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(scale.connect_value_changed(move |scale| {
+                    if let Some(value) = Number::from_f64(scale.value()) {
+                        emit(
+                            &dispatch,
+                            slot,
+                            key,
+                            "onChange",
+                            vec![Value::Number(value)],
+                            Some(bump(&seq, key)),
+                            false,
+                        );
+                    }
+                }));
                 scale.upcast()
             }
             Element::Spinner(_) => adw::Spinner::new().upcast(),
@@ -445,7 +451,9 @@ impl Dom {
                 row.set_sensitive(false);
                 row.upcast()
             }
-            _ => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
+            Element::Root | Element::Popover(_) | Element::Footer(_) | Element::Indicator(_) => {
+                gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast()
+            }
         };
         (widget, inner, handlers)
     }
@@ -497,7 +505,10 @@ impl Dom {
                 widget.set_property("title", p.title.as_deref());
                 widget.set_property("subtitle", p.subtitle.as_deref());
                 widget.set_property("lead-icon", p.icon.as_deref());
-                widget.set_property("active", p.active);
+                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                {
+                    widget.set_property("active", p.active);
+                }
                 widget.set_property("busy", p.busy);
             }
             Element::Fader(p) => {
@@ -551,13 +562,10 @@ impl Dom {
                     label.set_wrap(p.wrap);
                     label.set_max_width_chars(48);
                     label.set_lines(p.lines as i32);
-                    label.set_ellipsize(if p.wrap {
-                        gtk4::pango::EllipsizeMode::None
-                    } else {
-                        match render::ellipsize(p.ellipsize) {
-                            gtk4::pango::EllipsizeMode::None => gtk4::pango::EllipsizeMode::End,
-                            mode => mode,
-                        }
+                    label.set_ellipsize(match (p.wrap, p.lines) {
+                        (true, 0) => gtk4::pango::EllipsizeMode::None,
+                        (true, _) => gtk4::pango::EllipsizeMode::End,
+                        (false, _) => render::ellipsize(p.ellipsize),
                     });
                     label.set_xalign(p.xalign.unwrap_or(0.5) as f32);
                 }
@@ -607,7 +615,11 @@ impl Dom {
             }
             Element::Switch(p) => {
                 if let Some(switch) = widget.downcast_ref::<gtk4::Switch>() {
-                    if switch.is_active() != p.active {
+                    if !render::keeps_newer_local_value(
+                        self.seq.borrow().get(&key).copied(),
+                        node.seq,
+                    ) && switch.is_active() != p.active
+                    {
                         switch.set_active(p.active);
                     }
                     switch.set_sensitive(p.sensitive);
@@ -626,9 +638,9 @@ impl Dom {
                     if !render::keeps_newer_local_value(
                         self.seq.borrow().get(&key).copied(),
                         node.seq,
-                    ) && scale.value() != render::scale_value(p.value, p.min, p.max)
+                    ) && scale.value() != p.value
                     {
-                        scale.set_value(render::scale_value(p.value, p.min, p.max));
+                        scale.set_value(p.value);
                     }
                     scale.set_sensitive(p.sensitive);
                 }
@@ -662,29 +674,16 @@ impl Dom {
                 );
                 widget.set_property("lead-icon", Some("dialog-warning-symbolic"));
             }
-            _ => {}
+            Element::Root
+            | Element::Popover(_)
+            | Element::Footer(_)
+            | Element::Indicator(_)
+            | Element::Spinner(_) => {}
         }
         for handler in &mounted.handlers {
             widget.unblock_signal(handler);
         }
         mounted.node = node.clone();
-    }
-}
-
-fn handlers_changed(old: &Element, new: &Element) -> bool {
-    match (old, new) {
-        (Element::Row(a), Element::Row(b)) => a.on_activate != b.on_activate,
-        (Element::SwitchRow(a), Element::SwitchRow(b)) => a.on_toggle != b.on_toggle,
-        (Element::Fader(a), Element::Fader(b)) => {
-            (a.on_change, a.on_mute) != (b.on_change, b.on_mute)
-        }
-        (Element::Entry(a), Element::Entry(b)) => {
-            (a.on_change, a.on_submit) != (b.on_change, b.on_submit)
-        }
-        (Element::Button(a), Element::Button(b)) => a.on_click != b.on_click,
-        (Element::Switch(a), Element::Switch(b)) => a.on_toggle != b.on_toggle,
-        (Element::Scale(a), Element::Scale(b)) => a.on_change != b.on_change,
-        _ => false,
     }
 }
 
@@ -711,6 +710,23 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::Separator(p) => p.class_name,
         Element::Root | Element::Unsupported(_) => None,
     }
+}
+
+fn swap_class(
+    widget: &gtk4::Widget,
+    current: &mut Option<&'static str>,
+    next: Option<&'static str>,
+) {
+    if *current == next {
+        return;
+    }
+    if let Some(class) = current.take() {
+        widget.remove_css_class(class);
+    }
+    if let Some(class) = next {
+        widget.add_css_class(class);
+    }
+    *current = next;
 }
 
 fn bump(seq: &Rc<RefCell<HashMap<Key, u64>>>, key: Key) -> u64 {
@@ -939,12 +955,13 @@ mod tests {
 
     #[test]
     #[ignore = "needs a display"]
-    fn adding_row_handler_rebuilds_and_emits_once() {
+    fn row_handler_is_connected_once_and_survives_a_set() {
         init();
         let first = tree(vec![node(2, "row", json!({"title":"Open"}), vec![])]);
         let (_shell, mut dom, events) = setup(&first);
-        widget(&dom, 1, 2, ElementKind::Row).emit_by_name::<()>("clicked", &[]);
-        assert!(events.borrow().is_empty());
+        let row = widget(&dom, 1, 2, ElementKind::Row);
+        row.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(events.borrow().len(), 1);
         let next = first
             .apply(vec![Op::Set {
                 id: 2,
@@ -953,9 +970,10 @@ mod tests {
             }])
             .expect("set");
         assert!(dom.reconcile(&next, 1));
-        widget(&dom, 1, 2, ElementKind::Row).emit_by_name::<()>("clicked", &[]);
-        assert_eq!(events.borrow().len(), 1);
-        assert_eq!(events.borrow()[0].name, "onActivate");
+        assert_eq!(widget(&dom, 1, 2, ElementKind::Row), row);
+        row.emit_by_name::<()>("clicked", &[]);
+        assert_eq!(events.borrow().len(), 2);
+        assert_eq!(events.borrow()[1].name, "onActivate");
     }
 
     #[test]
@@ -1063,7 +1081,7 @@ mod tests {
         let label = widget(&dom, 1, 2, ElementKind::Label)
             .downcast::<gtk4::Label>()
             .expect("label");
-        assert_eq!(label.ellipsize(), gtk4::pango::EllipsizeMode::End);
+        assert_eq!(label.ellipsize(), gtk4::pango::EllipsizeMode::None);
         let progress = widget(&dom, 1, 3, ElementKind::Progress)
             .downcast::<gtk4::ProgressBar>()
             .expect("progress");
@@ -1267,34 +1285,5 @@ mod tests {
         assert!(!dom.reconcile(&first, 1));
         drop(dom);
         assert!(weak.upgrade().is_none());
-    }
-
-    #[test]
-    #[ignore = "needs a display"]
-    fn near_limit_first_open_is_measured() {
-        init();
-        let mut id = 2;
-        let mut sections = Vec::new();
-        for section in 0..10 {
-            let section_id = id;
-            id += 1;
-            let mut children = Vec::new();
-            for _ in 0..if section < 8 { 29 } else { 28 } {
-                children.push(node(id, "label", json!({"text":"Item"}), vec![]));
-                id += 1;
-            }
-            sections.push(node(
-                section_id,
-                "section",
-                json!({"title":"List"}),
-                children,
-            ));
-        }
-        let tree = tree(sections);
-        let start = std::time::Instant::now();
-        let (_shell, dom, _) = setup(&tree);
-        let elapsed = start.elapsed();
-        assert_eq!(dom.nodes.len(), 298);
-        println!("exec first open at node cap: {elapsed:?}");
     }
 }

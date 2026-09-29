@@ -9,5 +9,3 @@ license.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 glimpse-utils.workspace = true
-notify.workspace = true
-rustix.workspace = true

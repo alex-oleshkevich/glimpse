@@ -3,6 +3,7 @@ mod imp;
 use gtk4::{gio, glib, prelude::*, subclass::prelude::*};
 
 const DISMISSED: &str = "dismissed";
+const FALLBACK_ICON: &str = "application-x-executable-symbolic";
 
 glib::wrapper! {
     pub struct NotificationHeader(ObjectSubclass<imp::NotificationHeader>)
@@ -51,4 +52,11 @@ impl NotificationHeader {
             glib::closure_local!(move |header: &Self| f(header)),
         )
     }
+}
+
+pub fn notification_icon(name: &str) -> gio::Icon {
+    if std::path::Path::new(name).is_absolute() {
+        return gio::FileIcon::new(&gio::File::for_path(name)).upcast();
+    }
+    gio::ThemedIcon::from_names(&[name, FALLBACK_ICON]).upcast()
 }

@@ -10,21 +10,21 @@ use std::{
 };
 
 use gettextrs::gettext;
-use glimpse_config::Position;
+use glimpse_config::{Applet as AppletConfig, Position};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     Edge, ExecBarRequest as BarRequest, ExecHandle, ExecUserEvent as UserEvent, Orientation,
     Placement, SessionActionsHandle, Tree, Zone,
 };
-use glimpse_widgets::{IndicatorSpec, PopoverShell};
+use glimpse_widgets::{IndicatorSpec, PopoverShell, Row};
 use gtk4::{gio, prelude::*};
 
 use crate::{
     app::AppInput,
     applet::{
         Applet, Ctx, Input, Pointer, Report,
-        popover::{PopoverHandle, Seat},
-        spawn_reported, wording,
+        popover::{PopoverHandle, Seat, run},
+        spawn_command, spawn_reported, wording,
     },
     components::panel,
 };
@@ -74,6 +74,7 @@ pub struct Exec {
     icons: HashMap<String, gio::Icon>,
     seq: Rc<RefCell<HashMap<dom::Key, u64>>>,
     dom: Option<dom::Dom>,
+    settings: Option<(String, Vec<String>)>,
 }
 
 impl Exec {
@@ -92,12 +93,12 @@ impl Exec {
             icon: "application-x-addon-symbolic".to_owned(),
             summary: gettext("External applet action failed."),
         };
-        spawn_reported("exec.attach", report, command_wording, {
-            let handle = handle.clone();
-            let name = name.to_owned();
-            let placement = placement.clone();
-            async move { handle.attach(slot, &name, placement).await }
-        });
+        spawn_reported(
+            "exec.attach",
+            report,
+            command_wording,
+            handle.attach(slot, name, placement.clone()),
+        );
         Self {
             handle,
             actions,
@@ -114,6 +115,7 @@ impl Exec {
             icons: HashMap::new(),
             seq: Rc::new(RefCell::new(HashMap::new())),
             dom: None,
+            settings: None,
         }
     }
 
@@ -220,9 +222,9 @@ impl Exec {
             name: name.to_owned(),
             args,
             seq: None,
-            gesture: true,
+            gesture: wanted,
         };
-        send_event(self.handle.clone(), self.report(), event);
+        send_event(&self.handle, self.report(), event);
     }
 }
 
@@ -230,29 +232,34 @@ fn command_wording(error: &glimpse_services::CommandError) -> Option<String> {
     wording(error, &gettext("External applet is not running."))
 }
 
-fn send_event(handle: ExecHandle, report: Report, event: UserEvent) {
-    spawn_reported("exec.send_event", report, command_wording, async move {
-        handle.send_event(event).await
-    });
+fn send_event(handle: &ExecHandle, report: Report, event: UserEvent) {
+    spawn_reported(
+        "exec.send_event",
+        report,
+        command_wording,
+        handle.send_event(event),
+    );
 }
 
 impl Drop for Exec {
     fn drop(&mut self) {
-        let handle = self.handle.clone();
-        let slot = self.slot;
-        crate::applet::spawn_command("exec.detach", async move { handle.detach(slot).await });
+        spawn_command("exec.detach", self.handle.detach(self.slot));
     }
 }
 
 impl Applet for Exec {
     fn place(&mut self, placement: Placement) {
-        if render::place_placement(&mut self.placement, placement.clone()) {
-            let handle = self.handle.clone();
-            let slot = self.slot;
-            spawn_reported("exec.place", self.report(), command_wording, async move {
-                handle.place(slot, placement).await
-            });
+        if self.placement != placement {
+            self.placement = placement.clone();
+            spawn_command("exec.place", self.handle.place(self.slot, placement));
         }
+    }
+
+    fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
+        self.settings = config
+            .common
+            .settings()
+            .map(|(label, command)| (label.to_owned(), command.to_vec()));
     }
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
@@ -273,40 +280,30 @@ impl Applet for Exec {
         })?;
         let shell = PopoverShell::new();
         let handle = self.handle.clone();
-        let report = self.report();
         let slot = self.slot;
-        shell.connect_map(move |_| {
-            let handle = handle.clone();
-            spawn_reported(
-                "exec.popover",
-                report.clone(),
-                command_wording,
-                async move { handle.popover(slot, true).await },
-            );
-        });
+        shell.connect_map(move |_| spawn_command("exec.popover", handle.popover(slot, true)));
         let handle = self.handle.clone();
-        let report = self.report();
         let opener = seat.opener();
         shell.connect_unmap(move |_| {
-            let handle = handle.clone();
-            spawn_reported(
-                "exec.popover",
-                report.clone(),
-                command_wording,
-                async move { handle.popover(slot, false).await },
-            );
+            spawn_command("exec.popover", handle.popover(slot, false));
             opener.wake();
         });
         let dispatch = {
             let handle = self.handle.clone();
             let report = self.report();
-            std::rc::Rc::new(move |event: UserEvent| {
-                send_event(handle.clone(), report.clone(), event);
-            })
+            Rc::new(move |event: UserEvent| send_event(&handle, report.clone(), event))
         };
         let mut dom = dom::Dom::new(&shell, self.slot, dispatch, seat.opener(), self.seq.clone());
         dom.reconcile(&self.tree, self.generation);
         self.dom = Some(dom);
+        if let Some((label, command)) = &self.settings {
+            let row = Row::new();
+            row.set_property("title", Some(label.as_str()));
+            row.set_property("activatable", true);
+            let command = command.clone();
+            row.connect_clicked(move |_| run(&command));
+            shell.append_to_footer(&row);
+        }
         Some(Box::new(shell))
     }
 }
