@@ -1,3 +1,5 @@
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   Button,
   copy,
@@ -5,6 +7,7 @@ import {
   Footer,
   Hero,
   Indicator,
+  notify,
   Popover,
   Row,
   run,
@@ -14,7 +17,8 @@ import {
   useOptions,
   usePlacement,
   useState,
-} from "../../mod.ts";
+  useStateDir,
+} from "@glimpse/applet";
 
 type Item = {
   id: string;
@@ -23,17 +27,20 @@ type Item = {
   due: string | null;
 };
 
-const STORAGE_KEY = "glimpse.todo";
-
-function loadItems(): Item[] {
+function loadItems(stateDir: string): { items: Item[]; failed: boolean } {
+  if (!stateDir) return { items: [], failed: false };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    const raw = readFileSync(join(stateDir, "todo.json"), "utf8");
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isItem);
-  } catch {
-    return [];
+    if (!Array.isArray(parsed) || !parsed.every(isItem)) {
+      return { items: [], failed: true };
+    }
+    return { items: parsed, failed: false };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { items: [], failed: false };
+    }
+    return { items: [], failed: true };
   }
 }
 
@@ -61,23 +68,30 @@ function splitDraft(text: string): { title: string; due: string | null } {
 }
 
 function Todo() {
+  const stateDir = useStateDir();
   const options = useOptions();
   const placement = usePlacement();
   const configured = options.title;
   const title = typeof configured === "string" && configured.trim() !== ""
     ? configured
     : "Todo";
-  const [items, setItems] = useState<Item[]>(loadItems);
+  const [loaded] = useState(() => loadItems(stateDir));
+  const [items, setItems] = useState<Item[]>(loaded.items);
   const [draft, setDraft] = useState("");
   const [showDone, setShowDone] = useState(false);
 
   useEffect(() => {
+    if (!stateDir || loaded.failed && items === loaded.items) return;
+    const target = join(stateDir, "todo.json");
+    const temp = `${target}.${process.pid}.tmp`;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      return;
+      writeFileSync(temp, JSON.stringify(items));
+      renameSync(temp, target);
+    } catch (error) {
+      rmSync(temp, { force: true });
+      notify({ summary: "Could not save Todo items", body: String(error) });
     }
-  }, [items]);
+  }, [items, stateDir, loaded]);
 
   const open = items.filter((item) => !item.done);
   const day = today();

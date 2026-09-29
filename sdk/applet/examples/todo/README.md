@@ -8,20 +8,17 @@ done reveals finished ones, and Copy all copies every line.
 The section title is `options.title` when that option is a non-empty string,
 otherwise `Todo`. On a vertical bar the chip drops its text and keeps the badge.
 
-Items are stored in `localStorage` under `glimpse.todo`. Each bar runs its own
-applet process, and Deno does not deliver storage events across processes, so a
-second bar sees an addition only on its next start.
+Items are stored in `todo.json` under the state directory the host passes in
+its `hello`.
 
-The installed entry is `me.aresa.GlimpseTodo.desktop`:
-
-```
-Exec=glimpsectl applets run /usr/share/glimpse/sdk/applet/examples/todo/main.tsx
-```
-
-GIO refuses an entry whose program is not on `PATH`, and a relative script path
-means nothing to the panel. For a live edit, point a desktop file at
-`glimpsectl` on `PATH` and an absolute script path:
+The shipped directory is read-only source. Copy it somewhere writable, then:
 
 ```
-Exec=glimpsectl applets run --watch /absolute/path/to/sdk/applet/examples/todo/main.tsx
+npm install && npm run build
+glimpsectl applets install .
 ```
+
+`install` copies `build/applet.mjs` and rewrites the entry's `Exec`. For a live
+edit, run `npm run dev`, point the entry at `glimpsectl applets run
+/absolute/path/to/build/applet.mjs`, and grant that directory in the panel
+config: `[applets."me.aresa.GlimpseTodo"] sandbox = { read = ["/absolute/path/to"] }`.

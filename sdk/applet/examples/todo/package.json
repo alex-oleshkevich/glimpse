@@ -1,0 +1,19 @@
+{
+  "name": "glimpse-todo",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@glimpse/applet": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "bundle": "esbuild index.tsx --bundle --platform=node --format=esm --minify --define:process.env.NODE_ENV='\"production\"' --banner:js='#!/usr/bin/env node' --outfile=build/applet.mjs",
+    "build": "npm run bundle && chmod +x build/applet.mjs",
+    "dev": "npm run build && npm run bundle -- --watch",
+    "check": "tsc --noEmit"
+  }
+}
