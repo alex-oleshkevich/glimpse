@@ -37,11 +37,25 @@ On Arch Linux, install the package from the AUR:
 yay -S glimpse-desktop-bin
 ```
 
-On Debian, Ubuntu or Fedora, the install script downloads the latest release as a `.deb` or `.rpm`,
-checks it against the published checksums and installs it:
+On Debian, Ubuntu, Fedora or openSUSE, the install script downloads the latest release as a `.deb`
+or `.rpm`, checks it against the published checksums and installs it:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/install.sh | bash
+```
+
+On NixOS, import the flake's module and start `glimpse-session.target` from your compositor's
+startup (for example niri's `spawn-at-startup` or Hyprland's `exec-once`):
+
+```nix
+{
+  inputs.glimpse.url = "github:alex-oleshkevich/glimpse";
+  outputs = { nixpkgs, glimpse, ... }: {
+    nixosConfigurations.host = nixpkgs.lib.nixosSystem {
+      modules = [ glimpse.nixosModules.default { services.glimpse.enable = true; } ];
+    };
+  };
+}
 ```
 
 To build from source you need Rust 1.93 or newer, `just`, `blueprint-compiler` and gettext, plus the

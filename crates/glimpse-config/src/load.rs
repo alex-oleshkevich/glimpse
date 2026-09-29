@@ -17,9 +17,10 @@ const DROPIN_DIR: &str = "config.d";
 const FOLDER_NAME: &str = "glimpse";
 const WRITE_ATTEMPTS: usize = 3;
 
-/// `/usr/share/glimpse` — where the package installs files a user reads but does not edit. Beside
-/// [`user_dir`] because the two are asked in the same breath: the user's copy, then the shipped one.
-pub const DATA_DIR: &str = "/usr/share/glimpse";
+/// `$PREFIX/share/glimpse`, `/usr/share/glimpse` by default — where the package installs files a
+/// user reads but does not edit. Beside [`user_dir`] because the two are asked in the same breath:
+/// the user's copy, then the shipped one.
+pub const DATA_DIR: &str = env!("GLIMPSE_DATA_DIR_DEFAULT");
 
 /// `~/.config/glimpse`, or `None` on a platform that names no config directory. Everything a user
 /// may override lives here, not only `config.toml`, so other crates locate their own files through

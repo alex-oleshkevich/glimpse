@@ -288,9 +288,12 @@ package-binary VERSION="": build-translations
 package-deb: build-release-binaries build-translations
     cargo deb -p glimpse-package --no-build
 
-[doc("build the Fedora and openSUSE .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
-package-rpm: build-release-binaries build-translations
+[doc("build the Fedora .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
+package-rpm-fedora: build-release-binaries build-translations
     cargo generate-rpm -p crates/glimpse-package
+
+[doc("build the openSUSE .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
+package-rpm-opensuse: build-release-binaries build-translations
     cargo generate-rpm -p crates/glimpse-package --variant opensuse
 
 [doc("build an Arch package under dist/ (needs: base-devel) — builds its own binaries")]

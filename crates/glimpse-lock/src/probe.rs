@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use rustix::fs::StatVfsMountFlags;
 
-const CHKPWD_DIRS: [&str; 3] = ["/usr/bin", "/usr/sbin", "/sbin"];
+const CHKPWD_DIRS: [&str; 4] = ["/run/wrappers/bin", "/usr/bin", "/usr/sbin", "/sbin"];
 const PAM_DIRS: [&str; 2] = ["/etc/pam.d", "/usr/lib/pam.d"];
 const NOT_A_SERVICE: &str = "not a PAM service name";
 

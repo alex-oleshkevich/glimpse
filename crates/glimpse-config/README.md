@@ -21,7 +21,8 @@ place that asks the environment a regional question.
 **`user_dir()` (`~/.config/glimpse`) is owned by this crate** — anything needing a glimpse path asks
 here rather than rebuilding `dirs::config_dir().join("glimpse")`. **Merging is per key: tables
 merge, scalars replace, arrays replace rather than append** — an appending array could never be
-shortened by a later layer. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without
+shortened by a later layer. `DATA_DIR` is `$PREFIX/share/glimpse`, baked by `build.rs` from the
+same `PREFIX` `scripts/glimpse-paths.sh` and `glimpse-utils` read. `runtime_dir()` resolves to `$XDG_RUNTIME_DIR/glimpse` without
 creating it, and returns `None` when the environment variable is unset.
 
 ## Schema

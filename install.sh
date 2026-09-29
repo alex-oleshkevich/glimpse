@@ -62,6 +62,10 @@ if [[ -r /etc/os-release ]]; then
 fi
 
 case " $id $id_like " in
+    *" nixos "*)
+        echo "NixOS uses the Glimpse flake module: import nixosModules.default and set services.glimpse.enable = true." >&2
+        exit 1
+        ;;
     *" arch "*)
         echo "Arch Linux detected — install via the AUR instead of running this script as root:"
         echo "  yay -S glimpse-desktop-bin"
@@ -73,9 +77,15 @@ case " $id $id_like " in
         verify "$deb"
         as_root apt-get install -y "$tmpdir/$deb"
         ;;
+    *" opensuse "*|*" suse "*)
+        download_matching 'SHA256SUMS$' >/dev/null
+        rpm="$(download_matching 'opensuse.*\.rpm$')"
+        verify "$rpm"
+        as_root zypper --non-interactive install --no-recommends --allow-unsigned-rpm "$tmpdir/$rpm"
+        ;;
     *" fedora "*|*" rhel "*)
         download_matching 'SHA256SUMS$' >/dev/null
-        rpm="$(download_matching '\.rpm$')"
+        rpm="$(download_matching '/glimpse-[^/]+-[0-9]+\.x86_64\.rpm$')"
         verify "$rpm"
         as_root dnf install -y "$tmpdir/$rpm"
         ;;

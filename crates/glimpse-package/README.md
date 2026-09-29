@@ -28,7 +28,8 @@ onto the destination directory, so one over `target/locale` ships one arbitrary 
 wrong path and exits 0 anyway. `tests/packaging.rs` fails when a language reaches `po/LINGUAS`
 without reaching both asset lists, or when a glob is reintroduced, reading the manifest with
 comments stripped so the prose describing the hazard cannot trip the guard. `package-deb`,
-`package-rpm` and `package-binary` all depend on `build-translations` so the `.mo` files exist first.
+`package-rpm-fedora`, `package-rpm-opensuse` and `package-binary` all depend on
+`build-translations` so the `.mo` files exist first.
 
 **`just package-aur` builds through `makepkg` from the same `PKGBUILD` the AUR carries** —
 `render-pkgbuild.sh --local` swaps the source for the local tarball and skips the checksum,
