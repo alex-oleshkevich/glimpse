@@ -9,6 +9,8 @@ use gtk4::{
 #[template(resource = "/me/aresa/GlimpseShell/widgets/shot_toolbar.ui")]
 pub struct ShotToolbar {
     #[template_child]
+    pub handle: TemplateChild<gtk4::Image>,
+    #[template_child]
     pub targets: TemplateChild<gtk4::Box>,
     #[template_child]
     pub target_gap: TemplateChild<gtk4::Separator>,
@@ -77,6 +79,7 @@ pub struct ShotToolbar {
     pub stroke: Cell<u32>,
     pub can_undo: Cell<bool>,
     pub can_redo: Cell<bool>,
+    pub drag_from: Cell<Option<(f64, f64)>>,
     pub finishing: gtk4::gio::SimpleActionGroup,
 }
 
@@ -116,6 +119,9 @@ impl ObjectImpl for ShotToolbar {
                     .build(),
                 glib::subclass::Signal::builder("action")
                     .param_types([String::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder("moved")
+                    .param_types([f64::static_type(), f64::static_type()])
                     .build(),
             ]
         })

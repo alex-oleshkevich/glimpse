@@ -8515,6 +8515,24 @@ mod tests {
         );
         toolbar.set_target_sensitive(true);
         assert!(imp.targets.is_sensitive());
+
+        assert!(!imp.handle.get_visible(), "the handle starts hidden");
+        let shown = Rc::new(Cell::new(0));
+        imp.handle.connect_visible_notify({
+            let shown = Rc::clone(&shown);
+            move |_| shown.set(shown.get() + 1)
+        });
+        toolbar.set_movable(true);
+        toolbar.set_movable(true);
+        assert!(imp.handle.get_visible());
+        assert_eq!(shown.get(), 1, "an unchanged movable writes nothing");
+        let moves = Rc::new(RefCell::new(Vec::<(f64, f64)>::new()));
+        toolbar.connect_moved({
+            let moves = Rc::clone(&moves);
+            move |_, dx, dy| moves.borrow_mut().push((dx, dy))
+        });
+        toolbar.emit_by_name::<()>("moved", &[&3.0_f64, &-2.0_f64]);
+        assert_eq!(moves.borrow().as_slice(), [(3.0, -2.0)]);
     }
 
     #[test]

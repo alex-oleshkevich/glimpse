@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-26 11:34+0200\n"
+"POT-Creation-Date: 2026-09-29 13:10+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2226,20 +2226,20 @@ msgstr ""
 msgid "Screenshot failed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1066
+#: crates/glimpse-shot/src/gui/overlay.rs:1096
 #: crates/glimpse-shot/src/gui/result.rs:881
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1620
+#: crates/glimpse-shot/src/gui/overlay.rs:1650
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1767
+#: crates/glimpse-shot/src/gui/overlay.rs:1827
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1768
+#: crates/glimpse-shot/src/gui/overlay.rs:1828
 msgid "Copied"
 msgstr ""
 
@@ -2289,7 +2289,7 @@ msgstr ""
 
 #: crates/glimpse-shot/src/gui/result.rs:920
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:491
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr ""
 
@@ -2718,31 +2718,31 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:241
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
 msgid "Red"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:261
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
 msgid "Yellow"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:281
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
 msgid "Green"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:301
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
 msgid "Blue"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:321
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
 msgid "White"
 msgstr ""
 
@@ -2820,12 +2820,12 @@ msgid "Save or Open"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:427
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
 msgid "Undo (Ctrl+Z)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:441
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr ""
 
@@ -2946,7 +2946,7 @@ msgid "Save As"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:511
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
 msgid "Open in Window"
 msgstr ""
 
@@ -2978,119 +2978,123 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:22
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+msgid "Move Toolbar"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
 msgid "Screen (S)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:36
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
 msgid "Window (W)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:58
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
 msgid "Crop (C)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:71
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
 msgid "Arrow (A)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:86
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
 msgid "Line (L)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:98
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
 msgid "Freehand (P)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:110
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
 msgid "Highlighter (H)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:122
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
 msgid "Rectangle (R)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:136
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
 msgid "Filled Rectangle (F)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:150
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
 msgid "Oval (O)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:164
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
 msgid "Number (N)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:178
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
 msgid "Text (T)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:192
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
 msgid "Pixelate (B)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:211
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
 msgid "Color (1–5)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:237
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
 msgid "Red (1)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:257
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
 msgid "Yellow (2)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:277
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
 msgid "Green (3)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:297
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
 msgid "Blue (4)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:317
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
 msgid "White (5)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:352
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
 msgid "Thin line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:368
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
 msgid "Medium line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:384
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
 msgid "Thick line ([ and ])"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:400
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
 msgid "Apply Crop (Enter)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
 msgid "Apply Crop"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:462
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
 msgid "Copy and close (Enter)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:463
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
 msgid "More ways to finish"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
 msgid "Cancel (Esc)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:498
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
 msgid "Save As…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:505
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
 msgid "Open With…"
 msgstr ""
 

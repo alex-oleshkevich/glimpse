@@ -2074,6 +2074,11 @@ window.shot-flash {
     min-width: 1px;
 }
 
+.shot-handle {
+    padding: 0 0.25rem;
+    opacity: 0.55;
+}
+
 .shot-toolbar button {
     min-width: 2rem;
     min-height: 2rem;

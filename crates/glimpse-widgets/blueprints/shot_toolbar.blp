@@ -15,6 +15,16 @@ template $ShotToolbar: Gtk.Widget {
       "shot-toolbar",
     ]
 
+    Gtk.Image handle {
+      icon-name: "list-drag-handle-symbolic";
+      tooltip-text: _("Move Toolbar");
+      visible: false;
+
+      styles [
+        "shot-handle",
+      ]
+    }
+
     Gtk.Box targets {
       spacing: 2;
 

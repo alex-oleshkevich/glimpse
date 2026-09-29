@@ -116,6 +116,13 @@ impl ShotToolbar {
         imp.target_gap.set_visible(visible);
     }
 
+    pub fn set_movable(&self, movable: bool) {
+        let handle = &self.imp().handle;
+        if handle.get_visible() != movable {
+            handle.set_visible(movable);
+        }
+    }
+
     pub fn set_target_sensitive(&self, sensitive: bool) {
         let targets = &self.imp().targets;
         if targets.is_sensitive() == sensitive {
@@ -218,6 +225,14 @@ impl ShotToolbar {
         )
     }
 
+    pub fn connect_moved<F: Fn(&Self, f64, f64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "moved",
+            false,
+            glib::closure_local!(move |toolbar: Self, dx: f64, dy: f64| f(&toolbar, dx, dy)),
+        )
+    }
+
     fn wire(&self) {
         self.wire_tool(&self.imp().crop, "crop");
         self.wire_tool(&self.imp().arrow, "arrow");
@@ -269,6 +284,37 @@ impl ShotToolbar {
         self.insert_action_group("shot", Some(group));
         self.wire_action(&self.imp().cancel, "cancel", false);
         self.wire_action(&self.imp().apply_crop, "apply-crop", false);
+        self.wire_handle();
+    }
+
+    fn wire_handle(&self) {
+        let handle = &self.imp().handle;
+        handle.set_cursor_from_name(Some("grab"));
+        let drag = gtk4::GestureDrag::new();
+        drag.connect_drag_begin(glib::clone!(
+            #[weak(rename_to = toolbar)]
+            self,
+            move |drag, _, _| toolbar.imp().drag_from.set(surface_point(drag))
+        ));
+        drag.connect_drag_update(glib::clone!(
+            #[weak(rename_to = toolbar)]
+            self,
+            move |drag, _, _| {
+                let imp = toolbar.imp();
+                let (Some((x0, y0)), Some((x, y))) = (imp.drag_from.get(), surface_point(drag))
+                else {
+                    return;
+                };
+                imp.drag_from.set(Some((x, y)));
+                toolbar.emit_by_name::<()>("moved", &[&(x - x0), &(y - y0)]);
+            }
+        ));
+        drag.connect_drag_end(glib::clone!(
+            #[weak(rename_to = toolbar)]
+            self,
+            move |_, _, _| toolbar.imp().drag_from.set(None)
+        ));
+        handle.add_controller(drag);
     }
 
     fn wire_tool(&self, button: &gtk4::ToggleButton, tool: &'static str) {
@@ -405,6 +451,11 @@ fn canonical_tool(tool: &str) -> Option<&'static str> {
         "blur" => "blur",
         _ => return None,
     })
+}
+
+fn surface_point(drag: &gtk4::GestureDrag) -> Option<(f64, f64)> {
+    drag.last_event(drag.current_sequence().as_ref())?
+        .position()
 }
 
 fn canonical_target(target: &str) -> Option<&'static str> {

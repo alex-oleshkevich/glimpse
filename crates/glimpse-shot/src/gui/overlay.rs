@@ -466,6 +466,36 @@ impl Run {
         overlay.add_overlay(&readout);
         overlay.add_overlay(&text_scroller);
         overlay.add_overlay(&column);
+        toolbar.set_movable(true);
+        let placed = Rc::new(Cell::new(None));
+        toolbar.connect_moved(glib::clone!(
+            #[weak]
+            overlay,
+            #[weak]
+            column,
+            #[strong]
+            placed,
+            move |_, dx, dy| move_column(&overlay, &column, &placed, dx, dy)
+        ));
+        overlay.connect_get_child_position(glib::clone!(
+            #[weak]
+            column,
+            #[upgrade_or]
+            None,
+            move |overlay, child| {
+                let origin = placed
+                    .get()
+                    .filter(|_| child == column.upcast_ref::<gtk4::Widget>())?;
+                let (x, y) = clamp_column(overlay, &column, origin);
+                let (_, natural) = column.preferred_size();
+                Some(gdk::Rectangle::new(
+                    x.round() as i32,
+                    y.round() as i32,
+                    natural.width(),
+                    natural.height(),
+                ))
+            }
+        ));
         let toasts = adw::ToastOverlay::new();
         toasts.set_child(Some(&overlay));
 
@@ -1718,6 +1748,36 @@ fn barrier() {
     {
         tracing::warn!("no unmap barrier: {error}");
     }
+}
+
+fn move_column(
+    overlay: &gtk4::Overlay,
+    column: &gtk4::Box,
+    placed: &Cell<Option<(f64, f64)>>,
+    dx: f64,
+    dy: f64,
+) {
+    let (x, y) = match placed.get() {
+        Some(origin) => clamp_column(overlay, column, origin),
+        None => {
+            let Some(bounds) = column.compute_bounds(overlay) else {
+                return;
+            };
+            (
+                f64::from(bounds.x()) - f64::from(column.margin_start()),
+                f64::from(bounds.y()) - f64::from(column.margin_top()),
+            )
+        }
+    };
+    placed.set(Some(clamp_column(overlay, column, (x + dx, y + dy))));
+    overlay.queue_allocate();
+}
+
+fn clamp_column(overlay: &gtk4::Overlay, column: &gtk4::Box, (x, y): (f64, f64)) -> (f64, f64) {
+    let (_, natural) = column.preferred_size();
+    let max_x = f64::from((overlay.width() - natural.width()).max(0));
+    let max_y = f64::from((overlay.height() - natural.height()).max(0));
+    (x.clamp(0.0, max_x), y.clamp(0.0, max_y))
 }
 
 fn remaining(until: Instant) -> u32 {
