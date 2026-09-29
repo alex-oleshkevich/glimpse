@@ -4,7 +4,6 @@ use std::io::{self, IsTerminal, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail, ensure};
@@ -15,6 +14,7 @@ use glimpse_services::{
 };
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
+use tokio::signal::unix::{SignalKind, signal};
 
 use crate::cli::NewAppletArgs;
 
@@ -106,13 +106,27 @@ fn desktop_escape(value: &str) -> String {
 }
 
 fn exec_quote(value: &str) -> String {
-    let value = value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('$', "\\$")
-        .replace('`', "\\`")
-        .replace('%', "%%");
-    format!("\"{value}\"")
+    let quoted = value.is_empty()
+        || value
+            .chars()
+            .any(|ch| ch.is_whitespace() || "\"'\\><~|&;$*?#()`".contains(ch));
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        if quoted && matches!(ch, '"' | '`' | '$' | '\\') {
+            escaped.push('\\');
+        }
+        match ch {
+            '%' => escaped.push_str("%%"),
+            '\n' => escaped.push_str("\\n"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(ch),
+        }
+    }
+    if quoted {
+        format!("\"{escaped}\"")
+    } else {
+        escaped
+    }
 }
 
 fn launcher() -> String {
@@ -126,23 +140,21 @@ fn launcher() -> String {
 }
 
 fn launcher_exec() -> String {
-    let launcher = launcher();
-    if launcher.contains([' ', '"', '\\', '%']) {
-        exec_quote(&launcher)
-    } else {
-        launcher
-    }
+    exec_quote(&launcher())
 }
 
-fn sdk_path() -> PathBuf {
+fn sdk_path() -> Result<PathBuf> {
     let installed = Path::new(DATA_DIR).join("sdk/applet/mod.ts");
     if installed.exists() {
-        return installed;
+        return Ok(installed);
     }
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/applet/mod.ts")
+    if cfg!(debug_assertions) {
+        return Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/applet/mod.ts"));
+    }
+    bail!("SDK not installed at {DATA_DIR}/sdk/applet")
 }
 
-fn render(template: &str, answers: &Answers) -> String {
+fn render(template: &str, answers: &Answers) -> Result<String> {
     let dir = answers.dir.display().to_string();
     let exec = format!(
         "{} --watch{} {}",
@@ -154,7 +166,7 @@ fn render(template: &str, answers: &Answers) -> String {
         },
         exec_quote(&answers.dir.join("main.tsx").display().to_string()),
     );
-    let sdk = format!("file://{}", sdk_path().display());
+    let sdk = format!("file://{}", sdk_path()?.display());
     let js = template == MAIN || template == INDICATOR;
     let values = [
         ("{{id}}", answers.id.clone()),
@@ -179,23 +191,22 @@ fn render(template: &str, answers: &Answers) -> String {
         ("{{dir}}", dir),
         ("{{sdk}}", serde_json::to_string(&sdk).unwrap_or_default()),
     ];
-    values
+    Ok(values
         .into_iter()
         .fold(template.to_owned(), |text, (key, value)| {
             text.replace(key, &value)
-        })
+        }))
 }
 
 pub fn applets_new(args: NewAppletArgs) -> Result<()> {
+    let installed = DesktopCatalog.installed();
+    applets_new_with_catalog(args, |id| installed.iter().any(|(name, _)| name == id))
+}
+
+fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> bool) -> Result<()> {
     let id = prompt("id", "Applet id", args.id, None, args.yes, |id| {
         ensure!(is_desktop_id(id), "expected a desktop-file id");
-        ensure!(
-            !DesktopCatalog
-                .installed()
-                .iter()
-                .any(|(installed, _)| installed == id),
-            "already installed"
-        );
+        ensure!(!installed(id), "already installed");
         Ok(())
     })?;
     let (default_name, default_dir) = words(&id);
@@ -306,14 +317,14 @@ pub fn applets_new(args: NewAppletArgs) -> Result<()> {
         (".gitignore", GITIGNORE),
     ];
     for (name, template) in files {
-        let rendered = render(template, &answers);
+        let rendered = render(template, &answers)?;
         ensure!(
             !rendered.contains("{{"),
             "unresolved template key in {name}"
         );
         fs::write(dir.join(name), rendered)?;
     }
-    let rendered = render(DESKTOP, &answers);
+    let rendered = render(DESKTOP, &answers)?;
     ensure!(!rendered.contains("{{"), "unresolved desktop template key");
     fs::write(dir.join(format!("{}.desktop", answers.id)), rendered)?;
     println!(
@@ -458,29 +469,16 @@ pub async fn applets_dev(dir: &Path, config_path: Option<PathBuf>) -> Result<()>
     let dir = dir.canonicalize()?;
     let (id, entry) = source(&dir)?;
     handshake(&entry).await?;
-    static STOP: AtomicBool = AtomicBool::new(false);
-    extern "C" fn stop(_: libc::c_int) {
-        STOP.store(true, Ordering::SeqCst);
-    }
-    STOP.store(false, Ordering::SeqCst);
-    ensure!(
-        unsafe { libc::signal(libc::SIGINT, stop as *const () as libc::sighandler_t) }
-            != libc::SIG_ERR,
-        "failed to register SIGINT handler"
-    );
-    ensure!(
-        unsafe { libc::signal(libc::SIGTERM, stop as *const () as libc::sighandler_t) }
-            != libc::SIG_ERR,
-        "failed to register SIGTERM handler"
-    );
-    let data_home = match env::var_os("XDG_DATA_HOME") {
-        Some(path) => PathBuf::from(path),
-        None => home()?.join(".local/share"),
-    };
-    ensure!(data_home.is_absolute(), "XDG_DATA_HOME must be absolute");
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    let mut terminate = signal(SignalKind::terminate())?;
+    let mut hangup = signal(SignalKind::hangup())?;
+    let data_home = data_home()?;
     let applications = data_home.join("applications");
     fs::create_dir_all(&applications)?;
     let link = applications.join(format!("{id}.desktop"));
+    if fs::read_link(&link).ok().as_deref() == Some(entry.path.as_path()) {
+        fs::remove_file(&link)?;
+    }
     ensure!(
         !link.exists() && !link.is_symlink(),
         "{} already exists",
@@ -498,8 +496,10 @@ pub async fn applets_dev(dir: &Path, config_path: Option<PathBuf>) -> Result<()>
         println!("Add `center = [\"{id}\"]` to a panel applet zone.");
     }
     println!("Linked {}. Press Ctrl-C to unlink.", link.display());
-    while !STOP.load(Ordering::SeqCst) {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::select! {
+        _ = interrupt.recv() => {},
+        _ = terminate.recv() => {},
+        _ = hangup.recv() => {},
     }
     if fs::read_link(&link).ok().as_deref() == Some(entry.path.as_path()) {
         fs::remove_file(link)?;
@@ -514,7 +514,45 @@ fn home() -> Result<PathBuf> {
     Ok(home)
 }
 
-async fn bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
+fn data_home() -> Result<PathBuf> {
+    let path = match env::var_os("XDG_DATA_HOME") {
+        Some(path) => PathBuf::from(path),
+        None => home()?.join(".local/share"),
+    };
+    ensure!(path.is_absolute(), "XDG_DATA_HOME must be absolute");
+    Ok(path)
+}
+
+fn rewrite_desktop(source: &str, command: &str) -> String {
+    let mut lines = Vec::new();
+    let mut in_entry = false;
+    for line in source.lines() {
+        if line.starts_with('[') && line.ends_with(']') {
+            if in_entry {
+                lines.push("TryExec=glimpse-applet".to_owned());
+                lines.push(format!("Exec={command}"));
+            }
+            in_entry = line == "[Desktop Entry]";
+        }
+        if !in_entry || !line.starts_with("Exec=") && !line.starts_with("TryExec=") {
+            lines.push(line.to_owned());
+        }
+    }
+    if in_entry {
+        lines.push("TryExec=glimpse-applet".to_owned());
+        lines.push(format!("Exec={command}"));
+    }
+    lines.join("\n") + "\n"
+}
+
+fn remove_symlink(path: &Path) -> Result<()> {
+    if path.is_symlink() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<()> {
     ensure!(prefix.is_absolute(), "--prefix must be absolute");
     let out = if out.is_absolute() {
         out.to_owned()
@@ -524,8 +562,21 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
     let (id, entry) = source(dir)?;
     deno_check(dir).await?;
     handshake(&entry).await?;
-    let target = out.join("share").join(&id).join("applet.js");
-    fs::create_dir_all(target.parent().context("bundle path has no parent")?)?;
+    let data_out = if install {
+        out.clone()
+    } else {
+        out.join("share")
+    };
+    let data_prefix = if install {
+        prefix.to_owned()
+    } else {
+        prefix.join("share")
+    };
+    let target = data_out.join(&id).join("applet.js");
+    let applet_dir = target.parent().context("bundle path has no parent")?;
+    remove_symlink(applet_dir)?;
+    fs::create_dir_all(applet_dir)?;
+    remove_symlink(&target)?;
     let deno = glimpse_utils::deno().context("Deno not found")?;
     let output = Command::new(deno)
         .arg("bundle")
@@ -543,43 +594,39 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
     );
     let mut argv = entry.argv.clone();
     argv.retain(|arg| arg != "--watch");
-    if let Some(last) = argv.last_mut() {
-        *last = prefix
-            .join("share")
-            .join(&id)
-            .join("applet.js")
-            .display()
-            .to_string();
-    }
-    argv[0] = "glimpse-applet".to_owned();
+    let script = argv
+        .iter()
+        .position(|arg| {
+            Path::new(arg)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| matches!(ext, "js" | "jsx" | "mjs" | "ts" | "tsx" | "mts"))
+        })
+        .context("Exec has no applet script argument")?;
+    argv[script] = data_prefix
+        .join(&id)
+        .join("applet.js")
+        .display()
+        .to_string();
+    *argv.first_mut().context("empty Exec")? = "glimpse-applet".to_owned();
     let command = argv
         .iter()
-        .map(|arg| {
-            if arg.contains([' ', '"', '\\', '%']) {
-                exec_quote(arg)
-            } else {
-                arg.clone()
-            }
-        })
+        .map(|arg| exec_quote(arg))
         .collect::<Vec<_>>()
         .join(" ");
     let source = fs::read_to_string(&entry.path)?;
-    let desktop = source
-        .lines()
-        .filter(|line| !line.starts_with("Exec=") && !line.starts_with("TryExec="))
-        .chain(["TryExec=glimpse-applet"])
-        .collect::<Vec<_>>()
-        .join("\n")
-        + &format!("\nExec={command}\n");
-    let destination = out.join("share/applications").join(format!("{id}.desktop"));
+    let desktop = rewrite_desktop(&source, &command);
+    let destination = data_out.join("applications").join(format!("{id}.desktop"));
     fs::create_dir_all(destination.parent().context("desktop path has no parent")?)?;
+    remove_symlink(&destination)?;
     fs::write(destination, desktop)?;
     let icon = dir.join("icon.svg");
     if icon.is_file() {
-        let destination = out
-            .join("share/icons/hicolor/scalable/apps")
+        let destination = data_out
+            .join("icons/hicolor/scalable/apps")
             .join(format!("{id}.svg"));
         fs::create_dir_all(destination.parent().context("icon path has no parent")?)?;
+        remove_symlink(&destination)?;
         fs::copy(icon, destination)?;
     }
     println!("Bundled {id} under {}", out.display());
@@ -587,24 +634,50 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
 }
 
 pub async fn applets_bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
-    bundle(dir, prefix, out).await
+    bundle(dir, prefix, out, false).await
 }
 
 pub async fn applets_install(dir: &Path) -> Result<()> {
-    let prefix = home()?.join(".local");
-    bundle(dir, &prefix, &prefix).await
+    let prefix = data_home()?;
+    bundle(dir, &prefix, &prefix, true).await
 }
 
 pub fn applets_uninstall(id: &str) -> Result<()> {
     ensure!(is_desktop_id(id), "invalid desktop-file id: {id}");
-    let prefix = home()?.join(".local");
-    let desktop = prefix
-        .join("share/applications")
-        .join(format!("{id}.desktop"));
+    let prefix = data_home()?;
+    let desktop = prefix.join("applications").join(format!("{id}.desktop"));
     ensure!(
         desktop.is_file(),
         "user-installed desktop entry not found: {}",
         desktop.display()
+    );
+    let contents = fs::read_to_string(&desktop)?;
+    let mut in_entry = false;
+    let mut implements = false;
+    let mut exec = None;
+    for line in contents.lines() {
+        if line.starts_with('[') && line.ends_with(']') {
+            in_entry = line == "[Desktop Entry]";
+        } else if in_entry && let Some(value) = line.strip_prefix("Implements=") {
+            implements = value
+                .split(';')
+                .any(|item| item == "me.aresa.Glimpse.Applet1");
+        } else if in_entry && let Some(value) = line.strip_prefix("Exec=") {
+            exec = Some(value);
+        }
+    }
+    ensure!(implements, "refusing to remove a non-applet desktop entry");
+    let argv = glimpse_services::exec_expand(
+        exec.context("desktop entry has no Exec")?,
+        "",
+        None,
+        &desktop,
+    )
+    .map_err(anyhow::Error::msg)?;
+    let script = prefix.join(id).join("applet.js");
+    ensure!(
+        argv.iter().any(|arg| arg == &script.display().to_string()),
+        "refusing to remove an applet installed at another path"
     );
     let real_prefix = prefix.canonicalize()?;
     let real = desktop.canonicalize()?;
@@ -614,10 +687,10 @@ pub fn applets_uninstall(id: &str) -> Result<()> {
         prefix.display()
     );
     for path in [
-        prefix.join("share").join(id).join("applet.js"),
+        prefix.join(id).join("applet.js"),
         desktop,
         prefix
-            .join("share/icons/hicolor/scalable/apps")
+            .join("icons/hicolor/scalable/apps")
             .join(format!("{id}.svg")),
     ] {
         if path.exists() {
@@ -630,7 +703,7 @@ pub fn applets_uninstall(id: &str) -> Result<()> {
             fs::remove_file(path)?;
         }
     }
-    let _ = fs::remove_dir(prefix.join("share").join(id));
+    let _ = fs::remove_dir(prefix.join(id));
     println!("Uninstalled {id}");
     Ok(())
 }
@@ -640,20 +713,45 @@ mod tests {
     use super::*;
 
     #[test]
+    fn desktop_values_escape_control_characters() {
+        assert_eq!(desktop_escape("a\\b\nc\rd\te"), "a\\\\b\\nc\\rd\\te");
+    }
+
+    #[test]
+    fn exec_arguments_quote_reserved_characters() {
+        assert_eq!(exec_quote("plain"), "plain");
+        assert_eq!(exec_quote("a b"), "\"a b\"");
+        assert_eq!(exec_quote("a'b"), "\"a'b\"");
+        assert_eq!(exec_quote("a\"`$\\b"), "\"a\\\"\\`\\$\\\\b\"");
+        assert_eq!(exec_quote("a%b"), "a%%b");
+    }
+
+    #[test]
+    fn desktop_rewrite_preserves_actions() {
+        let source = "[Desktop Entry]\nName=Applet\nExec=old\nTryExec=old\n[Desktop Action a]\nExec=action\nTryExec=action\n";
+        let rewritten = rewrite_desktop(source, "glimpse-applet /usr/share/applet.js");
+        assert!(rewritten.contains("Name=Applet\nTryExec=glimpse-applet\nExec=glimpse-applet /usr/share/applet.js\n[Desktop Action a]"));
+        assert!(rewritten.ends_with("[Desktop Action a]\nExec=action\nTryExec=action\n"));
+    }
+
+    #[test]
     fn new_renders_a_valid_scaffold_without_placeholders() {
         let root = tempfile::tempdir().unwrap();
         let dir = root.path().join("hello");
-        applets_new(NewAppletArgs {
-            id: Some("me.example.Hello".to_owned()),
-            name: Some("Hello Applet".to_owned()),
-            description: Some("A test applet".to_owned()),
-            icon: None,
-            popover: false,
-            no_popover: false,
-            allow_net: Some("api.example".to_owned()),
-            dir: Some(dir.clone()),
-            yes: true,
-        })
+        applets_new_with_catalog(
+            NewAppletArgs {
+                id: Some("me.example.Hello".to_owned()),
+                name: Some("Hello Applet".to_owned()),
+                description: Some("A test applet".to_owned()),
+                icon: None,
+                popover: false,
+                no_popover: false,
+                allow_net: Some("api.example".to_owned()),
+                dir: Some(dir.clone()),
+                yes: true,
+            },
+            |_| false,
+        )
         .unwrap();
         for name in [
             "main.tsx",

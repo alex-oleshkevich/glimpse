@@ -52,7 +52,7 @@ install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
-done < <(find sdk/applet -type f -print0)
+done < <(find sdk/applet -type f ! -name mod_test.ts ! -path 'sdk/applet/fixtures/*' -print0)
 
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"

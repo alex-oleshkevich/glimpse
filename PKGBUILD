@@ -7,6 +7,7 @@ url="https://github.com/alex-oleshkevich/glimpse"
 license=('BSD-3-Clause')
 depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'geoclue' 'libpulse' 'pam')
 optdepends=(
+    'deno: external applets'
     'upower: battery level and peripheral charge'
     'power-profiles-daemon: power modes in the battery popover'
     'networkmanager: the network applet'

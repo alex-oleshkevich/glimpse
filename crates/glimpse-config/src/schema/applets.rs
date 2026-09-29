@@ -1031,6 +1031,7 @@ fn take_common(table: &mut toml::Table) -> Result<Common, toml::de::Error> {
 pub fn schema(generator: &mut SchemaGenerator) -> Schema {
     let aliased = with_common(generator);
     let mut properties = serde_json::Map::new();
+    let mut desktop_id = None;
 
     if let Some(branches) = aliased.get("oneOf").and_then(serde_json::Value::as_array) {
         for branch in branches {
@@ -1053,6 +1054,11 @@ pub fn schema(generator: &mut SchemaGenerator) -> Schema {
                 );
             }
             properties.insert(name.to_owned(), by_key);
+            if name == "exec" {
+                let mut by_id = branch.clone();
+                by_id["required"] = serde_json::json!([]);
+                desktop_id = Some(by_id);
+            }
         }
     }
 
@@ -1065,6 +1071,14 @@ pub fn schema(generator: &mut SchemaGenerator) -> Schema {
         "properties".to_owned(),
         serde_json::Value::Object(properties),
     );
+    if let Some(desktop_id) = desktop_id {
+        schema.insert(
+            "patternProperties".to_owned(),
+            serde_json::json!({
+                "^[_A-Za-z][_A-Za-z0-9-]*\\.[_A-Za-z][_A-Za-z0-9-]*(\\.[_A-Za-z][_A-Za-z0-9-]*)*$": desktop_id
+            }),
+        );
+    }
     schema.insert("additionalProperties".to_owned(), aliased.to_value());
     Schema::from(schema)
 }
@@ -1157,6 +1171,20 @@ mod tests {
         };
         assert_eq!(exec.applet, "me.example.Pomodoro");
         assert_eq!(exec.options["work-minutes"], 25);
+    }
+
+    #[test]
+    fn desktop_id_schema_accepts_options_without_an_explicit_kind() {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        let patterns = schema["properties"]["applets"]["patternProperties"]
+            .as_object()
+            .expect("desktop ids have their own schema");
+        let (pattern, entry) = patterns.iter().next().expect("a desktop id pattern");
+        assert!(pattern.starts_with("^[_A-Za-z]"));
+        assert_eq!(entry["required"], serde_json::json!([]));
+        assert_eq!(entry["properties"]["extends"]["const"], "exec");
+        assert!(entry["properties"]["options"].is_object());
     }
 
     #[test]

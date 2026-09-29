@@ -460,13 +460,30 @@ fn every_install_route_ships_the_applet_sdk() {
     let root = workspace_root();
     for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
         let body = fs::read_to_string(root.join(script)).expect(script);
-        assert!(body.contains("find sdk/applet -type f -print0"), "{script}");
+        let selection = body
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("done < <(")
+                    .and_then(|line| line.strip_suffix(')'))
+            })
+            .expect("the SDK copy selects its files");
+        let output = std::process::Command::new("bash")
+            .args(["-c", selection])
+            .current_dir(&root)
+            .output()
+            .expect("the SDK selection runs");
+        assert!(output.status.success(), "{script}");
+        let selected = String::from_utf8_lossy(&output.stdout);
+        assert!(selected.contains("sdk/applet/mod.ts"), "{script}");
+        assert!(!selected.contains("mod_test.ts"), "{script}");
+        assert!(!selected.contains("sdk/applet/fixtures/"), "{script}");
     }
     let manifest = manifest(&root);
     for kind in ["deb", "generate-rpm"] {
         let listed = assets(&manifest, kind);
         for source in [
-            "sdk/applet/*.ts",
+            "sdk/applet/mod.ts",
+            "sdk/applet/reconciler.ts",
             "sdk/applet/template/*",
             "sdk/applet/examples/todo/*",
         ] {
@@ -476,6 +493,12 @@ fn every_install_route_ships_the_applet_sdk() {
                 "{kind}: {source}"
             );
         }
+        assert!(
+            listed
+                .iter()
+                .all(|(path, _)| !path.contains("fixtures/") && path != "sdk/applet/*.ts"),
+            "{kind} must not package SDK tests and fixtures"
+        );
     }
 }
 
