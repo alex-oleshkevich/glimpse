@@ -35,7 +35,7 @@ rustPlatform.buildRustPackage {
     patchShebangs "$out/bin/glimpse-dpms"
 
     mkdir -p "$out/share/glimpse/sdk" "$out/share/glimpse/themes"
-    cp -r sdk/applet "$out/share/glimpse/sdk/"
+    cp -r sdk/template "$out/share/glimpse/sdk/"
     cp -r data/themes/. "$out/share/glimpse/themes/"
     for name in config.default.toml config.commented.toml config.schema.json language-codes.json; do
       install -Dm644 "data/$name" "$out/share/glimpse/$name"
@@ -70,8 +70,6 @@ rustPlatform.buildRustPackage {
     substituteInPlace "$out/share/glimpse/config.commented.toml" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
     substituteInPlace "$out/share/glimpse/config.schema.json" \
-      --replace-fail /usr/share/glimpse "$out/share/glimpse"
-    substituteInPlace "$out/share/glimpse/sdk/applet/examples/todo/me.aresa.GlimpseTodo.desktop" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"
 
     while read -r language; do

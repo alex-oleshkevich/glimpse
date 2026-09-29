@@ -18,7 +18,7 @@ Details, reasons and measured facts live in `docs/` — read the relevant file b
 | Path | Role |
 | --- | --- |
 | `crates/` | Flat workspace, one directory per crate |
-| `sdk/applet/` | TypeScript applet SDK, templates and examples |
+| `sdk/` | npm applet SDK (`applet/`), the `applets new` template, installed to `DATA_DIR/sdk/template` (`template/`), examples |
 | `data/`, `scripts/`, `docs/`, `var/` | Installed assets, local scripts, documentation and scratch files |
 
 `_old/` and `var/glimpse2` are **reference only — never edit, build or copy from them**.
