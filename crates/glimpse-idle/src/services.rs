@@ -80,6 +80,7 @@ impl IdleServices {
         let cancel = CancellationToken::new();
         let tasks = vec![
             tokio::spawn(wayland_notify::run(
+                session.clone(),
                 handle.clone(),
                 health.clone(),
                 cancel.clone(),

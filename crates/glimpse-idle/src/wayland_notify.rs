@@ -1,6 +1,10 @@
 use std::os::fd::AsFd;
+use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Duration;
 
+use anyhow::Context as _;
+use glimpse_dbus::systemd1::Systemd1ManagerProxy;
 use tokio::io::{Interest, unix::AsyncFd};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -18,11 +22,19 @@ use crate::inhibitors::{Backend as HealthOf, Health};
 pub const WAYLAND_SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 const WAYLAND_RETRY_DELAY: Duration = Duration::from_secs(2);
 
-pub async fn run(idle: idle::Handle, health: Health, cancel: CancellationToken) {
+pub async fn run(
+    session: zbus::Connection,
+    idle: idle::Handle,
+    health: Health,
+    cancel: CancellationToken,
+) {
     let mut connecting: Option<JoinHandle<anyhow::Result<Setup>>> = None;
+    let manager = Systemd1ManagerProxy::new(&session).await.ok();
 
     loop {
+        let display = session_display(manager.as_ref()).await;
         match run_inner(
+            display,
             idle.clone(),
             &health,
             cancel.clone(),
@@ -53,7 +65,25 @@ struct Setup {
     backend: Backend,
 }
 
+async fn session_display(manager: Option<&Systemd1ManagerProxy<'_>>) -> Option<String> {
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var_os("WAYLAND_SOCKET").is_some()
+    {
+        return None;
+    }
+    let environment = manager?.environment().await.ok()?;
+    wayland_display(&environment)
+}
+
+fn wayland_display(environment: &[String]) -> Option<String> {
+    environment
+        .iter()
+        .find_map(|entry| entry.strip_prefix("WAYLAND_DISPLAY="))
+        .filter(|display| !display.is_empty())
+        .map(str::to_owned)
+}
+
 async fn run_inner(
+    display: Option<String>,
     idle: idle::Handle,
     health: &Health,
     cancel: CancellationToken,
@@ -69,7 +99,7 @@ async fn run_inner(
         mut backend,
     } = tokio::select! {
         _ = cancel.cancelled() => return Ok(()),
-        setup = with_timeout(setup_timeout, connect_blocking(idle.clone(), connecting)) => setup?,
+        setup = with_timeout(setup_timeout, connect_blocking(display, idle.clone(), connecting)) => setup?,
     };
 
     tracing::info!("idle backend connected to ext-idle-notify-v1");
@@ -116,18 +146,27 @@ async fn run_inner(
 }
 
 async fn connect_blocking(
+    display: Option<String>,
     idle: idle::Handle,
     connecting: &mut Option<JoinHandle<anyhow::Result<Setup>>>,
 ) -> anyhow::Result<Setup> {
-    let handle =
-        connecting.get_or_insert_with(|| tokio::task::spawn_blocking(move || connect_sync(idle)));
+    let handle = connecting
+        .get_or_insert_with(|| tokio::task::spawn_blocking(move || connect_sync(display, idle)));
     let result = handle.await;
     *connecting = None;
     result.map_err(|error| anyhow::anyhow!("wayland setup worker failed: {error}"))?
 }
 
-fn connect_sync(idle: idle::Handle) -> anyhow::Result<Setup> {
-    let conn = Connection::connect_to_env()?;
+fn connect_sync(display: Option<String>, idle: idle::Handle) -> anyhow::Result<Setup> {
+    let conn = match display {
+        Some(display) => {
+            let runtime_dir = std::env::var_os("XDG_RUNTIME_DIR").unwrap_or_default();
+            let socket = UnixStream::connect(Path::new(&runtime_dir).join(&display))
+                .with_context(|| format!("cannot reach wayland display {display}"))?;
+            Connection::from_socket(socket)?
+        }
+        None => Connection::connect_to_env()?,
+    };
     let (globals, mut event_queue) = registry_queue_init::<Backend>(&conn)?;
     let qh = event_queue.handle();
     let notifier = globals.bind::<ExtIdleNotifierV1, _, _>(&qh, 1..=2, ())?;
@@ -275,6 +314,18 @@ mod tests {
             error.to_string().contains("timed out"),
             "unexpected error message: {error}"
         );
+    }
+
+    #[test]
+    fn the_session_display_comes_from_the_manager_environment() {
+        let environment =
+            |entries: &[&str]| entries.iter().map(|e| e.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            wayland_display(&environment(&["HOME=/home/a", "WAYLAND_DISPLAY=wayland-1"])),
+            Some("wayland-1".to_owned())
+        );
+        assert_eq!(wayland_display(&environment(&["WAYLAND_DISPLAY="])), None);
+        assert_eq!(wayland_display(&environment(&["HOME=/home/a"])), None);
     }
 
     #[tokio::test]

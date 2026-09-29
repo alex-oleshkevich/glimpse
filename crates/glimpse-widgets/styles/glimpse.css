@@ -5,8 +5,6 @@
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
     --gl-notification: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);
     --gl-notification-fg: var(--gl-surface-fg);
-    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.06);
-    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.03);
 
     --gl-muted: alpha(var(--gl-surface-fg), 0.65);
     --gl-dim: alpha(var(--gl-surface-fg), 0.38);
@@ -1216,7 +1214,7 @@ expandable > revealer .fader {
 }
 
 .notification-stack .notification {
-    box-shadow: var(--gl-elevation-floating);
+    box-shadow: var(--gl-elevation-raised);
 }
 
 .notifications-popover__group .notification {
@@ -1245,11 +1243,12 @@ expandable > revealer .fader {
 
 .notification-stack__strip {
     border-radius: 1.1rem;
-    background-color: var(--gl-notification-back);
+    background-color: var(--gl-notification);
+    opacity: 0.7;
 }
 
 .notification-stack__strip--far {
-    background-color: var(--gl-notification-back-far);
+    opacity: 0.4;
 }
 
 window.notification-popup {
@@ -1808,11 +1807,7 @@ window.blurred expandable.card {
 }
 
 window.blurred .notification-stack__strip {
-    background-color: color-mix(in srgb, var(--gl-notification-back) var(--gl-blur-opacity), transparent);
-}
-
-window.blurred .notification-stack__strip--far {
-    background-color: color-mix(in srgb, var(--gl-notification-back-far) var(--gl-blur-opacity), transparent);
+    background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
 }
 
 window.blurred .notification--activatable:hover {
