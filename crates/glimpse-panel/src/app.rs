@@ -10,7 +10,7 @@ use glimpse_config::{
     Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, unknown_applets, user_dark_stylesheet,
     user_stylesheet, watch_config_reporting, watch_theme,
 };
-use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     Answer, BluetoothHandle, CommandError, NetworkHandle, SessionAction, SessionActionsHandle,
 };
@@ -21,12 +21,14 @@ use glimpse_widgets::{
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
 };
+use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::{
     applet::{Report, spawn_reported},
     applets::bluetooth::{cap, typed},
     components::{self, panel},
+    config_alert::{self, Problems},
     services::PanelServices,
 };
 
@@ -62,6 +64,7 @@ pub enum AppInput {
     SessionRun(SessionAction),
     ConfigChanged(Config),
     ConfigRejected(String),
+    ConfigRecovered,
     MonitorsChanged,
     ServicesReady(PanelServices),
     ThemeChanged,
@@ -79,8 +82,8 @@ pub struct App {
     network_watch: Option<JoinHandle<()>>,
     pairing: Option<(PairingDialog, glib::SignalHandlerId)>,
     secret: Option<(SecretDialog, glib::SignalHandlerId)>,
-    unreported: Vec<(String, String)>,
-    unknown_applets: Vec<String>,
+    problems: Problems,
+    alert: Option<watch::Sender<Option<String>>>,
 }
 
 #[relm4::component(pub)]
@@ -128,17 +131,12 @@ impl SimpleComponent for App {
             network_watch: None,
             pairing: None,
             secret: None,
-            unreported: Vec::new(),
-            unknown_applets: Vec::new(),
+            problems: Problems::default(),
+            alert: None,
         };
         model.reload_styles();
-        if let Some(failure) = init.failure {
-            model.report(
-                gettext("Glimpse is using the default configuration"),
-                failure,
-            );
-        }
-        model.report_unknown_applets();
+        model.problems.failure = init.failure;
+        model.problems.unknown_applets = unknown_applets(&model.config);
 
         let widgets = view_output!();
 
@@ -154,7 +152,9 @@ impl SimpleComponent for App {
                     config.regional.language(),
                 );
                 self.config = config;
-                self.report_unknown_applets();
+                self.problems.recover();
+                self.problems.unknown_applets = unknown_applets(&self.config);
+                self.publish_problems();
                 if let Some(services) = &self.services {
                     services.reconfigure(&self.config);
                 }
@@ -168,7 +168,12 @@ impl SimpleComponent for App {
                 }
             }
             AppInput::ConfigRejected(reason) => {
-                self.report(gettext("The configuration was not applied"), reason);
+                self.problems.reject(reason);
+                self.publish_problems();
+            }
+            AppInput::ConfigRecovered => {
+                self.problems.recover();
+                self.publish_problems();
             }
             AppInput::MonitorsChanged => {}
             AppInput::ServicesReady(services) => {
@@ -181,9 +186,10 @@ impl SimpleComponent for App {
                     services.network.clone(),
                     sender.clone(),
                 ));
-                for (summary, body) in self.unreported.drain(..) {
-                    report_config(services.notifications(), summary, body);
-                }
+                self.alert = Some(config_alert::spawn(
+                    services.notifications(),
+                    self.problems.body(),
+                ));
                 self.services = Some(services);
             }
             AppInput::BluetoothPrompt(pairing) => {
@@ -260,19 +266,9 @@ impl SimpleComponent for App {
 }
 
 impl App {
-    fn report(&mut self, summary: String, body: String) {
-        match &self.services {
-            Some(services) => report_config(services.notifications(), summary, body),
-            None => self.unreported.push((summary, body)),
-        }
-    }
-
-    fn report_unknown_applets(&mut self) {
-        let unknown = unknown_applets(&self.config);
-        let fresh = fresh_problems(&unknown, &self.unknown_applets);
-        self.unknown_applets = unknown;
-        if !fresh.is_empty() {
-            self.report(gettext("An applet was left out of the panel"), fresh);
+    fn publish_problems(&self) {
+        if let Some(alert) = &self.alert {
+            alert.send_replace(self.problems.body());
         }
     }
 
@@ -565,36 +561,10 @@ fn spawn_config_watch(
         let mut configs = Box::pin(watch_config_reporting(path, current, failure));
         while let Some(reloaded) = configs.next().await {
             sender.input(match reloaded {
-                Ok(config) => AppInput::ConfigChanged(config),
+                Ok(Some(config)) => AppInput::ConfigChanged(config),
+                Ok(None) => AppInput::ConfigRecovered,
                 Err(reason) => AppInput::ConfigRejected(reason),
             });
-        }
-    });
-}
-
-fn fresh_problems(current: &[String], reported: &[String]) -> String {
-    current
-        .iter()
-        .filter(|problem| !reported.contains(problem))
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn report_config(notifications: NotificationsProviderHandle, summary: String, body: String) {
-    relm4::spawn(async move {
-        let posted = notifications
-            .post(
-                &gettext("Glimpse"),
-                &crate::applet::app_id(),
-                "dialog-warning-symbolic",
-                &summary,
-                &body,
-                NotificationUrgency::Normal,
-            )
-            .await;
-        if let Err(error) = posted {
-            tracing::warn!(%error, "could not report a configuration problem");
         }
     });
 }
@@ -730,18 +700,5 @@ mod tests {
         assert!(!session_accepted("cancel"));
         assert!(!session_accepted("close"));
         assert!(session_accepted("accept"));
-    }
-
-    #[test]
-    fn only_an_unknown_applet_not_reported_before_is_reported_again() {
-        let owned = |names: &[&str]| {
-            names
-                .iter()
-                .map(|name| name.to_string())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(fresh_problems(&owned(&["a", "b"]), &owned(&[])), "a\nb");
-        assert_eq!(fresh_problems(&owned(&["a", "b"]), &owned(&["a"])), "b");
-        assert_eq!(fresh_problems(&owned(&["a"]), &owned(&["a", "b"])), "");
     }
 }

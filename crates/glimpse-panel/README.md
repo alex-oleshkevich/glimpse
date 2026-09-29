@@ -7,6 +7,8 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
 - `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches
 - `services.rs` — the panel-local composition root and its explicit service dependencies
+- `config_alert.rs` — every configuration problem as **one** critical, resident notification under
+  its own app id, replaced in place as problems change and withdrawn once none remain
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
   `popover::launch`, which spawns an argv with no shell; `popover::run` is the `settings-command`

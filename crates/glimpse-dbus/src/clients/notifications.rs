@@ -420,6 +420,33 @@ impl NotificationsProviderHandle {
         .await
     }
 
+    pub async fn alert(
+        &self,
+        replaces: u32,
+        app_name: &str,
+        desktop_entry: &str,
+        icon: &str,
+        summary: &str,
+        body: &str,
+    ) -> Result<u32, NotificationsProviderError> {
+        let connection = self.proxy().await?.inner().connection().clone();
+        call(async move {
+            let hints = std::collections::HashMap::from([
+                ("desktop-entry", zbus::zvariant::Value::from(desktop_entry)),
+                (
+                    "urgency",
+                    zbus::zvariant::Value::U8(encode_urgency(NotificationUrgency::Critical)),
+                ),
+                ("resident", zbus::zvariant::Value::Bool(true)),
+            ]);
+            super::freedesktop_notifications::FreedesktopNotificationsProxy::new(&connection)
+                .await?
+                .notify(app_name, replaces, icon, summary, body, &[], hints, 0)
+                .await
+        })
+        .await
+    }
+
     pub async fn set_do_not_disturb(
         &self,
         enabled: bool,

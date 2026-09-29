@@ -9,7 +9,8 @@ mod weather;
 
 pub use applets::{applets_inspect, applets_list, applets_restart};
 pub use applets_author::{
-    applets_bundle, applets_check, applets_dev, applets_install, applets_new, applets_uninstall,
+    applets_bundle, applets_check, applets_dev, applets_install, applets_new, applets_run,
+    applets_uninstall,
 };
 pub use config::{config_path, config_show, config_validate};
 pub use doctor::doctor;

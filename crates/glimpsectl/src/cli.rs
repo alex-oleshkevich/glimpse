@@ -221,6 +221,30 @@ pub enum AppletsCommand {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
     },
+    #[command(about = "Run an applet script under Deno")]
+    Run(RunAppletArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct RunAppletArgs {
+    #[arg(long, value_parser = grant_list, help = "Hosts the applet may reach")]
+    pub allow_net: Option<String>,
+    #[arg(long, value_parser = grant_list, help = "Paths the applet may read")]
+    pub allow_read: Option<String>,
+    #[arg(long, value_parser = grant_list, help = "Environment variables the applet may read")]
+    pub allow_env: Option<String>,
+    #[arg(long, help = "Restart the applet when its files change")]
+    pub watch: bool,
+    #[arg(help = "The applet script (.js, .ts or .tsx)")]
+    pub entry: PathBuf,
+}
+
+fn grant_list(value: &str) -> Result<String, String> {
+    if value.split(',').any(|item| item.trim().is_empty()) {
+        Err("grant list must contain nonempty values".into())
+    } else {
+        Ok(value.into())
+    }
 }
 
 #[derive(Debug, Args)]
@@ -304,5 +328,51 @@ mod tests {
         let error = Cli::try_parse_from(["glimpsectl", "session", "declare", "--help"])
             .expect_err("--help exits through the error path");
         assert_eq!(error.exit_code(), 0);
+    }
+
+    fn run(args: &[&str]) -> Result<Cli, clap::Error> {
+        Cli::try_parse_from(["glimpsectl", "applets", "run"].iter().chain(args))
+    }
+
+    #[test]
+    fn dangerous_grants_are_unknown_arguments() {
+        for grant in [
+            "--allow-run",
+            "-A",
+            "--allow-write",
+            "--allow-ffi",
+            "--allow-sys",
+        ] {
+            assert!(run(&[grant, "main.ts"]).is_err());
+        }
+    }
+
+    #[test]
+    fn empty_grants_are_rejected() {
+        for grant in [
+            "--allow-net=",
+            "--allow-net=a,",
+            "--allow-read=,a",
+            "--allow-read=a,,b",
+            "--allow-env=",
+            "--allow-net=a, ",
+        ] {
+            assert!(run(&[grant, "main.ts"]).is_err());
+        }
+    }
+
+    #[test]
+    fn an_entry_that_looks_like_a_flag_stays_a_path() {
+        let cli = run(&["--", "--allow-run=x.ts"]).unwrap();
+        let Command::Applets(AppletsCommand::Run(args)) = cli.command else {
+            panic!("not the run command");
+        };
+        assert_eq!(args.entry, PathBuf::from("--allow-run=x.ts"));
+    }
+
+    #[test]
+    fn running_an_applet_needs_no_session_bus() {
+        let cli = run(&["main.ts"]).unwrap();
+        assert!(!cli.command.needs_session_bus());
     }
 }

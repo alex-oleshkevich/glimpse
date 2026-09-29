@@ -46,14 +46,14 @@ pub fn watch_config(
     current: Config,
 ) -> impl Stream<Item = Config> + Send + 'static {
     watch_config_reporting(config_path, current, None)
-        .filter_map(|reloaded| std::future::ready(reloaded.ok()))
+        .filter_map(|reloaded| std::future::ready(reloaded.ok().flatten()))
 }
 
 pub fn watch_config_reporting(
     config_path: Option<PathBuf>,
     current: Config,
     failure: Option<String>,
-) -> impl Stream<Item = Result<Config, String>> + Send + 'static {
+) -> impl Stream<Item = Result<Option<Config>, String>> + Send + 'static {
     let watched = watch_all(watch_dirs(config_path.as_deref())).filter_map(|update| async move {
         match update {
             Update::Changed(_) | Update::Rearmed => Some(()),
@@ -116,16 +116,20 @@ struct Reader {
 }
 
 impl Reader {
-    async fn next(&mut self) -> Option<Result<Config, String>> {
+    async fn next(&mut self) -> Option<Result<Option<Config>, String>> {
         while self.triggers.next().await.is_some() {
             match reread(self.path.as_deref(), &self.current).await {
                 // A document that loads is one that is no longer broken, whether or not it moved,
                 // so the next failure is news again.
                 Ok(loaded) => {
-                    self.failure = None;
-                    if let Some(config) = loaded {
-                        self.current = config.clone();
-                        return Some(Ok(config));
+                    let recovered = self.failure.take().is_some();
+                    match loaded {
+                        Some(config) => {
+                            self.current = config.clone();
+                            return Some(Ok(Some(config)));
+                        }
+                        None if recovered => return Some(Ok(None)),
+                        None => {}
                     }
                 }
                 Err(reason) => {
@@ -767,6 +771,35 @@ mod tests {
         assert_eq!(
             config.night_light.temperature, 3000,
             "the broken write is dropped, and the next good one still arrives"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_broken_document_undone_to_the_running_one_reports_the_recovery() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("config.toml");
+        let good = "[night-light]\ntemperature = 4200\n";
+        std::fs::write(&path, good).expect("writes");
+
+        let current = load(Some(&path)).expect("loads");
+        let mut reloads = Box::pin(watch_config_reporting(Some(path.clone()), current, None));
+
+        std::fs::write(&path, "not toml [[[").expect("breaks it");
+        let broken = tokio::time::timeout(SETTLE, reloads.next())
+            .await
+            .expect("a report within the settle window")
+            .expect("the stream is still alive");
+        assert!(broken.is_err(), "the break is reported");
+
+        std::fs::write(&path, good).expect("undoes it");
+        let recovered = tokio::time::timeout(SETTLE, reloads.next())
+            .await
+            .expect("a report within the settle window")
+            .expect("the stream is still alive");
+        assert_eq!(
+            recovered,
+            Ok(None),
+            "the running document is unchanged, and the break is over"
         );
     }
 }

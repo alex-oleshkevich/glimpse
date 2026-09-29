@@ -35,7 +35,21 @@ impl std::fmt::Display for TimedOut {
 
 impl std::error::Error for TimedOut {}
 
+#[derive(Debug)]
+pub struct DenoNotFound;
+
+impl std::fmt::Display for DenoNotFound {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("deno not found; install it or set GLIMPSE_DENO")
+    }
+}
+
+impl std::error::Error for DenoNotFound {}
+
 pub fn exit(error: &anyhow::Error) -> Exit {
+    if error.downcast_ref::<DenoNotFound>().is_some() {
+        return Exit::Unreachable;
+    }
     if error.downcast_ref::<TimedOut>().is_some() {
         return Exit::Timeout;
     }
@@ -103,6 +117,13 @@ mod tests {
                 .build(&())
                 .expect("a message"),
         ))
+    }
+
+    #[test]
+    fn missing_deno_is_unreachable_through_context() {
+        let error = anyhow::Error::new(DenoNotFound).context("launching applet");
+        assert_eq!(exit(&error), Exit::Unreachable);
+        assert_eq!(Exit::Unreachable as u8, 3);
     }
 
     #[test]

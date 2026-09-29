@@ -18,7 +18,6 @@ Details, reasons and measured facts live in `docs/` — read the relevant file b
 | Path | Role |
 | --- | --- |
 | `crates/` | Flat workspace, one directory per crate |
-| `crates/glimpse-applet/` | External applet launcher |
 | `sdk/applet/` | TypeScript applet SDK, templates and examples |
 | `data/`, `scripts/`, `docs/`, `var/` | Installed assets, local scripts, documentation and scratch files |
 

@@ -29,6 +29,8 @@ glimpsectl applets restart me.example.Clock
 
 ## Rules
 
+**`applets run` execs Deno**, so the applet keeps the launcher's process and exit status, and `--watch` is Deno's watcher. It never opens D-Bus. Only network, read and environment grants are expressible, and `NODE_ENV` is always granted. A missing Deno exits 3.
+
 **There are no generic commands.** Every command names one operation on one provider, with a typed
 request and a typed result, so the help text is the whole surface rather than a starting point for
 guessing topic names. **Every proxy is built with `CacheProperties::No`**, since a process that

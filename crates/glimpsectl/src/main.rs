@@ -85,6 +85,7 @@ async fn run(cli: Cli) -> Result<()> {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }
         Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
+        Command::Applets(AppletsCommand::Run(args)) => commands::applets_run(args),
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
         Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,
     }

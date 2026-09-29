@@ -3,6 +3,7 @@ mod applet;
 mod applets;
 mod cli;
 mod components;
+mod config_alert;
 mod selection;
 mod services;
 use anyhow::Result;

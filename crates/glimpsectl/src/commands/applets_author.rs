@@ -1,7 +1,9 @@
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::os::unix::fs::symlink;
+use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -16,7 +18,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufR
 use tokio::process::Command;
 use tokio::signal::unix::{SignalKind, signal};
 
-use crate::cli::NewAppletArgs;
+use crate::cli::{NewAppletArgs, RunAppletArgs};
 
 const MAIN: &str = include_str!("../../../../sdk/applet/template/main.tsx");
 const INDICATOR: &str = include_str!("../../../../sdk/applet/template/main.indicator.tsx");
@@ -129,18 +131,57 @@ fn exec_quote(value: &str) -> String {
     }
 }
 
-fn launcher() -> String {
-    if let Ok(path) = env::current_exe() {
-        let sibling = path.with_file_name("glimpse-applet");
-        if sibling.is_file() {
-            return sibling.display().to_string();
-        }
+fn deno_argv(args: &RunAppletArgs) -> Vec<OsString> {
+    let mut argv: Vec<OsString> = vec![
+        "run".into(),
+        "-q".into(),
+        "--no-prompt".into(),
+        "--v8-flags=--max-old-space-size=128".into(),
+    ];
+    if args.watch {
+        argv.push("--watch".into());
     }
-    "glimpse-applet".to_owned()
+    let mut allowed_env = OsString::from("--allow-env=NODE_ENV");
+    if let Some(vars) = args.allow_env.as_deref() {
+        allowed_env.push(",");
+        allowed_env.push(vars);
+    }
+    argv.push(allowed_env);
+    if let Some(hosts) = &args.allow_net {
+        argv.push(format!("--allow-net={hosts}").into());
+    }
+    if let Some(paths) = &args.allow_read {
+        argv.push(format!("--allow-read={paths}").into());
+    }
+    if args.entry.as_os_str().as_encoded_bytes().starts_with(b"-") {
+        argv.push(PathBuf::from(".").join(&args.entry).into_os_string());
+    } else {
+        argv.push(args.entry.as_os_str().to_owned());
+    }
+    argv
+}
+
+pub fn applets_run(args: RunAppletArgs) -> Result<()> {
+    ensure!(
+        matches!(
+            args.entry.extension().and_then(|ext| ext.to_str()),
+            Some("js" | "ts" | "tsx")
+        ),
+        "unsupported applet entry: {}",
+        args.entry.display()
+    );
+    let deno = glimpse_utils::deno().ok_or(crate::errors::DenoNotFound)?;
+    Err(std::process::Command::new(deno)
+        .args(deno_argv(&args))
+        .exec()
+        .into())
 }
 
 fn launcher_exec() -> String {
-    exec_quote(&launcher())
+    let program = env::current_exe()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|_| "glimpsectl".to_owned());
+    format!("{} applets run", exec_quote(&program))
 }
 
 fn sdk_path() -> Result<PathBuf> {
@@ -530,7 +571,7 @@ fn rewrite_desktop(source: &str, command: &str) -> String {
     for line in source.lines() {
         if line.starts_with('[') && line.ends_with(']') {
             if in_entry {
-                lines.push("TryExec=glimpse-applet".to_owned());
+                lines.push("TryExec=glimpsectl".to_owned());
                 lines.push(format!("Exec={command}"));
             }
             in_entry = line == "[Desktop Entry]";
@@ -540,7 +581,7 @@ fn rewrite_desktop(source: &str, command: &str) -> String {
         }
     }
     if in_entry {
-        lines.push("TryExec=glimpse-applet".to_owned());
+        lines.push("TryExec=glimpsectl".to_owned());
         lines.push(format!("Exec={command}"));
     }
     lines.join("\n") + "\n"
@@ -642,7 +683,10 @@ async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<
         .join("applet.js")
         .display()
         .to_string();
-    *argv.first_mut().context("empty Exec")? = "glimpse-applet".to_owned();
+    *argv.first_mut().context("empty Exec")? = "glimpsectl".to_owned();
+    if argv.get(1).map(String::as_str) != Some("applets") {
+        argv.splice(1..1, ["applets".to_owned(), "run".to_owned()]);
+    }
     let command = argv
         .iter()
         .map(|arg| exec_quote(arg))
@@ -752,6 +796,58 @@ mod tests {
         assert_eq!(desktop_escape("a\\b\nc\rd\te"), "a\\\\b\\nc\\rd\\te");
     }
 
+    fn run_args(args: &[&str]) -> RunAppletArgs {
+        use clap::Parser as _;
+        match crate::cli::Cli::try_parse_from(["glimpsectl", "applets", "run"].iter().chain(args))
+            .unwrap()
+            .command
+        {
+            crate::cli::Command::Applets(crate::cli::AppletsCommand::Run(args)) => args,
+            _ => panic!("not the run command"),
+        }
+    }
+
+    #[test]
+    fn argv_has_fixed_flags_and_only_requested_grants() {
+        assert_eq!(
+            deno_argv(&run_args(&["main.ts"])),
+            [
+                "run",
+                "-q",
+                "--no-prompt",
+                "--v8-flags=--max-old-space-size=128",
+                "--allow-env=NODE_ENV",
+                "main.ts"
+            ]
+        );
+        assert_eq!(
+            deno_argv(&run_args(&[
+                "--watch",
+                "--allow-env=A,B",
+                "--allow-net=api.example",
+                "--allow-read=/tmp",
+                "main.tsx",
+            ])),
+            [
+                "run",
+                "-q",
+                "--no-prompt",
+                "--v8-flags=--max-old-space-size=128",
+                "--watch",
+                "--allow-env=NODE_ENV,A,B",
+                "--allow-net=api.example",
+                "--allow-read=/tmp",
+                "main.tsx"
+            ]
+        );
+        assert_eq!(
+            deno_argv(&run_args(&["--", "--allow-run=x.ts"]))
+                .last()
+                .unwrap(),
+            "./--allow-run=x.ts"
+        );
+    }
+
     #[test]
     fn exec_arguments_quote_reserved_characters() {
         assert_eq!(exec_quote("plain"), "plain");
@@ -764,8 +860,8 @@ mod tests {
     #[test]
     fn desktop_rewrite_preserves_actions() {
         let source = "[Desktop Entry]\nName=Applet\nExec=old\nTryExec=old\n[Desktop Action a]\nExec=action\nTryExec=action\n";
-        let rewritten = rewrite_desktop(source, "glimpse-applet /usr/share/applet.js");
-        assert!(rewritten.contains("Name=Applet\nTryExec=glimpse-applet\nExec=glimpse-applet /usr/share/applet.js\n[Desktop Action a]"));
+        let rewritten = rewrite_desktop(source, "glimpsectl applets run /usr/share/applet.js");
+        assert!(rewritten.contains("Name=Applet\nTryExec=glimpsectl\nExec=glimpsectl applets run /usr/share/applet.js\n[Desktop Action a]"));
         assert!(rewritten.ends_with("[Desktop Action a]\nExec=action\nTryExec=action\n"));
     }
 
