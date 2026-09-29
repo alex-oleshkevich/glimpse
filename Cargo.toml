@@ -48,6 +48,7 @@ ipp = { version = "7.0.0", default-features = false, features = ["async-client-r
 iso8601 = "0.6.5"
 libc = "0.2.189"
 libpulse-binding = "2.30.1"
+minijinja = { version = "2.24.0", features = ["json"] }
 zeroize = { version = "1.9.0", features = ["zeroize_derive"] }
 notify = "8.2"
 owo-colors = "4"

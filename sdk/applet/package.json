@@ -1,0 +1,22 @@
+{
+  "name": "@glimpse/applet",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./jsx-runtime": "./jsx-runtime.ts",
+    "./jsx-dev-runtime": "./jsx-runtime.ts"
+  },
+  "dependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-reconciler": "0.33.1",
+    "react": "19.3.0",
+    "react-reconciler": "0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

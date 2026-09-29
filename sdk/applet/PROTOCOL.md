@@ -34,6 +34,7 @@ reload.
 | --- | --- | --- |
 | `v` | number | `1` |
 | `name` | string | This instance's name |
+| `state` | string | Absolute path to the applet's persistent state directory, owned by the applet and mode 0700 |
 | `options` | object | The instance's options, a JSON object |
 | `placement` | placement | Where this instance is drawn |
 
