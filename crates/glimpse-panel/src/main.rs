@@ -29,8 +29,7 @@ fn main() -> ExitCode {
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     glimpse_config::seed_user_config(cli.config.as_deref());
-    let config = glimpse_config::load(cli.config.as_deref())?;
-    glimpse_config::named_applets_exist(&config)?;
+    let (config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
     init_translations(config.regional.language());
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()
@@ -49,6 +48,7 @@ fn run(cli: &Cli) -> Result<()> {
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
         config_path: cli.config.config.clone(),
+        failure: failure.map(|error| error.to_string()),
     });
     Ok(())
 }

@@ -33,9 +33,9 @@ schema and validates the whole document, then acts on only the tables it owns.
 `deny_unknown_fields` on `Config` closes the set of top-level tables, so a misspelled `[panle]`
 errors instead of being silently ignored.
 
-**An applet a panel names has to resolve, or the load fails.** `left`/`center`/`right` are plain
-strings serde cannot check; `named_applets_exist` checks them against `[applets]` and the kind
-names, so a misspelling is a load error rather than a `warn` and a quietly missing bar entry.
+**An applet a panel names that does not resolve is reported, never fatal.** `left`/`center`/`right`
+are plain strings serde cannot check; `unknown_applets` checks them against `[applets]` and the kind
+names and returns one message per miss, so the panel starts without it and tells the user why.
 
 ## Generated references
 
@@ -55,9 +55,10 @@ missing file is an absent layer; a file that exists and is wrong fails the whole
 `load` reports every problem found, not the first. **No `ConfigError` renders any file content** —
 only the message and span are taken from `toml::de::Error`, so a `config.toml` aimed at an SSH key
 is never echoed into the journal. A syntax error names file, line, column and the drop-in it came
-from; a schema error names the key path, since it is found only in the merged document. The caller
-decides what a failure means: log and fall back to `Config::default()` at startup, drop the update
-on reload.
+from; a schema error names the key path, since it is found only in the merged document. **No
+config error stops a daemon:** `load_or_default` logs and starts `Config::default()` (idle and night
+light start off, since the document may have turned them off), a reload drops the update, and only
+the panel notifies, so one broken document is one notification.
 **A value the runtime cannot use is refused here, where the key can be named.** `[night-light]`
 `start-time`/`end-time` are checked against `%H:%M` at deserialization, so a typo fails on the
 document rather than reaching the night light as an indistinguishable "not set".

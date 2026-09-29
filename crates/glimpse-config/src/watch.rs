@@ -45,6 +45,15 @@ pub fn watch_config(
     config_path: Option<PathBuf>,
     current: Config,
 ) -> impl Stream<Item = Config> + Send + 'static {
+    watch_config_reporting(config_path, current, None)
+        .filter_map(|reloaded| std::future::ready(reloaded.ok()))
+}
+
+pub fn watch_config_reporting(
+    config_path: Option<PathBuf>,
+    current: Config,
+    failure: Option<String>,
+) -> impl Stream<Item = Result<Config, String>> + Send + 'static {
     let watched = watch_all(watch_dirs(config_path.as_deref())).filter_map(|update| async move {
         match update {
             Update::Changed(_) | Update::Rearmed => Some(()),
@@ -62,7 +71,7 @@ pub fn watch_config(
         triggers: Box::pin(stream::select(Box::pin(watched), Box::pin(hangups()))),
         path: config_path,
         current,
-        failure: None,
+        failure,
     };
 
     stream::unfold(reader, |mut reader| async move {
@@ -107,7 +116,7 @@ struct Reader {
 }
 
 impl Reader {
-    async fn next(&mut self) -> Option<Config> {
+    async fn next(&mut self) -> Option<Result<Config, String>> {
         while self.triggers.next().await.is_some() {
             match reread(self.path.as_deref(), &self.current).await {
                 // A document that loads is one that is no longer broken, whether or not it moved,
@@ -116,26 +125,31 @@ impl Reader {
                     self.failure = None;
                     if let Some(config) = loaded {
                         self.current = config.clone();
-                        return Some(config);
+                        return Some(Ok(config));
                     }
                 }
-                Err(reason) => self.report(reason),
+                Err(reason) => {
+                    if self.report(&reason) {
+                        return Some(Err(reason));
+                    }
+                }
             }
         }
         None
     }
 
     /// The same failure again is one document nobody has fixed yet, not a second problem.
-    fn report(&mut self, reason: String) {
-        if self.failure.as_ref() == Some(&reason) {
+    fn report(&mut self, reason: &str) -> bool {
+        if self.failure.as_deref() == Some(reason) {
             tracing::debug!(reason, "dropped a reload, unchanged since the last");
-            return;
+            return false;
         }
         tracing::error!(
             reason,
             "dropped a reload, keeping the running configuration"
         );
-        self.failure = Some(reason);
+        self.failure = Some(reason.to_owned());
+        true
     }
 }
 

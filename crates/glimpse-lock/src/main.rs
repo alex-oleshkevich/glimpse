@@ -62,7 +62,7 @@ fn runtime() -> Result<tokio::runtime::Runtime> {
 
 fn daemon(cli: Cli) -> Result<()> {
     glimpse_config::seed_user_config(cli.config.as_deref());
-    let config = glimpse_config::load(cli.config.as_deref())?;
+    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
     init_translations(config.regional.language());
 
     let pam_service = auth::Service::new(&config.lock.pam_service);

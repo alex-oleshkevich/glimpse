@@ -10,15 +10,15 @@ pub use commented::commented_document;
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{
-    DATA_DIR, load, named_applets_exist, resolve_image, resolved_files, runtime_dir,
-    seed_user_config, user_dir, watch_dirs, write_table,
+    DATA_DIR, load, load_or_default, resolve_image, resolved_files, runtime_dir, seed_user_config,
+    unknown_applets, user_dir, watch_dirs, write_table,
 };
 pub use schema::*;
 pub use theme::{
     DARK_STYLESHEET, DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET,
     stylesheet, theme_dir_for, user_dark_stylesheet, user_stylesheet, watch_theme,
 };
-pub use watch::{Update, watch, watch_all, watch_config};
+pub use watch::{Update, watch, watch_all, watch_config, watch_config_reporting};
 
 pub fn default_document() -> String {
     let header = format!(

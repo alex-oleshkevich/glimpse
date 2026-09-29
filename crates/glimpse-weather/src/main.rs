@@ -30,7 +30,7 @@ async fn main() -> ExitCode {
 async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     init_locale();
-    let config = glimpse_config::load(cli.config.as_deref())?;
+    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
     tracing::info!(
         config_path = ?cli.config.config,
         weather_provider = ?config.weather.provider,

@@ -33,7 +33,10 @@ async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     init_locale();
 
-    let config = glimpse_config::load(cli.config.as_deref())?;
+    let (mut config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
+    if failure.is_some() {
+        config.night_light.schedule = glimpse_config::Schedule::Off;
+    }
     tracing::info!(
         config_path = ?cli.config.config,
         schedule = ?config.night_light.schedule,

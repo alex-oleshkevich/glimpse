@@ -5,7 +5,6 @@ use std::process::ExitCode;
 pub enum Exit {
     Ok = 0,
     Failed = 1,
-    Config = 3,
 }
 
 impl From<Exit> for ExitCode {
@@ -14,11 +13,8 @@ impl From<Exit> for ExitCode {
     }
 }
 
-pub fn exit(error: &anyhow::Error) -> Exit {
-    match error.downcast_ref::<glimpse_config::ConfigError>() {
-        Some(_) => Exit::Config,
-        None => Exit::Failed,
-    }
+pub fn exit(_error: &anyhow::Error) -> Exit {
+    Exit::Failed
 }
 
 #[cfg(test)]

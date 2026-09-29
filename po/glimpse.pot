@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-29 14:09+0200\n"
+"POT-Creation-Date: 2026-09-29 15:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -108,15 +108,27 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:266
+#: crates/glimpse-panel/src/app.rs:137
+msgid "Glimpse is using the default configuration"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:171
+msgid "The configuration was not applied"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:275
+msgid "An applet was left out of the panel"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:307
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:310
+#: crates/glimpse-panel/src/app.rs:351
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:323
+#: crates/glimpse-panel/src/app.rs:364
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:143
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:188
@@ -134,21 +146,26 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:389
+#: crates/glimpse-panel/src/app.rs:430
 #: crates/glimpse-panel/src/applets/session/mod.rs:93
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:391
+#: crates/glimpse-panel/src/app.rs:432
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:393
+#: crates/glimpse-panel/src/app.rs:434
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:492
+#: crates/glimpse-panel/src/app.rs:533
 msgid "this device"
+msgstr ""
+
+#: crates/glimpse-panel/src/app.rs:588
+#: crates/glimpse-panel/src/applets/idle/render.rs:227
+msgid "Glimpse"
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:140
@@ -1115,10 +1132,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:184
 msgid "Preventing idle"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/idle/render.rs:227
-msgid "Glimpse"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/render.rs:233

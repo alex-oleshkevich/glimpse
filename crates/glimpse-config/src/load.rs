@@ -352,7 +352,18 @@ fn load_from(
         .map_err(ConfigError::schema)
 }
 
-pub fn named_applets_exist(config: &Config) -> Result<(), ConfigError> {
+pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigError>) {
+    match load(config_path) {
+        Ok(config) => (config, None),
+        Err(error) => {
+            tracing::error!(%error, "starting with the default configuration");
+            (Config::default(), Some(error))
+        }
+    }
+}
+
+pub fn unknown_applets(config: &Config) -> Vec<String> {
+    let mut unknown = Vec::new();
     for (index, panel) in config.panels.iter().enumerate() {
         for (zone, names) in [
             ("left", &panel.left),
@@ -363,16 +374,14 @@ pub fn named_applets_exist(config: &Config) -> Result<(), ConfigError> {
                 if config.applets.contains_key(name) || Applet::from_name(name).is_some() {
                     continue;
                 }
-                return Err(ConfigError::Schema {
-                    message: format!(
-                        "[[panels]] #{index} {zone}: unknown applet `{name}`{}",
-                        suggestion(name)
-                    ),
-                });
+                unknown.push(format!(
+                    "[[panels]] #{index} {zone}: unknown applet `{name}`{}",
+                    suggestion(name)
+                ));
             }
         }
     }
-    Ok(())
+    unknown
 }
 
 fn suggestion(name: &str) -> String {
@@ -767,36 +776,49 @@ mod tests {
     }
 
     #[test]
-    fn an_applet_name_the_document_cannot_resolve_is_a_load_error() {
-        let error = named_applets_exist(&panel_naming("not-an-applet"))
-            .expect_err("a name nothing resolves is not a panel glimpse can build");
+    fn an_applet_name_the_document_cannot_resolve_is_reported() {
+        let [message] = unknown_applets(&panel_naming("not-an-applet"))
+            .try_into()
+            .expect("one name nothing resolves is one report");
         assert!(
-            error.to_string().contains("not-an-applet"),
-            "the message has to name the applet: {error}"
+            message.contains("not-an-applet"),
+            "the message has to name the applet: {message}"
         );
-        assert!(error.to_string().contains("right"));
+        assert!(message.contains("right"));
     }
 
     #[test]
     fn an_underscore_spelling_names_the_kebab_case_one_it_meant() {
-        let error = named_applets_exist(&panel_naming("next_event"))
-            .expect_err("every applet kind is kebab-case");
+        let [message] = unknown_applets(&panel_naming("next_event"))
+            .try_into()
+            .expect("every applet kind is kebab-case");
         assert!(
-            error.to_string().contains("did you mean `next-event`?"),
-            "an underscore is the typo worth spelling out: {error}"
+            message.contains("did you mean `next-event`?"),
+            "an underscore is the typo worth spelling out: {message}"
         );
     }
 
     #[test]
     fn a_kind_name_and_a_configured_instance_name_both_resolve() {
-        named_applets_exist(&panel_naming("next-event")).expect("a kind name resolves");
+        assert!(unknown_applets(&panel_naming("next-event")).is_empty());
 
         let mut named = panel_naming("my-clock");
         named.applets.insert(
             "my-clock".to_owned(),
             Applet::from_name("clock").expect("clock"),
         );
-        named_applets_exist(&named).expect("a name declared under [applets] resolves");
+        assert!(unknown_applets(&named).is_empty());
+    }
+
+    #[test]
+    fn a_document_that_fails_to_load_starts_the_defaults_and_keeps_the_error() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[panle]\n").expect("the broken document is written");
+
+        let (config, error) = load_or_default(Some(&path));
+        assert_eq!(config, Config::default());
+        assert!(error.is_some_and(|error| error.to_string().contains("panle")));
     }
 
     #[test]

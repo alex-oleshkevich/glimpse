@@ -174,9 +174,13 @@ mod tests {
         for name in ["clcok", "exec"] {
             let source = format!("[[panels]]\ncenter = [\"{name}\"]\n");
             let config: Config = toml::from_str(&source).expect("the document parses");
-            let error = crate::load::named_applets_exist(&config)
-                .expect_err("the zone name must fail load validation");
-            assert!(error.to_string().contains("unknown applet"), "{error}");
+            let unknown = crate::load::unknown_applets(&config);
+            assert!(
+                unknown
+                    .iter()
+                    .any(|message| message.contains("unknown applet")),
+                "the zone name must be reported: {unknown:?}"
+            );
         }
     }
 
@@ -184,7 +188,10 @@ mod tests {
     fn desktop_id_in_zone_resolves_and_is_placed() {
         let config: Config = toml::from_str("[[panels]]\ncenter = [\"me.example.Pomodoro\"]\n")
             .expect("the document parses");
-        crate::load::named_applets_exist(&config).expect("the desktop id is known");
+        assert!(
+            crate::load::unknown_applets(&config).is_empty(),
+            "the desktop id is known"
+        );
         let (name, applet) = placed_applets(&config)
             .find(|(name, _)| *name == "me.example.Pomodoro")
             .expect("the placed applet resolves");
