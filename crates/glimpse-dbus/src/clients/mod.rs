@@ -34,6 +34,7 @@ pub mod bluez;
 pub mod dbusmenu;
 pub mod freedesktop_notifications;
 pub mod geoclue;
+pub mod gtk_actions;
 pub mod hostname1;
 pub mod idle;
 pub mod kdeconnect;

@@ -42,7 +42,10 @@ clickable target.
 **Zone reconciliation is keyed by `(zone, name, kind)`**, which is what stops every applet being
 rebuilt on every theme write; a name with no implementation still occupies a `Slot` with
 `handle: None`, keeping the key sequences comparable. There is deliberately no staleness, no
-`degraded`, no timer and no applet `Output`.
+`degraded`, no timer, and a runtime's only outward channel is its `applet.<serial>` action.
+**Anything on the session bus can activate that action exactly as a pointer can**: a click runs a
+command applet and a middle click mutes audio; only the session actions still ask for a second click
+inside their popover.
 
 ## The tick
 

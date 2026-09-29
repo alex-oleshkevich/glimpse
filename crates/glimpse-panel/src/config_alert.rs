@@ -17,6 +17,13 @@ pub struct Problems {
 }
 
 impl Problems {
+    pub fn verdict(&self) -> Result<(), String> {
+        self.failure
+            .as_ref()
+            .or(self.rejected.as_ref())
+            .map_or(Ok(()), |reason| Err(reason.clone()))
+    }
+
     pub fn body(&self) -> Option<String> {
         let mut lines = Vec::new();
         if let Some(failure) = &self.failure {
@@ -115,6 +122,39 @@ async fn show(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failure_is_the_verdict() {
+        let problems = Problems {
+            failure: Some("failed".to_owned()),
+            rejected: Some("rejected".to_owned()),
+            ..Problems::default()
+        };
+        assert_eq!(problems.verdict(), Err("failed".to_owned()));
+    }
+
+    #[test]
+    fn rejection_is_the_verdict_without_failure() {
+        let problems = Problems {
+            rejected: Some("rejected".to_owned()),
+            ..Problems::default()
+        };
+        assert_eq!(problems.verdict(), Err("rejected".to_owned()));
+    }
+
+    #[test]
+    fn unknown_applets_do_not_fail_the_verdict() {
+        let problems = Problems {
+            unknown_applets: vec!["unknown".to_owned()],
+            ..Problems::default()
+        };
+        assert_eq!(problems.verdict(), Ok(()));
+    }
+
+    #[test]
+    fn empty_problems_have_an_ok_verdict() {
+        assert_eq!(Problems::default().verdict(), Ok(()));
+    }
 
     #[test]
     fn a_clean_document_has_nothing_to_say() {

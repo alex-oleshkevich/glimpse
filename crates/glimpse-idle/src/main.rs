@@ -11,7 +11,6 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use futures_util::StreamExt;
-use glimpse_config::watch_config;
 use glimpse_utils::{init_app_tracing, init_locale};
 use services::IdleServices;
 use tokio::signal::unix::{SignalKind, signal};
@@ -35,6 +34,7 @@ async fn run(cli: Cli) -> Result<()> {
     init_locale();
 
     let (mut config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
+    let failure = failure.map(|error| error.to_string());
     if failure.is_some() {
         config.idle.enabled = false;
     }
@@ -44,8 +44,12 @@ async fn run(cli: Cli) -> Result<()> {
         "glimpse-idle starting"
     );
 
-    let services = IdleServices::start(&config).await?;
-    let mut configs = Box::pin(watch_config(cli.config.config.clone(), config));
+    let services = IdleServices::start(&config, failure.clone().map_or(Ok(()), Err)).await?;
+    let mut configs = Box::pin(glimpse_config::watch_config_reporting(
+        cli.config.config.clone(),
+        config,
+        failure,
+    ));
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut watching = true;
@@ -61,7 +65,12 @@ async fn run(cli: Cli) -> Result<()> {
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {
-                Some(reloaded) => services.reconfigure(&reloaded),
+                Some(Ok(Some(reloaded))) => {
+                    services.reconfigure(&reloaded);
+                    services.report(Ok(())).await;
+                }
+                Some(Ok(None)) => services.report(Ok(())).await,
+                Some(Err(reason)) => services.report(Err(reason)).await,
                 None => {
                     tracing::error!("the configuration is no longer being watched");
                     watching = false;

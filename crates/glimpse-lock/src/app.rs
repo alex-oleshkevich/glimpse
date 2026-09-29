@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use glimpse_config::{
     Config, DARK_STYLESHEET, LOCK_STYLESHEET, Remember, stylesheet, user_dark_stylesheet,
-    user_stylesheet, watch_config, watch_theme,
+    user_stylesheet, watch_config_reporting, watch_theme,
 };
 use glimpse_dbus::Buses;
 use glimpse_dbus::accounts::{AccountsProxy, AccountsUserProxy};
@@ -26,13 +26,14 @@ use glimpse_services::{
 };
 use glimpse_widgets::SessionActionState;
 use glimpse_widgets::TransportAction;
+use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::raster::{self, Raster};
 use glimpse_widgets::{Sheets, Styles};
 use gtk4::prelude::{
     ApplicationExt, Cast, CastNone, DisplayExt, GskRendererExt, GtkWindowExt, ListModelExt,
     MonitorExt, TextureExt, WidgetExt,
 };
-use gtk4::{gdk, glib, gsk};
+use gtk4::{gdk, gio, glib, gsk};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch;
@@ -60,11 +61,13 @@ pub struct AppInit {
     pub cant_verify: bool,
     pub user: Option<String>,
     pub unlocked: Arc<AtomicBool>,
+    pub failure: Option<String>,
 }
 
 #[allow(clippy::large_enum_variant)]
 pub enum AppInput {
     ConfigChanged(Config),
+    ConfigVerdict(Result<(), String>),
     ThemeChanged,
     Start {
         locked_hint: bool,
@@ -101,6 +104,7 @@ impl std::fmt::Debug for AppInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::ConfigChanged(_) => "ConfigChanged",
+            Self::ConfigVerdict(_) => "ConfigVerdict",
             Self::ThemeChanged => "ThemeChanged",
             Self::Start { .. } => "Start",
             Self::Lifecycle(_) => "Lifecycle",
@@ -128,6 +132,8 @@ impl std::fmt::Debug for AppInput {
 }
 
 pub struct App {
+    actions: ComponentActions,
+    _name_owner: Option<gio::OwnerId>,
     config: Config,
     theme_watch: JoinHandle<()>,
     styles: Styles,
@@ -182,7 +188,18 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
-        spawn_config_watch(init.config_path, init.config.clone(), sender.clone());
+        let actions = ComponentActions::install(
+            &relm4::main_application(),
+            crate::cli::build::PKG_VERSION,
+            init.failure.clone().map_or(Ok(()), Err),
+        );
+        let name_owner = own_app_name();
+        spawn_config_watch(
+            init.config_path,
+            init.config.clone(),
+            init.failure,
+            sender.clone(),
+        );
         spawn_display_name(sender.clone());
         watch_outputs(&sender);
         adw::StyleManager::default().connect_dark_notify({
@@ -239,6 +256,8 @@ impl SimpleComponent for App {
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let color = raster::color(&init.config.lock.background.color);
         let mut model = App {
+            actions,
+            _name_owner: name_owner,
             config: init.config,
             theme_watch,
             styles,
@@ -285,6 +304,7 @@ impl SimpleComponent for App {
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
+            AppInput::ConfigVerdict(verdict) => self.actions.report(verdict),
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
                 glimpse_utils::report_language_change(
@@ -942,13 +962,35 @@ fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()
     })
 }
 
-fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
+fn spawn_config_watch(
+    path: Option<PathBuf>,
+    current: Config,
+    failure: Option<String>,
+    sender: ComponentSender<App>,
+) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config(path, current));
-        while let Some(config) = configs.next().await {
-            sender.input(AppInput::ConfigChanged(config));
+        let mut configs = Box::pin(watch_config_reporting(path, current, failure));
+        while let Some(reloaded) = configs.next().await {
+            let verdict = reloaded.as_ref().map(|_| ()).map_err(Clone::clone);
+            if let Ok(Some(config)) = reloaded {
+                sender.input(AppInput::ConfigChanged(config));
+            }
+            sender.input(AppInput::ConfigVerdict(verdict));
         }
     });
+}
+
+fn own_app_name() -> Option<gio::OwnerId> {
+    let app = relm4::main_application();
+    let connection = app.dbus_connection()?;
+    let name = app.application_id()?;
+    Some(gio::bus_own_name_on_connection(
+        &connection,
+        &name,
+        gio::BusNameOwnerFlags::NONE,
+        |_, name| tracing::info!(name, "owns the application name"),
+        |_, name| tracing::warn!(name, "cannot own the application name"),
+    ))
 }
 
 fn monitors() -> Vec<gdk::Monitor> {

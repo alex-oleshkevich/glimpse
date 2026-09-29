@@ -1,9 +1,13 @@
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use glimpse_config::Applet as AppletConfig;
-use glimpse_widgets::IndicatorGroup;
+use glimpse_config::{Applet as AppletConfig, Position};
+use glimpse_widgets::{IndicatorGroup, IndicatorSpec, Severity};
+use gtk4::{gio, glib};
 use std::rc::Rc;
+
+use crate::components::panel::Zone;
 
 use super::catcher::Catcher;
 use gtk4::prelude::*;
@@ -14,6 +18,141 @@ use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Con
 use super::{Applet, Button, Ctx, Direction, Input, Pointer};
 
 const NOTCH: f64 = 1.0;
+const SCROLL_CAP: f64 = 16.0 * NOTCH;
+const TEXT_CAP: usize = 64;
+const TOOLTIP_CAP: usize = 256;
+
+static SERIAL: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SlotInfo {
+    pub connector: String,
+    pub position: Position,
+    pub zone: Zone,
+    pub index: u32,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct IndicatorStatus {
+    pub icon: Option<String>,
+    pub overlay: Option<String>,
+    pub dot: Option<String>,
+    pub label: Option<String>,
+    pub tooltip: Option<String>,
+    pub badge: Option<String>,
+    pub attention: bool,
+    pub notice: bool,
+    pub severity: Option<&'static str>,
+    pub class: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AppletStatus {
+    pub slot: SlotInfo,
+    pub kind: Option<String>,
+    pub alive: bool,
+    pub own_view: bool,
+    pub popover: bool,
+    pub indicators: Vec<IndicatorStatus>,
+}
+
+impl IndicatorStatus {
+    pub fn from_spec(spec: &IndicatorSpec) -> Self {
+        let icon = |icon: &Option<gio::Icon>| {
+            icon.as_ref()
+                .and_then(gio::prelude::IconExt::to_string)
+                .map(|name| glimpse_utils::clean(&name, TEXT_CAP))
+        };
+        let text = |text: &Option<String>, cap| {
+            text.as_deref().map(|text| glimpse_utils::clean(text, cap))
+        };
+        Self {
+            icon: icon(&spec.icon),
+            overlay: icon(&spec.overlay),
+            dot: spec.dot.map(|rgba| {
+                let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
+                format!(
+                    "#{:02x}{:02x}{:02x}{:02x}",
+                    byte(rgba.red()),
+                    byte(rgba.green()),
+                    byte(rgba.blue()),
+                    byte(rgba.alpha())
+                )
+            }),
+            label: text(&spec.label, TEXT_CAP),
+            tooltip: text(&spec.tooltip, TOOLTIP_CAP),
+            badge: text(&spec.badge, TEXT_CAP),
+            attention: spec.attention,
+            notice: spec.notice,
+            severity: spec.severity.map(|severity| match severity {
+                Severity::Info => "info",
+                Severity::Warning => "warning",
+                Severity::Error => "error",
+            }),
+            class: text(&spec.class, TEXT_CAP),
+        }
+    }
+
+    fn to_variant(&self) -> glib::Variant {
+        let dict = glib::VariantDict::new(None);
+        for (key, value) in [
+            ("icon", &self.icon),
+            ("overlay", &self.overlay),
+            ("dot", &self.dot),
+            ("label", &self.label),
+            ("tooltip", &self.tooltip),
+            ("badge", &self.badge),
+            ("class", &self.class),
+        ] {
+            if let Some(value) = value {
+                dict.insert_value(key, &value.to_variant());
+            }
+        }
+        dict.insert_value("attention", &self.attention.to_variant());
+        dict.insert_value("notice", &self.notice.to_variant());
+        if let Some(severity) = self.severity {
+            dict.insert_value("severity", &severity.to_variant());
+        }
+        dict.end()
+    }
+}
+
+impl AppletStatus {
+    pub fn to_variant(&self) -> glib::Variant {
+        let dict = glib::VariantDict::new(None);
+        let position = match self.slot.position {
+            Position::Top => "top",
+            Position::Bottom => "bottom",
+            Position::Left => "left",
+            Position::Right => "right",
+        };
+        let zone = match self.slot.zone {
+            Zone::Start => "start",
+            Zone::Center => "center",
+            Zone::End => "end",
+        };
+        dict.insert_value("connector", &self.slot.connector.to_variant());
+        dict.insert_value("position", &position.to_variant());
+        dict.insert_value("zone", &zone.to_variant());
+        dict.insert_value("index", &self.slot.index.to_variant());
+        dict.insert_value("name", &self.slot.name.to_variant());
+        if let Some(kind) = &self.kind {
+            dict.insert_value("kind", &kind.to_variant());
+        }
+        dict.insert_value("alive", &self.alive.to_variant());
+        dict.insert_value("own-view", &self.own_view.to_variant());
+        dict.insert_value("popover", &self.popover.to_variant());
+        dict.insert_value(
+            "indicators",
+            &glib::Variant::array_from_iter_with_type(
+                glib::VariantTy::VARDICT,
+                self.indicators.iter().map(IndicatorStatus::to_variant),
+            ),
+        );
+        dict.end()
+    }
+}
 
 pub type Builder = Box<dyn FnOnce(&Ctx) -> Box<dyn Applet>>;
 
@@ -23,11 +162,13 @@ pub struct AppletInit {
     pub build: Builder,
     pub config: AppletConfig,
     pub catcher: Rc<Catcher>,
+    pub slot: SlotInfo,
 }
 
 #[derive(Debug)]
 pub enum HostInput {
     Configured(AppletConfig),
+    Slotted(SlotInfo),
     PopoverRequested,
     PopoverToggled,
     PopoverLowered,
@@ -53,6 +194,11 @@ pub struct AppletRuntime {
     catcher: Rc<Catcher>,
     shown: Option<Box<dyn PopoverHandle>>,
     anchored: Option<i32>,
+    slot: SlotInfo,
+    kind: Option<String>,
+    indicators: Vec<IndicatorStatus>,
+    action: gio::SimpleAction,
+    published: Option<glib::Variant>,
 }
 
 impl Component for AppletRuntime {
@@ -101,6 +247,22 @@ impl Component for AppletRuntime {
 
         tracing::debug!(applet = ctx.name(), own_view = group.is_none(), "started");
 
+        let action = gio::SimpleAction::new_stateful(
+            &format!("applet.{}", SERIAL.fetch_add(1, Ordering::Relaxed)),
+            Some(&<(String, glib::Variant)>::static_variant_type()),
+            &glib::VariantDict::new(None).end(),
+        );
+        action.connect_change_state(|_, _| {});
+        action.connect_activate({
+            let sender = sender.clone();
+            move |action, parameter| match command(parameter) {
+                Some(input) => sender.input(input),
+                None => {
+                    tracing::warn!(action = %action.name(), ?parameter, "unknown applet command")
+                }
+            }
+        });
+
         let mut model = AppletRuntime {
             applet: Some(applet),
             ctx,
@@ -112,9 +274,16 @@ impl Component for AppletRuntime {
             catcher: init.catcher,
             shown: None,
             anchored: None,
+            slot: init.slot,
+            kind: None,
+            indicators: Vec::new(),
+            action,
+            published: None,
         };
         model.configure(init.config);
         model.deliver(None);
+        model.publish();
+        relm4::main_application().add_action(&model.action);
 
         ComponentParts { model, widgets: () }
     }
@@ -157,7 +326,33 @@ impl Component for AppletRuntime {
                     self.deliver(Some(&Input::Pointer(Pointer::Scroll(direction))));
                 }
             }
+            HostInput::Slotted(slot) => self.slot = slot,
         }
+        self.publish();
+    }
+
+    fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
+        relm4::main_application().remove_action(&self.action.name());
+    }
+}
+
+fn command(parameter: Option<&glib::Variant>) -> Option<HostInput> {
+    let (verb, argument) = parameter?.get::<(String, glib::Variant)>()?;
+    match verb.as_str() {
+        "click" => argument
+            .get::<u32>()
+            .map(|button| HostInput::Pressed { button }),
+        "scroll" => argument
+            .get::<(f64, f64)>()
+            .filter(|(dx, dy)| dx.is_finite() && dy.is_finite())
+            .map(|(dx, dy)| HostInput::Scrolled {
+                dx: dx.clamp(-SCROLL_CAP, SCROLL_CAP),
+                dy: dy.clamp(-SCROLL_CAP, SCROLL_CAP),
+            }),
+        "open" => Some(HostInput::PopoverRequested),
+        "close" => Some(HostInput::PopoverLowered),
+        "toggle" => Some(HostInput::PopoverToggled),
+        _ => None,
     }
 }
 
@@ -175,6 +370,9 @@ impl AppletRuntime {
             self.stop(panic.as_ref());
         }
 
+        self.kind = serde_json::to_value(&config.kind)
+            .ok()
+            .and_then(|value| value["extends"].as_str().map(String::from));
         self.config = Some(config);
         tracing::debug!(applet = self.ctx.name(), "configured");
         self.deliver(None);
@@ -259,6 +457,23 @@ impl AppletRuntime {
         })
     }
 
+    fn publish(&mut self) {
+        let status = AppletStatus {
+            slot: self.slot.clone(),
+            kind: self.kind.clone(),
+            alive: self.applet.is_some(),
+            own_view: self.group.is_none(),
+            popover: self.up(),
+            indicators: self.indicators.clone(),
+        }
+        .to_variant();
+        if self.published.as_ref() == Some(&status) {
+            return;
+        }
+        self.action.set_state(&status);
+        self.published = Some(status);
+    }
+
     fn orient(&mut self, orientation: gtk4::Orientation) {
         self.root.set_orientation(orientation);
         if let Some(group) = self.group.as_ref() {
@@ -292,6 +507,7 @@ impl AppletRuntime {
             "applet panicked, stopping it"
         );
         self.applet = None;
+        self.indicators.clear();
         self.ctx.shutdown();
 
         if self.group.is_none()
@@ -330,6 +546,7 @@ impl AppletRuntime {
             }
         };
 
+        self.indicators = specs.iter().map(IndicatorStatus::from_spec).collect();
         self.follow_anchor();
 
         let Some(group) = self.group.as_ref() else {
@@ -411,6 +628,7 @@ impl AppletHandle {
         build: Builder,
         config: AppletConfig,
         catcher: Rc<Catcher>,
+        slot: SlotInfo,
     ) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
@@ -419,6 +637,7 @@ impl AppletHandle {
                 build,
                 config,
                 catcher,
+                slot,
             })
             .detach();
 
@@ -442,6 +661,10 @@ impl AppletHandle {
             .send(HostInput::Oriented(orientation));
     }
 
+    pub fn set_slot(&self, slot: SlotInfo) {
+        let _ = self._controller.sender().send(HostInput::Slotted(slot));
+    }
+
     pub fn set_placement(&self, placement: glimpse_services::Placement) {
         let _ = self._controller.sender().send(HostInput::Placed(placement));
     }
@@ -450,7 +673,6 @@ impl AppletHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glimpse_widgets::IndicatorSpec;
     use std::cell::{Cell, RefCell};
 
     thread_local! {
@@ -583,6 +805,182 @@ mod tests {
         }
     }
 
+    fn slot(name: &str) -> SlotInfo {
+        SlotInfo {
+            connector: "DP-1".to_owned(),
+            position: Position::Left,
+            zone: Zone::End,
+            index: 2,
+            name: name.to_owned(),
+        }
+    }
+
+    fn lookup<T: glib::variant::FromVariant>(dict: &glib::Variant, key: &str) -> Option<T> {
+        glib::VariantDict::new(Some(dict))
+            .lookup::<T>(key)
+            .ok()
+            .flatten()
+    }
+
+    #[test]
+    fn an_indicator_status_is_the_spec_flattened_and_capped() {
+        let status = IndicatorStatus::from_spec(&IndicatorSpec {
+            icon: Some(gio::ThemedIcon::new("audio-volume-high").upcast()),
+            dot: Some(gtk4::gdk::RGBA::new(1.0, 0.0, 0.5, 0.25)),
+            label: Some("x".repeat(300)),
+            tooltip: Some("y".repeat(300)),
+            badge: Some("3".to_owned()),
+            attention: true,
+            severity: Some(Severity::Warning),
+            class: Some("cast".to_owned()),
+            ..Default::default()
+        });
+
+        assert_eq!(status.icon.as_deref(), Some("audio-volume-high"));
+        assert_eq!(status.overlay, None);
+        assert_eq!(status.dot.as_deref(), Some("#ff008040"));
+        assert_eq!(status.label, Some(format!("{}…", "x".repeat(64))));
+        assert_eq!(status.tooltip, Some(format!("{}…", "y".repeat(256))));
+        assert_eq!(status.badge.as_deref(), Some("3"));
+        assert!(status.attention && !status.notice);
+        assert_eq!(status.severity, Some("warning"));
+        assert_eq!(status.class.as_deref(), Some("cast"));
+
+        let texture = gtk4::gdk::MemoryTexture::new(
+            1,
+            1,
+            gtk4::gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from_static(&[0; 4]),
+            4,
+        );
+        let spec = IndicatorSpec {
+            icon: Some(texture.upcast()),
+            ..Default::default()
+        };
+        assert_eq!(
+            IndicatorStatus::from_spec(&spec).icon,
+            None,
+            "a texture has no name"
+        );
+
+        for (severity, name) in [
+            (Severity::Info, "info"),
+            (Severity::Warning, "warning"),
+            (Severity::Error, "error"),
+        ] {
+            let spec = IndicatorSpec {
+                severity: Some(severity),
+                ..Default::default()
+            };
+            assert_eq!(IndicatorStatus::from_spec(&spec).severity, Some(name));
+        }
+
+        assert_eq!(
+            IndicatorStatus::from_spec(&IndicatorSpec::default()),
+            IndicatorStatus::default(),
+            "an empty spec leaves every optional field out"
+        );
+    }
+
+    #[test]
+    fn an_applet_status_omits_what_it_does_not_have() {
+        let mut status = AppletStatus {
+            slot: slot("clock-utc"),
+            kind: Some("clock".to_owned()),
+            alive: true,
+            own_view: false,
+            popover: true,
+            indicators: vec![IndicatorStatus {
+                label: Some("12:00".to_owned()),
+                ..Default::default()
+            }],
+        };
+        let variant = status.to_variant();
+        assert_eq!(variant.type_(), glib::VariantTy::VARDICT);
+        assert_eq!(
+            lookup::<String>(&variant, "connector").as_deref(),
+            Some("DP-1")
+        );
+        assert_eq!(
+            lookup::<String>(&variant, "position").as_deref(),
+            Some("left")
+        );
+        assert_eq!(lookup::<String>(&variant, "zone").as_deref(), Some("end"));
+        assert_eq!(lookup::<u32>(&variant, "index"), Some(2));
+        assert_eq!(
+            lookup::<String>(&variant, "name").as_deref(),
+            Some("clock-utc")
+        );
+        assert_eq!(lookup::<String>(&variant, "kind").as_deref(), Some("clock"));
+        assert_eq!(lookup::<bool>(&variant, "alive"), Some(true));
+        assert_eq!(lookup::<bool>(&variant, "own-view"), Some(false));
+        assert_eq!(lookup::<bool>(&variant, "popover"), Some(true));
+        let indicators = glib::VariantDict::new(Some(&variant))
+            .lookup_value(
+                "indicators",
+                Some(glib::VariantTy::new("aa{sv}").expect("type")),
+            )
+            .expect("indicators");
+        assert_eq!(indicators.n_children(), 1);
+        let chip = indicators.child_value(0);
+        assert_eq!(lookup::<String>(&chip, "label").as_deref(), Some("12:00"));
+        assert_eq!(lookup::<bool>(&chip, "attention"), Some(false));
+        for key in [
+            "icon", "overlay", "dot", "tooltip", "badge", "severity", "class",
+        ] {
+            assert!(lookup::<String>(&chip, key).is_none(), "{key} is omitted");
+        }
+
+        status.kind = None;
+        status.alive = false;
+        status.indicators.clear();
+        let variant = status.to_variant();
+        assert!(lookup::<String>(&variant, "kind").is_none());
+        assert_eq!(lookup::<bool>(&variant, "alive"), Some(false));
+        let indicators = glib::VariantDict::new(Some(&variant))
+            .lookup_value("indicators", None)
+            .expect("indicators");
+        assert_eq!(indicators.n_children(), 0);
+    }
+
+    #[test]
+    fn a_command_maps_only_well_typed_verbs() {
+        let command = |verb: &str, argument: glib::Variant| {
+            super::command(Some(&(verb.to_owned(), argument).to_variant()))
+                .map(|input| format!("{input:?}"))
+        };
+        assert_eq!(
+            command("click", 3u32.to_variant()).as_deref(),
+            Some("Pressed { button: 3 }")
+        );
+        assert_eq!(
+            command("scroll", (0.0f64, 1.0f64).to_variant()).as_deref(),
+            Some("Scrolled { dx: 0.0, dy: 1.0 }")
+        );
+        assert_eq!(
+            command("open", ().to_variant()).as_deref(),
+            Some("PopoverRequested")
+        );
+        assert_eq!(
+            command("close", ().to_variant()).as_deref(),
+            Some("PopoverLowered")
+        );
+        assert_eq!(
+            command("toggle", ().to_variant()).as_deref(),
+            Some("PopoverToggled")
+        );
+        assert!(command("click", "3".to_variant()).is_none());
+        assert!(command("scroll", 1.0f64.to_variant()).is_none());
+        assert!(command("forget", ().to_variant()).is_none());
+        assert!(command("scroll", (0.0f64, f64::INFINITY).to_variant()).is_none());
+        assert!(command("scroll", (f64::NAN, 0.0f64).to_variant()).is_none());
+        assert_eq!(
+            command("scroll", (-1e9f64, 1e9f64).to_variant()).as_deref(),
+            Some("Scrolled { dx: -16.0, dy: 16.0 }")
+        );
+        assert!(super::command(None).is_none());
+    }
+
     #[test]
     fn a_partial_gesture_is_carried_across_events_for_the_whole_group() {
         let mut scroll = Scroll::default();
@@ -712,6 +1110,7 @@ mod tests {
             Box::new(|_| Box::new(Probe)),
             config("%H:%M"),
             Catcher::new(None, glimpse_config::Position::Top),
+            slot("probe"),
         );
         settle();
 
@@ -790,6 +1189,7 @@ mod tests {
             Box::new(|_| Box::new(Probe)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
+            slot("exploding"),
         );
         settle();
         assert!(
@@ -805,6 +1205,7 @@ mod tests {
             Box::new(|_| Box::new(Strip)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
+            slot("strip"),
         );
         settle();
 
@@ -838,6 +1239,94 @@ mod tests {
 
         a_raise_opens_a_popover_and_never_closes_one();
         a_bluetooth_popover_signal_reaches_the_service();
+        an_applet_action_injects_what_a_pointer_would();
+    }
+
+    fn an_applet_action_injects_what_a_pointer_would() {
+        let app = relm4::main_application();
+        if !app.is_registered() {
+            app.register(gio::Cancellable::NONE).expect("register");
+        }
+        let _handle = AppletHandle::launch(
+            "actioned".to_owned(),
+            None,
+            Box::new(|_| Box::new(Probe)),
+            config("%H"),
+            Catcher::new(None, glimpse_config::Position::Top),
+            slot("actioned"),
+        );
+        settle();
+        seen();
+
+        let actions: Vec<String> = app
+            .list_actions()
+            .iter()
+            .map(|name| name.to_string())
+            .filter(|name| name.starts_with("applet."))
+            .collect();
+        assert!(
+            !actions.iter().any(|name| {
+                app.action_state(name).is_some_and(|state| {
+                    lookup::<String>(&state, "name").as_deref() == Some("raiser")
+                })
+            }),
+            "a dropped runtime removes its action"
+        );
+        let name = actions
+            .into_iter()
+            .find(|name| {
+                app.action_state(name).is_some_and(|state| {
+                    lookup::<String>(&state, "name").as_deref() == Some("actioned")
+                })
+            })
+            .expect("the runtime exports applet.<serial>");
+        let state = app.action_state(&name).expect("state");
+        assert_eq!(lookup::<bool>(&state, "alive"), Some(true));
+        assert_eq!(lookup::<bool>(&state, "own-view"), Some(false));
+        assert_eq!(lookup::<String>(&state, "kind").as_deref(), Some("clock"));
+
+        app.activate_action(&name, Some(&("click", 3u32.to_variant()).to_variant()));
+        settle();
+        assert_eq!(seen(), ["Press(Right)"], "a click takes the pointer's path");
+
+        app.activate_action(
+            &name,
+            Some(&("scroll", (0.0f64, 1.0f64).to_variant()).to_variant()),
+        );
+        settle();
+        assert_eq!(seen(), ["Scroll(Down)"]);
+
+        app.activate_action(&name, Some(&("forget", 3u32.to_variant()).to_variant()));
+        settle();
+        assert!(seen().is_empty(), "an unknown verb does nothing");
+
+        let forged = glib::VariantDict::new(None);
+        forged.insert_value("alive", &false.to_variant());
+        app.change_action_state(&name, &forged.end());
+        settle();
+        assert_eq!(
+            app.action_state(&name).as_ref(),
+            Some(&state),
+            "SetState cannot overwrite the status"
+        );
+
+        EXPLODE.set(true);
+        app.activate_action(&name, Some(&("click", 1u32.to_variant()).to_variant()));
+        settle();
+        EXPLODE.set(false);
+        let dead = app.action_state(&name).expect("state");
+        assert_eq!(lookup::<bool>(&dead, "alive"), Some(false));
+        assert_eq!(
+            glib::VariantDict::new(Some(&dead))
+                .lookup_value("indicators", None)
+                .expect("indicators")
+                .n_children(),
+            0,
+            "a stopped applet publishes no indicators"
+        );
+        app.activate_action(&name, Some(&("click", 1u32.to_variant()).to_variant()));
+        settle();
+        assert!(seen().is_empty(), "a stopped applet takes no action input");
     }
 
     /// `PopoverRequested` is how an applet raises a question the user has to answer, so it must
@@ -851,6 +1340,7 @@ mod tests {
             Box::new(|_| Box::new(Raiser)),
             config("%H"),
             Rc::clone(&catcher),
+            slot("raiser"),
         );
         settle();
 

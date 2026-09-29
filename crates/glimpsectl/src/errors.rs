@@ -36,6 +36,28 @@ impl std::fmt::Display for TimedOut {
 impl std::error::Error for TimedOut {}
 
 #[derive(Debug)]
+pub struct Refused(pub String);
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Refused {}
+
+#[derive(Debug)]
+pub struct Gone;
+
+impl std::fmt::Display for Gone {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("the panel lost its bus owner")
+    }
+}
+
+impl std::error::Error for Gone {}
+
+#[derive(Debug)]
 pub struct DenoNotFound;
 
 impl std::fmt::Display for DenoNotFound {
@@ -47,6 +69,12 @@ impl std::fmt::Display for DenoNotFound {
 impl std::error::Error for DenoNotFound {}
 
 pub fn exit(error: &anyhow::Error) -> Exit {
+    if error.downcast_ref::<Refused>().is_some() {
+        return Exit::Rejected;
+    }
+    if error.downcast_ref::<Gone>().is_some() {
+        return Exit::Unreachable;
+    }
     if error.downcast_ref::<DenoNotFound>().is_some() {
         return Exit::Unreachable;
     }
@@ -124,6 +152,18 @@ mod tests {
         let error = anyhow::Error::new(DenoNotFound).context("launching applet");
         assert_eq!(exit(&error), Exit::Unreachable);
         assert_eq!(Exit::Unreachable as u8, 3);
+    }
+
+    #[test]
+    fn panel_refusal_and_owner_loss_have_typed_codes() {
+        assert_eq!(
+            exit(&anyhow::Error::new(Refused("no applet".into())).context("panel")),
+            Exit::Rejected
+        );
+        assert_eq!(
+            exit(&anyhow::Error::new(Gone).context("watch")),
+            Exit::Unreachable
+        );
     }
 
     #[test]

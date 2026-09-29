@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use cli::{
-    AppletsCommand, Cli, Command, ConfigCommand, NotificationsCommand, SessionCommand,
+    AppletsCommand, Cli, Command, ConfigCommand, IdleCommand, NotificationsCommand, SessionCommand,
     SunsetCommand, WeatherCommand,
 };
 use errors::Exit;
@@ -46,6 +46,14 @@ async fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Command::Sunset(SunsetCommand::Status) => commands::sunset_status(bus()?, cli.json).await,
         Command::Sunset(SunsetCommand::Mode { mode }) => commands::sunset_mode(bus()?, mode).await,
+        Command::Sunset(SunsetCommand::Temperature { kelvin }) => {
+            commands::sunset_temperature(bus()?, kelvin).await
+        }
+        Command::Idle(IdleCommand::Status) => commands::idle_status(bus()?, cli.json).await,
+        Command::Idle(IdleCommand::Inhibit { lapse }) => {
+            commands::idle_inhibit(bus()?, lapse).await
+        }
+        Command::Idle(IdleCommand::Release { id }) => commands::idle_release(bus()?, id).await,
         Command::Weather(WeatherCommand::Status) => {
             commands::weather_status(bus()?, cli.json).await
         }
@@ -85,6 +93,8 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
         Command::Applets(AppletsCommand::Run(args)) => commands::applets_run(args),
+        Command::Status => commands::status(bus()?, cli.json).await,
+        Command::Panel(args) => commands::panel(bus()?, &args.app_id, args.command, cli.json).await,
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
         Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,
     }

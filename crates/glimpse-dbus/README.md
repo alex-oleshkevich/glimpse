@@ -79,7 +79,7 @@ caching reads it once behind a listener that never fires. The attribute nests in
 player; both build through `builder().destination(name)` with an owned `String` — a borrowed `&str`
 will not satisfy the `'static` bound a subscription source requires.
 
-**No `#[zbus::interface]` in this crate, except under the `testing` feature.** A proxy calls out and
+**`#[zbus::interface]` lives here only for `actions` (GLib's `org.gtk.Actions` protocol shared by Glimpse binaries) and test fakes.** A proxy calls out and
 is shareable; an interface is called into and needs a way back into the owning process's state, so
 object-server halves live in the owning binary. `testing/tray.rs` is the carve-out: a fake has no
 process state to reach back into.

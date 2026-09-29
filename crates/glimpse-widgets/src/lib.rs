@@ -1,3 +1,4 @@
+pub mod actions;
 mod artwork;
 mod audio_popover;
 mod battery_popover;

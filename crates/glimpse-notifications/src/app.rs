@@ -11,13 +11,14 @@ use futures_util::StreamExt;
 use gettextrs::gettext;
 use glimpse_config::{
     BlurSurface, Config, DARK_STYLESHEET, NotificationEdge, PANEL_STYLESHEET, stylesheet,
-    user_dark_stylesheet, user_stylesheet, watch_config, watch_theme,
+    user_dark_stylesheet, user_stylesheet, watch_config_reporting, watch_theme,
 };
 use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::SessionStatus;
 use glimpse_services::{
     CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
+use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::blur::{Blur, Shape};
 use glimpse_widgets::{
     Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_icon,
@@ -35,6 +36,7 @@ use glimpse_dbus::notifications::DEFAULT_ACTION;
 pub struct Init {
     pub config: Config,
     pub config_path: Option<PathBuf>,
+    pub failure: Option<String>,
 }
 
 #[derive(Debug)]
@@ -45,6 +47,7 @@ pub enum Input {
     Compositor(CompositorState),
     Session(Option<SessionStatus>),
     Config(Box<Config>),
+    ConfigVerdict(Result<(), String>),
     Theme,
     MonitorsChanged,
     Expire(u32),
@@ -129,6 +132,7 @@ struct Entry {
 }
 
 pub struct App {
+    actions: ComponentActions,
     root: gtk4::Window,
     stack: gtk4::Box,
     config: Config,
@@ -181,7 +185,17 @@ impl SimpleComponent for App {
         let scheme = color_scheme(init.config.appearance.color_scheme);
 
         let services_start = start_services(init.config.clone(), sender.clone());
-        watch_configuration(init.config_path, init.config.clone(), sender.clone());
+        let actions = ComponentActions::install(
+            &relm4::main_application(),
+            crate::cli::build::PKG_VERSION,
+            init.failure.clone().map_or(Ok(()), Err),
+        );
+        watch_configuration(
+            init.config_path,
+            init.config.clone(),
+            init.failure,
+            sender.clone(),
+        );
         let theme_watch = watch_styles(&init.config.appearance.theme, sender.clone());
         watch_monitors(sender.clone());
 
@@ -195,6 +209,7 @@ impl SimpleComponent for App {
         });
         blur.set_enabled(blurred(&init.config));
         let model = Self {
+            actions,
             root: window.clone(),
             stack: widgets.stack.clone(),
             state: PopupState::new(init.config.notifications.clone()),
@@ -234,6 +249,7 @@ impl SimpleComponent for App {
             Input::Compositor(state) => self.compositor(state),
             Input::Session(state) => self.session(state, &sender),
             Input::Config(config) => self.configure(*config, &sender),
+            Input::ConfigVerdict(verdict) => self.actions.report(verdict),
             Input::Theme => self.reload_styles(),
             Input::MonitorsChanged => self.place(),
             Input::Expire(id) => {
@@ -996,11 +1012,20 @@ fn watch_monitors(sender: ComponentSender<App>) {
     });
 }
 
-fn watch_configuration(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
+fn watch_configuration(
+    path: Option<PathBuf>,
+    current: Config,
+    failure: Option<String>,
+    sender: ComponentSender<App>,
+) {
     relm4::spawn(async move {
-        let mut configs = Box::pin(watch_config(path, current));
-        while let Some(config) = configs.next().await {
-            sender.input(Input::Config(Box::new(config)));
+        let mut configs = Box::pin(watch_config_reporting(path, current, failure));
+        while let Some(reloaded) = configs.next().await {
+            let verdict = reloaded.as_ref().map(|_| ()).map_err(Clone::clone);
+            if let Ok(Some(config)) = reloaded {
+                sender.input(Input::Config(Box::new(config)));
+            }
+            sender.input(Input::ConfigVerdict(verdict));
         }
     });
 }

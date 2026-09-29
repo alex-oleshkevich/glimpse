@@ -23,7 +23,7 @@ use std::mem::Discriminant;
 use std::rc::Rc;
 
 use crate::applet::catcher::Catcher;
-use crate::applet::runtime::AppletHandle;
+use crate::applet::runtime::{AppletHandle, SlotInfo};
 use crate::applets;
 
 pub struct Panel {
@@ -41,10 +41,11 @@ struct Slot {
     handle: Option<AppletHandle>,
 }
 
-fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
+fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation, index: u32) {
     let Some(handle) = slot.handle.as_ref() else {
         return;
     };
+    handle.set_slot(slot_info(config, slot.zone, index, &slot.name));
     handle.set_orientation(orientation);
     handle.set_placement(applets::exec::placement(
         config.position,
@@ -55,6 +56,31 @@ fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
     if let Some(applet) = applets::configured(&slot.name, &config.applets, &config.regional) {
         handle.configure(applet);
     }
+}
+
+fn slot_info(config: &Config, zone: Zone, index: u32, name: &str) -> SlotInfo {
+    SlotInfo {
+        connector: config
+            .monitor
+            .connector()
+            .map(String::from)
+            .unwrap_or_default(),
+        position: config.position,
+        zone,
+        index,
+        name: name.to_owned(),
+    }
+}
+
+fn indices(zones: impl Iterator<Item = Zone>) -> Vec<u32> {
+    let mut counts: HashMap<Zone, u32> = HashMap::new();
+    zones
+        .map(|zone| {
+            let count = counts.entry(zone).or_default();
+            *count += 1;
+            *count - 1
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -250,11 +276,13 @@ impl Panel {
             .map(|slot| (slot.zone, &slot.name, slot.kind))
             .eq(desired.iter().copied())
         {
-            for slot in &self.applets {
-                settle(slot, config, orientation);
+            let indices = indices(self.applets.iter().map(|slot| slot.zone));
+            for (slot, index) in self.applets.iter().zip(indices) {
+                settle(slot, config, orientation, index);
             }
             return;
         }
+        let indices = indices(desired.iter().map(|(zone, _, _)| *zone));
 
         let connector = config.monitor.connector().map(String::from);
 
@@ -276,7 +304,7 @@ impl Panel {
             .collect();
 
         let mut next = Vec::with_capacity(desired.len());
-        for (zone, name, kind) in desired {
+        for ((zone, name, kind), index) in desired.into_iter().zip(indices.iter().copied()) {
             next.push(
                 existing
                     .remove(&(zone, name.clone(), kind))
@@ -334,6 +362,7 @@ impl Panel {
                                     build,
                                     applet,
                                     Rc::clone(&self.catcher),
+                                    slot_info(config, zone, index, name),
                                 ))
                             }),
                     }),
@@ -347,8 +376,8 @@ impl Panel {
             tracing::debug!(applet = name, ?zone, "applet removed");
         }
 
-        for slot in &next {
-            settle(slot, config, orientation);
+        for (slot, index) in next.iter().zip(indices) {
+            settle(slot, config, orientation, index);
             let Some(handle) = slot.handle.as_ref() else {
                 continue;
             };

@@ -1,3 +1,4 @@
+pub mod actions;
 mod clients;
 mod dbus;
 mod provider;

@@ -1,6 +1,8 @@
 use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
+use glimpse_dbus::actions::{self, ActionsHandle};
+use glimpse_dbus::night_light::GLIMPSE_NIGHT_LIGHT_OBJECT_PATH;
 use glimpse_services::{
     Geolocation, NightLight, NightLightDependencies, Running, Solar, SolarDependencies,
 };
@@ -14,6 +16,7 @@ pub struct SunsetServices {
     night_service: Running<NightLight>,
     /// `Option` only so `shutdown` can move it out of a type that also implements `Drop`.
     provider: Option<provider::Runtime>,
+    actions: Option<ActionsHandle>,
 }
 
 impl SunsetServices {
@@ -22,7 +25,7 @@ impl SunsetServices {
     /// name are taken next, which is where a second copy of this binary fails; only then is gamma
     /// control taken and the services actually started. A duplicate therefore never touches the
     /// outputs the running one is holding.
-    pub async fn start(document: &Config) -> Result<Self> {
+    pub async fn start(document: &Config, initial: Result<(), String>) -> Result<Self> {
         let buses = Buses::connect().await;
         let session = buses
             .session_bus()
@@ -34,7 +37,22 @@ impl SunsetServices {
         let (solar_pending, solar) = Running::<Solar>::build(document, buses.clone());
         let (night_pending, night_light) = Running::<NightLight>::build(document, buses);
 
-        let provider = provider::start(session, night_light)
+        let actions = match actions::serve(
+            &session,
+            GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
+            crate::cli::build::PKG_VERSION,
+            initial,
+        )
+        .await
+        {
+            Ok(actions) => Some(actions),
+            Err(error) => {
+                tracing::warn!(%error, "cannot export night light actions");
+                None
+            }
+        };
+
+        let provider = provider::start(session.clone(), night_light)
             .await
             .context("another glimpse-sunset already owns the night light")?;
 
@@ -59,12 +77,21 @@ impl SunsetServices {
             solar_service,
             night_service,
             provider: Some(provider),
+            actions,
         })
     }
 
     pub fn reconfigure(&self, document: &Config) {
         self.location_service.reconfigure(document);
         self.night_service.reconfigure(document);
+    }
+
+    pub async fn report(&self, verdict: Result<(), String>) {
+        if let Some(actions) = &self.actions
+            && let Err(error) = actions.report(verdict).await
+        {
+            tracing::warn!(%error, "cannot report night light configuration status");
+        }
     }
 
     /// The night light's `Service::stop` hands the outputs back while the compositor connection is

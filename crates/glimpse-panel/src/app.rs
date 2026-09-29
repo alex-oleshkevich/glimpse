@@ -2,7 +2,8 @@ use adw::gdk::{self, prelude::*};
 use adw::prelude::{AdwDialogExt, AlertDialogExt};
 use futures_util::StreamExt;
 use gettextrs::gettext;
-use gtk4::prelude::{GtkWindowExt, WidgetExt};
+use gtk4::gio;
+use gtk4::prelude::{ActionMapExt, GtkWindowExt, WidgetExt};
 use std::{collections::HashMap, path::PathBuf};
 use zeroize::Zeroizing;
 
@@ -14,6 +15,7 @@ use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     Answer, BluetoothHandle, CommandError, NetworkHandle, SessionAction, SessionActionsHandle,
 };
+use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::{
     NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
     SecretDialog, Sheets, Styles,
@@ -65,6 +67,7 @@ pub enum AppInput {
     ConfigChanged(Config),
     ConfigRejected(String),
     ConfigRecovered,
+    ClosePopovers,
     MonitorsChanged,
     ServicesReady(PanelServices),
     ThemeChanged,
@@ -83,6 +86,7 @@ pub struct App {
     pairing: Option<(PairingDialog, glib::SignalHandlerId)>,
     secret: Option<(SecretDialog, glib::SignalHandlerId)>,
     problems: Problems,
+    actions: ComponentActions,
     alert: Option<watch::Sender<Option<String>>>,
 }
 
@@ -115,11 +119,28 @@ impl SimpleComponent for App {
             init.config_path,
             init.config.clone(),
             init.failure.clone(),
-            sender,
+            sender.clone(),
         );
 
+        let problems = Problems {
+            failure: init.failure,
+            rejected: None,
+            unknown_applets: unknown_applets(&init.config),
+        };
+        let actions = ComponentActions::install(
+            &relm4::main_application(),
+            crate::cli::build::PKG_VERSION,
+            problems.verdict(),
+        );
+        let action = gio::SimpleAction::new("close-popovers", None);
+        let input = sender.input_sender().clone();
+        action.connect_activate(move |_, _| {
+            let _ = input.send(AppInput::ClosePopovers);
+        });
+        relm4::main_application().add_action(&action);
+
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
-        let mut model = App {
+        let model = App {
             config: init.config,
             panels: Default::default(),
             theme_watch,
@@ -131,12 +152,11 @@ impl SimpleComponent for App {
             network_watch: None,
             pairing: None,
             secret: None,
-            problems: Problems::default(),
+            problems,
+            actions,
             alert: None,
         };
         model.reload_styles();
-        model.problems.failure = init.failure;
-        model.problems.unknown_applets = unknown_applets(&model.config);
 
         let widgets = view_output!();
 
@@ -174,6 +194,10 @@ impl SimpleComponent for App {
             AppInput::ConfigRecovered => {
                 self.problems.recover();
                 self.publish_problems();
+            }
+            AppInput::ClosePopovers => {
+                self.close_popovers();
+                return;
             }
             AppInput::MonitorsChanged => {}
             AppInput::ServicesReady(services) => {
@@ -270,6 +294,7 @@ impl App {
         if let Some(alert) = &self.alert {
             alert.send_replace(self.problems.body());
         }
+        self.actions.report(self.problems.verdict());
     }
 
     fn close_popovers(&self) {

@@ -39,6 +39,20 @@ pub async fn sunset_mode(connection: &Connection, mode: Mode) -> Result<()> {
     Ok(())
 }
 
+pub async fn sunset_temperature(connection: &Connection, kelvin: u32) -> Result<()> {
+    within(
+        proxy::<NightLight1Proxy>(connection)
+            .await?
+            .set_temperature(kelvin),
+    )
+    .await
+    .context(match kelvin {
+        0 => "cannot clear the night light temperature".to_owned(),
+        _ => format!("cannot set the night light to {kelvin} K"),
+    })?;
+    Ok(())
+}
+
 fn mode(snapshot: &NightLightSnapshot) -> String {
     match snapshot.overridden {
         true => format!(

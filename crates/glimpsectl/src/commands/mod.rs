@@ -2,8 +2,11 @@ mod applets;
 mod applets_author;
 mod config;
 mod doctor;
+mod idle;
 mod notifications;
+mod panel;
 mod session;
+mod status;
 mod sunset;
 mod weather;
 
@@ -14,11 +17,14 @@ pub use applets_author::{
 };
 pub use config::{config_path, config_show, config_validate};
 pub use doctor::doctor;
+pub use idle::{idle_inhibit, idle_release, idle_status};
 pub use notifications::{
     notifications_clear, notifications_dismiss, notifications_dnd, notifications_list,
 };
+pub use panel::panel;
 pub use session::session_declare;
-pub use sunset::{sunset_mode, sunset_status};
+pub use status::status;
+pub use sunset::{sunset_mode, sunset_status, sunset_temperature};
 pub use weather::{weather_refresh, weather_status};
 
 use anyhow::Result;

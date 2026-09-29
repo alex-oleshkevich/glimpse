@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use chrono::NaiveTime;
 use clap::parser::ValueSource;
 use clap::{ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use serde::Serialize;
 
 fn clock(raw: &str) -> Result<NaiveTime, String> {
     glimpse_config::parse_clock(raw)
@@ -44,6 +45,9 @@ pub enum Command {
     #[command(subcommand, about = "The night light")]
     Sunset(SunsetCommand),
 
+    #[command(subcommand, about = "Idle inhibitors and manual holds")]
+    Idle(IdleCommand),
+
     #[command(subcommand, about = "Current conditions and the forecast")]
     Weather(WeatherCommand),
 
@@ -55,6 +59,12 @@ pub enum Command {
 
     #[command(subcommand, about = "Inspect and control external applets")]
     Applets(AppletsCommand),
+
+    #[command(about = "Show running glimpse components")]
+    Status,
+
+    #[command(about = "Inspect and control the panel")]
+    Panel(PanelArgs),
 
     #[command(about = "Check the configuration and every provider")]
     Doctor,
@@ -83,6 +93,80 @@ pub enum SunsetCommand {
         #[arg(value_name = "MODE", help = "Which schedule to run")]
         mode: Mode,
     },
+
+    #[command(
+        about = "Hold a fixed temperature, or clear it",
+        long_about = "Hold a fixed temperature, or clear it. The document is not written: the \
+                      temperature lasts until it is cleared or glimpse-sunset restarts."
+    )]
+    Temperature {
+        #[arg(
+            value_name = "KELVIN|clear",
+            value_parser = temperature,
+            help = "A color temperature in Kelvin, or `clear` to follow the schedule again"
+        )]
+        kelvin: u32,
+    },
+}
+
+fn temperature(raw: &str) -> Result<u32, String> {
+    match raw {
+        "clear" => Ok(0),
+        _ => raw
+            .parse()
+            .ok()
+            .filter(|kelvin| *kelvin > 0)
+            .ok_or_else(|| format!("expected a temperature in Kelvin or `clear`, got {raw:?}")),
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IdleCommand {
+    #[command(about = "Print every inhibitor and the health of each source")]
+    Status,
+
+    #[command(
+        about = "Hold off idle and suspend while this command runs",
+        long_about = "Hold off idle and suspend while this command runs. The hold's id is printed \
+                      first; the hold ends on Ctrl-C, when `--for` lapses, or when the process \
+                      exits for any reason."
+    )]
+    Inhibit {
+        #[arg(
+            long = "for",
+            value_name = "DURATION",
+            value_parser = duration,
+            help = "End the hold after this long: 90, 90s, 15m or 2h"
+        )]
+        lapse: Option<u32>,
+    },
+
+    #[command(about = "Release a releasable inhibitor")]
+    Release {
+        #[arg(value_name = "ID", help = "The inhibitor's id, as `status` prints it")]
+        id: u64,
+    },
+}
+
+fn duration(raw: &str) -> Result<u32, String> {
+    let (number, unit) = match raw.find(|character: char| !character.is_ascii_digit()) {
+        Some(split) => raw.split_at(split),
+        None => (raw, "s"),
+    };
+    let scale = match unit {
+        "s" => 1,
+        "m" => 60,
+        "h" => 3600,
+        _ => 0,
+    };
+    number
+        .parse::<u32>()
+        .ok()
+        .and_then(|count| count.checked_mul(scale))
+        .filter(|seconds| *seconds > 0)
+        .ok_or_else(|| {
+            format!("expected a positive duration such as 90, 90s, 15m or 2h, got {raw:?}")
+        })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -227,6 +311,148 @@ pub enum AppletsCommand {
 }
 
 #[derive(Debug, Args)]
+pub struct PanelArgs {
+    #[arg(
+        long,
+        global = true,
+        env = "GLIMPSE_PANEL_APP_ID",
+        default_value = "me.aresa.GlimpsePanel",
+        help = "Panel D-Bus application ID"
+    )]
+    pub app_id: String,
+    #[command(subcommand)]
+    pub command: PanelCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PanelCommand {
+    #[command(about = "List the panel's applets")]
+    Applets {
+        #[arg(long, help = "Print applet changes until the panel exits")]
+        watch: bool,
+    },
+    #[command(about = "Click an applet")]
+    Click {
+        #[arg(help = "Output connector")]
+        connector: String,
+        #[arg(help = "Applet name")]
+        applet: String,
+        #[arg(long, default_value = "left", value_parser = button, help = "Mouse button: left, middle, right, or a number")]
+        button: u32,
+        #[arg(long, help = "Panel edge")]
+        position: Option<Position>,
+    },
+    #[command(about = "Scroll an applet")]
+    Scroll {
+        #[arg(help = "Output connector")]
+        connector: String,
+        #[arg(help = "Applet name")]
+        applet: String,
+        #[arg(help = "Scroll direction")]
+        direction: Direction,
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..), help = "Number of scroll notches")]
+        steps: u32,
+        #[arg(long, help = "Panel edge")]
+        position: Option<Position>,
+    },
+    #[command(subcommand, about = "Control one applet's popover")]
+    Popover(PopoverCommand),
+    #[command(subcommand, about = "Control all panel popovers")]
+    Popovers(PopoversCommand),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PopoverCommand {
+    #[command(about = "Open the applet's popover")]
+    Open(AppletTarget),
+    #[command(about = "Close the applet's popover")]
+    Close(AppletTarget),
+    #[command(about = "Open it when closed, close it when open")]
+    Toggle(AppletTarget),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PopoversCommand {
+    Close,
+}
+
+#[derive(Debug, Args)]
+pub struct AppletTarget {
+    #[arg(help = "Output connector")]
+    pub connector: String,
+    #[arg(help = "Applet name")]
+    pub applet: String,
+    #[arg(long, help = "Panel edge")]
+    pub position: Option<Position>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize)]
+#[value(rename_all = "lower")]
+#[serde(rename_all = "lowercase")]
+pub enum Position {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl std::str::FromStr for Position {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "top" => Ok(Self::Top),
+            "bottom" => Ok(Self::Bottom),
+            "left" => Ok(Self::Left),
+            "right" => Ok(Self::Right),
+            _ => Err(()),
+        }
+    }
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::Left => "left",
+            Self::Right => "right",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Direction {
+    pub fn delta(self) -> (f64, f64) {
+        match self {
+            Self::Up => (0.0, -1.0),
+            Self::Down => (0.0, 1.0),
+            Self::Left => (-1.0, 0.0),
+            Self::Right => (1.0, 0.0),
+        }
+    }
+}
+
+fn button(value: &str) -> Result<u32, String> {
+    match value {
+        "left" => Ok(1),
+        "middle" => Ok(2),
+        "right" => Ok(3),
+        _ => value
+            .parse()
+            .map_err(|_| format!("expected left, middle, right, or a number, got {value}")),
+    }
+}
+
+#[derive(Debug, Args)]
 pub struct RunAppletArgs {
     #[arg(long, value_parser = grant_list, help = "Hosts the applet may reach")]
     pub allow_net: Option<String>,
@@ -320,10 +546,46 @@ mod tests {
     }
 
     #[test]
+    fn zero_scroll_steps_are_a_usage_error() {
+        let error = Cli::try_parse_from([
+            "glimpsectl",
+            "panel",
+            "scroll",
+            "DP-1",
+            "clock",
+            "down",
+            "--steps",
+            "0",
+        ])
+        .expect_err("scrolling must have at least one step");
+        assert_eq!(error.exit_code(), 2);
+    }
+
+    #[test]
     fn json_is_accepted_after_the_subcommand() {
         let cli = Cli::try_parse_from(["glimpsectl", "sunset", "status", "--json"])
             .expect("a global flag follows its subcommand");
         assert!(cli.json);
+    }
+
+    #[test]
+    fn a_temperature_is_kelvin_or_clear_and_never_zero() {
+        assert_eq!(temperature("4000"), Ok(4000));
+        assert_eq!(temperature("clear"), Ok(0));
+        assert!(temperature("0").is_err());
+        assert!(temperature("warm").is_err());
+    }
+
+    #[test]
+    fn a_duration_reads_bare_seconds_and_the_three_units() {
+        assert_eq!(duration("90"), Ok(90));
+        assert_eq!(duration("90s"), Ok(90));
+        assert_eq!(duration("15m"), Ok(900));
+        assert_eq!(duration("2h"), Ok(7200));
+        assert!(duration("0").is_err());
+        assert!(duration("5d").is_err());
+        assert!(duration("m").is_err());
+        assert!(duration("9999999h").is_err());
     }
 
     #[test]

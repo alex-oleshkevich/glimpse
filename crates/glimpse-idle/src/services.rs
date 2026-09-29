@@ -5,6 +5,7 @@ use futures_util::StreamExt;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::Exported;
+use glimpse_dbus::actions::{self, ActionsHandle};
 use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, GLIMPSE_IDLE_OBJECT_PATH};
 use glimpse_dbus::login1::Login1ManagerProxy;
 use glimpse_dbus::upower::UPowerProxy;
@@ -25,10 +26,11 @@ pub struct IdleServices {
     cancel: CancellationToken,
     tasks: Vec<JoinHandle<()>>,
     idle1: Exported<Idle1Server>,
+    actions: Option<ActionsHandle>,
 }
 
 impl IdleServices {
-    pub async fn start(document: &Config) -> Result<Self> {
+    pub async fn start(document: &Config, initial: Result<(), String>) -> Result<Self> {
         let buses = Buses::connect().await;
         let session = buses
             .session_bus()
@@ -40,6 +42,21 @@ impl IdleServices {
         let login1 = connect_login1(&buses).await;
 
         let (health, health_changes) = Health::new();
+        let actions = match actions::serve(
+            &session,
+            GLIMPSE_IDLE_OBJECT_PATH,
+            crate::cli::build::PKG_VERSION,
+            initial,
+        )
+        .await
+        {
+            Ok(actions) => Some(actions),
+            Err(error) => {
+                tracing::warn!(%error, "cannot export idle actions");
+                None
+            }
+        };
+
         let idle1 = Exported::start(
             session.clone(),
             GLIMPSE_IDLE_BUS_NAME,
@@ -123,6 +140,7 @@ impl IdleServices {
             cancel,
             tasks,
             idle1,
+            actions,
         })
     }
 
@@ -132,6 +150,14 @@ impl IdleServices {
             .try_send(Event::ApplyConfig(document.idle.clone()))
         {
             tracing::warn!(%error, "failed to apply reloaded idle configuration");
+        }
+    }
+
+    pub async fn report(&self, verdict: Result<(), String>) {
+        if let Some(actions) = &self.actions
+            && let Err(error) = actions.report(verdict).await
+        {
+            tracing::warn!(%error, "cannot report idle configuration status");
         }
     }
 

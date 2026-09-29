@@ -68,6 +68,7 @@ requires a running scope and signals each one so the panel respawns it.
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through
 `within` on the same `glimpse_dbus::DEADLINE` the panel uses, and a timeout maps to `Exit::Timeout`.
+**A `--watch` subscription exits 3 when the name it follows loses its owner.**
 **`exit` maps D-Bus error names and holds only the codes something returns today**, with an unlisted
 name mapping to 1 and 2 reserved for clap; `message` is the display half of the same mapping —
 `zbus::Error::FDO` already exposes its text as `source()`, so a naive print doubles it, and

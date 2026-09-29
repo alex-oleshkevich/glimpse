@@ -28,7 +28,7 @@ fn main() -> ExitCode {
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     glimpse_config::seed_user_config(cli.config.as_deref());
-    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
+    let (config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
     init_translations(config.regional.language());
     gtk4::init().context("cannot initialize GTK")?;
     glimpse_widgets::register_resources()?;
@@ -50,6 +50,7 @@ fn run(cli: &Cli) -> Result<()> {
         .run::<app::App>(app::Init {
             config,
             config_path: cli.config.config.clone(),
+            failure: failure.map(|error| error.to_string()),
         });
     Ok(())
 }
