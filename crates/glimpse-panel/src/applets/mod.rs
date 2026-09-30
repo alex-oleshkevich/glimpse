@@ -241,10 +241,16 @@ pub fn build(
         }
         AppletKind::Clipboard(_) => {
             let clipboard = clipboard.clone();
+            let kdeconnect = kdeconnect.clone();
             let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(clipboard.subscribe());
-                Box::new(clipboard::Clipboard::start(clipboard, notifications))
+                ctx.watch(kdeconnect.subscribe());
+                Box::new(clipboard::Clipboard::start(
+                    clipboard,
+                    kdeconnect,
+                    notifications,
+                ))
             }))
         }
         AppletKind::Places(_) => {

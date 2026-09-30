@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-30 14:52+0200\n"
+"POT-Creation-Date: 2026-09-30 15:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -345,7 +345,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:341
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:292
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:249
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:306
 #: crates/glimpse-panel/src/applets/places/render.rs:53
 #: crates/glimpse-panel/src/applets/removable/render.rs:52
 msgid "Show fewer"
@@ -615,7 +615,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:141
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:231
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
 msgid "Forget"
 msgstr ""
 
@@ -680,8 +680,8 @@ msgid "Pairing will not survive a restart"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:338
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:180
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
 #: crates/glimpse-panel/src/applets/network/render.rs:315
 msgid "Type"
 msgstr ""
@@ -739,7 +739,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
-msgid "The device is busy with something else."
+msgid "The device is busy, possibly connected to another device."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
@@ -855,62 +855,74 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:128
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
 msgid "Image · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:130
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:157
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
 #: crates/glimpse-panel/src/applets/removable/render.rs:139
 #: crates/glimpse-panel/src/applets/removable/render.rs:178
 msgid "Size"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:171
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+msgid "Save as…"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+msgid "Open with…"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:192
 msgid "Site"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:176
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:197
 msgid "Open in browser"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:180
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
 msgid "Color"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:188
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:209
 msgid "Copy as {format}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:196
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
 msgid "Path"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:198
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
 #: crates/glimpse-panel/src/applets/network/render.rs:103
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:246
 msgid "Open"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:202
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
 msgid "Lines"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:229
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+msgid "Send to device"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
 msgid "Pin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:230
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
 msgid "Unpin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:239
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
 msgid "Nothing copied yet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:251
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:295
 #: crates/glimpse-panel/src/applets/places/render.rs:54
 #: crates/glimpse-panel/src/applets/removable/render.rs:53
@@ -919,44 +931,63 @@ msgid_plural "{count} more"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:261
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:318
 msgid "Clear history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:329
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:439
+msgid "Save image"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:453
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:468
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:522
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
 msgid "Clipboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:333
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:455
+msgid "Could not save the image"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:470
+msgid "Could not send that"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:472
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:180
+msgid "KDE Connect is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:526
 msgid "The clipboard is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:347
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:540
 msgid "That entry is no longer in the history."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:359
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:552
 msgid "{count} items · {size}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:440
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:655
 msgid "Could not copy that"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:465
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:680
 msgid "Could not copy that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:487
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:702
 msgid "Could not pin that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:718
 msgid "Could not forget that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:519
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:734
 msgid "Could not clear the history"
 msgstr ""
 
@@ -1160,10 +1191,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:163
 msgid "The device did not respond"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:180
-msgid "KDE Connect is not running."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:194
@@ -2517,8 +2544,8 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:43
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
 #: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:35
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:86
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:126
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:89
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:132
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:196
 msgid "Details"
 msgstr ""

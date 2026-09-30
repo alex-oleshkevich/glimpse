@@ -1,6 +1,6 @@
 mod imp;
 
-use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 
 pub use imp::Actions;
 
@@ -11,6 +11,7 @@ const TILE_HEIGHT: i32 = 200;
 const NARROW: i32 = 1;
 const EXCERPT_LINES: i32 = 4;
 const PIN: &str = "clipboard-list__pin";
+const CHEVRON: &str = "go-next-symbolic";
 
 glib::wrapper! {
     pub struct ClipboardList(ObjectSubclass<imp::ClipboardList>)
@@ -25,6 +26,7 @@ pub struct Clip {
     pub icon: String,
     pub swatch: Option<gdk::RGBA>,
     pub image: Option<gdk::Texture>,
+    pub file: Option<gio::File>,
     pub excerpt: String,
     pub actions: Vec<ClipAction>,
     pub facts: Vec<Fact>,
@@ -36,6 +38,7 @@ pub struct ClipAction {
     pub key: String,
     pub title: String,
     pub value: String,
+    pub choices: Vec<ClipAction>,
 }
 
 impl Default for ClipboardList {
@@ -80,7 +83,7 @@ impl ClipboardList {
     fn build(&self, clip: &Clip) -> Expandable {
         let id = clip.id;
         match &clip.image {
-            Some(texture) => self.tile(id, texture),
+            Some(texture) => self.tile(id, texture, clip.file.as_ref()),
             None => {
                 let split = SplitRow::new();
                 split.set_detail_tooltip(Some(gettextrs::gettext("Details")));
@@ -99,7 +102,7 @@ impl ClipboardList {
         }
     }
 
-    fn tile(&self, id: u64, texture: &gdk::Texture) -> Expandable {
+    fn tile(&self, id: u64, texture: &gdk::Texture, file: Option<&gio::File>) -> Expandable {
         let picture = gtk4::Picture::for_paintable(texture);
         picture.set_content_fit(gtk4::ContentFit::Cover);
         picture.set_can_shrink(true);
@@ -120,6 +123,9 @@ impl ClipboardList {
             self,
             move |_| list.emit_by_name::<()>("restored", &[&id])
         ));
+        if let Some(file) = file {
+            body.add_controller(drag_source(texture, file));
+        }
 
         let badge = gtk4::Button::builder()
             .icon_name("go-next-symbolic")
@@ -254,11 +260,23 @@ impl ClipboardList {
             row.set_title(Some(action.title.as_str()));
             row.set_value(none_if_empty(&action.value));
             let key = action.key.clone();
-            row.connect_clicked(glib::clone!(
-                #[weak(rename_to = list)]
-                self,
-                move |_| list.emit_by_name::<()>("acted", &[&id, &key])
-            ));
+            match action.choices.is_empty() {
+                true => {
+                    row.connect_clicked(glib::clone!(
+                        #[weak(rename_to = list)]
+                        self,
+                        move |_| list.emit_by_name::<()>("acted", &[&id, &key])
+                    ));
+                }
+                false => {
+                    row.set_trail(&gtk4::Image::from_icon_name(CHEVRON));
+                    row.connect_clicked(glib::clone!(
+                        #[weak(rename_to = list)]
+                        self,
+                        move |row| list.aside(row, id, &key)
+                    ));
+                }
+            }
             card.append(&row);
         }
 
@@ -282,6 +300,49 @@ impl ClipboardList {
         ));
         card.append(&remove);
         card
+    }
+
+    fn aside(&self, row: &Row, id: u64, key: &str) {
+        let choices: Vec<ClipAction> = self
+            .imp()
+            .clips
+            .borrow()
+            .iter()
+            .find(|clip| clip.id == id)
+            .and_then(|clip| clip.actions.iter().find(|action| action.key == key))
+            .map(|action| action.choices.clone())
+            .unwrap_or_default();
+        if choices.is_empty() {
+            return;
+        }
+        let menu = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let popover = gtk4::Popover::builder()
+            .child(&menu)
+            .position(gtk4::PositionType::Right)
+            .has_arrow(false)
+            .build();
+        for choice in choices {
+            let item = Row::new();
+            item.set_title(Some(choice.title.as_str()));
+            item.set_value(none_if_empty(&choice.value));
+            item.connect_clicked(glib::clone!(
+                #[weak(rename_to = list)]
+                self,
+                #[weak]
+                popover,
+                move |_| {
+                    popover.popdown();
+                    list.emit_by_name::<()>("acted", &[&id, &choice.key]);
+                }
+            ));
+            menu.append(&item);
+        }
+        popover.set_parent(row);
+        popover.connect_closed(|popover| {
+            let popover = popover.clone();
+            glib::idle_add_local_once(move || popover.unparent());
+        });
+        popover.popup();
     }
 
     pub fn connect_acted<F: Fn(&Self, u64, String) + 'static>(
@@ -318,6 +379,17 @@ impl ClipboardList {
             glib::closure_local!(move |list: Self, id: u64| f(&list, id)),
         )
     }
+}
+
+fn drag_source(texture: &gdk::Texture, file: &gio::File) -> gtk4::DragSource {
+    let files = gdk::FileList::from_array(std::slice::from_ref(file));
+    let source = gtk4::DragSource::builder()
+        .actions(gdk::DragAction::COPY)
+        .content(&gdk::ContentProvider::for_value(&files.to_value()))
+        .build();
+    let texture = texture.clone();
+    source.connect_drag_begin(move |source, _| source.set_icon(Some(&texture), 0, 0));
+    source
 }
 
 fn pin_row(card: &gtk4::Box) -> Option<Row> {

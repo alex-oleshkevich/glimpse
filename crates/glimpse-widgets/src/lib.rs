@@ -7516,6 +7516,7 @@ mod tests {
                     key: "rgb".to_owned(),
                     title: "Copy as RGB".to_owned(),
                     value: "rgb(30 136 229)".to_owned(),
+                    ..Default::default()
                 }],
                 facts: vec![Fact::new("Size", "7 B")],
                 ..Default::default()

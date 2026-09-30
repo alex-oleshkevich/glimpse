@@ -1,5 +1,8 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::io::Write;
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use gettextrs::{gettext, ngettext};
@@ -7,12 +10,13 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, ClipboardAppletConfig, 
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState, CommandError,
+    KdeconnectDeviceId, KdeconnectHandle,
 };
 use glimpse_widgets::{
     Clip, ClipAction, ClipActions, ClipboardPopover, Fact, IndicatorSpec, Thumbnail, rgba,
 };
 use gtk4::prelude::*;
-use gtk4::{gdk, glib};
+use gtk4::{gdk, gio, glib};
 
 use super::render;
 
@@ -22,10 +26,11 @@ const THUMBNAIL: i32 = 320;
 const EXCERPT_LINES: usize = 6;
 const EXCERPT_CHARS: usize = 200;
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, wording};
 
 pub struct Clipboard {
     service: ClipboardHandle,
+    kdeconnect: KdeconnectHandle,
     notifications: NotificationsProviderHandle,
     state: ClipboardState,
     settings: ClipboardAppletConfig,
@@ -36,14 +41,20 @@ pub struct Clipboard {
     /// Decoded thumbnails, keyed by entry id. Decoding is the expensive half and an entry's bytes
     /// never change, so a texture is built once and pruned when its entry leaves.
     images: HashMap<ClipboardEntryId, Option<Thumbnail>>,
+    files: HashMap<ClipboardEntryId, Option<gio::File>>,
     icon: gtk4::gio::Icon,
     query: Rc<RefCell<String>>,
     expanded: Rc<Cell<bool>>,
 }
 
 impl Clipboard {
-    pub fn start(service: ClipboardHandle, notifications: NotificationsProviderHandle) -> Self {
+    pub fn start(
+        service: ClipboardHandle,
+        kdeconnect: KdeconnectHandle,
+        notifications: NotificationsProviderHandle,
+    ) -> Self {
         Self {
+            kdeconnect,
             state: service.snapshot(),
             service,
             notifications,
@@ -53,6 +64,7 @@ impl Clipboard {
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             images: HashMap::new(),
+            files: HashMap::new(),
             icon: gtk4::gio::ThemedIcon::new(render::ICON).upcast(),
             query: Rc::new(RefCell::new(String::new())),
             expanded: Rc::new(Cell::new(false)),
@@ -133,15 +145,24 @@ impl Clipboard {
                     None => size.clone(),
                 },
             )];
-            return Clip {
+            let mut clip = Clip {
                 id: entry.id,
                 title,
                 icon: render::IMAGE_ICON.to_owned(),
+                file: decoded.as_ref().and_then(|_| self.spill(entry)),
                 image: decoded.map(|(texture, _)| texture),
+                actions: vec![
+                    action(SAVE, gettext("Save as…"), String::new()),
+                    action(OPEN_WITH, gettext("Open with…"), String::new()),
+                ],
                 facts,
                 pinned: entry.pinned,
                 ..Default::default()
             };
+            if clip.file.is_some() {
+                clip.actions.extend(self.send());
+            }
+            return clip;
         }
 
         let text = String::from_utf8_lossy(&entry.data);
@@ -203,6 +224,7 @@ impl Clipboard {
             }
             render::Shape::Plain => {}
         }
+        clip.actions.extend(self.send());
         clip
     }
 
@@ -218,6 +240,41 @@ impl Clipboard {
         }
         self.images.insert(id, built.clone());
         built
+    }
+
+    fn spill(&mut self, entry: &ClipboardEntry) -> Option<gio::File> {
+        if let Some(held) = self.files.get(&entry.id) {
+            return held.clone();
+        }
+        let written = spill_path(entry).and_then(|path| {
+            write_private(&path, &entry.data)
+                .inspect_err(|error| tracing::warn!("cannot write {}: {error}", path.display()))
+                .ok()
+                .map(|()| gio::File::for_path(path))
+        });
+        self.files.insert(entry.id, written.clone());
+        written
+    }
+
+    fn send(&self) -> Option<ClipAction> {
+        let choices: Vec<ClipAction> = self
+            .kdeconnect
+            .snapshot()
+            .devices
+            .into_iter()
+            .filter(|device| device.actions.share)
+            .map(|device| {
+                action(
+                    &format!("{SEND}{}", device.id.as_str()),
+                    render::title_of(&device.name, DEVICE_CHARS),
+                    String::new(),
+                )
+            })
+            .collect();
+        (!choices.is_empty()).then(|| ClipAction {
+            choices,
+            ..action(SEND, gettext("Send to device"), String::new())
+        })
     }
 
     fn dress(&mut self, shown: &ClipboardPopover) {
@@ -268,16 +325,89 @@ impl Clipboard {
 }
 
 const OPEN: &str = "open";
+const SAVE: &str = "save";
+const SEND: &str = "send:";
+const DEVICE_CHARS: usize = 40;
+const OPEN_WITH: &str = "open-with";
+
+fn spill_path(entry: &ClipboardEntry) -> Option<PathBuf> {
+    Some(
+        glimpse_config::runtime_dir()?
+            .join("clipboard")
+            .join(entry.id.to_string())
+            .join(file_name(entry)),
+    )
+}
+
+fn file_name(entry: &ClipboardEntry) -> String {
+    let subtype = entry.mime.strip_prefix("image/").unwrap_or_default();
+    let extension: String = subtype
+        .split('+')
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect();
+    let stem = entry
+        .at
+        .with_timezone(&chrono::Local)
+        .format("Clipboard %Y-%m-%d %H-%M-%S");
+    match extension.is_empty() {
+        true => format!("{stem}.png"),
+        false => format!("{stem}.{extension}"),
+    }
+}
+
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(dir)?;
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?
+        .write_all(bytes)
+}
+
+fn forget_spill(id: ClipboardEntryId) {
+    if let Some(dir) = glimpse_config::runtime_dir() {
+        let _ = std::fs::remove_dir_all(dir.join("clipboard").join(id.to_string()));
+    }
+}
 
 fn action(key: &str, title: String, value: String) -> ClipAction {
     ClipAction {
         key: key.to_owned(),
         title,
         value,
+        choices: Vec::new(),
     }
 }
 
 fn act(entry: &ClipboardEntry, key: &str) -> Option<Acting> {
+    if let Some(device) = key.strip_prefix(SEND) {
+        let device = KdeconnectDeviceId::new(device);
+        return match entry.kind {
+            ClipboardKind::Image => spill_path(entry)
+                .map(|path| Acting::SendFile(device, gio::File::for_path(path).uri().to_string())),
+            ClipboardKind::Text => Some(Acting::SendText(
+                device,
+                String::from_utf8_lossy(&entry.data).into_owned(),
+            )),
+        };
+    }
+    if entry.kind == ClipboardKind::Image {
+        return match key {
+            SAVE => Some(Acting::Save(entry.clone())),
+            OPEN_WITH => spill_path(entry).map(Acting::OpenWith),
+            _ => None,
+        };
+    }
     let text = String::from_utf8_lossy(&entry.data);
     match (render::shape(&text), key) {
         (render::Shape::Link { url, .. }, OPEN) => Some(Acting::Open(url)),
@@ -297,6 +427,69 @@ fn act(entry: &ClipboardEntry, key: &str) -> Option<Acting> {
 enum Acting {
     Open(String),
     Copy(String),
+    Save(ClipboardEntry),
+    OpenWith(PathBuf),
+    SendFile(KdeconnectDeviceId, String),
+    SendText(KdeconnectDeviceId, String),
+}
+
+fn save(entry: ClipboardEntry, notifications: NotificationsProviderHandle) {
+    relm4::spawn_local(async move {
+        let dialog = gtk4::FileDialog::builder()
+            .title(gettext("Save image"))
+            .initial_name(file_name(&entry))
+            .modal(false)
+            .build();
+        let Ok(file) = dialog.save_future(None::<&gtk4::Window>).await else {
+            return;
+        };
+        let bytes = glib::Bytes::from(&*entry.data);
+        if let Err((_, error)) = file
+            .replace_contents_future(bytes, None, false, gio::FileCreateFlags::NONE)
+            .await
+        {
+            let report = Report {
+                notifications,
+                app_name: gettext("Clipboard"),
+                icon: render::ICON.to_owned(),
+                summary: gettext("Could not save the image"),
+            };
+            report_failure("clipboard.save", report, Some(error.to_string()), error).await;
+        }
+    });
+}
+
+fn send<F>(notifications: &NotificationsProviderHandle, operation: &'static str, future: F)
+where
+    F: std::future::Future<Output = Result<(), CommandError>> + Send + 'static,
+{
+    let report = Report {
+        notifications: notifications.clone(),
+        app_name: gettext("Clipboard"),
+        icon: render::ICON.to_owned(),
+        summary: gettext("Could not send that"),
+    };
+    let unavailable = gettext("KDE Connect is not running.");
+    spawn_reported(
+        operation,
+        report,
+        move |error| wording(error, &unavailable),
+        future,
+    );
+}
+
+fn open_with(path: PathBuf) {
+    let launcher = gtk4::FileLauncher::new(Some(&gio::File::for_path(&path)));
+    launcher.set_always_ask(true);
+    launcher.launch(
+        None::<&gtk4::Window>,
+        gio::Cancellable::NONE,
+        move |result| {
+            if let Err(error) = result {
+                tracing::warn!(path = %path.display(), %error, "could not open the image");
+            }
+        },
+    );
 }
 
 fn open(uri: String) {
@@ -383,6 +576,13 @@ impl Applet for Clipboard {
                 self.state = self.service.snapshot();
                 let live: Vec<_> = self.state.entries.iter().map(|entry| entry.id).collect();
                 self.images.retain(|id, _| live.contains(id));
+                self.files.retain(|id, _| {
+                    let kept = live.contains(id);
+                    if !kept {
+                        forget_spill(*id);
+                    }
+                    kept
+                });
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -416,6 +616,7 @@ impl Applet for Clipboard {
         });
         shown.connect_acted({
             let service = self.service.clone();
+            let kdeconnect = self.kdeconnect.clone();
             let notifications = self.notifications.clone();
             let opener = opener.clone();
             move |_, id, key| {
@@ -430,6 +631,20 @@ impl Applet for Clipboard {
                 };
                 match acting {
                     Acting::Open(uri) => open(uri),
+                    Acting::Save(entry) => save(entry, notifications.clone()),
+                    Acting::OpenWith(path) => open_with(path),
+                    Acting::SendFile(device, uri) => {
+                        let kdeconnect = kdeconnect.clone();
+                        send(&notifications, "kdeconnect.share", async move {
+                            kdeconnect.share(device, vec![uri]).await
+                        });
+                    }
+                    Acting::SendText(device, text) => {
+                        let kdeconnect = kdeconnect.clone();
+                        send(&notifications, "kdeconnect.share_text", async move {
+                            kdeconnect.share_text(device, text).await
+                        });
+                    }
                     Acting::Copy(text) => {
                         let service = service.clone();
                         let acknowledged = opener.clone();

@@ -112,6 +112,8 @@ nothing inside `within` means no chip, and an event ending under an open popover
 **clipboard** — copying anything closes the popover, since it was picked to be pasted.
 **Images decode through `thumbnail`, never `Texture::from_bytes`** — a byte cap says nothing about
 pixel count, and a small file can decode to an enormous bitmap.
+A decoded image is also written, private, under `runtime_dir()/clipboard/<id>/` and deleted with
+its entry: a drop hands a file manager a URI, and a drag's content must exist when it starts.
 `WaylandSelection` adapts `glimpse_wayland::selection` to the service's `Selection` trait. It
 opens a data-control watch only while the service has an events subscriber and passes read demand
 before reading an offer, so a disabled clipboard service opens no connection or reads no secret.

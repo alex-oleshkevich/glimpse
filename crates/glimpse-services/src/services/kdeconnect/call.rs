@@ -88,6 +88,22 @@ pub async fn share(
     .await
 }
 
+pub async fn share_text(
+    connection: &Connection,
+    owner: &str,
+    id: &DeviceId,
+    text: &str,
+) -> Result<()> {
+    proxy!(
+        ShareProxy,
+        connection,
+        owner,
+        kdeconnect::plugin_path(id.as_str(), "share")
+    )
+    .share_text(text)
+    .await
+}
+
 pub async fn discover(connection: &Connection, owner: &str) -> Result<()> {
     source::daemon(connection, owner)
         .await?

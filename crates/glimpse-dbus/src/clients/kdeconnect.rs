@@ -64,6 +64,9 @@ pub trait Clipboard {
 pub trait Share {
     #[zbus(name = "shareUrls")]
     fn share_urls(&self, urls: &[&str]) -> zbus::Result<()>;
+
+    #[zbus(name = "shareText")]
+    fn share_text(&self, text: &str) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(interface = "org.kde.kdeconnect.device.sftp")]

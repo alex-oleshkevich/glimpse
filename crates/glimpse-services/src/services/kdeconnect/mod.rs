@@ -152,6 +152,11 @@ pub enum Command {
         urls: Vec<String>,
         reply: Reply,
     },
+    ShareText {
+        id: DeviceId,
+        text: String,
+        reply: Reply,
+    },
     Discover {
         reply: Reply,
     },
@@ -235,6 +240,11 @@ impl KdeconnectHandle {
 
     pub async fn share(&self, id: DeviceId, urls: Vec<String>) -> Result<(), CommandError> {
         self.call(|reply| Command::Share { id, urls, reply }).await
+    }
+
+    pub async fn share_text(&self, id: DeviceId, text: String) -> Result<(), CommandError> {
+        self.call(|reply| Command::ShareText { id, text, reply })
+            .await
     }
 
     pub async fn discover(&self) -> Result<(), CommandError> {
@@ -436,6 +446,12 @@ impl Kdeconnect {
                     let _ = reply.send(outcome.map_err(failed));
                 });
             }
+            Command::ShareText { id, text, reply } => {
+                ctx.spawn_detached(move |_| async move {
+                    let outcome = call::share_text(&connection, &owner, &id, &text).await;
+                    let _ = reply.send(outcome.map_err(failed));
+                });
+            }
             Command::Discover { reply } => {
                 ctx.spawn_detached(move |_| async move {
                     let outcome = call::discover(&connection, &owner).await;
@@ -448,9 +464,10 @@ impl Kdeconnect {
 
 fn refuse(command: Command, reason: &str) {
     let reply = match command {
-        Command::Act { reply, .. } | Command::Share { reply, .. } | Command::Discover { reply } => {
-            reply
-        }
+        Command::Act { reply, .. }
+        | Command::Share { reply, .. }
+        | Command::ShareText { reply, .. }
+        | Command::Discover { reply } => reply,
     };
     let _ = reply.send(Err(CommandError::Unavailable(reason.to_owned())));
 }
