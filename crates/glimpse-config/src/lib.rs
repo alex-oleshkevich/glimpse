@@ -11,7 +11,8 @@ pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{
     DATA_DIR, applet_dir, load, load_or_default, resolve_image, resolved_files, runtime_dir,
-    seed_user_config, state_dir, unknown_applets, user_dir, watch_dirs, write_table,
+    screenshot_file, seed_user_config, state_dir, unknown_applets, user_dir, watch_dirs,
+    write_table,
 };
 pub use schema::*;
 pub use theme::{

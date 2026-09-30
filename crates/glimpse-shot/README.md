@@ -289,10 +289,11 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   by 1.25 per step between 10% and 800%, anchored at the pointer, leaving Fit and 1:1 both unset; a
   plain scroll only scrolls. A screen capture flashes white
   before the window opens, starting on the flash surface's first frame.
-- **Preferences.** Saving, Behavior, Annotations and Keyboard Shortcuts are fixed groups. Only `[screenshot]` of the `--config` file, else `user_dir()/config.toml`, is
-  written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
-  values only; the dialog holds its state until closed. A key a later layer of `resolved_files` sets is insensitive and names the file; a file
-  that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
+- **Preferences.** Saving, Behavior, Annotations and Keyboard Shortcuts are fixed groups. Only `[screenshot]` of
+  `glimpse_config::screenshot_file` — `shot.toml` beside the `--config` file or in `user_dir()` —
+  is written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
+  values only; config.toml is never written, and its `[screenshot]` still supplies any key shot.toml
+  leaves out. The dialog holds its state until closed; a file that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
 - **Desktop entry.** `DBusActivatable`; its `screen`, `window` and `region` actions present the
   Capture page in that mode (`gapplication action` is the `Exec` fallback).
 

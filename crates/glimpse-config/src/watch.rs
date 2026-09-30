@@ -8,7 +8,7 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::mpsc;
 
-use crate::load::{load, watch_dirs};
+use crate::load::{SCREENSHOT_FILE_NAME, load, watch_dirs};
 use crate::schema::Config;
 
 /// How long a watched directory has to go quiet before its events are reported. An editor saving a
@@ -56,6 +56,14 @@ pub fn watch_config_reporting(
 ) -> impl Stream<Item = Result<Option<Config>, String>> + Send + 'static {
     let watched = watch_all(watch_dirs(config_path.as_deref())).filter_map(|update| async move {
         match update {
+            Update::Changed(paths)
+                if !paths.is_empty()
+                    && paths
+                        .iter()
+                        .all(|path| path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref())) =>
+            {
+                None
+            }
             Update::Changed(_) | Update::Rearmed => Some(()),
             Update::Unavailable(reason) => {
                 tracing::warn!(

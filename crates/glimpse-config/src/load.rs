@@ -12,6 +12,8 @@ use crate::schema::{Applet, Config};
 
 const SYSTEM_DIR: &str = "/etc/glimpse";
 const FILE_NAME: &str = "config.toml";
+pub const SCREENSHOT_FILE_NAME: &str = "shot.toml";
+const SCREENSHOT_TABLE: &str = "screenshot";
 const COMMENTED_FILE_NAME: &str = "config.commented.toml";
 const DROPIN_DIR: &str = "config.d";
 const FOLDER_NAME: &str = "glimpse";
@@ -237,6 +239,17 @@ pub fn resolved_files(config_path: Option<&Path>) -> Result<Vec<PathBuf>, Config
     stack(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
+pub fn screenshot_file(config_path: Option<&Path>) -> Option<PathBuf> {
+    screenshot_file_in(user_dir().as_deref(), config_path)
+}
+
+fn screenshot_file_in(user_dir: Option<&Path>, config_path: Option<&Path>) -> Option<PathBuf> {
+    match config_path {
+        Some(path) => path.parent().map(|dir| dir.join(SCREENSHOT_FILE_NAME)),
+        None => user_dir.map(|dir| dir.join(SCREENSHOT_FILE_NAME)),
+    }
+}
+
 pub fn watch_dirs(config_path: Option<&Path>) -> Vec<PathBuf> {
     watch_dirs_from(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
@@ -348,9 +361,16 @@ fn load_from(
             Err(error) => return Err(error),
         };
 
-        if let Err(error) = text.parse::<toml::Table>() {
-            return Err(ConfigError::parse(&path, &text, &error));
-        }
+        let mut table = match text.parse::<toml::Table>() {
+            Ok(table) => table,
+            Err(error) => return Err(ConfigError::parse(&path, &text, &error)),
+        };
+        let text = if path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref()) {
+            table.retain(|key, _| key == SCREENSHOT_TABLE);
+            table.to_string()
+        } else {
+            text
+        };
         builder = builder.add_source(config::File::from_str(&text, config::FileFormat::Toml));
     }
 
@@ -406,15 +426,17 @@ fn stack(
     user_dir: Option<&Path>,
     config_path: Option<&Path>,
 ) -> Result<Vec<PathBuf>, ConfigError> {
-    if let Some(path) = config_path {
-        return Ok(vec![path.to_path_buf()]);
-    }
-
     let mut files = Vec::new();
-    for dir in [Some(system_dir), user_dir].into_iter().flatten() {
-        files.push(dir.join(FILE_NAME));
-        files.extend(dropins(&dir.join(DROPIN_DIR))?);
+    match config_path {
+        Some(path) => files.push(path.to_path_buf()),
+        None => {
+            for dir in [Some(system_dir), user_dir].into_iter().flatten() {
+                files.push(dir.join(FILE_NAME));
+                files.extend(dropins(&dir.join(DROPIN_DIR))?);
+            }
+        }
     }
+    files.extend(screenshot_file_in(user_dir, config_path));
     Ok(files)
 }
 
@@ -915,6 +937,36 @@ mod tests {
                 longitude: -0.1278
             },
             "the drop-in overrides one key and leaves the other standing"
+        );
+    }
+
+    #[test]
+    fn the_screenshot_file_overrides_screenshot_keys_and_nothing_else() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let path = root.path().join(FILE_NAME);
+        std::fs::write(
+            &path,
+            "[appearance]\ncolor-scheme = \"dark\"\n[screenshot]\nflash = true\ndelay = 2\n",
+        )
+        .expect("writes");
+        std::fs::write(
+            root.path().join(SCREENSHOT_FILE_NAME),
+            "[appearance]\ncolor-scheme = \"light\"\n[screenshot]\nflash = false\n",
+        )
+        .expect("writes");
+
+        let loaded = load_from(root.path(), None, Some(&path)).expect("the layers merge");
+
+        assert!(!loaded.screenshot.flash, "shot.toml wins for its own keys");
+        assert_eq!(loaded.screenshot.delay, 2, "config.toml fills the rest");
+        assert_eq!(
+            loaded.appearance.color_scheme,
+            crate::ColorScheme::Dark,
+            "any other table in shot.toml is ignored"
+        );
+        assert_eq!(
+            stack(root.path(), None, Some(&path)).expect("a stack"),
+            [path.clone(), root.path().join(SCREENSHOT_FILE_NAME)]
         );
     }
 
