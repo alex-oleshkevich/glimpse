@@ -10,17 +10,18 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Audio, AudioHandle, Backlight, Battery, BatteryHandle, Bluetooth, BluetoothDependencies,
-    BluetoothHandle, Brightness, BrightnessDependencies, BrightnessHandle, Calendar,
-    CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle, ColorPicker,
-    ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor, CompositorHandle,
-    DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat, HeartbeatHandle,
-    Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris,
-    MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle, Printing,
-    PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker, ProcessRulerRunner,
-    Removable, RemovableHandle, Ruler, RulerDependencies, RulerHandle, Running, Selection,
-    SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
+    Audio, AudioHandle, Backlight, Battery, BatteryDependencies, BatteryHandle, BatterySource,
+    Bluetooth, BluetoothDependencies, BluetoothHandle, Brightness, BrightnessDependencies,
+    BrightnessHandle, Calendar, CalendarHandle, Clipboard, ClipboardDependencies, ClipboardHandle,
+    ColorPicker, ColorPickerDependencies, ColorPickerHandle, CompositeBacklight, Compositor,
+    CompositorHandle, DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat,
+    HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
+    Mpris, MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle,
+    Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker,
+    ProcessRulerRunner, Removable, RemovableHandle, Ruler, RulerDependencies, RulerHandle, Running,
+    Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
     SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
+    kdeconnect_batteries,
 };
 
 pub struct PanelServices {
@@ -177,8 +178,18 @@ impl PanelServices {
                 notifications: notifications.handle(),
             },
         );
-        let (battery_service, battery) =
-            Running::<Battery>::spawn(document, buses.clone(), <_>::default());
+        let (kdeconnect_service, kdeconnect) =
+            Running::<Kdeconnect>::spawn(document, buses.clone(), ());
+        let (battery_service, battery) = Running::<Battery>::spawn(
+            document,
+            buses.clone(),
+            BatteryDependencies {
+                sources: vec![BatterySource::new(
+                    kdeconnect.subscribe(),
+                    kdeconnect_batteries,
+                )],
+            },
+        );
         let (places_service, places) = Running::<Places>::spawn(document, buses.clone(), ());
         let (printing_service, printing) = Running::<Printing>::spawn(document, buses.clone(), ());
         let (privacy_service, privacy) = Running::<Privacy>::spawn(
@@ -193,7 +204,6 @@ impl PanelServices {
             Running::<SystemMonitor>::spawn(document, buses.clone(), ());
         let (removable_service, removable) =
             Running::<Removable>::spawn(document, buses.clone(), ());
-        let (kdeconnect_service, kdeconnect) = Running::<Kdeconnect>::spawn(document, buses, ());
 
         Self {
             compositor,

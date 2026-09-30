@@ -7,6 +7,7 @@ use tokio::sync::oneshot;
 
 use glimpse_dbus::kdeconnect::DeviceProperties;
 pub use glimpse_dbus::kdeconnect::{BatteryProperties as Battery, DeviceType, PairState};
+use glimpse_dbus::upower::{ChargeState, DeviceKind, WarningLevel};
 
 use crate::{
     context::Ctx,
@@ -82,6 +83,43 @@ impl KdeconnectState {
     pub fn device(&self, id: &DeviceId) -> Option<&Device> {
         self.devices.iter().find(|device| &device.id == id)
     }
+}
+
+pub fn batteries(state: &KdeconnectState) -> Vec<crate::BatteryPeripheral> {
+    state
+        .devices
+        .iter()
+        .filter_map(|device| {
+            let battery = device.battery?;
+            let percentage = battery.charge?;
+            Some(crate::BatteryPeripheral {
+                path: format!("kdeconnect:{}", device.id.as_str()),
+                kind: match device.kind {
+                    DeviceType::Phone => DeviceKind::Phone,
+                    DeviceType::Tablet => DeviceKind::Tablet,
+                    DeviceType::Desktop | DeviceType::Laptop => DeviceKind::Computer,
+                    DeviceType::Tv | DeviceType::Unknown => DeviceKind::Unknown,
+                },
+                name: device.name.clone(),
+                icon_name: None,
+                charge: crate::Charge {
+                    percentage,
+                    state: match battery.charging {
+                        true => ChargeState::Charging,
+                        false => ChargeState::Discharging,
+                    },
+                    icon_name: String::new(),
+                    time_to_empty: None,
+                    time_to_full: None,
+                    energy_rate_mw: None,
+                    warning: match battery.low {
+                        true => WarningLevel::Low,
+                        false => WarningLevel::None,
+                    },
+                },
+            })
+        })
+        .collect()
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -686,6 +724,33 @@ mod tests {
             assert_eq!(device.battery, None, "{}", device.id.as_str());
             assert_eq!(device.actions, Actions::default(), "{}", device.id.as_str());
         }
+    }
+
+    #[test]
+    fn only_a_connected_device_with_a_reading_contributes_a_battery() {
+        let mut unread = phone("c", true, PairState::Paired);
+        unread.battery = Some(Battery {
+            charge: None,
+            charging: true,
+            low: false,
+        });
+        let mut low = phone("a", true, PairState::Paired);
+        low.battery = Some(Battery {
+            charge: Some(9),
+            charging: false,
+            low: true,
+        });
+        let contributed = batteries(&KdeconnectState {
+            running: true,
+            devices: vec![low, phone("b", false, PairState::Paired), unread],
+        });
+        assert_eq!(contributed.len(), 1);
+        assert_eq!(contributed[0].path, "kdeconnect:a");
+        assert_eq!(contributed[0].name, "Phone a");
+        assert_eq!(contributed[0].kind, DeviceKind::Phone);
+        assert_eq!(contributed[0].charge.percentage, 9);
+        assert_eq!(contributed[0].charge.state, ChargeState::Discharging);
+        assert_eq!(contributed[0].charge.warning, WarningLevel::Low);
     }
 
     #[test]

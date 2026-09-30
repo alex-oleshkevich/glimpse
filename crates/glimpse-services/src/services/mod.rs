@@ -95,6 +95,7 @@ pub use kdeconnect::{
     Action as KdeconnectAction, Actions as KdeconnectActions, Battery as KdeconnectBattery,
     Device as KdeconnectDevice, DeviceId as KdeconnectDeviceId, DeviceType as KdeconnectDeviceType,
     Kdeconnect, KdeconnectHandle, KdeconnectState, PairState as KdeconnectPairState,
+    batteries as kdeconnect_batteries,
 };
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle};

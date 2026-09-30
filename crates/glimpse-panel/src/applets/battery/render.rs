@@ -306,6 +306,7 @@ fn kind_icon(kind: DeviceKind) -> &'static str {
         DeviceKind::Headphones | DeviceKind::Headset => "audio-headphones-symbolic",
         DeviceKind::Phone => "phone-symbolic",
         DeviceKind::Tablet => "tablet-symbolic",
+        DeviceKind::Computer => "computer-symbolic",
         DeviceKind::GamingInput => "input-gaming-symbolic",
         DeviceKind::Ups => "uninterruptible-power-supply-symbolic",
         _ => "battery-symbolic",
