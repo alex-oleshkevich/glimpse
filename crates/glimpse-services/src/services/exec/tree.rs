@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
+use chrono::NaiveDate;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
@@ -17,6 +18,8 @@ const TEXT_CAP: usize = 256;
 const NAME_CAP: usize = 64;
 const BADGE_CAP: usize = 8;
 const ENTRY_CAP: usize = 4096;
+pub const MAX_ITEMS: usize = 64;
+pub const MAX_SLOT_CHILDREN: usize = 4;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
@@ -46,6 +49,19 @@ pub enum ElementKind {
     Entry,
     Placeholder,
     Box,
+    FactList,
+    ChoiceList,
+    Readout,
+    Notice,
+    Calendar,
+    DropDown,
+    ToggleButton,
+    CheckButton,
+    Revealer,
+    Stack,
+    Expander,
+    RangeBar,
+    Dots,
     Label,
     Image,
     Button,
@@ -132,6 +148,19 @@ pub enum Element {
     Entry(EntryProps),
     Placeholder(PlaceholderProps),
     Box(BoxProps),
+    FactList(FactListProps),
+    ChoiceList(ChoiceListProps),
+    Readout(ReadoutProps),
+    Notice(NoticeProps),
+    Calendar(CalendarProps),
+    DropDown(DropDownProps),
+    ToggleButton(ToggleButtonProps),
+    CheckButton(CheckButtonProps),
+    Revealer(RevealerProps),
+    Stack(StackProps),
+    Expander(ExpanderProps),
+    RangeBar(RangeBarProps),
+    Dots(DotsProps),
     Label(LabelProps),
     Image(ImageProps),
     Button(ButtonProps),
@@ -198,6 +227,7 @@ pub struct RowProps {
     pub value: Option<String>,
     pub selected: Option<bool>,
     pub busy: bool,
+    pub chevron: bool,
     pub class_name: Option<ClassName>,
     pub on_activate: bool,
 }
@@ -347,6 +377,178 @@ pub struct SeparatorProps {
     pub class_name: Option<ClassName>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tone {
+    Accent,
+    Dim,
+    Success,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Deserialize)]
+pub enum Transition {
+    #[serde(rename = "slide-down")]
+    #[default]
+    SlideDown,
+    #[serde(rename = "crossfade")]
+    Crossfade,
+    #[serde(rename = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct FactItem {
+    pub label: String,
+    pub value: String,
+    pub warning: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct FactListProps {
+    pub facts: Vec<FactItem>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ChoiceItem {
+    pub label: String,
+    pub detail: Option<String>,
+    pub icon: Option<String>,
+    pub warning: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ChoiceListProps {
+    pub choices: Vec<ChoiceItem>,
+    pub selected: Option<u32>,
+    pub class_name: Option<ClassName>,
+    pub on_select: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReadoutProps {
+    pub value: Option<String>,
+    pub unit: Option<String>,
+    pub class_name: Option<ClassName>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct NoticeProps {
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub severity: Option<Severity>,
+    pub class_name: Option<ClassName>,
+    pub on_activate: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarMarker {
+    pub date: Option<NaiveDate>,
+    pub colors: Vec<Tone>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarProps {
+    pub year: Option<i32>,
+    pub month: Option<u32>,
+    pub selected: Option<NaiveDate>,
+    pub today: Option<NaiveDate>,
+    pub events: Vec<CalendarMarker>,
+    pub class_name: Option<ClassName>,
+    pub on_month: bool,
+    pub on_select: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct DropDownProps {
+    pub options: Vec<String>,
+    pub selected: Option<u32>,
+    pub class_name: Option<ClassName>,
+    pub on_select: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ToggleButtonProps {
+    pub label: Option<String>,
+    pub icon: Option<String>,
+    pub active: bool,
+    pub class_name: Option<ClassName>,
+    pub on_toggle: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct CheckButtonProps {
+    pub label: Option<String>,
+    pub active: bool,
+    pub class_name: Option<ClassName>,
+    pub on_toggle: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct RevealerProps {
+    pub revealed: bool,
+    pub transition: Transition,
+    pub class_name: Option<ClassName>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct StackProps {
+    pub visible: u32,
+    pub class_name: Option<ClassName>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExpanderProps {
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub expanded: bool,
+    pub class_name: Option<ClassName>,
+    pub on_toggle: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct RangeBarProps {
+    #[serde(default, deserialize_with = "de_finite_f64")]
+    pub min: f64,
+    #[serde(default = "one", deserialize_with = "de_finite_f64")]
+    pub max: f64,
+    #[serde(default, deserialize_with = "de_finite_f64")]
+    pub low: f64,
+    #[serde(default, deserialize_with = "de_finite_f64")]
+    pub high: f64,
+    #[serde(default, deserialize_with = "de_optional_f64")]
+    pub now: Option<f64>,
+    pub class_name: Option<ClassName>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct DotsProps {
+    pub colors: Vec<Tone>,
+    pub uniform: bool,
+    #[serde(default, deserialize_with = "de_optional_f64")]
+    pub size: Option<f64>,
+    pub max: Option<u32>,
+    pub class_name: Option<ClassName>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Violation {
     #[error("unknown id {0}")]
@@ -366,6 +568,10 @@ pub enum Violation {
     TooManyNodes,
     #[error("parent {parent} has more than 200 children")]
     TooManyChildren { parent: u32 },
+    #[error("an array prop has more than 64 items")]
+    TooManyItems,
+    #[error("{parent} holds a number of children its element does not allow")]
+    ChildCount { parent: u32 },
     #[error("the root cannot be changed")]
     Root,
     #[error("more than 1200 operations in one commit")]
@@ -402,6 +608,7 @@ impl Tree {
         {
             return Err(Violation::TooManyChildren { parent });
         }
+        check_child_counts(&next.nodes)?;
         Ok(next)
     }
 
@@ -499,6 +706,7 @@ impl Tree {
         let Some(arc) = self.nodes.get(&id).cloned() else {
             return Err(Violation::UnknownId(id));
         };
+        check_items(&props)?;
         let mut node = (*arc).clone();
         for (key, value) in props {
             if value.is_null() {
@@ -625,6 +833,19 @@ impl Element {
             Self::Entry(_) => ElementKind::Entry,
             Self::Placeholder(_) => ElementKind::Placeholder,
             Self::Box(_) => ElementKind::Box,
+            Self::FactList(_) => ElementKind::FactList,
+            Self::ChoiceList(_) => ElementKind::ChoiceList,
+            Self::Readout(_) => ElementKind::Readout,
+            Self::Notice(_) => ElementKind::Notice,
+            Self::Calendar(_) => ElementKind::Calendar,
+            Self::DropDown(_) => ElementKind::DropDown,
+            Self::ToggleButton(_) => ElementKind::ToggleButton,
+            Self::CheckButton(_) => ElementKind::CheckButton,
+            Self::Revealer(_) => ElementKind::Revealer,
+            Self::Stack(_) => ElementKind::Stack,
+            Self::Expander(_) => ElementKind::Expander,
+            Self::RangeBar(_) => ElementKind::RangeBar,
+            Self::Dots(_) => ElementKind::Dots,
             Self::Label(_) => ElementKind::Label,
             Self::Image(_) => ElementKind::Image,
             Self::Button(_) => ElementKind::Button,
@@ -653,6 +874,19 @@ impl ElementKind {
             Self::Entry => "entry",
             Self::Placeholder => "placeholder",
             Self::Box => "box",
+            Self::FactList => "factlist",
+            Self::ChoiceList => "choicelist",
+            Self::Readout => "readout",
+            Self::Notice => "notice",
+            Self::Calendar => "calendar",
+            Self::DropDown => "dropdown",
+            Self::ToggleButton => "togglebutton",
+            Self::CheckButton => "checkbutton",
+            Self::Revealer => "revealer",
+            Self::Stack => "stack",
+            Self::Expander => "expander",
+            Self::RangeBar => "rangebar",
+            Self::Dots => "dots",
             Self::Label => "label",
             Self::Image => "image",
             Self::Button => "button",
@@ -685,6 +919,19 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "entry" => ElementKind::Entry,
         "placeholder" => ElementKind::Placeholder,
         "box" => ElementKind::Box,
+        "factlist" => ElementKind::FactList,
+        "choicelist" => ElementKind::ChoiceList,
+        "readout" => ElementKind::Readout,
+        "notice" => ElementKind::Notice,
+        "calendar" => ElementKind::Calendar,
+        "dropdown" => ElementKind::DropDown,
+        "togglebutton" => ElementKind::ToggleButton,
+        "checkbutton" => ElementKind::CheckButton,
+        "revealer" => ElementKind::Revealer,
+        "stack" => ElementKind::Stack,
+        "expander" => ElementKind::Expander,
+        "rangebar" => ElementKind::RangeBar,
+        "dots" => ElementKind::Dots,
         "label" => ElementKind::Label,
         "image" => ElementKind::Image,
         "button" => ElementKind::Button,
@@ -710,7 +957,19 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
         ElementKind::Popover => {
             matches!(child, ElementKind::Hero | ElementKind::Footer) || is_body(child)
         }
-        ElementKind::Section | ElementKind::Box => is_body(child) && child != ElementKind::Section,
+        ElementKind::Section
+        | ElementKind::Box
+        | ElementKind::Revealer
+        | ElementKind::Stack
+        | ElementKind::Expander => is_body(child) && child != ElementKind::Section,
+        ElementKind::Hero => matches!(
+            child,
+            ElementKind::Readout | ElementKind::Switch | ElementKind::Label | ElementKind::Button
+        ),
+        ElementKind::Row => matches!(
+            child,
+            ElementKind::Image | ElementKind::Label | ElementKind::Button | ElementKind::Switch
+        ),
         ElementKind::Footer => matches!(
             child,
             ElementKind::Button | ElementKind::Row | ElementKind::Label | ElementKind::Box
@@ -729,6 +988,19 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Entry
             | ElementKind::Placeholder
             | ElementKind::Box
+            | ElementKind::FactList
+            | ElementKind::ChoiceList
+            | ElementKind::Readout
+            | ElementKind::Notice
+            | ElementKind::Calendar
+            | ElementKind::DropDown
+            | ElementKind::ToggleButton
+            | ElementKind::CheckButton
+            | ElementKind::Revealer
+            | ElementKind::Stack
+            | ElementKind::Expander
+            | ElementKind::RangeBar
+            | ElementKind::Dots
             | ElementKind::Label
             | ElementKind::Image
             | ElementKind::Button
@@ -757,6 +1029,7 @@ fn compile(
     if existing.contains_key(&id) || !new_ids.insert(id) {
         return Err(Violation::DuplicateId(id));
     }
+    check_items(&props)?;
     let element_kind = kind_of(&kind).unwrap_or(ElementKind::Unsupported);
     admit(parent_kind, element_kind)?;
     let mut child_ids = Vec::with_capacity(children.len());
@@ -832,6 +1105,25 @@ fn realize_into(
             Element::Placeholder(finish_placeholder(read_props(id, raw, kept)))
         }
         ElementKind::Box => Element::Box(finish_box(read_props(id, raw, kept))),
+        ElementKind::FactList => Element::FactList(finish_fact_list(read_props(id, raw, kept))),
+        ElementKind::ChoiceList => {
+            Element::ChoiceList(finish_choice_list(read_props(id, raw, kept)))
+        }
+        ElementKind::Readout => Element::Readout(finish_readout(read_props(id, raw, kept))),
+        ElementKind::Notice => Element::Notice(finish_notice(read_props(id, raw, kept))),
+        ElementKind::Calendar => Element::Calendar(finish_calendar(read_props(id, raw, kept))),
+        ElementKind::DropDown => Element::DropDown(finish_drop_down(read_props(id, raw, kept))),
+        ElementKind::ToggleButton => {
+            Element::ToggleButton(finish_toggle_button(read_props(id, raw, kept)))
+        }
+        ElementKind::CheckButton => {
+            Element::CheckButton(finish_check_button(read_props(id, raw, kept)))
+        }
+        ElementKind::Revealer => Element::Revealer(read_props(id, raw, kept)),
+        ElementKind::Stack => Element::Stack(read_props(id, raw, kept)),
+        ElementKind::Expander => Element::Expander(finish_expander(read_props(id, raw, kept))),
+        ElementKind::RangeBar => Element::RangeBar(finish_range_bar(read_props(id, raw, kept))),
+        ElementKind::Dots => Element::Dots(finish_dots(read_props(id, raw, kept))),
         ElementKind::Label => Element::Label(finish_label(read_props(id, raw, kept))),
         ElementKind::Image => Element::Image(finish_image(read_props(id, raw, kept))),
         ElementKind::Button => Element::Button(finish_button(read_props(id, raw, kept))),
@@ -970,6 +1262,119 @@ fn finish_progress(mut props: ProgressProps) -> ProgressProps {
     props.fraction = finite_or(props.fraction, 0.0).clamp(0.0, 1.0);
     props.text = text(props.text);
     props
+}
+
+fn finish_fact_list(mut props: FactListProps) -> FactListProps {
+    for fact in &mut props.facts {
+        fact.label = clean(&fact.label);
+        fact.value = clean(&fact.value);
+    }
+    props
+}
+
+fn finish_choice_list(mut props: ChoiceListProps) -> ChoiceListProps {
+    for choice in &mut props.choices {
+        choice.label = clean(&choice.label);
+        choice.detail = text(choice.detail.take());
+        choice.icon = icon(choice.icon.take());
+    }
+    props
+}
+
+fn finish_readout(mut props: ReadoutProps) -> ReadoutProps {
+    props.value = text(props.value);
+    props.unit = text(props.unit);
+    props
+}
+
+fn finish_notice(mut props: NoticeProps) -> NoticeProps {
+    props.icon = icon(props.icon);
+    props.title = text(props.title);
+    props.subtitle = text(props.subtitle);
+    props
+}
+
+fn finish_calendar(mut props: CalendarProps) -> CalendarProps {
+    props.month = props.month.map(|month| month.clamp(1, 12));
+    props
+}
+
+fn finish_drop_down(mut props: DropDownProps) -> DropDownProps {
+    for option in &mut props.options {
+        *option = clean(option);
+    }
+    props
+}
+
+fn finish_toggle_button(mut props: ToggleButtonProps) -> ToggleButtonProps {
+    props.label = text(props.label);
+    props.icon = icon(props.icon);
+    props
+}
+
+fn finish_check_button(mut props: CheckButtonProps) -> CheckButtonProps {
+    props.label = text(props.label);
+    props
+}
+
+fn finish_expander(mut props: ExpanderProps) -> ExpanderProps {
+    props.title = text(props.title);
+    props.subtitle = text(props.subtitle);
+    props
+}
+
+fn finish_range_bar(mut props: RangeBarProps) -> RangeBarProps {
+    props.min = finite_or(props.min, 0.0);
+    props.max = finite_or(props.max, 1.0);
+    if props.min >= props.max {
+        props.min = 0.0;
+        props.max = 1.0;
+    }
+    props.low = finite_or(props.low, props.min).clamp(props.min, props.max);
+    props.high = finite_or(props.high, props.low).clamp(props.low, props.max);
+    props.now = props
+        .now
+        .and_then(|now| now.is_finite().then_some(now.clamp(props.min, props.max)));
+    props
+}
+
+fn finish_dots(mut props: DotsProps) -> DotsProps {
+    props.size = props.size.map(|size| size.clamp(2.0, 16.0));
+    props.max = props.max.map(|max| max.clamp(1, 3));
+    props
+}
+
+fn clean(value: &str) -> String {
+    glimpse_utils::clean(value, TEXT_CAP)
+}
+
+fn check_items(props: &Map<String, Value>) -> Result<(), Violation> {
+    fn oversized(value: &Value) -> bool {
+        match value {
+            Value::Array(items) => items.len() > MAX_ITEMS || items.iter().any(oversized),
+            Value::Object(fields) => fields.values().any(oversized),
+            _ => false,
+        }
+    }
+    if props.values().any(oversized) {
+        return Err(Violation::TooManyItems);
+    }
+    Ok(())
+}
+
+fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> {
+    for (id, node) in nodes {
+        let count = node.children.len();
+        let fits = match node.element.kind() {
+            ElementKind::Revealer | ElementKind::Expander => count == 1,
+            ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
+            _ => true,
+        };
+        if !fits {
+            return Err(Violation::ChildCount { parent: *id });
+        }
+    }
+    Ok(())
 }
 
 fn text(value: Option<String>) -> Option<String> {
@@ -1634,10 +2039,19 @@ mod tests {
         );
         assert_eq!(
             section
-                .apply(vec![insert(3, leaf(4, "label"), None)])
-                .expect_err("child of a leaf"),
+                .apply(vec![insert(3, leaf(4, "section"), None)])
+                .expect_err("child of a row"),
             Violation::BadParent {
                 parent: ElementKind::Row,
+                child: ElementKind::Section,
+            }
+        );
+        assert_eq!(
+            tree.apply(vec![insert(1, leaf(2, "fader"), None)])
+                .and_then(|tree| tree.apply(vec![insert(2, leaf(3, "label"), None)]))
+                .expect_err("child of a leaf"),
+            Violation::BadParent {
+                parent: ElementKind::Fader,
                 child: ElementKind::Label,
             }
         );
@@ -1721,16 +2135,362 @@ mod tests {
         let error = tree
             .apply(vec![
                 insert(1, leaf(2, "row"), None),
-                insert(2, leaf(3, "label"), None),
+                insert(2, leaf(3, "section"), None),
             ])
             .expect_err("leaf");
         assert_eq!(
             error,
             Violation::BadParent {
                 parent: ElementKind::Row,
-                child: ElementKind::Label,
+                child: ElementKind::Section,
             }
         );
         assert!(tree.node(2).is_none());
+    }
+
+    fn only(tree: &Tree, id: u32) -> Element {
+        tree.node(id).expect("node").element.clone()
+    }
+
+    #[test]
+    fn widget_elements_decode_and_clean_their_props() {
+        let long = "a".repeat(1000);
+        let tree = hosted(&Tree::default())
+            .apply(vec![
+                insert(
+                    1,
+                    wire(
+                        2,
+                        "factlist",
+                        json!({"facts": [{"label": long, "value": "v", "warning": true}, {"label": "b"}]}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(
+                        3,
+                        "choicelist",
+                        json!({"choices": [{"label": "x", "detail": "d", "icon": "/etc/passwd"}], "selected": 0, "onSelect": true}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(4, "readout", json!({"value": "5", "unit": "C"}), Vec::new()),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(
+                        5,
+                        "notice",
+                        json!({"title": "t", "severity": "error", "onActivate": true}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(
+                        6,
+                        "calendar",
+                        json!({"year": 2026, "month": 14, "selected": "2026-06-04", "today": "2026-02-30",
+                               "events": [{"date": "2026-06-05", "colors": ["error", "accent"]}], "onMonth": true}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(
+                        7,
+                        "dots",
+                        json!({"colors": ["warning", "nope"], "size": 99, "max": 9, "uniform": true}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(8, "dropdown", json!({"options": ["a", long], "selected": 1}), Vec::new()),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(9, "togglebutton", json!({"label": "l", "active": true}), Vec::new()),
+                    None,
+                ),
+                insert(1, wire(10, "checkbutton", json!({"label": "c"}), Vec::new()), None),
+                insert(
+                    1,
+                    wire(11, "rangebar", json!({"min": 0, "max": 10, "low": 8, "high": 3, "now": 99}), Vec::new()),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(12, "expander", json!({"title": "e", "expanded": true}), vec![leaf(13, "label")]),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(14, "revealer", json!({"revealed": true, "transition": "none"}), vec![leaf(15, "label")]),
+                    None,
+                ),
+                insert(1, wire(16, "stack", json!({"visible": 1}), vec![leaf(17, "label"), leaf(18, "label")]), None),
+            ])
+            .expect("widgets");
+
+        let Element::FactList(facts) = only(&tree, 2) else {
+            panic!("factlist")
+        };
+        assert_eq!(facts.facts[0].label, glimpse_utils::clean(&long, 256));
+        assert!(facts.facts[0].warning);
+        assert_eq!(facts.facts[1].value, "");
+        let Element::ChoiceList(choices) = only(&tree, 3) else {
+            panic!("choicelist")
+        };
+        assert_eq!(choices.choices[0].detail.as_deref(), Some("d"));
+        assert_eq!(choices.choices[0].icon, None);
+        assert_eq!(choices.selected, Some(0));
+        assert!(choices.on_select);
+        let Element::Readout(readout) = only(&tree, 4) else {
+            panic!("readout")
+        };
+        assert_eq!(readout.unit.as_deref(), Some("C"));
+        let Element::Notice(notice) = only(&tree, 5) else {
+            panic!("notice")
+        };
+        assert_eq!(notice.severity, Some(Severity::Error));
+        assert!(notice.on_activate);
+        let Element::Calendar(calendar) = only(&tree, 6) else {
+            panic!("calendar")
+        };
+        assert_eq!(calendar.month, Some(12));
+        assert_eq!(
+            calendar.selected,
+            chrono::NaiveDate::from_ymd_opt(2026, 6, 4)
+        );
+        assert_eq!(calendar.today, None);
+        assert_eq!(
+            calendar.events[0].colors,
+            vec![super::Tone::Error, super::Tone::Accent]
+        );
+        assert!(calendar.on_month && !calendar.on_select);
+        let Element::Dots(dots) = only(&tree, 7) else {
+            panic!("dots")
+        };
+        assert!(dots.colors.is_empty());
+        assert_eq!(
+            (dots.size, dots.max, dots.uniform),
+            (Some(16.0), Some(3), true)
+        );
+        let Element::DropDown(drop_down) = only(&tree, 8) else {
+            panic!("dropdown")
+        };
+        assert_eq!(drop_down.options[1], glimpse_utils::clean(&long, 256));
+        let Element::ToggleButton(toggle) = only(&tree, 9) else {
+            panic!("togglebutton")
+        };
+        assert!(toggle.active && !toggle.on_toggle);
+        assert!(matches!(only(&tree, 10), Element::CheckButton(_)));
+        let Element::RangeBar(bar) = only(&tree, 11) else {
+            panic!("rangebar")
+        };
+        assert_eq!(
+            (bar.min, bar.max, bar.low, bar.high, bar.now),
+            (0.0, 10.0, 8.0, 8.0, Some(10.0))
+        );
+        let Element::Expander(expander) = only(&tree, 12) else {
+            panic!("expander")
+        };
+        assert!(expander.expanded);
+        let Element::Revealer(revealer) = only(&tree, 14) else {
+            panic!("revealer")
+        };
+        assert_eq!(revealer.transition, super::Transition::None);
+        let Element::Stack(stack) = only(&tree, 16) else {
+            panic!("stack")
+        };
+        assert_eq!(stack.visible, 1);
+        assert_eq!(tree.children(16), &[17, 18]);
+    }
+
+    #[test]
+    fn a_nan_range_bar_bound_falls_back_to_the_unit_range() {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(
+                    2,
+                    "rangebar",
+                    json!({"min": "NaN", "max": 4, "low": 9, "high": 1}),
+                    Vec::new(),
+                ),
+                None,
+            )])
+            .expect("bar");
+        let Element::RangeBar(bar) = only(&tree, 2) else {
+            panic!("rangebar")
+        };
+        assert_eq!((bar.min, bar.max), (0.0, 4.0));
+        assert_eq!((bar.low, bar.high), (4.0, 4.0));
+    }
+
+    #[test]
+    fn array_props_over_sixty_four_items_are_a_violation() {
+        let many = |count: usize| {
+            (0..count)
+                .map(|index| json!({"label": index.to_string(), "value": "v"}))
+                .collect::<Vec<_>>()
+        };
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(2, "factlist", json!({"facts": many(64)}), Vec::new()),
+                None,
+            )])
+            .expect("64 fit");
+        assert_eq!(
+            hosted(&Tree::default())
+                .apply(vec![insert(
+                    1,
+                    wire(2, "factlist", json!({"facts": many(65)}), Vec::new()),
+                    None,
+                )])
+                .expect_err("65 insert"),
+            Violation::TooManyItems
+        );
+        assert_eq!(
+            tree.apply(vec![Op::Set {
+                id: 2,
+                props: props(json!({"facts": many(65)})),
+                seq: None,
+            }])
+            .expect_err("65 set"),
+            Violation::TooManyItems
+        );
+        let colors = vec!["accent"; 65];
+        assert_eq!(
+            hosted(&Tree::default())
+                .apply(vec![insert(
+                    1,
+                    wire(
+                        3,
+                        "calendar",
+                        json!({"events": [{"date": "2026-06-04", "colors": colors}]}),
+                        Vec::new(),
+                    ),
+                    None,
+                )])
+                .expect_err("nested"),
+            Violation::TooManyItems
+        );
+    }
+
+    #[test]
+    fn revealer_and_expander_hold_exactly_one_child_and_a_stack_any() {
+        let root = hosted(&Tree::default());
+        for (kind, element) in [
+            ("revealer", ElementKind::Revealer),
+            ("expander", ElementKind::Expander),
+        ] {
+            assert_eq!(
+                root.apply(vec![insert(1, leaf(2, kind), None)])
+                    .expect_err("empty"),
+                Violation::ChildCount { parent: 2 }
+            );
+            assert_eq!(
+                root.apply(vec![insert(
+                    1,
+                    wire(2, kind, json!({}), vec![leaf(3, "label"), leaf(4, "label")]),
+                    None,
+                )])
+                .expect_err("two"),
+                Violation::ChildCount { parent: 2 }
+            );
+            let one = root
+                .apply(vec![insert(
+                    1,
+                    wire(2, kind, json!({}), vec![leaf(3, "label")]),
+                    None,
+                )])
+                .expect("one");
+            assert_eq!(
+                one.apply(vec![Op::Remove { parent: 2, id: 3 }])
+                    .expect_err("emptied"),
+                Violation::ChildCount { parent: 2 }
+            );
+            assert_eq!(
+                one.apply(vec![insert(2, leaf(4, "section"), None)])
+                    .expect_err("section"),
+                Violation::BadParent {
+                    parent: element,
+                    child: ElementKind::Section,
+                }
+            );
+        }
+        assert!(root.apply(vec![insert(1, leaf(2, "stack"), None)]).is_ok());
+        assert!(
+            root.apply(vec![insert(
+                1,
+                wire(
+                    2,
+                    "stack",
+                    json!({}),
+                    vec![leaf(3, "label"), leaf(4, "row"), leaf(5, "box")]
+                ),
+                None,
+            )])
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn hero_and_row_hold_up_to_four_end_children_of_their_own_kinds() {
+        let root = hosted(&Tree::default());
+        let with = |kind: &str, child: &str, count: u32| {
+            root.apply(vec![insert(
+                1,
+                wire(
+                    2,
+                    kind,
+                    json!({}),
+                    (3..3 + count).map(|id| leaf(id, child)).collect(),
+                ),
+                None,
+            )])
+        };
+        assert!(with("hero", "label", 4).is_ok());
+        assert!(with("row", "switch", 4).is_ok());
+        assert_eq!(
+            with("hero", "readout", 5).expect_err("five"),
+            Violation::ChildCount { parent: 2 }
+        );
+        assert_eq!(
+            with("row", "image", 5).expect_err("five"),
+            Violation::ChildCount { parent: 2 }
+        );
+        assert!(with("hero", "label", 0).is_ok());
+        assert_eq!(
+            with("hero", "image", 1).expect_err("image in hero"),
+            Violation::BadParent {
+                parent: ElementKind::Hero,
+                child: ElementKind::Image,
+            }
+        );
+        let row = root
+            .apply(vec![insert(
+                1,
+                wire(2, "row", json!({"chevron": true}), vec![leaf(3, "button")]),
+                None,
+            )])
+            .expect("row");
+        match only(&row, 2) {
+            Element::Row(props) => assert!(props.chevron),
+            other => panic!("expected a row, got {other:?}"),
+        }
     }
 }

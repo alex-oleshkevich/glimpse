@@ -18,24 +18,37 @@ import {
 import {
   Box,
   Button,
+  Calendar,
+  CheckButton,
+  ChoiceList,
   closePopover,
   copy,
   createElement,
+  Dots,
+  DropDown,
   Entry,
+  Expander,
+  FactList,
   Fragment,
   Hero,
   Image,
   Indicator,
   Label,
   notify,
+  Notice,
   openUri,
   Popover,
+  RangeBar,
+  Readout,
+  Revealer,
   Row,
   run,
   Section,
+  Stack,
   session as hostSession,
   useOptions,
   useStateDir,
+  ToggleButton,
   useState,
 } from "./index.ts";
 
@@ -395,6 +408,64 @@ test("applet sdk", async (t) => {
       [hostLine()],
     );
     assertMessages(lines, fixture("tooltip.ndjson"));
+  });
+
+  await t.test("widget elements reach the wire with handlers as booleans", async () => {
+    const lines = await drive(
+      createElement(
+        Popover,
+        null,
+        createElement(FactList, { facts: [{ label: "a", value: "b" }] }),
+        createElement(ChoiceList, {
+          choices: [{ label: "x" }],
+          selected: 0,
+          onSelect: () => {},
+        }),
+        createElement(Readout, { value: "5", unit: "C" }),
+        createElement(Notice, { title: "n", onActivate: () => {} }),
+        createElement(Calendar, {
+          year: 2026,
+          month: 6,
+          events: [{ date: "2026-06-04", colors: ["error"] }],
+          onMonth: () => {},
+          onSelect: () => {},
+        }),
+        createElement(Dots, { colors: ["accent"] }),
+        createElement(DropDown, { options: ["a", "b"], onSelect: () => {} }),
+        createElement(ToggleButton, { label: "t", active: true, onToggle: () => {} }),
+        createElement(CheckButton, { label: "c", onToggle: () => {} }),
+        createElement(RangeBar, { min: 0, max: 10, low: 2, high: 4 }),
+        createElement(Revealer, { revealed: true }, createElement(Label, { text: "r" })),
+        createElement(Stack, { visible: 1 }, createElement(Label, { text: "0" })),
+        createElement(Expander, { title: "e", onToggle: () => {} }, createElement(Label, { text: "b" })),
+      ),
+      [hostLine()],
+    );
+    const nodes = JSON.parse(lines[1]).ops[0].node.children;
+    const types = nodes.map((node: { type: string }) => node.type).join(",");
+    assert(
+      types ===
+        "factlist,choicelist,readout,notice,calendar,dots,dropdown,togglebutton,checkbutton,rangebar,revealer,stack,expander",
+      types,
+    );
+    assert(nodes[1].props.onSelect === true, JSON.stringify(nodes[1].props));
+    assert(nodes[4].props.onMonth === true && nodes[4].props.events[0].colors[0] === "error", JSON.stringify(nodes[4].props));
+    assert(nodes[12].children.length === 1 && nodes[12].props.onToggle === true, JSON.stringify(nodes[12]));
+  });
+
+  await t.test("rejects array props over 64 items", async () => {
+    const exit = mockExit(false);
+    try {
+      const options = Array.from({ length: 65 }, (_, index) => String(index));
+      const lines = await drive(
+        createElement(Popover, null, createElement(DropDown, { options })),
+        [hostLine()],
+      );
+      assert(lines.length === 1, lines.join("\n"));
+    } finally {
+      exit.restore();
+    }
+    assert(exit.code() === 70, `exit ${exit.code()}`);
   });
 
   await t.test("ops fixture matches ops.ndjson", async () => {

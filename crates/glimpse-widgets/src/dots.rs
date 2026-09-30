@@ -85,6 +85,12 @@ glib::wrapper! {
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
+impl Default for Dots {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Dots {
     pub fn new() -> Self {
         glib::Object::new()

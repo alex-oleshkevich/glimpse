@@ -93,6 +93,11 @@ stored tree still records that set.
 | `onChange` | entry | `[value]` — string. `seq` is a number |
 | `onSubmit` | entry | `[value]` — string |
 | `onClick` | button | `[]` |
+| `onSelect` | choicelist, dropdown | `[index]` — number. `seq` is a number |
+| `onSelect` | calendar | `[date]` — `YYYY-MM-DD` string |
+| `onMonth` | calendar | `[year, month]` — numbers |
+| `onActivate` | notice | `[]` |
+| `onToggle` | togglebutton, checkbutton, expander | `[active]` or `[expanded]` — boolean. `seq` is a number |
 
 A handler prop on an element is a boolean. `"onPress": true` subscribes. A missing or
 `false` handler does not.
@@ -237,13 +242,21 @@ and in it the first `hero` and the first `footer`.
 | root | `indicator`, `popover` |
 | `popover` | `hero`, `footer`, and any body element |
 | `section` | body elements except `section` |
+| `revealer`, `expander` | exactly one body element except `section` |
+| `stack` | body elements except `section` |
+| `hero` | at most 4 of `readout`, `switch`, `label`, `button`, drawn at its end |
+| `row` | at most 4 of `image`, `label`, `button`, `switch`, drawn at its end |
 | `box` | body elements except `section` |
 | `footer` | `button`, `row`, `label`, `box` |
 | anything else | nothing |
 
 Body elements are `section`, `row`, `switchrow`, `fader`, `entry`, `placeholder`, `box`,
-`label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator` and
+`label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator`,
+`factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
+`togglebutton`, `checkbutton`, `revealer`, `stack`, `expander`, `rangebar` and
 `unsupported`.
+
+An array prop with more than 64 items, at any depth, rejects the commit.
 
 An unknown `type` is `unsupported`. Its name is the type string after text cleaning,
 capped at 64 characters. Markup in that name is kept literal.
@@ -302,7 +315,7 @@ Children follow the parent table. The order of `children` is the order on screen
 
 ### `hero`
 
-Only under `popover`. No children.
+Only under `popover`. Up to 4 end children, see the parent table.
 
 | Prop | Type |
 | --- | --- |
@@ -323,7 +336,7 @@ A body element. It holds body elements except another `section`.
 
 ### `row`
 
-A leaf.
+Up to 4 end children, see the parent table.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
@@ -333,6 +346,7 @@ A leaf.
 | `value` | string | |
 | `selected` | boolean or absent | Present, either way, means the row can be selected |
 | `busy` | boolean | |
+| `chevron` | boolean | Draws the disclosure chevron at the end |
 | `className` | class | |
 | `onActivate` | boolean | `false` or absent means the row does not activate |
 
@@ -483,12 +497,166 @@ A leaf. No props besides `className`.
 
 ### `progress`
 
-A leaf. The caption is the `text` prop.
+A leaf, drawn as a slim monochrome meter. `className` `warning` or `error` recolors the fill. The `text` prop is the accessible label and is not drawn.
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `fraction` | number | `0`, clamped to `0`–`1` |
 | `text` | string | absent |
+| `className` | class | |
+
+### `factlist`
+
+A leaf. No events.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `facts` | array of `{label, value, warning?}` | At most 64 items |
+
+### `choicelist`
+
+A leaf. `onSelect` sends `[index]`, a number, with a `seq`.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `choices` | array of `{label, detail?, icon?, warning?}` | At most 64 items |
+| `selected` | number | |
+| `className` | class | |
+| `onSelect` | boolean | |
+
+### `readout`
+
+A leaf.
+
+| Prop | Type |
+| --- | --- |
+| `value` | string |
+| `unit` | string |
+| `className` | class |
+
+### `notice`
+
+A leaf. `onActivate` makes it a button.
+
+| Prop | Type |
+| --- | --- |
+| `icon` | string |
+| `title` | string |
+| `subtitle` | string |
+| `severity` | `info`, `warning` or `error` |
+| `className` | class |
+| `onActivate` | boolean |
+
+### `calendar`
+
+A leaf. `today` and `selected` are `YYYY-MM-DD`; a date that is not a real day is dropped.
+`onMonth` sends `[year, month]` when the user pages to another month, and `onSelect`
+sends `["YYYY-MM-DD"]`. Neither fires for a state set by the applet.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `year` | number | With `month`, the month shown |
+| `month` | number | Clamped to `1`–`12` |
+| `selected` | date | Absent clears the selection |
+| `today` | date | |
+| `events` | array of `{date, colors}` | At most 64 items. `colors` holds at most 64 tones from `accent`, `dim`, `success`, `warning`, `error`; the widget draws the first three |
+| `className` | class | |
+| `onMonth` | boolean | |
+| `onSelect` | boolean | |
+
+### `dots`
+
+A leaf.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `colors` | array of tone | At most 64 items; tones are `accent`, `dim`, `success`, `warning`, `error`. Resolved from the theme when the element is set |
+| `uniform` | boolean | |
+| `size` | number | Clamped to `2`–`16` |
+| `max` | number | Clamped to `1`–`3` |
+| `className` | class | |
+
+### `dropdown`
+
+A leaf. `onSelect` sends `[index]`, a number, with a `seq`.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `options` | array of string | At most 64 items |
+| `selected` | number | |
+| `className` | class | |
+| `onSelect` | boolean | |
+
+### `togglebutton`
+
+A leaf. `onToggle` sends `[active]` with a `seq`.
+
+| Prop | Type |
+| --- | --- |
+| `label` | string |
+| `icon` | string |
+| `active` | boolean |
+| `className` | class |
+| `onToggle` | boolean |
+
+### `checkbutton`
+
+A leaf. `onToggle` sends `[active]` with a `seq`.
+
+| Prop | Type |
+| --- | --- |
+| `label` | string |
+| `active` | boolean |
+| `className` | class |
+| `onToggle` | boolean |
+
+### `revealer`
+
+Holds exactly one body child; any other count rejects the commit.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `revealed` | boolean | `false` |
+| `transition` | `slide-down`, `crossfade` or `none` | `slide-down` |
+| `className` | class | |
+
+### `stack`
+
+Holds any number of body children. Children are addressed by index, in order, and the
+child at `visible` is shown.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `visible` | number | `0` |
+| `className` | class | |
+
+### `expander`
+
+Holds exactly one body child, the body. The header row toggles it; opening one expander
+in a popover closes the others. `onToggle` sends `[expanded]` with a `seq`, and does not
+fire for a state set by the applet.
+
+| Prop | Type |
+| --- | --- |
+| `title` | string |
+| `subtitle` | string |
+| `expanded` | boolean |
+| `className` | class |
+| `onToggle` | boolean |
+
+### `rangebar`
+
+A leaf. A range drawn on a scale. Non-finite numbers are dropped; `min` must be below
+`max` or the scale is `0`–`1`; `low`, `high` and `now` are clamped into it and `high`
+is raised to `low`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `min` | number | `0` |
+| `max` | number | `1` |
+| `low` | number | `0` |
+| `high` | number | `0` |
+| `now` | number | absent |
 | `className` | class | |
 
 ### `separator`

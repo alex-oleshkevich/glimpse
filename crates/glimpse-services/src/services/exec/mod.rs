@@ -27,11 +27,13 @@ pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
 
 pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
 pub use tree::{
-    Align, BoxProps, ButtonProps, ClassName, Element, ElementKind, Ellipsize, EntryProps,
-    FaderProps, FooterProps, HeroProps, ImageProps, IndicatorProps, LabelProps,
-    MAX_CHILDREN_PER_PARENT, MAX_NODES, Node, PlaceholderProps, PopoverProps, ProgressProps, ROOT,
-    RowProps, ScaleProps, SectionProps, SeparatorProps, Severity, SpinnerProps, SwitchProps,
-    SwitchRowProps, Tree, Violation,
+    Align, BoxProps, ButtonProps, CalendarMarker, CalendarProps, CheckButtonProps, ChoiceItem,
+    ChoiceListProps, ClassName, DotsProps, DropDownProps, Element, ElementKind, Ellipsize,
+    EntryProps, ExpanderProps, FactItem, FactListProps, FaderProps, FooterProps, HeroProps,
+    ImageProps, IndicatorProps, LabelProps, MAX_CHILDREN_PER_PARENT, MAX_NODES, Node, NoticeProps,
+    PlaceholderProps, PopoverProps, ProgressProps, ROOT, RangeBarProps, ReadoutProps,
+    RevealerProps, RowProps, ScaleProps, SectionProps, SeparatorProps, Severity, SpinnerProps,
+    StackProps, SwitchProps, SwitchRowProps, ToggleButtonProps, Tone, Transition, Tree, Violation,
 };
 pub use wire::{
     Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, SessionVerb, Urgency,

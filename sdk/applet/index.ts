@@ -45,6 +45,8 @@ export type ClassName =
   | "pill"
   | "circular";
 
+export type Tone = "accent" | "dim" | "success" | "warning" | "error";
+
 type Align = "fill" | "start" | "end" | "center" | "baseline";
 
 export const Indicator = "indicator" as unknown as FC<{
@@ -73,6 +75,7 @@ export const Hero = "hero" as unknown as FC<{
   title?: string;
   subtitle?: string;
   className?: ClassName;
+  children?: Node;
 }>;
 
 export const Section = "section" as unknown as FC<{
@@ -89,8 +92,10 @@ export const Row = "row" as unknown as FC<{
   value?: string;
   selected?: boolean;
   busy?: boolean;
+  chevron?: boolean;
   className?: ClassName;
   onActivate?: () => void;
+  children?: Node;
 }>;
 
 export const SwitchRow = "switchrow" as unknown as FC<{
@@ -112,6 +117,109 @@ export const Fader = "fader" as unknown as FC<{
   className?: ClassName;
   onChange?: (value: number) => void;
   onMute?: () => void;
+}>;
+
+export const FactList = "factlist" as unknown as FC<{
+  facts?: { label: string; value: string; warning?: boolean }[];
+}>;
+
+export const ChoiceList = "choicelist" as unknown as FC<{
+  choices?: {
+    label: string;
+    detail?: string;
+    icon?: string;
+    warning?: boolean;
+  }[];
+  selected?: number;
+  className?: ClassName;
+  onSelect?: (index: number) => void;
+}>;
+
+export const Readout = "readout" as unknown as FC<{
+  value?: string;
+  unit?: string;
+  className?: ClassName;
+}>;
+
+export const Notice = "notice" as unknown as FC<{
+  icon?: string;
+  title?: string;
+  subtitle?: string;
+  severity?: "info" | "warning" | "error";
+  className?: ClassName;
+  onActivate?: () => void;
+}>;
+
+export const Calendar = "calendar" as unknown as FC<{
+  year?: number;
+  month?: number;
+  selected?: string;
+  today?: string;
+  events?: { date: string; colors?: Tone[] }[];
+  className?: ClassName;
+  onMonth?: (year: number, month: number) => void;
+  onSelect?: (date: string) => void;
+}>;
+
+export const Dots = "dots" as unknown as FC<{
+  colors?: Tone[];
+  uniform?: boolean;
+  size?: number;
+  max?: number;
+  className?: ClassName;
+}>;
+
+export const DropDown = "dropdown" as unknown as FC<{
+  options?: string[];
+  selected?: number;
+  className?: ClassName;
+  onSelect?: (index: number) => void;
+}>;
+
+export const ToggleButton = "togglebutton" as unknown as FC<{
+  label?: string;
+  icon?: string;
+  active?: boolean;
+  className?: ClassName;
+  onToggle?: (active: boolean) => void;
+}>;
+
+export const CheckButton = "checkbutton" as unknown as FC<{
+  label?: string;
+  active?: boolean;
+  className?: ClassName;
+  onToggle?: (active: boolean) => void;
+}>;
+
+export const Revealer = "revealer" as unknown as FC<{
+  revealed?: boolean;
+  transition?: "slide-down" | "crossfade" | "none";
+  className?: ClassName;
+  children?: Node;
+}>;
+
+export const Stack = "stack" as unknown as FC<{
+  visible?: number;
+  className?: ClassName;
+  children?: Node;
+}>;
+
+export const Expander = "expander" as unknown as FC<{
+  title?: string;
+  subtitle?: string;
+  expanded?: boolean;
+  className?: ClassName;
+  onToggle?: (expanded: boolean) => void;
+  children?: Node;
+}>;
+
+export const RangeBar = "rangebar" as unknown as FC<{
+  min?: number;
+  max?: number;
+  low?: number;
+  high?: number;
+  now?: number;
+  className?: ClassName;
 }>;
 
 export const Entry = "entry" as unknown as FC<{

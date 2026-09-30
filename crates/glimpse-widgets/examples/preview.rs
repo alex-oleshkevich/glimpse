@@ -359,6 +359,7 @@ mod fixtures {
         dialogs(root, builder);
         after(root);
         pager(root);
+        charts(root);
         busy(root);
         expanded(root);
         indicators(root);
@@ -3919,6 +3920,111 @@ mod fixtures {
         }
     }
 
+    fn charts(root: &gtk4::Widget) {
+        use glimpse_widgets::{Bars, Sparkline};
+
+        fn case_of(widget: &gtk4::Widget) -> Option<String> {
+            widget
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+        }
+
+        fn wave(count: usize, base: f64, swing: f64, seed: f64) -> Vec<Option<f64>> {
+            (0..count)
+                .map(|i| {
+                    let t = i as f64;
+                    let v = base
+                        + swing * ((t * 0.9 + seed).sin() * 0.6 + (t * 2.3 + seed).cos() * 0.4);
+                    Some(v.max(0.0))
+                })
+                .collect()
+        }
+
+        for bars in collect::<Bars>(root) {
+            let Some(case) = case_of(bars.upcast_ref()) else {
+                eprintln!("a $Bars carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+            let mut values = wave(30, 6.0, 4.0, 0.0);
+            match case.as_str() {
+                "typical" | "narrow" | "wide" => {}
+                "days90" => values = wave(90, 6.0, 4.0, 1.0),
+                "week" => values = wave(7, 6.0, 4.0, 2.0),
+                "zeros" => values = vec![Some(0.0); 30],
+                "single" => values = vec![Some(4.2)],
+                "none" => values = vec![None; 30],
+                "gaps" => {
+                    for i in [3, 4, 5, 12, 20, 21] {
+                        values[i] = None;
+                    }
+                }
+                "spikes" => {
+                    values = vec![Some(0.05); 30];
+                    values[9] = Some(40.0);
+                    values[21] = Some(18.0);
+                    values[29] = Some(0.0);
+                }
+                "max" => {
+                    values = wave(30, 6.0, 4.0, 3.0);
+                    values[14] = Some(40.0);
+                    bars.set_maximum(Some(10.0));
+                }
+                "nohighlight" => bars.set_highlight_last(false),
+                "days366" => values = wave(400, 6.0, 4.0, 4.0),
+                _ => eprintln!("{DEMO}{case} names no bars case"),
+            }
+            bars.set_values(&values);
+            let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            let tooltips: Vec<Option<String>> = values
+                .iter()
+                .enumerate()
+                .map(|(i, v)| v.map(|v| format!("{} {} Sep · ${v:.2}", days[i % 7], 1 + i % 30)))
+                .collect();
+            bars.set_tooltips(&tooltips);
+            bars.set_label(&format!("Daily cost, {case}"));
+        }
+
+        for line in collect::<Sparkline>(root) {
+            let Some(case) = case_of(line.upcast_ref()) else {
+                eprintln!("a $Sparkline carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+            let mut values = wave(30, 6.0, 3.0, 0.0);
+            match case.as_str() {
+                "line" => {}
+                "fill" => {
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
+                "gaps" => {
+                    for i in [6, 7, 8, 18, 24] {
+                        values[i] = None;
+                    }
+                    line.set_show_last(true);
+                }
+                "flat" => values = vec![Some(5.0); 30],
+                "single" => {
+                    values = vec![None; 30];
+                    values[14] = Some(3.0);
+                }
+                "rising" => {
+                    values = (0..30).map(|i| Some(i as f64 * 1.5)).collect();
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
+                "noisy" => {
+                    values = (0..90).map(|i| Some(((i * 7919) % 101) as f64)).collect();
+                }
+                "none" => values = vec![None; 30],
+                "narrow" | "wide" => line.set_show_last(true),
+                _ => eprintln!("{DEMO}{case} names no sparkline case"),
+            }
+            line.set_values(&values);
+            line.set_label(&format!("Trend, {case}"));
+        }
+    }
+
     fn pager(root: &gtk4::Widget) {
         for pager in collect::<Pager>(root) {
             let Some(case) = pager
@@ -4313,6 +4419,8 @@ fn ensure_types() {
     };
 
     for widget in [
+        glimpse_widgets::Bars::static_type(),
+        glimpse_widgets::Sparkline::static_type(),
         BatteryPopover::static_type(),
         BrightnessPopover::static_type(),
         Calendar::static_type(),

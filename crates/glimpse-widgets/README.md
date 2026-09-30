@@ -204,6 +204,30 @@ rendered by the applet, and reports ids and notation keys, never a format it wou
 understand. `WorkspaceNamePopover::set_name` writes the entry only while the user has not touched
 it, or a compositor event arriving mid-edit would replace what is being typed.
 
+## Bars and Sparkline
+
+Both are snapshot-drawn and take their colour from the CSS `color` of the widget; every dim part
+(the older bars, the empty tick, the area fill) is that colour at a lower alpha, so dark and light
+need no second rule. Both have accessible role `img` and a char-capped `label`, take at most 366
+values and keep the newest, and treat a `None` as no data. Setters compare before they write.
+
+`Bars` sizes itself from its allocation and a caller sets no width. `layout` is a pure function
+returning integer widths of at least 1 that never leave `0..width`: the gap shrinks to 0 before a
+bar goes below 1px, and when there are more values than pixels the series is bucketed by maximum so
+a spike survives. A value that is negative or not finite is no data, not a bar. A non-zero value is
+at least 2px tall, zero is a 1px baseline, no data is a fainter 1px tick, and an explicit maximum
+clamps an overshoot rather than overflowing. The newest bar is the only one at full alpha while
+`highlight_last` is on.
+
+`Bars::set_tooltips` is parallel to the values and plain text only, capped by chars, shown with
+`Tooltip::set_text` like `EventList`. A hover resolves through the same `layout` as the drawing:
+a gap maps to the nearer bar, past the last pixel is no tooltip, and a bucketed bar reports the
+element holding its maximum.
+
+`Sparkline` scales min..max of the finite values with 10% vertical padding so the stroke never
+clips, draws a flat series as a centered line, breaks the line at every `None`, draws an isolated
+point as a dot, and clips to its bounds. A gap is a position on the x axis, not a skipped one.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them **once** and gives every
@@ -223,6 +247,13 @@ precedence rule — user beats theme beats built-in — holds in both schemes. A
 `dark-notify`, with no file or config event behind it, since a config change touching only
 `color-scheme` never reaches `load()`. The built-in is compiled in rather than installed, because
 `load()` points the theme provider at **one** path.
+
+**The applet host's `gtk4::ProgressBar` is styled by bare node selectors** — `progressbar trough`,
+`progressbar progress`, `progressbar.warning progress` and `progressbar.error progress` — reading
+`--gl-faint`, `--gl-muted`, `--gl-warning-text` and `--gl-danger-text`, so a theme retints it by
+redefining those tokens. The selectors carry no class, which keeps their specificity below every
+native bar rule (`.capacity-bar`, `.system-monitor-usage-bar`, `.notification__progress`); each of
+those sets the same four properties itself, so the bare rule never reaches a native bar.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with
 only a `Gtk-WARNING` on stderr, so every `var()` in the built-in carries a fallback.

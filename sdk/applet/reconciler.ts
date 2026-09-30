@@ -472,10 +472,23 @@ const CONTROLLED: Record<string, [string, string]> = {
   scale: ["onChange", "value"],
   switch: ["onToggle", "active"],
   switchrow: ["onToggle", "active"],
+  togglebutton: ["onToggle", "active"],
+  checkbutton: ["onToggle", "active"],
+  expander: ["onToggle", "expanded"],
+  dropdown: ["onSelect", "selected"],
+  choicelist: ["onSelect", "selected"],
 };
 
 let current: Session | null = null;
 let fail: (code: number) => void = (code) => process.exit(code);
+
+function oversized(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 64 || value.some(oversized);
+  if (value !== null && typeof value === "object") {
+    return Object.values(value).some(oversized);
+  }
+  return false;
+}
 
 function flush(session: Session, fn?: () => void, emitCommit = true): void {
   session.reconciler.flushSyncFromReconciler(fn);
@@ -494,6 +507,9 @@ function flush(session: Session, fn?: () => void, emitCommit = true): void {
   let count = 0;
   const visit = (node: HostNode): void => {
     if (++count > 300) throw new ProtocolLimitError("tree exceeds 300 nodes");
+    if (Object.values(node.props).some(oversized)) {
+      throw new ProtocolLimitError("array prop exceeds 64 items");
+    }
     if (node.children.length > 200) {
       throw new ProtocolLimitError("parent exceeds 200 children");
     }
