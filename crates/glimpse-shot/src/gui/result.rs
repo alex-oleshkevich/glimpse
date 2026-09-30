@@ -78,6 +78,7 @@ pub struct ResultFace {
     clean: RefCell<Option<Marked>>,
     closing: Cell<Option<bool>>,
     ask_app: Cell<bool>,
+    unsaved: Cell<u32>,
     enter_held: Cell<bool>,
     space_held: Cell<bool>,
     over: Cell<bool>,
@@ -131,6 +132,7 @@ pub fn open(
         clean: RefCell::new(clean),
         closing: Cell::default(),
         ask_app: Cell::new(false),
+        unsaved: Cell::new(0),
         enter_held: Cell::new(false),
         space_held: Cell::new(false),
         over: Cell::new(false),
@@ -722,7 +724,23 @@ impl ResultFace {
         }
     }
 
+    fn guard_logout(&self) {
+        let dirty = !self.over.get() && self.is_dirty();
+        let cookie = self.unsaved.get();
+        if dirty && cookie == 0 {
+            self.unsaved.set(self.app.inhibit(
+                Some(&self.window),
+                gtk4::ApplicationInhibitFlags::LOGOUT,
+                Some(&gettext("A screenshot has unsaved changes")),
+            ));
+        } else if !dirty && cookie != 0 {
+            self.app.uninhibit(cookie);
+            self.unsaved.set(0);
+        }
+    }
+
     fn sync(self: &Rc<Self>) {
+        self.guard_logout();
         let Some(state) = self.sheet.read(|editor| {
             let exported = editor.doc.exported_rect();
             (
@@ -1105,6 +1123,7 @@ impl ResultFace {
         if let Some(clean) = self.sheet.read(|editor| marked(&editor.doc)) {
             self.clean.replace(Some(clean));
         }
+        self.guard_logout();
     }
 
     fn saved_toast(&self) {
@@ -1144,6 +1163,7 @@ impl ResultFace {
         if self.over.replace(true) {
             return;
         }
+        self.guard_logout();
         self.forget_drag();
         let json = match (self.setup.json, self.doc(), self.png.borrow().as_ref()) {
             (true, Some(doc), Some(png)) => self

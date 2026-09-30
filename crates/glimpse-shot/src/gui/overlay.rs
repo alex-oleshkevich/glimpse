@@ -117,6 +117,7 @@ struct Run {
     enter_held: Cell<bool>,
     picking: Cell<Option<u64>>,
     ask_app: Cell<bool>,
+    awake: Cell<u32>,
     over: Cell<bool>,
     ended: RefCell<Option<Finished>>,
 }
@@ -164,6 +165,7 @@ pub fn start(
         enter_held: Cell::new(false),
         picking: Cell::default(),
         ask_app: Cell::new(false),
+        awake: Cell::new(0),
         over: Cell::new(false),
         ended: RefCell::new(Some(Box::new(ended))),
     });
@@ -318,6 +320,7 @@ impl Run {
 
     fn capture(self: &Rc<Self>, target: Target) -> Result<Source, CaptureError> {
         let _hold = self.app.hold();
+        self.wake();
         if let Some(pill) = self.pill.take() {
             pill.destroy();
             barrier();
@@ -376,6 +379,11 @@ impl Run {
         window.set_child(Some(&pill));
         window.present();
         self.pill.replace(Some(window));
+        self.awake.set(self.app.inhibit(
+            None::<&gtk4::Window>,
+            gtk4::ApplicationInhibitFlags::IDLE,
+            Some(&gettext("Waiting to take a screenshot")),
+        ));
         let weak = Rc::downgrade(self);
         glib::timeout_add_local(TICK, move || {
             let Some(run) = weak.upgrade() else {
@@ -1463,7 +1471,15 @@ impl Run {
         }
     }
 
+    fn wake(&self) {
+        let cookie = self.awake.replace(0);
+        if cookie != 0 {
+            self.app.uninhibit(cookie);
+        }
+    }
+
     fn close(&self) {
+        self.wake();
         if let Some(pill) = self.pill.take() {
             pill.destroy();
         }

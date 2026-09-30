@@ -294,6 +294,13 @@ exit 130 and 143. Overlay surfaces belong to no application, so its accelerators
   is written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
   values only; config.toml is never written, and its `[screenshot]` still supplies any key shot.toml
   leaves out. The dialog holds its state until closed; a file that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
+- **Inhibits.** A countdown holds `IDLE` ("Waiting to take a screenshot") until the capture, so the
+  screen neither blanks nor locks into the shot; a result window with unsaved work holds `LOGOUT`
+  until it is saved, copied or closed. Both go through `gtk::Application::inhibit`, so they reach
+  gnome-session on GNOME and glimpse-idle's portal backend elsewhere. `run` registers the app id
+  with `org.freedesktop.host.portal.Registry` before `gtk::init` — any earlier portal call, such
+  as libadwaita reading the color scheme, ties the connection to no id — and keeps that session
+  connection alive, since GLib holds the shared one only weakly.
 - **Desktop entry.** `DBusActivatable`; its `screen`, `window` and `region` actions present the
   Capture page in that mode (`gapplication action` is the `Exec` fallback).
 

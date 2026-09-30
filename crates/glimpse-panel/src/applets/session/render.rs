@@ -21,7 +21,8 @@ pub fn action_state(
                     .iter()
                     .find(|entry| matches_action(entry, &action))
                 {
-                    Some(entry) => gettext("Blocked by {who}").replace("{who}", &entry.who),
+                    Some(entry) => gettext("Blocked by {who}")
+                        .replace("{who}", &super::super::app_label(&entry.who)),
                     None => gettext("Blocked by an active inhibitor."),
                 },
             ),
@@ -95,7 +96,7 @@ pub fn blockers(state: &SessionActionsState, action: SessionAction) -> Vec<Strin
         .inhibitors
         .iter()
         .filter(|entry| matches_action(entry, &action))
-        .map(|entry| format!("{}: {}", entry.who, entry.why))
+        .map(|entry| format!("{}: {}", super::super::app_label(&entry.who), entry.why))
         .collect::<Vec<_>>();
     if counts_windows(&action)
         && let Some(windows) = state.windows.filter(|windows| *windows > 0)
@@ -241,6 +242,11 @@ mod tests {
         assert_eq!(
             blockers(&state, SessionAction::PowerOff),
             ["Updater: install"]
+        );
+        assert_eq!(
+            blockers(&state, SessionAction::LogOut),
+            ["Updater: install"],
+            "an app holding shutdown for unsaved work is named before logging out"
         );
     }
 

@@ -37,6 +37,7 @@ const SERVICE_FLAG: &str = "--gapplication-service";
 const TITLE_MAX: usize = 200;
 const ICON: &str = APP_ID;
 const CONFIG_VARIABLE: &str = "GLIMPSE_CONFIG_PATH";
+const PORTAL_TIMEOUT_MS: i32 = 1000;
 const PROJECT_URL: &str = "https://github.com/alex-oleshkevich/glimpse";
 const STDIN_CHUNK: usize = 64 * 1024;
 
@@ -109,6 +110,8 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
         tracing::warn!("running on defaults: {error:#}");
     }
 
+    let app_id = std::env::var(APP_ID_VARIABLE).unwrap_or_else(|_| APP_ID.to_owned());
+    let _session = register_with_portal(&app_id);
     gtk4::init().context("cannot initialize GTK")?;
     adw::init().context("cannot initialize libadwaita")?;
     glimpse_widgets::register_resources()?;
@@ -124,7 +127,7 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     styles.set_animation_speed(appearance.animation_speed);
 
     let app = adw::Application::builder()
-        .application_id(std::env::var(APP_ID_VARIABLE).unwrap_or_else(|_| APP_ID.to_owned()))
+        .application_id(&app_id)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE | gio::ApplicationFlags::HANDLES_OPEN)
         .build();
     let shell = Shell::new(&app, config_path);
@@ -154,6 +157,30 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
         0 => Ok(()),
         status => Err(Exited(status).into()),
     }
+}
+
+fn register_with_portal(app_id: &str) -> Option<gio::DBusConnection> {
+    let connection = gio::bus_get_sync(gio::BusType::Session, None::<&gio::Cancellable>)
+        .inspect_err(|error| tracing::debug!("no session bus to register on: {error}"))
+        .ok()?;
+    let registered = connection.call_sync(
+        Some("org.freedesktop.portal.Desktop"),
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.host.portal.Registry",
+        "Register",
+        Some(&glib::Variant::tuple_from_iter([
+            app_id.to_variant(),
+            glib::VariantDict::new(None).end(),
+        ])),
+        None,
+        gio::DBusCallFlags::NONE,
+        PORTAL_TIMEOUT_MS,
+        None::<&gio::Cancellable>,
+    );
+    if let Err(error) = registered {
+        tracing::debug!("the portal does not know this app by id: {error}");
+    }
+    Some(connection)
 }
 
 fn load_config(config_path: Option<&Path>) -> (Config, Option<anyhow::Error>) {
