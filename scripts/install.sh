@@ -22,6 +22,8 @@ install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.
 install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$destdir$prefix/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"
 install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg"
 install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg"
+install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg"
+install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg"
 for f in data/portals/*.portal; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$portaldir/$(basename "$f")"
 done

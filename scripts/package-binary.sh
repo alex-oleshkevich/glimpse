@@ -54,6 +54,8 @@ install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.
 install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$pkgroot/usr/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"
 install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg "$pkgroot/usr/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg"
 install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg "$pkgroot/usr/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg"
+install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg "$pkgroot/usr/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg"
+install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg "$pkgroot/usr/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg"
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
