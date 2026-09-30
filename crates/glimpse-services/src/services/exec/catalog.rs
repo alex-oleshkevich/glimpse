@@ -94,7 +94,8 @@ fn entry_of(info: &DesktopAppInfo, subject: &str) -> Result<Entry, String> {
     let cwd = info
         .string("Path")
         .filter(|cwd| !cwd.is_empty())
-        .map(|cwd| PathBuf::from(cwd.as_str()));
+        .map(|cwd| PathBuf::from(cwd.as_str()))
+        .or_else(|| path.canonicalize().ok()?.parent().map(Path::to_path_buf));
     let argv = expand(&exec, &name, icon.as_deref(), &path)
         .map_err(|error| format!("{subject}: {error}"))?;
     Ok(Entry {
@@ -337,13 +338,13 @@ mod tests {
     }
 
     #[test]
-    fn resolve_file_treats_empty_icon_and_path_as_absent() {
+    fn resolve_file_treats_an_empty_icon_as_absent_and_runs_beside_the_desktop_file() {
         let (_dir, path) = desktop(
             "[Desktop Entry]\nType=Application\nName=Pomodoro\nIcon=\nPath=\nExec=glimpse-applet %i\nImplements=me.aresa.Glimpse.Applet1;\n",
         );
         let entry = DesktopCatalog.resolve_file(&path).expect("entry");
         assert_eq!(entry.icon, None);
-        assert_eq!(entry.cwd, None);
+        assert_eq!(entry.cwd.as_deref(), path.canonicalize().unwrap().parent());
         assert_eq!(entry.argv.len(), 1);
     }
 }

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=test
+Comment=
+Icon=application-x-addon-symbolic
+Exec=node --run start
+NoDisplay=true
+Implements=me.aresa.Glimpse.Applet1

@@ -1,7 +1,7 @@
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt, symlink};
+use std::os::unix::fs::{DirBuilderExt, symlink};
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -13,19 +13,13 @@ use glimpse_services::{
     DesktopCatalog, Edge, ExecEntry, FromApplet, MAX_LINE, Orientation, Outgoing, Placement, Tree,
     Zone,
 };
+use minijinja::{AutoEscape, Environment, UndefinedBehavior, context};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::signal::unix::{SignalKind, signal};
 
 use crate::cli::{NewAppletArgs, RunAppletArgs};
-
-struct Answers {
-    id: String,
-    name: String,
-    description: String,
-    icon: String,
-    dir: PathBuf,
-}
+use crate::render::Section;
 
 fn prompt(
     flag: &str,
@@ -61,12 +55,7 @@ fn prompt(
                 }
             }
         };
-        let checked = if value.contains("{{") {
-            Err(anyhow::anyhow!("template delimiters are not allowed"))
-        } else {
-            valid(&value)
-        };
-        match checked {
+        match valid(&value) {
             Ok(()) => return Ok(value),
             Err(error) if tty && !yes => eprintln!("--{flag}: {error}"),
             Err(error) => return Err(error).with_context(|| format!("invalid --{flag}")),
@@ -89,164 +78,37 @@ fn words(id: &str) -> (String, String) {
     (spaced, kebab)
 }
 
-pub fn desktop_escape(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-        .replace('\t', "\\t")
-}
-
-pub fn exec_quote(value: &str) -> String {
-    let quoted = value.is_empty()
-        || value
-            .chars()
-            .any(|ch| ch.is_whitespace() || "\"'\\><~|&;$*?#()`".contains(ch));
-    let mut escaped = String::new();
-    for ch in value.chars() {
-        if quoted && matches!(ch, '"' | '`' | '$' | '\\') {
-            escaped.push('\\');
-        }
-        match ch {
-            '%' => escaped.push_str("%%"),
-            '\n' => escaped.push_str("\\n"),
-            '\t' => escaped.push_str("\\t"),
-            _ => escaped.push(ch),
-        }
-    }
-    if quoted {
-        format!("\"{escaped}\"")
-    } else {
-        escaped
-    }
-}
-
-fn deno_argv(args: &RunAppletArgs) -> Vec<OsString> {
-    let mut argv: Vec<OsString> = vec![
-        "run".into(),
-        "-q".into(),
-        "--no-prompt".into(),
-        "--v8-flags=--max-old-space-size=128".into(),
-    ];
-    if args.watch {
-        argv.push("--watch".into());
-    }
-    let mut allowed_env = OsString::from("--allow-env=NODE_ENV");
-    if let Some(vars) = args.allow_env.as_deref() {
-        allowed_env.push(",");
-        allowed_env.push(vars);
-    }
-    argv.push(allowed_env);
-    if let Some(hosts) = &args.allow_net {
-        argv.push(format!("--allow-net={hosts}").into());
-    }
-    if let Some(paths) = &args.allow_read {
-        argv.push(format!("--allow-read={paths}").into());
-    }
-    if args.entry.as_os_str().as_encoded_bytes().starts_with(b"-") {
-        argv.push(PathBuf::from(".").join(&args.entry).into_os_string());
-    } else {
-        argv.push(args.entry.as_os_str().to_owned());
-    }
-    argv
-}
-
 pub fn applets_run(args: RunAppletArgs) -> Result<()> {
+    Err(anyhow::Error::new(crate::errors::ExecFailed(
+        std::process::Command::new(&args.exe)
+            .args(&args.args)
+            .exec(),
+    )))
+    .with_context(|| format!("cannot execute {}", args.exe.display()))
+}
+
+fn desktop_value(value: &str) -> Result<()> {
     ensure!(
-        matches!(
-            args.entry.extension().and_then(|ext| ext.to_str()),
-            Some("js" | "ts" | "tsx")
-        ),
-        "unsupported applet entry: {}",
-        args.entry.display()
+        !value.chars().any(|ch| ch.is_control() || ch == '\\'),
+        "must be one line without backslashes"
     );
-    let deno = glimpse_utils::deno().ok_or(crate::errors::DenoNotFound)?;
-    Err(std::process::Command::new(deno)
-        .args(deno_argv(&args))
-        .exec()
-        .into())
-}
-
-fn run_argv(argv: &[String]) -> Vec<String> {
-    let arguments = argv
-        .windows(2)
-        .position(|pair| pair == ["applets", "run"])
-        .map_or(1, |at| at + 2);
-    ["glimpsectl", "applets", "run"]
-        .into_iter()
-        .map(str::to_owned)
-        .chain(argv.iter().skip(arguments).cloned())
-        .collect()
-}
-
-fn launcher_exec() -> String {
-    let program = env::current_exe()
-        .map(|path| path.display().to_string())
-        .unwrap_or_else(|_| "glimpsectl".to_owned());
-    format!("{} applets run", exec_quote(&program))
-}
-
-fn sdk_path() -> Result<PathBuf> {
-    let installed = Path::new(DATA_DIR).join("sdk/applet/mod.ts");
-    if installed.exists() {
-        return Ok(installed);
-    }
-    if cfg!(debug_assertions) {
-        return Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/applet/mod.ts"));
-    }
-    bail!("SDK not installed at {DATA_DIR}/sdk/applet")
-}
-
-fn render(template: &str, answers: &Answers) -> Result<String> {
-    let dir = answers.dir.display().to_string();
-    let exec = format!(
-        "{} --watch{} {}",
-        launcher_exec(),
-        if answers.allow_net.is_empty() {
-            String::new()
-        } else {
-            format!(" --allow-net={}", answers.allow_net)
-        },
-        exec_quote(&answers.dir.join("main.tsx").display().to_string()),
-    );
-    let sdk = format!("file://{}", sdk_path()?.display());
-    let js = template == MAIN || template == INDICATOR;
-    let values = [
-        ("{{id}}", answers.id.clone()),
-        (
-            "{{name}}",
-            if js {
-                serde_json::to_string(&answers.name).unwrap_or_default()
-            } else {
-                desktop_escape(&answers.name)
-            },
-        ),
-        ("{{description}}", desktop_escape(&answers.description)),
-        (
-            "{{icon}}",
-            if js {
-                serde_json::to_string(&answers.icon).unwrap_or_default()
-            } else {
-                answers.icon.clone()
-            },
-        ),
-        ("{{exec}}", exec),
-        ("{{dir}}", dir),
-        ("{{sdk}}", serde_json::to_string(&sdk).unwrap_or_default()),
-    ];
-    Ok(values
-        .into_iter()
-        .fold(template.to_owned(), |text, (key, value)| {
-            text.replace(key, &value)
-        }))
+    Ok(())
 }
 
 pub fn applets_new(args: NewAppletArgs) -> Result<()> {
     let installed = DesktopCatalog.installed();
-    applets_new_with_catalog(args, |id| installed.iter().any(|(name, _)| name == id))
+    let template = env::var_os("GLIMPSE_TS_SDK_TEMPLATE_DIR")
+        .map_or_else(|| Path::new(DATA_DIR).join("sdk/template"), PathBuf::from);
+    applets_new_with_catalog(args, &template, |id| {
+        installed.iter().any(|(name, _)| name == id)
+    })
 }
 
-fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> bool) -> Result<()> {
+pub fn applets_new_with_catalog(
+    args: NewAppletArgs,
+    template: &Path,
+    installed: impl Fn(&str) -> bool,
+) -> Result<()> {
     let id = prompt("id", "Applet id", args.id, None, args.yes, |id| {
         ensure!(is_desktop_id(id), "expected a desktop-file id");
         ensure!(!installed(id), "already installed");
@@ -261,7 +123,7 @@ fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> boo
         args.yes,
         |v| {
             ensure!(!v.trim().is_empty(), "name is empty");
-            Ok(())
+            desktop_value(v)
         },
     )?;
     let description = prompt(
@@ -270,10 +132,7 @@ fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> boo
         args.description,
         Some(""),
         args.yes,
-        |v| {
-            ensure!(!v.contains(['\n', '\r']), "must be one line");
-            Ok(())
-        },
+        desktop_value,
     )?;
     let icon = prompt(
         "icon",
@@ -287,40 +146,6 @@ fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> boo
                     && v.bytes()
                         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-')),
                 "invalid icon name"
-            );
-            Ok(())
-        },
-    )?;
-    let popover = if args.no_popover {
-        false
-    } else if args.popover || args.yes || !io::stdin().is_terminal() {
-        true
-    } else {
-        prompt(
-            "popover",
-            "Popover? (yes/no)",
-            None,
-            Some("yes"),
-            false,
-            |v| {
-                ensure!(matches!(v, "yes" | "no"), "answer yes or no");
-                Ok(())
-            },
-        )? == "yes"
-    };
-    let allow_net = prompt(
-        "allow-net",
-        "Network hosts",
-        args.allow_net,
-        Some(""),
-        args.yes,
-        |v| {
-            ensure!(
-                v.is_empty()
-                    || v.split(',').all(|host| !host.is_empty()
-                        && host.bytes().all(|b| b.is_ascii_alphanumeric()
-                            || matches!(b, b'.' | b'-' | b':' | b'[' | b']'))),
-                "invalid comma-separated hosts"
             );
             Ok(())
         },
@@ -344,39 +169,50 @@ fn applets_new_with_catalog(args: NewAppletArgs, installed: impl Fn(&str) -> boo
     let dir = PathBuf::from(dir);
     fs::create_dir_all(&dir)?;
     let dir = dir.canonicalize()?;
-    let answers = Answers {
-        id,
-        name,
-        description,
-        icon,
-        popover,
-        allow_net,
-        dir: dir.clone(),
-    };
-    let files = [
-        ("main.tsx", if answers.popover { MAIN } else { INDICATOR }),
-        ("deno.json", DENO),
-        ("README.md", README),
-        (".gitignore", GITIGNORE),
-    ];
-    for (name, template) in files {
-        let rendered = render(template, &answers)?;
-        ensure!(
-            !rendered.contains("{{"),
-            "unresolved template key in {name}"
-        );
-        fs::write(dir.join(name), rendered)?;
+    let mut env = Environment::new();
+    env.set_auto_escape_callback(|_| AutoEscape::None);
+    env.set_undefined_behavior(UndefinedBehavior::Strict);
+    env.set_keep_trailing_newline(true);
+    let context = context! { id, name, description, icon, dir };
+    for item in fs::read_dir(template)
+        .with_context(|| format!("applet template not installed at {}", template.display()))?
+    {
+        let path = item?.path();
+        let file = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .context("template file name is not UTF-8")?;
+        let file = env.render_str(file, &context)?;
+        let rendered = env
+            .render_str(&fs::read_to_string(&path)?, &context)
+            .with_context(|| format!("cannot render {file}"))?;
+        fs::write(dir.join(file), rendered)?;
     }
-    let rendered = render(DESKTOP, &answers)?;
-    ensure!(!rendered.contains("{{"), "unresolved desktop template key");
-    fs::write(dir.join(format!("{}.desktop", answers.id)), rendered)?;
-    println!(
-        "Created {}. Run `glimpsectl applets dev {}` and add `center = [\"{}\"]` to your panel config.",
-        answers.id,
-        dir.display(),
-        answers.id
-    );
-    Ok(())
+    let shown = env::current_dir()
+        .ok()
+        .and_then(|cwd| dir.strip_prefix(cwd).ok().map(Path::to_path_buf))
+        .filter(|relative| !relative.as_os_str().is_empty())
+        .unwrap_or_else(|| dir.clone());
+    println!("Created {id} in {}\n", shown.display());
+    Section::new("next")
+        .with(format!(
+            "cd {}\nnpm install\nglimpsectl applets dev .",
+            shown.display()
+        ))
+        .print()?;
+    println!();
+    config_section(&id, &dir, false)?.print()
+}
+
+fn config_section(id: &str, dir: &Path, placed: bool) -> Result<Section> {
+    let path = serde_json::to_string(&dir.display().to_string())?;
+    let section = Section::new("config.toml").with(format!(
+        "[applets.\"{id}\"]\nsandbox = {{ read = [{path}], write = [{path}] }}"
+    ));
+    Ok(match placed {
+        true => section,
+        false => section.with_note(&format!("then add it to a panel zone: center = [\"{id}\"]")),
+    })
 }
 
 fn source(dir: &Path) -> Result<(String, ExecEntry)> {
@@ -402,32 +238,22 @@ fn source(dir: &Path) -> Result<(String, ExecEntry)> {
     Ok((id, entry))
 }
 
-async fn deno_check(dir: &Path) -> Result<()> {
-    let deno = glimpse_utils::deno().context("Deno not found; set GLIMPSE_DENO or install deno")?;
-    let output = Command::new(deno)
-        .arg("check")
-        .arg("main.tsx")
-        .current_dir(dir)
-        .output()
-        .await?;
-    ensure!(
-        output.status.success(),
-        "deno check failed:\n{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+async fn handshake(entry: &ExecEntry) -> Result<()> {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let state = env::temp_dir().join(format!("glimpsectl-check-{}-{now}", std::process::id()));
+    fs::DirBuilder::new().mode(0o700).create(&state)?;
+    let result = handshake_in(entry, &state).await;
+    let removed = fs::remove_dir_all(&state);
+    result?;
+    removed?;
     Ok(())
 }
 
-async fn handshake(entry: &ExecEntry) -> Result<()> {
+async fn handshake_in(entry: &ExecEntry, state: &Path) -> Result<()> {
     let (program, args) = entry.argv.split_first().context("empty Exec")?;
     let mut child = Command::new(program)
-        .args(args.iter().filter(|arg| arg.as_str() != "--watch"))
-        .current_dir(
-            entry
-                .cwd
-                .as_deref()
-                .unwrap_or_else(|| entry.path.parent().unwrap_or(Path::new("."))),
-        )
+        .args(args)
+        .current_dir(entry.cwd.as_deref().unwrap_or(Path::new(".")))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -447,6 +273,7 @@ async fn handshake(entry: &ExecEntry) -> Result<()> {
         let hello = Outgoing::Hello {
             v: 1,
             name: entry.name.clone(),
+            state: state.display().to_string(),
             options: serde_json::Map::new(),
             placement: Placement {
                 output: None,
@@ -500,23 +327,28 @@ async fn wire_line(reader: &mut (impl AsyncBufRead + Unpin), phase: &str) -> Res
     Ok(line)
 }
 
-pub async fn applets_check(dir: &Path) -> Result<()> {
-    let (_, entry) = source(dir)?;
-    deno_check(dir).await?;
-    handshake(&entry).await?;
-    println!("Applet check passed");
-    Ok(())
-}
-
-pub async fn applets_dev(dir: &Path, config_path: Option<PathBuf>) -> Result<()> {
-    let dir = dir.canonicalize()?;
+pub async fn applets_dev(target: &str, config_path: Option<PathBuf>) -> Result<()> {
+    if !Path::new(target).is_dir() {
+        ensure!(
+            is_desktop_id(target),
+            "{target} is neither an applet directory nor a desktop-file id"
+        );
+        let entry = DesktopCatalog
+            .installed()
+            .into_iter()
+            .find_map(|(id, entry)| (id == target).then_some(entry))
+            .with_context(|| format!("{target} is not installed"))?
+            .map_err(anyhow::Error::msg)?;
+        handshake(&entry).await?;
+        return super::applets_restart(target.to_owned()).await;
+    }
+    let dir = Path::new(target).canonicalize()?;
     let (id, entry) = source(&dir)?;
     handshake(&entry).await?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut terminate = signal(SignalKind::terminate())?;
     let mut hangup = signal(SignalKind::hangup())?;
-    let data_home = data_home()?;
-    let applications = data_home.join("applications");
+    let applications = applications_dir()?;
     fs::create_dir_all(&applications)?;
     let link = applications.join(format!("{id}.desktop"));
     if fs::read_link(&link).ok().as_deref() == Some(entry.path.as_path()) {
@@ -535,10 +367,8 @@ pub async fn applets_dev(dir: &Path, config_path: Option<PathBuf>) -> Result<()>
                 |(_, applet)| matches!(applet.kind, AppletKind::Exec(exec) if exec.applet == id),
             )
         });
-    if !placed {
-        println!("Add `center = [\"{id}\"]` to a panel applet zone.");
-    }
-    println!("Linked {}. Press Ctrl-C to unlink.", link.display());
+    config_section(&id, &dir, placed)?.print()?;
+    println!("\nLinked {}. Press Ctrl-C to unlink.", link.display());
     eprintln!("logs: journalctl --user -u glimpse-panel -f");
     tokio::select! {
         _ = interrupt.recv() => {},
@@ -558,375 +388,11 @@ fn home() -> Result<PathBuf> {
     Ok(home)
 }
 
-fn data_home() -> Result<PathBuf> {
+fn applications_dir() -> Result<PathBuf> {
     let path = match env::var_os("XDG_DATA_HOME") {
         Some(path) => PathBuf::from(path),
         None => home()?.join(".local/share"),
     };
     ensure!(path.is_absolute(), "XDG_DATA_HOME must be absolute");
-    Ok(path)
-}
-
-fn rewrite_desktop(source: &str, command: &str) -> String {
-    let mut lines = Vec::new();
-    let mut in_entry = false;
-    for line in source.lines() {
-        if line.starts_with('[') && line.ends_with(']') {
-            if in_entry {
-                lines.push("TryExec=glimpsectl".to_owned());
-                lines.push(format!("Exec={command}"));
-            }
-            in_entry = line == "[Desktop Entry]";
-        }
-        if !in_entry || !line.starts_with("Exec=") && !line.starts_with("TryExec=") {
-            lines.push(line.to_owned());
-        }
-    }
-    if in_entry {
-        lines.push("TryExec=glimpsectl".to_owned());
-        lines.push(format!("Exec={command}"));
-    }
-    lines.join("\n") + "\n"
-}
-
-fn remove_symlink(path: &Path) -> Result<()> {
-    if path.is_symlink() {
-        fs::remove_file(path)?;
-    }
-    Ok(())
-}
-
-fn staging(destination: &Path) -> Result<PathBuf> {
-    let name = destination
-        .file_name()
-        .context("destination has no file name")?
-        .to_string_lossy();
-    let temp = destination.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
-    match fs::remove_file(&temp) {
-        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error.into()),
-        _ => Ok(temp),
-    }
-}
-
-fn commit(temp: &Path, destination: &Path, written: Result<()>) -> Result<()> {
-    let result = written.and_then(|()| Ok(fs::rename(temp, destination)?));
-    if result.is_err() {
-        let _ = fs::remove_file(temp);
-    }
-    result
-}
-
-fn write_new(path: &Path, contents: &[u8]) -> Result<()> {
-    fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)?
-        .write_all(contents)?;
-    Ok(())
-}
-
-async fn bundle(dir: &Path, prefix: &Path, out: &Path, install: bool) -> Result<()> {
-    ensure!(prefix.is_absolute(), "--prefix must be absolute");
-    let out = if out.is_absolute() {
-        out.to_owned()
-    } else {
-        env::current_dir()?.join(out)
-    };
-    let (id, entry) = source(dir)?;
-    deno_check(dir).await?;
-    handshake(&entry).await?;
-    let data_out = if install {
-        out.clone()
-    } else {
-        out.join("share")
-    };
-    let data_prefix = if install {
-        prefix.to_owned()
-    } else {
-        prefix.join("share")
-    };
-    let target = data_out.join(&id).join("applet.js");
-    let applet_dir = target.parent().context("bundle path has no parent")?;
-    remove_symlink(applet_dir)?;
-    fs::create_dir_all(applet_dir)?;
-    let deno = glimpse_utils::deno().context("Deno not found")?;
-    let temp = staging(&target)?;
-    let output = Command::new(deno)
-        .arg("bundle")
-        .arg("--minify")
-        .arg("main.tsx")
-        .arg("-o")
-        .arg(&temp)
-        .current_dir(dir)
-        .output()
-        .await;
-    let bundled = output.map_err(anyhow::Error::from).and_then(|output| {
-        ensure!(
-            output.status.success(),
-            "deno bundle failed:\n{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        Ok(())
-    });
-    commit(&temp, &target, bundled)?;
-    let mut argv = entry.argv.clone();
-    argv.retain(|arg| arg != "--watch");
-    let script = argv
-        .iter()
-        .position(|arg| {
-            Path::new(arg)
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| matches!(ext, "js" | "jsx" | "mjs" | "ts" | "tsx" | "mts"))
-        })
-        .context("Exec has no applet script argument")?;
-    argv[script] = data_prefix
-        .join(&id)
-        .join("applet.js")
-        .display()
-        .to_string();
-    let command = run_argv(&argv)
-        .iter()
-        .map(|arg| exec_quote(arg))
-        .collect::<Vec<_>>()
-        .join(" ");
-    let source = fs::read_to_string(&entry.path)?;
-    let desktop = rewrite_desktop(&source, &command);
-    let destination = data_out.join("applications").join(format!("{id}.desktop"));
-    fs::create_dir_all(destination.parent().context("desktop path has no parent")?)?;
-    let temp = staging(&destination)?;
-    commit(&temp, &destination, write_new(&temp, desktop.as_bytes()))?;
-    let icon = dir.join("icon.svg");
-    if icon.is_file() {
-        let destination = data_out
-            .join("icons/hicolor/scalable/apps")
-            .join(format!("{id}.svg"));
-        fs::create_dir_all(destination.parent().context("icon path has no parent")?)?;
-        let icon = fs::read(icon)?;
-        let temp = staging(&destination)?;
-        commit(&temp, &destination, write_new(&temp, &icon))?;
-    }
-    println!("Bundled {id} under {}", out.display());
-    Ok(())
-}
-
-pub async fn applets_bundle(dir: &Path, prefix: &Path, out: &Path) -> Result<()> {
-    bundle(dir, prefix, out, false).await
-}
-
-pub async fn applets_install(dir: &Path) -> Result<()> {
-    let prefix = data_home()?;
-    bundle(dir, &prefix, &prefix, true).await
-}
-
-pub fn applets_uninstall(id: &str) -> Result<()> {
-    ensure!(is_desktop_id(id), "invalid desktop-file id: {id}");
-    let prefix = data_home()?;
-    let desktop = prefix.join("applications").join(format!("{id}.desktop"));
-    ensure!(
-        desktop.is_file(),
-        "user-installed desktop entry not found: {}",
-        desktop.display()
-    );
-    let contents = fs::read_to_string(&desktop)?;
-    let mut in_entry = false;
-    let mut implements = false;
-    let mut exec = None;
-    for line in contents.lines() {
-        if line.starts_with('[') && line.ends_with(']') {
-            in_entry = line == "[Desktop Entry]";
-        } else if in_entry && let Some(value) = line.strip_prefix("Implements=") {
-            implements = value
-                .split(';')
-                .any(|item| item == "me.aresa.Glimpse.Applet1");
-        } else if in_entry && let Some(value) = line.strip_prefix("Exec=") {
-            exec = Some(value);
-        }
-    }
-    ensure!(implements, "refusing to remove a non-applet desktop entry");
-    let argv = glimpse_services::exec_expand(
-        exec.context("desktop entry has no Exec")?,
-        "",
-        None,
-        &desktop,
-    )
-    .map_err(anyhow::Error::msg)?;
-    let script = prefix.join(id).join("applet.js");
-    ensure!(
-        argv.iter().any(|arg| arg == &script.display().to_string()),
-        "refusing to remove an applet installed at another path"
-    );
-    let real_prefix = prefix.canonicalize()?;
-    let real = desktop.canonicalize()?;
-    ensure!(
-        real.starts_with(&real_prefix),
-        "refusing to remove an entry outside {}",
-        prefix.display()
-    );
-    for path in [
-        prefix.join(id).join("applet.js"),
-        desktop,
-        prefix
-            .join("icons/hicolor/scalable/apps")
-            .join(format!("{id}.svg")),
-    ] {
-        if path.exists() {
-            ensure!(
-                path.canonicalize()?.starts_with(&real_prefix),
-                "refusing to remove {} outside {}",
-                path.display(),
-                prefix.display()
-            );
-            fs::remove_file(path)?;
-        }
-    }
-    let _ = fs::remove_dir(prefix.join(id));
-    println!("Uninstalled {id}");
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn desktop_values_escape_control_characters() {
-        assert_eq!(desktop_escape("a\\b\nc\rd\te"), "a\\\\b\\nc\\rd\\te");
-    }
-
-    fn run_args(entry: &str) -> RunAppletArgs {
-        RunAppletArgs {
-            allow_net: None,
-            allow_read: None,
-            allow_env: None,
-            watch: false,
-            entry: entry.into(),
-        }
-    }
-
-    #[test]
-    fn argv_has_fixed_flags_and_only_requested_grants() {
-        assert_eq!(
-            deno_argv(&run_args("main.ts")),
-            [
-                "run",
-                "-q",
-                "--no-prompt",
-                "--v8-flags=--max-old-space-size=128",
-                "--allow-env=NODE_ENV",
-                "main.ts"
-            ]
-        );
-        assert_eq!(
-            deno_argv(&RunAppletArgs {
-                allow_net: Some("api.example".to_owned()),
-                allow_read: Some("/tmp".to_owned()),
-                allow_env: Some("A,B".to_owned()),
-                watch: true,
-                ..run_args("main.tsx")
-            }),
-            [
-                "run",
-                "-q",
-                "--no-prompt",
-                "--v8-flags=--max-old-space-size=128",
-                "--watch",
-                "--allow-env=NODE_ENV,A,B",
-                "--allow-net=api.example",
-                "--allow-read=/tmp",
-                "main.tsx"
-            ]
-        );
-        assert_eq!(
-            deno_argv(&run_args("--allow-run=x.ts")).last().unwrap(),
-            "./--allow-run=x.ts"
-        );
-    }
-
-    #[test]
-    fn a_bundled_exec_runs_through_glimpsectl_without_global_flags() {
-        let owned = |args: &[&str]| args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
-        let expected = owned(&["glimpsectl", "applets", "run", "--allow-net=a", "/x.js"]);
-        assert_eq!(
-            run_argv(&owned(&[
-                "/bin/glimpsectl",
-                "applets",
-                "run",
-                "--allow-net=a",
-                "/x.js"
-            ])),
-            expected
-        );
-        assert_eq!(
-            run_argv(&owned(&[
-                "/bin/glimpsectl",
-                "--log",
-                "debug",
-                "applets",
-                "run",
-                "--allow-net=a",
-                "/x.js"
-            ])),
-            expected
-        );
-        assert_eq!(
-            run_argv(&owned(&["glimpse-applet", "--allow-net=a", "/x.js"])),
-            expected
-        );
-    }
-
-    #[test]
-    fn exec_arguments_quote_reserved_characters() {
-        assert_eq!(exec_quote("plain"), "plain");
-        assert_eq!(exec_quote("a b"), "\"a b\"");
-        assert_eq!(exec_quote("a'b"), "\"a'b\"");
-        assert_eq!(exec_quote("a\"`$\\b"), "\"a\\\"\\`\\$\\\\b\"");
-        assert_eq!(exec_quote("a%b"), "a%%b");
-    }
-
-    #[test]
-    fn desktop_rewrite_preserves_actions() {
-        let source = "[Desktop Entry]\nName=Applet\nExec=old\nTryExec=old\n[Desktop Action a]\nExec=action\nTryExec=action\n";
-        let rewritten = rewrite_desktop(source, "glimpsectl applets run /usr/share/applet.js");
-        assert!(rewritten.contains("Name=Applet\nTryExec=glimpsectl\nExec=glimpsectl applets run /usr/share/applet.js\n[Desktop Action a]"));
-        assert!(rewritten.ends_with("[Desktop Action a]\nExec=action\nTryExec=action\n"));
-    }
-
-    #[test]
-    fn new_renders_a_valid_scaffold_without_placeholders() {
-        let root = tempfile::tempdir().unwrap();
-        let dir = root.path().join("hello");
-        applets_new_with_catalog(
-            NewAppletArgs {
-                id: Some("me.example.Hello".to_owned()),
-                name: Some("Hello Applet".to_owned()),
-                description: Some("A test applet".to_owned()),
-                icon: None,
-                popover: false,
-                no_popover: false,
-                allow_net: Some("api.example".to_owned()),
-                dir: Some(dir.clone()),
-                yes: true,
-            },
-            |_| false,
-        )
-        .unwrap();
-        for name in [
-            "main.tsx",
-            "deno.json",
-            "me.example.Hello.desktop",
-            "README.md",
-            ".gitignore",
-        ] {
-            assert!(!fs::read_to_string(dir.join(name)).unwrap().contains("{{"));
-        }
-        let desktop = fs::read_to_string(dir.join("me.example.Hello.desktop")).unwrap();
-        assert!(desktop.contains("--watch --allow-net=api.example"));
-        assert!(desktop.contains("Implements=me.aresa.Glimpse.Applet1\n"));
-        assert!(
-            fs::read_to_string(dir.join("main.tsx"))
-                .unwrap()
-                .contains("<Popover>")
-        );
-    }
+    Ok(path.join("applications"))
 }

@@ -1,10 +1,18 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use glimpsectl::cli::NewAppletArgs;
-use glimpsectl::commands::applets_author::{
-    applets_new_with_catalog, exec_quote, rewrite_desktop, run_argv,
-};
+use glimpsectl::commands::applets_author::applets_new_with_catalog;
+
+fn template() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/template")
+}
+
+fn package_scripts(dir: &Path) -> serde_json::Value {
+    let package: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
+    package["scripts"].clone()
+}
 
 fn args(dir: &Path, name: &str) -> NewAppletArgs {
     NewAppletArgs {
@@ -18,37 +26,10 @@ fn args(dir: &Path, name: &str) -> NewAppletArgs {
 }
 
 #[test]
-fn bundled_exec_has_only_the_installed_executable() {
-    assert_eq!(
-        run_argv(Path::new(
-            "/usr/share/glimpse/applets/me.example.A/applet.mjs"
-        )),
-        "glimpsectl applets run /usr/share/glimpse/applets/me.example.A/applet.mjs"
-    );
-}
-
-#[test]
-fn exec_arguments_quote_reserved_characters() {
-    assert_eq!(exec_quote("plain"), "plain");
-    assert_eq!(exec_quote("a b"), "\"a b\"");
-    assert_eq!(exec_quote("a'b"), "\"a'b\"");
-    assert_eq!(exec_quote("a\"`$\\b"), "\"a\\\"\\`\\$\\\\b\"");
-    assert_eq!(exec_quote("a%b"), "a%%b");
-}
-
-#[test]
-fn desktop_rewrite_preserves_actions() {
-    let source = "[Desktop Entry]\nName=Applet\nExec=old\nTryExec=old\n[Desktop Action a]\nExec=action\nTryExec=action\n";
-    let rewritten = rewrite_desktop(source, "glimpsectl applets run /usr/share/applet.mjs");
-    assert!(rewritten.contains("Name=Applet\nTryExec=glimpsectl\nExec=glimpsectl applets run /usr/share/applet.mjs\n[Desktop Action a]"));
-    assert!(rewritten.ends_with("[Desktop Action a]\nExec=action\nTryExec=action\n"));
-}
-
-#[test]
 fn new_renders_a_valid_scaffold_without_placeholders() {
     let root = tempfile::tempdir().unwrap();
     let dir = root.path().join("hello");
-    applets_new_with_catalog(args(&dir, "Hello \"Applet\""), |_| false).unwrap();
+    applets_new_with_catalog(args(&dir, "Hello \"Applet\""), &template(), |_| false).unwrap();
     let mut files: Vec<_> = fs::read_dir(&dir)
         .unwrap()
         .map(|item| item.unwrap().file_name().into_string().unwrap())
@@ -68,10 +49,14 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
         assert!(!fs::read_to_string(dir.join(name)).unwrap().contains("{{"));
     }
     let desktop = fs::read_to_string(dir.join("me.example.Hello.desktop")).unwrap();
-    assert!(desktop.contains(&format!(
-        "\nExec=glimpsectl applets run \"{}/build/applet.mjs\"\n",
-        dir.canonicalize().unwrap().display()
-    )));
+    assert!(desktop.contains("\nExec=node --run start\n"));
+    assert!(!desktop.contains("\nPath="));
+    assert!(
+        package_scripts(&dir)["start"]
+            .as_str()
+            .unwrap()
+            .ends_with("node build/applet.mjs")
+    );
     assert!(desktop.contains("\nName=Hello \"Applet\"\n"));
     assert!(desktop.ends_with("Implements=me.aresa.Glimpse.Applet1\n"));
     assert!(
@@ -82,7 +67,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
     let package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
     assert_eq!(package["name"], "me.example.Hello");
-    assert_eq!(package["dependencies"]["@glimpse/applet"], "^0.1.0");
+    assert_eq!(package["dependencies"]["glimpse-sdk"], "^0.9.0");
     assert!(
         fs::read_to_string(dir.join("index.tsx"))
             .unwrap()
@@ -93,7 +78,11 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
 #[test]
 fn new_refuses_values_a_desktop_entry_cannot_carry_unescaped() {
     let root = tempfile::tempdir().unwrap();
-    assert!(applets_new_with_catalog(args(&root.path().join("a$b"), "Hello"), |_| false).is_err());
-    assert!(applets_new_with_catalog(args(&root.path().join("ok"), "a\\b"), |_| false).is_err());
+    assert!(
+        applets_new_with_catalog(args(&root.path().join("ok"), "a\\b"), &template(), |_| {
+            false
+        })
+        .is_err()
+    );
     assert!(!root.path().join("ok").exists());
 }

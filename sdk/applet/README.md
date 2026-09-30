@@ -1,0 +1,51 @@
+# glimpse-sdk
+
+Write a [glimpse](https://github.com/alex-oleshkevich/glimpse) panel applet in React. The applet is
+a Node program: the panel starts it, and the SDK speaks the panel's NDJSON protocol on
+stdin and stdout.
+
+```tsx
+import { Hero, Indicator, Popover, Row, run, Section } from "glimpse-sdk";
+
+await run(
+  <>
+    <Indicator icon="face-smile-symbolic" tooltip="Hello">Hello</Indicator>
+    <Popover>
+      <Hero icon="face-smile-symbolic" title="Hello" />
+      <Section title="Hello">
+        <Row title="It works" />
+      </Section>
+    </Popover>
+  </>,
+);
+```
+
+## Start
+
+```
+glimpsectl applets new
+cd <dir> && npm install
+glimpsectl applets dev .
+```
+
+`applets new` writes `index.tsx`, `package.json`, `tsconfig.json`, `README.md` and the desktop
+entry. The entry runs `node --run start`, which bundles everything into `build/applet.mjs` and
+starts it.
+
+Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
+
+## API
+
+- Components: `Indicator`, `Popover`, `Hero`, `Section`, `Row`, `SwitchRow`, `Fader`, `Entry`,
+  `Placeholder`, `Footer`, `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`,
+  `Progress` and `Separator`.
+- Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopoverOpen`,
+  `useAppletName` and `useStateDir`. `useStateDir` returns the applet's private, persistent
+  directory.
+- Host requests: `notify`, `copy`, `openUri`, `sessionAction` and `closePopover`.
+
+The applet runs in a sandbox. Beyond its state directory, it reaches only the paths the user
+grants under `[applets."<id>"] sandbox` in the glimpse config, and it has no network unless
+`network = true`.
+
+The wire format is specified in [PROTOCOL.md](PROTOCOL.md).

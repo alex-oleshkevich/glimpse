@@ -67,20 +67,9 @@ async fn run(cli: Cli) -> Result<()> {
             commands::applets_list(cli.config.config, cli.json).await
         }
         Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args),
-        Command::Applets(AppletsCommand::Check { dir }) => commands::applets_check(&dir).await,
-        Command::Applets(AppletsCommand::Dev { dir }) => {
-            commands::applets_dev(&dir, cli.config.config).await
+        Command::Applets(AppletsCommand::Dev { target }) => {
+            commands::applets_dev(&target, cli.config.config).await
         }
-        Command::Applets(AppletsCommand::Bundle {
-            dir,
-            prefix,
-            out,
-            exe,
-        }) => commands::applets_bundle(&dir, &exe, &prefix, &out).await,
-        Command::Applets(AppletsCommand::Install { dir, exe }) => {
-            commands::applets_install(&dir, &exe).await
-        }
-        Command::Applets(AppletsCommand::Uninstall { id }) => commands::applets_uninstall(&id),
         Command::Applets(AppletsCommand::Inspect { id }) => {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }

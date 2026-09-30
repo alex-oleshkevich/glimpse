@@ -184,7 +184,8 @@ no commands at all.
 a reloaded applet. Placement and options changes go over its stdin without respawning it. A failed
 child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
 a row is stopped. The source resolves desktop entries and builds the sandbox off the async worker,
-spawns on that worker for PDEATHSIG, and Landlock-confines the child to its configured `sandbox`.
+spawns on that worker for PDEATHSIG in the entry's `Path`, or the desktop file's resolved directory
+without one, and Landlock-confines the child to its configured `sandbox`.
 A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unconfined` is set;
 PATH entries under the home directory receive no implicit grant. The host passes the applet's
 persistent state directory as `state` in `hello`. Stopping a child kills its

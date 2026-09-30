@@ -156,7 +156,7 @@ verify: fmt-check check lint test check-strings
 sdk-test:
     cd sdk/applet && timeout 300 npm ci && timeout 300 node --test
 
-[doc("publish @glimpse/applet to npm; extra arguments go to npm publish, e.g. --dry-run")]
+[doc("publish glimpse-sdk to npm; extra arguments go to npm publish, e.g. --dry-run")]
 sdk-publish *ARGS: sdk-test
     cd sdk/applet && npm publish "$@"
 

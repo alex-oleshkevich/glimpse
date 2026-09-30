@@ -185,36 +185,17 @@ pub enum ConfigCommand {
 pub enum AppletsCommand {
     #[command(about = "Create an external applet")]
     New(NewAppletArgs),
-    #[command(about = "Validate an external applet")]
-    Check {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-    },
-    #[command(about = "Link an applet into the live panel until interrupted")]
+    #[command(
+        about = "Run an applet the way the panel does: link a directory until interrupted, or restart an installed id"
+    )]
     Dev {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
+        #[arg(
+            default_value = ".",
+            value_name = "DIR|ID",
+            help = "An applet directory holding one .desktop file, or an installed applet's desktop-file id"
+        )]
+        target: String,
     },
-    #[command(about = "Build a distributable applet")]
-    Bundle {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-        #[arg(long, default_value = "/usr")]
-        prefix: PathBuf,
-        #[arg(long, default_value = "pkg")]
-        out: PathBuf,
-        #[arg(long, default_value = "build/applet.mjs")]
-        exe: PathBuf,
-    },
-    #[command(about = "Install an applet for the current user")]
-    Install {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-        #[arg(long, default_value = "build/applet.mjs")]
-        exe: PathBuf,
-    },
-    #[command(about = "Remove a user-installed applet")]
-    Uninstall { id: String },
     #[command(about = "List installed and placed external applets")]
     List,
     #[command(about = "Inspect an external applet")]

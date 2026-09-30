@@ -18,7 +18,7 @@ import {
   usePlacement,
   useState,
   useStateDir,
-} from "@glimpse/applet";
+} from "glimpse-sdk";
 
 type Item = {
   id: string;

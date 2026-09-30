@@ -1,4 +1,4 @@
-import { Hero, Indicator, Popover, Row, run, Section } from "@glimpse/applet";
+import { Hero, Indicator, Popover, Row, run, Section } from "glimpse-sdk";
 
 function App() {
   return (

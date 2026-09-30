@@ -4,6 +4,6 @@ Version=1.5
 Name={{ name }}
 Comment={{ description }}
 Icon={{ icon }}
-Exec=glimpsectl applets run "{{ dir }}/build/applet.mjs"
+Exec=node --run start
 NoDisplay=true
 Implements=me.aresa.Glimpse.Applet1

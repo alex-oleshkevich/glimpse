@@ -11,14 +11,13 @@ otherwise `Todo`. On a vertical bar the chip drops its text and keeps the badge.
 Items are stored in `todo.json` under the state directory the host passes in
 its `hello`.
 
-The shipped directory is read-only source. Copy it somewhere writable, then:
+From this directory:
 
 ```
-npm install && npm run build
-glimpsectl applets install .
+npm install
+glimpsectl applets dev .
 ```
 
-`install` copies `build/applet.mjs` and rewrites the entry's `Exec`. For a live
-edit, run `npm run dev`, point the entry at `glimpsectl applets run
-/absolute/path/to/build/applet.mjs`, and grant that directory in the panel
-config: `[applets."me.aresa.GlimpseTodo"] sandbox = { read = ["/absolute/path/to"] }`.
+The entry runs `node --run start`, which builds and starts the applet in this
+directory, so grant it in the panel config:
+`[applets."me.aresa.GlimpseTodo"] sandbox = { read = ["/absolute/path/to/todo"], write = ["/absolute/path/to/todo"] }`.

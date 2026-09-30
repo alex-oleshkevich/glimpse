@@ -1,12 +1,45 @@
 {
-  "name": "@glimpse/applet",
-  "version": "0.1.0",
-  "private": false,
+  "name": "glimpse-sdk",
+  "version": "0.9.0",
+  "description": "React renderer for glimpse panel applets: write the indicator and popover in JSX, run it under Node.",
+  "keywords": ["glimpse", "applet", "panel", "wayland", "react"],
+  "license": "BSD-3-Clause",
+  "author": "Alex Oleshkevich",
+  "homepage": "https://github.com/alex-oleshkevich/glimpse/tree/master/sdk/applet#readme",
+  "bugs": "https://github.com/alex-oleshkevich/glimpse/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-oleshkevich/glimpse.git",
+    "directory": "sdk/applet"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
-    ".": "./index.ts",
-    "./jsx-runtime": "./jsx-runtime.ts",
-    "./jsx-dev-runtime": "./jsx-runtime.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "default": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "default": "./dist/jsx-runtime.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "PROTOCOL.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "node --test",
+    "prepack": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@types/react": "19.3.0",
@@ -16,7 +49,6 @@
   },
   "devDependencies": {
     "@types/node": "26.6.3",
-    "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }
 }
