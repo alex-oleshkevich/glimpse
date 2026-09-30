@@ -826,7 +826,8 @@ impl StatusServices {
                 compositor: compositor_handle.clone(),
             },
         );
-        let (battery, battery_handle) = Running::<Battery>::spawn(&config, buses.clone(), ());
+        let (battery, battery_handle) =
+            Running::<Battery>::spawn(&config, buses.clone(), <_>::default());
         let (network, network_handle) =
             Running::<Network>::spawn(&config, buses.clone(), NetworkDependencies { agent: false });
         let (bluetooth, bluetooth_handle) =

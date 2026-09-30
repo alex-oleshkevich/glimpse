@@ -50,8 +50,8 @@ pub use audio::{
     NAME_CAP as AUDIO_NAME_CAP, Role as AudioRole, StreamRef as AudioStreamRef,
 };
 pub use battery::{
-    Battery, BatteryHandle, BatteryState, Charge, Peripheral as BatteryPeripheral, Profiles,
-    Supply as BatterySupply,
+    Battery, BatteryHandle, BatteryState, Charge, Dependencies as BatteryDependencies,
+    Peripheral as BatteryPeripheral, Profiles, Source as BatterySource, Supply as BatterySupply,
 };
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{

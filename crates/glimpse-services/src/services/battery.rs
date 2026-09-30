@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_dbus::power_profiles::{self, PowerProfilesDaemonProxy};
@@ -115,6 +116,7 @@ pub enum Command {
 pub enum Event {
     Upower(UpowerSnapshot),
     Profiles(Option<Profiles>),
+    Contributed(usize, Vec<Peripheral>),
     Failed(String),
 }
 
@@ -129,12 +131,38 @@ pub struct UpowerSnapshot {
 pub enum Watch {
     Upower,
     Profiles,
+    Source(usize),
+}
+
+pub struct Source(Arc<dyn Fn(usize) -> Sub<Battery> + Send + Sync>);
+
+impl Source {
+    pub fn new<T>(state: watch::Receiver<T>, project: fn(&T) -> Vec<Peripheral>) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
+        Self(Arc::new(move |index| {
+            Sub::watch(
+                Watch::Source(index),
+                state.clone(),
+                move |value: T| Event::Contributed(index, project(&value)),
+                Event::Contributed(index, Vec::new()),
+            )
+        }))
+    }
+}
+
+#[derive(Default)]
+pub struct Dependencies {
+    pub sources: Vec<Source>,
 }
 
 pub struct Battery {
     state: Publisher<BatteryState>,
     upower: UpowerSnapshot,
     profile: Option<Profiles>,
+    sources: Vec<Source>,
+    contributed: Vec<Vec<Peripheral>>,
 }
 
 #[derive(Clone)]
@@ -190,7 +218,7 @@ impl Service for Battery {
     type Handle = BatteryHandle;
     type Command = Command;
     type Event = Event;
-    type Dependencies = ();
+    type Dependencies = Dependencies;
     type SubKey = Watch;
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
@@ -202,18 +230,27 @@ impl Service for Battery {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        vec![
+        let mut subs = vec![
             Sub::stream(Watch::Upower, upower_events),
             Sub::stream(Watch::Profiles, profile_events),
-        ]
+        ];
+        subs.extend(
+            self.sources
+                .iter()
+                .enumerate()
+                .map(|(index, source)| (source.0)(index)),
+        );
+        subs
     }
 
     async fn start(
         ctx: &Ctx<Self>,
         _config: Self::Config,
-        _dependencies: Self::Dependencies,
+        dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
         Ok(Self {
+            contributed: vec![Vec::new(); dependencies.sources.len()],
+            sources: dependencies.sources,
             state: ctx.publisher(),
             upower: UpowerSnapshot {
                 on_battery: false,
@@ -235,6 +272,12 @@ impl Service for Battery {
                 self.profile = profile;
                 self.publish();
             }
+            Input::Event(Event::Contributed(index, devices)) => {
+                if let Some(slot) = self.contributed.get_mut(index) {
+                    *slot = devices;
+                    self.publish();
+                }
+            }
             Input::Event(Event::Failed(reason)) => {
                 ctx.degraded(reason);
             }
@@ -255,8 +298,9 @@ impl Service for Battery {
 
 impl Battery {
     fn publish(&self) {
-        let (display, internals, devices) =
+        let (display, internals, mut devices) =
             assemble(&self.upower.devices, self.upower.display_path.as_deref());
+        devices.extend(self.contributed.iter().flatten().cloned());
         self.state.set(BatteryState {
             on_battery: self.upower.on_battery,
             display,
@@ -734,7 +778,7 @@ mod tests {
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
-        let running = tokio::spawn(async move { runtime.run(()).await });
+        let running = tokio::spawn(async move { runtime.run(Dependencies::default()).await });
         for _ in 0..16 {
             tokio::task::yield_now().await;
         }
@@ -751,6 +795,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_source_contributes_devices_until_it_closes() {
+        let phone = Peripheral {
+            path: "kdeconnect:a".to_owned(),
+            kind: DeviceKind::Phone,
+            name: "Pixel".to_owned(),
+            icon_name: None,
+            charge: charge(76, ChargeState::Discharging),
+        };
+        let (feed, receiver) = watch::channel(vec![phone.clone()]);
+        let cancel = CancellationToken::new();
+        let (mut runtime, handle) = ServiceRuntime::<Battery>::new(
+            NoConfig,
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        let dependencies = Dependencies {
+            sources: vec![Source::new(receiver, |devices: &Vec<Peripheral>| {
+                devices.clone()
+            })],
+        };
+        let running = tokio::spawn(async move { runtime.run(dependencies).await });
+        for _ in 0..16 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(handle.snapshot().devices, vec![phone]);
+
+        drop(feed);
+        for _ in 0..16 {
+            tokio::task::yield_now().await;
+        }
+        assert!(
+            handle.snapshot().devices.is_empty(),
+            "a closed source leaves no stale row"
+        );
+        cancel.cancel();
+        let _ = running.await;
+    }
+
+    #[tokio::test]
     async fn a_profile_command_without_a_bus_is_unavailable() {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Battery>::new(
@@ -758,7 +841,7 @@ mod tests {
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
-        let running = tokio::spawn(async move { runtime.run(()).await });
+        let running = tokio::spawn(async move { runtime.run(Dependencies::default()).await });
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }

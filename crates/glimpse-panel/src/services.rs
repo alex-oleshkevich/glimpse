@@ -177,7 +177,8 @@ impl PanelServices {
                 notifications: notifications.handle(),
             },
         );
-        let (battery_service, battery) = Running::<Battery>::spawn(document, buses.clone(), ());
+        let (battery_service, battery) =
+            Running::<Battery>::spawn(document, buses.clone(), <_>::default());
         let (places_service, places) = Running::<Places>::spawn(document, buses.clone(), ());
         let (printing_service, printing) = Running::<Printing>::spawn(document, buses.clone(), ());
         let (privacy_service, privacy) = Running::<Privacy>::spawn(

@@ -64,7 +64,9 @@ daylight — a manual override held at exactly `DAY` is the one exception.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals and
 charge-threshold details come from the real `BAT*` objects, since the composite omits them. `TimeTo*`
-`0`, `ChargeCycles` `<= 0` and empty serials are treated as absent.
+`0`, `ChargeCycles` `<= 0` and empty serials are treated as absent. Other services contribute
+peripherals as a `BatterySource` — a watched state and a projection wired in the composition root —
+appended after UPower's in registration order; a source that stops contributes nothing.
 
 **gamma** — `trait Gamma` is declared here and implemented in `glimpse-sunset`, since this crate is
 linked into the panel and none may gain a Wayland dependency. It is **synchronous** and blocks with
