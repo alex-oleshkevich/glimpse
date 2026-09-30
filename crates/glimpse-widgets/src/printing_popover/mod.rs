@@ -3,9 +3,9 @@ mod imp;
 use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Row, none_if_empty, reconcile};
+use crate::{Expandable, Fact, FactList, Row, none_if_empty, reconcile};
 
-pub use imp::{Detail, Job, Printer};
+pub use imp::{Job, Printer};
 
 glib::wrapper! {
     pub struct PrintingPopover(ObjectSubclass<imp::PrintingPopover>)
@@ -127,40 +127,40 @@ impl PrintingPopover {
             return;
         };
         row.set_title(none_if_empty(&printer.name));
-        row.set_subtitle(none_if_empty(&printer.status));
-        crate::set_css_class(&row, WARNING, printer.warning);
         row.set_lead_icon(Some(match printer.network {
             true => "printer-network-symbolic",
             false => "printer-symbolic",
         }));
-        let carded = !printer.details.is_empty();
+        let problem = printer.warning.then_some(printer.status.as_str());
+        row.set_subtitle(problem.and_then(none_if_empty));
+        crate::set_css_class(&row, WARNING, printer.warning);
+        let status = (!printer.warning && !printer.status.is_empty())
+            .then(|| Fact::new(gettext("Status"), printer.status.clone()));
+        let facts: Vec<Fact> = status
+            .into_iter()
+            .chain(printer.facts.iter().cloned())
+            .collect();
+        let carded = !facts.is_empty();
         set_opens(&row, carded);
         if !carded {
             holder.set_details(None::<&gtk4::Widget>);
             return;
         }
-        let card = holder.details::<gtk4::Box>().unwrap_or_else(|| {
-            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let card = holder.details::<FactList>().unwrap_or_else(|| {
+            let card = FactList::new();
             holder.set_details(Some(&card));
             card
         });
-        let mut lines = self.imp().printer_lines.borrow_mut();
-        reconcile::by_key(
-            &card,
-            lines.entry(printer.id.clone()).or_default(),
-            &printer.details,
-            |detail| detail.label.clone(),
-            |_| Row::new(),
-            dress_detail,
-        );
+        card.set_facts(&facts);
     }
 
-    /// A job's whole row opens its card of Pause, Resume and Cancel, the same grammar as every other
-    /// popover's card: the row body does nothing else, so it is the opener. A job that can do none
-    /// of the three has no chevron and no card.
+    /// A job's whole row opens its card, the same grammar as every other popover's card: first
+    /// where and how it is printing, then Pause, Resume and Cancel. The row body does nothing else,
+    /// so it is the opener.
     fn build_job_row(&self, job: &Job) -> Expandable {
         let holder = Expandable::new(&opener_row(gettext("Show what can be done with this job")));
         let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        panel.append(&FactList::new());
         panel.append(&self.build_action_row(&job.id, gettext("Pause"), "paused"));
         panel.append(&self.build_action_row(&job.id, gettext("Resume"), "resumed"));
         let cancel = self.build_action_row(&job.id, gettext("Cancel"), "cancelled");
@@ -190,19 +190,21 @@ impl PrintingPopover {
             return;
         };
         row.set_title(none_if_empty(&job.name));
-        row.set_subtitle(none_if_empty(&job_subtitle(job)));
         row.set_busy(job.busy && job.progress.is_none());
+        set_opens(&row, true);
 
-        let actionable = job.cancellable || job.pausable || job.resumable;
-        set_opens(&row, actionable);
-        if !actionable {
-            holder.set_expanded(false);
-        }
         let Some(panel) = holder.details::<gtk4::Box>() else {
             return;
         };
+        let Some(facts) = panel.first_child().and_downcast::<FactList>() else {
+            return;
+        };
+        facts.set_facts(&[
+            Fact::new(gettext("Printer"), job.printer.clone()),
+            Fact::new(gettext("Status"), job_status(job)),
+        ]);
         let shown = [job.pausable, job.resumable, job.cancellable];
-        let mut child = panel.first_child();
+        let mut child = facts.next_sibling();
         for visible in shown {
             let Some(row) = child else {
                 break;
@@ -213,7 +215,7 @@ impl PrintingPopover {
     }
 }
 
-const WARNING: &str = "printing-popover__printer--warning";
+const WARNING: &str = "row--warning";
 
 fn opener_row(tooltip: String) -> Row {
     let row = Row::new();
@@ -244,23 +246,13 @@ fn summary_text(count: usize) -> String {
         .replace("{count}", &count.to_string())
 }
 
-fn dress_detail(row: &Row, detail: &Detail) {
-    row.set_activatable(false);
-    row.set_title(none_if_empty(&detail.label));
-    row.set_value(none_if_empty(&detail.value));
-}
-
-/// The second line reads "{printer} · {status}" normally, and "{printer} · Page {n} of {m}" while
-/// the driver reports page progress — the progress text replaces the status word rather than
-/// sitting beside it, so a job's trailing area holds only its action buttons.
-fn job_subtitle(job: &Job) -> String {
-    let status = match job.progress {
+/// A job's status line reads its status word, or "Page {n} of {m}" while the driver reports page
+/// progress — the progress text replaces the status word rather than sitting beside it.
+fn job_status(job: &Job) -> String {
+    match job.progress {
         Some((completed, total)) => progress_text(completed, total),
         None => job.status.clone(),
-    };
-    gettext("{printer} · {status}")
-        .replace("{printer}", &job.printer)
-        .replace("{status}", &status)
+    }
 }
 
 fn progress_text(completed: u32, total: u32) -> String {
@@ -301,11 +293,16 @@ mod tests {
     }
 
     fn actions(holder: &Expandable) -> Vec<Row> {
-        let panel = holder
-            .details::<gtk4::Box>()
-            .expect("a job carries its actions");
+        rows_in(
+            &holder
+                .details::<gtk4::Box>()
+                .expect("a job carries its actions"),
+        )
+    }
+
+    fn rows_in(parent: &impl IsA<gtk4::Widget>) -> Vec<Row> {
         let mut rows = Vec::new();
-        let mut child = panel.first_child();
+        let mut child = parent.first_child();
         while let Some(widget) = child {
             child = widget.next_sibling();
             if let Ok(row) = widget.downcast::<Row>() {
@@ -338,15 +335,8 @@ mod tests {
         assert_eq!(imp.hero.subtitle().as_deref(), Some("1 print job"));
         let holder = job_holder(&popover, "1");
         let row = holder.head::<Row>().expect("a job row");
-        assert_eq!(
-            row.subtitle().as_deref(),
-            Some("HP LaserJet 400 · Page 3 of 12"),
-            "progress replaces the status word on the second line rather than sitting beside it"
-        );
-        assert!(
-            row.activatable(),
-            "a job with something to do opens its card from the whole row"
-        );
+        assert!(row.subtitle().is_none(), "a job row is one line");
+        assert!(row.activatable(), "a job opens its card from the whole row");
 
         let renders_after_first = imp.renders.get();
         popover.set_jobs(&[job("1", Some((3, 12)))]);
@@ -366,6 +356,19 @@ mod tests {
         let [pause, resume, cancel] =
             <[Row; 3]>::try_from(actions(&holder)).expect("three actions");
         assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
+        let facts = holder
+            .details::<gtk4::Box>()
+            .and_then(|panel| panel.first_child())
+            .and_downcast::<FactList>()
+            .expect("the facts lead the card");
+        let [printed_on, status] = <[Row; 2]>::try_from(rows_in(&facts)).expect("two facts");
+        assert_eq!(printed_on.value().as_deref(), Some("HP LaserJet 400"));
+        assert_eq!(
+            status.value().as_deref(),
+            Some("Page 3 of 12"),
+            "progress replaces the status word rather than sitting beside it"
+        );
+        assert!(!status.activatable(), "a fact in the card is static");
         assert!(
             cancel.has_css_class("row--destructive"),
             "cancelling throws the job away, so it reads as destructive"
@@ -429,9 +432,10 @@ mod tests {
         let stuck = job_holder(&popover, "4");
         let stuck_row = stuck.head::<Row>().expect("a job row");
         assert!(
-            !stuck_row.activatable(),
-            "a job with nothing to do is a line of text, with no card to open"
+            stuck_row.activatable(),
+            "a job with nothing to do still opens the card that says where and how it is"
         );
+        assert!(actions(&stuck)[..3].iter().all(|row| !row.get_visible()));
 
         popover.set_jobs(&[
             Job {
@@ -463,10 +467,7 @@ mod tests {
             status: "Out of paper".into(),
             warning: true,
             network: true,
-            details: vec![Detail {
-                label: "Location".into(),
-                value: "Ground floor".into(),
-            }],
+            facts: vec![Fact::new("Location", "Ground floor")],
         };
         popover.set_printers(std::slice::from_ref(&kitchen));
         assert!(imp.printers.get_visible());
@@ -478,9 +479,20 @@ mod tests {
             .map(|(_, holder)| holder.clone())
             .expect("a printer");
         let printer_row = printer.head::<Row>().expect("a printer row");
+        assert_eq!(
+            printer_row.subtitle().as_deref(),
+            Some("Out of paper"),
+            "a printer's problem is said on its row"
+        );
         assert!(
-            printer_row.has_css_class("printing-popover__printer--warning"),
-            "a printer's problem is said on its row, in the warning colour"
+            printer_row.has_css_class("row--warning"),
+            "in the warning colour"
+        );
+        let card = printer.details::<FactList>().expect("a card of facts");
+        assert_eq!(
+            rows_in(&card).len(),
+            1,
+            "the card lists the location and does not repeat the problem"
         );
         printer_row.emit_clicked();
         assert!(
@@ -497,11 +509,15 @@ mod tests {
         );
 
         popover.set_printers(&[Printer {
-            details: Vec::new(),
+            facts: Vec::new(),
             warning: false,
-            status: "Idle".into(),
+            status: String::new(),
             ..kitchen
         }]);
+        assert!(
+            printer_row.subtitle().is_none(),
+            "no problem, no second line"
+        );
         assert!(
             !printer.expanded() && !printer_row.activatable(),
             "a printer with nothing to show has no card, and its row does nothing"

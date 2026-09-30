@@ -3,7 +3,7 @@ use glimpse_dbus::bluez::{Codec, DeviceIcon, Power};
 use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure, Prompt};
 use glimpse_widgets::{
     BluetoothAsk as Ask, BluetoothDetails as Details, BluetoothEntry as Entry,
-    BluetoothLine as Line, BluetoothPlace as Place, PASSKEY_MAX, PIN_MAX, PairingEntry,
+    BluetoothLine as Line, BluetoothPlace as Place, Fact, PASSKEY_MAX, PIN_MAX, PairingEntry,
 };
 
 pub const IDLE: &str = "bluetooth-symbolic";
@@ -296,104 +296,83 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
 }
 
 fn entry(device: &Device, place: Place) -> Entry {
-    let fragile = device.paired != device.bonded;
     Entry {
         id: device.id.as_str().to_owned(),
         title: cap(&device.name),
-        subtitle: match fragile {
-            true => gettext("Pairing will not survive a restart"),
-            false => kind(device.icon),
-        },
-        warning: fragile,
+        problem: problem(device),
         icon: icon(device.icon).to_owned(),
         place,
-        value: state_of(device),
+        value: battery(device)
+            .filter(|_| device.busy.is_none() && device.connected)
+            .unwrap_or_default(),
         busy: device.busy.is_some(),
     }
 }
 
-fn state_of(device: &Device) -> String {
-    if device.busy.is_some() {
-        return String::new();
-    }
-    if device.connected {
-        return device
-            .battery
-            .map(|level| gettext("{level}%").replace("{level}", &level.to_string()))
-            .unwrap_or_default();
-    }
+fn battery(device: &Device) -> Option<String> {
+    device
+        .battery
+        .map(|level| gettext("{level}%").replace("{level}", &level.to_string()))
+}
+
+/// What is wrong with a device, said on its row: blocked, a pairing that is lost, or one that will
+/// not survive a restart. A device with nothing wrong has no second line.
+fn problem(device: &Device) -> String {
     if device.blocked {
         return gettext("Blocked");
     }
     if device.failure == Some(Failure::BondBroken) {
         return gettext("Pairing lost");
     }
+    if device.paired != device.bonded {
+        return gettext("Pairing will not survive a restart");
+    }
     String::new()
 }
 
-/// The card under a paired device, or `None` for a nearby one, which has nothing to manage before
-/// it pairs. A device in use carries Disconnect; every paired one carries what a person acts on —
-/// its battery and codec when BlueZ has them, how it reconnects, and Forget. Address, signal and
-/// services are diagnostics, and a pairing that will not survive a restart is on the row itself.
+/// The card under a device: first what it is — its kind, and its battery and codec when BlueZ has
+/// them — then what can be done with it: how it reconnects, Disconnect and Forget. A nearby device
+/// has only its kind until it pairs. Address, signal and services are diagnostics.
 pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     let device = state.device(id)?;
-    if !device.known() {
-        return None;
+    let mut facts = vec![Fact::new(gettext("Type"), kind(device.icon))];
+    facts.extend(battery(device).map(|level| Fact::new(gettext("Battery"), level)));
+    if let Some(codec) = device.codec.filter(|_| device.connected) {
+        facts.push(Fact::new(gettext("Codec"), codec_name(codec)));
     }
     let mut lines = Vec::new();
-
+    if device.known() {
+        lines.push(Line {
+            action: "trust".to_owned(),
+            title: gettext("Connect automatically"),
+            toggle: Some(device.trusted),
+            ..Default::default()
+        });
+    }
     if device.connected {
-        let mut act = acts(("disconnect", gettext("Disconnect")));
-        act.busy = matches!(device.busy, Some(Busy::Disconnecting));
-        lines.push(act);
+        lines.push(Line {
+            action: "disconnect".to_owned(),
+            title: gettext("Disconnect"),
+            activates: true,
+            busy: matches!(device.busy, Some(Busy::Disconnecting)),
+            ..Default::default()
+        });
     }
-    if let Some(level) = device.battery {
-        lines.push(line(
-            ("battery", gettext("Battery")),
-            gettext("{level}%").replace("{level}", &level.to_string()),
-        ));
+    if device.known() {
+        lines.push(Line {
+            action: "forget".to_owned(),
+            title: gettext("Forget this device"),
+            activates: true,
+            destructive: true,
+            busy: matches!(device.busy, Some(Busy::Forgetting)),
+            ..Default::default()
+        });
     }
-    if let Some(codec) = device.codec.filter(|_| device.connected) {
-        lines.push(line(("codec", gettext("Codec")), codec_name(codec)));
-    }
-    lines.push(Line {
-        action: "trust".to_owned(),
-        title: gettext("Connect automatically"),
-        toggle: Some(device.trusted),
-        ..Default::default()
-    });
-    lines.push(Line {
-        action: "forget".to_owned(),
-        title: gettext("Forget this device"),
-        activates: true,
-        destructive: true,
-        busy: matches!(device.busy, Some(Busy::Forgetting)),
-        ..Default::default()
-    });
-
     Some(Details {
         id: device.id.as_str().to_owned(),
+        facts,
         lines,
     })
-}
-
-fn line((action, title): (&str, String), value: String) -> Line {
-    Line {
-        action: action.to_owned(),
-        title,
-        value,
-        toggle: None,
-        activates: false,
-        busy: false,
-        destructive: false,
-    }
-}
-
-fn acts((action, title): (&str, String)) -> Line {
-    Line {
-        activates: true,
-        ..line((action, title), String::new())
-    }
 }
 
 pub fn wording(failure: Failure) -> String {
@@ -613,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn a_device_that_lost_its_bond_says_so_where_a_battery_would_be() {
+    fn a_device_that_lost_its_bond_says_so_on_its_row() {
         let mut dropped = device("Pixel", false);
         dropped.failure = Some(Failure::BondBroken);
         let state = state(Power::On, false, vec![dropped]);
@@ -621,7 +600,7 @@ mod tests {
         let row = &entries(&state, 6, 8, (false, false), false).entries[0];
 
         assert_eq!(
-            row.value, "Pairing lost",
+            row.problem, "Pairing lost",
             "a bond the remote forgot leaves Connect failing forever with nothing saying why"
         );
     }
@@ -685,12 +664,14 @@ mod tests {
             .iter()
             .map(|line| line.action.as_str())
             .collect();
+        let labels: Vec<&str> = details
+            .facts
+            .iter()
+            .map(|fact| fact.label.as_str())
+            .collect();
 
-        assert!(actions.contains(&"disconnect"));
-        assert!(!actions.contains(&"connect"));
-        assert!(actions.contains(&"codec"));
-        assert!(actions.contains(&"battery"));
-        assert!(actions.contains(&"forget"));
+        assert_eq!(actions, ["trust", "disconnect", "forget"]);
+        assert_eq!(labels, ["Type", "Battery", "Codec"]);
         let red: Vec<&str> = details
             .lines
             .iter()
@@ -701,7 +682,7 @@ mod tests {
     }
 
     #[test]
-    fn a_nearby_device_has_no_card() {
+    fn a_nearby_device_card_only_names_its_kind() {
         let mut found = device("Bose", false);
         found.paired = false;
         found.bonded = false;
@@ -710,9 +691,10 @@ mod tests {
         let id = found.id.clone();
         let state = state(Power::On, true, vec![found]);
 
+        let card = details(&state, &id).expect("a card");
         assert!(
-            details(&state, &id).is_none(),
-            "nothing is managed before a device pairs, so its row pairs and carries no card"
+            card.lines.is_empty() && card.facts.len() == 1,
+            "nothing is managed before a device pairs, so its card only says what it is"
         );
     }
 
@@ -726,7 +708,7 @@ mod tests {
         let details = details(&state, &id).expect("the device");
 
         assert!(
-            !details.lines.iter().any(|line| line.action == "codec"),
+            !details.facts.iter().any(|fact| fact.label == "Codec"),
             "the transport is gone the moment the device disconnects"
         );
     }
@@ -744,18 +726,10 @@ mod tests {
         let (warned, calm): (Vec<Entry>, Vec<Entry>) =
             rows.into_iter().partition(|entry| entry.id == id.as_str());
         assert!(
-            warned[0].warning && !warned[0].subtitle.is_empty(),
+            !warned[0].problem.is_empty(),
             "a problem is seen without opening anything"
         );
-        assert!(calm.iter().all(|entry| !entry.warning));
-        assert!(
-            !details(&state, &id)
-                .expect("the device")
-                .lines
-                .iter()
-                .any(|line| line.action == "pairing"),
-            "and the card does not repeat it"
-        );
+        assert!(calm.iter().all(|entry| entry.problem.is_empty()));
     }
 
     #[test]

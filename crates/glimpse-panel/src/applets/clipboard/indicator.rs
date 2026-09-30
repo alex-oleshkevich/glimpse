@@ -165,12 +165,19 @@ impl Clipboard {
                     true => render::title_of(&host, self.preview_chars()),
                     false => render::title_of(&rest, self.preview_chars()),
                 };
-                clip.subtitle = render::title_of(&host, self.preview_chars());
+                clip.facts.insert(
+                    0,
+                    Fact::new(
+                        gettext("Site"),
+                        render::title_of(&host, self.preview_chars()),
+                    ),
+                );
                 clip.icon = render::LINK_ICON.to_owned();
                 clip.actions = vec![action(OPEN, gettext("Open in browser"), String::new())];
             }
             render::Shape::Color(channels) => {
-                clip.subtitle = gettext("Color");
+                clip.facts
+                    .insert(0, Fact::new(gettext("Type"), gettext("Color")));
                 clip.swatch = Some(rgba(channels));
                 clip.excerpt = String::new();
                 clip.actions = [ColorFormat::Rgb, ColorFormat::Hsl]
@@ -185,13 +192,14 @@ impl Clipboard {
                     .collect();
             }
             render::Shape::Path(_) => {
-                clip.subtitle = gettext("Path");
+                clip.facts
+                    .insert(0, Fact::new(gettext("Type"), gettext("Path")));
                 clip.icon = render::PATH_ICON.to_owned();
                 clip.actions = vec![action(OPEN, gettext("Open"), String::new())];
             }
             render::Shape::Lines(count) => {
-                clip.subtitle = ngettext("{count} line", "{count} lines", count as u32)
-                    .replace("{count}", &count.to_string());
+                clip.facts
+                    .insert(0, Fact::new(gettext("Lines"), count.to_string()));
             }
             render::Shape::Plain => {}
         }

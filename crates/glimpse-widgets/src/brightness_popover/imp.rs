@@ -6,7 +6,8 @@ use gtk4::{
 };
 
 use crate::{
-    ChoiceList, Expandable, Fader, Hero, PopoverShell, Readout, Row, Source, SourceList, SwitchRow,
+    ChoiceList, Expandable, FactList, Fader, Hero, PopoverShell, Readout, Row, Source, SourceList,
+    SwitchRow,
 };
 
 use super::{
@@ -46,6 +47,8 @@ pub struct BrightnessPopover {
     pub night_head: TemplateChild<Row>,
     #[template_child]
     pub temperature: TemplateChild<Fader>,
+    #[template_child]
+    pub night_facts: TemplateChild<FactList>,
     #[template_child]
     pub schedules: TemplateChild<ChoiceList>,
     #[template_child]

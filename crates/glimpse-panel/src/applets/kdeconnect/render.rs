@@ -261,7 +261,6 @@ pub fn devices(state: &KdeconnectState) -> Vec<KdeconnectDevice> {
             KdeconnectDevice {
                 id: device.id.as_str().to_owned(),
                 title: name(device),
-                subtitle: String::new(),
                 value: match device.reachable {
                     true => charge(device).unwrap_or_default(),
                     false => gettext("Not connected"),
@@ -526,7 +525,6 @@ mod tests {
         let rows = devices(&state(vec![device("10", true, PairState::Paired)]));
         let keys: Vec<&str> = rows[0].actions.iter().map(|row| row.key.as_str()).collect();
         assert_eq!(keys, [RING, PING, SHARE, BROWSE, MESSAGES, UNPAIR]);
-        assert_eq!(rows[0].subtitle, "", "a device row is one line");
         assert_eq!(rows[0].value, "76%");
     }
 

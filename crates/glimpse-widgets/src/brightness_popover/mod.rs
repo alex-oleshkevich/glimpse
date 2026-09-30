@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Source, none_if_empty};
+use crate::{Choice, Fact, Source, none_if_empty};
 
 pub use imp::NightLight;
 
@@ -208,11 +208,10 @@ impl BrightnessPopover {
         if imp.enabled.active() != state.enabled {
             imp.enabled.set_active(state.enabled);
         }
-        crate::set_css_class(
-            &*imp.night_head,
-            "row--warning",
-            state.enabled && !state.serving,
-        );
+        let problem =
+            (state.enabled && !state.serving).then(|| gettext("Not reaching any display"));
+        imp.night_head.set_subtitle(problem.as_deref());
+        crate::set_css_class(&*imp.night_head, "row--warning", problem.is_some());
 
         imp.temperature.set_value(state.temperature as f64);
         self.show_temperature(state.temperature as f64);
@@ -239,24 +238,23 @@ impl BrightnessPopover {
         let imp = self.imp();
         let kelvin = kelvin_text(kelvin.round().max(0.0) as u32);
         imp.temperature.set_tooltip_text(Some(&kelvin));
-        let subtitle = imp.night_light_state.borrow().as_ref().map(|state| {
-            if !state.enabled {
-                return gettext("Off");
-            }
-            if !state.serving {
-                return gettext("Not reaching any display");
-            }
-            match schedules(state)
-                .into_iter()
-                .find(|(mode, _)| *mode == state.schedule)
-            {
-                Some((_, label)) => gettext("{schedule} · {kelvin}")
-                    .replace("{schedule}", &label)
-                    .replace("{kelvin}", &kelvin),
-                None => kelvin,
-            }
-        });
-        imp.night_head.set_subtitle(subtitle);
+        let Some(state) = imp.night_light_state.borrow().clone() else {
+            return;
+        };
+        let schedules = schedules(&state);
+        let schedule = (schedules.len() < 2)
+            .then(|| {
+                schedules
+                    .into_iter()
+                    .find(|(mode, _)| *mode == state.schedule)
+            })
+            .flatten()
+            .map(|(_, label)| Fact::new(gettext("Schedule"), label));
+        let facts: Vec<Fact> = schedule
+            .into_iter()
+            .chain([Fact::new(gettext("Temperature"), kelvin)])
+            .collect();
+        imp.night_facts.set_facts(&facts);
     }
 }
 

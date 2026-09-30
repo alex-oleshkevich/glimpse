@@ -56,13 +56,12 @@ impl Default for RemovablePopover {
 struct DeviceRow {
     id: String,
     title: String,
-    subtitle: String,
     icon: String,
     head: Head,
     fraction: Option<f64>,
     busy: bool,
     dimmed: bool,
-    warning: bool,
+    problem: String,
     indent: bool,
     card: Card,
 }
@@ -150,11 +149,11 @@ impl RemovablePopover {
     fn apply_device(&self, holder: &Expandable, spec: &DeviceRow) {
         let row = self.ensure_head(holder, spec);
         row.set_title(none_if_empty(&spec.title));
-        row.set_subtitle(none_if_empty(&spec.subtitle));
         row.set_lead_icon(none_if_empty(&spec.icon));
         row.set_busy(spec.busy);
         set_css_class(&row, DIMMED, spec.dimmed);
-        set_css_class(&row, WARNING, spec.warning);
+        row.set_subtitle(none_if_empty(&spec.problem));
+        set_css_class(&row, WARNING, !spec.problem.is_empty());
 
         let margin = if spec.indent { 24 } else { 0 };
         if holder.margin_start() != margin {
@@ -238,6 +237,11 @@ impl RemovablePopover {
             bar.set_margin_bottom(6);
             body.append(&bar);
         }
+        if !card.facts.is_empty() {
+            let facts = FactList::new();
+            facts.set_facts(&card.facts);
+            body.append(&facts);
+        }
         if let Some(id) = &card.open {
             body.append(&self.action(gettextrs::gettext("Open"), "activated", id));
         }
@@ -249,11 +253,6 @@ impl RemovablePopover {
                 body.append(&self.release(gettextrs::gettext("Unmount"), "unmount", id))
             }
             None => {}
-        }
-        if !card.facts.is_empty() {
-            let facts = FactList::new();
-            facts.set_facts(&card.facts);
-            body.append(&facts);
         }
         body
     }
@@ -296,7 +295,10 @@ fn release(busy: bool, release: Option<Release>) -> Option<Release> {
 
 fn drive_row(drive: &Drive) -> DeviceRow {
     let card = match drive.dimmed {
-        true => Card::default(),
+        true => Card {
+            facts: drive.facts.clone(),
+            ..Card::default()
+        },
         false => Card {
             release: release(
                 drive.busy,
@@ -309,7 +311,6 @@ fn drive_row(drive: &Drive) -> DeviceRow {
     DeviceRow {
         id: drive.id.clone(),
         title: drive.title.clone(),
-        subtitle: drive.subtitle.clone(),
         icon: drive.icon.clone(),
         head: match card.is_empty() {
             true => Head::Inert,
@@ -318,7 +319,7 @@ fn drive_row(drive: &Drive) -> DeviceRow {
         fraction: None,
         busy: drive.busy,
         dimmed: drive.dimmed,
-        warning: false,
+        problem: String::new(),
         indent: false,
         card,
     }
@@ -339,12 +340,11 @@ fn volume_row(id: String, volume: &Volume, busy: bool, releases: Option<Release>
         },
         id,
         title: volume.title.clone(),
-        subtitle: volume.subtitle.clone(),
         icon: volume.icon.clone(),
         fraction: volume.fraction,
         busy,
         dimmed: false,
-        warning: volume.warning,
+        problem: volume.problem.clone(),
         indent: false,
         card,
     }

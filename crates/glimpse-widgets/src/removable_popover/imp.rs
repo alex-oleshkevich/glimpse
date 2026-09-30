@@ -12,12 +12,11 @@ use crate::{Expandable, Fact, Hero, PopoverShell, Row, Section};
 pub struct Volume {
     pub id: String,
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     pub fraction: Option<f64>,
     pub busy: bool,
     pub mounted: bool,
-    pub warning: bool,
+    pub problem: String,
     pub facts: Vec<Fact>,
 }
 
@@ -25,7 +24,6 @@ pub struct Volume {
 pub struct Drive {
     pub id: String,
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     pub ejectable: bool,
     pub busy: bool,

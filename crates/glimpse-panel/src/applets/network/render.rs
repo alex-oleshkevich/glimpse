@@ -3,7 +3,8 @@ use gettextrs::{gettext, ngettext};
 use glimpse_dbus::network_manager as nm;
 use glimpse_services::{Access, NetworkBusy, NetworkFailure, NetworkState};
 use glimpse_widgets::{
-    NetworkDetails as Details, NetworkEntry as Entry, NetworkLine as Line, NetworkPlace as Place,
+    Fact, NetworkDetails as Details, NetworkEntry as Entry, NetworkLine as Line,
+    NetworkPlace as Place,
 };
 
 const LABEL_MAX_CHARS: usize = 32;
@@ -126,20 +127,6 @@ pub fn name_of(network: &Access) -> String {
         .unwrap_or_else(|| gettext("Unnamed network"))
 }
 
-fn describe(network: &Access, metered: bool) -> String {
-    let mut parts = vec![security(network.security)];
-    if let Some(band) = band(network.band) {
-        parts.push(band);
-    }
-    if network.active {
-        parts.insert(0, gettext("Connected"));
-        if metered {
-            parts.push(gettext("Metered"));
-        }
-    }
-    parts.join(" · ")
-}
-
 /// Other networks as the popover draws its disclosure: how many there are, whether the list is
 /// open, and the wording for the row an open list ends in when the cap cut it short.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,11 +153,6 @@ pub fn entries(
         rows.push(Entry {
             id: wired.id.as_str().to_owned(),
             title: cap(&wired.name),
-            subtitle: match (wired.carrier, wired.active && state.metered.marked()) {
-                (true, true) => [gettext("Connected"), gettext("Metered")].join(" · "),
-                (true, false) => gettext("Connected"),
-                (false, _) => gettext("Cable unplugged"),
-            },
             icon: match wired.carrier {
                 true => "network-wired-symbolic".to_owned(),
                 false => "network-wired-disconnected-symbolic".to_owned(),
@@ -186,7 +168,6 @@ pub fn entries(
         rows.push(Entry {
             id: vpn.id.as_str().to_owned(),
             title: cap(&vpn.name),
-            subtitle: vpn.kind.clone(),
             icon: match vpn.active {
                 true => "network-vpn-symbolic".to_owned(),
                 false => "network-vpn-disconnected-symbolic".to_owned(),
@@ -204,7 +185,7 @@ pub fn entries(
         .partition(|network| network.active || network.saved.is_some());
     known.sort_by_key(|network| !network.active);
     for network in known.iter().copied() {
-        rows.push(access_entry(state, network, Place::Wifi));
+        rows.push(access_entry(network, Place::Wifi));
     }
 
     let open = known.is_empty() != toggled;
@@ -213,7 +194,7 @@ pub fn entries(
         false => cap_at.min(other.len()),
     };
     for network in other.iter().take(shown).copied() {
-        rows.push(access_entry(state, network, Place::Other));
+        rows.push(access_entry(network, Place::Other));
     }
 
     let hidden = other.len() - shown;
@@ -232,15 +213,10 @@ pub fn entries(
     (rows, others)
 }
 
-fn access_entry(state: &NetworkState, network: &Access, place: Place) -> Entry {
-    let subtitle = match place {
-        Place::Other => stranger(network.security),
-        _ => describe(network, state.metered.marked()),
-    };
+fn access_entry(network: &Access, place: Place) -> Entry {
     Entry {
         id: network.id.as_str().to_owned(),
         title: name_of(network),
-        subtitle,
         icon: network.icon_name().to_owned(),
         place,
         secured: network.security.needs_a_secret(),
@@ -249,21 +225,18 @@ fn access_entry(state: &NetworkState, network: &Access, place: Place) -> Entry {
     }
 }
 
-/// A stranger is one line: the padlock already says it is secured and the band helps nobody
-/// choose. Only what changes the decision to join is said — no encryption at all, or a network
-/// that asks for more than a password.
-fn stranger(security: nm::Security) -> String {
-    match security {
-        nm::Security::Open | nm::Security::Enterprise => self::security(security),
-        _ => String::new(),
-    }
-}
-
-/// The card under a row, or `None` for a row that has nothing to manage. A connection in use
-/// carries Disconnect and what describes it; a saved network carries how it joins and Forget. A
-/// stranger, and a wired or VPN connection not in use, has no card: its row's body is its one
-/// action, and Security and Signal would only repeat the subtitle and the icon.
+/// The card under a row: first the facts that describe the connection — its status, security,
+/// band, speed, kind and address — then what can be done with it, how it joins before Disconnect
+/// and Forget.
 pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
+    let status = |value: String| Fact::new(gettext("Status"), value);
+    let metered =
+        |active: bool| (active && state.metered.marked()).then(|| status(gettext("Metered")));
+    let address = |address: &Option<String>| {
+        address
+            .as_ref()
+            .map(|address| Fact::new(gettext("IP address"), address.clone()))
+    };
     let disconnect = |busy: bool, destructive: bool| Line {
         action: "disconnect".to_owned(),
         title: gettext("Disconnect"),
@@ -272,38 +245,41 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
         destructive,
         ..Default::default()
     };
-    let address = |address: &Option<String>| {
-        address.as_ref().map(|address| Line {
-            action: "address".to_owned(),
-            title: gettext("IP address"),
-            value: address.clone(),
-            ..Default::default()
-        })
-    };
-    let card = |lines: Vec<Line>| {
-        (!lines.is_empty()).then(|| Details {
+    let card = |facts: Vec<Fact>, lines: Vec<Line>| {
+        (!facts.is_empty() || !lines.is_empty()).then(|| Details {
             id: id.to_owned(),
+            facts,
             lines,
         })
     };
 
     if let Some(network) = state.networks.iter().find(|one| one.id.as_str() == id) {
-        let mut lines = Vec::new();
+        let mut facts: Vec<Fact> = metered(network.active).into_iter().collect();
+        facts.push(Fact::new(gettext("Security"), security(network.security)));
+        facts.extend(band(network.band).map(|band| Fact::new(gettext("Band"), band)));
         if network.active {
-            lines.push(disconnect(
-                matches!(network.busy, Some(NetworkBusy::Disconnecting)),
-                network.saved.is_none(),
-            ));
-            lines.extend(address(&network.address));
+            facts.extend(address(&network.address));
         }
-        if let Some(saved) = &network.saved {
-            let profile = state.known.iter().find(|one| &one.id == saved);
+        let profile = network
+            .saved
+            .as_ref()
+            .map(|saved| state.known.iter().find(|one| &one.id == saved));
+        let mut lines = Vec::new();
+        if let Some(profile) = profile {
             lines.push(Line {
                 action: "autoconnect".to_owned(),
                 title: gettext("Connect automatically"),
                 toggle: Some(profile.is_some_and(|one| one.autoconnect)),
                 ..Default::default()
             });
+        }
+        if network.active {
+            lines.push(disconnect(
+                matches!(network.busy, Some(NetworkBusy::Disconnecting)),
+                profile.is_none(),
+            ));
+        }
+        if let Some(profile) = profile {
             lines.push(Line {
                 action: "forget".to_owned(),
                 title: gettext("Forget this network"),
@@ -313,36 +289,41 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
                 ..Default::default()
             });
         }
-        return card(lines);
+        return card(facts, lines);
     }
 
     if let Some(wired) = state.wired.iter().find(|one| one.id.as_str() == id) {
+        if !wired.carrier {
+            return card(vec![status(gettext("Cable unplugged"))], Vec::new());
+        }
         if !wired.active {
             return None;
         }
-        let mut lines = vec![disconnect(wired.busy.is_some(), true)];
+        let mut facts: Vec<Fact> = metered(true).into_iter().collect();
         if let Some(speed) = wired.speed.filter(|speed| *speed > 0) {
-            lines.push(Line {
-                action: "speed".to_owned(),
-                title: gettext("Speed"),
-                value: gettext("{speed} Mb/s").replace("{speed}", &speed.to_string()),
-                ..Default::default()
-            });
+            facts.push(Fact::new(
+                gettext("Speed"),
+                gettext("{speed} Mb/s").replace("{speed}", &speed.to_string()),
+            ));
         }
-        lines.extend(address(&wired.address));
-        return card(lines);
+        facts.extend(address(&wired.address));
+        return card(facts, vec![disconnect(wired.busy.is_some(), true)]);
     }
 
     if let Some(vpn) = state.vpn.iter().find(|one| one.id.as_str() == id) {
+        let mut facts: Vec<Fact> = (!vpn.kind.is_empty())
+            .then(|| Fact::new(gettext("Type"), vpn.kind.clone()))
+            .into_iter()
+            .collect();
         if !vpn.active {
-            return None;
+            return card(facts, Vec::new());
         }
-        let mut lines = vec![Line {
+        facts.extend(address(&vpn.address));
+        let disconnect = Line {
             action: "disconnect-vpn".to_owned(),
             ..disconnect(vpn.busy.is_some(), true)
-        }];
-        lines.extend(address(&vpn.address));
-        return card(lines);
+        };
+        return card(facts, vec![disconnect]);
     }
     None
 }
@@ -426,10 +407,10 @@ mod tests {
 
         let card = details(&state, &id).expect("a detail card");
         let address = card
-            .lines
+            .facts
             .iter()
-            .find(|line| line.action == "address")
-            .expect("an address line");
+            .find(|fact| fact.label == "IP address")
+            .expect("an address fact");
         assert_eq!(address.value, "192.168.50.27/24");
         let red: Vec<&str> = card
             .lines
@@ -447,9 +428,11 @@ mod tests {
         );
 
         let other = state.networks[1].id.as_str().to_owned();
+        let stranger =
+            details(&state, &other).expect("a stranger's card says what the one-line row does not");
         assert!(
-            details(&state, &other).is_none(),
-            "a stranger has nothing to manage, so its row joins and carries no card"
+            stranger.lines.is_empty() && !stranger.facts.is_empty(),
+            "a stranger's card only describes it"
         );
     }
 
@@ -468,8 +451,10 @@ mod tests {
         }];
 
         let card = details(&state, "/s/vpn").expect("a detail card");
+        let labels: Vec<&str> = card.facts.iter().map(|fact| fact.label.as_str()).collect();
+        assert_eq!(labels, ["Type", "IP address"], "facts come first");
         let actions: Vec<&str> = card.lines.iter().map(|line| line.action.as_str()).collect();
-        assert_eq!(actions, ["disconnect-vpn", "address"]);
+        assert_eq!(actions, ["disconnect-vpn"]);
         assert!(
             card.lines[0].destructive,
             "a lone Disconnect is the card's red action"
@@ -477,9 +462,10 @@ mod tests {
 
         state.vpn[0].active = false;
         state.vpn[0].address = None;
+        let idle = details(&state, "/s/vpn").expect("the card names the kind");
         assert!(
-            details(&state, "/s/vpn").is_none(),
-            "a tunnel not in use connects from its row and has no card"
+            idle.lines.is_empty() && idle.facts.len() == 1,
+            "a tunnel not in use connects from its row; its card only names what it is"
         );
     }
 
@@ -498,8 +484,10 @@ mod tests {
 
         let card = details(&state, "/org/freedesktop/NetworkManager/Devices/459")
             .expect("a wired row must unfold a card like every other row");
+        let labels: Vec<&str> = card.facts.iter().map(|fact| fact.label.as_str()).collect();
+        assert_eq!(labels, ["Speed", "IP address"]);
         let actions: Vec<&str> = card.lines.iter().map(|line| line.action.as_str()).collect();
-        assert_eq!(actions, ["disconnect", "speed", "address"]);
+        assert_eq!(actions, ["disconnect"]);
 
         state.wired[0].active = false;
         state.wired[0].address = None;
@@ -516,26 +504,25 @@ mod tests {
             ..connected(70)
         };
 
-        let (rows, _) = entries(&state, 0, false, false);
-        let row = rows
-            .iter()
-            .find(|row| row.selected)
-            .expect("the connected row");
+        let metered = |state: &NetworkState| {
+            let (rows, _) = entries(state, 0, false, false);
+            let row = rows
+                .iter()
+                .find(|row| row.selected)
+                .expect("the connected row");
+            details(state, &row.id)
+                .is_some_and(|card| card.facts.iter().any(|fact| fact.value == "Metered"))
+        };
         assert!(
-            row.subtitle.contains(&gettext("Metered")),
-            "the tooltip setting is about the bar; the row inside the popover says so regardless"
+            metered(&state),
+            "the tooltip setting is about the bar; the card inside the popover says so regardless"
         );
 
         let unmetered = NetworkState {
             metered: nm::Metered::GuessNo,
             ..connected(70)
         };
-        let (rows, _) = entries(&unmetered, 0, false, false);
-        assert!(
-            !rows
-                .iter()
-                .any(|row| row.subtitle.contains(&gettext("Metered")))
-        );
+        assert!(!metered(&unmetered));
     }
 
     #[test]
@@ -643,7 +630,7 @@ mod tests {
         assert_eq!(
             actions,
             ["autoconnect", "forget"],
-            "the row joins; the card is only what a profile has, and nothing the row already says"
+            "the row joins; the card describes the network, then what a profile has"
         );
         assert_eq!(
             saved.lines[0].toggle,
@@ -653,7 +640,8 @@ mod tests {
 
         state.networks[0].saved = None;
         assert!(
-            details(&state, "/ap/0").is_none(),
+            details(&state, "/ap/0")
+                .is_some_and(|card| card.lines.iter().all(|line| line.action != "forget")),
             "a network nothing is saved for has nothing to forget"
         );
     }
@@ -710,9 +698,5 @@ mod tests {
             .collect();
         assert_eq!(strangers.len(), 3);
         assert!(others.open, "pressing the header opens it");
-        assert!(
-            strangers.iter().all(|row| row.subtitle.is_empty()),
-            "a secured stranger is one line: the padlock says secured, the band helps nobody"
-        );
     }
 }

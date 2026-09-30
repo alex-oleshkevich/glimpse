@@ -162,9 +162,7 @@ pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
 pub use popover_shell::PopoverShell;
-pub use printing_popover::{
-    Detail as PrintingDetail, Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover,
-};
+pub use printing_popover::{Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover};
 pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
@@ -265,6 +263,16 @@ pub(crate) fn fade_out(
     if duration_ms() == 0 {
         animation.skip();
     }
+}
+
+pub(crate) fn fact_card(holder: &crate::Expandable) -> gtk4::Box {
+    use gtk4::prelude::*;
+
+    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    card.append(&crate::FactList::new());
+    card.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
+    holder.set_details(Some(&card));
+    card
 }
 
 pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
@@ -718,12 +726,8 @@ mod tests {
         row.set_title(Some("Tenda_4A21F0"));
         row.set_subtitle(Some("WPA2 · 5 GHz"));
         assert!(row_subtitle.is_visible());
-        assert!(
-            row.has_css_class("row--two"),
-            "a subtitle is what makes a row two lines; nothing else has to be told"
-        );
         row.set_subtitle(None::<&str>);
-        assert!(!row.has_css_class("row--two"));
+        assert!(!row_subtitle.is_visible());
 
         row.set_title(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
         assert_eq!(
@@ -886,8 +890,8 @@ mod tests {
             "opening details does not release"
         );
         assert!(
-            !second.activatable() && !holders[1].expanded(),
-            "a hold that prevents only idle and cannot be released has nothing to open"
+            second.activatable() && second.subtitle().is_none() && !holders[1].expanded(),
+            "a hold's reason is in its card, so even one that only prevents idle opens"
         );
         release.emit_clicked();
         assert_eq!(*reported.borrow(), vec![1]);
@@ -939,10 +943,10 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             values.len(),
-            1,
-            "the card says what it prevents and nothing the row says"
+            2,
+            "the card says why the hold is taken, then what it prevents"
         );
-        assert!(values[0].contains("Shutdown"));
+        assert!(values[1].contains("Shutdown"));
         let hostile = "ё".repeat(TEXT_MAX_CHARS * 2);
         inhibitor_list.set_inhibitors(&[InhibitorEntry {
             id: 7,
@@ -952,14 +956,17 @@ mod tests {
             targets: InhibitorTargets::default(),
             can_release: false,
         }]);
-        let hostile_row = children_of::<Expandable>(&inhibitor_list)
-            .remove(0)
-            .head::<Row>()
-            .expect("a row");
+        let hostile_holder = children_of::<Expandable>(&inhibitor_list).remove(0);
+        let hostile_row = hostile_holder.head::<Row>().expect("a row");
         let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
-        let hostile_subtitle = child_named::<gtk4::Label>(&hostile_row, "row__subtitle");
         assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
-        assert_eq!(hostile_subtitle.text().chars().count(), TEXT_MAX_CHARS);
+        let hostile_facts =
+            children_of::<FactList>(&hostile_holder.details::<gtk4::Box>().expect("a card"))
+                .remove(0);
+        assert!(children_of::<Row>(&hostile_facts).iter().all(|row| {
+            row.value()
+                .is_none_or(|value| value.chars().count() <= TEXT_MAX_CHARS)
+        }));
 
         let calendar = Calendar::new();
         calendar.set_today(Ymd::new(2026, 9, 23));
@@ -2444,8 +2451,12 @@ mod tests {
             let links = Rc::clone(&links);
             move |_, url| links.borrow_mut().push(url)
         });
-        card.first_child()
-            .and_downcast::<Row>()
+        assert!(
+            card.first_child().and_downcast::<FactList>().is_some(),
+            "the facts lead the card, before its links"
+        );
+        children_of::<Row>(&card)
+            .first()
             .expect("the join row")
             .emit_clicked();
         assert_eq!(*links.borrow(), ["https://meet.google.com/abc"]);
@@ -4471,12 +4482,11 @@ mod tests {
         let entry = |id: &str, place: BluetoothPlace| BluetoothEntry {
             id: id.to_owned(),
             title: id.to_owned(),
-            subtitle: "Headset".to_owned(),
+            problem: String::new(),
             icon: "audio-headset-symbolic".to_owned(),
             place,
             value: String::new(),
             busy: false,
-            warning: false,
         };
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
@@ -4499,11 +4509,17 @@ mod tests {
             }
             panic!("no row is holding {id}");
         };
+        let card_of = |id: &str| -> gtk4::Box {
+            holder(id)
+                .details::<gtk4::Box>()
+                .expect("an opened device has a card")
+        };
         let rows_of = |id: &str| -> Vec<Row> {
             children_of::<Row>(
-                &holder(id)
-                    .details::<gtk4::Box>()
-                    .expect("an opened device has a card"),
+                &card_of(id)
+                    .last_child()
+                    .and_downcast::<gtk4::Box>()
+                    .expect("a card ends in its lines"),
             )
         };
         let dimmed = |widget: &gtk4::Widget| {
@@ -4557,18 +4573,13 @@ mod tests {
         };
         let in_use = |on: bool| BluetoothDetails {
             id: "a".to_owned(),
+            facts: vec![Fact::new("Battery", "72%")],
             lines: vec![
+                trust(on),
                 BluetoothLine {
                     action: "disconnect".to_owned(),
                     title: "Disconnect".to_owned(),
                     activates: true,
-                    ..Default::default()
-                },
-                trust(on),
-                BluetoothLine {
-                    action: "battery".to_owned(),
-                    title: "Battery".to_owned(),
-                    value: "72%".to_owned(),
                     ..Default::default()
                 },
                 forget.clone(),
@@ -4576,6 +4587,7 @@ mod tests {
         };
         let paired = BluetoothDetails {
             id: "b".to_owned(),
+            facts: vec![Fact::new("Type", "Headset")],
             lines: vec![trust(true), forget.clone()],
         };
         popover.set_details(&[in_use(false), paired.clone()]);
@@ -4600,35 +4612,41 @@ mod tests {
         );
 
         let lines = rows_of("a");
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 3);
         assert!(
-            lines[1].clone().downcast::<SwitchRow>().is_ok(),
+            lines[0].clone().downcast::<SwitchRow>().is_ok(),
             "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
         );
         assert!(
-            lines[0].activatable() && lines[3].activatable(),
+            lines[1].activatable() && lines[2].activatable(),
             "a line that acts keeps the pointer"
         );
+        let facts = card_of("a")
+            .first_child()
+            .and_downcast::<FactList>()
+            .expect("the facts lead the card");
         let toggled = Rc::new(RefCell::new(Vec::new()));
         popover.connect_toggled({
             let toggled = Rc::clone(&toggled);
             move |_, id, action, on| toggled.borrow_mut().push(format!("{id}/{action}/{on}"))
         });
-        lines[1].emit_clicked();
-        lines[1].emit_clicked();
+        lines[0].emit_clicked();
+        lines[0].emit_clicked();
         assert_eq!(
             *toggled.borrow(),
             ["a/trust/true", "a/trust/false"],
             "a toggle line acts through its own row body, exactly once per press and both ways"
         );
         assert!(
-            !lines[2].activatable(),
+            children_of::<Row>(&facts)
+                .iter()
+                .all(|row| !row.activatable()),
             "a line that only states something must not light up under a hover leading nowhere"
         );
-        lines[0].emit_by_name::<()>("clicked", &[]);
+        lines[1].emit_by_name::<()>("clicked", &[]);
         assert_eq!(*acted.borrow(), ["a/disconnect"]);
 
-        let switch = lines[1]
+        let switch = lines[0]
             .trail()
             .and_downcast::<gtk4::Switch>()
             .expect("a toggle row carries a switch");
@@ -4674,14 +4692,11 @@ mod tests {
             "a paired device's body connects"
         );
 
-        let mut fragile = entry("b", BluetoothPlace::Paired);
-        fragile.warning = true;
-        popover.set_entries(&[entry("a", BluetoothPlace::Connected), fragile]);
         assert!(
-            holder("b").head::<SplitRow>().is_some_and(|split| split
-                .row()
-                .has_css_class("bluetooth-popover__device--warning")),
-            "a pairing that will not survive a restart is marked on the row itself"
+            holder("b")
+                .head::<SplitRow>()
+                .is_some_and(|split| split.row().subtitle().is_none()),
+            "a device row is one line"
         );
 
         let pressed = Rc::new(Cell::new(0u32));
@@ -4714,11 +4729,9 @@ mod tests {
         );
         let nearby = holder("n").head::<SplitRow>().expect("a split row");
         assert!(
-            !nearby.detail().get_visible(),
-            "a nearby device has nothing to manage, so it has no chevron"
+            nearby.detail().get_visible(),
+            "a nearby device's card names what it is, so it has a chevron"
         );
-        nearby.emit_by_name::<()>("details", &[]);
-        assert!(!holder("n").expanded(), "and no card to open");
         nearby.emit_by_name::<()>("activated", &[]);
         assert_eq!(
             *activated.borrow(),
@@ -4766,12 +4779,11 @@ mod tests {
 
             probe.set_details(&[BluetoothDetails {
                 id: "a".to_owned(),
-                lines: vec![BluetoothLine {
-                    action: "codec".to_owned(),
-                    title: "Codec".to_owned(),
-                    value: "Audio, Calls, Remote control, Network, File transfer".to_owned(),
-                    ..Default::default()
-                }],
+                facts: vec![Fact::new(
+                    "Codec",
+                    "Audio, Calls, Remote control, Network, File transfer",
+                )],
+                lines: Vec::new(),
             }]);
             let opened = probe
                 .imp()
@@ -4972,7 +4984,6 @@ mod tests {
             NetworkEntry {
                 id: "/ap/1".to_owned(),
                 title: "Skylink".to_owned(),
-                subtitle: "WPA2 \u{b7} 5 GHz".to_owned(),
                 icon: "network-wireless-signal-good-symbolic".to_owned(),
                 place: NetworkPlace::Other,
                 secured: true,
@@ -5048,6 +5059,7 @@ mod tests {
         let net_rows = |id: &str| -> Vec<Row> {
             let page = net_panel(id)
                 .child()
+                .and_then(|card| card.last_child())
                 .and_downcast::<gtk4::Box>()
                 .expect("an opened panel has a page");
             children_of::<Row>(&page)
@@ -5099,6 +5111,7 @@ mod tests {
         ];
         let card = |id: &str| NetworkDetails {
             id: id.to_owned(),
+            facts: vec![Fact::new("Security", "WPA2")],
             lines: lines.clone(),
         };
         let chevron = |id: &str| {
@@ -5129,6 +5142,14 @@ mod tests {
         );
         let opened = net_rows("/ap/1");
         assert_eq!(opened.len(), 3);
+        assert!(
+            net_panel("/ap/1")
+                .child()
+                .and_then(|card| card.first_child())
+                .and_downcast::<FactList>()
+                .is_some(),
+            "the facts lead the card, before any action"
+        );
         assert!(
             opened[1].clone().downcast::<SwitchRow>().is_ok(),
             "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
@@ -5885,14 +5906,14 @@ mod tests {
 
         let detail_of = |holder: &Expandable| -> (FactList, SwitchRow) {
             let body = holder.details::<gtk4::Box>().expect("a detail body");
-            let switch = body
+            let facts = body
                 .first_child()
-                .and_downcast::<SwitchRow>()
-                .expect("the enable switch leads the detail");
-            let facts = switch
-                .next_sibling()
                 .and_downcast::<FactList>()
-                .expect("the fact list follows the switch");
+                .expect("the facts lead the detail");
+            let switch = facts
+                .next_sibling()
+                .and_downcast::<SwitchRow>()
+                .expect("the enable switch follows the facts");
             (facts, switch)
         };
         let heads_of = |holders: &[Expandable]| -> Vec<Row> {
@@ -5912,10 +5933,9 @@ mod tests {
             heads[1].lead_icon().as_deref(),
             Some("video-display-symbolic")
         );
-        assert_eq!(
-            heads[0].subtitle().as_deref(),
-            Some("1920 × 1080 · 60 Hz"),
-            "an enabled display's head carries its current mode"
+        assert!(
+            heads.iter().all(|head| head.subtitle().is_none()),
+            "a display's head is one line"
         );
 
         let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
@@ -5924,17 +5944,15 @@ mod tests {
         let external_fact_rows: Vec<Row> = children_of(&external_facts);
         assert_eq!(
             built_in_fact_rows.len(),
-            3,
-            "the connector always leads the detail; a display with no make, model or serial omits \
-             those lines rather than rendering Unknown or an empty row"
+            4,
+            "the mode and the connector always lead the detail; a display with no make, model or \
+             serial omits those lines rather than rendering Unknown or an empty row"
         );
-        assert_eq!(external_fact_rows.len(), 6);
-        assert!(
-            built_in_fact_rows
-                .iter()
-                .chain(&external_fact_rows)
-                .all(|row| row.title().as_deref() != Some("Current mode")),
-            "the current mode is the head's subtitle, never repeated as a fact"
+        assert_eq!(external_fact_rows.len(), 7);
+        assert_eq!(
+            built_in_fact_rows[0].value().as_deref(),
+            Some("1920 × 1080 · 60 Hz"),
+            "an enabled display's card leads with its current mode"
         );
         assert!(
             !built_in_fact_rows
@@ -5984,11 +6002,11 @@ mod tests {
             "a disabled output is never locked, or its user would be stranded"
         );
         assert!(!off_switch.active());
-        let off_heads: Vec<Row> = heads_of(&holders);
+        let (off_facts, _) = detail_of(&holders[1]);
         assert_eq!(
-            off_heads[1].subtitle().as_deref(),
+            children_of::<Row>(&off_facts)[0].value().as_deref(),
             Some("Off"),
-            "a disabled display's head says so instead of a mode"
+            "a disabled display's card says so instead of a mode"
         );
 
         let enable_requests = Rc::new(RefCell::new(Vec::<(String, bool)>::new()));
@@ -6051,9 +6069,9 @@ mod tests {
         let holders: Vec<Expandable> = children_of(&displays);
         let (hostile_facts, _) = detail_of(&holders[0]);
         assert_eq!(
-            heads_of(&holders)[0].subtitle(),
-            None,
-            "an enabled display with no current mode has no subtitle"
+            children_of::<Row>(&hostile_facts)[0].title().as_deref(),
+            Some("Connector"),
+            "an enabled display with no current mode has no mode line"
         );
         assert!(
             children_of::<Row>(&hostile_facts).iter().all(|row| {
@@ -6080,7 +6098,7 @@ mod tests {
         let facts_of = |holder: &Expandable| -> FactList {
             holder
                 .details::<gtk4::Box>()
-                .and_then(|body| body.last_child())
+                .and_then(|body| body.first_child())
                 .and_downcast::<FactList>()
                 .expect("a fact list")
         };
@@ -6113,7 +6131,7 @@ mod tests {
         for holder in &gate_holders_off {
             assert!(
                 facts_of(holder)
-                    .prev_sibling()
+                    .next_sibling()
                     .is_none_or(|switch| !switch.get_visible()),
                 "AC-2/AC-5: output_power false omits the enable switch entirely, even on the \
                  sole enabled output, rather than leaving it present and locked"
@@ -6121,13 +6139,13 @@ mod tests {
         }
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[0])).len(),
-            3,
+            4,
             "AC-3: the built-in display's own facts survive the gate"
         );
         assert_eq!(
             children_of::<Row>(&facts_of(&gate_holders_off[1])).len(),
-            6,
-            "AC-3: so do the external display's, connector through position"
+            7,
+            "AC-3: so do the external display's, mode through position"
         );
 
         gate.set_output_power(true);
@@ -6299,10 +6317,20 @@ mod tests {
         assert!(brightness.imp().night_light.get_visible());
         assert!(brightness.imp().night_light.is_sensitive());
         let night_head = brightness.imp().night_head.get();
-        assert_eq!(
-            night_head.subtitle().as_deref(),
-            Some("Off"),
-            "the row says the light is off, since its switch is inside the card"
+        let night_facts = brightness.imp().night_facts.get();
+        let night_values = || -> Vec<(Option<String>, Option<String>)> {
+            children_of::<Row>(&night_facts)
+                .iter()
+                .map(|row| (row.title(), row.value()))
+                .collect()
+        };
+        assert!(
+            night_head.subtitle().is_none(),
+            "the night light row is one line"
+        );
+        assert!(
+            !brightness.imp().enabled.active(),
+            "the card's switch says the light is off"
         );
         assert!(
             brightness.imp().temperature.get_visible()
@@ -6324,18 +6352,24 @@ mod tests {
             "one schedule is nothing to choose"
         );
         assert_eq!(
-            night_head.subtitle().as_deref(),
-            Some("Sunset to sunrise · 4200 K"),
-            "the head says which schedule is running and how warm it is now"
+            night_values(),
+            [
+                (
+                    Some("Schedule".to_owned()),
+                    Some("Sunset to sunrise".to_owned())
+                ),
+                (Some("Temperature".to_owned()), Some("4200 K".to_owned())),
+            ],
+            "the card says which schedule is running and how warm it is now"
         );
         brightness
             .imp()
             .temperature
             .emit_by_name::<()>("moved", &[&3400.0f64]);
         assert_eq!(
-            night_head.subtitle().as_deref(),
-            Some("Sunset to sunrise · 3400 K"),
-            "the subtitle follows the rail while it is dragged, before any reply"
+            night_values()[1].1.as_deref(),
+            Some("3400 K"),
+            "the line follows the rail while it is dragged, before any reply"
         );
         assert_eq!(brightness.imp().temperature.value(), 4200.0);
         assert!(
@@ -6379,7 +6413,7 @@ mod tests {
         assert_eq!(
             night_head.subtitle().as_deref(),
             Some("Not reaching any display"),
-            "a provider that applies nothing says so rather than looking broken"
+            "a provider that applies nothing says so on its row rather than looking broken"
         );
         assert!(night_head.has_css_class("row--warning"));
 
@@ -6466,8 +6500,9 @@ mod tests {
             "the configured hours are the schedule in force"
         );
         assert_eq!(
-            night_head.subtitle().as_deref(),
-            Some("Fixed hours · 3000 K")
+            night_values(),
+            [(Some("Temperature".to_owned()), Some("3000 K".to_owned()))],
+            "a schedule that can be chosen is not repeated as a fact"
         );
         let scheduled = Rc::new(RefCell::new(Vec::<String>::new()));
         brightness.connect_night_light_scheduled({
@@ -7442,7 +7477,6 @@ mod tests {
             Clip {
                 id: 10,
                 title: "#1e88e5".to_owned(),
-                subtitle: "Color".to_owned(),
                 swatch: Some(gdk::RGBA::new(0.1, 0.5, 0.9, 1.0)),
                 actions: vec![ClipAction {
                     key: "rgb".to_owned(),
@@ -7726,7 +7760,6 @@ mod tests {
         let photos = |mounted: bool| RemovableVolume {
             id: "photos".to_owned(),
             title: "Photos".to_owned(),
-            subtitle: "24 GB free of 64 GB".to_owned(),
             fraction: mounted.then_some(0.625),
             mounted,
             facts: vec![Fact::new("Filesystem", "exfat")],
@@ -7735,7 +7768,6 @@ mod tests {
         let cruzer = |photos: RemovableVolume, backup_busy: bool| RemovableDrive {
             id: "cruzer".to_owned(),
             title: "SanDisk Cruzer".to_owned(),
-            subtitle: "2 volumes".to_owned(),
             ejectable: true,
             facts: vec![Fact::new("Size", "128 GB")],
             volumes: vec![
@@ -7743,7 +7775,6 @@ mod tests {
                 RemovableVolume {
                     id: "backup".to_owned(),
                     title: "Backup".to_owned(),
-                    subtitle: "Not mounted".to_owned(),
                     busy: backup_busy,
                     ..Default::default()
                 },
@@ -7885,14 +7916,12 @@ mod tests {
         popover.set_devices(&[RemovableDrive {
             id: "stick".to_owned(),
             title: "KINGSTON".to_owned(),
-            subtitle: "No space left".to_owned(),
             ejectable: true,
             volumes: vec![RemovableVolume {
                 id: "vol".to_owned(),
                 title: "KINGSTON".to_owned(),
-                subtitle: "No space left".to_owned(),
                 mounted: true,
-                warning: true,
+                problem: "No space left".to_owned(),
                 ..Default::default()
             }],
             ..Default::default()
@@ -7920,7 +7949,6 @@ mod tests {
         popover.set_devices(&[RemovableDrive {
             id: "dvd".to_owned(),
             title: "DVD-RW".to_owned(),
-            subtitle: "No media".to_owned(),
             ejectable: true,
             dimmed: true,
             ..Default::default()
@@ -7937,7 +7965,6 @@ mod tests {
             volumes: vec![RemovableVolume {
                 id: "v".to_owned(),
                 title: label.to_owned(),
-                subtitle: label.to_owned(),
                 ..Default::default()
             }],
             ..Default::default()
@@ -8153,14 +8180,12 @@ mod tests {
         let phone = KdeconnectDevice {
             id: "b98d".to_owned(),
             title: "Pixel 10 Pro".to_owned(),
-            subtitle: String::new(),
             value: "76%".to_owned(),
             actions: vec![action("ring"), action("unpair")],
         };
         let away = KdeconnectDevice {
             id: "3d9c".to_owned(),
             title: "Pixel 8".to_owned(),
-            subtitle: String::new(),
             value: "Not connected".to_owned(),
             actions: vec![action("unpair")],
         };

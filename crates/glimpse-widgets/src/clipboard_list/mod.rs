@@ -22,7 +22,6 @@ glib::wrapper! {
 pub struct Clip {
     pub id: u64,
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     pub swatch: Option<gdk::RGBA>,
     pub image: Option<gdk::Texture>,
@@ -148,7 +147,6 @@ impl ClipboardList {
         if let Some(split) = holder.head::<SplitRow>() {
             let row = split.row();
             row.set_title(none_if_empty(&clip.title));
-            row.set_subtitle(none_if_empty(&clip.subtitle));
             match clip.swatch {
                 Some(color) => {
                     let swatch = match row.lead().and_downcast::<Swatch>() {
@@ -246,6 +244,11 @@ impl ClipboardList {
                 .build();
             card.append(&excerpt);
         }
+        if !clip.facts.is_empty() {
+            let facts = FactList::new();
+            facts.set_facts(&clip.facts);
+            card.append(&facts);
+        }
         for action in &clip.actions {
             let row = Row::new();
             row.set_title(Some(action.title.as_str()));
@@ -278,12 +281,6 @@ impl ClipboardList {
             move |_| list.emit_by_name::<()>("removed", &[&id])
         ));
         card.append(&remove);
-
-        if !clip.facts.is_empty() {
-            let facts = FactList::new();
-            facts.set_facts(&clip.facts);
-            card.append(&facts);
-        }
         card
     }
 

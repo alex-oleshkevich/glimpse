@@ -18,7 +18,6 @@ pub struct Action {
 pub struct Device {
     pub id: String,
     pub title: String,
-    pub subtitle: String,
     pub value: String,
     pub actions: Vec<Action>,
 }

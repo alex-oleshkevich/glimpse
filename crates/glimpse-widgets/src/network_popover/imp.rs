@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, Placeholder, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, Placeholder, PopoverShell, Row, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -21,7 +21,6 @@ pub enum Place {
 pub struct Entry {
     pub id: String,
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     pub place: Place,
     pub secured: bool,
@@ -33,7 +32,6 @@ pub struct Entry {
 pub struct Line {
     pub action: String,
     pub title: String,
-    pub value: String,
     pub toggle: Option<bool>,
     pub activates: bool,
     pub busy: bool,
@@ -62,6 +60,7 @@ pub struct Ask {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Details {
     pub id: String,
+    pub facts: Vec<Fact>,
     pub lines: Vec<Line>,
 }
 

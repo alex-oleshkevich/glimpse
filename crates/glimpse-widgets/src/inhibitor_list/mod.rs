@@ -123,22 +123,24 @@ impl InhibitorList {
     }
 }
 
-/// The card repeats nothing the row says: the reason is the subtitle and the source is the icon,
-/// so it holds what the hold prevents and Release. One that prevents only idle and cannot be
-/// released has nothing left to show, and its row is plain text.
+/// The row is one line and the source is its icon, so the card holds the reason, what the hold
+/// prevents and Release. One with no reason that prevents only idle and cannot be released has
+/// nothing left to show, and its row is plain text.
 fn dress(holder: &Expandable, entry: &InhibitorEntry) {
     let Some(row) = holder.head::<Row>() else {
         return;
     };
     row.set_title(crate::none_if_empty(&entry.label));
-    row.set_subtitle(crate::none_if_empty(&entry.status));
     row.set_lead_icon(Some(entry.source.icon_name()));
 
     let Some(card) = holder.details::<gtk4::Box>() else {
         return;
     };
     if let Some(facts) = card.first_child().and_downcast::<FactList>() {
-        facts.set_facts(&[Fact::new(gettext("Prevents"), targets(&entry.targets))]);
+        let reason =
+            (!entry.status.is_empty()).then(|| Fact::new(gettext("Reason"), entry.status.clone()));
+        let prevents = Fact::new(gettext("Prevents"), targets(&entry.targets));
+        facts.set_facts(&reason.into_iter().chain([prevents]).collect::<Vec<_>>());
     }
     if let Some(release) = card.last_child()
         && release.get_visible() != entry.can_release
@@ -151,7 +153,7 @@ fn dress(holder: &Expandable, entry: &InhibitorEntry) {
             idle: true,
             ..InhibitorTargets::default()
         };
-    let carded = entry.can_release || !only_idle;
+    let carded = entry.can_release || !only_idle || !entry.status.is_empty();
     row.set_activatable(carded);
     if let Some(chevron) = row.trail()
         && chevron.get_visible() != carded

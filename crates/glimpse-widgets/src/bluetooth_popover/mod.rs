@@ -3,7 +3,8 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
-    Expandable, Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row,
+    Expandable, FactList, Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile,
+    set_footer_row,
 };
 
 pub use imp::{Ask, Details, Entry, Line, Place};
@@ -286,7 +287,7 @@ impl BluetoothPopover {
 
         let split = SplitRow::new();
         split.add_css_class(DEVICE);
-        split.set_detail_visible(entry.place == Place::Paired);
+        split.set_detail_visible(true);
         let key = entry.id.clone();
         split.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
@@ -310,7 +311,7 @@ impl BluetoothPopover {
         match holder.head::<SplitRow>() {
             Some(split) => {
                 dress_row(&split.row(), entry);
-                split.set_detail_visible(entry.place == Place::Paired);
+                split.set_detail_visible(true);
             }
             None => {
                 if let Some(row) = holder.head::<Row>() {
@@ -340,11 +341,15 @@ impl BluetoothPopover {
             holder.set_details(None::<&gtk4::Widget>);
             return;
         };
-        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
-            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-            holder.set_details(Some(&rows));
-            rows
-        });
+        let card = holder
+            .details::<gtk4::Box>()
+            .unwrap_or_else(|| crate::fact_card(holder));
+        if let Some(facts) = card.first_child().and_downcast::<FactList>() {
+            facts.set_facts(&details.facts);
+        }
+        let Some(rows) = card.last_child().and_downcast::<gtk4::Box>() else {
+            return;
+        };
         let mut lines = imp.lines.borrow_mut();
         reconcile::by_key(
             &rows,
@@ -365,7 +370,6 @@ impl BluetoothPopover {
 
     fn dress_line(&self, row: &Row, line: &Line) {
         row.set_title(none_if_empty(&line.title));
-        row.set_value(none_if_empty(&line.value));
         row.set_busy(line.busy);
 
         let Some(on) = line.toggle else {
@@ -408,7 +412,7 @@ impl BluetoothPopover {
 }
 
 const DEVICE: &str = "bluetooth-popover__device";
-const WARNING: &str = "bluetooth-popover__device--warning";
+const WARNING: &str = "row--warning";
 
 fn set_button(button: &gtk4::Button, label: &str) {
     button.set_visible(!label.is_empty());
@@ -420,9 +424,9 @@ fn set_button(button: &gtk4::Button, label: &str) {
 
 fn dress_row(row: &Row, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
-    row.set_subtitle(none_if_empty(&entry.subtitle));
+    row.set_subtitle(none_if_empty(&entry.problem));
+    crate::set_css_class(row, WARNING, !entry.problem.is_empty());
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_value(none_if_empty(&entry.value));
     row.set_busy(entry.busy);
-    crate::set_css_class(row, WARNING, entry.warning);
 }

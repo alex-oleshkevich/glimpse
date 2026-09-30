@@ -146,7 +146,6 @@ impl KdeconnectPopover {
             return;
         };
         head.set_title(none_if_empty(&device.title));
-        head.set_subtitle(none_if_empty(&device.subtitle));
         head.set_value(none_if_empty(&device.value));
 
         let details = match holder.details::<gtk4::Box>() {

@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Row, none_if_empty, reconcile};
+use crate::{Expandable, Fact, FactList, Row, none_if_empty, reconcile};
 
 pub use imp::Usage;
 
@@ -95,27 +95,42 @@ impl PrivacyPopover {
     }
 
     fn apply_usage(&self, holder: &Expandable, usage: &Usage) {
+        let carded = usage.stoppable || usage.detail.is_some();
         if let Some(row) = holder.head::<Row>() {
             row.set_title(none_if_empty(&usage.title));
-            row.set_subtitle(usage.detail.as_deref());
             row.set_lead_icon(none_if_empty(&usage.icon));
-            if row.activatable() != usage.stoppable {
-                row.set_activatable(usage.stoppable);
+            if row.activatable() != carded {
+                row.set_activatable(carded);
             }
             if let Some(chevron) = row.trail()
-                && chevron.get_visible() != usage.stoppable
+                && chevron.get_visible() != carded
             {
-                chevron.set_visible(usage.stoppable);
+                chevron.set_visible(carded);
             }
         }
-        match (usage.stoppable, holder.details::<gtk4::Widget>().is_some()) {
-            (true, false) => holder.set_details(Some(&self.stop_card(&usage.id))),
-            (false, true) => holder.set_details(None::<&gtk4::Widget>),
-            _ => {}
+        let card = match (carded, holder.details::<gtk4::Box>()) {
+            (false, Some(_)) => return holder.set_details(None::<&gtk4::Widget>),
+            (false, None) => return,
+            (true, Some(card)) => card,
+            (true, None) => {
+                let card = self.card(&usage.id);
+                holder.set_details(Some(&card));
+                card
+            }
+        };
+        if let Some(facts) = card.first_child().and_downcast::<FactList>() {
+            let in_use = usage
+                .detail
+                .as_ref()
+                .map(|detail| Fact::new(gettext("In use"), detail.clone()));
+            facts.set_facts(&in_use.into_iter().collect::<Vec<_>>());
+        }
+        if let Some(stop) = card.last_child() {
+            stop.set_visible(usage.stoppable);
         }
     }
 
-    fn stop_card(&self, id: &str) -> gtk4::Box {
+    fn card(&self, id: &str) -> gtk4::Box {
         let stop = Row::new();
         stop.set_title(Some(gettext("Stop sharing").as_str()));
         stop.add_css_class(crate::DESTRUCTIVE);
@@ -126,6 +141,7 @@ impl PrivacyPopover {
             move |_| popover.emit_by_name::<()>("stop-activated", &[&key])
         ));
         let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        card.append(&FactList::new());
         card.append(&stop);
         card
     }
@@ -182,13 +198,28 @@ mod tests {
         let chrome = rows(&imp.usage_rows);
         assert_eq!(chrome.len(), 1);
         assert_eq!(head(&chrome[0]).title().as_deref(), Some("Google Chrome"));
+        assert!(head(&chrome[0]).subtitle().is_none(), "a use is one line");
+        let status = |holder: &Expandable| {
+            holder
+                .details::<gtk4::Box>()
+                .and_then(|card| card.first_child())
+                .and_then(|facts| facts.first_child())
+                .and_downcast::<Row>()
+                .expect("a status line")
+        };
         assert_eq!(
-            head(&chrome[0]).subtitle().as_deref(),
-            Some("Camera \u{b7} Microphone")
+            status(&chrome[0]).value().as_deref(),
+            Some("Camera \u{b7} Microphone"),
+            "the card says what is in use"
         );
         assert!(
-            !head(&chrome[0]).activatable() && chrome[0].details::<gtk4::Widget>().is_none(),
-            "a use with nothing to stop is a plain row with no card"
+            head(&chrome[0]).activatable()
+                && !status(&chrome[0]).activatable()
+                && !chrome[0]
+                    .details::<gtk4::Box>()
+                    .and_then(|card| card.last_child())
+                    .is_some_and(|stop| stop.get_visible()),
+            "a use with nothing to stop opens a card with no Stop sharing"
         );
 
         let renders_after_first = imp.renders.get();
@@ -217,7 +248,7 @@ mod tests {
         );
         let stop = sharing[0]
             .details::<gtk4::Box>()
-            .and_then(|card| card.first_child())
+            .and_then(|card| card.last_child())
             .and_downcast::<Row>()
             .expect("a Stop sharing row");
         assert_eq!(stop.title().as_deref(), Some("Stop sharing"));
@@ -227,8 +258,8 @@ mod tests {
 
         popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
         assert!(
-            rows(&imp.usage_rows)[0].details::<gtk4::Widget>().is_none(),
-            "a share that ended takes its card with it"
+            !stop.get_visible(),
+            "a share that ended takes Stop sharing with it"
         );
 
         let toggles: Rc<RefCell<Vec<bool>>> = Rc::new(RefCell::new(Vec::new()));
