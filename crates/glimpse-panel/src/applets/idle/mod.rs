@@ -156,8 +156,10 @@ impl Idle {
     fn sync(&mut self) {
         self.state = self.idle.snapshot();
         self.state.inhibitors.retain(render::holds_idle_or_sleep);
-        self.manual_hold = render::manual_hold_ids(&self.state.inhibitors);
-        if self.manual_hold.is_empty() || self.until.get().is_some_and(|at| at <= Local::now()) {
+        let held = render::manual_hold_ids(&self.state.inhibitors);
+        let released = held.is_empty() && !self.manual_hold.is_empty();
+        self.manual_hold = held;
+        if released || self.until.get().is_some_and(|at| at <= Local::now()) {
             self.until.set(None);
         }
     }
