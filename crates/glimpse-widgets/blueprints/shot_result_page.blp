@@ -124,7 +124,7 @@ template $ShotResultPage: Gtk.Widget {
       }
 
       content: Adw.ToastOverlay toasts {
-        Gtk.ScrolledWindow {
+        Gtk.ScrolledWindow scroller {
           hexpand: true;
           vexpand: true;
 
@@ -182,24 +182,38 @@ template $ShotResultPage: Gtk.Widget {
           ]
         };
 
-        end-widget: Adw.ToggleGroup zoom {
-          valign: center;
-          active-name: "fit";
+        end-widget: Gtk.Box {
+          spacing: 6;
 
-          styles [
-            "flat",
-          ]
+          Gtk.ToggleButton hand {
+            valign: center;
+            icon-name: "shot-hand-symbolic";
+            tooltip-text: _("Pan (hold Space)");
 
-          Adw.Toggle {
-            name: "fit";
-            icon-name: "zoom-fit-best-symbolic";
-            tooltip: _("Best Fit (Ctrl+0)");
+            styles [
+              "flat",
+            ]
           }
 
-          Adw.Toggle {
-            name: "actual";
-            icon-name: "zoom-original-symbolic";
-            tooltip: _("Actual Size (Ctrl+1)");
+          Adw.ToggleGroup zoom {
+            valign: center;
+            active-name: "fit";
+
+            styles [
+              "flat",
+            ]
+
+            Adw.Toggle {
+              name: "fit";
+              icon-name: "zoom-fit-best-symbolic";
+              tooltip: _("Best Fit (Ctrl+0)");
+            }
+
+            Adw.Toggle {
+              name: "actual";
+              icon-name: "zoom-original-symbolic";
+              tooltip: _("Actual Size (Ctrl+1)");
+            }
           }
         };
       }

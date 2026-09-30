@@ -51,6 +51,10 @@ install -Dm644 data/config.schema.json "$pkgroot/usr/share/glimpse/config.schema
 install -Dm644 data/language-codes.json "$pkgroot/usr/share/glimpse/language-codes.json"
 install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.aresa.Glimpse.Shot.desktop"
+install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$pkgroot/usr/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"
+while IFS= read -r -d '' f; do
+    install -Dm644 "$f" "$pkgroot/usr/share/${f#data/}"
+done < <(find data/icons -type f -print0)
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"

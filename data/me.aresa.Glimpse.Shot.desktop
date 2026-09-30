@@ -2,15 +2,16 @@
 Type=Application
 Name=Screenshot
 Comment=Take a screenshot, mark it up, save or copy it
-Icon=applets-screenshooter
+Icon=me.aresa.Glimpse.Shot
 Exec=glimpse-shot %f
 TryExec=glimpse-shot
 Terminal=false
 DBusActivatable=true
 StartupNotify=true
 Categories=Utility;
-Keywords=screenshot;capture;annotate;
+Keywords=screenshot;capture;annotate;print screen;snip;grab;
 MimeType=image/png;
+X-GNOME-UsesNotifications=true;
 Actions=screen;window;region;
 
 [Desktop Action screen]

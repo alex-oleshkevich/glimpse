@@ -6,6 +6,9 @@ use gtk4::{gdk, glib, subclass::prelude::*};
 use crate::ShotToolbar;
 
 const NAME_MAX: usize = 200;
+const ZOOM_STEP: f64 = 1.25;
+const ZOOM_MIN: f64 = 0.1;
+const ZOOM_MAX: f64 = 8.0;
 
 glib::wrapper! {
     pub struct ShotResultPage(ObjectSubclass<imp::ShotResultPage>)
@@ -30,6 +33,14 @@ impl ShotResultPage {
 
     pub fn picture(&self) -> gtk4::Picture {
         self.imp().picture.get()
+    }
+
+    pub fn scroller(&self) -> gtk4::ScrolledWindow {
+        self.imp().scroller.get()
+    }
+
+    pub fn hand(&self) -> gtk4::ToggleButton {
+        self.imp().hand.get()
     }
 
     pub fn set_texture(&self, texture: Option<&gdk::Texture>) {
@@ -140,18 +151,79 @@ impl ShotResultPage {
         self.imp().toasts.add_toast(toast.clone());
     }
 
+    pub fn zoom_by(&self, steps: f64) {
+        let imp = self.imp();
+        let picture = &imp.picture;
+        let Some((width, height)) = intrinsic(picture) else {
+            return;
+        };
+        let current = imp.level.get().unwrap_or_else(|| {
+            (f64::from(picture.width()) / width).min(f64::from(picture.height()) / height)
+        });
+        let level = (current * ZOOM_STEP.powf(steps)).clamp(ZOOM_MIN, ZOOM_MAX);
+        if current <= 0.0 || (level - current).abs() < f64::EPSILON {
+            return;
+        }
+        let ratio = level / current;
+        let scroller = &imp.scroller;
+        let (hadjustment, vadjustment) = (scroller.hadjustment(), scroller.vadjustment());
+        let (x, y) = imp
+            .pointer
+            .get()
+            .unwrap_or((hadjustment.page_size() / 2.0, vadjustment.page_size() / 2.0));
+        imp.anchor.set((
+            Some((hadjustment.value() + x) * ratio - x),
+            Some((vadjustment.value() + y) * ratio - y),
+        ));
+        imp.level.set(Some(level));
+        if imp.zoom.active() != gtk4::INVALID_LIST_POSITION {
+            imp.zoom.set_active(gtk4::INVALID_LIST_POSITION);
+        }
+        self.apply_zoom();
+    }
+
     fn apply_zoom(&self) {
         let imp = self.imp();
-        let fit = imp.zoom.active_name().as_deref() != Some("actual");
+        let name = imp.zoom.active_name();
+        if name.is_some() {
+            imp.level.set(None);
+        }
         let picture = &imp.picture;
-        if picture.can_shrink() != fit {
-            picture.set_can_shrink(fit);
+        let custom = imp
+            .level
+            .get()
+            .zip(intrinsic(picture))
+            .map(|(level, (width, height))| {
+                (
+                    (width * level).round() as i32,
+                    (height * level).round() as i32,
+                )
+            });
+        let fit = custom.is_none() && name.as_deref() != Some("actual");
+        let shrink = fit || custom.is_some();
+        if picture.can_shrink() != shrink {
+            picture.set_can_shrink(shrink);
         }
         if picture.hexpands() != fit {
             picture.set_hexpand(fit);
         }
         if picture.vexpands() != fit {
             picture.set_vexpand(fit);
+        }
+        let (width, height) = custom.unwrap_or((-1, -1));
+        if picture.size_request() != (width, height) {
+            picture.set_size_request(width, height);
+        }
+        let (align, content) = match custom {
+            Some(_) => (gtk4::Align::Center, gtk4::ContentFit::Contain),
+            None => (gtk4::Align::Fill, gtk4::ContentFit::ScaleDown),
+        };
+        if picture.halign() != align {
+            picture.set_halign(align);
+            picture.set_valign(align);
+        }
+        if picture.content_fit() != content {
+            picture.set_content_fit(content);
         }
     }
 
@@ -207,4 +279,10 @@ impl ShotResultPage {
 fn same_texture(picture: &gtk4::Picture, texture: Option<&gdk::Texture>) -> bool {
     let next = texture.map(|texture| texture.clone().upcast::<gdk::Paintable>());
     picture.paintable() == next
+}
+
+fn intrinsic(picture: &gtk4::Picture) -> Option<(f64, f64)> {
+    let paintable = picture.paintable()?;
+    let (width, height) = (paintable.intrinsic_width(), paintable.intrinsic_height());
+    (width > 0 && height > 0).then(|| (f64::from(width), f64::from(height)))
 }

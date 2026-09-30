@@ -116,7 +116,7 @@ struct Run {
     flashed: Cell<bool>,
     enter_held: Cell<bool>,
     picking: Cell<Option<u64>>,
-    launch_with: RefCell<Option<gio::AppInfo>>,
+    ask_app: Cell<bool>,
     over: Cell<bool>,
     ended: RefCell<Option<Finished>>,
 }
@@ -163,7 +163,7 @@ pub fn start(
         flashed: Cell::new(false),
         enter_held: Cell::new(false),
         picking: Cell::default(),
-        launch_with: RefCell::default(),
+        ask_app: Cell::new(false),
         over: Cell::new(false),
         ended: RefCell::new(Some(Box::new(ended))),
     });
@@ -244,11 +244,11 @@ impl Run {
                     .map_err(|error| format!("{error:#}")),
                     _ => Err("nothing was encoded".to_owned()),
                 };
-                let launch = self.launch_with.take();
+                let ask = self.ask_app.replace(false);
                 Some(match written {
                     Ok(actual) => {
-                        if let Some(app) = launch {
-                            super::result::launch(&app, &actual);
+                        if ask {
+                            super::result::open_with(&actual, None);
                         }
                         Event::Effected(Effect::Write(actual), Ok(()))
                     }
@@ -1061,29 +1061,8 @@ impl Run {
     }
 
     fn open_with(self: &Rc<Self>) {
-        let Some(ui) = self.ui() else {
-            return;
-        };
-        ui.window.set_visible(false);
-        barrier();
-        let weak = Rc::downgrade(self);
-        super::result::choose_app(None, move |app| {
-            let Some(run) = weak.upgrade() else {
-                return;
-            };
-            match app {
-                Some(app) => {
-                    run.launch_with.replace(Some(app));
-                    run.finish(FinishKey::SaveAsClose);
-                }
-                None => {
-                    if let Some(ui) = run.ui() {
-                        ui.window.present();
-                        ui.canvas.grab_focus();
-                    }
-                }
-            }
-        });
+        self.ask_app.set(true);
+        self.finish(FinishKey::SaveAsClose);
     }
 
     fn save_as(self: &Rc<Self>) {

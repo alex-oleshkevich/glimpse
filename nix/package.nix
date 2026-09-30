@@ -64,6 +64,8 @@ rustPlatform.buildRustPackage {
     msgfmt --desktop --template data/me.aresa.Glimpse.Shot.desktop -d po -o "$out/share/applications/me.aresa.Glimpse.Shot.desktop"
     substituteInPlace "$out/share/applications/me.aresa.Glimpse.Shot.desktop" \
       --replace-fail "Exec=gapplication" "Exec=${glib.bin}/bin/gapplication"
+    install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$out/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"
+    cp -r data/icons "$out/share/"
 
     substituteInPlace "$out/share/glimpse/config.default.toml" \
       --replace-fail /usr/share/glimpse "$out/share/glimpse"

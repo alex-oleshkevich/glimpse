@@ -73,6 +73,7 @@
         <file>widgets/shot_shortcuts.ui</file>
         <file>icons/scalable/actions/shot-arrow-symbolic.svg</file>
         <file>icons/scalable/actions/shot-area-symbolic.svg</file>
+        <file>icons/scalable/actions/shot-hand-symbolic.svg</file>
         <file>icons/scalable/actions/shot-blur-symbolic.svg</file>
         <file>icons/scalable/actions/shot-crop-symbolic.svg</file>
         <file>icons/scalable/actions/shot-freehand-symbolic.svg</file>

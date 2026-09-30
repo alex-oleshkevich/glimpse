@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>me.aresa.Glimpse.Shot</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>BSD-3-Clause</project_license>
+  <name>Screenshot</name>
+  <summary>Take a screenshot, mark it up, save or copy it</summary>
+  <developer id="me.aresa">
+    <name>Alex Oleshkevich</name>
+  </developer>
+  <description>
+    <p>
+      Capture a screen, a window or a region, then point things out with arrows, boxes, numbers,
+      text and highlights, or pixelate what should stay private. Copy the result, save it, or open
+      it in another application.
+    </p>
+    <ul>
+      <li>Capture now or after a delay, with or without the pointer</li>
+      <li>Crop, annotate and undo in the same view</li>
+      <li>Open an existing image or one from the clipboard to mark it up</li>
+      <li>A command line for scripts and agents</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">me.aresa.Glimpse.Shot.desktop</launchable>
+  <provides>
+    <binary>glimpse-shot</binary>
+    <mediatype>image/png</mediatype>
+  </provides>
+  <url type="homepage">https://github.com/alex-oleshkevich/glimpse</url>
+  <url type="bugtracker">https://github.com/alex-oleshkevich/glimpse/issues</url>
+  <url type="vcs-browser">https://github.com/alex-oleshkevich/glimpse</url>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>screenshot</keyword>
+    <keyword>capture</keyword>
+    <keyword>annotate</keyword>
+  </keywords>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+</component>
