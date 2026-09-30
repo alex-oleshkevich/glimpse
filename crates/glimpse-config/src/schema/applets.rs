@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::Error as _;
@@ -146,6 +147,43 @@ pub struct Sandbox {
     pub network: bool,
     /// Runs the applet with no confinement at all, for a kernel without Landlock.
     pub unconfined: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct DevSettings {
+    pub options: serde_json::Map<String, serde_json::Value>,
+    pub sandbox: Sandbox,
+}
+
+impl DevSettings {
+    pub fn resolve(mut self, dir: &Path) -> Result<Self, String> {
+        for path in self.sandbox.read.iter_mut().chain(&mut self.sandbox.write) {
+            if !Path::new(path).is_absolute() && !path.starts_with("~/") {
+                *path = dir
+                    .join(&*path)
+                    .components()
+                    .collect::<std::path::PathBuf>()
+                    .into_os_string()
+                    .into_string()
+                    .map_err(|_| "sandbox path is not UTF-8".to_owned())?;
+            }
+        }
+        validate_sandbox_paths(&self.sandbox)?;
+        Ok(self)
+    }
+}
+
+fn validate_sandbox_paths(sandbox: &Sandbox) -> Result<(), String> {
+    if sandbox
+        .read
+        .iter()
+        .chain(&sandbox.write)
+        .any(|path| !path.starts_with('/') && !path.starts_with("~/"))
+    {
+        return Err("sandbox paths must be absolute or start with ~/".to_owned());
+    }
+    Ok(())
 }
 
 /// Settings for the tray applet. Which items exist is the applications' decision; this is only
@@ -880,17 +918,8 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     {
         return Err(toml::de::Error::custom("applet must be a desktop-file id"));
     }
-    if let Kind::Exec(exec) = &kind
-        && exec
-            .sandbox
-            .read
-            .iter()
-            .chain(&exec.sandbox.write)
-            .any(|path| !path.starts_with('/') && !path.starts_with("~/"))
-    {
-        return Err(toml::de::Error::custom(
-            "sandbox paths must be absolute or start with ~/",
-        ));
+    if let Kind::Exec(exec) = &kind {
+        validate_sandbox_paths(&exec.sandbox).map_err(toml::de::Error::custom)?;
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;
@@ -1147,6 +1176,25 @@ mod tests {
         BatteryIndicatorStyle, COMMON, Chip, Common, Kind, NotificationIndicatorStyle, Printing,
         Privacy,
     };
+
+    #[test]
+    fn dev_settings_resolve_sandbox_paths_and_refuse_unknown_keys() {
+        let settings: super::DevSettings =
+            toml::from_str("options = {}\n[sandbox]\nread = [\".\"]\n")
+                .expect("dev settings parse");
+        let resolved = settings
+            .resolve(std::path::Path::new("/a/b"))
+            .expect("paths resolve");
+        assert_eq!(resolved.sandbox.read, ["/a/b"]);
+        assert!(toml::from_str::<super::DevSettings>("unknown = true").is_err());
+        assert!(toml::from_str::<super::DevSettings>("[sandbox]\nextra = true").is_err());
+        assert!(
+            toml::from_str::<super::DevSettings>("[sandbox]\nread = [\"relative\"]")
+                .expect("relative dev grants parse")
+                .resolve(std::path::Path::new("relative-dir"))
+                .is_err()
+        );
+    }
 
     #[test]
     fn every_common_setting_is_taken_off_the_table() {
