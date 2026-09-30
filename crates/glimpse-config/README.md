@@ -14,8 +14,11 @@ place that asks the environment a regional question.
 | 3   | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order             |
 | 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                    |
 | 5   | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order |
+| 6   | screenshot      | `shot.toml` beside the user or `--config` file            |
 
-`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included.
+`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included. Layer 6
+contributes only its `[screenshot]` table, and a change to it alone is not a reload: it is the file
+glimpse-shot's Preferences writes, so the panel never reloads for it.
 `resolved_files(config_path)` returns the same ordered list without reading any of it.
 
 **`user_dir()` (`~/.config/glimpse`) is owned by this crate** — anything needing a glimpse path asks

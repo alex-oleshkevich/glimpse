@@ -1,5 +1,4 @@
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
@@ -31,15 +30,11 @@ pub fn present(parent: &impl IsA<gtk4::Widget>, config_path: Option<&Path>) {
 }
 
 fn build(config_path: Option<&Path>) -> ShotPreferences {
-    let path = writable(config_path);
+    let path = glimpse_config::screenshot_file(config_path);
     let loaded = glimpse_config::load(config_path);
     let unparsed = path.as_deref().is_some_and(|path| !parses(path));
     let invalid = loaded.is_err();
     let config = loaded.map(|config| config.screenshot).unwrap_or_default();
-    let overridden = match (&path, glimpse_config::resolved_files(config_path)) {
-        (Some(path), Ok(stack)) => overrides(&stack, path),
-        _ => BTreeMap::new(),
-    };
 
     let dialog = ShotPreferences::new();
     let fields = dialog.fields();
@@ -51,7 +46,7 @@ fn build(config_path: Option<&Path>) -> ShotPreferences {
         timer: RefCell::default(),
         frozen: Cell::new(false),
     });
-    prefs.build(&config, &overridden);
+    prefs.build(&config);
     if unparsed || invalid {
         prefs.read_only();
     }
@@ -64,39 +59,11 @@ fn build(config_path: Option<&Path>) -> ShotPreferences {
     dialog
 }
 
-fn writable(config_path: Option<&Path>) -> Option<PathBuf> {
-    match config_path {
-        Some(path) => Some(path.to_path_buf()),
-        None => glimpse_config::user_dir().map(|dir| dir.join("config.toml")),
-    }
-}
-
 fn parses(path: &Path) -> bool {
     match std::fs::read_to_string(path) {
         Ok(text) => text.parse::<toml_edit::DocumentMut>().is_ok(),
         Err(error) => error.kind() == std::io::ErrorKind::NotFound,
     }
-}
-
-fn overrides(stack: &[PathBuf], writable: &Path) -> BTreeMap<String, PathBuf> {
-    let Some(index) = stack.iter().position(|file| file == writable) else {
-        return BTreeMap::new();
-    };
-    let mut keys = BTreeMap::new();
-    for file in &stack[index + 1..] {
-        let Ok(text) = std::fs::read_to_string(file) else {
-            continue;
-        };
-        let Ok(document) = text.parse::<toml_edit::DocumentMut>() else {
-            continue;
-        };
-        if let Some(table) = document.get(TABLE).and_then(toml_edit::Item::as_table_like) {
-            for (key, _) in table.iter() {
-                keys.insert(key.to_owned(), file.clone());
-            }
-        }
-    }
-    keys
 }
 
 fn stage(pending: &RefCell<toml_edit::Table>, key: &str, value: impl Into<toml_edit::Value>) {
@@ -116,7 +83,7 @@ fn flush(path: &Path, pending: &RefCell<toml_edit::Table>) -> Result<(), ConfigE
 }
 
 impl Prefs {
-    fn build(self: &Rc<Self>, config: &ScreenshotConfig, overridden: &BTreeMap<String, PathBuf>) {
+    fn build(self: &Rc<Self>, config: &ScreenshotConfig) {
         let fields = &self.fields;
         fields.folder.set_subtitle(&match &config.directory {
             Some(dir) => home_relative(dir, &glib::home_dir()),
@@ -252,39 +219,6 @@ impl Prefs {
                 prefs.toast(&gettext("Copied to clipboard"));
             }
         });
-
-        let rows: [(&str, &gtk4::Widget); 9] = [
-            ("directory", fields.folder.upcast_ref()),
-            ("filename", fields.filename.upcast_ref()),
-            ("flash", fields.flash.upcast_ref()),
-            ("cursor", fields.cursor.upcast_ref()),
-            ("delay", fields.delay.upcast_ref()),
-            ("editor", fields.editor.upcast_ref()),
-            ("color", fields.color.upcast_ref()),
-            ("stroke", fields.width.upcast_ref()),
-            ("notify", fields.notify.upcast_ref()),
-        ];
-        for (key, row) in rows {
-            if let Some(file) = overridden.get(key) {
-                self.overridden(row, file);
-            }
-        }
-    }
-
-    fn overridden(&self, row: &gtk4::Widget, file: &Path) {
-        row.set_sensitive(false);
-        let shown = match self.path.as_deref().and_then(Path::parent) {
-            Some(dir) => file.strip_prefix(dir).unwrap_or(file),
-            None => file,
-        };
-        let subtitle = gettext("Set in {file}").replace("{file}", &shown.display().to_string());
-        if row.is::<adw::EntryRow>() {
-            self.fields.example.set_text(&subtitle);
-        } else if let Some(row) = row.downcast_ref::<adw::ActionRow>() {
-            row.set_subtitle(&subtitle);
-        } else if let Some(row) = row.downcast_ref::<adw::PreferencesRow>() {
-            row.set_tooltip_text(Some(&subtitle));
-        }
     }
 
     fn read_only(&self) {
@@ -472,8 +406,11 @@ mod tests {
         glimpse_widgets::register_resources().expect("resources");
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        let original = "# mine\n[screenshot]\n# a note on the flash\nflash = true\n";
+        let shot = dir.path().join("shot.toml");
+        let original = "# mine\n[screenshot]\nflash = true\ndelay = 2\n";
         std::fs::write(&path, original).expect("writes");
+        std::fs::write(&shot, "# a note on the flash\n[screenshot]\nflash = true\n")
+            .expect("writes");
 
         let dialog = build(Some(&path));
         assert!(!read_only(&dialog));
@@ -482,21 +419,31 @@ mod tests {
         filename.set_text("shot %Y");
         switch_named(&dialog, "Flash on Capture").set_active(false);
         assert_eq!(
-            std::fs::read_to_string(&path).expect("reads"),
-            original,
+            std::fs::read_to_string(&shot).expect("reads"),
+            "# a note on the flash\n[screenshot]\nflash = true\n",
             "nothing is written before the debounce or the close"
         );
         dialog.emit_by_name::<()>("closed", &[]);
 
-        let text = std::fs::read_to_string(&path).expect("reads");
-        for kept in ["# mine", "# a note on the flash"] {
-            assert!(text.contains(kept), "{kept} lost:\n{text}");
-        }
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("reads"),
+            original,
+            "config.toml is never written"
+        );
+        let text = std::fs::read_to_string(&shot).expect("reads");
+        assert!(
+            text.contains("# a note on the flash"),
+            "comment lost:\n{text}"
+        );
         let config = glimpse_config::load(Some(&path)).expect("valid");
         assert!(!config.screenshot.flash);
+        assert_eq!(
+            config.screenshot.delay, 2,
+            "config.toml fills what shot.toml leaves out"
+        );
         assert_eq!(config.screenshot.filename.as_str(), "shot %Y.png");
 
-        std::fs::write(&path, "[screenshot]\ncolor = \"purple\"\n").expect("writes");
+        std::fs::write(&shot, "[screenshot]\ncolor = \"purple\"\n").expect("writes");
         let refused = build(Some(&path));
         assert!(read_only(&refused), "an invalid value is read-only too");
         assert!(!refused.fields().saving.is_sensitive());
@@ -504,29 +451,9 @@ mod tests {
         switch_named(&refused, "Show Pointer").set_active(true);
         refused.emit_by_name::<()>("closed", &[]);
         assert_eq!(
-            std::fs::read_to_string(&path).expect("reads"),
+            std::fs::read_to_string(&shot).expect("reads"),
             "[screenshot]\ncolor = \"purple\"\n"
         );
-    }
-
-    #[test]
-    fn a_key_set_by_a_later_layer_is_overridden_and_an_earlier_one_is_not() {
-        let dir = tempfile::tempdir().expect("a temporary directory");
-        let system = dir.path().join("system.toml");
-        let user = dir.path().join("config.toml");
-        let dropin = dir.path().join("10-local.toml");
-        std::fs::write(&system, "[screenshot]\ncursor = true\n").expect("writes");
-        std::fs::write(&user, "[screenshot]\nflash = true\n").expect("writes");
-        std::fs::write(
-            &dropin,
-            "[screenshot]\nflash = false\n[panel]\nheight = 3\n",
-        )
-        .expect("writes");
-
-        let found = overrides(&[system, user.clone(), dropin.clone()], &user);
-
-        assert_eq!(found.len(), 1, "{found:?}");
-        assert_eq!(found.get("flash"), Some(&dropin));
     }
 
     #[test]

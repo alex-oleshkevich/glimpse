@@ -146,7 +146,7 @@ pub fn row_label(record: &IdleInhibitorRecord) -> String {
         return record.process_name.clone();
     }
     if !record.who.is_empty() {
-        return record.who.clone();
+        return super::super::app_label(&record.who);
     }
     if !record.bus_name.is_empty() {
         return record.bus_name.clone();

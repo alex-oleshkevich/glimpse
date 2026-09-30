@@ -10,13 +10,11 @@ template $ShotCapturePage: Gtk.Widget {
   Adw.ToolbarView {
     [top]
     Adw.HeaderBar {
+      show-title: false;
+
       styles [
         "flat",
       ]
-
-      title-widget: Adw.WindowTitle {
-        title: _("Screenshot");
-      };
 
       [end]
       Gtk.MenuButton menu {
@@ -28,14 +26,14 @@ template $ShotCapturePage: Gtk.Widget {
     }
 
     content: Adw.Clamp {
-      maximum-size: 400;
+      maximum-size: 440;
       tightening-threshold: 300;
 
       child: Gtk.Box {
         orientation: vertical;
-        spacing: 18;
+        valign: center;
+        spacing: 24;
         margin-top: 6;
-        margin-bottom: 24;
         margin-start: 12;
         margin-end: 12;
 
@@ -51,8 +49,8 @@ template $ShotCapturePage: Gtk.Widget {
             child: Gtk.Box {
               orientation: vertical;
               spacing: 6;
-              margin-top: 6;
-              margin-bottom: 6;
+              margin-top: 12;
+              margin-bottom: 12;
 
               Gtk.Image {
                 icon-name: "video-display-symbolic";
@@ -74,8 +72,8 @@ template $ShotCapturePage: Gtk.Widget {
             child: Gtk.Box {
               orientation: vertical;
               spacing: 6;
-              margin-top: 6;
-              margin-bottom: 6;
+              margin-top: 12;
+              margin-bottom: 12;
 
               Gtk.Image {
                 icon-name: "focus-windows-symbolic";
@@ -97,8 +95,8 @@ template $ShotCapturePage: Gtk.Widget {
             child: Gtk.Box {
               orientation: vertical;
               spacing: 6;
-              margin-top: 6;
-              margin-bottom: 6;
+              margin-top: 12;
+              margin-bottom: 12;
 
               Gtk.Image {
                 icon-name: "shot-area-symbolic";
@@ -122,7 +120,7 @@ template $ShotCapturePage: Gtk.Widget {
           ]
 
           Adw.ComboRow screen {
-            title: _("Screen");
+            title: _("Output");
             use-markup: false;
             visible: false;
           }
@@ -145,7 +143,6 @@ template $ShotCapturePage: Gtk.Widget {
 
           Adw.SpinRow delay {
             title: _("Delay");
-            subtitle: _("Seconds before capturing");
 
             adjustment: Gtk.Adjustment {
               lower: 0;
@@ -158,20 +155,22 @@ template $ShotCapturePage: Gtk.Widget {
             title: _("Show Pointer");
           }
         }
-
-        Gtk.Button take {
-          halign: center;
-          margin-top: 6;
-          label: _("_Take Screenshot");
-          use-underline: true;
-          tooltip-text: _("Take Screenshot (Enter)");
-
-          styles [
-            "pill",
-            "suggested-action",
-          ]
-        }
       };
     };
+
+    [bottom]
+    Gtk.Button take {
+      halign: center;
+      margin-top: 24;
+      margin-bottom: 24;
+      label: _("_Take Screenshot");
+      use-underline: true;
+      tooltip-text: _("Take Screenshot (Enter)");
+
+      styles [
+        "pill",
+        "suggested-action",
+      ]
+    }
   }
 }

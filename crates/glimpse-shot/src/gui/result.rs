@@ -29,7 +29,7 @@ use super::canvas::{
 use super::overlay::{Ended, result_line};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::files::Disk;
-use crate::adapters::windows::decode;
+use crate::adapters::windows::{decode, frame_of};
 use crate::cli::ScaleMode;
 use crate::finish::{self, Destination};
 use crate::headless;
@@ -38,7 +38,6 @@ use crate::render::{self, Png};
 const LARGEST_SIDE: u32 = 16384;
 const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
 const DRAG_FALLBACK: &str = "Screenshot";
-const APP_NAME_MAX: usize = 80;
 
 static FACES: AtomicU64 = AtomicU64::new(0);
 
@@ -57,21 +56,13 @@ pub struct Opened {
     pub saved: bool,
 }
 
-pub enum Host {
-    Window(adw::ApplicationWindow),
-    Page {
-        window: adw::ApplicationWindow,
-        view: adw::NavigationView,
-    },
-}
-
 type Answer = Box<dyn FnOnce(Ended)>;
 type Act = Box<dyn Fn(&Rc<ResultFace>)>;
 type Marked = (Vec<(MarkId, Mark)>, Option<Rect<BufferPx>>);
 
 pub struct ResultFace {
     app: adw::Application,
-    host: Host,
+    window: adw::ApplicationWindow,
     page: ShotResultPage,
     picture: gtk4::Picture,
     sheet: Sheet,
@@ -86,9 +77,10 @@ pub struct ResultFace {
     written: RefCell<Option<PathBuf>>,
     clean: RefCell<Option<Marked>>,
     closing: Cell<Option<bool>>,
-    leaving: Cell<Option<bool>>,
-    launch_with: RefCell<Option<gio::AppInfo>>,
+    ask_app: Cell<bool>,
+    unsaved: Cell<u32>,
     enter_held: Cell<bool>,
+    space_held: Cell<bool>,
     over: Cell<bool>,
     typing: RefCell<Option<gtk4::Popover>>,
     answer: RefCell<Option<Answer>>,
@@ -98,7 +90,7 @@ pub struct ResultFace {
 
 pub fn open(
     app: &adw::Application,
-    host: Host,
+    window: adw::ApplicationWindow,
     setup: Setup,
     opened: Opened,
     menu: &gio::MenuModel,
@@ -115,7 +107,7 @@ pub fn open(
     picture.set_paintable(Some(&sheet));
     let face = Rc::new(ResultFace {
         app: app.clone(),
-        host,
+        window,
         clipboard: HoldClipboard {
             config: setup.config_path.clone(),
         },
@@ -139,9 +131,10 @@ pub fn open(
         written: RefCell::default(),
         clean: RefCell::new(clean),
         closing: Cell::default(),
-        leaving: Cell::default(),
-        launch_with: RefCell::default(),
+        ask_app: Cell::new(false),
+        unsaved: Cell::new(0),
         enter_held: Cell::new(false),
+        space_held: Cell::new(false),
         over: Cell::new(false),
         typing: RefCell::default(),
         answer: RefCell::new(answer),
@@ -181,6 +174,25 @@ pub fn load(path: &Path) -> anyhow::Result<Document> {
     })
 }
 
+pub fn pasted(texture: &gdk::Texture) -> anyhow::Result<Document> {
+    let (width, height) = (
+        texture.width().unsigned_abs(),
+        texture.height().unsigned_abs(),
+    );
+    if width > LARGEST_SIDE || height > LARGEST_SIDE {
+        bail!("the image is {width} × {height}; the largest side opened is {LARGEST_SIDE} pixels");
+    }
+    Ok(Document {
+        source: Source::File {
+            path: PathBuf::new(),
+            frame: frame_of(texture),
+        },
+        crop: None,
+        marks: Vec::new(),
+        selected: None,
+    })
+}
+
 fn png_size(header: &[u8]) -> Option<(u32, u32)> {
     if header.get(..8)? != PNG_SIGNATURE || header.get(12..16)? != b"IHDR" {
         return None;
@@ -200,9 +212,7 @@ fn dirty(clean: Option<&Marked>, doc: &Document) -> bool {
 
 impl ResultFace {
     pub fn window(&self) -> &adw::ApplicationWindow {
-        match &self.host {
-            Host::Window(window) | Host::Page { window, .. } => window,
-        }
+        &self.window
     }
 
     pub fn is_over(&self) -> bool {
@@ -210,22 +220,8 @@ impl ResultFace {
     }
 
     fn place(&self) {
-        match &self.host {
-            Host::Window(window) => {
-                window.set_content(Some(&self.page));
-                window.present();
-            }
-            Host::Page { window, view } => {
-                let page = adw::NavigationPage::builder()
-                    .title(gettext("Screenshot"))
-                    .tag("result")
-                    .can_pop(false)
-                    .child(&self.page)
-                    .build();
-                view.push(&page);
-                window.present();
-            }
-        }
+        self.window.set_content(Some(&self.page));
+        self.window.present();
         self.picture.grab_focus();
     }
 
@@ -242,7 +238,15 @@ impl ResultFace {
                 _ => (None, self.default_name()),
             };
         self.page.set_name(&name);
+        self.show_name();
         self.folder.replace(folder);
+    }
+
+    fn show_name(&self) {
+        let title = format!("{}.png", self.page.name());
+        if self.window.title().as_deref() != Some(title.as_str()) {
+            self.window.set_title(Some(&title));
+        }
     }
 
     fn default_name(&self) -> String {
@@ -255,7 +259,14 @@ impl ResultFace {
         let weak = Rc::downgrade(self);
         toolbar.connect_tool_selected(move |_, name| {
             if let (Some(face), Some(tool)) = (weak.upgrade(), tool_named(&name)) {
+                face.page.hand().set_active(false);
                 face.edit(|editor| editor.set_tool(tool));
+            }
+        });
+        let weak = Rc::downgrade(self);
+        self.page.hand().connect_toggled(move |_| {
+            if let Some(face) = weak.upgrade() {
+                face.sync();
             }
         });
         let weak = Rc::downgrade(self);
@@ -318,25 +329,56 @@ impl ResultFace {
         let weak = Rc::downgrade(self);
         self.page.connect_name_changed(move |_| {
             if let Some(face) = weak.upgrade() {
+                face.show_name();
                 face.check_collision();
             }
         });
-        if let Host::Window(window) = &self.host {
-            let weak = Rc::downgrade(self);
-            window.connect_close_request(move |_| match weak.upgrade() {
+        let weak = Rc::downgrade(self);
+        self.window
+            .connect_close_request(move |_| match weak.upgrade() {
                 Some(face) if !face.over.get() => {
                     face.request_close(false);
                     glib::Propagation::Stop
                 }
                 _ => glib::Propagation::Proceed,
             });
-        }
 
         self.wire_pointer();
         self.wire_keys();
     }
 
     fn wire_pointer(self: &Rc<Self>) {
+        let pan = gtk4::GestureDrag::new();
+        pan.set_button(gdk::BUTTON_PRIMARY);
+        pan.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        let scroller = self.page.scroller();
+        let start = Rc::new(Cell::new((0.0, 0.0)));
+        let weak = Rc::downgrade(self);
+        let origin = Rc::clone(&start);
+        let adjust = scroller.clone();
+        pan.connect_drag_begin(move |gesture, _, _| {
+            let Some(face) = weak.upgrade().filter(|face| face.panning()) else {
+                gesture.set_state(gtk4::EventSequenceState::Denied);
+                return;
+            };
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
+            origin.set((adjust.hadjustment().value(), adjust.vadjustment().value()));
+            set_cursor(&face.picture, "grabbing");
+        });
+        let adjust = scroller.clone();
+        pan.connect_drag_update(move |_, dx, dy| {
+            let (x, y) = start.get();
+            adjust.hadjustment().set_value(x - dx);
+            adjust.vadjustment().set_value(y - dy);
+        });
+        let weak = Rc::downgrade(self);
+        pan.connect_drag_end(move |_, _, _| {
+            if let Some(face) = weak.upgrade() {
+                face.sync();
+            }
+        });
+        scroller.add_controller(pan);
+
         let drag = gtk4::GestureDrag::new();
         drag.set_button(gdk::BUTTON_PRIMARY);
         let weak = Rc::downgrade(self);
@@ -380,7 +422,10 @@ impl ResultFace {
             }
             if let Some(face) = weak.upgrade() {
                 let (x, y) = face.local(x, y);
-                let name = face.sheet.hover(x, y).unwrap_or("crosshair");
+                let name = match face.panning() {
+                    true => "grab",
+                    false => face.sheet.hover(x, y).unwrap_or("crosshair"),
+                };
                 set_cursor(&face.picture, name);
             }
         });
@@ -445,34 +490,6 @@ impl ResultFace {
         });
         self.picture.add_controller(undo.clone());
         undo.group_with(&resize);
-
-        let scroll = gtk4::EventControllerScroll::new(
-            gtk4::EventControllerScrollFlags::VERTICAL | gtk4::EventControllerScrollFlags::DISCRETE,
-        );
-        let weak = Rc::downgrade(self);
-        scroll.connect_scroll(move |controller, _, dy| {
-            if controller.current_event_state().intersects(
-                gdk::ModifierType::SHIFT_MASK
-                    | gdk::ModifierType::CONTROL_MASK
-                    | gdk::ModifierType::ALT_MASK,
-            ) {
-                return glib::Propagation::Proceed;
-            }
-            let Some(face) = weak.upgrade() else {
-                return glib::Propagation::Proceed;
-            };
-            let handled = face
-                .sheet
-                .with(|editor| editor.scroll_stroke(dy))
-                .unwrap_or(false);
-            if handled {
-                face.sync();
-                glib::Propagation::Stop
-            } else {
-                glib::Propagation::Proceed
-            }
-        });
-        self.picture.add_controller(scroll);
 
         let source = gtk4::DragSource::new();
         source.set_actions(gdk::DragAction::COPY);
@@ -544,6 +561,7 @@ impl ResultFace {
                 key,
                 Box::new(move |face| {
                     if let Some(tool) = tool_named(tool) {
+                        face.page.hand().set_active(false);
                         face.edit(|editor| editor.set_tool(tool));
                     }
                 }),
@@ -579,6 +597,14 @@ impl ResultFace {
         bind("<Control>s", Box::new(|face| face.finish(FinishKey::Save)));
         bind("<Control>0", Box::new(|face| face.page.set_zoom("fit")));
         bind("<Control>1", Box::new(|face| face.page.set_zoom("actual")));
+        bind(
+            "<Control>plus|<Control>equal|<Control>KP_Add",
+            Box::new(|face| face.page.zoom_by(1.0)),
+        );
+        bind(
+            "<Control>minus|<Control>KP_Subtract",
+            Box::new(|face| face.page.zoom_by(-1.0)),
+        );
         bind("<Control>w", Box::new(|face| face.request_close(false)));
         bind("<Control>n", Box::new(|face| face.request_close(true)));
         self.page.add_controller(shortcuts);
@@ -587,6 +613,15 @@ impl ResultFace {
         released.set_propagation_phase(gtk4::PropagationPhase::Capture);
         let weak = Rc::downgrade(self);
         released.connect_key_pressed(move |_, key, _, state| {
+            if key == gdk::Key::space {
+                let Some(face) = weak.upgrade().filter(|face| face.picture.has_focus()) else {
+                    return glib::Propagation::Proceed;
+                };
+                if !face.space_held.replace(true) {
+                    face.sync();
+                }
+                return glib::Propagation::Stop;
+            }
             let Some(tool) = spring_tool(key) else {
                 return glib::Propagation::Proceed;
             };
@@ -616,6 +651,9 @@ impl ResultFace {
                 if matches!(key, gdk::Key::Return | gdk::Key::KP_Enter) {
                     face.enter_held.set(false);
                 }
+                if key == gdk::Key::space && face.space_held.replace(false) {
+                    face.sync();
+                }
                 if let Some(tool) = spring_tool(key)
                     && face.sheet.with(|editor| editor.tool_key_up(tool)) == Some(true)
                 {
@@ -629,21 +667,22 @@ impl ResultFace {
         self.window().connect_is_active_notify(move |window| {
             if !window.is_active()
                 && let Some(face) = weak.upgrade()
-                && face.sheet.with(Editor::cancel_tool_key).unwrap_or(false)
             {
-                face.sync();
+                let released = face.space_held.replace(false);
+                if face.sheet.with(Editor::cancel_tool_key).unwrap_or(false) || released {
+                    face.sync();
+                }
             }
         });
     }
 
     fn open_with(self: &Rc<Self>) {
-        let weak = Rc::downgrade(self);
-        choose_app(Some(self.window().upcast_ref()), move |app| {
-            if let (Some(face), Some(app)) = (weak.upgrade(), app) {
-                face.launch_with.replace(Some(app));
-                face.finish(FinishKey::Save);
-            }
-        });
+        self.ask_app.set(true);
+        self.finish(FinishKey::Save);
+    }
+
+    fn panning(&self) -> bool {
+        self.space_held.get() || self.page.hand().is_active()
     }
 
     fn local(&self, x: f64, y: f64) -> (f64, f64) {
@@ -685,7 +724,23 @@ impl ResultFace {
         }
     }
 
+    fn guard_logout(&self) {
+        let dirty = !self.over.get() && self.is_dirty();
+        let cookie = self.unsaved.get();
+        if dirty && cookie == 0 {
+            self.unsaved.set(self.app.inhibit(
+                Some(&self.window),
+                gtk4::ApplicationInhibitFlags::LOGOUT,
+                Some(&gettext("A screenshot has unsaved changes")),
+            ));
+        } else if !dirty && cookie != 0 {
+            self.app.uninhibit(cookie);
+            self.unsaved.set(0);
+        }
+    }
+
     fn sync(self: &Rc<Self>) {
+        self.guard_logout();
         let Some(state) = self.sheet.read(|editor| {
             let exported = editor.doc.exported_rect();
             (
@@ -702,7 +757,7 @@ impl ResultFace {
             return;
         };
         let (tool, style, undo, redo, typing, size, pending, cursor) = state;
-        set_cursor(&self.picture, cursor);
+        set_cursor(&self.picture, if self.panning() { "grab" } else { cursor });
         let toolbar = self.page.toolbar();
         toolbar.set_apply_visible(pending);
         toolbar.set_tool(tool_name(tool));
@@ -858,7 +913,7 @@ impl ResultFace {
                     Some(path)
                 }
                 Err(error) => {
-                    self.launch_with.take();
+                    self.ask_app.set(false);
                     self.closing.set(None);
                     self.toast(&format!("{error:#}"), None);
                     return;
@@ -944,7 +999,6 @@ impl ResultFace {
     }
 
     fn close(self: &Rc<Self>, then_new: bool) {
-        self.leaving.set(Some(then_new));
         self.send(Event::Esc);
         if then_new {
             self.app.activate_action("new", None);
@@ -1009,7 +1063,7 @@ impl ResultFace {
                     }
                     Err(reason) => {
                         self.closing.set(None);
-                        self.launch_with.take();
+                        self.ask_app.set(false);
                         Event::Effected(Effect::Write(requested), Err(reason))
                     }
                 })
@@ -1054,13 +1108,14 @@ impl ResultFace {
         gtk4::RecentManager::default().add_item(&file.uri());
         if let Some(stem) = path.file_stem() {
             self.page.set_name(&stem.to_string_lossy());
+            self.show_name();
         }
         if let Some(folder) = path.parent() {
             self.folder.replace(Some(folder.to_path_buf()));
         }
         self.page.set_collision(false);
-        if let Some(app) = self.launch_with.take() {
-            launch(&app, path);
+        if self.ask_app.replace(false) {
+            open_with(path, Some(self.window.upcast_ref()));
         }
     }
 
@@ -1068,6 +1123,7 @@ impl ResultFace {
         if let Some(clean) = self.sheet.read(|editor| marked(&editor.doc)) {
             self.clean.replace(Some(clean));
         }
+        self.guard_logout();
     }
 
     fn saved_toast(&self) {
@@ -1107,6 +1163,7 @@ impl ResultFace {
         if self.over.replace(true) {
             return;
         }
+        self.guard_logout();
         self.forget_drag();
         let json = match (self.setup.json, self.doc(), self.png.borrow().as_ref()) {
             (true, Some(doc), Some(png)) => self
@@ -1118,84 +1175,72 @@ impl ResultFace {
         if let Some(answer) = self.answer.take() {
             answer(Ended::Finished { outcome, json });
         }
-        match &self.host {
-            Host::Window(window) => window.destroy(),
-            Host::Page { window, view } => {
-                view.pop_to_tag("capture");
-                if self.leaving.get() == Some(false) {
-                    window.close();
-                }
-            }
+        remember_size(&self.window);
+        self.window.destroy();
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WindowSize {
+    pub width: i32,
+    pub height: i32,
+    pub maximized: bool,
+}
+
+impl Default for WindowSize {
+    fn default() -> Self {
+        Self {
+            width: 960,
+            height: 720,
+            maximized: false,
         }
     }
 }
 
-pub fn choose_app(
-    parent: Option<&gtk4::Widget>,
-    done: impl FnOnce(Option<gio::AppInfo>) + 'static,
-) {
-    let apps: Vec<gio::AppInfo> = gio::AppInfo::all_for_type("image/png")
-        .into_iter()
-        .filter(|app| app.should_show())
-        .collect();
-    let list = gtk4::ListBox::builder()
-        .selection_mode(gtk4::SelectionMode::None)
-        .build();
-    list.add_css_class("boxed-list");
-    for app in &apps {
-        let row = adw::ActionRow::builder()
-            .title(glimpse_utils::text::clean(
-                &app.display_name(),
-                APP_NAME_MAX,
-            ))
-            .use_markup(false)
-            .activatable(true)
-            .build();
-        if let Some(icon) = app.icon() {
-            row.add_prefix(&gtk4::Image::from_gicon(&icon));
-        }
-        list.append(&row);
+fn size_file() -> Option<PathBuf> {
+    glimpse_config::state_dir().map(|dir| dir.join("shot-window.json"))
+}
+
+pub fn remembered_size() -> WindowSize {
+    size_file()
+        .and_then(|path| std::fs::read(path).ok())
+        .and_then(|bytes| serde_json::from_slice::<WindowSize>(&bytes).ok())
+        .filter(|size| size.width > 0 && size.height > 0)
+        .unwrap_or_default()
+}
+
+fn remember_size(window: &adw::ApplicationWindow) {
+    let (width, height) = window.default_size();
+    let size = WindowSize {
+        width,
+        height,
+        maximized: window.is_maximized(),
+    };
+    let Some(path) = size_file() else {
+        return;
+    };
+    let written = path
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::write(&path, serde_json::to_vec(&size).unwrap_or_default()));
+    if let Err(error) = written {
+        tracing::debug!(
+            "cannot remember the window size in {}: {error}",
+            path.display()
+        );
     }
-    let dialog = adw::AlertDialog::new(Some(&gettext("Open With")), None);
-    dialog.add_response("cancel", &gettext("Cancel"));
-    dialog.set_close_response("cancel");
-    dialog.set_extra_child(Some(
-        &gtk4::ScrolledWindow::builder()
-            .child(&list)
-            .propagate_natural_height(true)
-            .max_content_height(360)
-            .build(),
-    ));
-    let done = picked(done);
-    let chosen = Rc::clone(&done);
-    let closing = dialog.clone();
-    list.connect_row_activated(move |_, row| {
-        if let Some(app) = usize::try_from(row.index())
-            .ok()
-            .and_then(|index| apps.get(index))
-        {
-            chosen(Some(app.clone()));
+}
+
+pub fn open_with(path: &Path, parent: Option<&gtk4::Window>) {
+    let hold = gio::Application::default().map(|app| app.hold());
+    let launcher = gtk4::FileLauncher::new(Some(&gio::File::for_path(path)));
+    launcher.set_always_ask(true);
+    launcher.launch(parent, None::<&gio::Cancellable>, move |result| {
+        if let Err(error) = result {
+            tracing::warn!("cannot open the screenshot: {error}");
         }
-        closing.close();
+        drop(hold);
     });
-    dialog.connect_response(None, move |_, _| done(None));
-    dialog.present(parent);
-}
-
-fn picked<A: 'static>(done: impl FnOnce(Option<A>) + 'static) -> Rc<dyn Fn(Option<A>)> {
-    let slot = RefCell::new(Some(done));
-    Rc::new(move |app| {
-        if let Some(done) = slot.take() {
-            done(app);
-        }
-    })
-}
-
-pub fn launch(app: &gio::AppInfo, path: &Path) {
-    let context = gdk::Display::default().map(|display| display.app_launch_context());
-    if let Err(error) = app.launch(&[gio::File::for_path(path)], context.as_ref()) {
-        tracing::warn!("cannot open the screenshot with {}: {error}", app.name());
-    }
 }
 
 fn shifted(gesture: &gtk4::GestureDrag) -> bool {
@@ -1347,39 +1392,6 @@ mod tests {
     }
 
     #[test]
-    fn a_chosen_program_is_answered_once_and_a_cancel_answers_nothing_to_save() {
-        let saved = Rc::new(RefCell::new(Vec::new()));
-        let answer = |saved: &Rc<RefCell<Vec<&'static str>>>| {
-            let saved = Rc::clone(saved);
-            picked(move |app: Option<&'static str>| {
-                if let Some(app) = app {
-                    saved.borrow_mut().push(app);
-                }
-            })
-        };
-        let cancelled = answer(&saved);
-        cancelled(None);
-        cancelled(Some("late"));
-        assert!(
-            saved.borrow().is_empty(),
-            "a cancel writes nothing, even if a pick follows"
-        );
-
-        let chosen = answer(&saved);
-        assert!(
-            saved.borrow().is_empty(),
-            "nothing is written before the pick"
-        );
-        chosen(Some("gimp"));
-        chosen(None);
-        assert_eq!(
-            saved.borrow().as_slice(),
-            ["gimp"],
-            "the response after a pick is ignored"
-        );
-    }
-
-    #[test]
     fn a_drag_offers_the_file_and_the_png_bytes() {
         let provider = drag_content(Path::new("/run/user/1000/glimpse/shot/x.png"), vec![1, 2]);
         let formats = provider.formats();
@@ -1450,7 +1462,7 @@ mod tests {
         let menu = gio::Menu::new().upcast::<gio::MenuModel>();
         let face = open(
             &app,
-            Host::Window(window),
+            window,
             Setup {
                 json: false,
                 output: None,

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-30 11:54+0200\n"
+"POT-Creation-Date: 2026-09-30 14:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -121,8 +121,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:188
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:201
-#: crates/glimpse-shot/src/gui/result.rs:918
-#: crates/glimpse-shot/src/gui/result.rs:1160
+#: crates/glimpse-shot/src/gui/result.rs:973
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:159
 #: crates/glimpse-widgets/blueprints/network_popover.blp:194
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:102
@@ -335,6 +334,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:316
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:27
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
 msgid "Output"
 msgstr ""
 
@@ -1682,10 +1682,9 @@ msgid "Microphone"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/privacy/render.rs:72
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:48
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:64
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:125
-#: data/me.aresa.Glimpse.Shot.desktop:17
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:46
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:62
+#: data/me.aresa.Glimpse.Shot.desktop:18
 msgid "Screen"
 msgstr ""
 
@@ -1825,75 +1824,75 @@ msgstr ""
 msgid "Blocked by {who}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:25
+#: crates/glimpse-panel/src/applets/session/render.rs:26
 msgid "Blocked by an active inhibitor."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:59
-#: crates/glimpse-panel/src/applets/session/render.rs:61
+#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:62
 #: crates/glimpse-widgets/blueprints/session_popover.blp:22
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:106
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:171
 msgid "Suspend"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:61
 msgid "Suspend this session?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:64
-#: crates/glimpse-panel/src/applets/session/render.rs:66
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
 #: crates/glimpse-widgets/blueprints/session_popover.blp:27
 msgid "Hibernate"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:66
 msgid "Hibernate this session?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:69
-#: crates/glimpse-panel/src/applets/session/render.rs:71
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:72
 #: crates/glimpse-widgets/blueprints/session_popover.blp:38
 msgid "Log out"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:71
 msgid ""
 "This closes the current session. Applications may not shut down gracefully."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:74
-#: crates/glimpse-panel/src/applets/session/render.rs:76
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
 #: crates/glimpse-widgets/blueprints/session_popover.blp:43
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:156
 msgid "Restart"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:76
 msgid "Restart this computer?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:79
-#: crates/glimpse-panel/src/applets/session/render.rs:81
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
 #: crates/glimpse-widgets/blueprints/session_popover.blp:48
 msgid "Shut down"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:81
 msgid "Shut down this computer?"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:105
+#: crates/glimpse-panel/src/applets/session/render.rs:106
 msgid "{windows} open window is still running."
 msgid_plural "{windows} open windows are still running."
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:128
+#: crates/glimpse-panel/src/applets/session/render.rs:129
 msgid "Signed in today"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/session/render.rs:130
+#: crates/glimpse-panel/src/applets/session/render.rs:131
 msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] ""
@@ -2218,132 +2217,142 @@ msgstr ""
 msgid "a screenshot is already being taken"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:191
-#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:179
-msgid "Preferences"
+#: crates/glimpse-shot/src/gui/app.rs:218
+msgid "_Open Image…"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:192
-#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:184
-msgid "Keyboard Shortcuts"
+#: crates/glimpse-shot/src/gui/app.rs:220
+msgid "_Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:193
-msgid "About Screenshot"
+#: crates/glimpse-shot/src/gui/app.rs:221
+msgid "_Keyboard Shortcuts"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:338
+#: crates/glimpse-shot/src/gui/app.rs:222
+msgid "_About Screenshot"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:372
 msgid "--portal needs a screen target"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:497
-#: crates/glimpse-shot/src/gui/app.rs:575
-#: crates/glimpse-shot/src/gui/app.rs:582
-#: crates/glimpse-shot/src/gui/app.rs:798
-#: crates/glimpse-shot/src/gui/result.rs:220
-#: crates/glimpse-shot/src/notify.rs:374 crates/glimpse-shot/src/notify.rs:840
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:18
+#: crates/glimpse-shot/src/gui/app.rs:532
+#: crates/glimpse-shot/src/gui/app.rs:640
+#: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:374
+#: crates/glimpse-shot/src/notify.rs:840
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:691
+#: crates/glimpse-shot/src/gui/app.rs:567
+msgid "The clipboard holds no image"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:764
 msgid "There is no window to capture"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:763
+#: crates/glimpse-shot/src/gui/app.rs:834
 msgid "That window has closed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:872
+#: crates/glimpse-shot/src/gui/app.rs:851
+msgid "PNG Images"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+msgid "Open Image"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/app.rs:969
 msgid "Untitled window"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/app.rs:981
+#: crates/glimpse-shot/src/gui/app.rs:1078
 msgid "Screenshot failed"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1096
-#: crates/glimpse-shot/src/gui/result.rs:881
+#: crates/glimpse-shot/src/gui/overlay.rs:385
+msgid "Waiting to take a screenshot"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/result.rs:936
 msgid "Save Screenshot"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1650
+#: crates/glimpse-shot/src/gui/overlay.rs:1645
 msgid "{size} · scaled {percent}%"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1827
+#: crates/glimpse-shot/src/gui/overlay.rs:1822
 msgid "Saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/overlay.rs:1828
+#: crates/glimpse-shot/src/gui/overlay.rs:1823
 msgid "Copied"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:123
+#: crates/glimpse-shot/src/gui/prefs.rs:90
 msgid "Pictures/Screenshots"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:141
-#: crates/glimpse-shot/src/gui/prefs.rs:160
+#: crates/glimpse-shot/src/gui/prefs.rs:108
+#: crates/glimpse-shot/src/gui/prefs.rs:127
 msgid "Saved as “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:252
-#: crates/glimpse-shot/src/gui/result.rs:1034
+#: crates/glimpse-shot/src/gui/prefs.rs:219
+#: crates/glimpse-shot/src/gui/result.rs:1088
 msgid "Copied to clipboard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/prefs.rs:280
-msgid "Set in {file}"
-msgstr ""
-
-#: crates/glimpse-shot/src/gui/prefs.rs:367
+#: crates/glimpse-shot/src/gui/prefs.rs:301
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
 msgid "Choose Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:823
+#: crates/glimpse-shot/src/gui/result.rs:734
+msgid "A screenshot has unsaved changes"
+msgstr ""
+
+#: crates/glimpse-shot/src/gui/result.rs:878
 msgid "A file name cannot be empty or contain “/”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:828
+#: crates/glimpse-shot/src/gui/result.rs:883
 msgid ""
 "There is no Pictures folder to save into; choose a folder in Preferences"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:914
+#: crates/glimpse-shot/src/gui/result.rs:969
 msgid "Discard this screenshot?"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:915
+#: crates/glimpse-shot/src/gui/result.rs:970
 msgid "It has not been saved or copied."
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:919
+#: crates/glimpse-shot/src/gui/result.rs:974
 msgid "Discard"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:920
+#: crates/glimpse-shot/src/gui/result.rs:975
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
 #: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
 msgid "Save"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1081
+#: crates/glimpse-shot/src/gui/result.rs:1137
 msgid "Saved “{name}”"
 msgstr ""
 
-#: crates/glimpse-shot/src/gui/result.rs:1089
+#: crates/glimpse-shot/src/gui/result.rs:1145
 #: crates/glimpse-shot/src/notify.rs:501 crates/glimpse-shot/src/notify.rs:856
 msgid "Show in Folder"
-msgstr ""
-
-#: crates/glimpse-shot/src/gui/result.rs:1159
-msgid "Open With"
 msgstr ""
 
 #: crates/glimpse-shot/src/notify.rs:487 crates/glimpse-shot/src/notify.rs:842
@@ -2646,61 +2655,61 @@ msgstr ""
 msgid "Enter shares · Esc refuses"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:24
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:22
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:111
 msgid "Main Menu"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:49
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:47
 msgid "Capture a Screen (S)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:71
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:87
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:131
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:69
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:85
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:129
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:75
-#: data/me.aresa.Glimpse.Shot.desktop:21
+#: data/me.aresa.Glimpse.Shot.desktop:22
 msgid "Window"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:72
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:70
 msgid "Capture a Window (W)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:94
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:110
-#: data/me.aresa.Glimpse.Shot.desktop:25
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:92
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:108
+#: data/me.aresa.Glimpse.Shot.desktop:26
 msgid "Region"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:95
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:93
 msgid "Capture a Region (R)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:147
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
 msgid "Delay"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:148
-#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
-msgid "Seconds before capturing"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:158
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
 msgid "Show Pointer"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:165
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:166
 msgid "_Take Screenshot"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:168
 msgid "Take Screenshot (Enter)"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
 msgid "Cancel the screenshot"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:204
+msgid "Preferences"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
@@ -2742,6 +2751,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:82
 msgid "Default Delay"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
+msgid "Seconds before capturing"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:97
@@ -2800,6 +2813,11 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:243
 msgid "Thick"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:209
+msgid "Keyboard Shortcuts"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_preferences.blp:251
@@ -2869,11 +2887,15 @@ msgstr ""
 msgid "Redo (Ctrl+Shift+Z)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:196
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+msgid "Pan (hold Space)"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
 msgid "Best Fit (Ctrl+0)"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_result_page.blp:202
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
 msgid "Actual Size (Ctrl+1)"
 msgstr ""
 
@@ -3002,19 +3024,35 @@ msgstr ""
 msgid "Actual Size"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:171
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:170
+msgid "Zoom In"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:175
+msgid "Zoom Out"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:180
+msgid "Pan While Held"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:186
 msgid "General"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:174
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
 msgid "New Screenshot"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:199
+msgid "Open Image from Clipboard"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:214
 msgid "Close Window"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:219
 msgid "Quit"
 msgstr ""
 
@@ -3429,5 +3467,5 @@ msgid "Take a screenshot, mark it up, save or copy it"
 msgstr ""
 
 #: data/me.aresa.Glimpse.Shot.desktop:12
-msgid "screenshot;capture;annotate;"
+msgid "screenshot;capture;annotate;print screen;snip;grab;"
 msgstr ""

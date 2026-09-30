@@ -13,7 +13,7 @@ use glimpse_config::{
     ColorScheme, Config, DARK_STYLESHEET, Editor, PANEL_STYLESHEET, stylesheet,
     user_dark_stylesheet, user_stylesheet,
 };
-use glimpse_shot::doc::document::{Mark, Style, Tool};
+use glimpse_shot::doc::document::{Document, Mark, Style, Tool};
 use glimpse_shot::ports::Notice;
 use glimpse_shot::session::{Outcome, Target};
 use glimpse_utils::init_translations;
@@ -24,7 +24,7 @@ use tokio::signal::unix::{SignalKind, signal};
 use super::canvas;
 use super::overlay::{self, Ended, Handoff, Options};
 use super::prefs;
-use super::result::{self, Host, Opened, ResultFace, Setup};
+use super::result::{self, Opened, ResultFace, Setup};
 use crate::adapters::clipboard::HoldClipboard;
 use crate::adapters::screens::compositor_snapshot;
 use crate::cli::{self, GuiArgs, ScaleMode, missing_directory};
@@ -35,8 +35,10 @@ const APP_ID: &str = "me.aresa.Glimpse.Shot";
 const APP_ID_VARIABLE: &str = "GLIMPSE_SHOT_APP_ID";
 const SERVICE_FLAG: &str = "--gapplication-service";
 const TITLE_MAX: usize = 200;
-const ICON: &str = "applets-screenshooter";
+const ICON: &str = APP_ID;
 const CONFIG_VARIABLE: &str = "GLIMPSE_CONFIG_PATH";
+const PORTAL_TIMEOUT_MS: i32 = 1000;
+const PROJECT_URL: &str = "https://github.com/alex-oleshkevich/glimpse";
 const STDIN_CHUNK: usize = 64 * 1024;
 
 #[derive(Debug, thiserror::Error)]
@@ -108,6 +110,8 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
         tracing::warn!("running on defaults: {error:#}");
     }
 
+    let app_id = std::env::var(APP_ID_VARIABLE).unwrap_or_else(|_| APP_ID.to_owned());
+    let _session = register_with_portal(&app_id);
     gtk4::init().context("cannot initialize GTK")?;
     adw::init().context("cannot initialize libadwaita")?;
     glimpse_widgets::register_resources()?;
@@ -123,7 +127,7 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     styles.set_animation_speed(appearance.animation_speed);
 
     let app = adw::Application::builder()
-        .application_id(std::env::var(APP_ID_VARIABLE).unwrap_or_else(|_| APP_ID.to_owned()))
+        .application_id(&app_id)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE | gio::ApplicationFlags::HANDLES_OPEN)
         .build();
     let shell = Shell::new(&app, config_path);
@@ -155,6 +159,30 @@ pub fn run(gui: &GuiArgs, config_path: Option<&Path>) -> Result<()> {
     }
 }
 
+fn register_with_portal(app_id: &str) -> Option<gio::DBusConnection> {
+    let connection = gio::bus_get_sync(gio::BusType::Session, None::<&gio::Cancellable>)
+        .inspect_err(|error| tracing::debug!("no session bus to register on: {error}"))
+        .ok()?;
+    let registered = connection.call_sync(
+        Some("org.freedesktop.portal.Desktop"),
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.host.portal.Registry",
+        "Register",
+        Some(&glib::Variant::tuple_from_iter([
+            app_id.to_variant(),
+            glib::VariantDict::new(None).end(),
+        ])),
+        None,
+        gio::DBusCallFlags::NONE,
+        PORTAL_TIMEOUT_MS,
+        None::<&gio::Cancellable>,
+    );
+    if let Err(error) = registered {
+        tracing::debug!("the portal does not know this app by id: {error}");
+    }
+    Some(connection)
+}
+
 fn load_config(config_path: Option<&Path>) -> (Config, Option<anyhow::Error>) {
     match glimpse_config::load(config_path) {
         Ok(document) => (document, None),
@@ -164,7 +192,6 @@ fn load_config(config_path: Option<&Path>) -> (Config, Option<anyhow::Error>) {
 
 struct Main {
     window: adw::ApplicationWindow,
-    view: adw::NavigationView,
     page: ShotCapturePage,
     toasts: adw::ToastOverlay,
     mode: RefCell<String>,
@@ -187,10 +214,15 @@ type Answer = Box<dyn FnOnce(Result<Option<String>>)>;
 
 impl Shell {
     fn new(app: &adw::Application, config_path: Option<&Path>) -> Rc<Self> {
+        let open = gio::Menu::new();
+        open.append(Some(&gettext("_Open Image…")), Some("app.open"));
+        let rest = gio::Menu::new();
+        rest.append(Some(&gettext("_Preferences")), Some("app.preferences"));
+        rest.append(Some(&gettext("_Keyboard Shortcuts")), Some("app.shortcuts"));
+        rest.append(Some(&gettext("_About Screenshot")), Some("app.about"));
         let menu = gio::Menu::new();
-        menu.append(Some(&gettext("Preferences")), Some("app.preferences"));
-        menu.append(Some(&gettext("Keyboard Shortcuts")), Some("app.shortcuts"));
-        menu.append(Some(&gettext("About Screenshot")), Some("app.about"));
+        menu.append_section(None, &open);
+        menu.append_section(None, &rest);
         Rc::new(Self {
             app: app.clone(),
             config_path: config_path.map(Path::to_path_buf),
@@ -213,6 +245,7 @@ impl Shell {
             });
             self.app.add_action(&entry);
         };
+        action("open", |shell| shell.choose_image());
         action("preferences", |shell| shell.preferences());
         action("shortcuts", |shell| shell.shortcuts());
         action("about", |shell| shell.about());
@@ -226,6 +259,7 @@ impl Shell {
         self.app
             .set_accels_for_action("app.shortcuts", &["<Control>question"]);
         self.app.set_accels_for_action("app.quit", &["<Control>q"]);
+        self.app.set_accels_for_action("app.open", &["<Control>o"]);
     }
 
     fn command_line(self: &Rc<Self>, line: &gio::ApplicationCommandLine) -> glib::ExitCode {
@@ -483,7 +517,7 @@ impl Shell {
         let window = self.result_window();
         self.keep(result::open(
             &self.app,
-            Host::Window(window),
+            window,
             setup,
             opened(handoff),
             self.menu.upcast_ref(),
@@ -492,12 +526,14 @@ impl Shell {
     }
 
     fn result_window(&self) -> adw::ApplicationWindow {
+        let size = result::remembered_size();
         adw::ApplicationWindow::builder()
             .application(&self.app)
             .title(gettext("Screenshot"))
             .icon_name(ICON)
-            .default_width(960)
-            .default_height(720)
+            .default_width(size.width)
+            .default_height(size.height)
+            .maximized(size.maximized)
             .build()
     }
 
@@ -514,8 +550,37 @@ impl Shell {
         config_path: Option<&Path>,
         tool: Option<Tool>,
     ) {
+        self.open_document(result::load(path), true, answer, config_path, tool);
+    }
+
+    fn paste(self: &Rc<Self>) {
+        let main = self.main();
+        let weak = Rc::downgrade(self);
+        main.window
+            .clipboard()
+            .read_texture_async(None::<&gio::Cancellable>, move |read| {
+                let Some(shell) = weak.upgrade() else {
+                    return;
+                };
+                let loaded = match read {
+                    Ok(Some(texture)) => result::pasted(&texture),
+                    _ => Err(anyhow!(gettext("The clipboard holds no image"))),
+                };
+                let config_path = shell.config_path.clone();
+                shell.open_document(loaded, false, None, config_path.as_deref(), None);
+            });
+    }
+
+    fn open_document(
+        self: &Rc<Self>,
+        loaded: Result<Document>,
+        saved: bool,
+        answer: Option<Answer>,
+        config_path: Option<&Path>,
+        tool: Option<Tool>,
+    ) {
         let (document, _) = load_config(config_path);
-        match result::load(path) {
+        match loaded {
             Ok(doc) => {
                 let style = Style {
                     color: document.screenshot.color,
@@ -531,17 +596,18 @@ impl Shell {
                 let window = self.result_window();
                 self.keep(result::open(
                     &self.app,
-                    Host::Window(window),
+                    window,
                     setup,
                     Opened {
                         editor: canvas::Editor::new(doc, style).starting_with(tool),
                         target: None,
                         taken: None,
-                        saved: true,
+                        saved,
                     },
                     self.menu.upcast_ref(),
                     None,
                 ));
+                self.close_main();
                 if let Some(answer) = answer {
                     answer(Ok(None));
                 }
@@ -569,25 +635,16 @@ impl Shell {
         page.set_cursor(config.cursor);
         let toasts = adw::ToastOverlay::new();
         toasts.set_child(Some(&page));
-        let view = adw::NavigationView::new();
-        view.add(
-            &adw::NavigationPage::builder()
-                .title(gettext("Screenshot"))
-                .tag("capture")
-                .child(&toasts)
-                .build(),
-        );
         let window = adw::ApplicationWindow::builder()
             .application(&self.app)
             .title(gettext("Screenshot"))
             .icon_name(ICON)
-            .default_width(960)
-            .default_height(720)
-            .content(&view)
+            .default_width(480)
+            .default_height(560)
+            .content(&toasts)
             .build();
         let main = Rc::new(Main {
             window,
-            view,
             page,
             toasts,
             mode: RefCell::new("screen".to_owned()),
@@ -637,30 +694,48 @@ impl Shell {
                 glib::Propagation::Stop
             })),
         ));
-        main.page.add_controller(shortcuts);
         let weak = Rc::downgrade(self);
-        main.window.connect_close_request(move |_| {
-            let Some(shell) = weak.upgrade() else {
-                return glib::Propagation::Proceed;
-            };
-            let open = shell.faces.borrow().iter().find_map(|face| {
-                (!face.is_over() && shell.is_main(face.window())).then(|| Rc::clone(face))
-            });
-            match open {
-                Some(face) => {
-                    face.request_close(false);
-                    glib::Propagation::Stop
+        shortcuts.add_shortcut(gtk4::Shortcut::new(
+            gtk4::ShortcutTrigger::parse_string("<Control>v"),
+            Some(gtk4::CallbackAction::new(move |_, _| {
+                if let Some(shell) = weak.upgrade() {
+                    shell.paste();
                 }
-                None => glib::Propagation::Proceed,
+                glib::Propagation::Stop
+            })),
+        ));
+        main.page.add_controller(shortcuts);
+        let drop = gtk4::DropTarget::new(gio::File::static_type(), gdk::DragAction::COPY);
+        let weak = Rc::downgrade(self);
+        drop.connect_drop(move |_, value, _, _| {
+            let (Some(shell), Some(path)) = (
+                weak.upgrade(),
+                value.get::<gio::File>().ok().and_then(|file| file.path()),
+            ) else {
+                return false;
+            };
+            let config_path = shell.config_path.clone();
+            shell.open_file(&path, None, config_path.as_deref(), None);
+            true
+        });
+        main.toasts.add_controller(drop);
+        let weak = Rc::downgrade(self);
+        main.window.connect_close_request(move |window| {
+            if let Some(shell) = weak.upgrade() {
+                shell
+                    .main
+                    .borrow_mut()
+                    .take_if(|main| &main.window == window);
             }
+            glib::Propagation::Proceed
         });
     }
 
-    fn is_main(&self, window: &adw::ApplicationWindow) -> bool {
-        self.main
-            .borrow()
-            .as_ref()
-            .is_some_and(|main| &main.window == window)
+    fn close_main(&self) {
+        let main = self.main.take();
+        if let Some(main) = main {
+            main.window.destroy();
+        }
     }
 
     fn present(self: &Rc<Self>, mode: Option<&str>) {
@@ -672,9 +747,7 @@ impl Shell {
             main.page.set_mode(mode);
             main.mode.replace(mode.to_owned());
         }
-        if main.view.visible_page_tag().as_deref() == Some("capture") {
-            main.refresh();
-        }
+        main.refresh();
         main.window.present();
     }
 
@@ -745,12 +818,10 @@ impl Shell {
         let main = self.main();
         match ended {
             Ended::HandedOff(handoff) => {
+                self.close_main();
                 self.keep(result::open(
                     &self.app,
-                    Host::Page {
-                        window: main.window.clone(),
-                        view: main.view.clone(),
-                    },
+                    self.result_window(),
                     setup,
                     opened(*handoff),
                     self.menu.upcast_ref(),
@@ -773,6 +844,29 @@ impl Shell {
                 main.window.present();
             }
         }
+    }
+
+    fn choose_image(self: &Rc<Self>) {
+        let filter = gtk4::FileFilter::new();
+        filter.set_name(Some(&gettext("PNG Images")));
+        filter.add_mime_type("image/png");
+        let filters = gio::ListStore::new::<gtk4::FileFilter>();
+        filters.append(&filter);
+        let dialog = gtk4::FileDialog::builder()
+            .title(gettext("Open Image"))
+            .modal(true)
+            .filters(&filters)
+            .build();
+        let parent = self.app.active_window();
+        let weak = Rc::downgrade(self);
+        dialog.open(parent.as_ref(), None::<&gio::Cancellable>, move |chosen| {
+            let Some(shell) = weak.upgrade() else {
+                return;
+            };
+            if let Some(path) = chosen.ok().and_then(|file| file.path()) {
+                shell.open_file(&path, None, shell.config_path.as_deref(), None);
+            }
+        });
     }
 
     fn preferences(self: &Rc<Self>) {
@@ -798,7 +892,10 @@ impl Shell {
             .application_name(gettext("Screenshot"))
             .application_icon(ICON)
             .version(cli::build::VERSION)
-            .license_type(gtk4::License::Gpl30)
+            .developer_name("Alex Oleshkevich")
+            .website(PROJECT_URL)
+            .issue_url(format!("{PROJECT_URL}/issues"))
+            .license_type(gtk4::License::Bsd3)
             .build();
         let window = self.app.active_window();
         dialog.present(window.as_ref());

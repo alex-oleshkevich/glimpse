@@ -101,8 +101,8 @@ impl Action {
     pub fn inhibits(&self) -> Option<&'static str> {
         match self {
             Self::Suspend | Self::Hibernate => Some("sleep"),
-            Self::Reboot | Self::PowerOff => Some("shutdown"),
-            Self::Lock | Self::LogOut => None,
+            Self::Reboot | Self::PowerOff | Self::LogOut => Some("shutdown"),
+            Self::Lock => None,
         }
     }
 }

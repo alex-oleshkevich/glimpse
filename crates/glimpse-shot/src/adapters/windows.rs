@@ -134,7 +134,11 @@ fn failed(path: &Path, error: impl std::fmt::Display) -> CaptureError {
 
 pub fn decode(path: &Path) -> Result<Frame, CaptureError> {
     let texture = gdk::Texture::from_filename(path).map_err(|error| failed(path, error))?;
-    let mut downloader = gdk::TextureDownloader::new(&texture);
+    Ok(frame_of(&texture))
+}
+
+pub fn frame_of(texture: &gdk::Texture) -> Frame {
+    let mut downloader = gdk::TextureDownloader::new(texture);
     downloader.set_format(gdk::MemoryFormat::R8g8b8a8);
     let (bytes, stride) = downloader.download_bytes();
     let (width, height) = (texture.width() as usize, texture.height() as usize);
@@ -142,13 +146,13 @@ pub fn decode(path: &Path) -> Result<Frame, CaptureError> {
     for row in bytes.chunks(stride).take(height) {
         pixels.extend_from_slice(&row[..(width * 4).min(row.len())]);
     }
-    Ok(Frame {
+    Frame {
         connector: String::new(),
         width: width as u32,
         height: height as u32,
         pixels: glib::Bytes::from_owned(pixels),
         alpha: true,
-    })
+    }
 }
 
 fn crop_output(connector: &str, crop: Rect<BufferPx>) -> Result<Frame, CaptureError> {

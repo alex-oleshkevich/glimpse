@@ -358,6 +358,16 @@ pub fn build(
     }
 }
 
+pub(crate) fn app_label(id: &str) -> String {
+    use gio_unix::prelude::*;
+    if id.is_empty() || id.contains('/') || id.contains('\0') || !id.contains('.') {
+        return id.to_owned();
+    }
+    gio_unix::DesktopAppInfo::new(&format!("{id}.desktop"))
+        .map(|app| app.display_name().to_string())
+        .unwrap_or_else(|| id.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

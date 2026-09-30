@@ -57,7 +57,12 @@ impl PortalInhibit {
         } else {
             match self.login1.as_ref() {
                 Some(login1) => login1
-                    .inhibit(&what, "glimpse-idle", "Portal inhibit", "block")
+                    .inhibit(
+                        &what,
+                        hold_label(&app_id, "glimpse-idle"),
+                        hold_label(&reason, "Portal inhibit"),
+                        "block",
+                    )
                     .await
                     .inspect_err(|error| {
                         tracing::warn!(
@@ -206,6 +211,10 @@ impl PortalRequest {
             .await;
         Ok(())
     }
+}
+
+fn hold_label<'a>(given: &'a str, fallback: &'a str) -> &'a str {
+    if given.is_empty() { fallback } else { given }
 }
 
 fn login1_what(targets: &InhibitionTargets) -> String {
@@ -689,6 +698,16 @@ mod tests {
                 .await,
             "the first, name-owning server must keep serving Inhibit"
         );
+    }
+
+    #[test]
+    fn a_hold_is_named_after_the_caller_and_its_reason_when_given() {
+        assert_eq!(
+            hold_label("org.gnome.TextEditor", "glimpse-idle"),
+            "org.gnome.TextEditor"
+        );
+        assert_eq!(hold_label("", "glimpse-idle"), "glimpse-idle");
+        assert_eq!(hold_label("", "Portal inhibit"), "Portal inhibit");
     }
 
     #[test]

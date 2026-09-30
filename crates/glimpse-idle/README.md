@@ -118,7 +118,9 @@ synchronous `mutate` closure can't wrap the outbound call, at the cost of a boun
 to the Holds concurrently in flight. **`PortalInhibit` identifies a caller by `app_id`, not by
 D-Bus sender**, since every backend call arrives on xdg-desktop-portal's own connection where
 `header.sender()` is identical for every sandboxed app; `check_capacity` matches a record by either
-the bus name or the `app_id`. A missing `login1` proxy, or a failed `login1.Inhibit` call, degrades
+the bus name or the `app_id`. Its `login1` hold carries the caller's `app_id` and reason as `who`
+and `why`, so `systemd-inhibit --list` and the session menu name the app; an empty one falls back
+to `glimpse-idle` and `Portal inhibit`. A missing `login1` proxy, or a failed `login1.Inhibit` call, degrades
 a portal `Inhibit` to a trackless record rather than refusing it, since `Inhibit` has no return
 value in the portal spec.
 

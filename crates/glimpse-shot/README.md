@@ -263,26 +263,44 @@ asynchronously under `ANNOTATIONS_CAP`, and answers through `app::reply`, then
 `-o -` is exit 2; while an overlay is up any GUI invocation is `busy`, exit 1; SIGINT and SIGTERM
 exit 130 and 143. Overlay surfaces belong to no application, so its accelerators never reach them.
 
-- **Capture page.** An `AdwNavigationView` in the app window: mode, output ("Current Screen" first),
-  window list labelled "Name — title" from `DesktopAppInfo`, delay and pointer, which start from
-  `[screenshot]` and are never written back. Take hides the window, waits the unmap barrier and runs
-  the overlay with `in_window`: a concrete target hands off at once, Region shows only the selection
-  (release or Space commits), and Esc or the countdown's ✕ brings the window back.
-- **Result.** `gui::result` is a face of its own over the same `session` machine, in the app window
-  after Take or in a new window after a hand-off, `--editor window`, `FILE.png` or D-Bus `Open`. The
+- **Capture page.** Its own window, sized to its content: mode, output ("Current Screen" first,
+  shown only with two or more outputs), window list labelled "Name — title" from `DesktopAppInfo`,
+  delay and pointer, which start from `[screenshot]` and are never written back. Take hides the
+  window, waits the unmap barrier and runs the overlay with `in_window`: a concrete target hands off
+  at once, Region shows only the selection (release or Space commits), and Esc or the countdown's ✕
+  brings the window back. The window closes when a Result window opens; ‹ New opens a fresh one.
+  Open Image… (Ctrl+O) picks a PNG and opens it as `FILE.png` does, and so does a file dropped on
+  the window; Ctrl+V opens the clipboard's image, unsaved.
+- **Result.** `gui::result` is a face of its own over the same `session` machine, always in a window
+  of its own: after Take, a hand-off, `--editor window`, `FILE.png`, Open Image… or D-Bus `Open`.
+  Its title is the file name; its size and maximized state are kept in
+  `state_dir()/shot-window.json`. The
   page's `Gtk.Picture` shows a `canvas::Sheet`, a paintable that draws the same `Editor` fitted with
   no margin, so Fit and 1:1 are the picture's own; pointer points are mapped back through
   `Sheet::origin`. The header holds Copy and its Save, Save As and Open With menu; the rename popover
   holds the name, while Preferences owns the default folder. Save uses that folder, never over another file (a second save overwrites its
   own), then `RecentManager::add_item`. Dirtiness is marks and crop against the last save or copy;
-  closing or ‹ New asks first. `FILE.png` refuses a side over 16384 from its IHDR. Open With… asks
-  for the program first and saves only after one is picked. Ctrl+drag drags the image out as a 0600 file
-  under `runtime_dir()` plus its PNG bytes; a plain drag draws. A screen capture flashes white
+  closing or ‹ New asks first. `FILE.png` refuses a side over 16384 from its IHDR. Open With… saves
+  first, then shows the system's app chooser (`FileLauncher` with `always-ask`), holding the app
+  until it answers — in the overlay too, whose surface is gone by then. Ctrl+drag drags the image out as a 0600 file
+  under `runtime_dir()` plus its PNG bytes; a plain drag draws, and pans instead while Space is held
+  with the image focused or the Hand toggle is on — a capture-phase drag on the scroller, so its
+  offsets do not move with the picture. Choosing a tool turns Hand off. Ctrl+scroll and Ctrl+plus/minus zoom
+  by 1.25 per step between 10% and 800%, anchored at the pointer, leaving Fit and 1:1 both unset; a
+  plain scroll only scrolls. A screen capture flashes white
   before the window opens, starting on the flash surface's first frame.
-- **Preferences.** Saving, Behavior, Annotations and Keyboard Shortcuts are fixed groups. Only `[screenshot]` of the `--config` file, else `user_dir()/config.toml`, is
-  written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
-  values only; the dialog holds its state until closed. A key a later layer of `resolved_files` sets is insensitive and names the file; a file
-  that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
+- **Preferences.** Saving, Behavior, Annotations and Keyboard Shortcuts are fixed groups. Only `[screenshot]` of
+  `glimpse_config::screenshot_file` — `shot.toml` beside the `--config` file or in `user_dir()` —
+  is written, through `glimpse_config::write_table` 500 ms after the last change and on close, typed
+  values only; config.toml is never written, and its `[screenshot]` still supplies any key shot.toml
+  leaves out. The dialog holds its state until closed; a file that does not parse or validate makes the page read-only behind a banner; any other write failure is a toast.
+- **Inhibits.** A countdown holds `IDLE` ("Waiting to take a screenshot") until the capture, so the
+  screen neither blanks nor locks into the shot; a result window with unsaved work holds `LOGOUT`
+  until it is saved, copied or closed. Both go through `gtk::Application::inhibit`, so they reach
+  gnome-session on GNOME and glimpse-idle's portal backend elsewhere. `run` registers the app id
+  with `org.freedesktop.host.portal.Registry` before `gtk::init` — any earlier portal call, such
+  as libadwaita reading the color scheme, ties the connection to no id — and keeps that session
+  connection alive, since GLib holds the shared one only weakly.
 - **Desktop entry.** `DBusActivatable`; its `screen`, `window` and `region` actions present the
   Capture page in that mode (`gapplication action` is the `Exec` fallback).
 

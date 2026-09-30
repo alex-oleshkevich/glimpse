@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
-use gtk4::{CompositeTemplate, TemplateChild, gio, glib, subclass::prelude::*};
+use gtk4::{CompositeTemplate, TemplateChild, gdk, gio, glib, subclass::prelude::*};
 
 use crate::ShotToolbar;
 
@@ -23,6 +23,10 @@ pub struct ShotResultPage {
     #[template_child]
     pub zoom: TemplateChild<adw::ToggleGroup>,
     #[template_child]
+    pub hand: TemplateChild<gtk4::ToggleButton>,
+    #[template_child]
+    pub scroller: TemplateChild<gtk4::ScrolledWindow>,
+    #[template_child]
     pub toasts: TemplateChild<adw::ToastOverlay>,
     #[template_child]
     pub name: TemplateChild<adw::EntryRow>,
@@ -34,6 +38,9 @@ pub struct ShotResultPage {
     pub new_shot: TemplateChild<gtk4::Button>,
 
     pub colliding: Cell<bool>,
+    pub level: Cell<Option<f64>>,
+    pub anchor: Cell<(Option<f64>, Option<f64>)>,
+    pub pointer: Cell<Option<(f64, f64)>>,
     pub committed_name: RefCell<String>,
     pub actions: gio::SimpleActionGroup,
 }
@@ -82,6 +89,61 @@ impl ObjectImpl for ShotResultPage {
             obj,
             move |_| obj.apply_zoom()
         ));
+        self.scroller.hadjustment().connect_changed(glib::clone!(
+            #[weak]
+            obj,
+            move |adjustment| {
+                let imp = obj.imp();
+                let (x, y) = imp.anchor.get();
+                if let Some(x) = x {
+                    imp.anchor.set((None, y));
+                    adjustment.set_value(x);
+                }
+            }
+        ));
+        self.scroller.vadjustment().connect_changed(glib::clone!(
+            #[weak]
+            obj,
+            move |adjustment| {
+                let imp = obj.imp();
+                let (x, y) = imp.anchor.get();
+                if let Some(y) = y {
+                    imp.anchor.set((x, None));
+                    adjustment.set_value(y);
+                }
+            }
+        ));
+        let motion = gtk4::EventControllerMotion::new();
+        motion.connect_motion(glib::clone!(
+            #[weak]
+            obj,
+            move |_, x, y| obj.imp().pointer.set(Some((x, y)))
+        ));
+        motion.connect_leave(glib::clone!(
+            #[weak]
+            obj,
+            move |_| obj.imp().pointer.set(None)
+        ));
+        self.scroller.add_controller(motion);
+        let wheel = gtk4::EventControllerScroll::new(gtk4::EventControllerScrollFlags::VERTICAL);
+        wheel.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        wheel.connect_scroll(glib::clone!(
+            #[weak]
+            obj,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |controller, _, dy| {
+                if !controller
+                    .current_event_state()
+                    .contains(gdk::ModifierType::CONTROL_MASK)
+                {
+                    return glib::Propagation::Proceed;
+                }
+                obj.zoom_by(-dy);
+                glib::Propagation::Stop
+            }
+        ));
+        self.scroller.add_controller(wheel);
         self.undo.connect_clicked(glib::clone!(
             #[weak]
             obj,
