@@ -98,6 +98,12 @@ impl Component for AppletRuntime {
                 Some(group)
             }
         };
+        if let Some(child) = root.first_child() {
+            child
+                .bind_property("visible", &root, "visible")
+                .sync_create()
+                .build();
+        }
 
         tracing::debug!(applet = ctx.name(), own_view = group.is_none(), "started");
 
