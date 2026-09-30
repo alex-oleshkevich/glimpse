@@ -1,7 +1,7 @@
 # glimpsectl
 
-The suite's command line. It addresses the three standalone providers over their own typed D-Bus
-interfaces, and reads the configuration stack straight from disk.
+The suite's command line. It addresses the three standalone providers and the panel's clipboard
+over their own typed D-Bus interfaces, and reads the configuration stack straight from disk.
 
 ```bash
 glimpsectl sunset status
@@ -12,6 +12,8 @@ glimpsectl notifications list
 glimpsectl notifications dismiss 7
 glimpsectl notifications clear --app org.mozilla.firefox
 glimpsectl notifications dnd on
+glimpsectl clipboard list
+glimpsectl clipboard get 1287236412341234 > copied.png
 glimpsectl config show
 glimpsectl doctor
 glimpsectl applets list

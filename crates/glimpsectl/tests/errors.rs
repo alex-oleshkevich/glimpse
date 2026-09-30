@@ -39,6 +39,12 @@ fn an_absent_provider_and_a_refused_argument_have_different_codes() {
         Exit::Rejected
     );
     assert_eq!(
+        exit(&method_error(
+            "me.aresa.Glimpse.Clipboard1.Error.NoSuchEntry"
+        )),
+        Exit::Rejected
+    );
+    assert_eq!(
         exit(&method_error("org.freedesktop.DBus.Error.NoReply")),
         Exit::Timeout
     );

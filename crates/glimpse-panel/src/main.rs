@@ -2,6 +2,7 @@ mod app;
 mod applet;
 mod applets;
 mod cli;
+mod clipboard_provider;
 mod components;
 mod config_alert;
 mod selection;

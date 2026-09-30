@@ -73,6 +73,7 @@ pub struct PanelServices {
     weather: WeatherProvider,
     night_light: NightLightProvider,
     idle: IdleProvider,
+    clipboard_served: Option<crate::clipboard_provider::Served>,
 }
 
 impl PanelServices {
@@ -149,6 +150,9 @@ impl PanelServices {
                 selection: Arc::clone(&selection),
             },
         );
+        let clipboard_served = buses.session_bus().ok().map(|connection| {
+            crate::clipboard_provider::Served::start(connection.clone(), clipboard.clone())
+        });
         let program =
             std::env::var("GLIMPSE_PICKER_BIN").unwrap_or_else(|_| "glimpse-picker".to_owned());
         let (color_picker_service, color_picker) = Running::<ColorPicker>::spawn(
@@ -254,6 +258,7 @@ impl PanelServices {
             weather,
             night_light,
             idle,
+            clipboard_served,
         }
     }
 
@@ -271,6 +276,9 @@ impl PanelServices {
         self.ruler_service.stop().await;
         self.exec_service.stop().await;
         self.color_picker_service.stop().await;
+        if let Some(served) = self.clipboard_served.take() {
+            served.shutdown().await;
+        }
         self.clipboard_service.stop().await;
         self.brightness_service.stop().await;
         self.session_actions_service.stop().await;

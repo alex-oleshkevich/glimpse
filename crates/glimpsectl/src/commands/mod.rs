@@ -1,5 +1,6 @@
 pub mod applets;
 pub mod applets_author;
+pub mod clipboard;
 pub mod config;
 pub mod doctor;
 pub mod idle;
@@ -12,6 +13,9 @@ pub mod weather;
 
 pub use applets::{applets_inspect, applets_list, applets_restart};
 pub use applets_author::{applets_dev, applets_new, applets_run};
+pub use clipboard::{
+    clipboard_clear, clipboard_copy, clipboard_forget, clipboard_get, clipboard_list, clipboard_pin,
+};
 pub use config::{config_path, config_show, config_validate};
 pub use doctor::doctor;
 pub use idle::{idle_inhibit, idle_release, idle_status};

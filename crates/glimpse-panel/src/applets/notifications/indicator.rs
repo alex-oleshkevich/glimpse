@@ -85,7 +85,11 @@ impl Applet for Notifications {
         shown.connect_action_invoked({
             let notifications = self.notifications.clone();
             let held = held.clone();
-            move |popover, key, action| invoke(&notifications, popover, &held, &key, &action)
+            let opener = opener.clone();
+            move |popover, key, action| {
+                invoke(&notifications, popover, &held, &key, &action);
+                opener.close_popover();
+            }
         });
         shown.connect_dismissed({
             let notifications = self.notifications.clone();

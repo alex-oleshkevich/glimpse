@@ -128,6 +128,7 @@ fn named(name: &str) -> Exit {
         | "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature"
         | "me.aresa.Glimpse.Weather1.Error.InvalidPlace"
         | "me.aresa.Glimpse.Notifications1.Error.InvalidAction"
+        | "me.aresa.Glimpse.Clipboard1.Error.NoSuchEntry"
         | "org.freedesktop.DBus.Error.InvalidArgs"
         | "org.freedesktop.DBus.Error.UnknownMethod"
         | "org.freedesktop.DBus.Error.UnknownObject"

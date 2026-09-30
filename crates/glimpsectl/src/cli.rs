@@ -55,6 +55,9 @@ pub enum Command {
     #[command(subcommand, about = "The notification store")]
     Notifications(NotificationsCommand),
 
+    #[command(subcommand, about = "The panel's clipboard history")]
+    Clipboard(ClipboardCommand),
+
     #[command(subcommand, about = "Inspect the configuration stack")]
     Config(ConfigCommand),
 
@@ -241,6 +244,36 @@ pub enum NotificationsCommand {
         )]
         until: Option<NaiveTime>,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ClipboardCommand {
+    #[command(about = "Print the history, newest first")]
+    List,
+
+    #[command(about = "Write one entry's bytes to stdout, exactly as they were copied")]
+    Get(EntryTarget),
+
+    #[command(about = "Put one entry back on the clipboard")]
+    Copy(EntryTarget),
+
+    #[command(about = "Keep one entry through eviction and clearing")]
+    Pin(EntryTarget),
+
+    #[command(about = "Let a pinned entry be evicted again")]
+    Unpin(EntryTarget),
+
+    #[command(about = "Remove one entry from the history")]
+    Forget(EntryTarget),
+
+    #[command(about = "Remove every entry that is not pinned")]
+    Clear,
+}
+
+#[derive(Debug, Args)]
+pub struct EntryTarget {
+    #[arg(value_name = "ID", help = "The entry's id, as `list` prints it")]
+    pub id: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

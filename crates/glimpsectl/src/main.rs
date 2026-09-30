@@ -3,8 +3,8 @@ use std::process::ExitCode;
 use anyhow::{Context, Result};
 use glimpse_utils::init_app_tracing;
 use glimpsectl::cli::{
-    AppletsCommand, Cli, Command, ConfigCommand, IdleCommand, NotificationsCommand, SessionCommand,
-    SunsetCommand, WeatherCommand,
+    AppletsCommand, Cli, ClipboardCommand, Command, ConfigCommand, IdleCommand,
+    NotificationsCommand, SessionCommand, SunsetCommand, WeatherCommand,
 };
 use glimpsectl::errors::Exit;
 use glimpsectl::{cli, commands, errors};
@@ -66,6 +66,25 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Notifications(NotificationsCommand::Dnd { state, until }) => {
             commands::notifications_dnd(bus()?, state, until).await
         }
+        Command::Clipboard(ClipboardCommand::List) => {
+            commands::clipboard_list(bus()?, cli.json).await
+        }
+        Command::Clipboard(ClipboardCommand::Get(entry)) => {
+            commands::clipboard_get(bus()?, entry.id).await
+        }
+        Command::Clipboard(ClipboardCommand::Copy(entry)) => {
+            commands::clipboard_copy(bus()?, entry.id).await
+        }
+        Command::Clipboard(ClipboardCommand::Pin(entry)) => {
+            commands::clipboard_pin(bus()?, entry.id, true).await
+        }
+        Command::Clipboard(ClipboardCommand::Unpin(entry)) => {
+            commands::clipboard_pin(bus()?, entry.id, false).await
+        }
+        Command::Clipboard(ClipboardCommand::Forget(entry)) => {
+            commands::clipboard_forget(bus()?, entry.id).await
+        }
+        Command::Clipboard(ClipboardCommand::Clear) => commands::clipboard_clear(bus()?).await,
         Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config, cli.json),
         Command::Config(ConfigCommand::Validate { path }) => {
             commands::config_validate(path.or(cli.config.config))

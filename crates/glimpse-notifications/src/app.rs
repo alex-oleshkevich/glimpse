@@ -283,7 +283,8 @@ impl SimpleComponent for App {
             Input::Activate(id) => {
                 let record = self.state.record(id).cloned();
                 let token = activation_token(&self.root);
-                self.hide_unless_resident(id, &sender);
+                let delta = self.state.hide(id);
+                self.apply(delta, &sender);
                 if let (Some(services), Some(record)) = (&self.services, record) {
                     focus_and_activate(
                         services.notifications.clone(),
@@ -295,7 +296,8 @@ impl SimpleComponent for App {
             }
             Input::Invoke(id, action) => {
                 let token = activation_token(&self.root);
-                self.hide_unless_resident(id, &sender);
+                let delta = self.state.hide(id);
+                self.apply(delta, &sender);
                 if let Some(services) = &self.services {
                     invoke(services.notifications.clone(), id, action, token);
                 }
@@ -314,14 +316,6 @@ impl SimpleComponent for App {
 }
 
 impl App {
-    fn hide_unless_resident(&mut self, id: u32, sender: &ComponentSender<Self>) {
-        if self.state.record(id).is_some_and(|record| record.resident) {
-            return;
-        }
-        let delta = self.state.hide(id);
-        self.apply(delta, sender);
-    }
-
     fn connect_services(&mut self, services: NotificationServices, sender: &ComponentSender<Self>) {
         services.reconfigure(&self.config);
         let mut notifications = services.notifications.subscribe();
