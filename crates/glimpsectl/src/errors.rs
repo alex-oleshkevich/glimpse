@@ -1,4 +1,3 @@
-use std::io;
 use std::process::ExitCode;
 
 use zbus::DBusError as _;
@@ -11,8 +10,6 @@ pub enum Exit {
     Unreachable = 3,
     Rejected = 4,
     Timeout = 5,
-    CannotExecute = 126,
-    CommandNotFound = 127,
 }
 
 impl From<Exit> for ExitCode {
@@ -60,30 +57,12 @@ impl std::fmt::Display for Gone {
 
 impl std::error::Error for Gone {}
 
-#[derive(Debug)]
-pub struct ExecFailed(pub io::Error);
-
-impl std::fmt::Display for ExecFailed {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(formatter)
-    }
-}
-
-impl std::error::Error for ExecFailed {}
-
 pub fn exit(error: &anyhow::Error) -> Exit {
     if error.downcast_ref::<Refused>().is_some() {
         return Exit::Rejected;
     }
     if error.downcast_ref::<Gone>().is_some() {
         return Exit::Unreachable;
-    }
-    if let Some(failure) = error.downcast_ref::<ExecFailed>() {
-        return if failure.0.kind() == io::ErrorKind::NotFound {
-            Exit::CommandNotFound
-        } else {
-            Exit::CannotExecute
-        };
     }
     if error.downcast_ref::<TimedOut>().is_some() {
         return Exit::Timeout;

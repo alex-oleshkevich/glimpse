@@ -1,24 +1,14 @@
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::os::unix::fs::{DirBuilderExt, symlink};
-use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result, bail, ensure};
-use glimpse_config::{AppletKind, DATA_DIR, is_desktop_id, placed_applets};
-use glimpse_services::{
-    DesktopCatalog, Edge, ExecEntry, FromApplet, MAX_LINE, Orientation, Outgoing, Placement, Tree,
-    Zone,
-};
+use anyhow::{Context, Result, ensure};
+use glimpse_config::{DATA_DIR, is_desktop_id};
+use glimpse_services::DesktopCatalog;
 use minijinja::{AutoEscape, Environment, UndefinedBehavior, context};
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command;
-use tokio::signal::unix::{SignalKind, signal};
 
-use crate::cli::{NewAppletArgs, RunAppletArgs};
+use crate::cli::NewAppletArgs;
 use crate::render::Section;
 
 fn prompt(
@@ -76,15 +66,6 @@ fn words(id: &str) -> (String, String) {
         kebab.extend(ch.to_lowercase());
     }
     (spaced, kebab)
-}
-
-pub fn applets_run(args: RunAppletArgs) -> Result<()> {
-    Err(anyhow::Error::new(crate::errors::ExecFailed(
-        std::process::Command::new(&args.exe)
-            .args(&args.args)
-            .exec(),
-    )))
-    .with_context(|| format!("cannot execute {}", args.exe.display()))
 }
 
 fn desktop_value(value: &str) -> Result<()> {
@@ -196,7 +177,7 @@ pub fn applets_new_with_catalog(
     println!("Created {id} in {}\n", shown.display());
     Section::new("next")
         .with(format!(
-            "cd {}\nnpm install\nglimpsectl applets dev .",
+            "cd {}\nnpm install\nglimpsectl applets run --dev .",
             shown.display()
         ))
         .print()?;
@@ -213,186 +194,4 @@ fn config_section(id: &str, dir: &Path, placed: bool) -> Result<Section> {
         true => section,
         false => section.with_note(&format!("then add it to a panel zone: center = [\"{id}\"]")),
     })
-}
-
-fn source(dir: &Path) -> Result<(String, ExecEntry)> {
-    let mut desktops = fs::read_dir(dir)?
-        .filter_map(|item| item.ok().map(|item| item.path()))
-        .filter(|path| path.extension().is_some_and(|ext| ext == "desktop"));
-    let path = desktops
-        .next()
-        .context("no .desktop file in applet directory")?;
-    ensure!(
-        desktops.next().is_none(),
-        "multiple .desktop files in applet directory"
-    );
-    let id = path
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .context("invalid .desktop filename")?
-        .to_owned();
-    ensure!(is_desktop_id(&id), "invalid desktop-file id: {id}");
-    let entry = DesktopCatalog
-        .resolve_file(&path)
-        .map_err(anyhow::Error::msg)?;
-    Ok((id, entry))
-}
-
-async fn handshake(entry: &ExecEntry) -> Result<()> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let state = env::temp_dir().join(format!("glimpsectl-check-{}-{now}", std::process::id()));
-    fs::DirBuilder::new().mode(0o700).create(&state)?;
-    let result = handshake_in(entry, &state).await;
-    let removed = fs::remove_dir_all(&state);
-    result?;
-    removed?;
-    Ok(())
-}
-
-async fn handshake_in(entry: &ExecEntry, state: &Path) -> Result<()> {
-    let (program, args) = entry.argv.split_first().context("empty Exec")?;
-    let mut child = Command::new(program)
-        .args(args)
-        .current_dir(entry.cwd.as_deref().unwrap_or(Path::new(".")))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()?;
-    let mut stdout = BufReader::new(child.stdout.take().context("no applet stdout")?);
-    let mut stdin = child.stdin.take().context("no applet stdin")?;
-    let result = async {
-        let line = wire_line(&mut stdout, "Hello").await?;
-        ensure!(
-            matches!(
-                serde_json::from_str::<FromApplet>(&line)?,
-                FromApplet::Hello { v: 1 }
-            ),
-            "expected applet Hello v1"
-        );
-        let hello = Outgoing::Hello {
-            v: 1,
-            name: entry.name.clone(),
-            state: state.display().to_string(),
-            options: serde_json::Map::new(),
-            placement: Placement {
-                output: None,
-                position: Edge::Top,
-                orientation: Orientation::Horizontal,
-                zone: Zone::Center,
-                size: 32,
-            },
-        };
-        stdin
-            .write_all(serde_json::to_string(&hello)?.as_bytes())
-            .await?;
-        stdin.write_all(b"\n").await?;
-        stdin.flush().await?;
-        let line = wire_line(&mut stdout, "Commit").await?;
-        let FromApplet::Commit { ops } = serde_json::from_str::<FromApplet>(&line)? else {
-            bail!("expected applet Commit")
-        };
-        Tree::default()
-            .apply(ops)
-            .map_err(|error| anyhow::anyhow!("invalid applet tree: {error}"))?;
-        Ok::<(), anyhow::Error>(())
-    }
-    .await;
-    drop(stdin);
-    let _ = child.kill().await;
-    let _ = child.wait().await;
-    if let Err(error) = result {
-        let mut stderr = String::new();
-        if let Some(mut pipe) = child.stderr.take() {
-            let _ = pipe.read_to_string(&mut stderr).await;
-        }
-        bail!("{error}\n{stderr}");
-    }
-    Ok(())
-}
-
-async fn wire_line(reader: &mut (impl AsyncBufRead + Unpin), phase: &str) -> Result<String> {
-    let mut line = String::new();
-    let size = tokio::time::timeout(
-        Duration::from_secs(2),
-        reader.take((MAX_LINE + 1) as u64).read_line(&mut line),
-    )
-    .await
-    .with_context(|| format!("applet {phase} timed out"))??;
-    ensure!(size > 0, "applet exited before {phase}");
-    ensure!(
-        size <= MAX_LINE && line.ends_with('\n'),
-        "applet {phase} exceeds the wire line limit"
-    );
-    Ok(line)
-}
-
-pub async fn applets_dev(target: &str, config_path: Option<PathBuf>) -> Result<()> {
-    if !Path::new(target).is_dir() {
-        ensure!(
-            is_desktop_id(target),
-            "{target} is neither an applet directory nor a desktop-file id"
-        );
-        let entry = DesktopCatalog
-            .installed()
-            .into_iter()
-            .find_map(|(id, entry)| (id == target).then_some(entry))
-            .with_context(|| format!("{target} is not installed"))?
-            .map_err(anyhow::Error::msg)?;
-        handshake(&entry).await?;
-        return super::applets_restart(target.to_owned()).await;
-    }
-    let dir = Path::new(target).canonicalize()?;
-    let (id, entry) = source(&dir)?;
-    handshake(&entry).await?;
-    let mut interrupt = signal(SignalKind::interrupt())?;
-    let mut terminate = signal(SignalKind::terminate())?;
-    let mut hangup = signal(SignalKind::hangup())?;
-    let applications = applications_dir()?;
-    fs::create_dir_all(&applications)?;
-    let link = applications.join(format!("{id}.desktop"));
-    if fs::read_link(&link).ok().as_deref() == Some(entry.path.as_path()) {
-        fs::remove_file(&link)?;
-    }
-    ensure!(
-        !link.exists() && !link.is_symlink(),
-        "{} already exists",
-        link.display()
-    );
-    symlink(&entry.path, &link)?;
-    let placed = glimpse_config::load(config_path.as_deref())
-        .ok()
-        .is_some_and(|config| {
-            placed_applets(&config).any(
-                |(_, applet)| matches!(applet.kind, AppletKind::Exec(exec) if exec.applet == id),
-            )
-        });
-    config_section(&id, &dir, placed)?.print()?;
-    println!("\nLinked {}. Press Ctrl-C to unlink.", link.display());
-    eprintln!("logs: journalctl --user -u glimpse-panel -f");
-    tokio::select! {
-        _ = interrupt.recv() => {},
-        _ = terminate.recv() => {},
-        _ = hangup.recv() => {},
-    }
-    if fs::read_link(&link).ok().as_deref() == Some(entry.path.as_path()) {
-        fs::remove_file(link)?;
-    }
-    Ok(())
-}
-
-fn home() -> Result<PathBuf> {
-    let home = env::var_os("HOME").context("HOME is unset")?;
-    let home = PathBuf::from(home);
-    ensure!(home.is_absolute(), "HOME must be absolute");
-    Ok(home)
-}
-
-fn applications_dir() -> Result<PathBuf> {
-    let path = match env::var_os("XDG_DATA_HOME") {
-        Some(path) => PathBuf::from(path),
-        None => home()?.join(".local/share"),
-    };
-    ensure!(path.is_absolute(), "XDG_DATA_HOME must be absolute");
-    Ok(path.join("applications"))
 }

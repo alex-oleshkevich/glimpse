@@ -97,6 +97,7 @@ pub struct Config {
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
+    pub attached: Vec<(Zone, String)>,
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
     pub blur: Vec<BlurSurface>,
@@ -137,6 +138,43 @@ impl Config {
             (Zone::End, &self.right),
         ]
     }
+}
+
+fn desired(
+    zones: [(Zone, &[String]); 3],
+    applets: &BTreeMap<String, AppletConfig>,
+    regional: &Regional,
+    attached: &[(Zone, String)],
+) -> Vec<(
+    Zone,
+    String,
+    Option<Discriminant<glimpse_config::AppletKind>>,
+)> {
+    let mut desired = Vec::new();
+    let configured_ids: Vec<_> = zones
+        .iter()
+        .flat_map(|(_, names)| names.iter())
+        .filter_map(|name| applets::configured(name, applets, regional))
+        .filter_map(|applet| match applet.kind {
+            glimpse_config::AppletKind::Exec(exec) => Some(exec.applet),
+            _ => None,
+        })
+        .collect();
+    for (zone, names) in zones {
+        for name in names {
+            let applet = applets::configured(name, applets, regional);
+            let kind = applet.map(|applet| std::mem::discriminant(&applet.kind));
+            desired.push((zone, name.clone(), kind));
+        }
+        for (_, id) in attached.iter().filter(|(target, _)| *target == zone) {
+            if !configured_ids.contains(id) {
+                let kind = applets::configured(id, applets, regional)
+                    .map(|applet| std::mem::discriminant(&applet.kind));
+                desired.push((zone, id.clone(), kind));
+            }
+        }
+    }
+    desired
 }
 
 #[allow(
@@ -254,27 +292,18 @@ impl Panel {
     }
 
     fn reconcile_applets(&mut self, config: &Config, orientation: gtk::Orientation) {
-        let desired: Vec<(
-            Zone,
-            &String,
-            Option<Discriminant<glimpse_config::AppletKind>>,
-        )> = config
-            .zones()
-            .into_iter()
-            .flat_map(|(zone, names)| {
-                names.iter().map(move |name| {
-                    let kind = applets::configured(name, &config.applets, &config.regional)
-                        .map(|applet| std::mem::discriminant(&applet.kind));
-                    (zone, name, kind)
-                })
-            })
-            .collect();
+        let desired = desired(
+            config.zones(),
+            &config.applets,
+            &config.regional,
+            &config.attached,
+        );
 
         if self
             .applets
             .iter()
-            .map(|slot| (slot.zone, &slot.name, slot.kind))
-            .eq(desired.iter().copied())
+            .map(|slot| (slot.zone, &slot.name, &slot.kind))
+            .eq(desired.iter().map(|(zone, name, kind)| (*zone, name, kind)))
         {
             let indices = indices(self.applets.iter().map(|slot| slot.zone));
             for (slot, index) in self.applets.iter().zip(indices) {
@@ -312,7 +341,7 @@ impl Panel {
                         zone,
                         name: name.clone(),
                         kind,
-                        handle: applets::configured(name, &config.applets, &config.regional)
+                        handle: applets::configured(&name, &config.applets, &config.regional)
                             .and_then(|applet| {
                                 let Some(build) = applets::build(
                                     &applet,
@@ -362,7 +391,7 @@ impl Panel {
                                     build,
                                     applet,
                                     Rc::clone(&self.catcher),
-                                    slot_info(config, zone, index, name),
+                                    slot_info(config, zone, index, &name),
                                 ))
                             }),
                     }),
@@ -388,5 +417,54 @@ impl Panel {
             }
         }
         self.applets = next;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attached_id_uses_the_ordinary_widget_path() {
+        let regional = Regional::default();
+        let zones = [
+            (Zone::Start, &[][..]),
+            (Zone::Center, &[][..]),
+            (Zone::End, &[][..]),
+        ];
+        let attached = [(Zone::End, "me.x.A".to_owned())];
+        let result = desired(zones, &BTreeMap::new(), &regional, &attached);
+        assert_eq!(result.len(), 1);
+        assert_eq!((result[0].0, result[0].1.as_str()), (Zone::End, "me.x.A"));
+        assert_eq!(
+            result[0].2,
+            Some(std::mem::discriminant(
+                &AppletConfig::from_name("me.x.A").unwrap().kind
+            ))
+        );
+    }
+
+    #[test]
+    fn configured_exec_takes_the_offer_without_a_second_widget() {
+        let regional = Regional::default();
+        let mut applets = BTreeMap::new();
+        applets.insert(
+            "custom".to_owned(),
+            AppletConfig::from_name("me.x.A").unwrap(),
+        );
+        let left = ["custom".to_owned()];
+        let zones = [
+            (Zone::Start, left.as_slice()),
+            (Zone::Center, &[][..]),
+            (Zone::End, &[][..]),
+        ];
+        let result = desired(
+            zones,
+            &applets,
+            &regional,
+            &[(Zone::End, "me.x.A".to_owned())],
+        );
+        assert_eq!(result.len(), 1);
+        assert_eq!((result[0].0, result[0].1.as_str()), (Zone::Start, "custom"));
     }
 }

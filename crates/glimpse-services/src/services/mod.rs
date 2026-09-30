@@ -85,9 +85,11 @@ pub use exec::{
     Tree, Urgency, Violation, WireNode, Zone, expand as exec_expand,
 };
 pub use exec::{
-    BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies, Exec,
-    ExecHandle, ExecState, SlotState as ExecSlotState, Status as ExecStatus,
-    UserEvent as ExecUserEvent, unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
+    BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,
+    EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState, Offer as ExecOffer,
+    Origin as ExecOrigin, Pipes as ExecPipes, SlotState as ExecSlotState, Status as ExecStatus,
+    UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
+    unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
 };
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

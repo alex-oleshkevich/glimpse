@@ -15,7 +15,7 @@ From this directory:
 
 ```
 npm install
-glimpsectl applets dev .
+glimpsectl applets run --dev .
 ```
 
 The entry runs `node --run start`, which builds and starts the applet in this

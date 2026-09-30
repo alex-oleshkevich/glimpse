@@ -30,6 +30,7 @@ pub(crate) fn epoch(value: i64) -> Result<DateTime<Utc>, String> {
 }
 
 pub mod accounts;
+pub mod applet_host;
 pub mod bluez;
 pub mod clipboard;
 pub mod dbusmenu;

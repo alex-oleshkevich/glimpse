@@ -475,6 +475,7 @@ const CONTROLLED: Record<string, [string, string]> = {
 };
 
 let current: Session | null = null;
+let fail: (code: number) => void = (code) => process.exit(code);
 
 function flush(session: Session, fn?: () => void, emitCommit = true): void {
   session.reconciler.flushSyncFromReconciler(fn);
@@ -532,7 +533,7 @@ async function mountFresh(element: unknown): Promise<void> {
     "applet",
     (error: unknown) => {
       console.error(error);
-      process.exit(70);
+      fail(70);
     },
     (error: unknown) => {
       console.error(error);
@@ -570,7 +571,7 @@ function dispatchEvent(message: HostMessage): void {
     handler(...args);
   } catch (error) {
     console.error(error);
-    process.exit(1);
+    fail(1);
   }
 }
 
@@ -591,7 +592,12 @@ function apply(message: HostMessage): void {
   if (message.t === "event") dispatchEvent(message);
 }
 
-export async function session(element: unknown, io: Io): Promise<void> {
+export async function session(
+  element: unknown,
+  io: Io,
+  onFail: (code: number) => void = (code) => process.exit(code),
+): Promise<void> {
+  fail = onFail;
   redirectConsole();
   await loadReconciler();
   current = null;
@@ -619,7 +625,7 @@ export async function session(element: unknown, io: Io): Promise<void> {
           if (current) continue;
           if (message.v !== 1) {
             console.error(`unsupported host protocol version: ${message.v}`);
-            process.exit(1);
+            fail(1);
             return;
           }
           optionsStore.set(message.options ?? {});
@@ -640,7 +646,7 @@ export async function session(element: unknown, io: Io): Promise<void> {
     } catch (error) {
       if (!(error instanceof ProtocolLimitError)) throw error;
       console.error(error);
-      process.exit(70);
+      fail(70);
       return;
     }
   }

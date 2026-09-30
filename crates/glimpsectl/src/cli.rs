@@ -1,11 +1,9 @@
 use shadow_rs::shadow;
 
-use std::ffi::OsString;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
-use clap::parser::ValueSource;
-use clap::{ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
 fn clock(raw: &str) -> Result<NaiveTime, String> {
@@ -302,17 +300,6 @@ pub enum ConfigCommand {
 pub enum AppletsCommand {
     #[command(about = "Create an external applet")]
     New(NewAppletArgs),
-    #[command(
-        about = "Run an applet the way the panel does: link a directory until interrupted, or restart an installed id"
-    )]
-    Dev {
-        #[arg(
-            default_value = ".",
-            value_name = "DIR|ID",
-            help = "An applet directory holding one .desktop file, or an installed applet's desktop-file id"
-        )]
-        target: String,
-    },
     #[command(about = "List installed and placed external applets")]
     List,
     #[command(about = "Inspect an external applet")]
@@ -325,8 +312,26 @@ pub enum AppletsCommand {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
     },
-    #[command(about = "Run an applet executable")]
-    Run(RunAppletArgs),
+    #[command(about = "Run an applet in the panel until Ctrl-C")]
+    Run(RunArgs),
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum Zone {
+    Left,
+    Center,
+    Right,
+}
+
+impl Zone {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
+        }
+    }
 }
 
 #[derive(Debug, Args)]
@@ -472,39 +477,45 @@ fn button(value: &str) -> Result<u32, String> {
 }
 
 #[derive(Debug, Args)]
-pub struct RunAppletArgs {
-    #[arg(allow_hyphen_values = true, help = "The applet executable")]
-    pub exe: PathBuf,
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-    pub args: Vec<OsString>,
+pub struct RunArgs {
+    #[arg(
+        default_value = ".",
+        value_name = "DIR|ID",
+        help = "An applet directory holding one .desktop file, or an installed applet's desktop-file id"
+    )]
+    pub target: String,
+    #[arg(long, help = "Restart the applet when its files or config change")]
+    pub dev: bool,
+    #[arg(long, default_value_t = 0, help = "Configured panel index")]
+    pub panel: u32,
+    #[arg(
+        long,
+        default_value = "",
+        help = "Output connector, or the first mapped output"
+    )]
+    pub output: String,
+    #[arg(long, help = "Panel zone")]
+    pub zone: Option<Zone>,
+    #[arg(
+        long = "env",
+        value_name = "KEY=VALUE",
+        help = "Set an applet environment variable"
+    )]
+    pub env: Vec<String>,
+    #[arg(long, help = "Print protocol lines on stderr")]
+    pub trace: bool,
+    #[arg(long, help = "Run without Landlock confinement")]
+    pub no_sandbox: bool,
+    #[arg(
+        long,
+        value_name = "FILE",
+        help = "TOML with the applet's options and sandbox grants; relative grants resolve against its directory"
+    )]
+    pub applet_config: Option<PathBuf>,
 }
 
 pub fn parse() -> Cli {
-    let matches = Cli::command().get_matches();
-    if let Some(flag) = stray_run_flag(&matches) {
-        Cli::command()
-            .error(
-                clap::error::ErrorKind::ArgumentConflict,
-                format!("`applets run` does not take --{flag}"),
-            )
-            .exit();
-    }
-    Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit())
-}
-
-pub fn stray_run_flag(matches: &ArgMatches) -> Option<String> {
-    let Some(("applets", applets)) = matches.subcommand() else {
-        return None;
-    };
-    let Some(("run", run)) = applets.subcommand() else {
-        return None;
-    };
-    Cli::command()
-        .get_arguments()
-        .filter(|arg| arg.is_global_set())
-        .map(|arg| arg.get_id().as_str())
-        .find(|id| run.value_source(id) == Some(ValueSource::CommandLine))
-        .map(|id| id.replace('_', "-"))
+    Cli::parse()
 }
 
 #[derive(Debug, Args)]

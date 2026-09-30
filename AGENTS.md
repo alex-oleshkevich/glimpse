@@ -43,8 +43,6 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - **No service crate has a Wayland dependency.** GTK stays in UI crates or `glimpse-widgets`.
 - Runtime state goes under `$XDG_RUNTIME_DIR/glimpse/` only; an applet's persistent data goes under
   `glimpse-config`'s `state_dir()`.
-- `glimpsectl applets dev` may write its documented symlink
-  under the user's home; tests use a temporary home.
 - **Text from other apps is hostile**: cap, ellipsize, never build markup from it.
 - **Never add `panic = "abort"`. Never sandbox `glimpse-lock.service`**, and nothing may stop it while
   it holds the lock.

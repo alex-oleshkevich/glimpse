@@ -32,7 +32,7 @@ glimpsectl applets restart me.example.Clock
 
 ## Rules
 
-`applets run` execs the given file; its shebang picks the runtime. Sandbox grants live in the user's config, never in the desktop entry. `applets new` renders every file of `$GLIMPSE_TS_SDK_TEMPLATE_DIR`, or of `DATA_DIR/sdk/template` when it is unset, with minijinja, file names included.
+`applets run` attaches an applet until Ctrl-C, loading nearby `config.toml` or the file passed to `--applet-config`; an installed id requires the flag. `applets run --dev` also restarts on source or sandbox edits and updates options live. `applets new` renders every file of `$GLIMPSE_TS_SDK_TEMPLATE_DIR`, or of `DATA_DIR/sdk/template` when it is unset, with minijinja, file names included. An installed applet's sandbox grants live in the user's config, never in its desktop entry.
 
 **There are no generic commands.** Every command names one operation on one provider, with a typed
 request and a typed result, so the help text is the whole surface rather than a starting point for

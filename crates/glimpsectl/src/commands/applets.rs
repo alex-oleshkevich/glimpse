@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
+use chrono::{DateTime, Local, Utc};
 use glimpse_config::{AppletKind, AppletSandbox, Config, is_desktop_id, resolve_applet};
 use glimpse_dbus::systemd1::{Systemd1ManagerProxy, Systemd1ScopeProxy, Systemd1UnitEntry};
 use glimpse_services::{DesktopCatalog, ExecCatalog, ExecEntry, exec_unit_pattern};
@@ -283,6 +285,111 @@ pub fn desktop_detail(desktop: &Desktop) -> Result<String> {
     ))
 }
 
+fn config_text(placed: &[Placement]) -> String {
+    if placed.is_empty() {
+        return "not placed".to_owned();
+    }
+    placed
+        .iter()
+        .map(|place| {
+            let mut lines = vec![format!(
+                "panel {} · {} · {}",
+                place.panel,
+                safe(&place.zone),
+                safe(&place.instance)
+            )];
+            if place.options.is_empty() {
+                lines.push("  options: none".to_owned());
+            } else {
+                for (key, value) in &place.options {
+                    lines.push(format!(
+                        "  options: {} = {}",
+                        safe(key),
+                        safe(&value.to_string())
+                    ));
+                }
+            }
+            let grants = |paths: &[String]| {
+                if paths.is_empty() {
+                    "none".to_owned()
+                } else {
+                    paths
+                        .iter()
+                        .map(|path| safe(path))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                }
+            };
+            lines.push(format!(
+                "  sandbox: read {}; write {}; network {}{}",
+                grants(&place.sandbox.read),
+                grants(&place.sandbox.write),
+                if place.sandbox.network { "yes" } else { "no" },
+                if place.sandbox.unconfined {
+                    "; unconfined"
+                } else {
+                    ""
+                }
+            ));
+            lines.join("\n")
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+fn size_text(bytes: u64) -> String {
+    if bytes < 1024 {
+        return format!("{bytes} B");
+    }
+    let mut size = bytes as f64;
+    let mut unit = "B";
+    for next in ["KiB", "MiB", "GiB"] {
+        size /= 1024.0;
+        unit = next;
+        if size < 1024.0 {
+            break;
+        }
+    }
+    format!("{size:.1} {unit}")
+}
+
+fn runtime_text(runtime: &Runtime) -> String {
+    let mut text = if runtime.status == "not running" {
+        "stopped".to_owned()
+    } else {
+        runtime.status.to_owned()
+    };
+    for unit in &runtime.units {
+        let _ = write!(text, "\n{}  {}", safe(&unit.unit), unit.status);
+        if let Some(pids) = &unit.pids {
+            let pids = if pids.is_empty() {
+                "none".to_owned()
+            } else {
+                pids.iter()
+                    .map(u32::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let _ = write!(text, "  pid {pids}");
+        }
+        if let Some(memory) = unit.memory_current {
+            let _ = write!(text, "  memory {}", size_text(memory));
+        }
+        if let Some(since) = unit
+            .active_enter_timestamp
+            .and_then(|value| i64::try_from(value).ok())
+            .and_then(DateTime::<Utc>::from_timestamp_micros)
+        {
+            let _ = write!(
+                text,
+                "  since {}",
+                since.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S")
+            );
+        }
+    }
+    text
+}
+
 async fn runtime(connection: &Connection, id: &str) -> Result<Runtime> {
     let manager = manager(connection).await?;
     let mut units = Vec::new();
@@ -366,22 +473,11 @@ pub async fn applets_inspect(config_path: Option<PathBuf>, id: String, json: boo
         .with(desktop_detail(&desktop)?)
         .print()?;
     render::print("")?;
-    Section::new("Config")
-        .with(if placed.is_empty() {
-            "not placed".to_owned()
-        } else {
-            serde_json::to_string_pretty(&placed)?
-        })
-        .print()?;
+    Section::new("Config").with(config_text(&placed)).print()?;
     render::print("")?;
-    let detail = if runtime.status == "running" {
-        serde_json::to_string_pretty(&runtime.units)?
-    } else if runtime.status == "unavailable" {
-        "runtime: unavailable".to_owned()
-    } else {
-        runtime.status.to_owned()
-    };
-    Section::new("Runtime").with(detail).print()?;
+    Section::new("Runtime")
+        .with(runtime_text(&runtime))
+        .print()?;
     Ok(())
 }
 
@@ -395,4 +491,78 @@ pub async fn applets_restart(id: String) -> Result<()> {
         within(manager.kill_unit(&unit.0, "all", 15)).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod inspect_tests {
+    use super::*;
+
+    #[test]
+    fn config_formats_empty_and_granted_placement() {
+        assert_eq!(config_text(&[]), "not placed");
+        let place = Placement {
+            instance: "clock\nmain".to_owned(),
+            zone: "left".to_owned(),
+            panel: 1,
+            options: Map::from_iter([("label".to_owned(), Value::from("Work"))]),
+            sandbox: AppletSandbox {
+                read: vec!["/tmp/read\npath".to_owned()],
+                write: vec!["/tmp/write".to_owned()],
+                network: true,
+                unconfined: true,
+            },
+        };
+        assert_eq!(
+            config_text(&[place]),
+            "panel 1 · left · clock main\n  options: label = \"Work\"\n  sandbox: read /tmp/read path; write /tmp/write; network yes; unconfined"
+        );
+    }
+
+    #[test]
+    fn runtime_formats_units_with_and_without_details() {
+        let since = DateTime::<Utc>::from_timestamp_micros(1_700_000_000_000_000)
+            .unwrap()
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        let runtime = Runtime {
+            status: "running",
+            units: vec![
+                RuntimeUnit {
+                    unit: "applet\nunit".to_owned(),
+                    status: "running",
+                    pids: Some(vec![12, 34]),
+                    memory_current: Some(1_572_864),
+                    active_enter_timestamp: Some(1_700_000_000_000_000),
+                },
+                RuntimeUnit {
+                    unit: "unavailable.service".to_owned(),
+                    status: "unavailable",
+                    pids: None,
+                    memory_current: None,
+                    active_enter_timestamp: None,
+                },
+            ],
+        };
+        assert_eq!(
+            runtime_text(&runtime),
+            format!(
+                "running\napplet unit  running  pid 12, 34  memory 1.5 MiB  since {since}\nunavailable.service  unavailable"
+            )
+        );
+        assert_eq!(
+            runtime_text(&Runtime {
+                status: "not running",
+                units: vec![]
+            }),
+            "stopped"
+        );
+    }
+
+    #[test]
+    fn size_boundaries() {
+        assert_eq!(size_text(1023), "1023 B");
+        assert_eq!(size_text(1024), "1.0 KiB");
+        assert_eq!(size_text(1_572_864), "1.5 MiB");
+    }
 }

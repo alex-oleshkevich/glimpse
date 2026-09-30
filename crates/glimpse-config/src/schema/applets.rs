@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::Error as _;
@@ -146,6 +147,36 @@ pub struct Sandbox {
     pub network: bool,
     /// Runs the applet with no confinement at all, for a kernel without Landlock.
     pub unconfined: bool,
+}
+
+impl Sandbox {
+    pub fn resolve(mut self, dir: &Path) -> Result<Self, String> {
+        for path in self.read.iter_mut().chain(&mut self.write) {
+            if !Path::new(path).is_absolute() && !path.starts_with("~/") {
+                *path = dir
+                    .join(&*path)
+                    .components()
+                    .collect::<std::path::PathBuf>()
+                    .into_os_string()
+                    .into_string()
+                    .map_err(|_| "sandbox path is not UTF-8".to_owned())?;
+            }
+        }
+        validate_sandbox_paths(&self)?;
+        Ok(self)
+    }
+}
+
+fn validate_sandbox_paths(sandbox: &Sandbox) -> Result<(), String> {
+    if sandbox
+        .read
+        .iter()
+        .chain(&sandbox.write)
+        .any(|path| !path.starts_with('/') && !path.starts_with("~/"))
+    {
+        return Err("sandbox paths must be absolute or start with ~/".to_owned());
+    }
+    Ok(())
 }
 
 /// Settings for the tray applet. Which items exist is the applications' decision; this is only
@@ -880,17 +911,8 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     {
         return Err(toml::de::Error::custom("applet must be a desktop-file id"));
     }
-    if let Kind::Exec(exec) = &kind
-        && exec
-            .sandbox
-            .read
-            .iter()
-            .chain(&exec.sandbox.write)
-            .any(|path| !path.starts_with('/') && !path.starts_with("~/"))
-    {
-        return Err(toml::de::Error::custom(
-            "sandbox paths must be absolute or start with ~/",
-        ));
+    if let Kind::Exec(exec) = &kind {
+        validate_sandbox_paths(&exec.sandbox).map_err(toml::de::Error::custom)?;
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;
@@ -1147,6 +1169,29 @@ mod tests {
         BatteryIndicatorStyle, COMMON, Chip, Common, Kind, NotificationIndicatorStyle, Printing,
         Privacy,
     };
+
+    #[test]
+    fn exec_sandbox_resolves_paths_and_refuses_unknown_keys() {
+        let config: super::Exec =
+            toml::from_str("applet = \"me.x.A\"\noptions = {}\n[sandbox]\nread = [\".\"]\n")
+                .expect("exec settings parse");
+        let resolved = config
+            .sandbox
+            .resolve(std::path::Path::new("/a/b"))
+            .expect("paths resolve");
+        assert_eq!(resolved.read, ["/a/b"]);
+        assert!(toml::from_str::<super::Exec>("applet = \"me.x.A\"\nunknown = true").is_err());
+        assert!(
+            toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nextra = true").is_err()
+        );
+        assert!(
+            toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nread = [\"relative\"]")
+                .expect("relative dev grants parse")
+                .sandbox
+                .resolve(std::path::Path::new("relative-dir"))
+                .is_err()
+        );
+    }
 
     #[test]
     fn every_common_setting_is_taken_off_the_table() {

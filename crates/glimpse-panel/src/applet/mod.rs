@@ -102,10 +102,8 @@ where
     });
 }
 
-const DEFAULT_APP_ID: &str = "me.aresa.GlimpsePanel";
-
 pub fn app_id() -> String {
-    std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or_else(|_| DEFAULT_APP_ID.to_owned())
+    glimpse_dbus::panel_app_id()
 }
 
 #[derive(Clone)]

@@ -94,14 +94,11 @@ async fn run(cli: Cli) -> Result<()> {
             commands::applets_list(cli.config.config, cli.json).await
         }
         Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args),
-        Command::Applets(AppletsCommand::Dev { target }) => {
-            commands::applets_dev(&target, cli.config.config).await
-        }
         Command::Applets(AppletsCommand::Inspect { id }) => {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }
         Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
-        Command::Applets(AppletsCommand::Run(args)) => commands::applets_run(args),
+        Command::Applets(AppletsCommand::Run(args)) => commands::applets_run(args).await,
         Command::Status => commands::status(bus()?, cli.json).await,
         Command::Panel(args) => commands::panel(bus()?, &args.app_id, args.command, cli.json).await,
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,

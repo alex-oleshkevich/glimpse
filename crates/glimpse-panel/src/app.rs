@@ -13,7 +13,8 @@ use glimpse_config::{
 };
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
-    Answer, BluetoothHandle, CommandError, NetworkHandle, SessionAction, SessionActionsHandle,
+    Answer, BluetoothHandle, CommandError, ExecState, NetworkHandle, SessionAction,
+    SessionActionsHandle,
 };
 use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::{
@@ -29,6 +30,7 @@ use tokio::task::JoinHandle;
 use crate::{
     applet::{Report, spawn_reported},
     applets::bluetooth::{cap, typed},
+    attached::{AttachedRegistry, SharedRegistry},
     components::{self, panel},
     config_alert::{self, Problems},
     services::PanelServices,
@@ -56,7 +58,6 @@ pub struct AppInit {
     pub failure: Option<String>,
 }
 
-#[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
     BluetoothPrompt(Option<(Entry, String, String)>),
@@ -71,6 +72,34 @@ pub enum AppInput {
     MonitorsChanged,
     ServicesReady(PanelServices),
     ThemeChanged,
+    Attached,
+    OfferOptions {
+        id: String,
+        options: serde_json::Map<String, serde_json::Value>,
+    },
+    Detached(String),
+}
+
+impl std::fmt::Debug for AppInput {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            AppInput::BluetoothPrompt(_) => "BluetoothPrompt",
+            AppInput::NetworkSecret(_) => "NetworkSecret",
+            AppInput::SessionConfirm(_) => "SessionConfirm",
+            AppInput::SessionDialogClosed => "SessionDialogClosed",
+            AppInput::SessionRun(_) => "SessionRun",
+            AppInput::ConfigChanged(_) => "ConfigChanged",
+            AppInput::ConfigRejected(_) => "ConfigRejected",
+            AppInput::ConfigRecovered => "ConfigRecovered",
+            AppInput::ClosePopovers => "ClosePopovers",
+            AppInput::MonitorsChanged => "MonitorsChanged",
+            AppInput::ServicesReady(_) => "ServicesReady",
+            AppInput::ThemeChanged => "ThemeChanged",
+            AppInput::Attached => "Attached",
+            AppInput::OfferOptions { .. } => "OfferOptions",
+            AppInput::Detached(_) => "Detached",
+        })
+    }
 }
 
 pub struct App {
@@ -83,6 +112,8 @@ pub struct App {
     host: adw::ApplicationWindow,
     bluetooth_watch: Option<JoinHandle<()>>,
     network_watch: Option<JoinHandle<()>>,
+    exec_watch: Option<JoinHandle<()>>,
+    attached: SharedRegistry,
     pairing: Option<(PairingDialog, glib::SignalHandlerId)>,
     secret: Option<(SecretDialog, glib::SignalHandlerId)>,
     problems: Problems,
@@ -140,6 +171,7 @@ impl SimpleComponent for App {
         relm4::main_application().add_action(&action);
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
+        let attached = SharedRegistry::default();
         let model = App {
             config: init.config,
             panels: Default::default(),
@@ -150,6 +182,8 @@ impl SimpleComponent for App {
             host: root.clone(),
             bluetooth_watch: None,
             network_watch: None,
+            exec_watch: None,
+            attached,
             pairing: None,
             secret: None,
             problems,
@@ -164,6 +198,7 @@ impl SimpleComponent for App {
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
+        let mut export = false;
         match msg {
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
@@ -210,11 +245,32 @@ impl SimpleComponent for App {
                     services.network.clone(),
                     sender.clone(),
                 ));
+                self.exec_watch = Some(spawn_exec_watch(
+                    services.exec(),
+                    self.attached.clone(),
+                    sender.clone(),
+                ));
                 self.alert = Some(config_alert::spawn(
                     services.notifications(),
                     self.problems.body(),
                 ));
                 self.services = Some(services);
+                export = true;
+            }
+            AppInput::Attached => {}
+            AppInput::OfferOptions { id, options } => {
+                if let Some(services) = &self.services {
+                    crate::applet::spawn_command(
+                        "exec.offer_options",
+                        services.exec().offer_options(&id, options),
+                    );
+                }
+                return;
+            }
+            AppInput::Detached(handle) => {
+                if let Ok(mut registry) = self.attached.lock() {
+                    registry.remove(&handle);
+                }
             }
             AppInput::BluetoothPrompt(pairing) => {
                 if let Some(services) = &self.services {
@@ -267,8 +323,24 @@ impl SimpleComponent for App {
             &mut self.panels,
             &self.config,
             self.services.as_ref(),
+            &self.attached,
             sender.input_sender().clone(),
         );
+        if export
+            && let Some(connection) = self
+                .services
+                .as_ref()
+                .and_then(|services| services.session.clone())
+        {
+            let registry = self.attached.clone();
+            let exec = self.services.as_ref().map(PanelServices::exec);
+            let input = sender.input_sender().clone();
+            if let Some(exec) = exec {
+                relm4::spawn(async move {
+                    crate::attached::export(&connection, registry, exec, input).await
+                });
+            }
+        }
         self.styles
             .set_variant(&self.config.appearance.theme_variant);
         self.styles
@@ -281,6 +353,9 @@ impl SimpleComponent for App {
             watch.abort();
         }
         if let Some(watch) = self.network_watch.take() {
+            watch.abort();
+        }
+        if let Some(watch) = self.exec_watch.take() {
             watch.abort();
         }
         if let Some(services) = self.services.take() {
@@ -566,6 +641,38 @@ fn spawn_bluetooth_watch(
     })
 }
 
+fn spawn_exec_watch(
+    exec: glimpse_services::ExecHandle,
+    registry: SharedRegistry,
+    sender: ComponentSender<App>,
+) -> JoinHandle<()> {
+    relm4::spawn(async move {
+        let mut states = exec.subscribe();
+        loop {
+            let ended = {
+                let state = states.borrow_and_update();
+                let Ok(registry) = registry.lock() else { break };
+                ended_offers(&state, &registry)
+            };
+            for handle in ended {
+                sender.input(AppInput::Detached(handle));
+            }
+            if states.changed().await.is_err() {
+                break;
+            }
+        }
+    })
+}
+
+fn ended_offers(state: &ExecState, registry: &AttachedRegistry) -> Vec<String> {
+    registry
+        .applets
+        .iter()
+        .filter(|applet| applet.offered && !state.offers.contains(&applet.desktop_id))
+        .map(|applet| applet.handle.clone())
+        .collect()
+}
+
 fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
     let themes = watch_theme(theme);
     relm4::spawn(async move {
@@ -617,6 +724,7 @@ fn reconcile_panels(
     panels: &mut Vec<PanelState>,
     config: &Config,
     services: Option<&PanelServices>,
+    attached: &SharedRegistry,
     dialog: relm4::Sender<AppInput>,
 ) {
     let Some(services) = services else {
@@ -629,6 +737,60 @@ fn reconcile_panels(
         .collect();
 
     let monitors = list_gdk_monitors();
+    let layout: Vec<Vec<String>> = config
+        .panels
+        .iter()
+        .map(|panel| {
+            let mut connectors: Vec<String> = monitors
+                .iter()
+                .filter_map(|monitor| monitor.connector().map(String::from))
+                .filter(|connector| {
+                    panel
+                        .monitor
+                        .as_deref()
+                        .is_none_or(|target| target == connector)
+                })
+                .collect();
+            connectors.sort();
+            connectors
+        })
+        .collect();
+    let configured = config
+        .panels
+        .iter()
+        .map(|panel| {
+            [
+                (glimpse_services::Zone::Left, &panel.left),
+                (glimpse_services::Zone::Center, &panel.center),
+                (glimpse_services::Zone::Right, &panel.right),
+            ]
+            .into_iter()
+            .flat_map(|(zone, names)| {
+                names.iter().filter_map(move |name| {
+                    glimpse_config::resolve_applet(name, &config.applets).and_then(|applet| {
+                        match applet.kind {
+                            glimpse_config::AppletKind::Exec(exec) => Some((exec.applet, zone)),
+                            _ => None,
+                        }
+                    })
+                })
+            })
+            .collect::<Vec<_>>()
+        })
+        .collect();
+    let applets = if let Ok(mut registry) = attached.lock() {
+        registry.set_layout(layout.clone(), configured);
+        registry.set_edges(
+            config
+                .panels
+                .iter()
+                .map(|panel| crate::applets::exec::edge(panel.position))
+                .collect(),
+        );
+        registry.applets.clone()
+    } else {
+        Vec::new()
+    };
     for (index, cfg) in config.panels.iter().enumerate() {
         for monitor in &monitors {
             let Some(connector) = monitor.connector().map(String::from) else {
@@ -654,6 +816,7 @@ fn reconcile_panels(
                 left: cfg.left.clone(),
                 center: cfg.center.clone(),
                 right: cfg.right.clone(),
+                attached: crate::attached::visible_on(&applets, &layout, index, &key.monitor),
                 applets: config.applets.clone(),
                 regional: config.regional.clone(),
                 blur: config.appearance.blur.clone(),
@@ -719,6 +882,26 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_completed_offers_can_end() {
+        let mut registry = AttachedRegistry::default();
+        registry.applets.push(crate::attached::AttachedApplet {
+            handle: "dev-1".to_owned(),
+            sender: ":1.1".to_owned(),
+            desktop_id: "me.x.A".to_owned(),
+            panel: 0,
+            output: String::new(),
+            zone: glimpse_services::Zone::Right,
+            offered: false,
+        });
+        let mut state = ExecState::default();
+        assert!(ended_offers(&state, &registry).is_empty());
+        registry.applets[0].offered = true;
+        assert_eq!(ended_offers(&state, &registry), ["dev-1"]);
+        state.offers.insert("me.x.A".to_owned());
+        assert!(ended_offers(&state, &registry).is_empty());
+    }
 
     #[test]
     fn session_dialog_accepts_only_the_destructive_response() {

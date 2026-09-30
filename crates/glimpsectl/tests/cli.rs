@@ -1,9 +1,6 @@
-use std::path::PathBuf;
-
 use clap::{CommandFactory, Parser};
 use glimpsectl::cli::{
-    AppletsCommand, Cli, Command, ConfigCommand, Mode, SunsetCommand, duration, stray_run_flag,
-    temperature,
+    AppletsCommand, Cli, Command, ConfigCommand, Mode, SunsetCommand, duration, temperature,
 };
 
 #[test]
@@ -61,39 +58,8 @@ fn run(args: &[&str]) -> Result<Cli, clap::Error> {
 }
 
 #[test]
-fn run_accepts_executable_and_trailing_arguments() {
-    let cli = run(&["/tmp/applet.mjs", "--verbose", "hello"]).unwrap();
-    let Command::Applets(AppletsCommand::Run(args)) = cli.command else {
-        panic!("not the run command");
-    };
-    assert_eq!(args.exe, PathBuf::from("/tmp/applet.mjs"));
-    assert_eq!(args.args, ["--verbose", "hello"]);
-    let cli = run(&["--allow-net=x", "foo.js"]).unwrap();
-    let Command::Applets(AppletsCommand::Run(args)) = cli.command else {
-        panic!("not the run command");
-    };
-    assert_eq!(args.exe, PathBuf::from("--allow-net=x"));
-    assert_eq!(args.args, ["foo.js"]);
-}
-
-#[test]
-fn applets_run_refuses_global_flags() {
-    let stray = |args: &[&str]| stray_run_flag(&Cli::command().try_get_matches_from(args).unwrap());
-    assert_eq!(stray(&["glimpsectl", "applets", "run", "applet.mjs"]), None);
-    assert_eq!(
-        stray(&["glimpsectl", "applets", "run", "--json", "applet.mjs"]).as_deref(),
-        Some("json")
-    );
-    assert_eq!(
-        stray(&["glimpsectl", "--json", "applets", "run", "applet.mjs"]).as_deref(),
-        Some("json")
-    );
-    assert_eq!(stray(&["glimpsectl", "--json", "applets", "list"]), None);
-}
-
-#[test]
 fn running_an_applet_needs_no_session_bus() {
-    let cli = run(&["applet.mjs"]).unwrap();
+    let cli = run(&["me.x.Applet"]).unwrap();
     assert!(!cli.command.needs_session_bus());
 }
 

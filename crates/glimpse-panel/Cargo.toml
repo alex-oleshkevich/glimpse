@@ -46,3 +46,6 @@ tracing-subscriber.workspace = true
 [build-dependencies]
 glib-build-tools.workspace = true
 shadow-rs.workspace = true
+
+[dev-dependencies]
+glimpse-dbus = { workspace = true, features = ["testing"] }

@@ -11,5 +11,5 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "jsx-runtime.ts", "reconciler.ts", "index.test.ts"]
+  "include": ["index.ts", "jsx-runtime.ts", "reconciler.ts", "testing.ts", "index.test.ts", "testing.test.ts"]
 }
