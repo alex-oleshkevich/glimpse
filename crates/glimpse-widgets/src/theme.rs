@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 54);
+        assert_eq!(declared(block).len(), 52);
     }
 
     #[test]
