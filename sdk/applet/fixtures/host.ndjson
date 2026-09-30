@@ -1,4 +1,4 @@
-{"t":"hello","v":1,"name":"pomodoro","options":{"title":"Todos"},"placement":{"output":"DP-2","position":"left","orientation":"vertical","zone":"right","size":32}}
+{"t":"hello","v":1,"name":"pomodoro","state":"/home/test/.local/state/glimpse/applets/me.example.Pomodoro","options":{"title":"Todos"},"placement":{"output":"DP-2","position":"left","orientation":"vertical","zone":"right","size":32}}
 {"t":"options","options":{"enabled":true,"title":"Todos"}}
 {"t":"placement","placement":{"output":null,"position":"bottom","orientation":"horizontal","zone":"center","size":48}}
 {"t":"popover","open":true}

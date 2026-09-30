@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
+use std::os::fd::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
+use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,7 +16,8 @@ use tokio_util::sync::CancellationToken;
 use crate::Ctx;
 
 use super::{
-    Catalog, Event, Exec, FromApplet, Link, MAX_LINE, MAX_UPDATES_PER_SECOND, Outgoing, Tree, scope,
+    Catalog, Event, Exec, FromApplet, Link, MAX_LINE, MAX_UPDATES_PER_SECOND, Outgoing, Tree,
+    sandbox, scope,
 };
 
 struct ChildStream {
@@ -23,6 +26,9 @@ struct ChildStream {
     slot: u64,
     spawn: u64,
     id: String,
+    sandbox: glimpse_config::AppletSandbox,
+    state: Option<PathBuf>,
+    hello_state: String,
     resolved: Option<super::Entry>,
     child: Option<Child>,
     group: Option<rustix::process::Pid>,
@@ -49,6 +55,8 @@ pub(super) struct SourceArgs {
     pub slot: u64,
     pub spawn: u64,
     pub id: String,
+    pub sandbox: glimpse_config::AppletSandbox,
+    pub state: Option<PathBuf>,
     pub stop: CancellationToken,
     pub scope_warned: Arc<AtomicBool>,
 }
@@ -80,6 +88,9 @@ pub async fn source(
             slot: args.slot,
             spawn: args.spawn,
             id: args.id,
+            sandbox: args.sandbox,
+            state: args.state,
+            hello_state: String::new(),
             resolved: None,
             child: None,
             group: None,
@@ -205,6 +216,7 @@ impl ChildStream {
                     Some(Event::Hello {
                         slot: self.slot,
                         spawn: self.spawn,
+                        state: self.hello_state.clone(),
                     })
                 }
                 Ok(FromApplet::Hello { v }) => {
@@ -237,10 +249,24 @@ impl ChildStream {
     }
 
     async fn start(&mut self) -> Option<Event> {
+        let Some(state) = self.state.clone() else {
+            return self.failed("cannot determine applet state directory".to_owned());
+        };
+        let Some(hello_state) = state.to_str() else {
+            return self.failed("cannot determine applet state directory".to_owned());
+        };
+        self.hello_state = hello_state.to_owned();
         let catalog = Arc::clone(&self.catalog);
         let id = self.id.clone();
-        let entry = match tokio::task::spawn_blocking(move || catalog.resolve(&id)).await {
-            Ok(Ok(entry)) => entry,
+        let sandbox = self.sandbox.clone();
+        let (entry, ruleset) = match tokio::task::spawn_blocking(move || {
+            let entry = catalog.resolve(&id)?;
+            let ruleset = sandbox::ruleset(&sandbox, &id, &state)?;
+            Ok::<_, String>((entry, ruleset))
+        })
+        .await
+        {
+            Ok(Ok(result)) => result,
             Ok(Err(reason)) => return self.failed(reason),
             Err(error) => return self.failed(format!("cannot resolve applet: {error}")),
         };
@@ -263,6 +289,7 @@ impl ChildStream {
             command.current_dir(cwd);
         }
         let parent = rustix::process::getpid();
+        let ruleset_fd = ruleset.as_ref().map(AsRawFd::as_raw_fd);
         unsafe {
             command.pre_exec(move || {
                 rustix::process::set_parent_process_death_signal(Some(
@@ -271,11 +298,27 @@ impl ChildStream {
                 if rustix::process::getppid() != Some(parent) {
                     return Err(rustix::io::Errno::SRCH.into());
                 }
+                if let Some(fd) = ruleset_fd {
+                    if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    if libc::syscall(libc::SYS_landlock_restrict_self, fd, 0) < 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                }
                 Ok(())
             });
         }
-        let mut child = match command.spawn() {
+        let spawn_result = command.spawn();
+        let confined = ruleset.is_some();
+        drop(ruleset);
+        let mut child = match spawn_result {
             Ok(child) => child,
+            Err(error) if confined && error.raw_os_error() == Some(libc::EACCES) => {
+                return self.failed(format!(
+                    "cannot start applet: {error} (not granted by sandbox)"
+                ));
+            }
             Err(error) => return self.failed(format!("cannot start applet: {error}")),
         };
         self.began = Instant::now();

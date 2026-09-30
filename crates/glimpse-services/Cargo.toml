@@ -22,6 +22,7 @@ icalendar.workspace = true
 ipp.workspace = true
 iso8601.workspace = true
 libpulse-binding.workspace = true
+libc.workspace = true
 pipewire.workspace = true
 png.workspace = true
 regex.workspace = true

@@ -1,10 +1,12 @@
 mod catalog;
+mod sandbox;
 mod scope;
 mod spawn;
 mod tree;
 mod wire;
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
@@ -73,11 +75,13 @@ pub enum BarRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     pub applets: BTreeMap<String, glimpse_config::ExecAppletConfig>,
+    pub state_base: Option<PathBuf>,
 }
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
+            state_base: glimpse_config::state_dir(),
             applets: glimpse_config::placed_applets(document)
                 .filter_map(|(name, applet)| match applet.kind {
                     glimpse_config::AppletKind::Exec(exec) => Some((name.to_owned(), *exec)),
@@ -111,6 +115,7 @@ pub enum Event {
     Hello {
         slot: u64,
         spawn: u64,
+        state: String,
     },
     Tree {
         slot: u64,
@@ -269,6 +274,8 @@ struct Slot {
     public: SlotState,
     placement: Placement,
     applet_id: String,
+    sandbox: glimpse_config::AppletSandbox,
+    state: Option<PathBuf>,
     entry: Option<Entry>,
     catalog_refused: bool,
     options: Map<String, Value>,
@@ -501,6 +508,8 @@ impl Service for Exec {
                         slot: slot_id,
                         spawn: spawn_id,
                         id: slot.applet_id.clone(),
+                        sandbox: slot.sandbox.clone(),
+                        state: slot.state.clone(),
                         stop: slot.stop.clone(),
                         scope_warned: Arc::clone(&self.scope_warned),
                     };
@@ -570,14 +579,16 @@ impl Service for Exec {
                     return;
                 }
                 let config = self.config.applets.get(&applet);
-                let (applet_id, options, status) = match config {
+                let (applet_id, sandbox, options, status) = match config {
                     Some(config) => (
                         config.applet.clone(),
+                        config.sandbox.clone(),
                         config.options.clone(),
                         Status::Starting,
                     ),
                     None => (
                         String::new(),
+                        glimpse_config::AppletSandbox::default(),
                         Map::new(),
                         Status::Failed("not configured".to_owned()),
                     ),
@@ -589,6 +600,11 @@ impl Service for Exec {
                     }
                     _ => None,
                 };
+                let state = self
+                    .config
+                    .state_base
+                    .as_ref()
+                    .map(|base| base.join("applets").join(&applet_id));
                 self.next_spawn += 1;
                 self.slots.insert(
                     slot,
@@ -604,6 +620,8 @@ impl Service for Exec {
                         },
                         placement,
                         applet_id,
+                        sandbox,
+                        state,
                         entry: None,
                         catalog_refused: false,
                         options,
@@ -696,7 +714,11 @@ impl Service for Exec {
                     link.stop.cancel();
                 }
             }
-            Input::Event(Event::Hello { slot, spawn }) => {
+            Input::Event(Event::Hello {
+                slot,
+                spawn,
+                state: state_dir,
+            }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     self.next_generation += 1;
                     state.public.generation = self.next_generation;
@@ -710,6 +732,7 @@ impl Service for Exec {
                         Outgoing::Hello {
                             v: 1,
                             name: state.public.applet.clone(),
+                            state: state_dir,
                             options: state.options.clone(),
                             placement: state.placement.clone(),
                         },
@@ -884,6 +907,16 @@ impl Service for Exec {
                     match config.applets.get(&slot.public.applet) {
                         Some(applet) if applet.applet != slot.applet_id => {
                             slot.applet_id = applet.applet.clone();
+                            slot.sandbox = applet.sandbox.clone();
+                            slot.state = config
+                                .state_base
+                                .as_ref()
+                                .map(|base| base.join("applets").join(&applet.applet));
+                            slot.options = applet.options.clone();
+                            respawn.push(id);
+                        }
+                        Some(applet) if applet.sandbox != slot.sandbox => {
+                            slot.sandbox = applet.sandbox.clone();
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }
@@ -992,15 +1025,65 @@ mod tests {
         (dir, entry, output)
     }
 
-    fn configured() -> Config {
-        Config {
+    struct TestConfig {
+        config: Config,
+        state_dir: tempfile::TempDir,
+    }
+
+    impl std::ops::Deref for TestConfig {
+        type Target = Config;
+
+        fn deref(&self) -> &Config {
+            &self.config
+        }
+    }
+
+    impl std::ops::DerefMut for TestConfig {
+        fn deref_mut(&mut self) -> &mut Config {
+            &mut self.config
+        }
+    }
+
+    fn configured() -> TestConfig {
+        let state_dir = tempfile::tempdir().expect("state dir");
+        let config = Config {
+            state_base: Some(state_dir.path().to_path_buf()),
             applets: BTreeMap::from([(
                 "test".to_owned(),
                 glimpse_config::ExecAppletConfig {
                     applet: "me.example.Test".to_owned(),
                     options: Map::from_iter([("color".to_owned(), Value::from("blue"))]),
+                    sandbox: glimpse_config::AppletSandbox {
+                        read: vec![std::env::temp_dir().display().to_string()],
+                        write: vec![std::env::temp_dir().display().to_string()],
+                        ..Default::default()
+                    },
                 },
             )]),
+        };
+        TestConfig { config, state_dir }
+    }
+
+    fn confined(entry: &Entry) -> TestConfig {
+        let mut config = configured();
+        let path = entry
+            .path
+            .parent()
+            .expect("script parent")
+            .display()
+            .to_string();
+        let sandbox = &mut config.applets.get_mut("test").expect("test applet").sandbox;
+        sandbox.read = vec![path.clone()];
+        sandbox.write = vec![path];
+        config
+    }
+
+    fn landlock_available() -> bool {
+        if sandbox::abi() < 10 {
+            eprintln!("skipped: Landlock ABI < 10");
+            false
+        } else {
+            true
         }
     }
 
@@ -1017,7 +1100,7 @@ mod tests {
     }
 
     fn running_with(
-        config: Config,
+        config: TestConfig,
         catalog: Arc<dyn Catalog>,
     ) -> (
         ExecHandle,
@@ -1026,6 +1109,7 @@ mod tests {
         tokio::task::JoinHandle<()>,
         FakeSelection,
     ) {
+        let TestConfig { config, state_dir } = config;
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Exec>::new(
             config,
@@ -1040,6 +1124,7 @@ mod tests {
             notifications: NotificationsProvider::unavailable("no bus in tests").handle(),
         };
         let task = tokio::spawn(async move {
+            let _state_dir = state_dir;
             let _ = runtime.run(deps).await;
         });
         (handle, sender, cancel, task, selection)
@@ -1126,6 +1211,374 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sandbox_denies_ungranted_file() {
+        if !landlock_available() {
+            return;
+        }
+        let denied = tempfile::tempdir().expect("denied dir");
+        let secret = denied.path().join("secret");
+        std::fs::write(&secret, "private\n").expect("secret");
+        for granted in [false, true] {
+            let (_dir, mut entry, output) = script(
+                r#"#!/bin/sh
+if read -r value < "$2"; then printf 'allowed' > "$1"; else printf 'denied' > "$1"; fi
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+            );
+            let mut config = confined(&entry);
+            if granted {
+                config
+                    .applets
+                    .get_mut("test")
+                    .expect("test applet")
+                    .sandbox
+                    .read
+                    .push(denied.path().display().to_string());
+            }
+            entry.argv.push(secret.display().to_string());
+            let (handle, _, cancel, task, _) = running_with(
+                config,
+                Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+            );
+            handle.attach(1, "test", placement()).await.expect("attach");
+            let wanted = if granted { "allowed" } else { "denied" };
+            assert_eq!(file_contains(&output, wanted).await, wanted);
+            handle.detach(1).await.expect("detach");
+            cancel.cancel();
+            let _ = task.await;
+        }
+    }
+
+    #[tokio::test]
+    async fn symlink_grant_to_root_fails() {
+        if !landlock_available() {
+            return;
+        }
+        let (dir, entry, _) = script("#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\n");
+        let link = dir.path().join("root-link");
+        std::os::unix::fs::symlink("/", &link).expect("symlink");
+        let mut config = confined(&entry);
+        config
+            .applets
+            .get_mut("test")
+            .expect("test applet")
+            .sandbox
+            .read
+            .push(link.display().to_string());
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert!(
+            matches!(failed.status, Status::Failed(reason) if reason.contains(&link.display().to_string()))
+        );
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn sandbox_denies_ungranted_unix_socket() {
+        if !landlock_available() {
+            return;
+        }
+        let denied = tempfile::tempdir().expect("denied dir");
+        let socket = denied.path().join("socket");
+        let _listener = std::os::unix::net::UnixListener::bind(&socket).expect("socket");
+        let (_dir, mut entry, output) = script(
+            r#"#!/usr/bin/env python3
+import errno, socket, sys, time
+try:
+    socket.socket(socket.AF_UNIX).connect(sys.argv[2])
+    result = "allowed"
+except OSError as error:
+    result = "denied" if error.errno == errno.EACCES else f"other:{error.errno}"
+open(sys.argv[1], "w").write(result)
+print('{"t":"hello","v":1}', flush=True)
+sys.stdin.readline()
+time.sleep(30)
+"#,
+        );
+        let config = confined(&entry);
+        entry.argv.push(socket.display().to_string());
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        assert_eq!(file_contains(&output, "denied").await, "denied");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn sandbox_denies_signal_to_panel() {
+        if !landlock_available() {
+            return;
+        }
+        let (_dir, mut entry, output) = script(
+            r#"#!/bin/sh
+if kill -0 "$2"; then printf 'allowed' > "$1"; else printf 'denied' > "$1"; fi
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+        );
+        let config = confined(&entry);
+        entry.argv.push(std::process::id().to_string());
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        assert_eq!(file_contains(&output, "denied").await, "denied");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn network_grant_controls_tcp_connect() {
+        if !landlock_available() {
+            return;
+        }
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("listener");
+        let port = listener.local_addr().expect("address").port();
+        let udp = tokio::net::UdpSocket::bind("127.0.0.1:0")
+            .await
+            .expect("UDP listener");
+        let udp_port = udp.local_addr().expect("UDP address").port();
+        for (network, wanted) in [(false, "denied,denied"), (true, "connected,sent")] {
+            let (_dir, mut entry, output) = script(
+                r#"#!/usr/bin/env python3
+import errno, socket, sys, time
+try:
+    socket.create_connection(("127.0.0.1", int(sys.argv[2])), timeout=1).close()
+    tcp = "connected"
+except OSError as error:
+    tcp = "denied" if error.errno == errno.EACCES else f"other:{error.errno}"
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(b"test", ("127.0.0.1", int(sys.argv[3])))
+    udp = "sent"
+except OSError as error:
+    udp = "denied" if error.errno == errno.EACCES else f"other:{error.errno}"
+open(sys.argv[1], "w").write(f"{tcp},{udp}")
+print('{"t":"hello","v":1}', flush=True)
+sys.stdin.readline()
+time.sleep(30)
+"#,
+            );
+            let mut config = confined(&entry);
+            config
+                .applets
+                .get_mut("test")
+                .expect("test applet")
+                .sandbox
+                .network = network;
+            entry.argv.push(port.to_string());
+            entry.argv.push(udp_port.to_string());
+            let (handle, _, cancel, task, _) = running_with(
+                config,
+                Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+            );
+            handle.attach(1, "test", placement()).await.expect("attach");
+            assert_eq!(file_contains(&output, wanted).await, wanted);
+            if network {
+                let mut received = [0; 4];
+                let (length, _) =
+                    tokio::time::timeout(Duration::from_secs(2), udp.recv_from(&mut received))
+                        .await
+                        .expect("UDP datagram")
+                        .expect("UDP receive");
+                assert_eq!(&received[..length], b"test");
+            }
+            handle.detach(1).await.expect("detach");
+            cancel.cancel();
+            let _ = task.await;
+        }
+    }
+
+    #[tokio::test]
+    async fn hello_state_is_private_writable_and_persistent() {
+        if !landlock_available() {
+            return;
+        }
+        let (_dir, entry, output) = script(
+            r#"#!/usr/bin/env python3
+import json, pathlib, sys, time
+print('{"t":"hello","v":1}', flush=True)
+hello = json.loads(sys.stdin.readline())
+state = pathlib.Path(hello["state"])
+with (state / "marker").open("a") as marker:
+    marker.write("x")
+pathlib.Path(sys.argv[1]).write_text(hello["state"])
+time.sleep(30)
+"#,
+        );
+        let config = confined(&entry);
+        let state = config
+            .state_base
+            .as_ref()
+            .expect("state base")
+            .join("applets/me.example.Test");
+        let marker = state.join("marker");
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        file_contains(&output, &state.display().to_string()).await;
+        file_contains(&marker, "x").await;
+        assert_eq!(
+            std::fs::metadata(&state)
+                .expect("state dir")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        handle.detach(1).await.expect("detach");
+        handle
+            .attach(1, "test", placement())
+            .await
+            .expect("reattach");
+        file_contains(&marker, "xx").await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn ungranted_executable_fails_with_sandbox_reason() {
+        if !landlock_available() {
+            return;
+        }
+        let (_dir, entry, _) = script("#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\n");
+        let mut config = confined(&entry);
+        let sandbox = &mut config.applets.get_mut("test").expect("test applet").sandbox;
+        sandbox.read.clear();
+        sandbox.write.clear();
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert!(
+            matches!(failed.status, Status::Failed(reason) if reason.contains("not granted by sandbox"))
+        );
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn missing_state_directory_fails_before_spawn() {
+        let (_dir, entry, _) = script("#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\n");
+        let mut config = confined(&entry);
+        config.state_base = None;
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert!(
+            matches!(failed.status, Status::Failed(reason) if reason == "cannot determine applet state directory")
+        );
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn non_utf8_state_directory_fails_before_spawn() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let (_dir, entry, output) = script("#!/bin/sh\nprintf x > \"$1\"\n");
+        let mut config = confined(&entry);
+        config.state_base = Some(
+            config
+                .state_dir
+                .path()
+                .join(std::ffi::OsString::from_vec(vec![0xff])),
+        );
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert!(
+            matches!(failed.status, Status::Failed(reason) if reason == "cannot determine applet state directory")
+        );
+        assert!(!output.exists());
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn sandbox_change_respawns() {
+        let (_dir, entry, output) = script(
+            r#"#!/bin/sh
+printf x >> "$1"
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+        );
+        let config = confined(&entry);
+        let mut updated = config.config.clone();
+        let (handle, sender, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        file_contains(&output, "x").await;
+        updated
+            .applets
+            .get_mut("test")
+            .expect("test applet")
+            .sandbox
+            .read
+            .push("/missing-glimpse-test".to_owned());
+        sender.reconfigure(updated);
+        file_contains(&output, "xx").await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn unconfined_runs_ungranted_executable() {
+        let (_dir, entry, output) = script(
+            "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '%s' \"$line\" > \"$1\"\nsleep 30\n",
+        );
+        let mut config = confined(&entry);
+        let sandbox = &mut config.applets.get_mut("test").expect("test applet").sandbox;
+        sandbox.read.clear();
+        sandbox.write.clear();
+        sandbox.unconfined = true;
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        file_contains(&output, "\"state\"").await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
     async fn placement_change_does_not_respawn() {
         let (_dir, entry, output) = script(
             "#!/bin/sh\necho $$ > \"$1.pid\"\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nwhile read -r line; do printf '%s\\n' \"$line\" >> \"$1\"; done\n",
@@ -1173,7 +1626,7 @@ mod tests {
             .expect("config")
             .options
             .insert("color".to_owned(), Value::from("red"));
-        sender.reconfigure(config);
+        sender.reconfigure(config.config);
         file_contains(&output, "\"t\":\"options\"").await;
         assert_eq!(
             tokio::fs::read_to_string(format!("{}.pid", output.display()))
@@ -1201,7 +1654,7 @@ mod tests {
             .expect("config")
             .options
             .insert("color".to_owned(), Value::from("red"));
-        sender.reconfigure(config);
+        sender.reconfigure(config.config);
         file_contains(&output, "\"t\":\"hello\"").await;
         assert!(
             tokio::fs::read_to_string(output)
@@ -1226,6 +1679,7 @@ mod tests {
         let pid = tokio::fs::read_to_string(&output).await.expect("pid");
         sender.reconfigure(Config {
             applets: BTreeMap::new(),
+            state_base: None,
         });
         tokio::time::sleep(Duration::from_secs(6)).await;
         assert!(
@@ -1530,6 +1984,11 @@ time.sleep(30)
                 glimpse_config::ExecAppletConfig {
                     applet: "me.example.Other".to_owned(),
                     options: Map::new(),
+                    sandbox: glimpse_config::AppletSandbox {
+                        read: vec![std::env::temp_dir().display().to_string()],
+                        write: vec![std::env::temp_dir().display().to_string()],
+                        ..Default::default()
+                    },
                 },
             );
             let (handle, _sender, cancel, task, _selection) =

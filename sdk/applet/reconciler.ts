@@ -1,3 +1,10 @@
+import fs from "node:fs";
+import { createInterface } from "node:readline";
+import type { Readable } from "node:stream";
+import { inspect } from "node:util";
+import Reconciler from "react-reconciler";
+import { DefaultEventPriority } from "react-reconciler/constants.js";
+
 export type Placement = {
   output: string | null;
   position: string;
@@ -55,6 +62,7 @@ type HostMessage =
     t: "hello";
     v?: number;
     name?: string;
+    state?: string;
     options?: Props;
     placement?: Placement;
   }
@@ -93,21 +101,25 @@ function createStore<T>(initial: T): Store<T> {
 export const optionsStore = createStore<Record<string, unknown>>({});
 export const placementStore = createStore<Placement | null>(null);
 export const nameStore = createStore("");
+export const stateStore = createStore("");
 export const openStore = createStore(false);
 
 class ProtocolLimitError extends Error {
   override name = "ProtocolLimitError";
 }
 
-function writeAll(
-  stream: { writeSync(bytes: Uint8Array): number },
-  text: string,
-): void {
+function writeAll(fd: number, text: string): void {
   const bytes = encoder.encode(text);
+  const pause = new Int32Array(new SharedArrayBuffer(4));
   for (let offset = 0; offset < bytes.length;) {
-    const written = stream.writeSync(bytes.subarray(offset));
-    if (written === 0) throw new Error("zero-byte write");
-    offset += written;
+    try {
+      const written = fs.writeSync(fd, bytes, offset, bytes.length - offset);
+      if (written === 0) throw new Error("zero-byte write");
+      offset += written;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EAGAIN") throw error;
+      Atomics.wait(pause, 0, 0, 2);
+    }
   }
 }
 
@@ -119,7 +131,7 @@ function lineOf(message: unknown): string {
   return line;
 }
 
-let emit = (message: unknown) => writeAll(Deno.stdout, `${lineOf(message)}\n`);
+let emit = (message: unknown) => writeAll(1, `${lineOf(message)}\n`);
 let helloWritten = false;
 const queued: unknown[] = [];
 
@@ -154,9 +166,9 @@ const originalConsole = new Map<string, (...args: unknown[]) => void>();
 function writeStderr(...args: unknown[]): void {
   const text = args.map((value) => {
     if (typeof value === "string") return value;
-    return Deno.inspect(value);
+    return inspect(value);
   }).join(" ");
-  writeAll(Deno.stderr, `${text}\n`);
+  writeAll(2, `${text}\n`);
 }
 
 export function redirectConsole(): void {
@@ -180,41 +192,10 @@ export function restoreConsole(): void {
   originalConsole.clear();
 }
 
-export function installProcess(): void {
-  const global = globalThis as {
-    process?: { env?: Record<string, string | undefined> };
-  };
-  try {
-    if (global.process?.env?.NODE_ENV === "production") return;
-  } catch {
-    global.process = { env: { NODE_ENV: "production" } };
-    return;
-  }
-  if (!global.process) {
-    global.process = { env: { NODE_ENV: "production" } };
-    return;
-  }
-  if (!global.process.env) global.process.env = {};
-  try {
-    if (!global.process.env.NODE_ENV) {
-      global.process.env.NODE_ENV = "production";
-    }
-  } catch {
-    global.process = { env: { NODE_ENV: "production" } };
-  }
-}
-
-let reconcilerFactory: ((config: object) => Reconciler) | null = null;
-let eventPriority = 32;
+const reconcilerFactory = Reconciler as unknown as (config: object) => Reconciler;
+const eventPriority = DefaultEventPriority ?? 32;
 
 async function loadReconciler(): Promise<(config: object) => Reconciler> {
-  if (reconcilerFactory) return reconcilerFactory;
-  installProcess();
-  const loaded = await import("react-reconciler");
-  const constants = await import("react-reconciler/constants.js");
-  eventPriority = constants.DefaultEventPriority ?? 32;
-  const factory = loaded.default ?? loaded;
-  reconcilerFactory = factory as (config: object) => Reconciler;
   return reconcilerFactory;
 }
 
@@ -551,7 +532,7 @@ async function mountFresh(element: unknown): Promise<void> {
     "applet",
     (error: unknown) => {
       console.error(error);
-      Deno.exit(70);
+      process.exit(70);
     },
     (error: unknown) => {
       console.error(error);
@@ -589,7 +570,7 @@ function dispatchEvent(message: HostMessage): void {
     handler(...args);
   } catch (error) {
     console.error(error);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -612,7 +593,6 @@ function apply(message: HostMessage): void {
 
 export async function session(element: unknown, io: Io): Promise<void> {
   redirectConsole();
-  installProcess();
   await loadReconciler();
   current = null;
   helloWritten = false;
@@ -639,12 +619,13 @@ export async function session(element: unknown, io: Io): Promise<void> {
           if (current) continue;
           if (message.v !== 1) {
             console.error(`unsupported host protocol version: ${message.v}`);
-            Deno.exit(1);
+            process.exit(1);
             return;
           }
           optionsStore.set(message.options ?? {});
           placementStore.set(message.placement ?? null);
           nameStore.set(typeof message.name === "string" ? message.name : "");
+          stateStore.set(typeof message.state === "string" ? message.state : "");
           openStore.set(false);
           await mountFresh(element);
           continue;
@@ -659,44 +640,48 @@ export async function session(element: unknown, io: Io): Promise<void> {
     } catch (error) {
       if (!(error instanceof ProtocolLimitError)) throw error;
       console.error(error);
-      Deno.exit(70);
+      process.exit(70);
       return;
     }
   }
 }
 
-export async function* stdinLines(): AsyncIterable<string[]> {
-  const reader = Deno.stdin.readable.pipeThrough(new TextDecoderStream())
-    .getReader();
-  let buffer = "";
+export async function* stdinLines(input: Readable = process.stdin): AsyncIterable<string[]> {
+  const reader = createInterface({ input, crlfDelay: Infinity });
+  const pending: string[] = [];
+  const batches: string[][] = [];
+  let wake: (() => void) | undefined;
+  let closed = false;
+  reader.on("line", (line) => {
+    if (line.trim() === "") return;
+    pending.push(line);
+    if (pending.length === 1) {
+      setImmediate(() => {
+        batches.push(pending.splice(0));
+        wake?.();
+        wake = undefined;
+      });
+    }
+  });
+  reader.on("close", () => {
+    closed = true;
+    wake?.();
+    wake = undefined;
+  });
   try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        if (buffer.trim() !== "") yield [buffer.replace(/\r$/, "")];
-        return;
-      }
-      buffer += value;
-      const lines: string[] = [];
-      let index = buffer.indexOf("\n");
-      while (index >= 0) {
-        let line = buffer.slice(0, index);
-        buffer = buffer.slice(index + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.trim() !== "") lines.push(line);
-        index = buffer.indexOf("\n");
-      }
-      if (lines.length) yield lines;
+    while (!closed || pending.length || batches.length) {
+      if (!batches.length) await new Promise<void>((resolve) => { wake = resolve; });
+      while (batches.length) yield batches.shift()!;
     }
   } finally {
-    reader.releaseLock();
+    reader.close();
   }
 }
 
 export function standardIo(): Io {
   return {
     writeLine(line: string) {
-      writeAll(Deno.stdout, `${line}\n`);
+      writeAll(1, `${line}\n`);
     },
     lines: stdinLines(),
   };

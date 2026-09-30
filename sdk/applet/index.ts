@@ -1,5 +1,4 @@
 import {
-  installProcess,
   type Io,
   nameStore,
   openStore,
@@ -9,28 +8,14 @@ import {
   redirectConsole,
   send,
   session,
+  stateStore,
   standardIo,
 } from "./reconciler.ts";
+import * as react from "react";
 
-installProcess();
 redirectConsole();
 
-const react = await import("react");
-const runtime = await import("react-runtime");
-
-type JsxFn = (type: unknown, props: unknown, key?: unknown) => unknown;
-
-export const jsx = runtime.jsx as JsxFn;
-export const jsxs = runtime.jsxs as JsxFn;
-export const Fragment = runtime.Fragment;
-
-export function jsxDEV(
-  type: unknown,
-  props: unknown,
-  key?: unknown,
-): unknown {
-  return jsx(type, props, key);
-}
+export { Fragment, jsx, jsxDEV, jsxs } from "./jsx-runtime.ts";
 
 export type Node =
   | string
@@ -40,27 +25,6 @@ export type Node =
   | undefined
   | Node[]
   | { type: unknown; props: unknown; key: unknown };
-
-export namespace JSX {
-  export type Element = Node;
-  export interface ElementChildrenAttribute {
-    children: unknown;
-  }
-  export interface IntrinsicElements {
-    [elemName: string]: Record<string, unknown>;
-  }
-}
-
-declare global {
-  namespace JSX {
-    interface ElementChildrenAttribute {
-      children: unknown;
-    }
-    interface IntrinsicElements {
-      [elemName: string]: Record<string, unknown>;
-    }
-  }
-}
 
 export type FC<P = object> = (props: P & { key?: string | number }) => Node;
 
@@ -281,12 +245,20 @@ export function useAppletName(): string {
   return react.useSyncExternalStore(nameStore.subscribe, nameStore.get);
 }
 
+export function useStateDir(): string {
+  return react.useSyncExternalStore(stateStore.subscribe, stateStore.get);
+}
+
 export function createElement(
   type: unknown,
   props?: Record<string, unknown> | null,
   ...children: unknown[]
 ): unknown {
-  return react.createElement(type, props ?? null, ...children);
+  return react.createElement(
+    type as react.ElementType,
+    props ?? null,
+    ...children as react.ReactNode[],
+  );
 }
 
 export function notify(message: {
@@ -334,5 +306,5 @@ export function closePopover(): void {
 export async function run(element: unknown, io?: Io): Promise<void> {
   redirectConsole();
   await session(element, io ?? standardIo());
-  Deno.exit(0);
+  process.exit(0);
 }

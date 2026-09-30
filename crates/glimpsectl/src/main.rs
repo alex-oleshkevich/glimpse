@@ -1,17 +1,13 @@
-mod cli;
-mod commands;
-mod errors;
-mod render;
-
 use std::process::ExitCode;
 
 use anyhow::{Context, Result};
-use cli::{
+use glimpse_utils::init_app_tracing;
+use glimpsectl::cli::{
     AppletsCommand, Cli, Command, ConfigCommand, IdleCommand, NotificationsCommand, SessionCommand,
     SunsetCommand, WeatherCommand,
 };
-use errors::Exit;
-use glimpse_utils::init_app_tracing;
+use glimpsectl::errors::Exit;
+use glimpsectl::{cli, commands, errors};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
@@ -79,15 +75,9 @@ async fn run(cli: Cli) -> Result<()> {
             commands::applets_list(cli.config.config, cli.json).await
         }
         Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args),
-        Command::Applets(AppletsCommand::Check { dir }) => commands::applets_check(&dir).await,
-        Command::Applets(AppletsCommand::Dev { dir }) => {
-            commands::applets_dev(&dir, cli.config.config).await
+        Command::Applets(AppletsCommand::Dev { target }) => {
+            commands::applets_dev(&target, cli.config.config).await
         }
-        Command::Applets(AppletsCommand::Bundle { dir, prefix, out }) => {
-            commands::applets_bundle(&dir, &prefix, &out).await
-        }
-        Command::Applets(AppletsCommand::Install { dir }) => commands::applets_install(&dir).await,
-        Command::Applets(AppletsCommand::Uninstall { id }) => commands::applets_uninstall(&id),
         Command::Applets(AppletsCommand::Inspect { id }) => {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }

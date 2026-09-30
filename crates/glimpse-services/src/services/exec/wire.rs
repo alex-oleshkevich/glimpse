@@ -97,6 +97,7 @@ pub enum Outgoing {
     Hello {
         v: u32,
         name: String,
+        state: String,
         options: Map<String, Value>,
         placement: Placement,
     },

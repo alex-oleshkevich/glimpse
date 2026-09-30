@@ -597,8 +597,19 @@ fn every_install_route_ships_the_commented_reference() {
 }
 
 #[test]
-fn every_install_route_ships_the_applet_sdk() {
+fn every_install_route_ships_the_applet_template_and_nothing_else_of_the_sdk() {
     let root = workspace_root();
+    let mut template: Vec<String> = fs::read_dir(root.join("sdk/template"))
+        .expect("the template")
+        .map(|item| {
+            format!(
+                "sdk/template/{}",
+                item.unwrap().file_name().to_string_lossy()
+            )
+        })
+        .collect();
+    template.sort();
+    assert!(template.contains(&"sdk/template/{{id}}.desktop".to_owned()));
     for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
         let body = fs::read_to_string(root.join(script)).expect(script);
         let selection = body
@@ -607,39 +618,29 @@ fn every_install_route_ships_the_applet_sdk() {
                 line.strip_prefix("done < <(")
                     .and_then(|line| line.strip_suffix(')'))
             })
-            .expect("the SDK copy selects its files");
+            .expect("the template copy selects its files");
         let output = std::process::Command::new("bash")
-            .args(["-c", selection])
+            .args(["-c", &selection.replace("-print0", "-print")])
             .current_dir(&root)
             .output()
-            .expect("the SDK selection runs");
+            .expect("the template selection runs");
         assert!(output.status.success(), "{script}");
-        let selected = String::from_utf8_lossy(&output.stdout);
-        assert!(selected.contains("sdk/applet/mod.ts"), "{script}");
-        assert!(!selected.contains("mod_test.ts"), "{script}");
-        assert!(!selected.contains("sdk/applet/fixtures/"), "{script}");
+        let mut selected: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        selected.sort();
+        assert_eq!(selected, template, "{script}");
     }
     let manifest = manifest(&root);
     for kind in ["deb", "generate-rpm"] {
-        let listed = assets(&manifest, kind);
-        for source in [
-            "sdk/applet/mod.ts",
-            "sdk/applet/reconciler.ts",
-            "sdk/applet/template/*",
-            "sdk/applet/examples/todo/*",
-        ] {
-            assert!(
-                listed.iter().any(|(path, dest)| path.ends_with(source)
-                    && dest.contains("share/glimpse/sdk/applet")),
-                "{kind}: {source}"
-            );
-        }
-        assert!(
-            listed
-                .iter()
-                .all(|(path, _)| !path.contains("fixtures/") && path != "sdk/applet/*.ts"),
-            "{kind} must not package SDK tests and fixtures"
-        );
+        let sdk: Vec<_> = assets(&manifest, kind)
+            .into_iter()
+            .filter(|(path, _)| path.contains("sdk/"))
+            .collect();
+        assert_eq!(sdk.len(), 1, "{kind}");
+        assert!(sdk[0].0.ends_with("sdk/template/*"), "{kind}");
+        assert!(sdk[0].1.contains("share/glimpse/sdk/template"), "{kind}");
     }
 }
 

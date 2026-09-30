@@ -128,6 +128,7 @@ name: `center = ["me.example.Pomodoro"]`, two or more `.`-separated segments of
 `[A-Za-z_][A-Za-z0-9_-]*`. A table named by the id sets `options` without `extends`; a second
 instance is `[applets.pomo]` with `extends = "exec"` and a required `applet` id. `options` reaches
 the applet as written, unvalidated; the common settings stay beside it in the applet table.
+`sandbox` grants come only from this table, never from the desktop entry.
 
 ## The `locale` convention
 

@@ -1,5 +1,6 @@
 use shadow_rs::shadow;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
@@ -109,7 +110,7 @@ pub enum SunsetCommand {
     },
 }
 
-fn temperature(raw: &str) -> Result<u32, String> {
+pub fn temperature(raw: &str) -> Result<u32, String> {
     match raw {
         "clear" => Ok(0),
         _ => raw
@@ -148,7 +149,7 @@ pub enum IdleCommand {
     },
 }
 
-fn duration(raw: &str) -> Result<u32, String> {
+pub fn duration(raw: &str) -> Result<u32, String> {
     let (number, unit) = match raw.find(|character: char| !character.is_ascii_digit()) {
         Some(split) => raw.split_at(split),
         None => (raw, "s"),
@@ -268,32 +269,17 @@ pub enum ConfigCommand {
 pub enum AppletsCommand {
     #[command(about = "Create an external applet")]
     New(NewAppletArgs),
-    #[command(about = "Validate an external applet")]
-    Check {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-    },
-    #[command(about = "Link an applet into the live panel until interrupted")]
+    #[command(
+        about = "Run an applet the way the panel does: link a directory until interrupted, or restart an installed id"
+    )]
     Dev {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
+        #[arg(
+            default_value = ".",
+            value_name = "DIR|ID",
+            help = "An applet directory holding one .desktop file, or an installed applet's desktop-file id"
+        )]
+        target: String,
     },
-    #[command(about = "Build a distributable applet")]
-    Bundle {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-        #[arg(long, default_value = "/usr")]
-        prefix: PathBuf,
-        #[arg(long, default_value = "dist")]
-        out: PathBuf,
-    },
-    #[command(about = "Install an applet for the current user")]
-    Install {
-        #[arg(default_value = ".")]
-        dir: PathBuf,
-    },
-    #[command(about = "Remove a user-installed applet")]
-    Uninstall { id: String },
     #[command(about = "List installed and placed external applets")]
     List,
     #[command(about = "Inspect an external applet")]
@@ -306,7 +292,7 @@ pub enum AppletsCommand {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
     },
-    #[command(about = "Run an applet script under Deno")]
+    #[command(about = "Run an applet executable")]
     Run(RunAppletArgs),
 }
 
@@ -454,16 +440,10 @@ fn button(value: &str) -> Result<u32, String> {
 
 #[derive(Debug, Args)]
 pub struct RunAppletArgs {
-    #[arg(long, value_parser = grant_list, help = "Hosts the applet may reach")]
-    pub allow_net: Option<String>,
-    #[arg(long, value_parser = grant_list, help = "Paths the applet may read")]
-    pub allow_read: Option<String>,
-    #[arg(long, value_parser = grant_list, help = "Environment variables the applet may read")]
-    pub allow_env: Option<String>,
-    #[arg(long, help = "Restart the applet when its files change")]
-    pub watch: bool,
-    #[arg(help = "The applet script (.js, .ts or .tsx)")]
-    pub entry: PathBuf,
+    #[arg(allow_hyphen_values = true, help = "The applet executable")]
+    pub exe: PathBuf,
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub args: Vec<OsString>,
 }
 
 pub fn parse() -> Cli {
@@ -479,7 +459,7 @@ pub fn parse() -> Cli {
     Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit())
 }
 
-fn stray_run_flag(matches: &ArgMatches) -> Option<String> {
+pub fn stray_run_flag(matches: &ArgMatches) -> Option<String> {
     let Some(("applets", applets)) = matches.subcommand() else {
         return None;
     };
@@ -494,14 +474,6 @@ fn stray_run_flag(matches: &ArgMatches) -> Option<String> {
         .map(|id| id.replace('_', "-"))
 }
 
-fn grant_list(value: &str) -> Result<String, String> {
-    if value.split(',').any(|item| item.trim().is_empty()) {
-        Err("grant list must contain nonempty values".into())
-    } else {
-        Ok(value.into())
-    }
-}
-
 #[derive(Debug, Args)]
 pub struct NewAppletArgs {
     #[arg(long)]
@@ -512,12 +484,6 @@ pub struct NewAppletArgs {
     pub description: Option<String>,
     #[arg(long)]
     pub icon: Option<String>,
-    #[arg(long, conflicts_with = "no_popover")]
-    pub popover: bool,
-    #[arg(long, conflicts_with = "popover")]
-    pub no_popover: bool,
-    #[arg(long)]
-    pub allow_net: Option<String>,
     #[arg(long)]
     pub dir: Option<PathBuf>,
     #[arg(long)]
@@ -527,158 +493,5 @@ pub struct NewAppletArgs {
 impl Command {
     pub fn needs_session_bus(&self) -> bool {
         !matches!(self, Self::Config(_) | Self::Doctor | Self::Applets(_))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_argument_surface_is_well_formed() {
-        Cli::command().debug_assert();
-    }
-
-    #[test]
-    fn a_missing_subcommand_is_a_usage_error() {
-        let error = Cli::try_parse_from(["glimpsectl"]).expect_err("a subcommand is required");
-        assert_eq!(error.exit_code(), 2);
-    }
-
-    #[test]
-    fn zero_scroll_steps_are_a_usage_error() {
-        let error = Cli::try_parse_from([
-            "glimpsectl",
-            "panel",
-            "scroll",
-            "DP-1",
-            "clock",
-            "down",
-            "--steps",
-            "0",
-        ])
-        .expect_err("scrolling must have at least one step");
-        assert_eq!(error.exit_code(), 2);
-    }
-
-    #[test]
-    fn json_is_accepted_after_the_subcommand() {
-        let cli = Cli::try_parse_from(["glimpsectl", "sunset", "status", "--json"])
-            .expect("a global flag follows its subcommand");
-        assert!(cli.json);
-    }
-
-    #[test]
-    fn a_temperature_is_kelvin_or_clear_and_never_zero() {
-        assert_eq!(temperature("4000"), Ok(4000));
-        assert_eq!(temperature("clear"), Ok(0));
-        assert!(temperature("0").is_err());
-        assert!(temperature("warm").is_err());
-    }
-
-    #[test]
-    fn a_duration_reads_bare_seconds_and_the_three_units() {
-        assert_eq!(duration("90"), Ok(90));
-        assert_eq!(duration("90s"), Ok(90));
-        assert_eq!(duration("15m"), Ok(900));
-        assert_eq!(duration("2h"), Ok(7200));
-        assert!(duration("0").is_err());
-        assert!(duration("5d").is_err());
-        assert!(duration("m").is_err());
-        assert!(duration("9999999h").is_err());
-    }
-
-    #[test]
-    fn every_mode_spells_itself_the_way_the_document_does() {
-        assert_eq!(Mode::Off.as_str(), "off");
-        assert_eq!(Mode::Automatic.as_str(), "automatic");
-        assert_eq!(Mode::Schedule.as_str(), "schedule");
-    }
-
-    #[test]
-    fn config_doctor_and_applets_run_without_a_bus() {
-        assert!(!Command::Doctor.needs_session_bus());
-        assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
-        assert!(!Command::Applets(AppletsCommand::List).needs_session_bus());
-        assert!(Command::Sunset(SunsetCommand::Status).needs_session_bus());
-    }
-
-    #[test]
-    fn the_session_command_is_hidden_from_the_top_level_help() {
-        let command = Cli::command();
-        let session = command
-            .get_subcommands()
-            .find(|subcommand| subcommand.get_name() == "session")
-            .expect("the session subcommand still exists for parsing");
-        assert!(session.is_hide_set());
-    }
-
-    #[test]
-    fn session_declare_still_parses() {
-        let error = Cli::try_parse_from(["glimpsectl", "session", "declare", "--help"])
-            .expect_err("--help exits through the error path");
-        assert_eq!(error.exit_code(), 0);
-    }
-
-    fn run(args: &[&str]) -> Result<Cli, clap::Error> {
-        Cli::try_parse_from(["glimpsectl", "applets", "run"].iter().chain(args))
-    }
-
-    #[test]
-    fn dangerous_grants_are_unknown_arguments() {
-        for grant in [
-            "--allow-run",
-            "-A",
-            "--allow-write",
-            "--allow-ffi",
-            "--allow-sys",
-        ] {
-            assert!(run(&[grant, "main.ts"]).is_err());
-        }
-    }
-
-    #[test]
-    fn empty_grants_are_rejected() {
-        for grant in [
-            "--allow-net=",
-            "--allow-net=a,",
-            "--allow-read=,a",
-            "--allow-read=a,,b",
-            "--allow-env=",
-            "--allow-net=a, ",
-        ] {
-            assert!(run(&[grant, "main.ts"]).is_err());
-        }
-    }
-
-    #[test]
-    fn an_entry_that_looks_like_a_flag_stays_a_path() {
-        let cli = run(&["--", "--allow-run=x.ts"]).unwrap();
-        let Command::Applets(AppletsCommand::Run(args)) = cli.command else {
-            panic!("not the run command");
-        };
-        assert_eq!(args.entry, PathBuf::from("--allow-run=x.ts"));
-    }
-
-    #[test]
-    fn applets_run_refuses_global_flags() {
-        let stray =
-            |args: &[&str]| stray_run_flag(&Cli::command().try_get_matches_from(args).unwrap());
-        assert_eq!(stray(&["glimpsectl", "applets", "run", "main.ts"]), None);
-        assert_eq!(
-            stray(&["glimpsectl", "applets", "run", "--json", "main.ts"]).as_deref(),
-            Some("json")
-        );
-        assert_eq!(
-            stray(&["glimpsectl", "--json", "applets", "run", "main.ts"]).as_deref(),
-            Some("json")
-        );
-        assert_eq!(stray(&["glimpsectl", "--json", "applets", "list"]), None);
-    }
-
-    #[test]
-    fn running_an_applet_needs_no_session_bus() {
-        let cli = run(&["main.ts"]).unwrap();
-        assert!(!cli.command.needs_session_bus());
     }
 }

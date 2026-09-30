@@ -1,3 +1,9 @@
+import fs from "node:fs";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { PassThrough } from "node:stream";
+import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   openStore,
   optionsStore,
@@ -7,6 +13,7 @@ import {
   session,
   setEmit,
   standardIo,
+  stdinLines,
 } from "./reconciler.ts";
 import {
   Box,
@@ -28,8 +35,9 @@ import {
   Section,
   session as hostSession,
   useOptions,
+  useStateDir,
   useState,
-} from "./mod.ts";
+} from "./index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -52,7 +60,7 @@ function canonical(value: unknown): unknown {
 }
 
 function assertMessages(actual: string[], path: URL): void {
-  const expected = Deno.readTextFileSync(path).trim().split("\n").map((line) =>
+  const expected = fs.readFileSync(path, "utf8").trim().split("\n").map((line) =>
     JSON.parse(line)
   );
   const got = actual.map((line) => JSON.parse(line));
@@ -84,7 +92,7 @@ async function drive(element: unknown, messages: unknown[]): Promise<string[]> {
 }
 
 function hostLine(): string {
-  const text = Deno.readTextFileSync(fixture("host.ndjson"));
+  const text = fs.readFileSync(fixture("host.ndjson"), "utf8");
   const line = text.split("\n")[0];
   assert(line, "host.ndjson has a hello");
   return line;
@@ -204,38 +212,49 @@ function Boom(): never {
   throw new Error("render boom");
 }
 
+function StateDir() {
+  return createElement(Indicator, { text: useStateDir() });
+}
+
 function mockExit(
   throwOnExit: boolean,
 ): { code: () => number | null; restore: () => void } {
-  const original = Deno.exit;
+  const original = process.exit;
   let status: number | null = null;
-  Deno.exit = ((code?: number) => {
+  process.exit = ((code?: number) => {
     status = code ?? 0;
-    if (throwOnExit) throw new Error(`deno-exit:${status}`);
-  }) as typeof Deno.exit;
+    if (throwOnExit) throw new Error(`node-exit:${status}`);
+  }) as typeof process.exit;
   return {
     code: () => status,
     restore: () => {
-      Deno.exit = original;
+      process.exit = original;
     },
   };
 }
 
-Deno.test("applet sdk", async (test) => {
-  await test.step("sends queued requests after SDK hello", async () => {
+test("applet sdk", async (t) => {
+  await t.test("sends queued requests after SDK hello", async () => {
     notify({ summary: "early" });
     const lines = await drive(createElement(Indicator), [hostLine()]);
     assert(lines[0] === '{"t":"hello","v":1}', lines.join("\n"));
     assert(lines[1] === '{"t":"notify","summary":"early"}', lines.join("\n"));
   });
 
-  await test.step("hello fixture matches hello.ndjson", async () => {
+  await t.test("hello fixture matches hello.ndjson", async () => {
     const lines = await drive(createElement(HelloApp), [hostLine()]);
     assertMessages(lines, fixture("hello.ndjson"));
   });
 
-  await test.step("every host fixture line is handled", async () => {
-    const messages = Deno.readTextFileSync(fixture("host.ndjson")).trim()
+  await t.test("state dir comes from host hello", async () => {
+    const lines = await drive(createElement(StateDir), [{
+      t: "hello", v: 1, state: "/tmp/glimpse-state",
+    }]);
+    assert(lines[1].includes('"text":"/tmp/glimpse-state"'), lines[1]);
+  });
+
+  await t.test("every host fixture line is handled", async () => {
+    const messages = fs.readFileSync(fixture("host.ndjson"), "utf8").trim()
       .split("\n");
     const lines = await drive(createElement(HelloApp), messages);
     assert(lines.length === 2, lines.join("\n"));
@@ -250,7 +269,7 @@ Deno.test("applet sdk", async (test) => {
     assert(openStore.get() === false, "popover stayed open");
   });
 
-  await test.step("coalesces one input chunk into one commit", async () => {
+  await t.test("coalesces one input chunk into one commit", async () => {
     const lines = await drive(createElement(OpsApp), [[
       { t: "hello", v: 1, options: { step: 0 } },
       { t: "options", options: { step: 1 } },
@@ -261,7 +280,7 @@ Deno.test("applet sdk", async (test) => {
     assert(commits[0].ops.length === 2, JSON.stringify(commits));
   });
 
-  await test.step("text children ignore empty values and flatten arrays", async () => {
+  await t.test("text children ignore empty values and flatten arrays", async () => {
     const lines = await drive(
       createElement(
         Popover,
@@ -276,7 +295,7 @@ Deno.test("applet sdk", async (test) => {
     assert(children[1].props.text === "AB", JSON.stringify(children));
   });
 
-  await test.step("raw text children update without crashing", async () => {
+  await t.test("raw text children update without crashing", async () => {
     const lines = await drive(createElement(RawTextApp), [
       { t: "hello", v: 1, options: { text: "one" } },
       { t: "options", options: { text: "two" } },
@@ -293,7 +312,7 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("wire text uses host caps", async () => {
+  await t.test("wire text uses host caps", async () => {
     const lines = await drive(
       createElement(
         Fragment,
@@ -318,7 +337,7 @@ Deno.test("applet sdk", async (test) => {
     assert(nodes[1].children[0].props.value.length === 4096, "entry cap");
   });
 
-  await test.step("rejects oversized trees", async () => {
+  await t.test("rejects oversized trees", async () => {
     for (const counts of [[201], [150, 150]]) {
       const exit = mockExit(false);
       try {
@@ -341,7 +360,7 @@ Deno.test("applet sdk", async (test) => {
     }
   });
 
-  await test.step("rejects outgoing lines over 1 MiB", () => {
+  await t.test("rejects outgoing lines over 1 MiB", () => {
     let error: unknown;
     try {
       copy("x".repeat(1_048_576));
@@ -354,7 +373,7 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("icon tooltips reach the wire", async () => {
+  await t.test("icon tooltips reach the wire", async () => {
     const lines = await drive(
       createElement(
         Popover,
@@ -378,7 +397,7 @@ Deno.test("applet sdk", async (test) => {
     assertMessages(lines, fixture("tooltip.ndjson"));
   });
 
-  await test.step("ops fixture matches ops.ndjson", async () => {
+  await t.test("ops fixture matches ops.ndjson", async () => {
     const messages: unknown[] = [{
       t: "hello",
       v: 1,
@@ -409,7 +428,7 @@ Deno.test("applet sdk", async (test) => {
     assertMessages(lines.slice(1), fixture("ops.ndjson"));
   });
 
-  await test.step("requests fixture matches requests.ndjson", () => {
+  await t.test("requests fixture matches requests.ndjson", () => {
     const lines: string[] = [];
     setEmit((message) => lines.push(JSON.stringify(message)));
     notify({
@@ -438,14 +457,15 @@ Deno.test("applet sdk", async (test) => {
     assertMessages(lines, fixture("requests.ndjson"));
   });
 
-  await test.step("console output goes to stderr", async () => {
+  await t.test("console output goes to stderr", async () => {
     const protocol: string[] = [];
     const errors: Uint8Array[] = [];
-    const original = Deno.stderr.writeSync;
-    Deno.stderr.writeSync = (data: Uint8Array) => {
-      errors.push(data);
-      return data.byteLength;
-    };
+    const original = fs.writeSync;
+    fs.writeSync = ((fd: number, data: Uint8Array, offset: number, length: number) => {
+      if (fd !== 2) return original(fd, data, offset, length);
+      errors.push(data.subarray(offset, offset + length));
+      return length;
+    }) as typeof fs.writeSync;
     try {
       redirectConsole();
       const methods = [
@@ -474,7 +494,7 @@ Deno.test("applet sdk", async (test) => {
       const lines = await drive(createElement(Loud), [hostLine()]);
       protocol.push(...lines);
     } finally {
-      Deno.stderr.writeSync = original;
+      fs.writeSync = original;
       restoreConsole();
     }
     const stderr = new TextDecoder().decode(
@@ -516,7 +536,7 @@ Deno.test("applet sdk", async (test) => {
     }
   });
 
-  await test.step("mounts only after the host hello", async () => {
+  await t.test("mounts only after the host hello", async () => {
     const lines: string[] = [];
     const exit = mockExit(true);
     try {
@@ -527,7 +547,7 @@ Deno.test("applet sdk", async (test) => {
       throw new Error("run returned without exiting");
     } catch (error) {
       assert(
-        error instanceof Error && error.message === "deno-exit:0",
+        error instanceof Error && error.message === "node-exit:0",
         String(error),
       );
     } finally {
@@ -540,7 +560,7 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("an older seq does not overwrite the entry", async () => {
+  await t.test("an older seq does not overwrite the entry", async () => {
     const lines = await drive(createElement(EntryApp), [
       hostLine(),
       { t: "event", id: 2, name: "onChange", args: ["ab"], seq: 5 },
@@ -564,7 +584,7 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("a rejected edit confirms the controlled value", async () => {
+  await t.test("a rejected edit confirms the controlled value", async () => {
     const lines = await drive(
       createElement(
         Popover,
@@ -584,7 +604,7 @@ Deno.test("applet sdk", async (test) => {
     assert(commit.ops[0].props.value === "x", JSON.stringify(commit));
   });
 
-  await test.step("rejects incompatible host versions", async () => {
+  await t.test("rejects incompatible host versions", async () => {
     const exit = mockExit(false);
     try {
       const lines = await drive(createElement(Indicator), [{
@@ -598,17 +618,18 @@ Deno.test("applet sdk", async (test) => {
     assert(exit.code() === 1, `exit ${exit.code()}`);
   });
 
-  await test.step("stdout writes all bytes", () => {
-    const original = Deno.stdout.writeSync;
+  await t.test("stdout writes all bytes", () => {
+    const original = fs.writeSync;
     const bytes: number[] = [];
-    Deno.stdout.writeSync = (chunk: Uint8Array) => {
-      bytes.push(...chunk.subarray(0, 2));
-      return Math.min(chunk.length, 2);
-    };
+    fs.writeSync = ((_fd: number, chunk: Uint8Array, offset: number, length: number) => {
+      const written = Math.min(length, 2);
+      bytes.push(...chunk.subarray(offset, offset + written));
+      return written;
+    }) as typeof fs.writeSync;
     try {
       standardIo().writeLine("hello");
     } finally {
-      Deno.stdout.writeSync = original;
+      fs.writeSync = original;
     }
     assert(
       new TextDecoder().decode(new Uint8Array(bytes)) === "hello\n",
@@ -616,7 +637,43 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("entry seq stays with its value set", async () => {
+  await t.test("stdout retries EAGAIN after a partial pipe write", async () => {
+    const source = `import { standardIo } from ${JSON.stringify(new URL("./reconciler.ts", import.meta.url).href)};
+void process.stdout.isTTY;
+standardIo().writeLine(JSON.stringify({ t: "commit", ops: [{ op: "set", text: "x".repeat(200_000) }] }));`;
+    const child = spawn(process.execPath, ["--input-type=module", "-e", source], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const finished = once(child, "close");
+    const chunks: Buffer[] = [];
+    const errors: Buffer[] = [];
+    child.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+    for await (const chunk of child.stdout) {
+      chunks.push(chunk);
+      await delay(2);
+    }
+    const [code] = await finished;
+    assert(code === 0, Buffer.concat(errors).toString());
+    const lines = Buffer.concat(chunks).toString().split("\n");
+    assert(lines.length === 2 && lines[1] === "", `lines ${lines.length}`);
+    const message = JSON.parse(lines[0]);
+    assert(message.t === "commit" && message.ops[0].text.length === 200_000,
+      "incomplete commit");
+  });
+
+  await t.test("stdin batches lines received in one tick", async () => {
+    const input = new PassThrough();
+    const batches: string[][] = [];
+    const reading = (async () => {
+      for await (const batch of stdinLines(input)) batches.push(batch);
+    })();
+    input.end("one\ntwo\n");
+    await reading;
+    assert(batches.length === 1 && batches[0].join(",") === "one,two",
+      JSON.stringify(batches));
+  });
+
+  await t.test("entry seq stays with its value set", async () => {
     const lines = await drive(createElement(EntryWithSibling), [
       hostLine(),
       { t: "event", id: 3, name: "onChange", args: ["new"], seq: 9 },
@@ -640,7 +697,7 @@ Deno.test("applet sdk", async (test) => {
     );
   });
 
-  await test.step("unknown elements reach the host", async () => {
+  await t.test("unknown elements reach the host", async () => {
     const lines = await drive(
       createElement(Popover, null, createElement("future-widget")),
       [hostLine()],
@@ -648,7 +705,7 @@ Deno.test("applet sdk", async (test) => {
     assert(lines[1].includes('"type":"future-widget"'), lines[1]);
   });
 
-  await test.step("a render throw exits 70", async () => {
+  await t.test("a render throw exits 70", async () => {
     const exit = mockExit(false);
     try {
       await drive(createElement(Boom), [hostLine()]);

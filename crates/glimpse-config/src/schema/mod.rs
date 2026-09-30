@@ -42,9 +42,9 @@ pub use applets::{
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
     PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
     Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
-    Removable as RemovableAppletConfig, SystemMonitor as SystemMonitorAppletConfig,
-    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
-    is_desktop_id, resolve_applet,
+    Removable as RemovableAppletConfig, Sandbox as AppletSandbox,
+    SystemMonitor as SystemMonitorAppletConfig, Timezone as ClockTimezone,
+    Tray as TrayAppletConfig, Weather as WeatherAppletConfig, is_desktop_id, resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
@@ -201,6 +201,7 @@ mod tests {
             AppletKind::Exec(Box::new(ExecAppletConfig {
                 applet: "me.example.Pomodoro".to_owned(),
                 options: serde_json::Map::new(),
+                sandbox: AppletSandbox::default(),
             }))
         );
     }

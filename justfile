@@ -154,7 +154,11 @@ verify: fmt-check check lint test check-strings
 
 [doc("run the applet SDK tests")]
 sdk-test:
-    "${GLIMPSE_DENO:-deno}" test --allow-read --allow-env --config sdk/applet/deno.json sdk/applet
+    cd sdk/applet && timeout 300 npm ci && timeout 300 node --test
+
+[doc("publish glimpse-sdk to npm; extra arguments go to npm publish, e.g. --dry-run")]
+sdk-publish *ARGS: sdk-test
+    cd sdk/applet && npm publish "$@"
 
 [doc("search crates.io before writing something by hand")]
 search QUERY:
