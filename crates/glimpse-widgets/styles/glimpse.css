@@ -350,10 +350,6 @@ popover separator {
     opacity: var(--gl-disabled);
 }
 
-.row--two {
-    padding: 0.55rem 0.8rem;
-}
-
 .row__check {
     min-width: 1.1rem;
 }
@@ -385,22 +381,6 @@ popover separator {
     font-variant-numeric: tabular-nums;
 }
 
-.row--on .row__title {
-    font-weight: 600;
-}
-
-.printing-popover .row__subtitle {
-    font-variant-numeric: tabular-nums;
-}
-
-.keyboard-popover {
-    --gl-popover-min-width: 8rem;
-}
-
-.keyboard-popover .row--on .row__title {
-    font-weight: normal;
-}
-
 .row--on .row__check {
     color: var(--gl-accent-text);
 }
@@ -429,6 +409,10 @@ popover separator {
 .section__clear:hover {
     color: var(--gl-danger-text);
     background-color: var(--gl-hover);
+}
+
+.hero {
+    min-height: 2.7rem;
 }
 
 .hero__icon {
@@ -612,14 +596,6 @@ popover separator {
     font-weight: 700;
 }
 
-.bluetooth-popover__device {
-    min-height: 3.2rem;
-}
-
-.bluetooth-popover__device--warning .row__subtitle {
-    color: var(--gl-warning-text);
-}
-
 .clipboard-popover .popover-shell,
 .color-picker-popover .popover-shell {
     border-radius: 1.5rem;
@@ -630,11 +606,6 @@ popover separator {
 .color-picker-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
-}
-
-.clipboard-list .split-row,
-.color-list .split-row {
-    min-height: 3.2rem;
 }
 
 .clipboard-popover__search {
@@ -728,10 +699,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
 .network-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
-}
-
-.network-popover__row {
-    min-height: 3.2rem;
 }
 
 .network-popover__rule {
@@ -962,7 +929,6 @@ expandable > revealer .fader {
 }
 
 .event-list__row--past .row__title,
-.event-list__row--past .row__subtitle,
 .event-list__row--past .event-list__time {
     color: var(--gl-muted);
 }
@@ -974,8 +940,7 @@ expandable > revealer .fader {
     color: var(--gl-muted);
 }
 
-.world-clock .row,
-.world-clock .row--two {
+.world-clock .row {
     min-height: 3.2rem;
     padding: 0 0.8rem;
 }
@@ -1286,13 +1251,13 @@ window.notification-popup {
 }
 
 .readout__value {
-    font-size: 2.6rem;
+    font-size: 2.2rem;
     font-weight: 300;
     letter-spacing: -0.02em;
 }
 
 .readout__unit {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 300;
     color: var(--gl-muted);
 }
@@ -1637,14 +1602,6 @@ window.notification-popup {
     margin: 0.3rem 0.65rem 0.5rem 0.65rem;
 }
 
-.audio-popover__device {
-    min-height: 3.2rem;
-}
-
-.printing-popover__printer--warning .row__subtitle {
-    color: var(--gl-warning-text);
-}
-
 .row--warning .row__subtitle,
 .row--warning .row__value,
 .battery-popover__hero--warning .hero__icon,
@@ -1682,8 +1639,8 @@ swatch {
 }
 
 .swatch--hero {
-    min-width: 2.6rem;
-    min-height: 2.6rem;
+    min-width: 2.4rem;
+    min-height: 2.4rem;
     border-radius: 0.7rem;
 }
 

@@ -132,32 +132,20 @@ fn drive_icon(drive: &ServiceDrive) -> &'static str {
 }
 
 fn drive_facts(drive: &ServiceDrive) -> Vec<Fact> {
-    match drive.media_available {
-        true => vec![Fact::new(
-            gettext("Size"),
-            glimpse_utils::size::bytes(drive.size),
-        )],
-        false => Vec::new(),
+    if !drive.media_available {
+        return vec![Fact::new(gettext("Status"), gettext("No media"))];
     }
-}
-
-fn drive_subtitle(drive: &ServiceDrive) -> String {
-    match drive.volumes.len() {
-        0 if !drive.media_available => gettext("No media"),
-        0 => glimpse_utils::size::bytes(drive.size),
-        1 => String::new(),
-        count => ngettext("{count} volume", "{count} volumes", count as u32)
-            .replace("{count}", &count.to_string()),
+    let mut facts = vec![Fact::new(
+        gettext("Size"),
+        glimpse_utils::size::bytes(drive.size),
+    )];
+    if drive.volumes.len() > 1 {
+        facts.push(Fact::new(
+            gettext("Volumes"),
+            drive.volumes.len().to_string(),
+        ));
     }
-}
-
-fn join(parts: &[&str]) -> String {
-    parts
-        .iter()
-        .filter(|part| !part.is_empty())
-        .copied()
-        .collect::<Vec<_>>()
-        .join(" · ")
+    facts
 }
 
 fn capacity_text(capacity: RemovableCapacity) -> String {
@@ -177,14 +165,18 @@ fn full(volume: &ServiceVolume) -> bool {
         .is_some_and(|capacity| capacity.available == 0)
 }
 
-fn volume_subtitle(volume: &ServiceVolume) -> String {
+fn volume_status(volume: &ServiceVolume) -> Vec<Fact> {
     match &volume.mount {
-        Some(_) if full(volume) => gettext("No space left"),
-        Some(mount) => mount.capacity.map(capacity_text).unwrap_or_default(),
-        None => join(&[
-            &gettext("Not mounted"),
-            &glimpse_utils::size::bytes(volume.size),
-        ]),
+        Some(_) if full(volume) => Vec::new(),
+        Some(mount) => mount
+            .capacity
+            .map(|capacity| Fact::new(gettext("Space"), capacity_text(capacity)))
+            .into_iter()
+            .collect(),
+        None => vec![
+            Fact::new(gettext("Status"), gettext("Not mounted")),
+            Fact::new(gettext("Size"), glimpse_utils::size::bytes(volume.size)),
+        ],
     }
 }
 
@@ -201,8 +193,9 @@ fn volume_facts(volume: &ServiceVolume) -> Vec<Fact> {
     let read_only = volume
         .read_only
         .then(|| Fact::new(gettext("Access"), gettext("Read-only")));
-    filesystem
+    volume_status(volume)
         .into_iter()
+        .chain(filesystem)
         .chain(mounted_at)
         .chain(read_only)
         .collect()
@@ -229,12 +222,14 @@ fn volume_row(volume: &ServiceVolume, drive: &ServiceDrive, icon: &str) -> Remov
     RemovableVolume {
         id: volume.id.as_str().to_owned(),
         title: volume_title(volume, drive),
-        subtitle: volume_subtitle(volume),
         icon: icon.to_owned(),
         fraction: fraction(capacity),
         busy: drive.busy.is_some() || volume.busy.is_some(),
         mounted: volume.mount.is_some(),
-        warning: full(volume),
+        problem: match full(volume) {
+            true => gettext("No space left"),
+            false => String::new(),
+        },
         facts: volume_facts(volume),
     }
 }
@@ -244,7 +239,6 @@ fn drive_row(drive: &ServiceDrive) -> RemovableDrive {
     RemovableDrive {
         id: drive.id.as_str().to_owned(),
         title: cap(&drive.name),
-        subtitle: drive_subtitle(drive),
         icon: icon.to_owned(),
         ejectable: drive.ejectable,
         busy: drive.busy.is_some(),
@@ -380,8 +374,14 @@ mod tests {
     #[test]
     fn an_unmounted_volume_reads_not_mounted_then_size_and_keeps_its_filesystem_in_the_card() {
         let unmounted = volume("/v1", "Backup", "exfat", None);
-        assert_eq!(volume_subtitle(&unmounted), "Not mounted · 64 GB");
-        assert_eq!(volume_facts(&unmounted), [Fact::new("Filesystem", "exfat")]);
+        assert_eq!(
+            volume_facts(&unmounted),
+            [
+                Fact::new("Status", "Not mounted"),
+                Fact::new("Size", "64 GB"),
+                Fact::new("Filesystem", "exfat"),
+            ]
+        );
     }
 
     #[test]
@@ -395,9 +395,11 @@ mod tests {
         };
         let mut full = volume("/v1", "Full", "exfat", Some(mount));
         full.read_only = true;
-        assert_eq!(volume_subtitle(&full), "No space left");
         let row = volume_row(&full, &drive("/drive0", vec![full.clone()]), ICON);
-        assert!(row.warning, "a full volume is a problem, so it reads amber");
+        assert_eq!(
+            row.problem, "No space left",
+            "a full volume is a problem, so its row says so in amber"
+        );
         assert_eq!(
             row.facts,
             [

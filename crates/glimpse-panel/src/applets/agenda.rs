@@ -64,7 +64,6 @@ pub fn row(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str) 
     Event {
         id: format!("{}|{}", event.start.timestamp(), event.summary),
         summary: event.summary.clone(),
-        detail: event.subtitle().to_owned(),
         when: when(now, day, event, clock),
         color: event.color,
         ..Default::default()
@@ -187,13 +186,22 @@ pub fn links(event: &Occasion) -> Vec<EventLink> {
 }
 
 pub fn facts(event: &Occasion) -> Vec<Fact> {
+    let location = (!event.location.is_empty())
+        .then(|| Fact::new(gettext("Location"), event.location.clone()));
     let calendar = (!event.calendar.is_empty())
         .then(|| Fact::new(gettext("Calendar"), event.calendar.clone()));
     let organizer = event
         .organizer
         .as_ref()
         .map(|organizer| Fact::new(gettext("Organizer"), organizer.clone()));
-    calendar.into_iter().chain(organizer).collect()
+    let description = (!event.description.is_empty())
+        .then(|| Fact::new(gettext("Description"), event.description.clone()));
+    location
+        .into_iter()
+        .chain(calendar)
+        .chain(organizer)
+        .chain(description)
+        .collect()
 }
 
 pub fn open_http(url: String) {
@@ -388,25 +396,17 @@ mod tests {
     }
 
     #[test]
-    fn a_row_subtitle_is_the_location_and_falls_back_to_the_description() {
+    fn the_location_and_description_are_facts_of_the_card() {
         let mut meeting = event(at(9, 0), at(10, 0));
         meeting.location = "Room 2".to_owned();
         meeting.description = "Bring slides".to_owned();
-        assert_eq!(
-            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
-            "Room 2"
-        );
+        let labels = |meeting: &Occasion| -> Vec<String> {
+            facts(meeting).into_iter().map(|fact| fact.label).collect()
+        };
+        assert_eq!(labels(&meeting), ["Location", "Description"]);
 
         meeting.location.clear();
-        assert_eq!(
-            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
-            "Bring slides"
-        );
-
         meeting.description.clear();
-        assert_eq!(
-            row(at(12, 0), at(12, 0).date_naive(), &meeting, CLOCK).detail,
-            ""
-        );
+        assert!(labels(&meeting).is_empty());
     }
 }

@@ -16,7 +16,6 @@ const PAST: &str = "event-list__row--past";
 pub struct Event {
     pub id: String,
     pub summary: String,
-    pub detail: String,
     pub when: String,
     pub color: Option<gdk::RGBA>,
     pub past: bool,
@@ -165,7 +164,6 @@ impl EventList {
         if let Some(row) = holder.head::<EventRow>() {
             let item: &Row = row.upcast_ref();
             item.set_title(Some(event.summary.as_str()));
-            item.set_subtitle(none_if_empty(&event.detail));
             item.set_activatable(opens || self.imp().activatable.get());
             crate::set_css_class(item, PAST, event.past);
             row.set_when(none_if_empty(&event.when));
@@ -188,6 +186,11 @@ impl EventList {
 
     fn card(&self, event: &Event) -> gtk4::Box {
         let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        if !event.facts.is_empty() {
+            let facts = FactList::new();
+            facts.set_facts(&event.facts);
+            card.append(&facts);
+        }
         for link in &event.links {
             let row = Row::new();
             row.set_title(Some(link.title.as_str()));
@@ -198,11 +201,6 @@ impl EventList {
                 move |_| list.emit_by_name::<()>("link-activated", &[&url])
             ));
             card.append(&row);
-        }
-        if !event.facts.is_empty() {
-            let facts = FactList::new();
-            facts.set_facts(&event.facts);
-            card.append(&facts);
         }
         card
     }

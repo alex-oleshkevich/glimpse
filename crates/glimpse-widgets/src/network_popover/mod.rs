@@ -2,7 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row};
+use crate::{
+    Expandable, FactList, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row,
+};
 
 pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
 
@@ -442,11 +444,15 @@ impl NetworkPopover {
             holder.set_details(None::<&gtk4::Widget>);
             return;
         };
-        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
-            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-            holder.set_details(Some(&rows));
-            rows
-        });
+        let card = holder
+            .details::<gtk4::Box>()
+            .unwrap_or_else(|| crate::fact_card(holder));
+        if let Some(facts) = card.first_child().and_downcast::<FactList>() {
+            facts.set_facts(&details.facts);
+        }
+        let Some(rows) = card.last_child().and_downcast::<gtk4::Box>() else {
+            return;
+        };
         let mut lines = imp.lines.borrow_mut();
         reconcile::by_key(
             &rows,
@@ -499,7 +505,6 @@ impl NetworkPopover {
 
 fn dress(row: &Row, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
-    row.set_subtitle(none_if_empty(&entry.subtitle));
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_busy(entry.busy);
     row.set_selected(entry.selected);
@@ -507,7 +512,6 @@ fn dress(row: &Row, entry: &Entry) {
 
 fn dress_line(row: &Row, line: &Line) {
     row.set_title(none_if_empty(&line.title));
-    row.set_value(none_if_empty(&line.value));
     row.set_busy(line.busy);
 
     let Some(on) = line.toggle else {

@@ -118,8 +118,8 @@ impl DisplayList {
         ));
 
         let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        body.append(&switch);
         body.append(&FactList::new());
+        body.append(&switch);
 
         let holder = Expandable::new(&row);
         holder.set_details(Some(&body));
@@ -131,15 +131,14 @@ fn apply(holder: &Expandable, display: &Display, power: bool, last_enabled: bool
     if let Some(row) = holder.head::<Row>() {
         row.set_title(Some(heading(display).as_str()));
         row.set_lead_icon(Some(icon_of(display)));
-        row.set_subtitle(subtitle_of(display));
     }
     let Some(body) = holder.details::<gtk4::Box>() else {
         return;
     };
-    if let Some(facts) = body.last_child().and_downcast::<FactList>() {
+    if let Some(facts) = body.first_child().and_downcast::<FactList>() {
         facts.set_facts(&facts_of(display));
     }
-    let Some(switch) = body.first_child().and_downcast::<SwitchRow>() else {
+    let Some(switch) = body.last_child().and_downcast::<SwitchRow>() else {
         return;
     };
     switch.set_visible(power);
@@ -166,16 +165,13 @@ fn icon_of(display: &Display) -> &'static str {
     }
 }
 
-fn subtitle_of(display: &Display) -> Option<String> {
-    match (display.enabled, &display.current_mode) {
-        (false, _) => Some(gettext("Off")),
-        (true, Some(mode)) => Some(mode_summary(mode)),
-        (true, None) => None,
-    }
-}
-
 fn facts_of(display: &Display) -> Vec<Fact> {
-    let mut facts = vec![Fact::new(gettext("Connector"), &display.connector)];
+    let mut facts = match (display.enabled, &display.current_mode) {
+        (false, _) => vec![Fact::new(gettext("Status"), gettext("Off"))],
+        (true, Some(mode)) => vec![Fact::new(gettext("Mode"), mode_summary(mode))],
+        (true, None) => Vec::new(),
+    };
+    facts.push(Fact::new(gettext("Connector"), &display.connector));
 
     if let Some(make) = non_empty(display.make.as_deref()) {
         facts.push(Fact::new(gettext("Make"), make));

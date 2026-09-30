@@ -153,7 +153,7 @@ pub fn facts(supply: &BatterySupply) -> Vec<Fact> {
         facts.push(Fact::new(gettext("Model"), model.clone()));
     }
     if let Some(vendor) = &supply.vendor {
-        facts.push(Fact::new(gettext("Vendor"), vendor.clone()));
+        facts.push(Fact::new(gettext("Make"), vendor.clone()));
     }
     facts
 }
@@ -515,7 +515,7 @@ mod tests {
             }),
         };
         let labels: Vec<_> = facts(&supply).into_iter().map(|fact| fact.label).collect();
-        assert!(labels.contains(&"Vendor".to_owned()));
+        assert!(labels.contains(&"Make".to_owned()));
         assert!(!labels.iter().any(|label| label == "Cycles"));
         assert!(
             !labels

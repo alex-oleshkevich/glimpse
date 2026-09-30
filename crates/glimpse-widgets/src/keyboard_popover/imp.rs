@@ -36,6 +36,7 @@ impl ObjectSubclass for KeyboardPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        crate::Hero::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }

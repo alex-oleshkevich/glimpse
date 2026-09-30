@@ -5,7 +5,6 @@ use crate::{set_css_class, set_text};
 
 const CHECK_ICON: &str = "object-select-symbolic";
 const SELECTED: &str = "row--on";
-const TWO_LINE: &str = "row--two";
 
 #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
 #[properties(wrapper_type = super::Row)]
@@ -67,7 +66,6 @@ impl Row {
 
     fn set_subtitle(&self, subtitle: Option<String>) {
         set_text(&self.subtitle, subtitle.as_deref());
-        set_css_class(&*self.obj(), TWO_LINE, self.subtitle.get_visible());
     }
 
     fn lead_icon(&self) -> Option<String> {

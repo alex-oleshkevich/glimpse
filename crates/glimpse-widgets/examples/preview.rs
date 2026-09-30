@@ -275,11 +275,11 @@ mod fixtures {
         DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
         Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
         InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF,
-        Pager, Player, PlayerList, PrintingDetail, PrintingJob, PrintingPopover, PrintingPrinter,
-        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState,
-        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
-        SystemMonitorDetail, SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip,
-        TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        Pager, Player, PlayerList, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
+        PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState, SessionSheet, Severity,
+        Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail, SystemMonitorPopover,
+        SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -1254,7 +1254,7 @@ mod fixtures {
                 Fact::new("Voltage", "12.1 V"),
                 Fact::new("Technology", "Li-ion"),
                 Fact::new("Model", "A32-K55"),
-                Fact::new("Vendor", "ASUS"),
+                Fact::new("Make", "ASUS"),
             ],
         );
         popover.set_devices(&[
@@ -3773,22 +3773,12 @@ mod fixtures {
                         PrintingPrinter {
                             id: "laserjet".into(),
                             name: "HP LaserJet 400".into(),
-                            status: "Default · paper jam".into(),
+                            status: "Paper jam in tray 2".into(),
                             warning: true,
                             network: false,
-                            details: vec![
-                                PrintingDetail {
-                                    label: "Location".into(),
-                                    value: "Study".into(),
-                                },
-                                PrintingDetail {
-                                    label: "Problem".into(),
-                                    value: "Paper jam in tray 2".into(),
-                                },
-                                PrintingDetail {
-                                    label: "Paper loaded".into(),
-                                    value: "A4, Letter".into(),
-                                },
+                            facts: vec![
+                                Fact::new("Location", "Study"),
+                                Fact::new("Paper loaded", "A4, Letter"),
                             ],
                         },
                         PrintingPrinter {
@@ -3797,19 +3787,10 @@ mod fixtures {
                             status: "IPP Everywhere · idle".into(),
                             warning: false,
                             network: true,
-                            details: vec![
-                                PrintingDetail {
-                                    label: "Location".into(),
-                                    value: "Kitchen".into(),
-                                },
-                                PrintingDetail {
-                                    label: "Prints".into(),
-                                    value: "Black & white, single-sided".into(),
-                                },
-                                PrintingDetail {
-                                    label: "Resolution".into(),
-                                    value: "600 dpi".into(),
-                                },
+                            facts: vec![
+                                Fact::new("Location", "Kitchen"),
+                                Fact::new("Prints", "Black & white, single-sided"),
+                                Fact::new("Resolution", "600 dpi"),
                             ],
                         },
                     ]);
@@ -4200,7 +4181,7 @@ mod fixtures {
         let event = |summary: &str, detail: &str, when: &str, color| Event {
             id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: detail.to_owned(),
+            facts: vec![Fact::new("Location", detail)],
             when: when.to_owned(),
             color: Some(color),
             ..Default::default()
@@ -4244,7 +4225,7 @@ mod fixtures {
         let event = |summary: &str, detail: &str, when: &str, color| Event {
             id: summary.to_owned(),
             summary: summary.to_owned(),
-            detail: detail.to_owned(),
+            facts: vec![Fact::new("Location", detail)],
             when: when.to_owned(),
             color: Some(color),
             ..Default::default()

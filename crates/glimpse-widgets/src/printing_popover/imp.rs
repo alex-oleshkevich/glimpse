@@ -1,14 +1,13 @@
 #[cfg(test)]
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Job {
@@ -32,15 +31,9 @@ pub struct Printer {
     /// The status is a problem — stopped, refusing jobs, or reporting a message — and the row says
     /// so in the warning colour rather than behind its card.
     pub warning: bool,
-    /// Rendered one `$Row` each in the printer's detail panel. The applet formats every label and
+    /// The facts the printer's card lists after its status. The applet formats every label and
     /// value; the widget only draws them, so nothing here is translated in this crate.
-    pub details: Vec<Detail>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Detail {
-    pub label: String,
-    pub value: String,
+    pub facts: Vec<Fact>,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -63,7 +56,6 @@ pub struct PrintingPopover {
     pub printer_data: RefCell<Vec<Printer>>,
     pub job_held: RefCell<Vec<(String, Expandable)>>,
     pub printer_held: RefCell<Vec<(String, Expandable)>>,
-    pub printer_lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
     #[cfg(test)]

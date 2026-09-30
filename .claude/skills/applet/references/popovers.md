@@ -48,8 +48,8 @@ $Section   header( [title]──►──[count] [trail] )  content  [placeholde
   into the same horizontal box.
 - **`.column` is what carries the width floor** — `min-width: var(--gl-popover-min-width)`, 27rem in
   `:root`. Put it on the content box, or on the single `$Section` when there is no box
-  (`KeyboardPopover`). Overriding the token per popover is the supported way to be narrower;
-  `KeyboardPopover` sets 8rem. **Never write a `width-request`** — `.claude/rules/ui.md` forbids it,
+  (`KeyboardPopover`). Overriding the token per popover is the supported way to be narrower.
+  **Never write a `width-request`** — `.claude/rules/ui.md` forbids it,
   and one smaller than the floor is silently inert.
 
 ## The skeleton

@@ -4,7 +4,7 @@ use gettextrs::{gettext, ngettext};
 use glimpse_services::{
     JobState, PrintJob, Printer as ServicePrinter, PrinterState, PrintingState,
 };
-use glimpse_widgets::{PrintingDetail, PrintingJob, PrintingPrinter};
+use glimpse_widgets::{Fact, PrintingJob, PrintingPrinter};
 
 pub const IDLE: &str = "printer-symbolic";
 pub const PRINTING: &str = "printer-printing-symbolic";
@@ -128,21 +128,17 @@ fn printer(printer: &ServicePrinter) -> PrintingPrinter {
         status: printer_status(printer),
         warning: troubled(printer),
         network: false,
-        details: printer_details(printer),
+        facts: printer_facts(printer),
     }
 }
 
-fn detail(label: String, value: String) -> PrintingDetail {
-    PrintingDetail { label, value }
-}
-
 /// A printer's card holds only where it is: the specs a queue reports — colour, sides, paper,
-/// resolution — are nothing a person acts on from a panel, and a problem is the row's own
-/// subtitle. A printer with no location has no card at all.
-fn printer_details(printer: &ServicePrinter) -> Vec<PrintingDetail> {
+/// resolution — are nothing a person acts on from a panel, and its status leads the card as a
+/// static line. A printer with neither has no card at all.
+fn printer_facts(printer: &ServicePrinter) -> Vec<Fact> {
     match printer.location.is_empty() {
         true => Vec::new(),
-        false => vec![detail(gettext("Location"), printer.location.clone())],
+        false => vec![Fact::new(gettext("Location"), printer.location.clone())],
     }
 }
 
@@ -362,7 +358,7 @@ mod tests {
     fn a_printer_card_holds_only_its_location() {
         let bare = printer_at("Office", PrinterState::Idle);
         assert!(
-            printer_details(&bare).is_empty(),
+            printer_facts(&bare).is_empty(),
             "a printer with no location has no card at all"
         );
 
@@ -372,7 +368,7 @@ mod tests {
         full.duplex = true;
         full.media_ready = vec!["A4".to_owned()];
         full.resolution = "600 dpi".to_owned();
-        let details = printer_details(&full);
+        let details = printer_facts(&full);
         assert_eq!(
             details.len(),
             1,
@@ -383,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn a_printer_problem_is_the_rows_own_subtitle_in_the_warning_colour() {
+    fn a_printer_problem_is_its_status_in_the_warning_colour() {
         let idle = printer_at("Office", PrinterState::Idle);
         let calm = printer(&idle);
         assert!(!calm.warning);

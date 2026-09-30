@@ -95,8 +95,10 @@ blurred card is translucent and would show a strip through its own bottom.
 ## Popovers
 
 `PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
-separator between each pair, and every separator paints transparent. **A detail card has at most one
-red action**, `crate::DESTRUCTIVE`: the least reversible one, so Forget outranks Disconnect.
+separator between each pair, and every separator paints transparent. **A row in a list is one line;
+its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
+**A detail card lists its facts first, in a `$FactList`, then its actions**, and has at most one red
+action, `crate::DESTRUCTIVE`: the least reversible one, so Forget outranks Disconnect.
 
 **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
 `init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `hero_box` into
@@ -193,7 +195,8 @@ action is a row, never an icon button, and it cannot live in the head** — `Row
 so a button inside one is a button inside a button and the inner never emits `clicked`. Formatting
 and sanitizing raw CUPS text is the panel applet's job, not this widget's.
 
-In `PrivacyPopover`, **a row is one app, and only a row that can be stopped opens.** `Mute
+In `PrivacyPopover`, **a row is one app, and it opens to what it uses and, when it can be stopped,
+Stop sharing.** `Mute
 microphone` is a `SwitchRow` under the list, not an action in an app's card, because it mutes the
 input device rather than that one app. `Swatch` paints its `color` property and nothing else; a
 color is data, so it is never a CSS class per value. `ColorList` takes finished `Shade`s, already
