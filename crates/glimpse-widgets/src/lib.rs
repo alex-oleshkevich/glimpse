@@ -3257,6 +3257,11 @@ mod tests {
             layout("English (US)", "US", true),
             layout("Russian", "RU", false),
         ]);
+        assert_eq!(
+            child_named::<Hero>(&keyboard, "hero").title().as_deref(),
+            Some("Keyboard"),
+            "the keyboard popover opens under a header like every other"
+        );
 
         let players = PlayerList::new();
         players.set_players(&[
@@ -7326,6 +7331,34 @@ mod tests {
             peeking.imp().covered_to(0),
             bottom(peek_strips[1].upcast_ref()),
             "the far edge paints only below the near one"
+        );
+
+        let hero_height = |subtitle: Option<&str>, slot: Option<gtk4::Widget>| {
+            let hero = Hero::new();
+            hero.set_title(Some("Wi-Fi"));
+            hero.set_subtitle(subtitle);
+            if let Some(slot) = slot {
+                hero.set_slot(&slot);
+            }
+            hero.measure(gtk4::Orientation::Vertical, -1).1
+        };
+        let reading = Readout::new();
+        reading.set_value(Some("72"));
+        reading.set_unit(Some("%"));
+        reading.set_visible(true);
+        let swatch = Swatch::default();
+        swatch.add_css_class("swatch--hero");
+        let bare = hero_height(None, None);
+        assert!(
+            [
+                hero_height(Some("Connected"), None),
+                hero_height(Some("Connected"), Some(gtk4::Switch::new().upcast())),
+                hero_height(Some("Connected"), Some(reading.upcast())),
+                hero_height(Some("Connected"), Some(swatch.upcast())),
+            ]
+            .iter()
+            .all(|height| *height == bare),
+            "every header is one height, whatever its subtitle and slot hold"
         );
     }
 

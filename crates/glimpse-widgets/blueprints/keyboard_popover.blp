@@ -8,6 +8,12 @@ template $KeyboardPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "input-keyboard-symbolic";
+      title: _("Keyboard");
+    }
+
     $Section layouts {
       styles [
         "column",
