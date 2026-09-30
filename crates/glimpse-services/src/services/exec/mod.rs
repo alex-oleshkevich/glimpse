@@ -5,7 +5,8 @@ mod spawn;
 mod tree;
 mod wire;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -17,10 +18,12 @@ use serde_json::{Map, Value};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
-use crate::selection::{Offer, Selection};
+use crate::selection::{Offer as SelectionOffer, Selection};
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, ServiceError, Sub};
 
+pub use sandbox::{exec_confine, exec_sandbox, exec_state_dir};
 pub use scope::{unit_name, unit_pattern};
+pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
 
 pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
 pub use tree::{
@@ -37,6 +40,7 @@ pub use wire::{
 
 const MAX_UPDATES_PER_SECOND: u32 = 120;
 const RETRY: Duration = Duration::from_secs(5);
+const OFFER_TTL: Duration = Duration::from_secs(5);
 const GESTURE: Duration = Duration::from_secs(2);
 const TEXT: &str = "text/plain;charset=utf-8";
 const URI_CAP: usize = 2048;
@@ -44,6 +48,7 @@ const URI_CAP: usize = 2048;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecState {
     pub slots: BTreeMap<u64, SlotState>,
+    pub offers: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,6 +66,7 @@ pub struct SlotState {
 pub enum Status {
     Starting,
     Running,
+    Ended,
     Restarting { attempt: u32 },
     Failed(String),
 }
@@ -98,10 +104,35 @@ pub struct Dependencies {
     pub notifications: NotificationsProviderHandle,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    Spawned,
+    Attached,
+}
+
+pub struct Pipes {
+    pub to_applet: OwnedFd,
+    pub from_applet: OwnedFd,
+}
+
+pub struct Offer {
+    pub output: Option<String>,
+    pub position: Option<Edge>,
+    pub entry: Entry,
+    pub options: Map<String, Value>,
+    pub pipes: Pipes,
+}
+
+struct StoredOffer {
+    offer: Offer,
+    offered_at: Instant,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SubKey {
     Child { slot: u64, spawn: u64 },
     Backoff { slot: u64, spawn: u64 },
+    Offer { applet: String, offered_at: Instant },
     Retry,
 }
 
@@ -135,8 +166,16 @@ pub enum Event {
         reason: String,
         resolved: Option<Entry>,
     },
+    Ended {
+        slot: u64,
+        spawn: u64,
+    },
     Backoff {
         slot: u64,
+    },
+    OfferExpired {
+        applet: String,
+        offered_at: Instant,
     },
     Retry,
     RetryReady {
@@ -169,6 +208,21 @@ pub enum Command {
         slot: u64,
         applet: String,
         placement: Placement,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Offer {
+        applet: String,
+        offer: Offer,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    OfferOptions {
+        applet: String,
+        options: Map<String, Value>,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetOptions {
+        slot: u64,
+        options: Map<String, Value>,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     Place {
@@ -226,6 +280,39 @@ impl ExecHandle {
             reply,
         }))
     }
+    pub fn offer(
+        &self,
+        applet: &str,
+        offer: Offer,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::Offer {
+            applet: applet.to_owned(),
+            offer,
+            reply,
+        }))
+    }
+    pub fn offer_options(
+        &self,
+        applet: &str,
+        options: Map<String, Value>,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::OfferOptions {
+            applet: applet.to_owned(),
+            options,
+            reply,
+        }))
+    }
+    pub fn set_options(
+        &self,
+        slot: u64,
+        options: Map<String, Value>,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::SetOptions {
+            slot,
+            options,
+            reply,
+        }))
+    }
     pub fn place(
         &self,
         slot: u64,
@@ -271,6 +358,8 @@ async fn answered((sent, answer): Pending) -> Result<(), CommandError> {
 }
 
 struct Slot {
+    origin: Origin,
+    pipes: Option<Arc<tokio::sync::Mutex<Option<Pipes>>>>,
     public: SlotState,
     placement: Placement,
     applet_id: String,
@@ -301,12 +390,99 @@ pub struct Exec {
     config: Config,
     dependencies: Dependencies,
     slots: BTreeMap<u64, Slot>,
+    offers: BTreeMap<String, StoredOffer>,
+    taken: BTreeMap<String, u64>,
     next_spawn: u64,
     next_generation: u64,
     scope_warned: Arc<AtomicBool>,
 }
 
 impl Exec {
+    fn desktop_id(&self, name: &str) -> String {
+        self.config
+            .applets
+            .get(name)
+            .map_or_else(|| name.to_owned(), |config| config.applet.clone())
+    }
+
+    fn attached_slot(&mut self, applet: String, placement: Placement, offer: Offer) -> Slot {
+        self.next_spawn += 1;
+        let applet_id = self.desktop_id(&applet);
+        let state = self
+            .config
+            .state_base
+            .as_ref()
+            .map(|base| base.join("applets").join(&applet_id));
+        Slot {
+            origin: Origin::Attached,
+            pipes: Some(Arc::new(tokio::sync::Mutex::new(Some(offer.pipes)))),
+            public: SlotState {
+                applet: applet.clone(),
+                generation: 0,
+                tree: Arc::new(Tree::default()),
+                status: Status::Starting,
+                title: offer.entry.name.clone(),
+                icon: offer.entry.icon.clone(),
+                requests: Vec::new(),
+            },
+            placement,
+            applet_id,
+            sandbox: glimpse_config::AppletSandbox::default(),
+            state,
+            entry: Some(offer.entry),
+            catalog_refused: false,
+            options: offer.options,
+            spawn: self.next_spawn,
+            attempt: 0,
+            backoff_until: None,
+            link: None,
+            stop: CancellationToken::new(),
+            popover_open: false,
+            last_gesture: None,
+            last_notify: None,
+            warned_gate: false,
+            last_failed_reason: None,
+            serial: 0,
+            failed_at: None,
+            failures: 0,
+            catalog_misses: 0,
+            resolving: false,
+        }
+    }
+
+    fn finish_attached(&mut self, id: u64, failed: Option<String>) {
+        let Some(slot) = self.slots.get_mut(&id) else {
+            return;
+        };
+        self.taken.remove(&slot.applet_id);
+        slot.link = None;
+        slot.pipes = None;
+        if let Some(config) = self.config.applets.get(&slot.public.applet) {
+            tracing::info!(applet = %slot.applet_id, slot = id, "attached applet ended, returning the configured one");
+            slot.origin = Origin::Spawned;
+            slot.applet_id = config.applet.clone();
+            slot.sandbox = config.sandbox.clone();
+            slot.options = config.options.clone();
+            slot.state = self
+                .config
+                .state_base
+                .as_ref()
+                .map(|base| base.join("applets").join(&config.applet));
+            slot.entry = None;
+            slot.attempt = 0;
+            slot.failures = 0;
+            slot.last_failed_reason = None;
+            self.spawn_slot(id);
+        } else if let Some(reason) = failed {
+            tracing::info!(applet = %slot.applet_id, slot = id, %reason, "attached applet failed");
+            slot.last_failed_reason = Some(reason.clone());
+            slot.public.status = Status::Failed(reason);
+        } else {
+            tracing::info!(applet = %slot.applet_id, slot = id, "attached applet ended");
+            slot.public.status = Status::Ended;
+        }
+    }
+
     fn publish(&self) {
         self.state.set(ExecState {
             slots: self
@@ -314,10 +490,23 @@ impl Exec {
                 .iter()
                 .map(|(id, slot)| (*id, slot.public.clone()))
                 .collect(),
+            offers: self
+                .offers
+                .keys()
+                .chain(self.taken.keys())
+                .cloned()
+                .collect(),
         });
     }
 
     fn spawn_slot(&mut self, id: u64) {
+        if self
+            .slots
+            .get(&id)
+            .is_some_and(|slot| slot.origin == Origin::Attached)
+        {
+            return;
+        }
         self.next_spawn += 1;
         if let Some(slot) = self.slots.get_mut(&id) {
             tracing::info!(applet = %slot.applet_id, slot = id, attempt = slot.attempt, "applet restarting");
@@ -405,7 +594,7 @@ impl Exec {
         match request {
             FromApplet::Copy { text } => {
                 if text.len() <= 1 << 20 {
-                    let offer = Offer {
+                    let offer = SelectionOffer {
                         mime: TEXT.to_owned(),
                         data: Arc::from(text.into_bytes()),
                     };
@@ -510,6 +699,10 @@ impl Service for Exec {
                         id: slot.applet_id.clone(),
                         sandbox: slot.sandbox.clone(),
                         state: slot.state.clone(),
+                        state_base: self.config.state_base.clone(),
+                        origin: slot.origin,
+                        pipes: slot.pipes.clone(),
+                        entry: slot.entry.clone(),
                         stop: slot.stop.clone(),
                         scope_warned: Arc::clone(&self.scope_warned),
                     };
@@ -533,14 +726,29 @@ impl Service for Exec {
                         ));
                     }
                 }
-                Status::Failed(_) => {}
+                Status::Failed(_) | Status::Ended => {}
             }
         }
-        if self
-            .slots
-            .values()
-            .any(|slot| matches!(slot.public.status, Status::Failed(_) | Status::Running))
-        {
+        for (applet, stored) in &self.offers {
+            let offered_at = stored.offered_at;
+            let remaining = OFFER_TTL.saturating_sub(offered_at.elapsed());
+            let at = Utc::now() + chrono::Duration::from_std(remaining).unwrap_or_default();
+            subs.push(Sub::deadline(
+                SubKey::Offer {
+                    applet: applet.clone(),
+                    offered_at,
+                },
+                at,
+                Event::OfferExpired {
+                    applet: applet.clone(),
+                    offered_at,
+                },
+            ));
+        }
+        if self.slots.values().any(|slot| {
+            slot.origin == Origin::Spawned
+                && matches!(slot.public.status, Status::Failed(_) | Status::Running)
+        }) {
             subs.push(Sub::interval(SubKey::Retry, RETRY, |_ctx| async {
                 Event::Retry
             }));
@@ -558,6 +766,8 @@ impl Service for Exec {
             config,
             dependencies,
             slots: BTreeMap::new(),
+            offers: BTreeMap::new(),
+            taken: BTreeMap::new(),
             next_spawn: 0,
             next_generation: 0,
             scope_warned: Arc::new(AtomicBool::new(false)),
@@ -576,6 +786,19 @@ impl Service for Exec {
                     let _ = reply.send(Err(CommandError::InvalidArgument(
                         "slot already attached".to_owned(),
                     )));
+                    return;
+                }
+                let desktop_id = self.desktop_id(&applet);
+                if self.offers.get(&desktop_id).is_some_and(|stored| {
+                    stored.offer.output.is_none() || stored.offer.output == placement.output
+                }) && let Some(stored) = self.offers.remove(&desktop_id)
+                {
+                    tracing::info!(applet = %desktop_id, slot, output = ?placement.output, "applet attached from its offer");
+                    let attached = self.attached_slot(applet, placement, stored.offer);
+                    self.slots.insert(slot, attached);
+                    self.taken.insert(desktop_id, slot);
+                    let _ = reply.send(Ok(()));
+                    self.publish();
                     return;
                 }
                 let config = self.config.applets.get(&applet);
@@ -609,6 +832,8 @@ impl Service for Exec {
                 self.slots.insert(
                     slot,
                     Slot {
+                        origin: Origin::Spawned,
+                        pipes: None,
                         public: SlotState {
                             applet,
                             generation: 0,
@@ -644,6 +869,112 @@ impl Service for Exec {
                 );
                 let _ = reply.send(Ok(()));
             }
+            Input::Command(Command::Offer {
+                applet,
+                offer,
+                reply,
+            }) => {
+                let id = self.desktop_id(&applet);
+                let result = if self.offers.contains_key(&id) || self.taken.contains_key(&id) {
+                    tracing::info!(applet = %id, "offer refused, already attached");
+                    Err(CommandError::InvalidArgument(format!(
+                        "{id} is already attached"
+                    )))
+                } else if let Some((&slot_id, _)) = self.slots.iter().find(|(_, slot)| {
+                    self.desktop_id(&slot.public.applet) == id
+                        && (slot.origin == Origin::Spawned
+                            || (slot.origin == Origin::Attached
+                                && matches!(slot.public.status, Status::Ended | Status::Failed(_))))
+                        && (offer.output.is_none() || offer.output == slot.placement.output)
+                        && offer
+                            .position
+                            .is_none_or(|edge| edge == slot.placement.position)
+                }) {
+                    self.next_spawn += 1;
+                    if let Some(slot) = self.slots.get_mut(&slot_id) {
+                        tracing::info!(applet = %id, slot = slot_id, output = ?slot.placement.output, from = ?slot.origin, "applet taken over by its offer");
+                        if let Some(link) = slot.link.take() {
+                            link.stop.cancel();
+                        }
+                        slot.stop.cancel();
+                        slot.stop = CancellationToken::new();
+                        slot.spawn = self.next_spawn;
+                        slot.origin = Origin::Attached;
+                        slot.applet_id = id.clone();
+                        slot.state = self
+                            .config
+                            .state_base
+                            .as_ref()
+                            .map(|base| base.join("applets").join(&id));
+                        slot.pipes = Some(Arc::new(tokio::sync::Mutex::new(Some(offer.pipes))));
+                        slot.entry = Some(offer.entry.clone());
+                        slot.options = offer.options;
+                        slot.public.title = offer.entry.name;
+                        slot.public.icon = offer.entry.icon;
+                        slot.public.status = Status::Starting;
+                        slot.attempt = 0;
+                        slot.backoff_until = None;
+                        slot.failures = 0;
+                        slot.last_failed_reason = None;
+                        slot.failed_at = None;
+                        slot.catalog_refused = false;
+                        slot.resolving = false;
+                    }
+                    self.taken.insert(id, slot_id);
+                    Ok(())
+                } else {
+                    tracing::info!(applet = %id, output = ?offer.output, "applet offered, waiting for its widget");
+                    self.offers.insert(
+                        id,
+                        StoredOffer {
+                            offer,
+                            offered_at: Instant::now(),
+                        },
+                    );
+                    Ok(())
+                };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::OfferOptions {
+                applet,
+                options,
+                reply,
+            }) => {
+                let id = self.desktop_id(&applet);
+                let result = if let Some(stored) = self.offers.get_mut(&id) {
+                    stored.offer.options = options;
+                    Ok(())
+                } else if let Some(slot) = self
+                    .taken
+                    .get(&id)
+                    .and_then(|slot| self.slots.get_mut(slot))
+                {
+                    slot.options = options.clone();
+                    if matches!(slot.public.status, Status::Running) {
+                        Self::send(slot, Outgoing::Options { options });
+                    }
+                    Ok(())
+                } else {
+                    Err(CommandError::InvalidArgument("unknown applet".to_owned()))
+                };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::SetOptions {
+                slot,
+                options,
+                reply,
+            }) => {
+                let result = if let Some(slot) = self.slots.get_mut(&slot) {
+                    slot.options = options.clone();
+                    if matches!(slot.public.status, Status::Running) {
+                        Self::send(slot, Outgoing::Options { options });
+                    }
+                    Ok(())
+                } else {
+                    Err(CommandError::InvalidArgument("unknown slot".to_owned()))
+                };
+                let _ = reply.send(result);
+            }
             Input::Command(Command::Place {
                 slot,
                 placement,
@@ -663,7 +994,11 @@ impl Service for Exec {
                 let _ = reply.send(result);
             }
             Input::Command(Command::Detach { slot, reply }) => {
-                self.slots.remove(&slot);
+                if let Some(state) = self.slots.remove(&slot)
+                    && state.origin == Origin::Attached
+                {
+                    self.taken.remove(&state.applet_id);
+                }
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SendEvent { event, reply }) => {
@@ -710,6 +1045,9 @@ impl Service for Exec {
                     state.public.icon = entry.icon.clone();
                     state.entry = Some(entry);
                     state.link = Some(link);
+                    if state.origin == Origin::Attached {
+                        state.pipes = None;
+                    }
                 } else {
                     link.stop.cancel();
                 }
@@ -722,7 +1060,9 @@ impl Service for Exec {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     self.next_generation += 1;
                     state.public.generation = self.next_generation;
-                    state.public.tree = Arc::new(Tree::default());
+                    if state.origin == Origin::Spawned {
+                        state.public.tree = Arc::new(Tree::default());
+                    }
                     state.public.status = Status::Running;
                     state.last_failed_reason = None;
                     state.last_gesture = None;
@@ -778,7 +1118,9 @@ impl Service for Exec {
                         state.entry = Some(entry);
                     }
                     state.public.tree = Arc::new(Tree::default());
-                    if !self.config.applets.contains_key(&state.public.applet) {
+                    if state.origin == Origin::Attached {
+                        self.finish_attached(slot, Some(reason));
+                    } else if !self.config.applets.contains_key(&state.public.applet) {
                         state.public.status = Status::Failed("not configured".to_owned());
                     } else if spoke && !matches!(state.public.status, Status::Failed(_)) {
                         tracing::warn!(applet = %state.public.applet, %reason, "applet exited");
@@ -806,9 +1148,29 @@ impl Service for Exec {
                     }
                 }
             }
+            Input::Event(Event::Ended { slot, spawn }) => {
+                if self
+                    .slots
+                    .get(&slot)
+                    .is_some_and(|s| s.spawn == spawn && s.origin == Origin::Attached)
+                {
+                    self.finish_attached(slot, None);
+                }
+            }
+            Input::Event(Event::OfferExpired { applet, offered_at }) => {
+                if self
+                    .offers
+                    .get(&applet)
+                    .is_some_and(|stored| stored.offered_at == offered_at)
+                {
+                    tracing::info!(%applet, "offer expired, no widget took it");
+                    self.offers.remove(&applet);
+                }
+            }
             Input::Event(Event::Backoff { slot }) => {
                 if self.slots.get(&slot).is_some_and(|s| {
-                    matches!(s.public.status, Status::Restarting { .. })
+                    s.origin == Origin::Spawned
+                        && matches!(s.public.status, Status::Restarting { .. })
                         && s.backoff_until.is_some_and(|at| Utc::now() >= at)
                 }) {
                     if self
@@ -824,7 +1186,8 @@ impl Service for Exec {
             }
             Input::Event(Event::Retry) => {
                 for (&slot, state) in &mut self.slots {
-                    if matches!(state.public.status, Status::Failed(_) | Status::Running)
+                    if state.origin == Origin::Spawned
+                        && matches!(state.public.status, Status::Failed(_) | Status::Running)
                         && !state.resolving
                         && self.config.applets.contains_key(&state.public.applet)
                     {
@@ -854,7 +1217,11 @@ impl Service for Exec {
                 spawn,
                 resolved,
             }) => {
-                if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
+                if let Some(state) = self
+                    .slots
+                    .get_mut(&slot)
+                    .filter(|s| s.spawn == spawn && s.origin == Origin::Spawned)
+                {
                     state.resolving = false;
                     state.catalog_misses = match &resolved {
                         Some(Err(_)) => state.catalog_misses.saturating_add(1),
@@ -904,6 +1271,9 @@ impl Service for Exec {
             Input::Config(config) => {
                 let mut respawn = Vec::new();
                 for (&id, slot) in &mut self.slots {
+                    if slot.origin == Origin::Attached {
+                        continue;
+                    }
                     match config.applets.get(&slot.public.applet) {
                         Some(applet) if applet.applet != slot.applet_id => {
                             slot.applet_id = applet.applet.clone();
@@ -967,6 +1337,9 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use glimpse_dbus::{Buses, notifications::NotificationsProvider};
+    use rustix::pipe::{PipeFlags, pipe_with};
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::unix::pipe;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
@@ -1183,6 +1556,684 @@ mod tests {
         })
         .await
         .expect("next generation")
+    }
+
+    fn attached_entry() -> Entry {
+        Entry {
+            argv: Vec::new(),
+            cwd: None,
+            name: "Attached applet".to_owned(),
+            icon: Some("test-symbolic".to_owned()),
+            path: PathBuf::new(),
+            exec: String::new(),
+        }
+    }
+
+    fn attached_peer() -> (Pipes, pipe::Sender, BufReader<pipe::Receiver>) {
+        let (from_applet, peer_writer) = pipe_with(PipeFlags::CLOEXEC).expect("applet pipe");
+        let (peer_reader, to_applet) = pipe_with(PipeFlags::CLOEXEC).expect("host pipe");
+        (
+            Pipes {
+                to_applet,
+                from_applet,
+            },
+            pipe::Sender::from_owned_fd(peer_writer).expect("peer writer"),
+            BufReader::new(pipe::Receiver::from_owned_fd(peer_reader).expect("peer reader")),
+        )
+    }
+
+    async fn offer_and_attach(
+        handle: &ExecHandle,
+        slot: u64,
+        applet: &str,
+        options: Map<String, Value>,
+        pipes: Pipes,
+    ) {
+        handle
+            .offer(
+                applet,
+                Offer {
+                    output: None,
+                    position: None,
+                    entry: attached_entry(),
+                    options,
+                    pipes,
+                },
+            )
+            .await
+            .expect("offer");
+        handle
+            .attach(slot, applet, placement())
+            .await
+            .expect("attach offer");
+    }
+
+    #[tokio::test]
+    async fn untaken_offer_expires_and_closes_its_pipes() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, _peer_writer, mut peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.x.A",
+                Offer {
+                    output: None,
+                    position: None,
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("offer");
+        assert!(handle.snapshot().offers.contains("me.x.A"));
+        tokio::time::timeout(
+            Duration::from_secs(7),
+            peer_reader.read_to_end(&mut Vec::new()),
+        )
+        .await
+        .expect("host pipe EOF")
+        .expect("host pipe read");
+        assert!(handle.snapshot().offers.is_empty());
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn reoffer_revives_an_ended_attached_slot() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("hello");
+        let mut line = String::new();
+        peer_reader.read_line(&mut line).await.expect("host hello");
+        let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        drop(peer_writer);
+        status(&handle, 1, |s| matches!(s, Status::Ended)).await;
+        assert!(handle.snapshot().offers.is_empty());
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.x.A",
+                Offer {
+                    output: None,
+                    position: None,
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("reoffer");
+        assert_eq!(handle.snapshot().slots.len(), 1);
+        assert_eq!(
+            handle.snapshot().slots.get(&1).expect("slot").status,
+            Status::Starting
+        );
+        assert!(handle.snapshot().offers.contains("me.x.A"));
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("second hello");
+        let mut line = String::new();
+        peer_reader
+            .read_line(&mut line)
+            .await
+            .expect("second host hello");
+        next_generation(&handle, 1, first.generation).await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn offer_revives_a_not_configured_slot_left_by_a_rebuild() {
+        let config = configured();
+        let base = config.state_base.clone().expect("state base");
+        let (handle, _sender, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, _peer_writer, _peer_reader) = attached_peer();
+        offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+        handle
+            .attach(2, "me.x.A", placement())
+            .await
+            .expect("replacement attach");
+        assert_eq!(
+            handle.snapshot().slots.get(&2).expect("replacement").status,
+            Status::Failed("not configured".to_owned())
+        );
+        handle.detach(1).await.expect("old detach");
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.x.A",
+                Offer {
+                    output: None,
+                    position: None,
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("reoffer");
+        assert_eq!(handle.snapshot().slots.len(), 1);
+        assert_eq!(
+            handle.snapshot().slots.get(&2).expect("replacement").status,
+            Status::Starting
+        );
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("hello");
+        let mut line = String::new();
+        tokio::time::timeout(Duration::from_secs(2), peer_reader.read_line(&mut line))
+            .await
+            .expect("host hello")
+            .expect("host pipe read");
+        let hello: Value = serde_json::from_str(&line).expect("json");
+        assert_eq!(hello["t"], "hello");
+        assert_eq!(
+            hello["state"],
+            base.join("applets/me.x.A").display().to_string()
+        );
+        status(&handle, 2, |s| matches!(s, Status::Running)).await;
+        handle.detach(2).await.expect("replacement detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn attach_takes_offer_for_its_output() {
+        let (_dir, entry, _output) = script(
+            "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nwhile read -r line; do :; done\n",
+        );
+        let (handle, _sender, cancel, task, _) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.example.Test",
+                Offer {
+                    output: Some("DP-1".to_owned()),
+                    position: None,
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("offer");
+        let mut other = placement();
+        other.output = Some("HDMI-1".to_owned());
+        handle.attach(1, "test", other).await.expect("other attach");
+        assert_eq!(
+            status(&handle, 1, |s| matches!(s, Status::Running))
+                .await
+                .title,
+            "Test applet"
+        );
+        assert!(handle.snapshot().offers.contains("me.example.Test"));
+        handle
+            .attach(2, "test", placement())
+            .await
+            .expect("matching attach");
+        assert_eq!(handle.snapshot().slots.len(), 2);
+        assert_eq!(
+            handle.snapshot().slots.get(&2).expect("slot").status,
+            Status::Starting
+        );
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("hello");
+        let mut line = String::new();
+        peer_reader.read_line(&mut line).await.expect("host hello");
+        assert_eq!(
+            serde_json::from_str::<Value>(&line).expect("json")["t"],
+            "hello"
+        );
+        assert_eq!(
+            status(&handle, 2, |s| matches!(s, Status::Running))
+                .await
+                .title,
+            "Attached applet"
+        );
+        handle.detach(1).await.expect("detach other");
+        handle.detach(2).await.expect("detach match");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn second_offer_for_the_same_id_is_refused() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        for attached in [false, true] {
+            let (pipes, _writer, _reader) = attached_peer();
+            let result = handle
+                .offer(
+                    "me.x.A",
+                    Offer {
+                        output: None,
+                        position: None,
+                        entry: attached_entry(),
+                        options: Map::new(),
+                        pipes,
+                    },
+                )
+                .await;
+            if attached {
+                assert!(
+                    matches!(result, Err(CommandError::InvalidArgument(reason)) if reason == "me.x.A is already attached")
+                );
+            } else {
+                result.expect("first offer");
+            }
+        }
+        handle
+            .attach(1, "me.x.A", placement())
+            .await
+            .expect("attach");
+        let (pipes, _writer, _reader) = attached_peer();
+        assert!(matches!(handle.offer("me.x.A", Offer {
+            output: None, position: None, entry: attached_entry(), options: Map::new(), pipes,
+        }).await, Err(CommandError::InvalidArgument(reason)) if reason == "me.x.A is already attached"));
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn offer_takes_over_the_slot_on_its_panel_edge() {
+        let (_dir, entry, _pid_file) = script(
+            "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nwhile read -r line; do :; done\n",
+        );
+        let (handle, _sender, cancel, task, _) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle
+            .attach(1, "test", placement())
+            .await
+            .expect("attach top");
+        let bottom = Placement {
+            position: Edge::Bottom,
+            ..placement()
+        };
+        handle
+            .attach(2, "test", bottom)
+            .await
+            .expect("attach bottom");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        status(&handle, 2, |s| matches!(s, Status::Running)).await;
+        let (pipes, _peer_writer, _peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.example.Test",
+                Offer {
+                    output: Some("DP-1".to_owned()),
+                    position: Some(Edge::Bottom),
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("take over");
+        let snapshot = handle.snapshot();
+        assert_ne!(
+            snapshot.slots.get(&1).expect("top").title,
+            "Attached applet"
+        );
+        assert_eq!(
+            snapshot.slots.get(&2).expect("bottom").title,
+            "Attached applet"
+        );
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn offer_takes_over_spawned_slot_and_returns_it() {
+        let (_dir, entry, pid_file) = script(
+            "#!/bin/sh\necho $$ > \"$1\"\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"commit\",\"ops\":[{\"op\":\"insert\",\"parent\":0,\"node\":{\"id\":1,\"type\":\"indicator\"}}]}\\n'\nwhile read -r line; do :; done\n",
+        );
+        let (handle, _sender, cancel, task, _) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while handle
+                .snapshot()
+                .slots
+                .get(&1)
+                .expect("slot")
+                .tree
+                .children(ROOT)
+                != [1]
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("first tree");
+        let pid = file_contains(&pid_file, "").await;
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        handle
+            .offer(
+                "me.example.Test",
+                Offer {
+                    output: Some("DP-1".to_owned()),
+                    position: None,
+                    entry: attached_entry(),
+                    options: Map::new(),
+                    pipes,
+                },
+            )
+            .await
+            .expect("take over");
+        assert!(handle.snapshot().offers.contains("me.example.Test"));
+        assert_eq!(handle.snapshot().slots.len(), 1);
+        assert_eq!(
+            handle.snapshot().slots.get(&1).expect("slot").title,
+            "Attached applet"
+        );
+        assert_eq!(
+            handle
+                .snapshot()
+                .slots
+                .get(&1)
+                .expect("slot")
+                .tree
+                .children(ROOT),
+            [1]
+        );
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while PathBuf::from(format!("/proc/{}", pid.trim())).exists() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("child stopped");
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("peer hello");
+        let mut line = String::new();
+        peer_reader.read_line(&mut line).await.expect("host hello");
+        next_generation(&handle, 1, first.generation).await;
+        drop(peer_writer);
+        status(&handle, 1, |s| matches!(s, Status::Starting)).await;
+        assert!(handle.snapshot().offers.is_empty());
+        next_generation(&handle, 1, first.generation + 1).await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn detach_of_attached_slot_closes_pipes_and_drops_offer() {
+        for fail in [false, true] {
+            let (handle, _sender, cancel, task, _) = running_with(
+                configured(),
+                Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                    "not installed".to_owned()
+                ))))),
+            );
+            let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+            offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+            assert!(handle.snapshot().offers.contains("me.x.A"));
+            peer_writer
+                .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+                .await
+                .expect("hello");
+            let mut line = String::new();
+            peer_reader.read_line(&mut line).await.expect("host hello");
+            if fail {
+                for _ in 0..EXEC_MAX_HELLOS {
+                    peer_writer
+                        .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+                        .await
+                        .expect("hello");
+                }
+                status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+            } else {
+                handle.detach(1).await.expect("detach");
+            }
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                peer_reader.read_to_end(&mut Vec::new()),
+            )
+            .await
+            .expect("host pipe EOF")
+            .expect("host pipe read");
+            if fail {
+                handle.detach(1).await.expect("detach");
+            }
+            assert!(handle.snapshot().offers.is_empty());
+            drop(peer_writer);
+            cancel.cancel();
+            let _ = task.await;
+        }
+    }
+
+    #[tokio::test]
+    async fn offer_options_reach_running_attached_slot() {
+        let config = configured();
+        let base = config.state_base.clone().expect("state base");
+        let (handle, sender, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        let options = Map::from_iter([("color".to_owned(), Value::from("blue"))]);
+        offer_and_attach(&handle, 1, "me.x.A", options, pipes).await;
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("hello");
+        let mut line = String::new();
+        peer_reader.read_line(&mut line).await.expect("host hello");
+        let hello: Value = serde_json::from_str(&line).expect("json");
+        assert_eq!(
+            hello["state"],
+            base.join("applets/me.x.A").display().to_string()
+        );
+        assert_eq!(hello["options"]["color"], "blue");
+        let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        assert_eq!(first.title, "Attached applet");
+        assert_eq!(first.icon.as_deref(), Some("test-symbolic"));
+        peer_writer.write_all(b"{\"t\":\"commit\",\"ops\":[{\"op\":\"insert\",\"parent\":0,\"node\":{\"id\":1,\"type\":\"indicator\"}}]}\n").await.expect("commit");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while handle
+                .snapshot()
+                .slots
+                .get(&1)
+                .is_none_or(|s| s.tree.children(ROOT) != [1])
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("tree");
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("second hello");
+        line.clear();
+        peer_reader
+            .read_line(&mut line)
+            .await
+            .expect("second host hello");
+        let second = next_generation(&handle, 1, first.generation).await;
+        assert_eq!(second.tree.children(ROOT), [1]);
+        assert_eq!(second.status, Status::Running);
+        sender.reconfigure(Config {
+            applets: BTreeMap::new(),
+            state_base: Some(base),
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            handle.snapshot().slots.get(&1).expect("slot").status,
+            Status::Running
+        );
+        handle
+            .offer_options(
+                "me.x.A",
+                Map::from_iter([("color".to_owned(), Value::from("red"))]),
+            )
+            .await
+            .expect("set options");
+        line.clear();
+        peer_reader.read_line(&mut line).await.expect("options");
+        let options: Value = serde_json::from_str(&line).expect("json");
+        assert_eq!(options["t"], "options");
+        assert_eq!(options["options"]["color"], "red");
+        assert!(
+            matches!(handle.offer_options("unknown", Map::new()).await, Err(CommandError::InvalidArgument(reason)) if reason == "unknown applet")
+        );
+        drop(peer_writer);
+        status(&handle, 1, |s| matches!(s, Status::Ended)).await;
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn attached_eof_is_terminal() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, mut peer_writer, mut peer_reader) = attached_peer();
+        offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+        peer_writer
+            .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+            .await
+            .expect("hello");
+        let mut line = String::new();
+        peer_reader.read_line(&mut line).await.expect("host hello");
+        drop(peer_writer);
+        let ended = status(&handle, 1, |s| matches!(s, Status::Ended)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            handle.snapshot().slots.get(&1).expect("slot").status,
+            Status::Ended
+        );
+        assert_eq!(ended.generation, 1);
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn attached_read_write_fifo_is_refused() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fifo = dir.path().join("fifo");
+        rustix::fs::mknodat(
+            rustix::fs::CWD,
+            &fifo,
+            rustix::fs::FileType::Fifo,
+            rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+            0,
+        )
+        .expect("fifo");
+        let from_applet = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&fifo)
+            .expect("open fifo");
+        let (_host_reader, to_applet) = std::io::pipe().expect("pipe");
+        offer_and_attach(
+            &handle,
+            1,
+            "me.x.A",
+            Map::new(),
+            Pipes {
+                to_applet: to_applet.into(),
+                from_applet: from_applet.into(),
+            },
+        )
+        .await;
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert_eq!(
+            failed.status,
+            Status::Failed("applet pipe must be opened read-only".to_owned())
+        );
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn attached_hello_cap_and_missing_state_base() {
+        let (handle, _sender, cancel, task, _) = running_with(
+            configured(),
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, mut peer_writer, _peer_reader) = attached_peer();
+        offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+        for _ in 0..=EXEC_MAX_HELLOS {
+            peer_writer
+                .write_all(b"{\"t\":\"hello\",\"v\":1}\n")
+                .await
+                .expect("hello");
+        }
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert_eq!(failed.status, Status::Failed("too many hellos".to_owned()));
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+
+        let mut config = configured();
+        config.state_base = None;
+        let (handle, _sender, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Err(
+                "not installed".to_owned()
+            ))))),
+        );
+        let (pipes, _peer_writer, _peer_reader) = attached_peer();
+        offer_and_attach(&handle, 1, "me.x.A", Map::new(), pipes).await;
+        let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        assert_eq!(
+            failed.status,
+            Status::Failed("cannot determine applet state directory".to_owned())
+        );
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
     }
 
     #[tokio::test]

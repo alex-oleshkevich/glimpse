@@ -1,5 +1,5 @@
 use std::ffi::{CString, OsStr};
-use std::os::fd::{FromRawFd, OwnedFd};
+use std::os::fd::{FromRawFd, OwnedFd, RawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -152,15 +152,41 @@ fn add_path(ruleset: &OwnedFd, path: &Path, access: u64) -> Result<(), String> {
     Ok(())
 }
 
-pub(super) fn ruleset(
+fn protect_state_dir(state: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(state)
+        .map_err(|error| format!("cannot create applet state directory: {error}"))?;
+    std::fs::set_permissions(state, std::fs::Permissions::from_mode(0o700))
+        .map_err(|error| format!("cannot protect applet state directory: {error}"))
+}
+
+pub fn exec_state_dir(base: &Path, id: &str) -> Result<PathBuf, String> {
+    let state = base.join("applets").join(id);
+    protect_state_dir(&state)?;
+    Ok(state)
+}
+
+pub fn exec_confine(ruleset: Option<RawFd>, parent: rustix::process::Pid) -> std::io::Result<()> {
+    rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::KILL))?;
+    if rustix::process::getppid() != Some(parent) {
+        return Err(rustix::io::Errno::SRCH.into());
+    }
+    if let Some(fd) = ruleset {
+        if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        if unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, 0) } < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+    }
+    Ok(())
+}
+
+pub fn exec_sandbox(
     sandbox: &AppletSandbox,
     id: &str,
     state: &Path,
 ) -> Result<Option<OwnedFd>, String> {
-    std::fs::create_dir_all(state)
-        .map_err(|error| format!("cannot create applet state directory: {error}"))?;
-    std::fs::set_permissions(state, std::fs::Permissions::from_mode(0o700))
-        .map_err(|error| format!("cannot protect applet state directory: {error}"))?;
+    protect_state_dir(state)?;
     if sandbox.unconfined {
         return Ok(None);
     }
@@ -250,9 +276,25 @@ pub(super) fn ruleset(
 #[cfg(test)]
 mod tests {
     use std::ffi::OsStr;
+    use std::os::unix::fs::PermissionsExt;
     use std::path::{Path, PathBuf};
 
-    use super::{expanded, path_entries, require_abi};
+    use super::{exec_state_dir, expanded, path_entries, require_abi};
+
+    #[test]
+    fn state_dir_is_private() {
+        let base = tempfile::tempdir().expect("tempdir");
+        let state = exec_state_dir(base.path(), "me.x.A").expect("state dir");
+        assert_eq!(state, base.path().join("applets/me.x.A"));
+        assert_eq!(
+            std::fs::metadata(state)
+                .expect("metadata")
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+    }
 
     #[test]
     fn old_kernel_requires_unconfined() {

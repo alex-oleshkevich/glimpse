@@ -39,9 +39,10 @@ Scroll reaches an applet as whole notches, accumulated per axis so a touchpad's 
 lose their remainder mid-gesture; pointer input names no indicator, so the whole group is one
 clickable target.
 
-**Zone reconciliation is keyed by `(zone, name, kind)`**, which is what stops every applet being
-rebuilt on every theme write; a name with no implementation still occupies a `Slot` with
-`handle: None`, keeping the key sequences comparable. There is deliberately no staleness, no
+**Zone reconciliation keys applets by `(zone, name, kind)`**. An attached desktop id enters its
+zone only when no configured exec applet on the bar resolves to that id; the configured widget
+takes the offer in place. A name with no implementation still occupies a `Slot`
+with `handle: None`, keeping the key sequences comparable. There is deliberately no staleness, no
 `degraded`, no timer, and a runtime's only outward channel is its `applet.<serial>` action.
 **Anything on the session bus can activate that action exactly as a pointer can**: a click runs a
 command applet and a middle click mutes audio; only the session actions still ask for a second click

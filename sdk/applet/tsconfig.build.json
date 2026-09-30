@@ -7,5 +7,5 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["index.ts", "jsx-runtime.ts", "reconciler.ts"]
+  "include": ["index.ts", "jsx-runtime.ts", "reconciler.ts", "testing.ts"]
 }

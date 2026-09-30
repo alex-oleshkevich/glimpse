@@ -31,6 +31,19 @@ use crate::{
 
 static NEXT_SLOT: AtomicU64 = AtomicU64::new(1);
 
+fn next_slot() -> u64 {
+    NEXT_SLOT.fetch_add(1, Ordering::Relaxed)
+}
+
+pub(crate) fn edge(position: Position) -> Edge {
+    match position {
+        Position::Top => Edge::Top,
+        Position::Bottom => Edge::Bottom,
+        Position::Left => Edge::Left,
+        Position::Right => Edge::Right,
+    }
+}
+
 pub(crate) fn placement(
     position: Position,
     size: u32,
@@ -39,12 +52,7 @@ pub(crate) fn placement(
 ) -> Placement {
     Placement {
         output,
-        position: match position {
-            Position::Top => Edge::Top,
-            Position::Bottom => Edge::Bottom,
-            Position::Left => Edge::Left,
-            Position::Right => Edge::Right,
-        },
+        position: edge(position),
         orientation: match position {
             Position::Top | Position::Bottom => Orientation::Horizontal,
             Position::Left | Position::Right => Orientation::Vertical,
@@ -86,7 +94,7 @@ impl Exec {
         dialog: relm4::Sender<AppInput>,
         placement: Placement,
     ) -> Self {
-        let slot = NEXT_SLOT.fetch_add(1, Ordering::Relaxed);
+        let slot = next_slot();
         let report = Report {
             notifications: notifications.clone(),
             app_name: glimpse_utils::clean(name, 256),

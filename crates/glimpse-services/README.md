@@ -179,7 +179,7 @@ PipeWire**, since PipeWire is blind to raw V4L2 capture. **`app: None` is first-
 resource, and always the case for location**, since GeoClue has no per-client attribution; it takes
 no commands at all.
 
-**exec** — an attached slot owns one external process and one tree. The child speaks first with
+**exec** — a slot owns a configured child or offered pipes; when the pipes end, a configured slot spawns its child again. A takeover keeps the last tree until the next applet hello and commit. The applet speaks first with
 `Hello`; every `Hello` resets its tree and advances the generation, so stale UI events cannot reach
 a reloaded applet. Placement and options changes go over its stdin without respawning it. A failed
 child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in

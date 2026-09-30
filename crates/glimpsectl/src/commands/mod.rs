@@ -5,13 +5,14 @@ pub mod doctor;
 pub mod idle;
 pub mod notifications;
 pub mod panel;
+pub mod run;
 pub mod session;
 pub mod status;
 pub mod sunset;
 pub mod weather;
 
 pub use applets::{applets_inspect, applets_list, applets_restart};
-pub use applets_author::{applets_dev, applets_new, applets_run};
+pub use applets_author::applets_new;
 pub use config::{config_path, config_show, config_validate};
 pub use doctor::doctor;
 pub use idle::{idle_inhibit, idle_release, idle_status};
@@ -19,6 +20,7 @@ pub use notifications::{
     notifications_clear, notifications_dismiss, notifications_dnd, notifications_list,
 };
 pub use panel::panel;
+pub use run::applets_run;
 pub use session::session_declare;
 pub use status::status;
 pub use sunset::{sunset_mode, sunset_status, sunset_temperature};

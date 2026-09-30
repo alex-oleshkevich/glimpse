@@ -33,6 +33,7 @@ var/demo/rs/target/
 !var/sysstats/**
 var/sysstats/sysstats-applet
 config.toml
+!sdk/template/config.toml
 .envrc
 
 # Beads / Dolt files (added by bd init)

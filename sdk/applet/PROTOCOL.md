@@ -1,9 +1,10 @@
 # Applet protocol
 
-The panel is the host. An applet is a child process. They exchange UTF-8 NDJSON on the
-child's stdin and stdout: one JSON object per line, separated by `\n`. The host also
-accepts a trailing `\r`. Stderr is not part of the protocol; the panel logs it, at most 50
-lines a second, each line up to 4 KiB.
+The panel is the host. It starts the applet as a child process, or `glimpsectl applets run --dev`
+starts it and relays the protocol to the panel. The host writes the applet's stdin and reads
+its stdout as UTF-8 NDJSON: one JSON object per line, separated by `\n`. The host also
+accepts a trailing `\r`. Stderr is not part of the protocol; the panel logs it at most 50
+lines a second, each line up to 4 KiB, while `glimpsectl applets run --dev` sends it to the terminal.
 
 Each line is at most 1 MiB (1,048,576 bytes), not counting the newline. A longer line is
 rejected. A single JSON value nests at most 128 levels; a deeper tree is built across

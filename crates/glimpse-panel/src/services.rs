@@ -24,6 +24,7 @@ use glimpse_services::{
 };
 
 pub struct PanelServices {
+    pub session: Option<zbus::Connection>,
     pub compositor: CompositorHandle,
     pub keyboard: KeyboardHandle,
     pub calendar: CalendarHandle,
@@ -80,6 +81,7 @@ impl PanelServices {
     }
 
     pub(crate) fn start_with_buses(document: &Config, buses: Buses) -> Self {
+        let session = buses.session_bus().ok().cloned();
         let (notifications, weather, night_light, idle) = match buses.session_bus() {
             Ok(connection) => (
                 NotificationsProvider::start(connection.clone()),
@@ -195,6 +197,7 @@ impl PanelServices {
         let (kdeconnect_service, kdeconnect) = Running::<Kdeconnect>::spawn(document, buses, ());
 
         Self {
+            session,
             compositor,
             keyboard,
             calendar,

@@ -154,7 +154,7 @@ verify: fmt-check check lint test check-strings
 
 [doc("run the applet SDK tests")]
 sdk-test:
-    cd sdk/applet && timeout 300 npm ci && timeout 300 node --test
+    cd sdk/applet && timeout 300 npm ci && timeout 300 npm run check && timeout 300 node --test
 
 [doc("publish glimpse-sdk to npm; extra arguments go to npm publish, e.g. --dry-run")]
 sdk-publish *ARGS: sdk-test

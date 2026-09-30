@@ -149,16 +149,9 @@ pub struct Sandbox {
     pub unconfined: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct DevSettings {
-    pub options: serde_json::Map<String, serde_json::Value>,
-    pub sandbox: Sandbox,
-}
-
-impl DevSettings {
+impl Sandbox {
     pub fn resolve(mut self, dir: &Path) -> Result<Self, String> {
-        for path in self.sandbox.read.iter_mut().chain(&mut self.sandbox.write) {
+        for path in self.read.iter_mut().chain(&mut self.write) {
             if !Path::new(path).is_absolute() && !path.starts_with("~/") {
                 *path = dir
                     .join(&*path)
@@ -169,7 +162,7 @@ impl DevSettings {
                     .map_err(|_| "sandbox path is not UTF-8".to_owned())?;
             }
         }
-        validate_sandbox_paths(&self.sandbox)?;
+        validate_sandbox_paths(&self)?;
         Ok(self)
     }
 }
@@ -1178,19 +1171,23 @@ mod tests {
     };
 
     #[test]
-    fn dev_settings_resolve_sandbox_paths_and_refuse_unknown_keys() {
-        let settings: super::DevSettings =
-            toml::from_str("options = {}\n[sandbox]\nread = [\".\"]\n")
-                .expect("dev settings parse");
-        let resolved = settings
+    fn exec_sandbox_resolves_paths_and_refuses_unknown_keys() {
+        let config: super::Exec =
+            toml::from_str("applet = \"me.x.A\"\noptions = {}\n[sandbox]\nread = [\".\"]\n")
+                .expect("exec settings parse");
+        let resolved = config
+            .sandbox
             .resolve(std::path::Path::new("/a/b"))
             .expect("paths resolve");
-        assert_eq!(resolved.sandbox.read, ["/a/b"]);
-        assert!(toml::from_str::<super::DevSettings>("unknown = true").is_err());
-        assert!(toml::from_str::<super::DevSettings>("[sandbox]\nextra = true").is_err());
+        assert_eq!(resolved.read, ["/a/b"]);
+        assert!(toml::from_str::<super::Exec>("applet = \"me.x.A\"\nunknown = true").is_err());
         assert!(
-            toml::from_str::<super::DevSettings>("[sandbox]\nread = [\"relative\"]")
+            toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nextra = true").is_err()
+        );
+        assert!(
+            toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nread = [\"relative\"]")
                 .expect("relative dev grants parse")
+                .sandbox
                 .resolve(std::path::Path::new("relative-dir"))
                 .is_err()
         );

@@ -29,6 +29,10 @@
       "types": "./dist/jsx-runtime.d.ts",
       "default": "./dist/jsx-runtime.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./package.json": "./package.json"
   },
   "files": ["dist", "PROTOCOL.md"],

@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Stdio};
@@ -8,16 +8,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, Stream, StreamExt, stream};
-use tokio::process::{Child, ChildStderr, ChildStdout, Command};
-use tokio::sync::mpsc;
+use rustix::fs::OFlags;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::unix::pipe;
+use tokio::process::{Child, ChildStderr, Command};
+use tokio::sync::{Mutex, mpsc};
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec, LinesCodecError};
 use tokio_util::sync::CancellationToken;
 
 use crate::Ctx;
 
 use super::{
-    Catalog, Event, Exec, FromApplet, Link, MAX_LINE, MAX_UPDATES_PER_SECOND, Outgoing, Tree,
-    sandbox, scope,
+    Catalog, Event, Exec, FromApplet, Link, MAX_LINE, MAX_UPDATES_PER_SECOND, Origin, Outgoing,
+    Pipes, Tree, sandbox, scope,
 };
 
 struct ChildStream {
@@ -28,6 +31,9 @@ struct ChildStream {
     id: String,
     sandbox: glimpse_config::AppletSandbox,
     state: Option<PathBuf>,
+    state_base: Option<PathBuf>,
+    origin: Origin,
+    pipes: Option<Arc<Mutex<Option<Pipes>>>>,
     hello_state: String,
     resolved: Option<super::Entry>,
     child: Option<Child>,
@@ -35,7 +41,7 @@ struct ChildStream {
     scope: Option<String>,
     scope_warned: Arc<AtomicBool>,
     queue_full: Arc<AtomicBool>,
-    stdout: Option<FramedRead<ChildStdout, LinesCodec>>,
+    stdout: Option<FramedRead<Box<dyn AsyncRead + Send + Unpin>, LinesCodec>>,
     stop: CancellationToken,
     began: Instant,
     spoke: bool,
@@ -46,8 +52,8 @@ struct ChildStream {
     done: bool,
 }
 
-const MAX_HELLOS: usize = 5;
-const HELLO_WINDOW: Duration = Duration::from_secs(10);
+pub const EXEC_MAX_HELLOS: usize = 5;
+pub const EXEC_HELLO_WINDOW: Duration = Duration::from_secs(10);
 const STDERR_LINE: usize = 4096;
 const STDERR_LINES_PER_SECOND: u32 = 50;
 
@@ -57,6 +63,10 @@ pub(super) struct SourceArgs {
     pub id: String,
     pub sandbox: glimpse_config::AppletSandbox,
     pub state: Option<PathBuf>,
+    pub state_base: Option<PathBuf>,
+    pub origin: Origin,
+    pub pipes: Option<Arc<Mutex<Option<Pipes>>>>,
+    pub entry: Option<super::Entry>,
     pub stop: CancellationToken,
     pub scope_warned: Arc<AtomicBool>,
 }
@@ -90,8 +100,11 @@ pub async fn source(
             id: args.id,
             sandbox: args.sandbox,
             state: args.state,
+            state_base: args.state_base,
+            origin: args.origin,
+            pipes: args.pipes,
             hello_state: String::new(),
-            resolved: None,
+            resolved: args.entry,
             child: None,
             group: None,
             scope: None,
@@ -144,8 +157,11 @@ impl ChildStream {
             if self.done {
                 return None;
             }
-            if self.child.is_none() {
-                return self.start().await;
+            if self.stdout.is_none() {
+                return match self.origin {
+                    Origin::Spawned => self.start().await,
+                    Origin::Attached => self.start_attached().await,
+                };
             }
             self.throttle().await;
             if let Some(event) = self.read().await {
@@ -155,15 +171,23 @@ impl ChildStream {
     }
 
     async fn read(&mut self) -> Option<Event> {
-        let (Some(child), Some(stdout)) = (self.child.as_mut(), self.stdout.as_mut()) else {
+        let Some(stdout) = self.stdout.as_mut() else {
             self.done = true;
             return None;
         };
-        let result = tokio::select! {
-            biased;
-            line = stdout.next() => Read::Line(line),
-            _ = self.stop.cancelled() => Read::Stop,
-            status = child.wait() => Read::Exit(status.map(exit_reason).unwrap_or_else(|error| error.to_string())),
+        let result = if let Some(child) = self.child.as_mut() {
+            tokio::select! {
+                biased;
+                line = stdout.next() => Read::Line(line),
+                _ = self.stop.cancelled() => Read::Stop,
+                status = child.wait() => Read::Exit(status.map(exit_reason).unwrap_or_else(|error| error.to_string())),
+            }
+        } else {
+            tokio::select! {
+                biased;
+                line = stdout.next() => Read::Line(line),
+                _ = self.stop.cancelled() => Read::Stop,
+            }
         };
         if matches!(result, Read::Line(Some(Ok(_)))) {
             self.updates += 1;
@@ -183,6 +207,14 @@ impl ChildStream {
             }
             Read::Exit(reason) => self.finish(reason, false).await,
             Read::Line(None) => {
+                if self.origin == Origin::Attached {
+                    self.done = true;
+                    self.stop.cancel();
+                    return Some(Event::Ended {
+                        slot: self.slot,
+                        spawn: self.spawn,
+                    });
+                }
                 let reason = match self.child.as_mut() {
                     Some(child) => {
                         match tokio::time::timeout(Duration::from_secs(1), child.wait()).await {
@@ -206,9 +238,9 @@ impl ChildStream {
                 Ok(FromApplet::Hello { v: 1 }) => {
                     let now = Instant::now();
                     self.hellos
-                        .retain(|at| now.duration_since(*at) < HELLO_WINDOW);
+                        .retain(|at| now.duration_since(*at) < EXEC_HELLO_WINDOW);
                     self.hellos.push_back(now);
-                    if self.hellos.len() > MAX_HELLOS {
+                    if self.hellos.len() > EXEC_MAX_HELLOS {
                         return self.finish("too many hellos".to_owned(), true).await;
                     }
                     self.spoke = true;
@@ -261,7 +293,7 @@ impl ChildStream {
         let sandbox = self.sandbox.clone();
         let (entry, ruleset) = match tokio::task::spawn_blocking(move || {
             let entry = catalog.resolve(&id)?;
-            let ruleset = sandbox::ruleset(&sandbox, &id, &state)?;
+            let ruleset = sandbox::exec_sandbox(&sandbox, &id, &state)?;
             Ok::<_, String>((entry, ruleset))
         })
         .await
@@ -291,23 +323,7 @@ impl ChildStream {
         let parent = rustix::process::getpid();
         let ruleset_fd = ruleset.as_ref().map(AsRawFd::as_raw_fd);
         unsafe {
-            command.pre_exec(move || {
-                rustix::process::set_parent_process_death_signal(Some(
-                    rustix::process::Signal::KILL,
-                ))?;
-                if rustix::process::getppid() != Some(parent) {
-                    return Err(rustix::io::Errno::SRCH.into());
-                }
-                if let Some(fd) = ruleset_fd {
-                    if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
-                    if libc::syscall(libc::SYS_landlock_restrict_self, fd, 0) < 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
-                }
-                Ok(())
-            });
+            command.pre_exec(move || sandbox::exec_confine(ruleset_fd, parent));
         }
         let spawn_result = command.spawn();
         let confined = ruleset.is_some();
@@ -338,36 +354,105 @@ impl ChildStream {
         let Some(stdout) = child.stdout.take() else {
             return self.failed("stdout unavailable".to_owned());
         };
+        let link = self.connect(stdout, stdin);
+        self.child = Some(child);
+        Some(Event::Spawned {
+            slot: self.slot,
+            spawn: self.spawn,
+            link,
+            entry,
+        })
+    }
+
+    async fn start_attached(&mut self) -> Option<Event> {
+        let Some(base) = self.state_base.clone() else {
+            return self.failed("cannot determine applet state directory".to_owned());
+        };
+        let id = self.id.clone();
+        let state =
+            match tokio::task::spawn_blocking(move || sandbox::exec_state_dir(&base, &id)).await {
+                Ok(Ok(state)) => state,
+                Ok(Err(reason)) => return self.failed(reason),
+                Err(error) => {
+                    return self.failed(format!("cannot create applet state directory: {error}"));
+                }
+            };
+        let Some(hello_state) = state.to_str() else {
+            return self.failed("cannot determine applet state directory".to_owned());
+        };
+        self.hello_state = hello_state.to_owned();
+        let pipes = match &self.pipes {
+            Some(pipes) => pipes.lock().await.take(),
+            None => None,
+        };
+        let Some(pipes) = pipes else {
+            return self.failed("pipes unavailable".to_owned());
+        };
+        self.pipes = None;
+        if !opened_as(&pipes.from_applet, OFlags::RDONLY) {
+            return self.failed("applet pipe must be opened read-only".to_owned());
+        }
+        if !opened_as(&pipes.to_applet, OFlags::WRONLY) {
+            return self.failed("host pipe must be opened write-only".to_owned());
+        }
+        let from_applet = match pipe::Receiver::from_owned_fd(pipes.from_applet) {
+            Ok(receiver) => receiver,
+            Err(error) => return self.failed(format!("cannot read applet pipe: {error}")),
+        };
+        let to_applet = match pipe::Sender::from_owned_fd(pipes.to_applet) {
+            Ok(sender) => sender,
+            Err(error) => return self.failed(format!("cannot write applet pipe: {error}")),
+        };
+        let Some(entry) = self.resolved.clone() else {
+            return self.failed("entry unavailable".to_owned());
+        };
+        let link = self.connect(from_applet, to_applet);
+        Some(Event::Spawned {
+            slot: self.slot,
+            spawn: self.spawn,
+            link,
+            entry,
+        })
+    }
+
+    fn connect(
+        &mut self,
+        reader: impl AsyncRead + Send + Unpin + 'static,
+        writer: impl AsyncWrite + Send + Unpin + 'static,
+    ) -> Link {
         let (tx, mut rx) = mpsc::channel::<Outgoing>(64);
         let stop = self.stop.clone();
         tokio::spawn(async move {
-            let mut writer = FramedWrite::new(stdin, LinesCodec::new());
-            while let Some(message) = rx.recv().await {
+            let mut writer = FramedWrite::new(writer, LinesCodec::new());
+            while let Some(message) = tokio::select! {
+                biased;
+                _ = stop.cancelled() => None,
+                message = rx.recv() => message,
+            } {
                 let Ok(line) = serde_json::to_string(&message) else {
                     stop.cancel();
                     break;
                 };
-                if writer.send(line).await.is_err() {
+                let sent = tokio::select! {
+                    biased;
+                    _ = stop.cancelled() => false,
+                    result = writer.send(line) => result.is_ok(),
+                };
+                if !sent {
                     stop.cancel();
                     break;
                 }
             }
         });
         self.stdout = Some(FramedRead::new(
-            stdout,
+            Box::new(reader),
             LinesCodec::new_with_max_length(MAX_LINE),
         ));
-        self.child = Some(child);
-        Some(Event::Spawned {
-            slot: self.slot,
-            spawn: self.spawn,
-            link: Link {
-                tx,
-                stop: self.stop.clone(),
-                queue_full: Arc::clone(&self.queue_full),
-            },
-            entry,
-        })
+        Link {
+            tx,
+            stop: self.stop.clone(),
+            queue_full: Arc::clone(&self.queue_full),
+        }
     }
 
     fn failed(&mut self, reason: String) -> Option<Event> {
@@ -444,6 +529,10 @@ async fn drain(stderr: ChildStderr, id: String) {
     if dropped > 0 {
         tracing::warn!(target: "glimpse_applet", applet = %id, dropped, "applet stderr rate exceeded");
     }
+}
+
+fn opened_as(fd: &OwnedFd, mode: OFlags) -> bool {
+    rustix::fs::fcntl_getfl(fd).is_ok_and(|flags| flags & OFlags::RWMODE == mode)
 }
 
 fn exit_reason(status: ExitStatus) -> String {

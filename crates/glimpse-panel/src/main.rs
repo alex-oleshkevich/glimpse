@@ -1,6 +1,7 @@
 mod app;
 mod applet;
 mod applets;
+mod attached;
 mod cli;
 mod components;
 mod config_alert;
