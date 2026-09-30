@@ -86,11 +86,11 @@ fn from_token(token: &str) -> Failure {
         "profile-unavailable" | "not-supported" | "not-suported" => Failure::NoService,
         "refused" => Failure::Refused,
         "key-missing" => Failure::BondBroken,
-        "busy" | "too-many-connections" => Failure::Busy,
+        "busy" | "too-many-connections" | "create-socket" => Failure::Busy,
         "canceled" | "aborted-by-remote" => Failure::Dropped,
         "adapter-not-powered" => Failure::NotReady,
-        "create-socket" | "bad-socket" | "memory-allocation" | "invalid-source"
-        | "invalid-argument" | "invalid-arguments" => Failure::LocalSetup,
+        "bad-socket" | "memory-allocation" | "invalid-source" | "invalid-argument"
+        | "invalid-arguments" => Failure::LocalSetup,
         _ => Failure::Unknown,
     }
 }
@@ -230,6 +230,19 @@ mod tests {
             ),
             Err(Failure::BondBroken),
             "the remote forgot the bond; refusing is a different thing and a different fix"
+        );
+    }
+
+    #[test]
+    fn a_profile_the_device_rejects_says_busy_rather_than_blaming_this_computer() {
+        assert_eq!(
+            classify(
+                Action::Connect,
+                &method("Failed", Some("br-connection-create-socket"))
+            ),
+            Err(Failure::Busy),
+            "bluez reports any EIO from the profile connect this way, and headphones held by \
+             another host reject the stream with exactly that"
         );
     }
 

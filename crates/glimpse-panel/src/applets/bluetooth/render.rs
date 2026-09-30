@@ -389,7 +389,7 @@ pub fn wording(failure: Failure) -> String {
         Failure::NoAgent => gettext(
             "This panel could not register a pairing agent, so it cannot pair. Devices that are already paired still connect.",
         ),
-        Failure::Busy => gettext("The device is busy with something else."),
+        Failure::Busy => gettext("The device is busy, possibly connected to another device."),
         Failure::NotReady => gettext("Bluetooth is switched off."),
         Failure::Dropped => gettext("The device disconnected."),
         Failure::BondBroken => gettext("The pairing with this device is no longer valid."),
