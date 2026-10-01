@@ -36,11 +36,9 @@ impl Backlight for DdcBacklight {
             let Some(bus) = bus_of(&id) else {
                 return ReadOutcome::Gone;
             };
-            match spawn_blocking(move || read_blocking(bus)).await {
-                Ok(Some(entry)) => ReadOutcome::Found(entry),
-                Ok(None) => ReadOutcome::Gone,
-                Err(_) => ReadOutcome::Unavailable,
-            }
+            spawn_blocking(move || read_blocking(bus))
+                .await
+                .unwrap_or(ReadOutcome::Unavailable)
         })
     }
 
@@ -126,8 +124,27 @@ fn ddc_symlink_bus_number(card_dir: &Path) -> Option<u32> {
         .ok()
 }
 
-fn read_blocking(bus: u32) -> Option<Entry> {
-    probe(bus)
+fn read_blocking(bus: u32) -> ReadOutcome {
+    match probe(bus) {
+        Some(entry) => ReadOutcome::Found(entry),
+        None if bus_is_connected(Path::new(DRM_ROOT), bus) => ReadOutcome::Unavailable,
+        None => ReadOutcome::Gone,
+    }
+}
+
+fn bus_is_connected(root: &Path, bus: u32) -> bool {
+    let Ok(dir) = std::fs::read_dir(root) else {
+        return false;
+    };
+    dir.flatten().any(|item| {
+        let name = item.file_name().to_string_lossy().into_owned();
+        let path = item.path();
+        name.starts_with("card")
+            && name.contains('-')
+            && !built_in(&name)
+            && std::fs::read_to_string(path.join("status")).is_ok_and(|s| s.trim() == "connected")
+            && candidate_buses(&path).any(|candidate| candidate == bus)
+    })
 }
 
 fn probe(bus: u32) -> Option<Entry> {
@@ -253,5 +270,19 @@ mod tests {
 
         let bus = bus_of(&entry.id).expect("the id round-trips its own bus number");
         write_blocking(bus, entry.brightness).expect("writing the current level back succeeds");
+    }
+
+    #[test]
+    fn a_silent_bus_on_a_connected_connector_is_unavailable_not_gone() {
+        let root = std::env::temp_dir().join(format!("glimpse-ddc-{}", std::process::id()));
+        let connector = root.join("card1-DP-2");
+        std::fs::create_dir_all(connector.join("i2c-15")).unwrap();
+        std::fs::write(connector.join("i2c-15/name"), "AMDGPU DM aux hw bus 2").unwrap();
+        std::fs::write(connector.join("status"), "connected\n").unwrap();
+        assert!(bus_is_connected(&root, 15));
+        assert!(!bus_is_connected(&root, 16));
+        std::fs::write(connector.join("status"), "disconnected\n").unwrap();
+        assert!(!bus_is_connected(&root, 15));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }
