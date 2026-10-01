@@ -1,0 +1,187 @@
+use super::*;
+
+pub(super) fn check() {
+    let group = IndicatorGroup::new();
+    assert!(!group.is_visible(), "an untouched group starts hidden");
+
+    group.set_orientation(gtk4::Orientation::Vertical);
+    assert_eq!(
+        group
+            .layout_manager()
+            .and_downcast::<gtk4::BoxLayout>()
+            .expect("box layout")
+            .orientation(),
+        gtk4::Orientation::Vertical,
+        "a group follows the bar it sits in"
+    );
+    group.set_orientation(gtk4::Orientation::Horizontal);
+
+    group.set_items(&[spec("a"), spec("b"), spec("c")]);
+    assert_eq!(labels(&group), ["a", "b", "c"]);
+    assert!(group.is_visible());
+
+    let first = child_at(&group, 0);
+    group.set_items(&[spec("c"), spec("a")]);
+    assert_eq!(labels(&group), ["c", "a"]);
+    assert_eq!(
+        child_at(&group, 0),
+        first,
+        "a position reuses its widget rather than rebuilding it"
+    );
+
+    let pressed = Rc::new(RefCell::new(Vec::new()));
+    group.connect_pressed({
+        let pressed = Rc::clone(&pressed);
+        move |_, button| pressed.borrow_mut().push(button)
+    });
+    let scrolled = Rc::new(RefCell::new(Vec::new()));
+    group.connect_scrolled({
+        let scrolled = Rc::clone(&scrolled);
+        move |_, dx, dy| scrolled.borrow_mut().push((dx, dy))
+    });
+
+    group.emit_by_name::<()>("pressed", &[&3u32]);
+    group.emit_by_name::<()>("scrolled", &[&1.0f64, &-2.0f64]);
+    assert_eq!(
+        *pressed.borrow(),
+        [3u32],
+        "the whole group reports the press, exactly once"
+    );
+    assert_eq!(*scrolled.borrow(), [(1.0f64, -2.0f64)]);
+
+    assert_eq!(
+        child_at(&group, 0).observe_controllers().n_items(),
+        0,
+        "a chip owns no input controller; the group is the one clickable thing"
+    );
+    assert_eq!(
+        group.observe_controllers().n_items(),
+        3,
+        "the group owns the click, scroll and key controllers"
+    );
+
+    group.set_items(&[spec("a"), spec("b")]);
+    assert_eq!(
+        *group.imp().accessible_name.borrow(),
+        "a b",
+        "the interactive element is named after everything it shows"
+    );
+    let hostile = "п".repeat(LABEL_MAX_CHARS * 2);
+    group.set_items(&[IndicatorSpec {
+        label: Some(hostile),
+        ..Default::default()
+    }]);
+    assert_eq!(
+        group.imp().accessible_name.borrow().chars().count(),
+        LABEL_MAX_CHARS,
+        "an unbounded label is capped before it reaches the accessible name"
+    );
+
+    group.set_items(&[]);
+    assert!(group.first_child().is_none());
+    assert!(!group.is_visible(), "an empty group hides itself");
+    assert!(
+        group.imp().accessible_name.borrow().is_empty(),
+        "an empty group carries no stale name"
+    );
+
+    let long = "ы".repeat(LABEL_MAX_CHARS * 2);
+    let indicator = Indicator::new();
+    indicator.set_label(Some(&long));
+    assert_eq!(label_of(&indicator).chars().count(), LABEL_MAX_CHARS);
+    let label = label_widget(&indicator);
+    assert!(label.is_visible());
+    assert!(
+        indicator.has_css_class("indicator--text"),
+        "a label with no icon is a text chip, which centers in the chip's width"
+    );
+    let icon: gtk4::gio::Icon = gtk4::gio::ThemedIcon::new("input-keyboard-symbolic").upcast();
+    indicator.set_icon(Some(&icon));
+    assert!(!indicator.has_css_class("indicator--text"));
+    indicator.set_icon(None);
+    assert!(indicator.has_css_class("indicator--text"));
+    indicator.set_label(None);
+    assert!(!label.is_visible(), "an emptied label reserves no space");
+    assert!(!indicator.has_css_class("indicator--text"));
+
+    let image = child_named::<gtk4::Image>(&indicator, "indicator__icon");
+    assert!(
+        !image.is_visible(),
+        "an indicator with no icon reserves no icon space"
+    );
+
+    let dot = child_named::<crate::dots::Dots>(&indicator, "indicator__dot");
+    assert!(
+        !dot.is_visible(),
+        "an indicator with no calendar behind it reserves no dot space"
+    );
+    indicator.set_dot(Some(gtk4::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0)));
+    assert!(dot.is_visible());
+    indicator.set_dot(None);
+    assert!(!dot.is_visible());
+
+    let attention_dot = child_named::<gtk4::Box>(&indicator, "indicator__attention-dot");
+    let badge = child_named::<gtk4::Label>(&indicator, "indicator__badge");
+    assert_eq!(attention_dot.halign(), gtk4::Align::Center);
+    assert_eq!(attention_dot.valign(), gtk4::Align::Center);
+    indicator.apply(&IndicatorSpec {
+        attention: true,
+        ..Default::default()
+    });
+    assert!(attention_dot.is_visible() && !badge.is_visible());
+    indicator.apply(&IndicatorSpec::default());
+    indicator.apply(&IndicatorSpec {
+        badge: Some("3".to_owned()),
+        attention: true,
+        ..Default::default()
+    });
+    assert!(!attention_dot.is_visible() && badge.is_visible());
+    assert!(
+        indicator.has_css_class("indicator--attention"),
+        "a counter hides the dot but must not cancel attention, which the class carries"
+    );
+    indicator.apply(&IndicatorSpec::default());
+    assert!(!attention_dot.is_visible() && !badge.is_visible());
+    assert!(!indicator.has_css_class("indicator--attention"));
+
+    let overlay = child_named::<gtk4::Image>(&indicator, "indicator__overlay");
+    assert!(
+        !overlay.get_visible(),
+        "an indicator with no overlay reserves no corner"
+    );
+    indicator.apply(&IndicatorSpec {
+        icon: Some(gio::ThemedIcon::new("folder-symbolic").upcast()),
+        overlay: Some(gio::ThemedIcon::new("emblem-synchronizing-symbolic").upcast()),
+        ..Default::default()
+    });
+    assert!(overlay.get_visible(), "an overlay shows over the base icon");
+    indicator.set_overlay(None);
+    assert!(!overlay.get_visible());
+
+    let changes = Rc::new(Cell::new(0u32));
+    image.connect_gicon_notify({
+        let changes = Rc::clone(&changes);
+        move |_| changes.set(changes.get() + 1)
+    });
+
+    indicator.set_icon(Some(&gio::ThemedIcon::new("audio-volume-high").upcast()));
+    assert_eq!(changes.get(), 1);
+    indicator.set_icon(Some(&gio::ThemedIcon::new("audio-volume-high").upcast()));
+    assert_eq!(changes.get(), 1, "an equal icon is not reapplied");
+    indicator.set_icon(Some(&gio::ThemedIcon::new("audio-volume-low").upcast()));
+    assert_eq!(changes.get(), 2);
+    assert!(image.is_visible());
+
+    indicator.set_icon(None);
+    assert!(!image.is_visible());
+
+    indicator.apply(&IndicatorSpec {
+        tooltip: Some("п".repeat(TOOLTIP_MAX_CHARS * 2)),
+        ..Default::default()
+    });
+    assert_eq!(
+        indicator.tooltip_text().unwrap_or_default().chars().count(),
+        TOOLTIP_MAX_CHARS,
+        "an unbounded tooltip from another application is capped"
+    );
+}

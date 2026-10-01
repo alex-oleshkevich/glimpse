@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-01 16:58+0200\n"
+"POT-Creation-Date: 2026-10-01 19:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -358,7 +358,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
-#: crates/glimpse-panel/src/applets/audio/render.rs:249
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
 msgid "Muted"
 msgstr ""
 
@@ -370,7 +370,7 @@ msgid "{percent}%"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:150
-#: crates/glimpse-panel/src/applets/audio/render.rs:364
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:204
 msgid "Unknown application"
 msgstr ""
 
@@ -778,7 +778,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
 #: crates/glimpse-panel/src/applets/brightness/render.rs:73
-#: crates/glimpse-panel/src/applets/brightness/render.rs:388
+#: crates/glimpse-panel/src/applets/brightness/render/tests.rs:206
 #: crates/glimpse-widgets/blueprints/keyboard_popover.blp:14
 msgid "Keyboard"
 msgstr ""
@@ -1067,12 +1067,12 @@ msgid "The compositor is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/exec/dom.rs:1184
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1804
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:400
 msgid "Unsupported: {name}"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/exec/dom.rs:1189
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1809
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
@@ -1416,9 +1416,9 @@ msgid "{network}: connected, no internet"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:56
-#: crates/glimpse-panel/src/applets/network/render.rs:388
-#: crates/glimpse-panel/src/applets/network/render.rs:396
-#: crates/glimpse-panel/src/applets/network/render.rs:535
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:56
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:64
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:203
 msgid "Metered connection"
 msgstr ""
 
@@ -1475,7 +1475,7 @@ msgid "Open, encrypted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:206
-#: crates/glimpse-panel/src/applets/network/render.rs:589
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:256
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] ""
@@ -1682,7 +1682,7 @@ msgid "Aborted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/render.rs:158
-#: crates/glimpse-panel/src/applets/printing/render.rs:397
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:224
 msgid "Not accepting jobs"
 msgstr ""
 
@@ -2267,7 +2267,7 @@ msgstr ""
 #: crates/glimpse-shot/src/gui/app.rs:532
 #: crates/glimpse-shot/src/gui/app.rs:640
 #: crates/glimpse-shot/src/gui/app.rs:892 crates/glimpse-shot/src/notify.rs:374
-#: crates/glimpse-shot/src/notify.rs:840
+#: crates/glimpse-shot/src/notify/tests.rs:296
 #: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
 #: data/me.aresa.Glimpse.Shot.desktop:3
 msgid "Screenshot"
@@ -2378,25 +2378,31 @@ msgid "Saved “{name}”"
 msgstr ""
 
 #: crates/glimpse-shot/src/gui/result.rs:1145
-#: crates/glimpse-shot/src/notify.rs:501 crates/glimpse-shot/src/notify.rs:856
+#: crates/glimpse-shot/src/notify.rs:501
+#: crates/glimpse-shot/src/notify/tests.rs:312
 msgid "Show in Folder"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:487 crates/glimpse-shot/src/notify.rs:842
+#: crates/glimpse-shot/src/notify.rs:487
+#: crates/glimpse-shot/src/notify/tests.rs:298
 msgid "Screenshot saved"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:488 crates/glimpse-shot/src/notify.rs:875
+#: crates/glimpse-shot/src/notify.rs:488
+#: crates/glimpse-shot/src/notify/tests.rs:331
 msgid "Screenshot copied"
 msgstr ""
 
-#: crates/glimpse-shot/src/notify.rs:499 crates/glimpse-shot/src/notify.rs:854
+#: crates/glimpse-shot/src/notify.rs:499
+#: crates/glimpse-shot/src/notify/tests.rs:310
 msgctxt "notification action"
 msgid "Open"
 msgstr ""
 
-#: crates/glimpse-shot/src/portal.rs:128 crates/glimpse-shot/src/portal.rs:625
-#: crates/glimpse-shot/src/portal.rs:626 crates/glimpse-shot/src/portal.rs:1211
+#: crates/glimpse-shot/src/portal.rs:128
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:622
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr ""

@@ -1,0 +1,381 @@
+use futures_util::{StreamExt, stream};
+
+use super::*;
+
+#[test]
+fn only_a_running_service_has_no_reason_it_is_unavailable() {
+    assert_eq!(ServiceState::Running.unavailable_reason(), None);
+    assert_eq!(
+        ServiceState::Starting.unavailable_reason(),
+        Some("starting")
+    );
+    assert_eq!(
+        ServiceState::Degraded {
+            reason: "another gamma client holds the outputs".to_owned()
+        }
+        .unavailable_reason(),
+        Some("another gamma client holds the outputs")
+    );
+    assert_eq!(
+        ServiceState::Stopped {
+            reason: Some("name taken".to_owned())
+        }
+        .unavailable_reason(),
+        Some("name taken")
+    );
+    assert_eq!(
+        ServiceState::Stopped { reason: None }.unavailable_reason(),
+        Some("stopped"),
+        "a consumer asking why nothing is served must not be told nothing"
+    );
+}
+
+struct Panicky;
+
+impl Service for Panicky {
+    const NAME: &'static str = "panicky";
+
+    type Config = NoConfig;
+    type State = ();
+    type Handle = ServiceEndpoint<Self>;
+    type Command = tokio::sync::oneshot::Sender<()>;
+    type Event = ();
+    type Dependencies = ();
+    type SubKey = ();
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
+    }
+
+    async fn start(
+        _ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
+        Ok(Self)
+    }
+
+    async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {
+        panic!("the backend said something unrepeatable");
+    }
+}
+
+#[tokio::test]
+async fn a_panicking_handler_stops_its_service() {
+    let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        CancellationToken::new(),
+    );
+    runtime
+        .sender()
+        .send(Input::Event(()))
+        .await
+        .expect("queued");
+    runtime
+        .run(())
+        .await
+        .expect("run returns rather than unwinding");
+
+    assert!(matches!(
+        &*handle.health().borrow(),
+        ServiceState::Stopped { reason: Some(reason) } if reason.contains("unrepeatable")
+    ));
+}
+
+#[tokio::test]
+async fn a_command_queued_behind_a_panicking_handler_is_settled_rather_than_left_waiting() {
+    let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        CancellationToken::new(),
+    );
+    runtime
+        .sender()
+        .send(Input::Event(()))
+        .await
+        .expect("queued");
+    let (reply, answer) = tokio::sync::oneshot::channel();
+    handle.command(reply).expect("queued");
+
+    runtime
+        .run(())
+        .await
+        .expect("run returns rather than unwinding");
+
+    let settled = tokio::time::timeout(std::time::Duration::from_secs(1), answer)
+        .await
+        .expect("a caller is not left waiting on a service that already stopped");
+    assert!(settled.is_err(), "the responder is dropped, not answered");
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Tuning(u8);
+
+impl From<&glimpse_config::Config> for Tuning {
+    fn from(_document: &glimpse_config::Config) -> Self {
+        Self(0)
+    }
+}
+
+struct Tunable {
+    seen: u32,
+}
+
+impl Service for Tunable {
+    const NAME: &'static str = "tunable";
+
+    type Config = Tuning;
+    type State = (u8, u32);
+    type Handle = ServiceEndpoint<Self>;
+    type Command = ();
+    type Event = ();
+    type Dependencies = ();
+    type SubKey = ();
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
+    }
+
+    async fn start(
+        _ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
+        Ok(Self { seen: 0 })
+    }
+
+    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+        if let Input::Config(Tuning(value)) = input {
+            self.seen += 1;
+            ctx.publisher().set((value, self.seen));
+        }
+    }
+}
+
+#[tokio::test]
+async fn an_unchanged_configuration_never_reaches_the_handler() {
+    let cancel = CancellationToken::new();
+    let (mut runtime, handle) = ServiceRuntime::<Tunable>::new(
+        Tuning(1),
+        Buses::unavailable("no bus in tests"),
+        cancel.clone(),
+    );
+    let sender = runtime.sender();
+    let mut state = handle.subscribe();
+    let running = tokio::spawn(async move { runtime.run(()).await });
+
+    sender.reconfigure(Tuning(1));
+    sender.reconfigure(Tuning(2));
+    state
+        .wait_for(|state| *state == (2, 1))
+        .await
+        .expect("a reload matching the config it started on is not a change");
+
+    sender.reconfigure(Tuning(2));
+    sender.reconfigure(Tuning(1));
+    state
+        .wait_for(|state| *state == (1, 2))
+        .await
+        .expect("going back is a change, repeating is not");
+
+    cancel.cancel();
+    running.await.expect("joined").expect("stopped");
+}
+
+struct RefusesToStart;
+
+impl Service for RefusesToStart {
+    const NAME: &'static str = "refuses-to-start";
+
+    type Config = NoConfig;
+    type State = ();
+    type Handle = ServiceEndpoint<Self>;
+    type Command = tokio::sync::oneshot::Sender<()>;
+    type Event = ();
+    type Dependencies = ();
+    type SubKey = ();
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
+    }
+
+    async fn start(
+        _ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
+        Err(ServiceError::StartError)
+    }
+
+    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
+        if let Input::Command(reply) = input {
+            let _ = reply.send(());
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_failed_start_settles_queued_command_replies() {
+    let (mut runtime, handle) = ServiceRuntime::<RefusesToStart>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        CancellationToken::new(),
+    );
+    let (reply, answer) = tokio::sync::oneshot::channel();
+    handle.command(reply).expect("queued");
+
+    assert!(runtime.run(()).await.is_err());
+    assert!(answer.await.is_err());
+}
+
+struct Armable {
+    armed: bool,
+}
+
+impl Service for Armable {
+    const NAME: &'static str = "armable";
+
+    type Config = NoConfig;
+    type State = u8;
+    type Handle = ServiceEndpoint<Self>;
+    type Command = ();
+    type Event = u8;
+    type Dependencies = ();
+    type SubKey = ();
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
+    }
+
+    fn subscriptions(&self) -> Vec<Sub<Self>> {
+        self.armed
+            .then(|| {
+                Sub::stream((), |_ctx| async {
+                    stream::once(async { 7 }).chain(stream::pending())
+                })
+            })
+            .into_iter()
+            .collect()
+    }
+
+    async fn start(
+        _ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
+        Ok(Self { armed: false })
+    }
+
+    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+        match input {
+            Input::Command(()) => self.armed = true,
+            Input::Event(value) => {
+                ctx.publisher().set(value);
+            }
+            Input::Config(_) => {}
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_source_declared_by_a_handler_is_started_by_the_runtime() {
+    let cancel = CancellationToken::new();
+    let (mut runtime, handle) = ServiceRuntime::<Armable>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        cancel.clone(),
+    );
+    runtime
+        .sender()
+        .send(Input::Command(()))
+        .await
+        .expect("queued");
+
+    let running = tokio::spawn(async move { runtime.run(()).await });
+    for _ in 0..8 {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(handle.snapshot(), 7);
+    cancel.cancel();
+    let _ = running.await;
+    assert!(
+        handle.command(()).is_err(),
+        "a stopped service rejects commands"
+    );
+}
+
+struct NeedsTheBus;
+
+impl Service for NeedsTheBus {
+    const NAME: &'static str = "needs-the-bus";
+
+    type Config = NoConfig;
+    type State = ();
+    type Handle = ServiceEndpoint<Self>;
+    type Command = ();
+    type Event = ();
+    type Dependencies = ();
+    type SubKey = ();
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
+    }
+
+    async fn start(
+        ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
+        if let Err(reason) = ctx.system_bus() {
+            ctx.degraded(format!("no system bus: {reason}"));
+        }
+        Ok(Self)
+    }
+
+    async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
+}
+
+#[tokio::test]
+async fn a_service_without_a_bus_degrades_and_keeps_running() {
+    let cancel = CancellationToken::new();
+    let (mut runtime, handle) = ServiceRuntime::<NeedsTheBus>::new(
+        NoConfig,
+        Buses::unavailable("connect failed"),
+        cancel.clone(),
+    );
+    let mut health = handle.health();
+    let running = tokio::spawn(async move { runtime.run(()).await });
+
+    health.changed().await.expect("health changes");
+    assert!(matches!(
+        &*health.borrow(),
+        ServiceState::Degraded { reason } if reason.contains("connect failed")
+    ));
+
+    cancel.cancel();
+    running
+        .await
+        .expect("runtime joins")
+        .expect("runtime stops");
+}

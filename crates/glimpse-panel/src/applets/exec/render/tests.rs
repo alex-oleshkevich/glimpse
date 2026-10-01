@@ -1,0 +1,110 @@
+use super::*;
+use glimpse_services::{Op, WireNode};
+use serde_json::json;
+
+#[test]
+fn keeps_newer_local_value_until_acknowledged() {
+    assert!(keeps_newer_local_value(Some(5), Some(4)));
+    assert!(!keeps_newer_local_value(Some(5), Some(5)));
+    assert!(!keeps_newer_local_value(Some(5), None));
+}
+
+#[test]
+fn icon_cache_clears_after_64_entries() {
+    let mut icons = HashMap::new();
+    for index in 0..65 {
+        cached_icon(&mut icons, &format!("icon-{index}"));
+    }
+    assert_eq!(icons.len(), 65);
+    cached_icon(&mut icons, "next");
+    assert_eq!(icons.len(), 1);
+}
+
+#[test]
+fn a_continuous_scale_gets_a_usable_gtk_step() {
+    assert_eq!(scale_step(0.0, 100.0, 0.0), 1.0);
+    assert_eq!(scale_step(0.0, 100.0, 0.5), 0.5);
+}
+
+#[test]
+fn session_requests_map_to_dialog_or_direct_action() {
+    let state = SessionActionsState::default();
+    assert!(matches!(
+        session_input(&BarRequest::Session(SessionVerb::Reboot), &state),
+        Some(AppInput::SessionConfirm(SessionDialog {
+            action: SessionAction::Reboot,
+            ..
+        }))
+    ));
+    assert!(matches!(
+        session_input(&BarRequest::Session(SessionVerb::Lock), &state),
+        Some(AppInput::SessionRun(SessionAction::Lock))
+    ));
+}
+
+#[test]
+fn requests_survive_an_unchanged_tree() {
+    let tree = Arc::new(Tree::default());
+    let mut serial = 0;
+    let (requests, unchanged) =
+        requests_before_tree_check(&mut serial, &[(1, BarRequest::ClosePopover)], &tree, &tree);
+    assert!(unchanged);
+    assert_eq!(requests, vec![BarRequest::ClosePopover]);
+    assert_eq!(serial, 1);
+}
+
+#[test]
+fn pointer_events_keep_the_wire_names_and_arguments() {
+    assert_eq!(pointer(Pointer::Press(Button::Left)), None);
+    assert_eq!(
+        pointer(Pointer::Press(Button::Right)),
+        Some(("onPress", vec![json!(3)], true))
+    );
+    assert_eq!(
+        pointer(Pointer::Scroll(Direction::Up)),
+        Some(("onScroll", vec![json!(0), json!(-1)], false))
+    );
+}
+
+#[test]
+fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
+    let tree =
+        Tree::default()
+            .apply(vec![Op::Insert {
+        parent: 0,
+        node: WireNode { id: 1, kind: "indicator".into(), props: serde_json::from_value(json!({
+            "icon": "view-list-symbolic", "overlay": "emblem-symbolic", "dot": "#e01b24",
+            "text": "Todo", "tooltip": "Tasks", "badge": "3", "severity": "warning",
+            "attention": true, "notice": true, "className": "pill"
+        })).expect("props"), children: vec![] },
+        before: None,
+    }])
+            .expect("tree");
+    let chips = indicators(&tree, &mut |name| gio::ThemedIcon::new(name).upcast());
+    let chip = &chips[0].1;
+    assert!(chip.icon.is_some());
+    assert!(chip.overlay.is_some());
+    assert!(chip.dot.is_some());
+    assert_eq!(chip.label.as_deref(), Some("Todo"));
+    assert_eq!(chip.tooltip.as_deref(), Some("Tasks"));
+    assert_eq!(chip.badge.as_deref(), Some("3"));
+    assert_eq!(chip.severity, Some(Severity::Warning));
+    assert!(chip.attention && chip.notice);
+    assert_eq!(chip.class.as_deref(), Some("pill"));
+    let bad = Tree::default()
+        .apply(vec![Op::Insert {
+            parent: 0,
+            node: WireNode {
+                id: 2,
+                kind: "indicator".into(),
+                props: serde_json::from_value(json!({"icon":"bad/icon","dot":"bad"}))
+                    .expect("props"),
+                children: vec![],
+            },
+            before: None,
+        }])
+        .expect("tree");
+    let bad = &indicators(&bad, &mut |name| gio::ThemedIcon::new(name).upcast())[0].1;
+    assert!(bad.icon.is_none());
+    assert!(bad.dot.is_none());
+}

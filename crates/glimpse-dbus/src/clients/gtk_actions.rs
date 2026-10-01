@@ -28,15 +28,4 @@ pub fn object_path(name: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn application_names_become_object_paths() {
-        assert_eq!(
-            object_path("me.aresa.GlimpsePanel"),
-            "/me/aresa/GlimpsePanel"
-        );
-        assert_eq!(object_path("a.b-c"), "/a/b_c");
-    }
-}
+mod tests;

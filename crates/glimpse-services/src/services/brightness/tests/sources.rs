@@ -1,0 +1,72 @@
+use super::*;
+
+#[test]
+fn a_card_symlink_target_yields_the_connector_after_the_first_dash() {
+    assert_eq!(
+        connector(Some("../../card1-eDP-1")),
+        Some("eDP-1".to_owned())
+    );
+    assert_eq!(connector(Some("../../card0-DP-2")), Some("DP-2".to_owned()));
+}
+
+#[test]
+fn a_missing_device_link_has_no_connector() {
+    assert_eq!(connector(None), None);
+}
+
+#[test]
+fn a_backlight_with_no_device_link_still_produces_a_source() {
+    let records = sources_from(vec![entry("ddcci1", "raw", 50, 100, None)]);
+
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].connector, None);
+}
+
+#[test]
+fn several_backlights_on_the_same_connector_collapse_to_the_preferred_one() {
+    let records = sources_from(vec![
+        entry("amdgpu_bl1", "raw", 100, 100, Some("../../card1-eDP-1")),
+        entry(
+            "intel_backlight",
+            "firmware",
+            50,
+            100,
+            Some("../../card1-eDP-1"),
+        ),
+    ]);
+
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].id, "intel_backlight");
+}
+
+#[test]
+fn the_floor_never_reaches_zero_through_rounding_on_a_small_max() {
+    assert_eq!(floor(400_000, 3), 12_000);
+    assert_eq!(floor(3, 3), 1);
+    assert_eq!(floor(400_000, 0), 0);
+}
+
+#[test]
+fn a_zero_max_brightness_floors_to_zero_rather_than_panicking() {
+    assert_eq!(floor(0, 3), 0);
+}
+
+#[test]
+fn preference_orders_firmware_before_platform_before_raw() {
+    let mut kinds = vec!["raw", "platform", "firmware"];
+    kinds.sort_by_key(|kind| preference(kind));
+
+    assert_eq!(kinds, vec!["firmware", "platform", "raw"]);
+}
+
+#[test]
+fn several_backlights_are_ordered_by_type_preference() {
+    let records = sources_from(vec![
+        entry("raw1", "raw", 1, 1, None),
+        entry("firmware1", "firmware", 1, 1, None),
+        entry("platform1", "platform", 1, 1, None),
+    ]);
+
+    let ids: Vec<&str> = records.iter().map(|record| record.id.as_str()).collect();
+    assert_eq!(ids, vec!["firmware1", "platform1", "raw1"]);
+}
