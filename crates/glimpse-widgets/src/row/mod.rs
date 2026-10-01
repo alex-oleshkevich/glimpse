@@ -50,6 +50,16 @@ impl Row {
     }
 }
 
+pub fn beside(row: &Row, end: &impl IsA<gtk4::Widget>) -> gtk4::Box {
+    let host = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    row.set_hexpand(true);
+    let end = end.as_ref();
+    end.set_valign(gtk4::Align::Center);
+    host.append(row);
+    host.append(end);
+    host
+}
+
 fn fill(slot: &gtk4::Box, widget: &impl IsA<gtk4::Widget>) {
     fill_slot(slot, widget);
     slot.set_visible(true);

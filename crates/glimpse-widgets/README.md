@@ -21,8 +21,9 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
   add classes after `build()`, or a chain setting both paints a button behind a frameless icon.
 - **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a hidden
   `Section` reports no title.
-- **A row highlights only if its body acts**; `activatable: false` drops `can-target`, so a row
-  holding a control uses `SwitchRow` instead.
+- **A row highlights only if its body acts**; `activatable: false` drops `can-target` and
+  `can-focus`. An end control that must stay clickable is parented beside the row, never inside
+  it, so that drop cannot reach it. A control that is the row's own state stays a `SwitchRow`.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
 - **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.

@@ -1173,9 +1173,7 @@ fn realize_into(
         ElementKind::Expander => Element::Expander(finish_expander(read_props(id, raw, kept))),
         ElementKind::RangeBar => Element::RangeBar(finish_range_bar(read_props(id, raw, kept))),
         ElementKind::Bars => Element::Bars(finish_bars(read_props(id, raw, kept))),
-        ElementKind::Sparkline => {
-            Element::Sparkline(finish_sparkline(read_props(id, raw, kept)))
-        }
+        ElementKind::Sparkline => Element::Sparkline(finish_sparkline(read_props(id, raw, kept))),
         ElementKind::Dots => Element::Dots(finish_dots(read_props(id, raw, kept))),
         ElementKind::Label => Element::Label(finish_label(read_props(id, raw, kept))),
         ElementKind::Image => Element::Image(finish_image(read_props(id, raw, kept))),
@@ -1349,6 +1347,7 @@ fn finish_notice(mut props: NoticeProps) -> NoticeProps {
 
 fn finish_calendar(mut props: CalendarProps) -> CalendarProps {
     props.month = props.month.map(|month| month.clamp(1, 12));
+    props.year = props.year.map(|year| year.clamp(1, 9999));
     props
 }
 
@@ -1444,7 +1443,6 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
     for (id, node) in nodes {
         let count = node.children.len();
         let fits = match node.element.kind() {
-            ElementKind::Revealer | ElementKind::Expander => count == 1,
             ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
             _ => true,
         };
@@ -2275,7 +2273,7 @@ mod tests {
                     wire(
                         6,
                         "calendar",
-                        json!({"year": 2026, "month": 14, "selected": "2026-06-04", "today": "2026-02-30",
+                        json!({"year": 100000, "month": 14, "selected": "2026-06-04", "today": "2026-02-30",
                                "events": [{"date": "2026-06-05", "colors": ["error", "accent"]}], "onMonth": true}),
                         Vec::new(),
                     ),
@@ -2346,6 +2344,7 @@ mod tests {
         let Element::Calendar(calendar) = only(&tree, 6) else {
             panic!("calendar")
         };
+        assert_eq!(calendar.year, Some(9999));
         assert_eq!(calendar.month, Some(12));
         assert_eq!(
             calendar.selected,
@@ -2394,6 +2393,17 @@ mod tests {
         };
         assert_eq!(stack.visible, 1);
         assert_eq!(tree.children(16), &[17, 18]);
+        let low = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(2, "calendar", json!({"year": 0}), Vec::new()),
+                None,
+            )])
+            .expect("low year");
+        let Element::Calendar(low) = only(&low, 2) else {
+            panic!("low year")
+        };
+        assert_eq!(low.year, Some(1));
     }
 
     #[test]
@@ -2515,40 +2525,26 @@ mod tests {
     }
 
     #[test]
-    fn revealer_and_expander_hold_exactly_one_child_and_a_stack_any() {
+    fn revealer_and_expander_hold_any_number_of_children_and_a_stack_any() {
         let root = hosted(&Tree::default());
         for (kind, element) in [
             ("revealer", ElementKind::Revealer),
             ("expander", ElementKind::Expander),
         ] {
-            assert_eq!(
-                root.apply(vec![insert(1, leaf(2, kind), None)])
-                    .expect_err("empty"),
-                Violation::ChildCount { parent: 2 }
+            assert!(
+                root.apply(vec![insert(1, leaf(2, kind), None)]).is_ok(),
+                "empty"
             );
-            assert_eq!(
-                root.apply(vec![insert(
+            let many = root
+                .apply(vec![insert(
                     1,
                     wire(2, kind, json!({}), vec![leaf(3, "label"), leaf(4, "label")]),
                     None,
                 )])
-                .expect_err("two"),
-                Violation::ChildCount { parent: 2 }
-            );
-            let one = root
-                .apply(vec![insert(
-                    1,
-                    wire(2, kind, json!({}), vec![leaf(3, "label")]),
-                    None,
-                )])
-                .expect("one");
+                .expect("two");
+            assert!(many.apply(vec![Op::Remove { parent: 2, id: 3 }]).is_ok());
             assert_eq!(
-                one.apply(vec![Op::Remove { parent: 2, id: 3 }])
-                    .expect_err("emptied"),
-                Violation::ChildCount { parent: 2 }
-            );
-            assert_eq!(
-                one.apply(vec![insert(2, leaf(4, "section"), None)])
+                many.apply(vec![insert(2, leaf(5, "section"), None)])
                     .expect_err("section"),
                 Violation::BadParent {
                     parent: element,

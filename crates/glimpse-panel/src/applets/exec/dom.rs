@@ -11,8 +11,9 @@ use glimpse_services::{
     Transition, Tree,
 };
 use glimpse_widgets::{
-    Bars, Calendar, ChoiceList, DOTS_SIZE, Dots, Expandable, FactList, Fader, Hero, Notice, Placeholder,
-    PopoverShell, RangeBar, Readout, Row, Section, Sparkline, SwitchRow, Ymd, reconcile::by_key,
+    Bars, Calendar, ChoiceList, DOTS_SIZE, Dots, Expandable, FactList, Fader, Hero, Notice,
+    Placeholder, PopoverShell, RangeBar, Readout, Row, Section, Sparkline, SwitchRow, Ymd, beside,
+    reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -26,6 +27,9 @@ type Dispatch = Rc<dyn Fn(UserEvent)>;
 const SLOT_SPACING: i32 = 6;
 const PROGRESS_INSET: i32 = 13;
 const PROGRESS_GAP: i32 = 6;
+const DIM_ALPHA: f32 = 0.55;
+const MARKER_LIMIT: usize = 3;
+const OPTION_CHARS: i32 = 32;
 
 struct Mounted {
     widget: gtk4::Widget,
@@ -107,7 +111,38 @@ impl Dom {
         self.applying.set(true);
         let alive = self.reconcile_tree(tree, generation);
         self.applying.set(false);
+        if alive {
+            self.report_closed_expanders();
+        }
         alive
+    }
+
+    fn report_closed_expanders(&self) {
+        let drifted: Vec<_> = self
+            .nodes
+            .iter()
+            .filter_map(|(key, mounted)| {
+                let Element::Expander(props) = &mounted.node.element else {
+                    return None;
+                };
+                if !props.on_toggle {
+                    return None;
+                }
+                let expandable = mounted.widget.downcast_ref::<Expandable>()?;
+                (expandable.expanded() != props.expanded).then_some((*key, expandable.expanded()))
+            })
+            .collect();
+        for (key, expanded) in drifted {
+            emit(
+                &self.dispatch,
+                self.slot,
+                key,
+                "onToggle",
+                vec![Value::Bool(expanded)],
+                Some(bump(&self.seq, key)),
+                false,
+            );
+        }
     }
 
     fn reconcile_tree(&mut self, tree: &Tree, generation: u64) -> bool {
@@ -379,21 +414,22 @@ impl Dom {
             }
             Element::Row(_) => {
                 let row = Row::new();
-                let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, SLOT_SPACING);
                 let slot = gtk4::Box::new(gtk4::Orientation::Horizontal, SLOT_SPACING);
+                slot.set_visible(false);
                 let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
                 chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
                 chevron.add_css_class("drawer-chevron");
-                trail.append(&slot);
+                chevron.set_visible(false);
+                let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
                 trail.append(&chevron);
-                inner = Some(slot);
+                inner = Some(slot.clone());
                 trail_box = Some(trail);
                 let dispatch = self.dispatch.clone();
-                let slot = self.slot;
+                let slot_id = self.slot;
                 handlers.push(row.connect_clicked(move |_| {
-                    emit(&dispatch, slot, key, "onActivate", vec![], None, true)
+                    emit(&dispatch, slot_id, key, "onActivate", vec![], None, true)
                 }));
-                row.upcast()
+                beside(&row, &slot).upcast()
             }
             Element::SwitchRow(_) => {
                 let row = SwitchRow::new();
@@ -532,6 +568,9 @@ impl Dom {
             Element::DropDown(_) => {
                 let drop_down =
                     gtk4::DropDown::new(Some(gtk4::StringList::new(&[])), gtk4::Expression::NONE);
+                let factory = option_factory();
+                drop_down.set_factory(Some(&factory));
+                drop_down.set_list_factory(Some(&factory));
                 let dispatch = self.dispatch.clone();
                 let seq = self.seq.clone();
                 let slot = self.slot;
@@ -713,7 +752,15 @@ impl Dom {
         if !initial && Arc::ptr_eq(&mounted.node, node) {
             return;
         }
-        let widget = &mounted.widget;
+        let surface = match &node.element {
+            Element::Row(_) => mounted
+                .widget
+                .first_child()
+                .filter(|child| child.is::<Row>())
+                .unwrap_or_else(|| mounted.widget.clone()),
+            _ => mounted.widget.clone(),
+        };
+        let widget = &surface;
         let old_class = element_class(&mounted.node.element).map(render::class_name);
         let new_class = element_class(&node.element).map(render::class_name);
         if old_class != new_class {
@@ -759,10 +806,10 @@ impl Dom {
                     if let Some(chevron) = trail.last_child() {
                         chevron.set_visible(p.chevron);
                     }
-                    if node.children.is_empty() && !p.chevron {
-                        row.clear_trail();
-                    } else {
+                    if p.chevron {
                         row.set_trail(trail);
+                    } else {
+                        row.clear_trail();
                     }
                 }
             }
@@ -924,9 +971,28 @@ impl Dom {
             }
             Element::CheckButton(p) => {
                 if let Some(check) = widget.downcast_ref::<gtk4::CheckButton>() {
-                    check.set_use_underline(false);
-                    if check.label().as_deref() != p.label.as_deref() {
-                        check.set_label(p.label.as_deref());
+                    let label = check
+                        .child()
+                        .and_downcast::<gtk4::Label>()
+                        .unwrap_or_else(|| {
+                            let label = gtk4::Label::new(None);
+                            label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+                            label.set_max_width_chars(48);
+                            label.set_halign(gtk4::Align::Start);
+                            label.set_xalign(0.0);
+                            label.set_accessible_role(gtk4::AccessibleRole::Presentation);
+                            check.set_child(Some(&label));
+                            label
+                        });
+                    let text = p.label.as_deref().unwrap_or("");
+                    if label.text().as_str() != text {
+                        label.set_text(text);
+                    }
+                    label.set_visible(p.label.is_some());
+                    if let Some(name) = p.label.as_deref() {
+                        check.update_property(&[gtk4::accessible::Property::Label(name)]);
+                    } else {
+                        check.reset_property(gtk4::AccessibleProperty::Label);
                     }
                     if !render::keeps_newer_local_value(
                         self.seq.borrow().get(&key).copied(),
@@ -967,9 +1033,7 @@ impl Dom {
             }
             Element::Dots(p) => {
                 if let Some(dots) = widget.downcast_ref::<Dots>() {
-                    let colors: Vec<gdk::RGBA> =
-                        p.colors.iter().map(|tone| tone_color(*tone)).collect();
-                    dots.set_colors(&colors);
+                    dots.set_colors(&paint_tones(&tone_palette(), &p.colors));
                     dots.set_uniform(p.uniform);
                     dots.set_size(p.size.map_or(DOTS_SIZE, |size| size as f32));
                     dots.set_max(p.max.map_or(usize::MAX, |max| max as usize));
@@ -1097,8 +1161,13 @@ impl Dom {
                 if let Some(progress) = widget.downcast_ref::<gtk4::ProgressBar>() {
                     progress.set_fraction(p.fraction);
                     progress.set_text(p.text.as_deref());
-                    progress.set_show_text(p.text.is_some());
+                    progress.set_show_text(false);
                     progress.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+                    if let Some(text) = p.text.as_deref() {
+                        progress.update_property(&[gtk4::accessible::Property::Label(text)]);
+                    } else {
+                        progress.reset_property(gtk4::AccessibleProperty::Label);
+                    }
                 }
             }
             Element::Separator(p) => {
@@ -1197,16 +1266,71 @@ fn ymd(date: chrono::NaiveDate) -> Ymd {
     Ymd::new(date.year(), date.month(), date.day())
 }
 
-fn tone_color(tone: Tone) -> gdk::RGBA {
-    let probe = gtk4::Label::new(None);
-    probe.add_css_class(match tone {
-        Tone::Accent => "accent",
-        Tone::Dim => "dim-label",
-        Tone::Success => "success",
-        Tone::Warning => "warning",
-        Tone::Error => "error",
+fn tone_index(tone: Tone) -> usize {
+    match tone {
+        Tone::Accent => 0,
+        Tone::Dim => 1,
+        Tone::Success => 2,
+        Tone::Warning => 3,
+        Tone::Error => 4,
+    }
+}
+
+fn tone_palette() -> [gdk::RGBA; 5] {
+    let probe = |class_name: Option<&str>| {
+        let label = gtk4::Label::new(None);
+        if let Some(class_name) = class_name {
+            label.add_css_class(class_name);
+        }
+        label.color()
+    };
+    let mut dim = probe(None);
+    dim.set_alpha(DIM_ALPHA);
+    [
+        probe(Some("accent")),
+        dim,
+        probe(Some("success")),
+        probe(Some("warning")),
+        probe(Some("error")),
+    ]
+}
+
+fn paint_tones(palette: &[gdk::RGBA; 5], colors: &[Tone]) -> Vec<gdk::RGBA> {
+    colors
+        .iter()
+        .take(MARKER_LIMIT)
+        .map(|tone| palette[tone_index(*tone)])
+        .collect()
+}
+
+fn option_factory() -> gtk4::SignalListItemFactory {
+    let factory = gtk4::SignalListItemFactory::new();
+    factory.connect_setup(|_, item| {
+        let Some(item) = item.downcast_ref::<gtk4::ListItem>() else {
+            return;
+        };
+        let label = gtk4::Label::new(None);
+        label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        label.set_max_width_chars(OPTION_CHARS);
+        label.set_xalign(0.0);
+        item.set_child(Some(&label));
     });
-    probe.color()
+    factory.connect_bind(|_, item| {
+        let Some(item) = item.downcast_ref::<gtk4::ListItem>() else {
+            return;
+        };
+        let Some(label) = item.child().and_downcast::<gtk4::Label>() else {
+            return;
+        };
+        let text = item
+            .item()
+            .and_then(|object| object.downcast::<gtk4::StringObject>().ok())
+            .map(|object| object.string())
+            .unwrap_or_default();
+        label.set_text(&text);
+        label.update_property(&[gtk4::accessible::Property::Label(text.as_str())]);
+    });
+    factory
 }
 
 fn dress_calendar(calendar: &Calendar, props: &CalendarProps) {
@@ -1223,15 +1347,11 @@ fn dress_calendar(calendar: &Calendar, props: &CalendarProps) {
         None => calendar.clear_selection(),
         _ => {}
     }
+    let palette = tone_palette();
     let events: Vec<(Ymd, Vec<gdk::RGBA>)> = props
         .events
         .iter()
-        .filter_map(|event| {
-            Some((
-                ymd(event.date?),
-                event.colors.iter().map(|tone| tone_color(*tone)).collect(),
-            ))
-        })
+        .filter_map(|event| Some((ymd(event.date?), paint_tones(&palette, &event.colors))))
         .collect();
     calendar.set_events(&events);
 }
@@ -1335,6 +1455,26 @@ mod tests {
             .clone()
     }
 
+    fn row_body(widget: &gtk4::Widget) -> Row {
+        widget.first_child().and_downcast().expect("row")
+    }
+
+    fn descendant_label(widget: &gtk4::Widget, text: &str) -> Option<gtk4::Label> {
+        if let Some(label) = widget.clone().downcast::<gtk4::Label>().ok()
+            && label.text() == text
+        {
+            return Some(label);
+        }
+        let mut child = widget.first_child();
+        while let Some(next) = child {
+            if let Some(label) = descendant_label(&next, text) {
+                return Some(label);
+            }
+            child = next.next_sibling();
+        }
+        None
+    }
+
     #[test]
     fn signal_dispatch_keeps_name_args_generation_and_gesture() {
         let events = Rc::new(RefCell::new(Vec::new()));
@@ -1430,8 +1570,14 @@ mod tests {
             node(3, "row", json!({"title":"B"}), vec![]),
         ]);
         let (_shell, mut dom, _) = setup(&first);
-        let a = widget(&dom, 1, 2, ElementKind::Row);
-        let b = widget(&dom, 1, 3, ElementKind::Row);
+        let a = widget(&dom, 1, 2, ElementKind::Row)
+            .first_child()
+            .and_downcast::<Row>()
+            .expect("row");
+        let b = widget(&dom, 1, 3, ElementKind::Row)
+            .first_child()
+            .and_downcast::<Row>()
+            .expect("row");
         let notifications = Rc::new(RefCell::new(0));
         let count = notifications.clone();
         b.connect_notify_local(Some("title"), move |_, _| *count.borrow_mut() += 1);
@@ -1443,8 +1589,14 @@ mod tests {
             }])
             .expect("set");
         assert!(dom.reconcile(&next, 1));
-        assert_eq!(widget(&dom, 1, 2, ElementKind::Row), a);
-        assert_eq!(widget(&dom, 1, 3, ElementKind::Row), b);
+        assert_eq!(
+            widget(&dom, 1, 2, ElementKind::Row).first_child(),
+            Some(a.clone().upcast())
+        );
+        assert_eq!(
+            widget(&dom, 1, 3, ElementKind::Row).first_child(),
+            Some(b.clone().upcast())
+        );
         assert_eq!(*notifications.borrow(), 0);
         assert_eq!(a.property::<Option<String>>("title").as_deref(), Some("C"));
     }
@@ -1483,7 +1635,8 @@ mod tests {
         init();
         let first = tree(vec![node(2, "row", json!({"title":"Open"}), vec![])]);
         let (_shell, mut dom, events) = setup(&first);
-        let row = widget(&dom, 1, 2, ElementKind::Row);
+        let host = widget(&dom, 1, 2, ElementKind::Row);
+        let row = row_body(&host);
         row.emit_by_name::<()>("clicked", &[]);
         assert_eq!(events.borrow().len(), 1);
         let next = first
@@ -1494,7 +1647,7 @@ mod tests {
             }])
             .expect("set");
         assert!(dom.reconcile(&next, 1));
-        assert_eq!(widget(&dom, 1, 2, ElementKind::Row), row);
+        assert_eq!(widget(&dom, 1, 2, ElementKind::Row), host);
         row.emit_by_name::<()>("clicked", &[]);
         assert_eq!(events.borrow().len(), 2);
         assert_eq!(events.borrow()[1].name, "onActivate");
@@ -1610,6 +1763,12 @@ mod tests {
             .downcast::<gtk4::ProgressBar>()
             .expect("progress");
         assert_eq!(progress.ellipsize(), gtk4::pango::EllipsizeMode::End);
+        assert!(!progress.shows_text());
+        assert_eq!(progress.text().as_deref(), Some("Loading"));
+        assert!(gtk4::test_accessible_has_property(
+            &progress,
+            gtk4::AccessibleProperty::Label
+        ));
         assert_eq!(progress.margin_start(), PROGRESS_INSET);
         assert_eq!(progress.margin_end(), PROGRESS_INSET);
         assert_eq!(progress.margin_bottom(), PROGRESS_GAP);
@@ -1740,7 +1899,7 @@ mod tests {
             .expect("entry");
         entry.emit_by_name::<()>("changed", &[]);
         entry.emit_by_name::<()>("activate", &[]);
-        widget(&dom, 1, 5, ElementKind::Row).emit_by_name::<()>("clicked", &[]);
+        row_body(&widget(&dom, 1, 5, ElementKind::Row)).emit_by_name::<()>("clicked", &[]);
         widget(&dom, 1, 6, ElementKind::Button).emit_by_name::<()>("clicked", &[]);
         widget(&dom, 1, 7, ElementKind::Fader).emit_by_name::<()>("changed", &[&2.0f64]);
         widget(&dom, 1, 7, ElementKind::Fader).emit_by_name::<()>("toggled", &[&true]);
@@ -1943,7 +2102,14 @@ mod tests {
             .downcast::<gtk4::CheckButton>()
             .expect("check");
         assert!(!check.is_active());
-        assert_eq!(check.label().as_deref(), Some("C"));
+        assert_eq!(
+            check
+                .child()
+                .and_downcast::<gtk4::Label>()
+                .expect("label")
+                .text(),
+            "C"
+        );
         let revealer = get(&dom, 11, ElementKind::Revealer)
             .downcast::<gtk4::Revealer>()
             .expect("revealer");
@@ -2064,12 +2230,17 @@ mod tests {
             ),
         ]);
         let (_shell, mut dom, _) = setup(&first);
-        let row = widget(&dom, 1, 2, ElementKind::Row)
-            .downcast::<Row>()
-            .expect("row");
+        let host = widget(&dom, 1, 2, ElementKind::Row);
+        let row = row_body(&host);
         let end = widget(&dom, 1, 3, ElementKind::Label);
+        assert_eq!(
+            row.property::<Option<String>>("title").as_deref(),
+            Some("R")
+        );
         assert!(row.trail().is_some());
-        assert!(end.is_ancestor(&row));
+        assert!(!row.can_target() && !row.can_focus());
+        assert!(!end.is_ancestor(&row));
+        assert!(end.is_ancestor(&host));
         let hero = widget(&dom, 1, 4, ElementKind::Hero);
         assert!(widget(&dom, 1, 5, ElementKind::Label).is_ancestor(&hero));
         let next = first
@@ -2082,6 +2253,230 @@ mod tests {
         assert!(dom.reconcile(&next, 1));
         assert!(row.trail().is_none());
         assert!(!end.is_ancestor(&row));
+        assert!(!end.is_ancestor(&host));
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn inert_row_end_switch_toggles() {
+        init();
+        let first = tree(vec![node(
+            2,
+            "row",
+            json!({"title": "Quiet"}),
+            vec![node(3, "switch", json!({"onToggle": true}), vec![])],
+        )]);
+        let (_shell, dom, events) = setup(&first);
+        let host = widget(&dom, 1, 2, ElementKind::Row);
+        let row = row_body(&host);
+        let switch = widget(&dom, 1, 3, ElementKind::Switch)
+            .downcast::<gtk4::Switch>()
+            .expect("switch");
+        assert!(!row.can_target() && !row.can_focus());
+        assert!(!switch.is_ancestor(&row));
+        assert!(switch.is_ancestor(&host));
+        assert!(switch.can_focus() && switch.can_target());
+        switch.set_active(true);
+        assert_eq!(events.borrow().len(), 1);
+        assert_eq!(events.borrow()[0].name, "onToggle");
+        assert_eq!(events.borrow()[0].args, vec![json!(true)]);
+        assert!(
+            events
+                .borrow()
+                .iter()
+                .all(|event| event.name != "onActivate")
+        );
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn revealer_with_no_child_stays_empty_until_one_is_inserted() {
+        init();
+        let first = tree(vec![
+            node(
+                2,
+                "revealer",
+                json!({"revealed": true, "transition": "none"}),
+                vec![],
+            ),
+            node(4, "expander", json!({"title": "Closed"}), vec![]),
+        ]);
+        let (_shell, mut dom, _) = setup(&first);
+        let revealer = widget(&dom, 1, 2, ElementKind::Revealer)
+            .downcast::<gtk4::Revealer>()
+            .expect("revealer");
+        let content = revealer
+            .child()
+            .and_downcast::<gtk4::Box>()
+            .expect("content");
+        assert!(content.first_child().is_none());
+        let expander = widget(&dom, 1, 4, ElementKind::Expander)
+            .downcast::<Expandable>()
+            .expect("expander");
+        assert!(!expander.expanded());
+        let next = first
+            .apply(vec![Op::Insert {
+                parent: 2,
+                node: node(3, "label", json!({"text": "body"}), vec![]),
+                before: None,
+            }])
+            .expect("insert");
+        assert!(dom.reconcile(&next, 1));
+        assert!(content.first_child().is_some());
+        assert_eq!(
+            widget(&dom, 1, 3, ElementKind::Label).parent().as_ref(),
+            Some(content.upcast_ref())
+        );
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn dim_tone_is_softer_than_accent_and_markers_stop_at_three() {
+        init();
+        let palette = tone_palette();
+        let dim = palette[tone_index(Tone::Dim)];
+        let accent = palette[tone_index(Tone::Accent)];
+        assert!(dim.alpha() < accent.alpha());
+        assert!((dim.alpha() - DIM_ALPHA).abs() < 0.001);
+        let painted = paint_tones(
+            &palette,
+            &[
+                Tone::Error,
+                Tone::Accent,
+                Tone::Warning,
+                Tone::Success,
+                Tone::Dim,
+            ],
+        );
+        assert_eq!(painted.len(), 3);
+        assert_eq!(painted[0], palette[tone_index(Tone::Error)]);
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn long_option_and_check_label_stay_narrow() {
+        init();
+        let medium = "W".repeat(80);
+        let long = "W".repeat(200);
+        let first = tree(vec![
+            node(
+                2,
+                "dropdown",
+                json!({"options": [medium], "selected": 0}),
+                vec![],
+            ),
+            node(
+                3,
+                "dropdown",
+                json!({"options": [long], "selected": 0}),
+                vec![],
+            ),
+            node(4, "checkbutton", json!({"label": medium}), vec![]),
+            node(5, "checkbutton", json!({"label": long}), vec![]),
+        ]);
+        let (shell, dom, _) = setup(&first);
+        let window = gtk4::Window::new();
+        window.set_child(Some(&shell));
+        window.present();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !shell.is_mapped() && std::time::Instant::now() < deadline {
+            if !gtk4::glib::MainContext::default().iteration(false) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        let narrow = widget(&dom, 1, 2, ElementKind::DropDown)
+            .downcast::<gtk4::DropDown>()
+            .expect("dropdown");
+        let wide = widget(&dom, 1, 3, ElementKind::DropDown)
+            .downcast::<gtk4::DropDown>()
+            .expect("dropdown");
+        assert!(narrow.factory().is_some());
+        assert!(narrow.list_factory().is_some());
+        assert!(wide.list_factory().is_some());
+        let narrow_label = descendant_label(narrow.upcast_ref(), &medium).expect("option label");
+        let wide_label = descendant_label(wide.upcast_ref(), &long).expect("option label");
+        assert_eq!(narrow_label.ellipsize(), gtk4::pango::EllipsizeMode::End);
+        assert_eq!(narrow_label.max_width_chars(), OPTION_CHARS);
+        assert_eq!(narrow_label.text().as_str(), medium);
+        assert_eq!(
+            narrow_label.measure(gtk4::Orientation::Horizontal, -1).1,
+            wide_label.measure(gtk4::Orientation::Horizontal, -1).1
+        );
+        let short = widget(&dom, 1, 4, ElementKind::CheckButton)
+            .downcast::<gtk4::CheckButton>()
+            .expect("check");
+        let tall = widget(&dom, 1, 5, ElementKind::CheckButton)
+            .downcast::<gtk4::CheckButton>()
+            .expect("check");
+        let short_label = short.child().and_downcast::<gtk4::Label>().expect("label");
+        assert_eq!(short_label.ellipsize(), gtk4::pango::EllipsizeMode::End);
+        assert_eq!(short_label.max_width_chars(), 48);
+        assert_eq!(
+            short_label.accessible_role(),
+            gtk4::AccessibleRole::Presentation
+        );
+        assert!(gtk4::test_accessible_has_property(
+            &short,
+            gtk4::AccessibleProperty::Label
+        ));
+        assert_eq!(short_label.text().as_str(), medium);
+        assert_eq!(
+            short.measure(gtk4::Orientation::Horizontal, -1).1,
+            tall.measure(gtk4::Orientation::Horizontal, -1).1
+        );
+        window.close();
+    }
+
+    #[test]
+    #[ignore = "needs a display"]
+    fn opening_an_expander_reports_the_sibling_close() {
+        init();
+        let body = |id: u32| node(id, "label", json!({"text": "t"}), vec![]);
+        let first = tree(vec![
+            node(
+                2,
+                "expander",
+                json!({"title": "A", "expanded": true, "onToggle": true}),
+                vec![body(3)],
+            ),
+            node(
+                4,
+                "expander",
+                json!({"title": "B", "expanded": false, "onToggle": true}),
+                vec![body(5)],
+            ),
+        ]);
+        let (_shell, mut dom, events) = setup(&first);
+        assert!(events.borrow().is_empty());
+        let open = widget(&dom, 1, 2, ElementKind::Expander)
+            .downcast::<Expandable>()
+            .expect("open");
+        let shut = widget(&dom, 1, 4, ElementKind::Expander)
+            .downcast::<Expandable>()
+            .expect("shut");
+        assert!(open.expanded() && !shut.expanded());
+        let next = first
+            .apply(vec![set(4, json!({"expanded": true}))])
+            .expect("open the other");
+        assert!(dom.reconcile(&next, 1));
+        assert!(!open.expanded() && shut.expanded());
+        let seen = events.borrow();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].id, 2);
+        assert_eq!(seen[0].name, "onToggle");
+        assert_eq!(seen[0].args, vec![json!(false)]);
+        let seq = seen[0].seq.expect("seq");
+        assert!(seq >= 1);
+        drop(seen);
+        let echo = next
+            .apply(vec![Op::Set {
+                id: 2,
+                props: serde_json::from_value(json!({"expanded": true})).expect("props"),
+                seq: Some(seq - 1),
+            }])
+            .expect("echo");
+        assert!(dom.reconcile(&echo, 1));
+        assert!(!open.expanded());
     }
 
     #[test]

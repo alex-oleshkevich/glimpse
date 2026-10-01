@@ -172,7 +172,7 @@ pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
-pub use row::Row;
+pub use row::{Row, beside};
 pub use ruler_popover::{HistoryEntry, RulerPopover};
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
@@ -7453,6 +7453,40 @@ mod tests {
             120,
             "the label is capped by chars"
         );
+
+        let quiet = Row::new();
+        quiet.set_title(Some("Quiet"));
+        let end = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+        let knob = gtk4::Switch::new();
+        end.append(&knob);
+        let host = row::beside(&quiet, &end);
+        quiet.set_activatable(false);
+        assert!(!quiet.can_target() && !quiet.can_focus());
+        assert!(!end.is_ancestor(&quiet));
+        assert!(knob.can_focus() && knob.can_target());
+        let window = gtk4::Window::new();
+        window.set_child(Some(&host));
+        window.set_visible(true);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !host.is_mapped() && std::time::Instant::now() < deadline {
+            if !gtk4::glib::MainContext::default().iteration(false) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        assert!(host.is_mapped(), "the row host is mapped");
+        let bounds = knob.compute_bounds(&host).expect("the switch has bounds");
+        let picked = host
+            .pick(
+                f64::from(bounds.x() + bounds.width() / 2.0),
+                f64::from(bounds.y() + bounds.height() / 2.0),
+                gtk4::PickFlags::DEFAULT,
+            )
+            .expect("an inert row leaves its end switch clickable");
+        assert!(
+            picked == knob.clone().upcast::<gtk4::Widget>() || picked.is_ancestor(&knob),
+            "an inert row leaves its end switch clickable, picked {picked:?}"
+        );
+        window.close();
     }
 
     fn children(parent: &impl IsA<gtk4::Widget>) -> usize {

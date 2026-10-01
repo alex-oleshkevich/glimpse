@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-30 15:56+0200\n"
+"POT-Creation-Date: 2026-10-01 16:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -103,20 +103,20 @@ msgstr ""
 msgid "Blocked by {who}: {why}"
 msgstr ""
 
-#: crates/glimpse-notifications/src/app.rs:473
+#: crates/glimpse-notifications/src/app.rs:467
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:328
+#: crates/glimpse-panel/src/app.rs:403
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:372
+#: crates/glimpse-panel/src/app.rs:447
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:385
+#: crates/glimpse-panel/src/app.rs:460
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:143
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:188
@@ -133,42 +133,42 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:451
+#: crates/glimpse-panel/src/app.rs:526
 #: crates/glimpse-panel/src/applets/session/mod.rs:93
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:453
+#: crates/glimpse-panel/src/app.rs:528
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:455
+#: crates/glimpse-panel/src/app.rs:530
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:554
+#: crates/glimpse-panel/src/app.rs:629
 msgid "this device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:140
+#: crates/glimpse-panel/src/applet/mod.rs:138
 msgid "That change was refused."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:141
+#: crates/glimpse-panel/src/applet/mod.rs:139
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:293
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:287
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:142
+#: crates/glimpse-panel/src/applet/mod.rs:140
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:294
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:288
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applet/mod.rs:143
+#: crates/glimpse-panel/src/applet/mod.rs:141
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:295
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:289
 #: crates/glimpse-panel/src/applets/brightness/indicator.rs:299
@@ -365,7 +365,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:352
+#: crates/glimpse-widgets/src/lib.rs:357
 msgid "{percent}%"
 msgstr ""
 
@@ -1066,26 +1066,26 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:667
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1118
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1184
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1804
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:672
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1123
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1189
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1809
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:94
-#: crates/glimpse-panel/src/applets/exec/mod.rs:130
+#: crates/glimpse-panel/src/applets/exec/mod.rs:102
+#: crates/glimpse-panel/src/applets/exec/mod.rs:138
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:191
+#: crates/glimpse-panel/src/applets/exec/mod.rs:199
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:232
+#: crates/glimpse-panel/src/applets/exec/mod.rs:240
 msgid "External applet is not running."
 msgstr ""
 
@@ -1568,7 +1568,7 @@ msgstr ""
 msgid "Conflicts"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:216
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:220
 msgid "Clear all"
 msgstr ""
 
@@ -2600,7 +2600,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:311
+#: crates/glimpse-widgets/src/lib.rs:316
 msgid "Play"
 msgstr ""
 
@@ -3370,7 +3370,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:310
+#: crates/glimpse-widgets/src/lib.rs:315
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:164
 msgid "Pause"
 msgstr ""

@@ -84,9 +84,8 @@ pub use exec::{
     MAX_LINE, MAX_NODES, Node, NoticeProps, Op, Orientation, Outgoing, PlaceholderProps, Placement,
     PopoverProps, ProgressProps, ROOT, RangeBarProps, ReadoutProps, RevealerProps, RowProps,
     ScaleProps, SectionProps, SeparatorProps, SessionVerb, Severity, SparklineProps, SpinnerProps,
-    StackProps,
-    SwitchProps, SwitchRowProps, ToggleButtonProps, Tone, Transition, Tree, Urgency, Violation,
-    WireNode, Zone, expand as exec_expand,
+    StackProps, SwitchProps, SwitchRowProps, ToggleButtonProps, Tone, Transition, Tree, Urgency,
+    Violation, WireNode, Zone, expand as exec_expand,
 };
 pub use exec::{
     BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,

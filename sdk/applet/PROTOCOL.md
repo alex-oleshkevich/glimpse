@@ -242,7 +242,7 @@ and in it the first `hero` and the first `footer`.
 | root | `indicator`, `popover` |
 | `popover` | `hero`, `footer`, and any body element |
 | `section` | body elements except `section` |
-| `revealer`, `expander` | exactly one body element except `section` |
+| `revealer`, `expander` | any number of body elements except `section` |
 | `stack` | body elements except `section` |
 | `hero` | at most 4 of `readout`, `switch`, `label`, `button`, drawn at its end |
 | `row` | at most 4 of `image`, `label`, `button`, `switch`, drawn at its end |
@@ -556,7 +556,7 @@ sends `["YYYY-MM-DD"]`. Neither fires for a state set by the applet.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
-| `year` | number | With `month`, the month shown |
+| `year` | number | Clamped to `1`–`9999`. With `month`, the month shown |
 | `month` | number | Clamped to `1`–`12` |
 | `selected` | date | Absent clears the selection |
 | `today` | date | |
@@ -613,7 +613,7 @@ A leaf. `onToggle` sends `[active]` with a `seq`.
 
 ### `revealer`
 
-Holds exactly one body child; any other count rejects the commit.
+Holds any number of body children, including none.
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -633,9 +633,9 @@ child at `visible` is shown.
 
 ### `expander`
 
-Holds exactly one body child, the body. The header row toggles it; opening one expander
-in a popover closes the others. `onToggle` sends `[expanded]` with a `seq`, and does not
-fire for a state set by the applet.
+Holds any number of body children, including none. The header row toggles it; opening one
+expander in a popover closes the others, and that close is an `onToggle`. `onToggle` sends
+`[expanded]` with a `seq`, and does not fire for a state set by the applet.
 
 | Prop | Type |
 | --- | --- |
