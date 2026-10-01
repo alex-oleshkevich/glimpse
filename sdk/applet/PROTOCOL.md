@@ -253,10 +253,11 @@ and in it the first `hero` and the first `footer`.
 Body elements are `section`, `row`, `switchrow`, `fader`, `entry`, `placeholder`, `box`,
 `label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator`,
 `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
-`togglebutton`, `checkbutton`, `revealer`, `stack`, `expander`, `rangebar` and
-`unsupported`.
+`togglebutton`, `checkbutton`, `revealer`, `stack`, `expander`, `rangebar`, `bars`,
+`sparkline` and `unsupported`.
 
-An array prop with more than 64 items, at any depth, rejects the commit.
+An array prop with more than 64 items, at any depth, rejects the commit. The `values` and
+`tooltips` props of `bars` and `sparkline` may hold 366.
 
 An unknown `type` is `unsupported`. Its name is the type string after text cleaning,
 capped at 64 characters. Markup in that name is kept literal.
@@ -657,6 +658,36 @@ is raised to `low`.
 | `low` | number | `0` |
 | `high` | number | `0` |
 | `now` | number | absent |
+| `className` | class | |
+
+### `bars`
+
+A leaf. One bar per value, scaled to the largest value or to `maximum`. A `null`, negative or
+non-finite value is no data and draws a faint tick. A series longer than the width is bucketed by
+its maximum. `tooltips` is parallel to `values` and gives the hover text of each bar. The
+widget keeps the newest 366 values.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `values` | array of number or `null` | At most 366 items |
+| `maximum` | number | absent: the largest value. Dropped unless above `0` |
+| `highlightLast` | boolean | `true`: older bars are dimmed |
+| `label` | string | Accessible label |
+| `tooltips` | array of string or `null` | At most 366 items, parallel to `values` |
+| `className` | class | |
+
+### `sparkline`
+
+A leaf. A line through the values, scaled to their range. A `null` value breaks the line and
+keeps its place on the horizontal axis; an isolated value is a dot. The widget keeps the newest
+366 values.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `values` | array of number or `null` | At most 366 items |
+| `fill` | boolean | `false`: shade the area under the line |
+| `showLast` | boolean | `false`: dot on the last value |
+| `label` | string | Accessible label |
 | `className` | class | |
 
 ### `separator`

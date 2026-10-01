@@ -482,12 +482,22 @@ const CONTROLLED: Record<string, [string, string]> = {
 let current: Session | null = null;
 let fail: (code: number) => void = (code) => process.exit(code);
 
-function oversized(value: unknown): boolean {
-  if (Array.isArray(value)) return value.length > 64 || value.some(oversized);
+const SERIES_KEYS = ["values", "tooltips"];
+
+function oversized(value: unknown, limit = 64): boolean {
+  if (Array.isArray(value)) {
+    return value.length > limit || value.some((item) => oversized(item));
+  }
   if (value !== null && typeof value === "object") {
-    return Object.values(value).some(oversized);
+    return Object.values(value).some((field) => oversized(field));
   }
   return false;
+}
+
+function propsOversized(props: Record<string, unknown>): boolean {
+  return Object.entries(props).some(([key, value]) =>
+    oversized(value, SERIES_KEYS.includes(key) ? 366 : 64)
+  );
 }
 
 function flush(session: Session, fn?: () => void, emitCommit = true): void {
@@ -507,7 +517,7 @@ function flush(session: Session, fn?: () => void, emitCommit = true): void {
   let count = 0;
   const visit = (node: HostNode): void => {
     if (++count > 300) throw new ProtocolLimitError("tree exceeds 300 nodes");
-    if (Object.values(node.props).some(oversized)) {
+    if (propsOversized(node.props)) {
       throw new ProtocolLimitError("array prop exceeds 64 items");
     }
     if (node.children.length > 200) {

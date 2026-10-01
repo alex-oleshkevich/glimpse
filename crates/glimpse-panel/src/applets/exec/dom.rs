@@ -11,8 +11,8 @@ use glimpse_services::{
     Transition, Tree,
 };
 use glimpse_widgets::{
-    Calendar, ChoiceList, DOTS_SIZE, Dots, Expandable, FactList, Fader, Hero, Notice, Placeholder,
-    PopoverShell, RangeBar, Readout, Row, Section, SwitchRow, Ymd, reconcile::by_key,
+    Bars, Calendar, ChoiceList, DOTS_SIZE, Dots, Expandable, FactList, Fader, Hero, Notice, Placeholder,
+    PopoverShell, RangeBar, Readout, Row, Section, Sparkline, SwitchRow, Ymd, reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -625,6 +625,8 @@ impl Dom {
                 expandable.upcast()
             }
             Element::RangeBar(_) => RangeBar::new().upcast(),
+            Element::Bars(_) => Bars::new().upcast(),
+            Element::Sparkline(_) => Sparkline::new().upcast(),
             Element::Dots(_) => Dots::new().upcast(),
             Element::Placeholder(_) => Placeholder::new().upcast(),
             Element::Label(_) => gtk4::Label::new(None).upcast(),
@@ -973,6 +975,23 @@ impl Dom {
                     dots.set_max(p.max.map_or(usize::MAX, |max| max as usize));
                 }
             }
+            Element::Bars(p) => {
+                if let Some(bars) = widget.downcast_ref::<Bars>() {
+                    bars.set_values(&p.values);
+                    bars.set_maximum(p.maximum);
+                    bars.set_highlight_last(p.highlight_last);
+                    bars.set_label(p.label.as_deref().unwrap_or_default());
+                    bars.set_tooltips(&p.tooltips);
+                }
+            }
+            Element::Sparkline(p) => {
+                if let Some(line) = widget.downcast_ref::<Sparkline>() {
+                    line.set_values(&p.values);
+                    line.set_fill(p.fill);
+                    line.set_show_last(p.show_last);
+                    line.set_label(p.label.as_deref().unwrap_or_default());
+                }
+            }
             Element::RangeBar(p) => {
                 if let Some(bar) = widget.downcast_ref::<RangeBar>() {
                     bar.set_scale(p.min, p.max);
@@ -1148,6 +1167,8 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::Stack(p) => p.class_name,
         Element::Expander(p) => p.class_name,
         Element::RangeBar(p) => p.class_name,
+        Element::Bars(p) => p.class_name,
+        Element::Sparkline(p) => p.class_name,
         Element::Dots(p) => p.class_name,
         Element::Root | Element::FactList(_) | Element::Unsupported(_) => None,
     }
@@ -1872,6 +1893,18 @@ mod tests {
                 json!({"fraction":0.5,"className":"warning"}),
                 vec![],
             ),
+            node(
+                20,
+                "bars",
+                json!({"values":[1,null,3],"maximum":5,"highlightLast":false,"label":"Cost","tooltips":["a",null,"c"]}),
+                vec![],
+            ),
+            node(
+                21,
+                "sparkline",
+                json!({"values":[1,2,null,4],"fill":true,"showLast":true,"label":"Trend"}),
+                vec![],
+            ),
         ]);
         let (_shell, mut dom, events) = setup(&first);
         assert!(events.borrow().is_empty());
@@ -1932,6 +1965,19 @@ mod tests {
                 .as_deref(),
             Some("E")
         );
+        let bars = get(&dom, 20, ElementKind::Bars)
+            .downcast::<Bars>()
+            .expect("bars");
+        assert_eq!(bars.values(), vec![Some(1.0), None, Some(3.0)]);
+        assert_eq!(bars.maximum(), Some(5.0));
+        assert!(!bars.highlight_last());
+        assert_eq!(bars.label(), "Cost");
+        let line = get(&dom, 21, ElementKind::Sparkline)
+            .downcast::<Sparkline>()
+            .expect("sparkline");
+        assert_eq!(line.values(), vec![Some(1.0), Some(2.0), None, Some(4.0)]);
+        assert!(line.fill() && line.show_last());
+        assert_eq!(line.label(), "Trend");
         let meter = get(&dom, 19, ElementKind::Progress)
             .downcast::<gtk4::ProgressBar>()
             .expect("meter");

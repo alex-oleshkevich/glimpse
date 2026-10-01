@@ -19,6 +19,8 @@ const NAME_CAP: usize = 64;
 const BADGE_CAP: usize = 8;
 const ENTRY_CAP: usize = 4096;
 pub const MAX_ITEMS: usize = 64;
+pub const MAX_SERIES: usize = 366;
+const SERIES_KEYS: [&str; 2] = ["values", "tooltips"];
 pub const MAX_SLOT_CHILDREN: usize = 4;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,6 +63,8 @@ pub enum ElementKind {
     Stack,
     Expander,
     RangeBar,
+    Bars,
+    Sparkline,
     Dots,
     Label,
     Image,
@@ -160,6 +164,8 @@ pub enum Element {
     Stack(StackProps),
     Expander(ExpanderProps),
     RangeBar(RangeBarProps),
+    Bars(BarsProps),
+    Sparkline(SparklineProps),
     Dots(DotsProps),
     Label(LabelProps),
     Image(ImageProps),
@@ -538,6 +544,41 @@ pub struct RangeBarProps {
     pub class_name: Option<ClassName>,
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct BarsProps {
+    pub values: Vec<Option<f64>>,
+    #[serde(deserialize_with = "de_optional_f64")]
+    pub maximum: Option<f64>,
+    pub highlight_last: bool,
+    pub label: Option<String>,
+    pub tooltips: Vec<Option<String>>,
+    pub class_name: Option<ClassName>,
+}
+
+impl Default for BarsProps {
+    fn default() -> Self {
+        Self {
+            values: Vec::new(),
+            maximum: None,
+            highlight_last: true,
+            label: None,
+            tooltips: Vec::new(),
+            class_name: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SparklineProps {
+    pub values: Vec<Option<f64>>,
+    pub fill: bool,
+    pub show_last: bool,
+    pub label: Option<String>,
+    pub class_name: Option<ClassName>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct DotsProps {
@@ -845,6 +886,8 @@ impl Element {
             Self::Stack(_) => ElementKind::Stack,
             Self::Expander(_) => ElementKind::Expander,
             Self::RangeBar(_) => ElementKind::RangeBar,
+            Self::Bars(_) => ElementKind::Bars,
+            Self::Sparkline(_) => ElementKind::Sparkline,
             Self::Dots(_) => ElementKind::Dots,
             Self::Label(_) => ElementKind::Label,
             Self::Image(_) => ElementKind::Image,
@@ -886,6 +929,8 @@ impl ElementKind {
             Self::Stack => "stack",
             Self::Expander => "expander",
             Self::RangeBar => "rangebar",
+            Self::Bars => "bars",
+            Self::Sparkline => "sparkline",
             Self::Dots => "dots",
             Self::Label => "label",
             Self::Image => "image",
@@ -931,6 +976,8 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "stack" => ElementKind::Stack,
         "expander" => ElementKind::Expander,
         "rangebar" => ElementKind::RangeBar,
+        "bars" => ElementKind::Bars,
+        "sparkline" => ElementKind::Sparkline,
         "dots" => ElementKind::Dots,
         "label" => ElementKind::Label,
         "image" => ElementKind::Image,
@@ -1000,6 +1047,8 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Stack
             | ElementKind::Expander
             | ElementKind::RangeBar
+            | ElementKind::Bars
+            | ElementKind::Sparkline
             | ElementKind::Dots
             | ElementKind::Label
             | ElementKind::Image
@@ -1123,6 +1172,10 @@ fn realize_into(
         ElementKind::Stack => Element::Stack(read_props(id, raw, kept)),
         ElementKind::Expander => Element::Expander(finish_expander(read_props(id, raw, kept))),
         ElementKind::RangeBar => Element::RangeBar(finish_range_bar(read_props(id, raw, kept))),
+        ElementKind::Bars => Element::Bars(finish_bars(read_props(id, raw, kept))),
+        ElementKind::Sparkline => {
+            Element::Sparkline(finish_sparkline(read_props(id, raw, kept)))
+        }
         ElementKind::Dots => Element::Dots(finish_dots(read_props(id, raw, kept))),
         ElementKind::Label => Element::Label(finish_label(read_props(id, raw, kept))),
         ElementKind::Image => Element::Image(finish_image(read_props(id, raw, kept))),
@@ -1338,6 +1391,21 @@ fn finish_range_bar(mut props: RangeBarProps) -> RangeBarProps {
     props
 }
 
+fn finish_bars(mut props: BarsProps) -> BarsProps {
+    props.label = text(props.label);
+    props.tooltips = props
+        .tooltips
+        .into_iter()
+        .map(|tooltip| tooltip.map(|tooltip| clean(&tooltip)))
+        .collect();
+    props
+}
+
+fn finish_sparkline(mut props: SparklineProps) -> SparklineProps {
+    props.label = text(props.label);
+    props
+}
+
 fn finish_dots(mut props: DotsProps) -> DotsProps {
     props.size = props.size.map(|size| size.clamp(2.0, 16.0));
     props.max = props.max.map(|max| max.clamp(1, 3));
@@ -1349,14 +1417,24 @@ fn clean(value: &str) -> String {
 }
 
 fn check_items(props: &Map<String, Value>) -> Result<(), Violation> {
-    fn oversized(value: &Value) -> bool {
+    fn oversized(value: &Value, limit: usize) -> bool {
         match value {
-            Value::Array(items) => items.len() > MAX_ITEMS || items.iter().any(oversized),
-            Value::Object(fields) => fields.values().any(oversized),
+            Value::Array(items) => {
+                items.len() > limit || items.iter().any(|item| oversized(item, MAX_ITEMS))
+            }
+            Value::Object(fields) => fields.values().any(|field| oversized(field, MAX_ITEMS)),
             _ => false,
         }
     }
-    if props.values().any(oversized) {
+    let over = props.iter().any(|(key, value)| {
+        let limit = if SERIES_KEYS.contains(&key.as_str()) {
+            MAX_SERIES
+        } else {
+            MAX_ITEMS
+        };
+        oversized(value, limit)
+    });
+    if over {
         return Err(Violation::TooManyItems);
     }
     Ok(())
@@ -2337,6 +2415,52 @@ mod tests {
         };
         assert_eq!((bar.min, bar.max), (0.0, 4.0));
         assert_eq!((bar.low, bar.high), (4.0, 4.0));
+    }
+
+    #[test]
+    fn series_props_take_366_items_and_default_to_highlighting() {
+        let series = |count: usize| (0..count).map(|i| json!(i)).collect::<Vec<_>>();
+        let tree = hosted(&Tree::default())
+            .apply(vec![
+                insert(
+                    1,
+                    wire(
+                        2,
+                        "bars",
+                        json!({"values": series(366), "tooltips": vec!["t"; 366], "label": "L"}),
+                        Vec::new(),
+                    ),
+                    None,
+                ),
+                insert(
+                    1,
+                    wire(3, "sparkline", json!({"values": [1, null, 3]}), Vec::new()),
+                    None,
+                ),
+            ])
+            .expect("366 fit");
+        let Element::Bars(bars) = only(&tree, 2) else {
+            panic!("bars")
+        };
+        assert_eq!((bars.values.len(), bars.tooltips.len()), (366, 366));
+        assert!(bars.highlight_last);
+        let Element::Sparkline(line) = only(&tree, 3) else {
+            panic!("sparkline")
+        };
+        assert_eq!(line.values, vec![Some(1.0), None, Some(3.0)]);
+        assert!(!line.fill && !line.show_last);
+        for kind in ["bars", "sparkline"] {
+            assert_eq!(
+                hosted(&Tree::default())
+                    .apply(vec![insert(
+                        1,
+                        wire(2, kind, json!({"values": series(367)}), Vec::new()),
+                        None,
+                    )])
+                    .expect_err("367"),
+                Violation::TooManyItems
+            );
+        }
     }
 
     #[test]

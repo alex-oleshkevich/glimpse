@@ -39,7 +39,7 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
 - Components: `Indicator`, `Popover`, `Hero`, `Section`, `Row`, `SwitchRow`, `Fader`, `Entry`,
   `Placeholder`, `Footer`, `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`,
   `Progress`, `Separator`, `FactList`, `ChoiceList`, `Readout`, `Notice`, `Calendar`, `Dots`,
-  `DropDown`, `ToggleButton`, `CheckButton`, `Revealer`, `Stack`, `Expander` and `RangeBar`.
+  `DropDown`, `ToggleButton`, `CheckButton`, `Revealer`, `Stack`, `Expander`, `RangeBar`, `Bars` and `Sparkline`.
 - Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopoverOpen`,
   `useAppletName` and `useStateDir`. `useStateDir` returns the applet's private, persistent
   directory.

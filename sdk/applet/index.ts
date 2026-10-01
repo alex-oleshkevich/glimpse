@@ -222,6 +222,23 @@ export const RangeBar = "rangebar" as unknown as FC<{
   className?: ClassName;
 }>;
 
+export const Bars = "bars" as unknown as FC<{
+  values?: Array<number | null>;
+  maximum?: number;
+  highlightLast?: boolean;
+  label?: string;
+  tooltips?: Array<string | null>;
+  className?: ClassName;
+}>;
+
+export const Sparkline = "sparkline" as unknown as FC<{
+  values?: Array<number | null>;
+  fill?: boolean;
+  showLast?: boolean;
+  label?: string;
+  className?: ClassName;
+}>;
+
 export const Entry = "entry" as unknown as FC<{
   placeholder?: string;
   value?: string;

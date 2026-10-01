@@ -39,6 +39,8 @@ import {
   openUri,
   Popover,
   RangeBar,
+  Bars,
+  Sparkline,
   Readout,
   Revealer,
   Row,
@@ -451,6 +453,31 @@ test("applet sdk", async (t) => {
     assert(nodes[1].props.onSelect === true, JSON.stringify(nodes[1].props));
     assert(nodes[4].props.onMonth === true && nodes[4].props.events[0].colors[0] === "error", JSON.stringify(nodes[4].props));
     assert(nodes[12].children.length === 1 && nodes[12].props.onToggle === true, JSON.stringify(nodes[12]));
+  });
+
+  await t.test("series props take 366 items and no more", async () => {
+    const series = (length: number) => Array.from({ length }, (_, index) => (index % 5 ? index : null));
+    const lines = await drive(
+      createElement(
+        Popover,
+        null,
+        createElement(Bars, { values: series(366), tooltips: series(366).map(String) }),
+        createElement(Sparkline, { values: series(366) }),
+      ),
+      [hostLine()],
+    );
+    assert(lines.length === 2, lines.join("\n"));
+    const exit = mockExit(false);
+    try {
+      const refused = await drive(
+        createElement(Popover, null, createElement(Bars, { values: series(367) })),
+        [hostLine()],
+      );
+      assert(refused.length === 1, refused.join("\n"));
+    } finally {
+      exit.restore();
+    }
+    assert(exit.code() === 70, `exit ${exit.code()}`);
   });
 
   await t.test("rejects array props over 64 items", async () => {

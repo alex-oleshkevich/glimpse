@@ -76,14 +76,15 @@ pub use color_picker::{
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use exec::{
-    Align, BoxProps, ButtonProps, CalendarMarker, CalendarProps, Catalog as ExecCatalog,
+    Align, BarsProps, BoxProps, ButtonProps, CalendarMarker, CalendarProps, Catalog as ExecCatalog,
     CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, DesktopCatalog, DotsProps,
     DropDownProps, Edge, Element, ElementKind, Ellipsize, Entry as ExecEntry, EntryProps,
     ExpanderProps, FactItem, FactListProps, FaderProps, FooterProps, FromApplet, HeroProps,
     INTERFACE as EXEC_INTERFACE, ImageProps, IndicatorProps, LabelProps, MAX_CHILDREN_PER_PARENT,
     MAX_LINE, MAX_NODES, Node, NoticeProps, Op, Orientation, Outgoing, PlaceholderProps, Placement,
     PopoverProps, ProgressProps, ROOT, RangeBarProps, ReadoutProps, RevealerProps, RowProps,
-    ScaleProps, SectionProps, SeparatorProps, SessionVerb, Severity, SpinnerProps, StackProps,
+    ScaleProps, SectionProps, SeparatorProps, SessionVerb, Severity, SparklineProps, SpinnerProps,
+    StackProps,
     SwitchProps, SwitchRowProps, ToggleButtonProps, Tone, Transition, Tree, Urgency, Violation,
     WireNode, Zone, expand as exec_expand,
 };

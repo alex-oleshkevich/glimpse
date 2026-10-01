@@ -26,7 +26,7 @@ fn runs(values: &[Option<f64>], width: f32, height: f32) -> Vec<Run> {
         return Vec::new();
     };
     let high = finite().fold(low, f64::max);
-    let span = high - low;
+    let (half_low, span) = (low / 2.0, high / 2.0 - low / 2.0);
     let edge = if width > 2.0 * EDGE { EDGE } else { 0.0 };
     let run = (width - 2.0 * edge).max(0.0);
     let x = |i: usize| match values.len() {
@@ -35,7 +35,7 @@ fn runs(values: &[Option<f64>], width: f32, height: f32) -> Vec<Run> {
     };
     let y = |v: f64| {
         if span > 0.0 {
-            let share = ((v - low) / span) as f32;
+            let share = ((v / 2.0 - half_low) / span).clamp(0.0, 1.0) as f32;
             height * (1.0 - VERTICAL_PADDING - share * (1.0 - 2.0 * VERTICAL_PADDING))
         } else {
             height / 2.0
@@ -256,6 +256,14 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_span_beyond_f64_stays_finite() {
+        let r = runs(&[Some(-f64::MAX), Some(f64::MAX)], 100.0, 100.0);
+        assert!(all(&r).all(|(x, y)| x.is_finite() && y.is_finite()));
+        assert!((r[0][0].1 - 90.0).abs() < 1e-3);
+        assert!((r[0][1].1 - 10.0).abs() < 1e-3);
     }
 
     #[test]

@@ -258,6 +258,7 @@ impl Bars {
         }
         *imp.values.borrow_mut() = cleaned;
         self.queue_draw();
+        self.refresh_tooltip();
     }
 
     pub fn set_maximum(&self, maximum: Option<f64>) {
@@ -301,6 +302,13 @@ impl Bars {
         let imp = self.imp();
         if *imp.tooltips.borrow() != capped {
             *imp.tooltips.borrow_mut() = capped;
+            self.refresh_tooltip();
+        }
+    }
+
+    fn refresh_tooltip(&self) {
+        if self.imp().hovered.get().is_some() {
+            self.trigger_tooltip_query();
         }
     }
 
