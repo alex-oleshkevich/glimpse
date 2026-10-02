@@ -59,6 +59,8 @@
     --gl-lock-text-shadow: 0 1px 3px var(--gl-lock-shade);
     --gl-lock-error: #ffc4bf;
     --gl-lock-warning: #ffda97;
+
+    --gl-popover-shell-header-padding: 0.55rem 0.8rem;
 }
 
 .panel {
@@ -318,6 +320,10 @@ popover separator {
 .popover-shell__hero,
 .popover-shell__footer {
     padding: 0.55rem 0.8rem;
+}
+
+.popover-shell__header {
+    padding: var(--gl-popover-shell-header-padding);
 }
 
 .row {

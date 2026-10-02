@@ -306,11 +306,14 @@ Only under the root. No children.
 
 ### `popover`
 
-Under the root.
+Under the root. `icon`, `title` and `subtitle` render the shell's header.
 
-| Prop | Type |
-| --- | --- |
-| `className` | class |
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `className` | class | |
+| `icon` | string | Themed icon in the shell header |
+| `title` | string | Header title. The header is shown when this is set |
+| `subtitle` | string | Header subtitle |
 
 Children follow the parent table. The order of `children` is the order on screen.
 

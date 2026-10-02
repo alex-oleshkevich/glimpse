@@ -205,6 +205,10 @@ fn main() {
             "resources/widgets/weather_popover.ui",
         ),
         (
+            "blueprints/widget_demo_popover.blp",
+            "resources/widgets/widget_demo_popover.ui",
+        ),
+        (
             "blueprints/idle_popover.blp",
             "resources/widgets/idle_popover.ui",
         ),

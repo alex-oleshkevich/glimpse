@@ -279,3 +279,32 @@ fn an_unknown_key_is_not_kept() {
         .expect("unsupported");
     assert!(unsupported.node(3).expect("canvas").raw.is_empty());
 }
+
+#[test]
+fn popover_heading_caps_a_multibyte_title_and_drops_a_bad_icon() {
+    let long = "é".repeat(10_000);
+    let tree = Tree::default()
+        .apply(vec![insert(
+            ROOT,
+            wire(
+                1,
+                "popover",
+                json!({
+                    "title": long,
+                    "subtitle": "Popover shell slots",
+                    "icon": "not an icon",
+                }),
+                Vec::new(),
+            ),
+            None,
+        )])
+        .expect("popover");
+    let Element::Popover(props) = &tree.node(1).expect("popover").element else {
+        panic!("expected a popover");
+    };
+    let capped = glimpse_utils::clean(&long, 256);
+    assert_eq!(props.title.as_deref(), Some(capped.as_str()));
+    assert!(props.title.as_ref().is_some_and(|title| title.len() > 256));
+    assert_eq!(props.subtitle.as_deref(), Some("Popover shell slots"));
+    assert_eq!(props.icon, None);
+}

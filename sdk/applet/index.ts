@@ -67,6 +67,9 @@ export const Indicator = "indicator" as unknown as FC<{
 
 export const Popover = "popover" as unknown as FC<{
   className?: ClassName;
+  icon?: string;
+  title?: string;
+  subtitle?: string;
   children?: Node;
 }>;
 

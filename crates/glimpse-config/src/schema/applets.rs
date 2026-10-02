@@ -80,6 +80,9 @@ pub enum Kind {
     /// A counter that ticks once a second. A development fixture: it proves the service is
     /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
+    /// A popover with a colored block in every slot of the shell. A development fixture, mirrored by
+    /// `sdk/examples/widget_demo`, for comparing built-in and exec rendering; not meant for a real bar.
+    WidgetDemo {},
     /// Idle inhibition, for keeping the screen awake.
     Idle {},
     /// A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair

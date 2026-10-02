@@ -182,6 +182,9 @@ pub enum Element {
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct PopoverProps {
     pub class_name: Option<ClassName>,
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -1141,7 +1144,7 @@ fn realize_into(
 ) -> Element {
     match kind {
         ElementKind::Root => Element::Root,
-        ElementKind::Popover => Element::Popover(read_props(id, raw, kept)),
+        ElementKind::Popover => Element::Popover(finish_popover(read_props(id, raw, kept))),
         ElementKind::Footer => Element::Footer(read_props(id, raw, kept)),
         ElementKind::Indicator => Element::Indicator(finish_indicator(read_props(id, raw, kept))),
         ElementKind::Hero => Element::Hero(finish_hero(read_props(id, raw, kept))),
@@ -1221,10 +1224,23 @@ fn finish_indicator(mut props: IndicatorProps) -> IndicatorProps {
     props
 }
 
+fn finish_heading(
+    icon_name: Option<String>,
+    title: Option<String>,
+    subtitle: Option<String>,
+) -> (Option<String>, Option<String>, Option<String>) {
+    (icon(icon_name), text(title), text(subtitle))
+}
+
 fn finish_hero(mut props: HeroProps) -> HeroProps {
-    props.icon = icon(props.icon);
-    props.title = text(props.title);
-    props.subtitle = text(props.subtitle);
+    (props.icon, props.title, props.subtitle) =
+        finish_heading(props.icon, props.title, props.subtitle);
+    props
+}
+
+fn finish_popover(mut props: PopoverProps) -> PopoverProps {
+    (props.icon, props.title, props.subtitle) =
+        finish_heading(props.icon, props.title, props.subtitle);
     props
 }
 

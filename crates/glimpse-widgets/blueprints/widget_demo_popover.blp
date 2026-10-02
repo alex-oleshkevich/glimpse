@@ -1,0 +1,11 @@
+using Gtk 4.0;
+
+template $WidgetDemoPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  $PopoverShell shell {
+    icon-name: "applications-graphics-symbolic";
+    title: "Widget demo";
+    subtitle: "Popover shell slots";
+  }
+}

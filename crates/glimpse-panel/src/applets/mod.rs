@@ -28,6 +28,7 @@ mod system_monitor;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
+mod widget_demo;
 mod workspace;
 mod workspace_name;
 
@@ -121,6 +122,7 @@ pub fn build(
                 Box::new(heartbeat::Heartbeat::start(heartbeat))
             }))
         }
+        AppletKind::WidgetDemo {} => Some(Box::new(|_ctx| Box::new(widget_demo::WidgetDemo))),
         AppletKind::Mpris(_) => {
             let mpris = mpris.clone();
             Some(Box::new(move |ctx| {

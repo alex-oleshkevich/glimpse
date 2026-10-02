@@ -9,6 +9,14 @@ template $PopoverShell: Gtk.Widget {
     "popover-shell",
   ]
 
+  $Hero header {
+    visible: false;
+
+    styles [
+      "popover-shell__header",
+    ]
+  }
+
   Gtk.Box hero_box {
     orientation: vertical;
     visible: false;

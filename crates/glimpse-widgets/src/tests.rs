@@ -126,6 +126,51 @@ fn widgets() {
     hero_checks::heights();
     chart_checks::check();
     row_checks::beside();
+    widget_demo_popover_shows_the_header_check();
+    popover_shell_title_setter_short_circuits_check();
+}
+
+fn widget_demo_popover_shows_the_header_check() {
+    let popover = WidgetDemoPopover::new();
+    let shell = child_named::<PopoverShell>(&popover, "popover-shell");
+    let header = child_named::<Hero>(&shell, "popover-shell__header");
+    assert!(header.get_visible());
+    assert_eq!(header.title().as_deref(), Some("Widget demo"));
+    shell.clear_content();
+    assert!(!child_named::<gtk4::Box>(&shell, "popover-shell__content").get_visible());
+    assert!(header.get_visible());
+}
+
+fn popover_shell_title_setter_short_circuits_check() {
+    let shell = PopoverShell::new();
+    let header = child_named::<Hero>(&shell, "popover-shell__header");
+    assert!(!header.get_visible());
+    let notifies = Rc::new(Cell::new(0u32));
+    header.connect_title_notify({
+        let notifies = Rc::clone(&notifies);
+        move |_| notifies.set(notifies.get() + 1)
+    });
+    shell.set_title(Some("Widget demo"));
+    shell.set_title(Some("Widget demo"));
+    assert_eq!(notifies.get(), 1);
+    shell.set_title(None::<&str>);
+    assert!(!header.get_visible());
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn widget_demo_popover_shows_the_header() {
+    gtk4::init().expect("gtk");
+    register_resources().expect("resources");
+    widget_demo_popover_shows_the_header_check();
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn popover_shell_title_setter_short_circuits() {
+    gtk4::init().expect("gtk");
+    register_resources().expect("resources");
+    popover_shell_title_setter_short_circuits_check();
 }
 
 fn children(parent: &impl IsA<gtk4::Widget>) -> usize {

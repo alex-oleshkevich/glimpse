@@ -186,6 +186,13 @@ impl Dom {
             .and_then(|node| element_class(&node.element))
             .map(render::class_name);
         swap_class(shell.upcast_ref(), &mut self.popover_class, popover_class);
+        if let Some(node) = tree.node(popover)
+            && let Element::Popover(props) = &node.element
+        {
+            shell.set_icon_name(props.icon.as_deref());
+            shell.set_title(props.title.as_deref());
+            shell.set_subtitle(props.subtitle.as_deref());
+        }
         let root_key = (generation, ROOT, ElementKind::Popover);
         let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Hero(_) | Element::Footer(_)))).collect();
         self.reconcile_children(
@@ -266,6 +273,9 @@ impl Dom {
         swap_class(self.footer_nodes.upcast_ref(), &mut self.footer_class, None);
         if let Some(shell) = self.shell.upgrade() {
             swap_class(shell.upcast_ref(), &mut self.popover_class, None);
+            shell.set_icon_name(None::<&str>);
+            shell.set_title(None::<&str>);
+            shell.set_subtitle(None::<&str>);
         }
         self.opener.typing(false);
     }
