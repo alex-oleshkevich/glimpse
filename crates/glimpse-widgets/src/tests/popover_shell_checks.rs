@@ -22,4 +22,14 @@ pub(super) fn check() {
     assert!(!bare.imp().body.get_visible());
     section.set_visible(true);
     assert_eq!(rules(&bare), (true, true));
+
+    let exec = PopoverShell::new();
+    assert!(!exec.imp().scroller.get_visible());
+    let body = exec.body();
+    body.append(&gtk4::Label::new(Some("body 1")));
+    body.set_visible(true);
+    assert!(
+        exec.imp().scroller.get_visible(),
+        "a body filled through body() shows its scroller"
+    );
 }

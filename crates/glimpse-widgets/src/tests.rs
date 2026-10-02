@@ -142,7 +142,13 @@ fn widget_demo_popover_shows_the_header_check() {
     assert_eq!(header.subtitle().as_deref(), Some("Popover shell slots"));
     assert_eq!(children(&shell.body()), 4);
     let addon = shell.imp().header.imp().slot.first_child();
-    assert!(addon.is_some_and(|widget| widget.is::<Container>()));
+    let switch = addon
+        .and_downcast::<gtk4::Switch>()
+        .expect("the addon is the wide switch");
+    switch.set_active(true);
+    assert_eq!(shell.size(), PopoverSize::Wide);
+    switch.set_active(false);
+    assert_eq!(shell.size(), PopoverSize::Regular);
     shell.clear_content();
     assert!(!child_named::<gtk4::Box>(&shell, "popover-shell__content").get_visible());
     assert!(header.get_visible());

@@ -34,6 +34,7 @@ template $PopoverShell: Gtk.Widget {
       }
 
       Gtk.ScrolledWindow scroller {
+        visible: bind body.visible;
         hscrollbar-policy: never;
         propagate-natural-height: true;
         vexpand: true;

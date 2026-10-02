@@ -171,7 +171,6 @@ impl PopoverShell {
 
         let content_shown = shows_anything(&imp.body);
         show(&*imp.body, content_shown);
-        show(&*imp.scroller, content_shown);
 
         let footer_shown = shows_anything(&imp.footer_box);
         show(&*imp.footer_box, footer_shown);
@@ -197,6 +196,7 @@ impl PopoverShell {
         let (_, scroller, _, _) = imp.scroller.measure(gtk4::Orientation::Vertical, -1);
         let chrome = (card as i64 - scroller as i64).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
         let cap = body_cap(monitor.geometry().height(), chrome);
+        eprintln!("CAPDBG monitor={:?} h={} chrome={} cap={}", monitor.connector(), monitor.geometry().height(), chrome, cap);
         if imp.scroller.max_content_height() != cap {
             imp.scroller.set_max_content_height(cap);
         }
