@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <gresources>
     <gresource prefix="/me/aresa/GlimpseShell">
+        <file>widgets/applet_popover.ui</file>
         <file>widgets/audio_popover.ui</file>
         <file>widgets/battery_popover.ui</file>
         <file>widgets/bluetooth_pairing_dialog.ui</file>
@@ -47,6 +48,7 @@
         <file>widgets/privacy_popover.ui</file>
         <file>widgets/readout.ui</file>
         <file>widgets/clipboard_popover.ui</file>
+        <file>widgets/container.ui</file>
         <file>widgets/row.ui</file>
         <file>widgets/scrubber.ui</file>
         <file>widgets/section.ui</file>

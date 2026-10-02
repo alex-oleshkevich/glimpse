@@ -51,6 +51,55 @@ fn widget(dom: &Dom, generation: u64, id: u32, kind: ElementKind) -> gtk4::Widge
         .clone()
 }
 
+#[gtk4::test]
+#[ignore = "needs a display"]
+fn containers_sit_directly_in_the_body() {
+    init();
+    let built = tree(vec![
+        node(
+            2,
+            "container",
+            json!({"height": 48, "background": "red"}),
+            vec![node(3, "label", json!({"text": "body 1"}), vec![])],
+        ),
+        node(
+            4,
+            "addon",
+            json!({}),
+            vec![node(
+                5,
+                "container",
+                json!({"width": 64, "height": 32, "background": "purple"}),
+                vec![node(6, "label", json!({"text": "addon"}), vec![])],
+            )],
+        ),
+    ]);
+    let (shell, dom, _) = setup(&built);
+    let body_container = widget(&dom, 1, 2, ElementKind::Container);
+    assert_eq!(
+        body_container.parent().as_ref(),
+        Some(shell.body().upcast_ref())
+    );
+    let header = first_with_class(shell.upcast_ref(), "popover-shell__header").expect("header");
+    let slot = first_with_class(&header, "hero__slot").expect("slot");
+    let addon = slot.first_child().expect("addon");
+    assert_eq!(addon, widget(&dom, 1, 5, ElementKind::Container));
+}
+
+fn first_with_class(widget: &gtk4::Widget, class: &str) -> Option<gtk4::Widget> {
+    if widget.has_css_class(class) {
+        return Some(widget.clone());
+    }
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Some(found) = first_with_class(&current, class) {
+            return Some(found);
+        }
+        child = current.next_sibling();
+    }
+    None
+}
+
 fn row_body(widget: &gtk4::Widget) -> Row {
     widget.first_child().and_downcast().expect("row")
 }

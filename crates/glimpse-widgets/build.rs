@@ -15,6 +15,10 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 fn main() {
     compile_blueprints(&[
         (
+            "blueprints/applet_popover.blp",
+            "resources/widgets/applet_popover.ui",
+        ),
+        (
             "blueprints/audio_popover.blp",
             "resources/widgets/audio_popover.ui",
         ),
@@ -171,6 +175,7 @@ fn main() {
             "blueprints/clipboard_popover.blp",
             "resources/widgets/clipboard_popover.ui",
         ),
+        ("blueprints/container.blp", "resources/widgets/container.ui"),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
         ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),

@@ -1,4 +1,5 @@
 pub mod actions;
+mod applet_popover;
 mod artwork;
 mod audio_popover;
 mod bars;
@@ -14,6 +15,7 @@ mod clipboard_list;
 mod clipboard_popover;
 mod color_list;
 mod color_picker_popover;
+mod container;
 mod display_list;
 mod display_popover;
 mod dots;
@@ -98,6 +100,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
+pub use applet_popover::{AppletPopover, PopoverSize};
 pub use artwork::{Thumbnail, artwork, thumbnail};
 pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
@@ -122,6 +125,7 @@ pub use clipboard_list::{Actions as ClipActions, Clip, ClipAction, ClipboardList
 pub use clipboard_popover::ClipboardPopover;
 pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
+pub use container::{Container, Paint as ContainerPaint};
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::DisplayPopover;
 pub use dots::{Dots, SIZE as DOTS_SIZE};

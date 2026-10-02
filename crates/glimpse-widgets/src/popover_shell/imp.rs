@@ -6,10 +6,14 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
+use crate::PopoverSize;
+
 #[derive(Debug, Default, CompositeTemplate, Properties)]
 #[properties(wrapper_type = super::PopoverShell)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/popover_shell.ui")]
 pub struct PopoverShell {
+    #[template_child]
+    pub card: TemplateChild<crate::AppletPopover>,
     #[template_child]
     pub header: TemplateChild<crate::Hero>,
     #[template_child]
@@ -17,7 +21,9 @@ pub struct PopoverShell {
     #[template_child]
     pub hero_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
-    pub content_box: TemplateChild<gtk4::Box>,
+    pub scroller: TemplateChild<gtk4::ScrolledWindow>,
+    #[template_child]
+    pub body: TemplateChild<gtk4::Box>,
     #[template_child]
     pub footer_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
@@ -30,6 +36,8 @@ pub struct PopoverShell {
     title: PhantomData<Option<String>>,
     #[property(name = "subtitle", get = Self::subtitle, set = Self::set_subtitle, nullable)]
     subtitle: PhantomData<Option<String>>,
+    #[property(get, set = Self::set_size, builder(PopoverSize::Regular).explicit_notify())]
+    size: Cell<PopoverSize>,
 }
 
 impl PopoverShell {
@@ -38,9 +46,11 @@ impl PopoverShell {
     }
 
     fn set_icon_name(&self, icon_name: Option<String>) {
-        if self.header.icon_name().as_deref() != icon_name.as_deref() {
-            self.header.set_icon_name(icon_name.as_deref());
+        if self.header.icon_name().as_deref() == icon_name.as_deref() {
+            return;
         }
+        self.header.set_icon_name(icon_name.as_deref());
+        self.obj().settle();
     }
 
     fn title(&self) -> Option<String> {
@@ -48,10 +58,18 @@ impl PopoverShell {
     }
 
     fn set_title(&self, title: Option<String>) {
-        if self.header.title().as_deref() != title.as_deref() {
+        let changed = self.header.title().as_deref() != title.as_deref();
+        if changed {
             self.header.set_title(title.as_deref());
         }
-        self.header.set_visible(title.is_some());
+        let visible = title.is_some();
+        let visibility_changed = self.header.get_visible() != visible;
+        if visibility_changed {
+            self.header.set_visible(visible);
+        }
+        if changed || visibility_changed {
+            self.obj().settle();
+        }
     }
 
     fn subtitle(&self) -> Option<String> {
@@ -59,9 +77,22 @@ impl PopoverShell {
     }
 
     fn set_subtitle(&self, subtitle: Option<String>) {
-        if self.header.subtitle().as_deref() != subtitle.as_deref() {
-            self.header.set_subtitle(subtitle.as_deref());
+        if self.header.subtitle().as_deref() == subtitle.as_deref() {
+            return;
         }
+        self.header.set_subtitle(subtitle.as_deref());
+        self.obj().settle();
+    }
+
+    fn set_size(&self, size: PopoverSize) {
+        if self.size.get() == size {
+            return;
+        }
+        self.size.set(size);
+        if let Some(card) = self.card.try_get() {
+            card.set_size(size);
+        }
+        self.obj().notify_size();
     }
 }
 
@@ -74,6 +105,7 @@ impl ObjectSubclass for PopoverShell {
 
     fn class_init(klass: &mut Self::Class) {
         crate::Hero::static_type();
+        crate::AppletPopover::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -101,6 +133,19 @@ impl ObjectImpl for PopoverShell {
             }
         ));
         shell.add_controller(press);
+        let size = self.size.get();
+        if self.card.size() != size {
+            self.card.set_size(size);
+        }
+        let shell = self.obj().downgrade();
+        self.body
+            .observe_children()
+            .connect_items_changed(move |_, _, _, _| {
+                if let Some(shell) = shell.upgrade() {
+                    shell.settle();
+                }
+            });
+        self.obj().settle();
     }
 
     fn dispose(&self) {
@@ -108,17 +153,27 @@ impl ObjectImpl for PopoverShell {
     }
 }
 
-impl WidgetImpl for PopoverShell {}
+impl WidgetImpl for PopoverShell {
+    fn map(&self) {
+        self.parent_map();
+        self.obj().apply_cap();
+    }
+}
 
 impl BuildableImpl for PopoverShell {
     fn add_child(&self, builder: &gtk4::Builder, child: &glib::Object, kind: Option<&str>) {
-        let own_template = self.content_box.try_get().is_none();
+        let own_template = self.body.try_get().is_none();
         let shell = self.obj();
         match (kind, child.downcast_ref::<gtk4::Widget>()) {
             _ if own_template => self.parent_add_child(builder, child, kind),
             (Some("hero"), Some(widget)) => shell.set_hero(widget),
             (Some("footer"), Some(widget)) => shell.append_to_footer(widget),
-            (None, Some(widget)) => shell.set_content(widget),
+            (Some("addon"), Some(widget)) => shell.set_addon(Some(widget)),
+            (None, Some(widget)) => {
+                shell.imp().body.append(widget);
+                shell.watch(widget);
+                shell.settle();
+            }
             _ => self.parent_add_child(builder, child, kind),
         }
     }

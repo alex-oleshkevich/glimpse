@@ -1,6 +1,14 @@
 # Widget demo
 
-A development fixture that renders the popover shell header only. The built-in twin is an applet with `extends = "widget-demo"`.
+A development fixture that fills the popover shell slots. The built-in twin is an applet with `extends = "widget-demo"`.
+
+Build the local SDK first, from the repository root:
+
+```
+cd sdk/applet && npm ci && npm run build
+```
+
+`.npmrc` (`install-links=true`) copies that build in so the sandbox can read it.
 
 From this directory:
 

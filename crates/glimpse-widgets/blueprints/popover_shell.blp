@@ -1,57 +1,67 @@
 using Gtk 4.0;
 
 template $PopoverShell: Gtk.Widget {
-  layout-manager: BoxLayout {
-    orientation: vertical;
-  };
+  layout-manager: BinLayout {};
 
   styles [
     "popover-shell",
   ]
 
-  $Hero header {
-    visible: false;
+  $AppletPopover card {
+    Gtk.Box {
+      orientation: vertical;
 
-    styles [
-      "popover-shell__header",
-    ]
-  }
+      $Hero header {
+        visible: false;
 
-  Gtk.Box hero_box {
-    orientation: vertical;
-    visible: false;
+        styles [
+          "popover-shell__header",
+        ]
+      }
 
-    styles [
-      "popover-shell__hero",
-    ]
-  }
+      Gtk.Box hero_box {
+        orientation: vertical;
+        visible: false;
 
-  Gtk.Separator hero_rule {
-    orientation: horizontal;
-    visible: false;
-  }
+        styles [
+          "popover-shell__hero",
+        ]
+      }
 
-  Gtk.Box content_box {
-    orientation: vertical;
-    vexpand: true;
+      Gtk.Separator hero_rule {
+        orientation: horizontal;
+        visible: false;
+      }
 
-    styles [
-      "popover-shell__content",
-    ]
-  }
+      Gtk.ScrolledWindow scroller {
+        hscrollbar-policy: never;
+        propagate-natural-height: true;
+        vexpand: true;
 
-  Gtk.Separator footer_rule {
-    orientation: horizontal;
-    visible: false;
-  }
+        Gtk.Box body {
+          orientation: vertical;
 
-  Gtk.Box footer_box {
-    orientation: horizontal;
-    spacing: 6;
-    visible: false;
+          styles [
+            "popover-shell__content",
+            "popover-body",
+          ]
+        }
+      }
 
-    styles [
-      "popover-shell__footer",
-    ]
+      Gtk.Separator footer_rule {
+        orientation: horizontal;
+        visible: false;
+      }
+
+      Gtk.Box footer_box {
+        orientation: horizontal;
+        spacing: 6;
+        visible: false;
+
+        styles [
+          "popover-shell__footer",
+        ]
+      }
+    }
   }
 }

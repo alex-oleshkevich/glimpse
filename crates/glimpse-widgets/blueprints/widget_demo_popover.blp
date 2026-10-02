@@ -7,5 +7,56 @@ template $WidgetDemoPopover: Gtk.Widget {
     icon-name: "applications-graphics-symbolic";
     title: "Widget demo";
     subtitle: "Popover shell slots";
+
+    [addon]
+    Gtk.Switch {
+      valign: center;
+      tooltip-text: "Wide";
+      notify::active => $on_wide_toggled() swapped;
+    }
+
+    $Container {
+      height: 48;
+      background: red;
+      color: light;
+      align: center;
+
+      Gtk.Label {
+        label: "body 1";
+      }
+    }
+
+    $Container {
+      height: 48;
+      background: green;
+      color: dark;
+      align: center;
+
+      Gtk.Label {
+        label: "body 2";
+      }
+    }
+
+    $Container {
+      height: 48;
+      background: blue;
+      color: light;
+      align: center;
+
+      Gtk.Label {
+        label: "body 3";
+      }
+    }
+
+    $Container {
+      height: 1024;
+      background: yellow;
+      color: dark;
+      align: center;
+
+      Gtk.Label {
+        label: "tall";
+      }
+    }
   }
 }

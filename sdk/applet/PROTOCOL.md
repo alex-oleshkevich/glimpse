@@ -240,7 +240,9 @@ and in it the first `hero` and the first `footer`.
 | Parent | Children |
 | --- | --- |
 | root | `indicator`, `popover` |
-| `popover` | `hero`, `footer`, and any body element |
+| `popover` | at most one `addon`, `hero`, `footer`, and any body element |
+| `addon` | at most one of `readout`, `switch`, `container` |
+| `container` | at most one body element except `section` |
 | `section` | body elements except `section` |
 | `revealer`, `expander` | any number of body elements except `section` |
 | `stack` | body elements except `section` |
@@ -251,6 +253,7 @@ and in it the first `hero` and the first `footer`.
 | anything else | nothing |
 
 Body elements are `section`, `row`, `switchrow`, `fader`, `entry`, `placeholder`, `box`,
+`container`,
 `label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator`,
 `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
 `togglebutton`, `checkbutton`, `revealer`, `stack`, `expander`, `rangebar`, `bars`,
@@ -268,7 +271,8 @@ pair the table does not list.
 ## Elements
 
 `type` is one of the lowercase names below. Props use camelCase. Every element takes
-`className`, one class from this list, or the key is dropped:
+`className`, one class from this list, or the key is dropped. `addon` and `container` do
+not take `className`:
 
 `dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
 `numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`.
@@ -306,7 +310,9 @@ Only under the root. No children.
 
 ### `popover`
 
-Under the root. `icon`, `title` and `subtitle` render the shell's header.
+Under the root. `icon`, `title` and `subtitle` render the shell's header. `hero` is
+deprecated in favour of these props; a popover with both renders both. The popover body
+scrolls past 60% of the monitor height.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
@@ -314,12 +320,33 @@ Under the root. `icon`, `title` and `subtitle` render the shell's header.
 | `icon` | string | Themed icon in the shell header |
 | `title` | string | Header title. The header is shown when this is set |
 | `subtitle` | string | Header subtitle |
+| `size` | `regular`, `wide` | Width of the card. Defaults to regular |
 
 Children follow the parent table. The order of `children` is the order on screen.
 
+### `addon`
+
+At most one, under `popover`. Its one child is `readout`, `switch` or `container`, drawn
+in the header's end slot. It does not take `className`.
+
+### `container`
+
+A body element. At most one child, any body element except `section`. It does not take
+`className`.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `width` | number | Clamped to -1..=1024. -1 is the natural width |
+| `height` | number | Clamped to -1..=1024. -1 is the natural height |
+| `background` | paint | `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `light`, `dark` |
+| `color` | paint | The same paint names, applied to the text |
+| `align` | align | `fill`, `start`, `end`, `center`, `baseline`. Applied to the child |
+
 ### `hero`
 
-Only under `popover`. Up to 4 end children, see the parent table.
+Only under `popover`. Up to 4 end children, see the parent table. `hero` is deprecated in
+favour of the popover `icon`, `title` and `subtitle` props; a popover with both renders
+both.
 
 | Prop | Type |
 | --- | --- |

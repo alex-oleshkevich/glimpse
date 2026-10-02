@@ -385,3 +385,103 @@ fn hero_and_row_hold_up_to_four_end_children_of_their_own_kinds() {
         other => panic!("expected a row, got {other:?}"),
     }
 }
+
+#[test]
+fn addon_and_container_reject_bad_children_and_clamp_props() {
+    let root = hosted(&Tree::default());
+    let two = root.apply(vec![insert(
+        1,
+        wire(
+            2,
+            "addon",
+            json!({}),
+            vec![leaf(3, "readout"), leaf(4, "switch")],
+        ),
+        None,
+    )]);
+    assert_eq!(two, Err(Violation::ChildCount { parent: 2 }));
+
+    let row = root.apply(vec![insert(
+        1,
+        wire(2, "addon", json!({}), vec![leaf(3, "row")]),
+        None,
+    )]);
+    assert_eq!(
+        row,
+        Err(Violation::BadParent {
+            parent: ElementKind::Addon,
+            child: ElementKind::Row,
+        })
+    );
+
+    let two_body = root.apply(vec![insert(
+        1,
+        wire(
+            2,
+            "container",
+            json!({}),
+            vec![leaf(3, "label"), leaf(4, "label")],
+        ),
+        None,
+    )]);
+    assert_eq!(two_body, Err(Violation::ChildCount { parent: 2 }));
+
+    let section = root.apply(vec![insert(
+        1,
+        wire(2, "container", json!({}), vec![leaf(3, "section")]),
+        None,
+    )]);
+    assert_eq!(
+        section,
+        Err(Violation::BadParent {
+            parent: ElementKind::Container,
+            child: ElementKind::Section,
+        })
+    );
+
+    let under_row = root.apply(vec![insert(
+        1,
+        wire(2, "row", json!({}), vec![leaf(3, "container")]),
+        None,
+    )]);
+    assert_eq!(
+        under_row,
+        Err(Violation::BadParent {
+            parent: ElementKind::Row,
+            child: ElementKind::Container,
+        })
+    );
+
+    let clamped = root
+        .apply(vec![insert(
+            1,
+            wire(
+                2,
+                "container",
+                json!({"width": 99999, "height": -50, "background": "#ff0000"}),
+                vec![],
+            ),
+            None,
+        )])
+        .expect("container");
+    match only(&clamped, 2) {
+        Element::Container(props) => {
+            assert_eq!(props.width, Some(1024));
+            assert_eq!(props.height, Some(-1));
+            assert_eq!(props.background, None);
+        }
+        other => panic!("{other:?}"),
+    }
+
+    let sized = root
+        .apply(vec![Op::Set {
+            id: 1,
+            props: props(json!({"size": "huge"})),
+            seq: None,
+        }])
+        .expect("size");
+    match only(&sized, 1) {
+        Element::Popover(props) => assert_eq!(props.size, None),
+        other => panic!("{other:?}"),
+    }
+}

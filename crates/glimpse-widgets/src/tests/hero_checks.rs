@@ -43,7 +43,7 @@ pub(super) fn check() {
     let shell = PopoverShell::new();
     let hero_box = child_named::<gtk4::Box>(&shell, "popover-shell__hero");
     let footer_box = child_named::<gtk4::Box>(&shell, "popover-shell__footer");
-    let rules: Vec<gtk4::Separator> = children_of(&shell);
+    let rules = separators(shell.upcast_ref());
     assert_eq!(
         rules.len(),
         2,
@@ -89,6 +89,19 @@ pub(super) fn check() {
     shell.clear_footer();
     assert!(!footer_box.is_visible() && !rules[1].is_visible());
     assert!(button.parent().is_none());
+}
+
+fn separators(widget: &gtk4::Widget) -> Vec<gtk4::Separator> {
+    let mut found = Vec::new();
+    let mut child = widget.first_child();
+    while let Some(current) = child {
+        if let Ok(rule) = current.clone().downcast::<gtk4::Separator>() {
+            found.push(rule);
+        }
+        found.extend(separators(&current));
+        child = current.next_sibling();
+    }
+    found
 }
 
 pub(super) fn heights() {

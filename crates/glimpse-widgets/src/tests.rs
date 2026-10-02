@@ -128,6 +128,9 @@ fn widgets() {
     row_checks::beside();
     widget_demo_popover_shows_the_header_check();
     popover_shell_title_setter_short_circuits_check();
+    applet_popover_size_sets_the_wide_class_and_short_circuits_check();
+    container_paint_and_width_check();
+    header_only_shell_hides_the_footer_rule_check();
 }
 
 fn widget_demo_popover_shows_the_header_check() {
@@ -136,9 +139,60 @@ fn widget_demo_popover_shows_the_header_check() {
     let header = child_named::<Hero>(&shell, "popover-shell__header");
     assert!(header.get_visible());
     assert_eq!(header.title().as_deref(), Some("Widget demo"));
+    assert_eq!(header.subtitle().as_deref(), Some("Popover shell slots"));
+    assert_eq!(children(&shell.body()), 4);
+    let addon = shell.imp().header.imp().slot.first_child();
+    assert!(addon.is_some_and(|widget| widget.is::<Container>()));
     shell.clear_content();
     assert!(!child_named::<gtk4::Box>(&shell, "popover-shell__content").get_visible());
     assert!(header.get_visible());
+}
+
+fn applet_popover_size_sets_the_wide_class_and_short_circuits_check() {
+    let popover = AppletPopover::new();
+    assert!(!popover.has_css_class("applet-popover--wide"));
+    let notifies = Rc::new(Cell::new(0u32));
+    popover.connect_size_notify({
+        let notifies = Rc::clone(&notifies);
+        move |_| notifies.set(notifies.get() + 1)
+    });
+    popover.set_size(PopoverSize::Wide);
+    assert!(popover.has_css_class("applet-popover--wide"));
+    popover.set_size(PopoverSize::Wide);
+    assert_eq!(notifies.get(), 1);
+    popover.set_size(PopoverSize::Regular);
+    assert!(!popover.has_css_class("applet-popover--wide"));
+}
+
+fn container_paint_and_width_check() {
+    let container = Container::new();
+    let notifies = Rc::new(Cell::new(0u32));
+    container.connect_background_notify({
+        let notifies = Rc::clone(&notifies);
+        move |_| notifies.set(notifies.get() + 1)
+    });
+    container.set_background(ContainerPaint::Red);
+    container.set_background(ContainerPaint::Red);
+    assert_eq!(notifies.get(), 1);
+    container.set_background(ContainerPaint::Blue);
+    let classes = container.css_classes();
+    let backgrounds: Vec<_> = classes
+        .iter()
+        .filter(|class| class.as_str().starts_with("container--bg-"))
+        .collect();
+    assert_eq!(backgrounds.len(), 1);
+    assert_eq!(backgrounds[0].as_str(), "container--bg-blue");
+    container.set_width(99999);
+    assert_eq!(container.width(), 1024);
+    assert_eq!(container.size_request(), (1024, -1));
+}
+
+fn header_only_shell_hides_the_footer_rule_check() {
+    let shell = PopoverShell::new();
+    shell.set_title(Some("Only"));
+    shell.append_to_footer(&gtk4::Label::new(Some("foot")));
+    assert!(shell.imp().header.get_visible());
+    assert!(!shell.imp().footer_rule.get_visible());
 }
 
 fn popover_shell_title_setter_short_circuits_check() {
@@ -155,22 +209,6 @@ fn popover_shell_title_setter_short_circuits_check() {
     assert_eq!(notifies.get(), 1);
     shell.set_title(None::<&str>);
     assert!(!header.get_visible());
-}
-
-#[test]
-#[ignore = "needs a display"]
-fn widget_demo_popover_shows_the_header() {
-    gtk4::init().expect("gtk");
-    register_resources().expect("resources");
-    widget_demo_popover_shows_the_header_check();
-}
-
-#[test]
-#[ignore = "needs a display"]
-fn popover_shell_title_setter_short_circuits() {
-    gtk4::init().expect("gtk");
-    register_resources().expect("resources");
-    popover_shell_title_setter_short_circuits_check();
 }
 
 fn children(parent: &impl IsA<gtk4::Widget>) -> usize {

@@ -102,8 +102,8 @@ its second line is only ever a problem**, in `.row--warning` amber, so rows of a
 action, `crate::DESTRUCTIVE`: the least reversible one, so Forget outranks Disconnect.
 
 **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
-`init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `hero_box` into
-`content_box` and panics. **A switch driven from state never reports it back** — `set_dnd` and the
+`init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `card` into
+`body` and panics. **A switch driven from state never reports it back** — `set_dnd` and the
 bluetooth power switch raise a guard flag while writing, and `SwitchRow::set_active` compares and
 silences its own knob. **A detail unfolds in place, never beside the list**: every detail is an
 `Expandable` whose `expanded` makes the whole of it one `.card`, so the head never moves. **Focus

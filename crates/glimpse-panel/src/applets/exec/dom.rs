@@ -7,13 +7,13 @@ use std::{
 
 use gettextrs::gettext;
 use glimpse_services::{
-    CalendarProps, ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, ROOT, Tone,
-    Transition, Tree,
+    CalendarProps, ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, Paint,
+    PopoverSize as ExecSize, ROOT, Tone, Transition, Tree,
 };
 use glimpse_widgets::{
-    Bars, Calendar, ChoiceList, DOTS_SIZE, Dots, Expandable, FactList, Fader, Hero, Notice,
-    Placeholder, PopoverShell, RangeBar, Readout, Row, Section, Sparkline, SwitchRow, Ymd, beside,
-    reconcile::by_key,
+    Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, Expandable, FactList,
+    Fader, Hero, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout, Row, Section,
+    Sparkline, SwitchRow, Ymd, beside, reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -71,9 +71,8 @@ impl Dom {
         hero_box.set_visible(false);
         shell.set_hero(&hero_box);
 
-        let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let body = shell.body();
         body.set_visible(false);
-        shell.set_content(&body);
         let footer_nodes = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         footer_nodes.set_visible(false);
         shell.append_to_footer(&footer_nodes);
@@ -192,9 +191,14 @@ impl Dom {
             shell.set_icon_name(props.icon.as_deref());
             shell.set_title(props.title.as_deref());
             shell.set_subtitle(props.subtitle.as_deref());
+            shell.set_size(match props.size {
+                Some(ExecSize::Wide) => PopoverSize::Wide,
+                _ => PopoverSize::Regular,
+            });
         }
+        self.mount_addon(&shell, tree, generation, popover, &mut live);
         let root_key = (generation, ROOT, ElementKind::Popover);
-        let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Hero(_) | Element::Footer(_)))).collect();
+        let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Hero(_) | Element::Footer(_) | Element::Addon(_)))).collect();
         self.reconcile_children(
             tree,
             generation,
@@ -252,6 +256,30 @@ impl Dom {
         true
     }
 
+    fn mount_addon(
+        &mut self,
+        shell: &PopoverShell,
+        tree: &Tree,
+        generation: u64,
+        popover: u32,
+        live: &mut HashSet<Key>,
+    ) {
+        let Some(addon) = render::first_child_of_kind(tree, popover, |element| {
+            matches!(element, Element::Addon(_))
+        }) else {
+            shell.set_addon(None::<&gtk4::Widget>);
+            return;
+        };
+        let Some(child) = tree.children(addon).first().copied() else {
+            shell.set_addon(None::<&gtk4::Widget>);
+            return;
+        };
+        match self.mount(tree, generation, child, live) {
+            Some((_, widget)) => shell.set_addon(Some(&widget)),
+            None => shell.set_addon(None::<&gtk4::Widget>),
+        }
+    }
+
     fn clear(&mut self) {
         while let Some(child) = self.body.first_child() {
             self.body.remove(&child);
@@ -276,6 +304,8 @@ impl Dom {
             shell.set_icon_name(None::<&str>);
             shell.set_title(None::<&str>);
             shell.set_subtitle(None::<&str>);
+            shell.set_size(PopoverSize::Regular);
+            shell.set_addon(None::<&gtk4::Widget>);
         }
         self.opener.typing(false);
     }
@@ -742,15 +772,24 @@ impl Dom {
                 progress.upcast()
             }
             Element::Separator(_) => gtk4::Separator::new(gtk4::Orientation::Horizontal).upcast(),
+            Element::Container(_) => {
+                let container = Container::new();
+                let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+                container.set_child(Some(&content));
+                inner = Some(content);
+                container.upcast()
+            }
             Element::Unsupported(_) => {
                 let row = Row::new();
                 row.set_property("activatable", false);
                 row.set_sensitive(false);
                 row.upcast()
             }
-            Element::Root | Element::Popover(_) | Element::Footer(_) | Element::Indicator(_) => {
-                gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast()
-            }
+            Element::Root
+            | Element::Popover(_)
+            | Element::Footer(_)
+            | Element::Indicator(_)
+            | Element::Addon(_) => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
         };
         (widget, inner, trail_box, handlers)
     }
@@ -1201,11 +1240,22 @@ impl Dom {
                 );
                 widget.set_property("lead-icon", Some("dialog-warning-symbolic"));
             }
+            Element::Container(props) => {
+                if let Some(container) = widget.downcast_ref::<Container>() {
+                    container.set_width(props.width.unwrap_or(-1));
+                    container.set_height(props.height.unwrap_or(-1));
+                    container.set_background(paint(props.background));
+                    container.set_color(paint(props.color));
+                    container
+                        .set_align(props.align.map(render::align).unwrap_or(gtk4::Align::Fill));
+                }
+            }
             Element::Root
             | Element::Popover(_)
             | Element::Footer(_)
             | Element::Indicator(_)
-            | Element::Spinner(_) => {}
+            | Element::Spinner(_)
+            | Element::Addon(_) => {}
         }
         for handler in &mounted.handlers {
             widget.unblock_signal(handler);
@@ -1249,7 +1299,25 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::Bars(p) => p.class_name,
         Element::Sparkline(p) => p.class_name,
         Element::Dots(p) => p.class_name,
-        Element::Root | Element::FactList(_) | Element::Unsupported(_) => None,
+        Element::Root
+        | Element::FactList(_)
+        | Element::Unsupported(_)
+        | Element::Addon(_)
+        | Element::Container(_) => None,
+    }
+}
+
+fn paint(paint: Option<Paint>) -> ContainerPaint {
+    match paint {
+        Some(Paint::Red) => ContainerPaint::Red,
+        Some(Paint::Orange) => ContainerPaint::Orange,
+        Some(Paint::Yellow) => ContainerPaint::Yellow,
+        Some(Paint::Green) => ContainerPaint::Green,
+        Some(Paint::Blue) => ContainerPaint::Blue,
+        Some(Paint::Purple) => ContainerPaint::Purple,
+        Some(Paint::Light) => ContainerPaint::Light,
+        Some(Paint::Dark) => ContainerPaint::Dark,
+        None => ContainerPaint::None,
     }
 }
 

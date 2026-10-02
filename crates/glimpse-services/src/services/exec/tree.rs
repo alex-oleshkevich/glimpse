@@ -74,6 +74,8 @@ pub enum ElementKind {
     Spinner,
     Progress,
     Separator,
+    Addon,
+    Container,
     Unsupported,
 }
 
@@ -129,6 +131,27 @@ pub enum Align {
     Baseline,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PopoverSize {
+    #[default]
+    Regular,
+    Wide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Paint {
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Blue,
+    Purple,
+    Light,
+    Dark,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Ellipsize {
@@ -175,6 +198,8 @@ pub enum Element {
     Spinner(SpinnerProps),
     Progress(ProgressProps),
     Separator(SeparatorProps),
+    Addon(AddonProps),
+    Container(ContainerProps),
     Unsupported(String),
 }
 
@@ -185,6 +210,21 @@ pub struct PopoverProps {
     pub icon: Option<String>,
     pub title: Option<String>,
     pub subtitle: Option<String>,
+    pub size: Option<PopoverSize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AddonProps {}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ContainerProps {
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub background: Option<Paint>,
+    pub color: Option<Paint>,
+    pub align: Option<Align>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -900,6 +940,8 @@ impl Element {
             Self::Spinner(_) => ElementKind::Spinner,
             Self::Progress(_) => ElementKind::Progress,
             Self::Separator(_) => ElementKind::Separator,
+            Self::Addon(_) => ElementKind::Addon,
+            Self::Container(_) => ElementKind::Container,
             Self::Unsupported(_) => ElementKind::Unsupported,
         }
     }
@@ -943,6 +985,8 @@ impl ElementKind {
             Self::Spinner => "spinner",
             Self::Progress => "progress",
             Self::Separator => "separator",
+            Self::Addon => "addon",
+            Self::Container => "container",
             Self::Unsupported => "unsupported",
         }
     }
@@ -990,6 +1034,8 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "spinner" => ElementKind::Spinner,
         "progress" => ElementKind::Progress,
         "separator" => ElementKind::Separator,
+        "addon" => ElementKind::Addon,
+        "container" => ElementKind::Container,
         _ => return None,
     })
 }
@@ -1005,8 +1051,16 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
     match parent {
         ElementKind::Root => matches!(child, ElementKind::Indicator | ElementKind::Popover),
         ElementKind::Popover => {
-            matches!(child, ElementKind::Hero | ElementKind::Footer) || is_body(child)
+            matches!(
+                child,
+                ElementKind::Hero | ElementKind::Footer | ElementKind::Addon
+            ) || is_body(child)
         }
+        ElementKind::Addon => matches!(
+            child,
+            ElementKind::Readout | ElementKind::Switch | ElementKind::Container
+        ),
+        ElementKind::Container => is_body(child) && child != ElementKind::Section,
         ElementKind::Section
         | ElementKind::Box
         | ElementKind::Revealer
@@ -1061,6 +1115,7 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Spinner
             | ElementKind::Progress
             | ElementKind::Separator
+            | ElementKind::Container
             | ElementKind::Unsupported
     )
 }
@@ -1186,7 +1241,17 @@ fn realize_into(
         ElementKind::Spinner => Element::Spinner(read_props(id, raw, kept)),
         ElementKind::Progress => Element::Progress(finish_progress(read_props(id, raw, kept))),
         ElementKind::Separator => Element::Separator(read_props(id, raw, kept)),
+        ElementKind::Addon => Element::Addon(read_props(id, raw, kept)),
+        ElementKind::Container => Element::Container(finish_container(read_props(id, raw, kept))),
         ElementKind::Unsupported => Element::Unsupported(String::new()),
+    }
+}
+
+fn finish_container(props: ContainerProps) -> ContainerProps {
+    ContainerProps {
+        width: props.width.map(|value| value.clamp(-1, 1024)),
+        height: props.height.map(|value| value.clamp(-1, 1024)),
+        ..props
     }
 }
 
@@ -1460,6 +1525,18 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
         let count = node.children.len();
         let fits = match node.element.kind() {
             ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
+            ElementKind::Addon | ElementKind::Container => count <= 1,
+            ElementKind::Popover => {
+                node.children
+                    .iter()
+                    .filter(|child| {
+                        nodes
+                            .get(child)
+                            .is_some_and(|child| child.element.kind() == ElementKind::Addon)
+                    })
+                    .count()
+                    <= 1
+            }
             _ => true,
         };
         if !fits {

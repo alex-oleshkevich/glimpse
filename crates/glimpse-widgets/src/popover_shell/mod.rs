@@ -37,15 +37,41 @@ impl PopoverShell {
     }
 
     pub fn set_content(&self, content: &impl IsA<gtk4::Widget>) {
-        let content_box = &self.imp().content_box;
-        clear_children(content_box);
-        content_box.append(content);
+        let body = &self.imp().body;
+        clear_children(body);
+        body.append(content);
         self.watch(content);
         self.settle();
     }
 
     pub fn clear_content(&self) {
-        clear_children(&self.imp().content_box);
+        clear_children(&self.imp().body);
+        self.settle();
+    }
+
+    pub fn body(&self) -> gtk4::Box {
+        self.imp().body.get()
+    }
+
+    pub fn set_addon(&self, widget: Option<&impl IsA<gtk4::Widget>>) {
+        let header = &self.imp().header;
+        let current = header.imp().slot.first_child();
+        let same = match widget {
+            Some(widget) => {
+                current.as_ref() == Some(widget.as_ref())
+                    && current
+                        .as_ref()
+                        .is_none_or(|child| child.next_sibling().is_none())
+            }
+            None => current.is_none(),
+        };
+        if same {
+            return;
+        }
+        match widget {
+            Some(widget) => header.set_slot(widget),
+            None => header.clear_slot(),
+        }
         self.settle();
     }
 
@@ -135,18 +161,58 @@ impl PopoverShell {
 
     fn settle(&self) {
         let imp = self.imp();
-        let hero_shown = shows_anything(&imp.hero_box);
-        imp.hero_box.set_visible(hero_shown);
-        imp.hero_rule.set_visible(hero_shown);
+        if imp.body.try_get().is_none() {
+            return;
+        }
+        let hero_slot = shows_anything(&imp.hero_box);
+        show(&*imp.hero_box, hero_slot);
+        let hero_shown = hero_slot || imp.header.get_visible();
+        show(&*imp.hero_rule, hero_shown);
 
-        let content_shown = shows_anything(&imp.content_box);
-        imp.content_box.set_visible(content_shown);
+        let content_shown = shows_anything(&imp.body);
+        show(&*imp.body, content_shown);
+        show(&*imp.scroller, content_shown);
 
         let footer_shown = shows_anything(&imp.footer_box);
-        imp.footer_box.set_visible(footer_shown);
-        imp.footer_rule.set_visible(
+        show(&*imp.footer_box, footer_shown);
+        show(
+            &*imp.footer_rule,
             footer_shown && !imp.footer_rule_suppressed.get() && (content_shown || !hero_shown),
         );
+        self.apply_cap();
+    }
+
+    fn apply_cap(&self) {
+        let Some(native) = self.native() else {
+            return;
+        };
+        let Some(surface) = native.surface() else {
+            return;
+        };
+        let Some(monitor) = surface.display().monitor_at_surface(&surface) else {
+            return;
+        };
+        let imp = self.imp();
+        let (_, card, _, _) = imp.card.measure(gtk4::Orientation::Vertical, -1);
+        let (_, scroller, _, _) = imp.scroller.measure(gtk4::Orientation::Vertical, -1);
+        let chrome = (card as i64 - scroller as i64).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+        let cap = body_cap(monitor.geometry().height(), chrome);
+        if imp.scroller.max_content_height() != cap {
+            imp.scroller.set_max_content_height(cap);
+        }
+    }
+}
+
+const MAX_HEIGHT_SHARE: f64 = 0.6;
+
+fn body_cap(monitor_height: i32, chrome: i32) -> i32 {
+    ((monitor_height as f64 * MAX_HEIGHT_SHARE) as i32 - chrome).max(0)
+}
+
+fn show(widget: &impl IsA<gtk4::Widget>, visible: bool) {
+    let widget = widget.as_ref();
+    if widget.get_visible() != visible {
+        widget.set_visible(visible);
     }
 }
 
@@ -200,4 +266,16 @@ fn descendants<T: IsA<gtk4::Widget>>(widget: &gtk4::Widget) -> Vec<T> {
 
 fn shows_anything(container: &gtk4::Box) -> bool {
     children(container.upcast_ref()).any(|child| child.get_visible())
+}
+
+#[cfg(test)]
+mod body_cap_tests {
+    use super::body_cap;
+
+    #[test]
+    fn body_cap_leaves_the_share_above_the_chrome_and_floors_at_zero() {
+        assert_eq!(body_cap(1000, 100), 500);
+        assert_eq!(body_cap(1000, 600), 0);
+        assert_eq!(body_cap(1000, 700), 0);
+    }
 }

@@ -92,9 +92,9 @@ new example's drawer silently inert:
 which is what lands `[hero]`, `[footer]` and `[slot]` in the right internal box, and `Hero` exposes
 `title`, `subtitle` and `icon-name` as properties so a `.blp` sets them through the same capped
 setters Rust uses. `add_child` must ignore the widget's **own** template children — `init_template`
-adds them through the very interface being overridden, so an unguarded override routes `hero_box`
-into `content_box` and panics on an unbound `TemplateChild`. The guard is
-`self.content_box.try_get().is_none()`.
+adds them through the very interface being overridden, so an unguarded override routes `card`
+into `body` and panics on an unbound `TemplateChild`. The guard is
+`self.body.try_get().is_none()`.
 
 **PyGObject cannot host this.** It cannot override an interface vfunc the parent already implements,
 so a `do_add_child` on a Python subclass is accepted, never called. Measured. Any preview host that

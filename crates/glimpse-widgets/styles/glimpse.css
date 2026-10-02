@@ -60,7 +60,22 @@
     --gl-lock-error: #ffc4bf;
     --gl-lock-warning: #ffda97;
 
-    --gl-popover-shell-header-padding: 0.55rem 0.8rem;
+    --popover-shell-header-padding: 0.55rem 0.8rem;
+    --applet-popover-width: 27rem;
+    --applet-popover-width-wide: 40rem;
+    --applet-popover-padding: 0.8rem;
+    --applet-popover-bg: var(--gl-surface);
+    --applet-popover-radius: var(--gl-radius);
+    --popover-body-spacing: 0.35rem;
+    --container-radius: var(--gl-row-radius, 0.7rem);
+    --container-red: var(--red-3);
+    --container-orange: var(--orange-3);
+    --container-yellow: var(--yellow-3);
+    --container-green: var(--green-3);
+    --container-blue: var(--blue-3);
+    --container-purple: var(--purple-3);
+    --container-light: var(--light-1);
+    --container-dark: var(--dark-5);
 }
 
 .panel {
@@ -294,21 +309,50 @@
     min-height: 1.2rem;
 }
 
+.applet-popover {
+    min-width: var(--applet-popover-width);
+    padding: var(--applet-popover-padding);
+}
+
+.applet-popover--wide {
+    --applet-popover-width: var(--applet-popover-width-wide);
+}
+
 .applet-popover__body {
-    background-color: var(--gl-surface);
-    border-radius: var(--gl-radius);
+    background-color: var(--applet-popover-bg);
+    border-radius: var(--applet-popover-radius);
     box-shadow: var(--gl-elevation-floating);
 }
 
 .popover-shell {
-    --gl-popover-padding: 0.8rem;
-    --gl-popover-min-width: 27rem;
-    min-width: var(--gl-popover-min-width);
-    background-color: var(--gl-surface);
     color: var(--gl-surface-fg);
-    border-radius: var(--gl-radius);
-    padding: var(--gl-popover-padding);
 }
+
+.popover-body {
+    border-spacing: var(--popover-body-spacing);
+}
+
+.container {
+    border-radius: var(--container-radius);
+}
+
+.container--bg-red { background-color: var(--container-red); }
+.container--bg-orange { background-color: var(--container-orange); }
+.container--bg-yellow { background-color: var(--container-yellow); }
+.container--bg-green { background-color: var(--container-green); }
+.container--bg-blue { background-color: var(--container-blue); }
+.container--bg-purple { background-color: var(--container-purple); }
+.container--bg-light { background-color: var(--container-light); }
+.container--bg-dark { background-color: var(--container-dark); }
+
+.container--fg-red { color: var(--container-red); }
+.container--fg-orange { color: var(--container-orange); }
+.container--fg-yellow { color: var(--container-yellow); }
+.container--fg-green { color: var(--container-green); }
+.container--fg-blue { color: var(--container-blue); }
+.container--fg-purple { color: var(--container-purple); }
+.container--fg-light { color: var(--container-light); }
+.container--fg-dark { color: var(--container-dark); }
 
 .popover-shell separator,
 popover separator {
@@ -323,7 +367,7 @@ popover separator {
 }
 
 .popover-shell__header {
-    padding: var(--gl-popover-shell-header-padding);
+    padding: var(--popover-shell-header-padding);
 }
 
 .row {
@@ -592,9 +636,8 @@ popover separator {
     color: var(--gl-dim);
 }
 
-.bluetooth-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.bluetooth-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .bluetooth-popover .hero__title {
@@ -602,10 +645,9 @@ popover separator {
     font-weight: 700;
 }
 
-.clipboard-popover .popover-shell,
-.color-picker-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.clipboard-popover,
+.color-picker-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .clipboard-popover .hero__title,
@@ -658,9 +700,8 @@ expandable.open > .clip-tile .clip-tile__badge image {
     transform: rotate(90deg);
 }
 
-.ruler-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.ruler-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .ruler-popover .hero__title {
@@ -697,9 +738,8 @@ expandable.open > .clip-tile .clip-tile__badge image {
     color: var(--gl-muted);
 }
 
-.network-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.network-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .network-popover .hero__title {
@@ -831,7 +871,7 @@ expandable > revealer .fader {
 }
 
 .popover-shell .column {
-    min-width: var(--gl-popover-min-width);
+    min-width: var(--applet-popover-width);
 }
 
 .column > .notice + .notice,
@@ -1014,12 +1054,12 @@ expandable > revealer .fader {
     color: var(--gl-danger-text);
 }
 
-.notifications-popover .popover-shell,
-.notification {
-    min-width: 40rem;
+.notifications-popover {
+    --applet-popover-width: 40rem;
 }
 
 .notification {
+    min-width: 40rem;
     --gl-notification-radius: 1.1rem;
     min-height: 6rem;
     border-radius: var(--gl-notification-radius);
@@ -1609,9 +1649,8 @@ window.notification-popup {
     transition: background-color var(--gl-duration) var(--gl-ease);
 }
 
-.audio-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.audio-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .audio-popover .hero__title {
@@ -1619,10 +1658,9 @@ window.notification-popup {
     font-weight: 700;
 }
 
-.brightness-popover .popover-shell,
-.display-popover .popover-shell {
-    border-radius: 1.5rem;
-    padding: 1.1rem;
+.brightness-popover,
+.display-popover {
+    --applet-popover-padding: 1.1rem;
 }
 
 .brightness-popover .hero__title,
@@ -1785,10 +1823,6 @@ window.blurred .applet-popover__body {
 
 window.blurred .applet-popover__arrow {
     color: color-mix(in srgb, var(--gl-surface) var(--gl-blur-opacity), transparent);
-}
-
-window.blurred .popover-shell {
-    background-color: transparent;
 }
 
 window.blurred .notification,

@@ -5,7 +5,17 @@ use super::{
 };
 
 const OPEN: &str = ":root {";
-const PREFIX: &str = "gl-";
+const PREFIXES: &[&str] = &[
+    "gl-",
+    "applet-popover-",
+    "popover-shell-",
+    "popover-body-",
+    "container-",
+];
+
+fn carries_prefix(name: &str) -> bool {
+    PREFIXES.iter().any(|prefix| name.starts_with(prefix))
+}
 
 fn split(sheet: &str) -> (&str, &str) {
     let open = sheet.find(OPEN).expect("a :root block");
@@ -39,7 +49,7 @@ fn every_glimpse_token_the_stylesheet_reads_is_declared() {
     let declared: Vec<&str> = declared(block).into_iter().chain(declared(rules)).collect();
     let read = referenced(block).into_iter().chain(referenced(rules));
 
-    for name in read.filter(|name| name.starts_with(PREFIX)) {
+    for name in read.filter(|name| name.starts_with("gl-")) {
         assert!(
             declared.contains(&name),
             "--{name} is read but never declared; GTK reports this nowhere"
@@ -52,8 +62,8 @@ fn every_declared_token_carries_the_prefix() {
     let (block, _) = split(BUILTIN);
     for name in declared(block) {
         assert!(
-            name.starts_with(PREFIX),
-            "--{name} is declared without the --gl- prefix"
+            carries_prefix(name),
+            "--{name} is declared without a shell prefix"
         );
     }
 }
@@ -63,7 +73,7 @@ fn no_rule_reads_an_adwaita_token_directly() {
     let (_, rules) = split(BUILTIN);
     for name in referenced(rules) {
         assert!(
-            name.starts_with(PREFIX),
+            carries_prefix(name),
             "--{name} is a tier-1 token read from a rule; derive it in :root instead"
         );
     }
@@ -219,14 +229,13 @@ fn every_block_in_the_builtin_sheet_closes() {
 #[test]
 fn the_declared_vocabulary_is_the_documented_size() {
     let (block, _) = split(BUILTIN);
-    assert_eq!(declared(block).len(), 52);
+    assert_eq!(declared(block).len(), 68);
 }
 
 #[test]
 fn notification_width_and_popup_frame_match_the_measured_surface() {
-    assert!(BUILTIN.contains(
-        ".notifications-popover .popover-shell,\n.notification {\n    min-width: 40rem;\n}"
-    ));
+    assert!(BUILTIN.contains(".notifications-popover {\n    --applet-popover-width: 40rem;\n}"));
+    assert!(BUILTIN.contains(".notification {\n    min-width: 40rem;\n"));
     assert_eq!(BUILTIN.matches("min-width: 40rem;").count(), 1);
     assert!(!BUILTIN.contains("min-width: 42rem;"));
     assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));

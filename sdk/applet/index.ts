@@ -47,7 +47,19 @@ export type ClassName =
 
 export type Tone = "accent" | "dim" | "success" | "warning" | "error";
 
-type Align = "fill" | "start" | "end" | "center" | "baseline";
+export type Align = "fill" | "start" | "end" | "center" | "baseline";
+
+export type PopoverSize = "regular" | "wide";
+
+export type Paint =
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "blue"
+  | "purple"
+  | "light"
+  | "dark";
 
 export const Indicator = "indicator" as unknown as FC<{
   icon?: string;
@@ -70,6 +82,18 @@ export const Popover = "popover" as unknown as FC<{
   icon?: string;
   title?: string;
   subtitle?: string;
+  size?: PopoverSize;
+  children?: Node;
+}>;
+
+export const Addon = "addon" as unknown as FC<{ children?: Node }>;
+
+export const Container = "container" as unknown as FC<{
+  width?: number;
+  height?: number;
+  background?: Paint;
+  color?: Paint;
+  align?: Align;
   children?: Node;
 }>;
 

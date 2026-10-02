@@ -19,7 +19,7 @@ pub(super) fn check() {
         (true, false),
         "an empty content slot leaves one rule between hero and footer, not two"
     );
-    assert!(!bare.imp().content_box.get_visible());
+    assert!(!bare.imp().body.get_visible());
     section.set_visible(true);
     assert_eq!(rules(&bare), (true, true));
 }
