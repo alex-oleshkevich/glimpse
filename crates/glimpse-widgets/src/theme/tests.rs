@@ -49,7 +49,7 @@ fn every_glimpse_token_the_stylesheet_reads_is_declared() {
     let declared: Vec<&str> = declared(block).into_iter().chain(declared(rules)).collect();
     let read = referenced(block).into_iter().chain(referenced(rules));
 
-    for name in read.filter(|name| name.starts_with("gl-")) {
+    for name in read.filter(|name| carries_prefix(name)) {
         assert!(
             declared.contains(&name),
             "--{name} is read but never declared; GTK reports this nowhere"
@@ -229,7 +229,7 @@ fn every_block_in_the_builtin_sheet_closes() {
 #[test]
 fn the_declared_vocabulary_is_the_documented_size() {
     let (block, _) = split(BUILTIN);
-    assert_eq!(declared(block).len(), 68);
+    assert_eq!(declared(block).len(), 69);
 }
 
 #[test]

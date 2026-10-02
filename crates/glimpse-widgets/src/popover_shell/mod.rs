@@ -167,7 +167,7 @@ impl PopoverShell {
         let hero_slot = shows_anything(&imp.hero_box);
         show(&*imp.hero_box, hero_slot);
         let hero_shown = hero_slot || imp.header.get_visible();
-        show(&*imp.hero_rule, hero_shown);
+        show(&*imp.hero_rule, hero_slot);
 
         let content_shown = shows_anything(&imp.body);
         show(&*imp.body, content_shown);
@@ -178,17 +178,17 @@ impl PopoverShell {
             &*imp.footer_rule,
             footer_shown && !imp.footer_rule_suppressed.get() && (content_shown || !hero_shown),
         );
-        self.apply_cap();
+        self.apply_cap(None);
     }
 
-    fn apply_cap(&self) {
-        let Some(native) = self.native() else {
+    fn apply_cap(&self, entered: Option<&gtk4::gdk::Monitor>) {
+        let Some(surface) = self.native().and_then(|native| native.surface()) else {
             return;
         };
-        let Some(surface) = native.surface() else {
-            return;
-        };
-        let Some(monitor) = surface.display().monitor_at_surface(&surface) else {
+        let Some(monitor) = entered
+            .cloned()
+            .or_else(|| surface.display().monitor_at_surface(&surface))
+        else {
             return;
         };
         let imp = self.imp();
@@ -196,7 +196,6 @@ impl PopoverShell {
         let (_, scroller, _, _) = imp.scroller.measure(gtk4::Orientation::Vertical, -1);
         let chrome = (card as i64 - scroller as i64).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
         let cap = body_cap(monitor.geometry().height(), chrome);
-        eprintln!("CAPDBG monitor={:?} h={} chrome={} cap={}", monitor.connector(), monitor.geometry().height(), chrome, cap);
         if imp.scroller.max_content_height() != cap {
             imp.scroller.set_max_content_height(cap);
         }

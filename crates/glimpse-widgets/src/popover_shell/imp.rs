@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
 
 use glib::Properties;
@@ -29,6 +29,8 @@ pub struct PopoverShell {
     #[template_child]
     pub footer_box: TemplateChild<gtk4::Box>,
     pub footer_rule_suppressed: Cell<bool>,
+    entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
+    body_children: RefCell<Option<gtk4::gio::ListModel>>,
 
     #[property(name = "icon-name", get = Self::icon_name, set = Self::set_icon_name, nullable)]
     icon_name: PhantomData<Option<String>>,
@@ -138,13 +140,13 @@ impl ObjectImpl for PopoverShell {
             self.card.set_size(size);
         }
         let shell = self.obj().downgrade();
-        self.body
-            .observe_children()
-            .connect_items_changed(move |_, _, _, _| {
-                if let Some(shell) = shell.upgrade() {
-                    shell.settle();
-                }
-            });
+        let children = self.body.observe_children();
+        children.connect_items_changed(move |_, _, _, _| {
+            if let Some(shell) = shell.upgrade() {
+                shell.settle();
+            }
+        });
+        self.body_children.replace(Some(children));
         self.obj().settle();
     }
 
@@ -156,7 +158,25 @@ impl ObjectImpl for PopoverShell {
 impl WidgetImpl for PopoverShell {
     fn map(&self) {
         self.parent_map();
-        self.obj().apply_cap();
+        let obj = self.obj();
+        obj.apply_cap(None);
+        if let Some(surface) = obj.native().and_then(|native| native.surface()) {
+            let handler = surface.connect_enter_monitor(glib::clone!(
+                #[weak]
+                obj,
+                move |_, monitor| obj.apply_cap(Some(monitor))
+            ));
+            if let Some((old, handler)) = self.entered.replace(Some((surface, handler))) {
+                old.disconnect(handler);
+            }
+        }
+    }
+
+    fn unmap(&self) {
+        if let Some((surface, handler)) = self.entered.take() {
+            surface.disconnect(handler);
+        }
+        self.parent_unmap();
     }
 }
 

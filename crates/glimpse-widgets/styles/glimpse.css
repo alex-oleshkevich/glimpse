@@ -65,6 +65,7 @@
     --applet-popover-width-wide: 40rem;
     --applet-popover-padding: 0.8rem;
     --applet-popover-bg: var(--gl-surface);
+    --applet-popover-fg: var(--gl-surface-fg);
     --applet-popover-radius: var(--gl-radius);
     --popover-body-spacing: 0.35rem;
     --container-radius: var(--gl-row-radius, 0.7rem);
@@ -325,7 +326,7 @@
 }
 
 .popover-shell {
-    color: var(--gl-surface-fg);
+    color: var(--applet-popover-fg);
 }
 
 .popover-body {
