@@ -173,11 +173,11 @@ impl WorkspaceName {
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         let current = self.current.borrow();
         let Some(workspace) = current.as_ref() else {
-            shown.set_workspace("", "");
+            shown.set_workspace("");
             shown.set_name("");
             return;
         };
-        shown.set_workspace(&render::title(workspace), &render::subtitle(workspace));
+        shown.set_workspace(&render::title(workspace));
         shown.set_name(workspace.name.as_deref().unwrap_or_default());
         shown.set_taken(&render::taken(&self.workspaces, workspace.id));
         shown.set_recent(&render::suggestions(&self.recent, &self.workspaces));

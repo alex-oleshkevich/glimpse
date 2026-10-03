@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::SessionActionState;
+use crate::{Row, SessionActionState};
 
 glib::wrapper! {
     pub struct SessionSheet(ObjectSubclass<imp::SessionSheet>)
@@ -32,6 +32,7 @@ impl SessionSheet {
                 return;
             }
         };
+        let row = row.upcast_ref::<Row>();
         if row.get_visible() == state.visible
             && row.is_sensitive() == state.enabled
             && row.subtitle().as_deref() == state.subtitle.as_deref()

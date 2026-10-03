@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/session_popover.ui")]
@@ -12,21 +12,19 @@ pub struct SessionPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
+    pub lock: TemplateChild<ActionRow>,
     #[template_child]
-    pub lock: TemplateChild<LegacyRow>,
+    pub suspend: TemplateChild<ActionRow>,
     #[template_child]
-    pub suspend: TemplateChild<LegacyRow>,
+    pub hibernate: TemplateChild<ActionRow>,
     #[template_child]
-    pub hibernate: TemplateChild<LegacyRow>,
+    pub logout: TemplateChild<ActionRow>,
     #[template_child]
-    pub logout: TemplateChild<LegacyRow>,
+    pub reboot: TemplateChild<ActionRow>,
     #[template_child]
-    pub reboot: TemplateChild<LegacyRow>,
+    pub power_off: TemplateChild<ActionRow>,
     #[template_child]
-    pub power_off: TemplateChild<LegacyRow>,
-    #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -37,9 +35,8 @@ impl ObjectSubclass for SessionPopover {
 
     fn class_init(klass: &mut Self::Class) {
         PopoverShell::static_type();
-        Hero::static_type();
         Section::static_type();
-        LegacyRow::static_type();
+        ActionRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
@@ -74,13 +71,13 @@ impl ObjectImpl for SessionPopover {
             (&self.reboot, super::REBOOT),
             (&self.power_off, super::POWER_OFF),
         ] {
-            row.connect_clicked(glib::clone!(
+            row.connect_activated(glib::clone!(
                 #[weak]
                 popover,
                 move |_| popover.emit_by_name::<()>("action-requested", &[&action])
             ));
         }
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

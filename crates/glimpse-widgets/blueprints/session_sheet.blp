@@ -29,25 +29,22 @@ template $SessionSheet: Gtk.Widget {
             "session-sheet__menu",
           ]
 
-          $LegacyRow suspend {
+          $ActionRow suspend {
             visible: false;
             title: _("Suspend…");
-            lead-icon: "weather-clear-night-symbolic";
-            activatable: true;
+            icon-name: "weather-clear-night-symbolic";
           }
 
-          $LegacyRow reboot {
+          $ActionRow reboot {
             visible: false;
             title: _("Restart…");
-            lead-icon: "system-reboot-symbolic";
-            activatable: true;
+            icon-name: "system-reboot-symbolic";
           }
 
-          $LegacyRow power_off {
+          $ActionRow power_off {
             visible: false;
             title: _("Power Off…");
-            lead-icon: "system-shutdown-symbolic";
-            activatable: true;
+            icon-name: "system-shutdown-symbolic";
           }
 
           Gtk.Label error {

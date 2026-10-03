@@ -31,6 +31,6 @@ pub(super) fn check() {
         0,
         "an unchanged action must not write the row"
     );
-    session.imp().lock.emit_clicked();
+    session.imp().lock.activate();
     assert_eq!(*session_actions.borrow(), [LOCK]);
 }

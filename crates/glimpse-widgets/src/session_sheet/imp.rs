@@ -4,7 +4,7 @@ use gtk4::{
 };
 use std::sync::OnceLock;
 
-use crate::{LegacyRow, SessionActionState};
+use crate::{ActionRow, SessionActionState};
 
 const MENU_PAGE: &str = "menu";
 const SUSPEND_PAGE: &str = "suspend";
@@ -19,11 +19,11 @@ pub struct SessionSheet {
     #[template_child]
     pub stack: TemplateChild<gtk4::Stack>,
     #[template_child]
-    pub suspend: TemplateChild<LegacyRow>,
+    pub suspend: TemplateChild<ActionRow>,
     #[template_child]
-    pub reboot: TemplateChild<LegacyRow>,
+    pub reboot: TemplateChild<ActionRow>,
     #[template_child]
-    pub power_off: TemplateChild<LegacyRow>,
+    pub power_off: TemplateChild<ActionRow>,
     #[template_child]
     pub error: TemplateChild<gtk4::Label>,
     #[template_child]
@@ -90,7 +90,7 @@ impl ObjectSubclass for SessionSheet {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
-        LegacyRow::static_type();
+        ActionRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
@@ -118,7 +118,7 @@ impl ObjectImpl for SessionSheet {
         self.parent_constructed();
         let sheet = self.obj();
 
-        self.suspend.connect_clicked(glib::clone!(
+        self.suspend.connect_activated(glib::clone!(
             #[weak]
             sheet,
             move |row| {
@@ -150,7 +150,7 @@ impl ObjectImpl for SessionSheet {
                 sheet.emit_by_name::<()>("action-requested", &[&crate::SUSPEND]);
             }
         ));
-        self.reboot.connect_clicked(glib::clone!(
+        self.reboot.connect_activated(glib::clone!(
             #[weak]
             sheet,
             move |row| {
@@ -162,7 +162,7 @@ impl ObjectImpl for SessionSheet {
                 imp.reboot_cancel.grab_focus();
             }
         ));
-        self.power_off.connect_clicked(glib::clone!(
+        self.power_off.connect_activated(glib::clone!(
             #[weak]
             sheet,
             move |row| {

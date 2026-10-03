@@ -1,5 +1,5 @@
 use super::*;
-use crate::SessionActionState;
+use crate::{Row, SessionActionState};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -100,7 +100,7 @@ fn session_sheet_states() {
     sheet.set_action(crate::SUSPEND, &state(true, true, None));
 
     sheet.toggle();
-    imp.suspend.emit_clicked();
+    imp.suspend.activate();
     assert!(
         requested.borrow().is_empty(),
         "the suspend row alone emits nothing"
@@ -111,7 +111,7 @@ fn session_sheet_states() {
     assert_eq!(imp.stack.visible_child_name().as_deref(), Some("menu"));
     assert!(exact_focus(&window, &*imp.suspend));
     assert!(requested.borrow().is_empty(), "cancel emits nothing");
-    imp.suspend.emit_clicked();
+    imp.suspend.activate();
     imp.suspend_confirm.emit_clicked();
     assert_eq!(*requested.borrow(), ["suspend"]);
     sheet.set_action(crate::SUSPEND, &state(true, false, None));
@@ -122,7 +122,7 @@ fn session_sheet_states() {
     );
     sheet.set_action(crate::SUSPEND, &state(true, true, None));
 
-    imp.reboot.emit_clicked();
+    imp.reboot.activate();
     assert!(
         requested.borrow().len() == 1,
         "the restart row alone emits nothing"
@@ -145,12 +145,12 @@ fn session_sheet_states() {
     );
     assert_eq!(requested.borrow().len(), 1, "cancel emits nothing");
 
-    imp.reboot.emit_clicked();
+    imp.reboot.activate();
     assert_eq!(imp.stack.visible_child_name().as_deref(), Some("reboot"));
     imp.reboot_confirm.emit_clicked();
     assert_eq!(*requested.borrow(), ["suspend", "reboot"]);
 
-    imp.power_off.emit_clicked();
+    imp.power_off.activate();
     assert_eq!(imp.stack.visible_child_name().as_deref(), Some("power-off"));
     assert!(exact_focus(&window, &*imp.power_off_cancel));
     imp.power_off_cancel.emit_clicked();
@@ -162,7 +162,7 @@ fn session_sheet_states() {
     assert!(exact_focus(&window, &*imp.power_off));
     assert_eq!(requested.borrow().len(), 2, "cancel emits nothing");
 
-    imp.power_off.emit_clicked();
+    imp.power_off.activate();
     imp.power_off_confirm.emit_clicked();
     assert_eq!(*requested.borrow(), ["suspend", "reboot", "power-off"]);
     assert_eq!(
@@ -196,16 +196,19 @@ fn session_sheet_states() {
     sheet.set_action(crate::SUSPEND, &state(true, false, Some(&hostile_subtitle)));
     assert!(!imp.suspend.is_sensitive());
     assert_eq!(
-        imp.suspend.subtitle().map(|s| s.chars().count()),
+        imp.suspend
+            .upcast_ref::<Row>()
+            .subtitle()
+            .map(|s| s.chars().count()),
         Some(crate::TEXT_MAX_CHARS),
         "a hostile subtitle is capped by characters"
     );
-    imp.suspend.emit_clicked();
+    imp.suspend.activate();
     assert_eq!(requested.borrow().len(), 3, "a disabled row cannot emit");
 
     sheet.set_action("unknown", &state(true, true, None));
 
-    imp.reboot.emit_clicked();
+    imp.reboot.activate();
     assert_eq!(imp.stack.visible_child_name().as_deref(), Some("reboot"));
     sheet.set_error(Some("Restart failed"));
     assert_eq!(
@@ -219,7 +222,7 @@ fn session_sheet_states() {
         "the error moves focus to the first visible, enabled row"
     );
 
-    imp.reboot.emit_clicked();
+    imp.reboot.activate();
     assert_eq!(imp.stack.visible_child_name().as_deref(), Some("reboot"));
     sheet.set_error(None);
     assert_eq!(

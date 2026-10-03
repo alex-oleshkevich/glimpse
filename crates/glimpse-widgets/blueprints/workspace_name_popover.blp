@@ -8,10 +8,7 @@ template $WorkspaceNamePopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "view-grid-symbolic";
-    }
+    icon-name: "view-grid-symbolic";
 
     Gtk.Box {
       orientation: vertical;
@@ -50,7 +47,6 @@ template $WorkspaceNamePopover: Gtk.Widget {
 
       $Section recent {
         visible: false;
-        title: _("Recent names");
 
         Gtk.Box recent_rows {
           orientation: vertical;
@@ -58,8 +54,7 @@ template $WorkspaceNamePopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

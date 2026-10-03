@@ -1,4 +1,4 @@
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use glimpse_services::WorkspaceInfo;
 
 use crate::applets::workspace::{Facts, render, workspace_token};
@@ -27,15 +27,6 @@ pub fn chip(workspace: &WorkspaceInfo) -> String {
 pub fn title(workspace: &WorkspaceInfo) -> String {
     let ordinal = workspace.index.map_or(workspace.id, u64::from);
     gettext("Workspace {number}").replace("{number}", &ordinal.to_string())
-}
-
-pub fn subtitle(workspace: &WorkspaceInfo) -> String {
-    let windows = ngettext("{count} window", "{count} windows", workspace.windows)
-        .replace("{count}", &workspace.windows.to_string());
-    match workspace.output.as_deref() {
-        Some(output) => format!("{output} · {windows}"),
-        None => windows,
-    }
 }
 
 pub fn tooltip(workspace: &WorkspaceInfo, format: Option<&str>) -> String {

@@ -2,6 +2,8 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
+use crate::Row;
+
 pub const LOCK: &str = "lock";
 pub const SUSPEND: &str = "suspend";
 pub const HIBERNATE: &str = "hibernate";
@@ -34,10 +36,9 @@ impl SessionPopover {
     }
 
     pub fn set_heading(&self, user: Option<&str>, signed_in: Option<&str>) {
-        let imp = self.imp();
-        imp.hero.set_icon_name(Some("avatar-default-symbolic"));
-        imp.hero.set_title(user);
-        imp.hero.set_subtitle(signed_in);
+        let shell = &self.imp().shell;
+        shell.set_title(user);
+        shell.set_subtitle(signed_in);
     }
 
     pub fn set_action(&self, action: &str, state: &ActionState) {
@@ -50,6 +51,7 @@ impl SessionPopover {
             POWER_OFF => &self.imp().power_off,
             _ => return,
         };
+        let row = row.upcast_ref::<Row>();
         if row.get_visible() == state.visible
             && row.is_sensitive() == state.enabled
             && row.subtitle().as_deref() == state.subtitle.as_deref()
@@ -62,7 +64,9 @@ impl SessionPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     pub fn connect_action_requested<F: Fn(&Self, &str) + 'static>(

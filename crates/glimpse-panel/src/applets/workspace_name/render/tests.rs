@@ -101,14 +101,8 @@ fn the_tooltip_reads_its_format_tokens() {
 }
 
 #[test]
-fn the_hero_counts_windows_and_names_the_output() {
-    let mut one = workspace(3, "DP-2", true, true);
-    one.windows = 1;
-    assert_eq!(title(&one), "Workspace 3");
-    assert_eq!(subtitle(&one), "DP-2 · 1 window");
-    one.windows = 4;
-    one.output = None;
-    assert_eq!(subtitle(&one), "4 windows");
+fn the_title_is_the_workspace_ordinal() {
+    assert_eq!(title(&workspace(3, "DP-2", true, true)), "Workspace 3");
 }
 
 #[test]

@@ -11,9 +11,9 @@ fn workspace_name_popover_widgets() {
     let popover = WorkspaceNamePopover::new();
     let imp = popover.imp();
 
-    popover.set_workspace("Workspace 3", "DP-2 · 4 windows");
-    assert_eq!(imp.hero.title().as_deref(), Some("Workspace 3"));
-    assert_eq!(imp.hero.subtitle().as_deref(), Some("DP-2 · 4 windows"));
+    popover.set_workspace("Workspace 3");
+    assert_eq!(imp.shell.title().as_deref(), Some("Workspace 3"));
+    assert_eq!(imp.shell.subtitle(), None);
 
     popover.set_name("dev");
     assert_eq!(imp.name.text(), "dev", "an untouched entry takes the name");
@@ -63,9 +63,9 @@ fn workspace_name_popover_widgets() {
     assert!(imp.recent.get_visible());
     imp.recent_rows
         .first_child()
-        .and_downcast::<LegacyRow>()
+        .and_downcast::<ActionRow>()
         .expect("a recent name")
-        .emit_clicked();
+        .activate();
     assert_eq!(submitted.borrow().as_deref(), Some("music"));
 
     imp.name
@@ -84,6 +84,6 @@ fn workspace_name_popover_widgets() {
     assert!(!imp.footer.get_visible(), "no footer until one is set");
     popover.set_footer(Some("Workspace settings"));
     assert!(imp.footer.get_visible());
-    imp.footer.emit_clicked();
+    imp.footer.activate();
     assert!(footer.get());
 }

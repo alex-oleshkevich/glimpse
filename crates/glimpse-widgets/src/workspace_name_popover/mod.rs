@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty, reconcile};
+use crate::{ActionRow, Row, none_if_empty, reconcile};
 
 glib::wrapper! {
     pub struct WorkspaceNamePopover(ObjectSubclass<imp::WorkspaceNamePopover>)
@@ -21,10 +21,8 @@ impl WorkspaceNamePopover {
         glib::Object::new()
     }
 
-    pub fn set_workspace(&self, title: &str, subtitle: &str) {
-        let hero = &self.imp().hero;
-        hero.set_title(none_if_empty(title));
-        hero.set_subtitle(none_if_empty(subtitle));
+    pub fn set_workspace(&self, title: &str) {
+        self.imp().shell.set_title(none_if_empty(title));
     }
 
     pub fn set_name(&self, name: &str) {
@@ -61,16 +59,16 @@ impl WorkspaceNamePopover {
             names,
             |name| name.clone(),
             |name| {
-                let row = LegacyRow::new();
+                let row = ActionRow::new();
                 let name = name.clone();
-                row.connect_clicked(glib::clone!(
+                row.connect_activated(glib::clone!(
                     #[weak(rename_to = popover)]
                     self,
                     move |_| popover.emit_by_name::<()>("submitted", &[&name])
                 ));
                 row
             },
-            |row, name| row.set_title(none_if_empty(name)),
+            |row, name| row.upcast_ref::<Row>().set_title(none_if_empty(name)),
         );
     }
 
@@ -102,7 +100,9 @@ impl WorkspaceNamePopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     pub fn connect_submitted<F: Fn(&Self, String) + 'static>(

@@ -5,15 +5,13 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, gdk, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/workspace_name_popover.ui")]
 pub struct WorkspaceNamePopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub name: TemplateChild<gtk4::Entry>,
     #[template_child]
@@ -23,11 +21,11 @@ pub struct WorkspaceNamePopover {
     #[template_child]
     pub recent_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
     pub given: RefCell<String>,
     pub taken_names: RefCell<Vec<(String, String)>>,
     pub recent_names: RefCell<Vec<String>>,
-    pub recent_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub recent_held: RefCell<Vec<(String, ActionRow)>>,
 }
 
 #[glib::object_subclass]
@@ -105,7 +103,7 @@ impl ObjectImpl for WorkspaceNamePopover {
         popover.add_controller(keys);
         popover.connect_map(|popover| popover.focus_entry());
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

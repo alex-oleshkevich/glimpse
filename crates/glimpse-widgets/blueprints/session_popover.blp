@@ -2,58 +2,51 @@ using Gtk 4.0;
 
 template $SessionPopover: Gtk.Widget {
   $PopoverShell shell {
-    [hero]
-    $Hero hero {}
+    icon-name: "avatar-default-symbolic";
 
-    Gtk.Box {
-      orientation: vertical;
-      spacing: 8;
+    $Section {
+      Gtk.Box {
+        orientation: vertical;
 
-      $Section {
-        Gtk.Box {
-          orientation: vertical;
-
-          $LegacyRow lock {
-            title: _("Lock");
-            lead-icon: "system-lock-screen-symbolic";
-          }
-
-          $LegacyRow suspend {
-            title: _("Suspend");
-            lead-icon: "weather-clear-night-symbolic";
-          }
-
-          $LegacyRow hibernate {
-            title: _("Hibernate");
-            lead-icon: "document-save-symbolic";
-          }
+        $ActionRow lock {
+          title: _("Lock");
+          icon-name: "system-lock-screen-symbolic";
         }
-      }
 
-      $Section {
-        Gtk.Box {
-          orientation: vertical;
+        $ActionRow suspend {
+          title: _("Suspend");
+          icon-name: "weather-clear-night-symbolic";
+        }
 
-          $LegacyRow logout {
-            title: _("Log out");
-            lead-icon: "system-log-out-symbolic";
-          }
-
-          $LegacyRow reboot {
-            title: _("Restart");
-            lead-icon: "system-reboot-symbolic";
-          }
-
-          $LegacyRow power_off {
-            title: _("Shut down");
-            lead-icon: "system-shutdown-symbolic";
-          }
+        $ActionRow hibernate {
+          title: _("Hibernate");
+          icon-name: "document-save-symbolic";
         }
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $Section {
+      Gtk.Box {
+        orientation: vertical;
+
+        $ActionRow logout {
+          title: _("Log out");
+          icon-name: "system-log-out-symbolic";
+        }
+
+        $ActionRow reboot {
+          title: _("Restart");
+          icon-name: "system-reboot-symbolic";
+        }
+
+        $ActionRow power_off {
+          title: _("Shut down");
+          icon-name: "system-shutdown-symbolic";
+        }
+      }
+    }
+
+    $ActionRow footer {
       visible: false;
     }
   }
