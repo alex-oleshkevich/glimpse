@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fact, FactList, Row, none_if_empty, reconcile};
+use crate::{Expandable, Fact, FactList, LegacyRow, none_if_empty, reconcile};
 
 pub use imp::{Job, Printer};
 
@@ -123,7 +123,7 @@ impl PrintingPopover {
     }
 
     fn dress_printer(&self, holder: &Expandable, printer: &Printer) {
-        let Some(row) = holder.head::<Row>() else {
+        let Some(row) = holder.head::<LegacyRow>() else {
             return;
         };
         row.set_title(none_if_empty(&printer.name));
@@ -170,10 +170,10 @@ impl PrintingPopover {
         holder
     }
 
-    /// An action in the card is a `$Row`, the same as every other list entry in this shell — an
+    /// An action in the card is a `$LegacyRow`, the same as every other list entry in this shell — an
     /// icon button would be a second grammar for the same thing.
-    fn build_action_row(&self, id: &str, label: String, signal: &'static str) -> Row {
-        let row = Row::new();
+    fn build_action_row(&self, id: &str, label: String, signal: &'static str) -> LegacyRow {
+        let row = LegacyRow::new();
         row.set_title(Some(label.as_str()));
         row.set_activatable(true);
         let key = id.to_owned();
@@ -186,7 +186,7 @@ impl PrintingPopover {
     }
 
     fn dress_job(&self, holder: &Expandable, job: &Job) {
-        let Some(row) = holder.head::<Row>() else {
+        let Some(row) = holder.head::<LegacyRow>() else {
             return;
         };
         row.set_title(none_if_empty(&job.name));
@@ -217,8 +217,8 @@ impl PrintingPopover {
 
 const WARNING: &str = "row--warning";
 
-fn opener_row(tooltip: String) -> Row {
-    let row = Row::new();
+fn opener_row(tooltip: String) -> LegacyRow {
+    let row = LegacyRow::new();
     let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
     chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
     chevron.add_css_class("drawer-chevron");
@@ -229,7 +229,7 @@ fn opener_row(tooltip: String) -> Row {
 
 /// A row with a card to open is the opener; one without is a plain line of text with no chevron
 /// and nothing under the pointer.
-fn set_opens(row: &Row, opens: bool) {
+fn set_opens(row: &LegacyRow, opens: bool) {
     row.set_activatable(opens);
     if let Some(chevron) = row.trail()
         && chevron.get_visible() != opens

@@ -4,7 +4,7 @@ use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Expandable, Fact, FactList, Row, SwitchRow};
+use crate::{Expandable, Fact, FactList, LegacyRow, SwitchRow};
 
 pub(crate) const ENABLE_REQUESTED: &str = "enable-requested";
 
@@ -101,14 +101,14 @@ impl DisplayList {
     }
 
     fn build(&self, connector: &str) -> Expandable {
-        let row = Row::new();
+        let row = LegacyRow::new();
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
         chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
         chevron.add_css_class("drawer-chevron");
         row.set_trail(&chevron);
 
         let switch = SwitchRow::new();
-        let head: &Row = switch.upcast_ref();
+        let head: &LegacyRow = switch.upcast_ref();
         head.set_title(Some(gettext("Enabled")));
         let connector = connector.to_owned();
         switch.connect_toggled(glib::clone!(
@@ -128,7 +128,7 @@ impl DisplayList {
 }
 
 fn apply(holder: &Expandable, display: &Display, power: bool, last_enabled: bool) {
-    if let Some(row) = holder.head::<Row>() {
+    if let Some(row) = holder.head::<LegacyRow>() {
         row.set_title(Some(heading(display).as_str()));
         row.set_lead_icon(Some(icon_of(display)));
     }
@@ -144,7 +144,7 @@ fn apply(holder: &Expandable, display: &Display, power: bool, last_enabled: bool
     switch.set_visible(power);
     if power {
         let locked = display.enabled && last_enabled;
-        let head: &Row = switch.upcast_ref();
+        let head: &LegacyRow = switch.upcast_ref();
         head.set_subtitle(locked.then(|| gettext("The last enabled display can't be turned off")));
         switch.set_locked(locked);
         switch.set_active(display.enabled);

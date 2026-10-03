@@ -3,12 +3,12 @@ use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
 use super::Choice;
-use crate::Row;
+use crate::LegacyRow;
 
 #[derive(Debug, Default)]
 pub struct ChoiceList {
     pub choices: RefCell<Vec<Choice>>,
-    pub rows: RefCell<Vec<Row>>,
+    pub rows: RefCell<Vec<LegacyRow>>,
     pub selected: Cell<Option<u32>>,
 }
 

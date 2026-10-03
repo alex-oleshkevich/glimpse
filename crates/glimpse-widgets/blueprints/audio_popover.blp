@@ -36,7 +36,7 @@ template $AudioPopover: Gtk.Widget {
           }
 
           $Expandable output_device {
-            $Row output_current {
+            $LegacyRow output_current {
               [trail]
               Gtk.Image {
                 icon-name: "go-next-symbolic";
@@ -74,7 +74,7 @@ template $AudioPopover: Gtk.Widget {
           }
 
           $Expandable input_device {
-            $Row input_current {
+            $LegacyRow input_current {
               [trail]
               Gtk.Image {
                 icon-name: "go-next-symbolic";
@@ -109,7 +109,7 @@ template $AudioPopover: Gtk.Widget {
             orientation: vertical;
           }
 
-          $Row more_apps {
+          $LegacyRow more_apps {
             visible: false;
             activatable: true;
             lead-icon: "view-more-symbolic";
@@ -119,7 +119,7 @@ template $AudioPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

@@ -12,7 +12,7 @@ pub(super) fn check() {
         choice("WH-1000XM5", "Bluetooth"),
         choice("Built-in speakers", ""),
     ]);
-    let choice_rows = children_of::<Row>(&outputs);
+    let choice_rows = children_of::<LegacyRow>(&outputs);
     assert_eq!(choice_rows.len(), 2);
     assert_eq!(choice_rows[0].subtitle().as_deref(), Some("Bluetooth"));
     assert_eq!(choice_rows[1].subtitle(), None);
@@ -49,7 +49,7 @@ pub(super) fn check() {
              named the headphones a moment ago and names the speakers now, so keeping it would \
              quietly check the wrong device"
     );
-    assert_eq!(children_of::<Row>(&outputs).len(), 1);
+    assert_eq!(children_of::<LegacyRow>(&outputs).len(), 1);
 
     outputs.set_selected(Some(7));
     assert_eq!(

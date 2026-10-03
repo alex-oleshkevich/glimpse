@@ -11,6 +11,8 @@ const PREFIXES: &[&str] = &[
     "popover-shell-",
     "popover-body-",
     "container-",
+    "row-",
+    "meter-row-",
 ];
 
 fn carries_prefix(name: &str) -> bool {
@@ -229,7 +231,7 @@ fn every_block_in_the_builtin_sheet_closes() {
 #[test]
 fn the_declared_vocabulary_is_the_documented_size() {
     let (block, _) = split(BUILTIN);
-    assert_eq!(declared(block).len(), 69);
+    assert_eq!(declared(block).len(), 83);
 }
 
 #[test]
@@ -243,4 +245,32 @@ fn notification_width_and_popup_frame_match_the_measured_surface() {
     assert!(BUILTIN.contains("padding: var(--gl-popup-paint-outset);"));
     assert!(BUILTIN.contains("box-shadow: var(--gl-elevation-floating);"));
     assert!(BUILTIN.contains("transform: translate(0, var(--gl-popup-motion));"));
+}
+#[test]
+fn slider_row_css_has_token_fallbacks() {
+    assert!(
+        super::BUILTIN
+            .contains(".slider-row__start {\n    margin-right: var(--row-gap, 0.625rem);")
+    );
+}
+
+#[test]
+fn inactive_rows_fade_each_element_once() {
+    let (_, rules) = split(BUILTIN);
+    for block in rules.split('}') {
+        let Some((selector, declarations)) = block.split_once('{') else {
+            continue;
+        };
+        if selector.contains("listrow")
+            && (selector.contains(":disabled") || selector.contains("row--inactive"))
+        {
+            assert!(
+                !declarations
+                    .lines()
+                    .any(|line| line.trim().starts_with("opacity:")),
+                "row-level opacity compounds the theme disabled filter: {selector}"
+            );
+        }
+    }
+    assert!(!rules.contains("listrow:disabled label {"));
 }

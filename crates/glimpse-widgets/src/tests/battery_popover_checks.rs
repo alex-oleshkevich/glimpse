@@ -56,7 +56,7 @@ pub(super) fn check() {
     }]);
     assert!(battery.imp().devices_section.get_visible());
     assert!(
-        children_of::<Row>(&*battery.imp().devices_box)[0].has_css_class("row--warning"),
+        children_of::<LegacyRow>(&*battery.imp().devices_box)[0].has_css_class("row--warning"),
         "a device running low reads amber"
     );
     battery.set_health(None, false, &[]);

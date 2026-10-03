@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-02 16:18+0200\n"
+"POT-Creation-Date: 2026-10-03 17:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -359,13 +359,14 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
 #: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
 msgid "Muted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:363
+#: crates/glimpse-widgets/src/lib.rs:375
 msgid "{percent}%"
 msgstr ""
 
@@ -898,7 +899,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
 #: crates/glimpse-panel/src/applets/network/render.rs:103
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:246
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:247
 msgid "Open"
 msgstr ""
 
@@ -1066,12 +1067,12 @@ msgstr ""
 msgid "The compositor is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1233
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1425
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:449
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1238
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1430
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:454
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
@@ -2487,6 +2488,8 @@ msgid "Any input wakes them again"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
 msgid "Mute"
 msgstr ""
 
@@ -2552,7 +2555,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:35
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:89
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:132
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:196
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:197
 msgid "Details"
 msgstr ""
 
@@ -2606,7 +2609,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:322
+#: crates/glimpse-widgets/src/lib.rs:334
 msgid "Play"
 msgstr ""
 
@@ -3238,6 +3241,23 @@ msgstr ""
 msgid "Repeat"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
+msgid "Inactive warning row"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:83
+msgid "Device out of range"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:118
+msgid "Locked by the hardware switch"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+msgid ""
+"Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
 msgid "Name this workspace"
 msgstr ""
@@ -3376,7 +3396,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:321
+#: crates/glimpse-widgets/src/lib.rs:333
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:164
 msgid "Pause"
 msgstr ""
@@ -3459,11 +3479,11 @@ msgstr ""
 msgid "Stop sharing"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:250
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:251
 msgid "Eject"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:253
+#: crates/glimpse-widgets/src/removable_popover/mod.rs:254
 msgid "Unmount"
 msgstr ""
 
@@ -3489,6 +3509,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/shot_window_list/mod.rs:143
 msgid "captured when picked"
+msgstr ""
+
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87

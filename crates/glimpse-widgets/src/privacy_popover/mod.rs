@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fact, FactList, Row, none_if_empty, reconcile};
+use crate::{Expandable, Fact, FactList, LegacyRow, none_if_empty, reconcile};
 
 pub use imp::Usage;
 
@@ -86,7 +86,7 @@ impl PrivacyPopover {
     }
 
     fn build_usage(&self) -> Expandable {
-        let row = Row::new();
+        let row = LegacyRow::new();
         let chevron = gtk4::Image::from_icon_name(CHEVRON);
         chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
         chevron.add_css_class("drawer-chevron");
@@ -96,7 +96,7 @@ impl PrivacyPopover {
 
     fn apply_usage(&self, holder: &Expandable, usage: &Usage) {
         let carded = usage.stoppable || usage.detail.is_some();
-        if let Some(row) = holder.head::<Row>() {
+        if let Some(row) = holder.head::<LegacyRow>() {
             row.set_title(none_if_empty(&usage.title));
             row.set_lead_icon(none_if_empty(&usage.icon));
             if row.activatable() != carded {
@@ -131,7 +131,7 @@ impl PrivacyPopover {
     }
 
     fn card(&self, id: &str) -> gtk4::Box {
-        let stop = Row::new();
+        let stop = LegacyRow::new();
         stop.set_title(Some(gettext("Stop sharing").as_str()));
         stop.add_css_class(crate::DESTRUCTIVE);
         let key = id.to_owned();

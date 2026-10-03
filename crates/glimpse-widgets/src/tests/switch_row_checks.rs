@@ -9,7 +9,7 @@ pub(super) fn check() {
     });
 
     toggle
-        .upcast_ref::<Row>()
+        .upcast_ref::<LegacyRow>()
         .set_title(Some("Connect automatically"));
     let knob = child_named::<gtk4::Switch>(&toggle, "switch-row__knob");
     toggle.set_active(true);

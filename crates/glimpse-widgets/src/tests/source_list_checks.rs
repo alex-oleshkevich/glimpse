@@ -28,7 +28,7 @@ pub(super) fn check() {
         source("dp-2", "DP-2", 80.0, 100.0, 5.0),
     ]);
 
-    let rows: Vec<Row> = children_of(&sources);
+    let rows: Vec<LegacyRow> = children_of(&sources);
     let faders: Vec<Fader> = children_of(&sources);
     assert_eq!(rows.len(), 3);
     assert_eq!(faders.len(), 3);
@@ -74,7 +74,7 @@ pub(super) fn check() {
         source("dp-1", "DP-1", 65.0, 100.0, 0.0),
         source("dp-2", "DP-2", 80.0, 100.0, 5.0),
     ]);
-    let rows_after: Vec<Row> = children_of(&sources);
+    let rows_after: Vec<LegacyRow> = children_of(&sources);
     let faders_after: Vec<Fader> = children_of(&sources);
     assert_eq!(
         rows_after[0], first_row,
@@ -96,7 +96,7 @@ pub(super) fn check() {
     );
 
     sources.set_sources(&[source("hostile", &"ё".repeat(300), 10.0, 100.0, 0.0)]);
-    let hostile_rows: Vec<Row> = children_of(&sources);
+    let hostile_rows: Vec<LegacyRow> = children_of(&sources);
     assert_eq!(hostile_rows.len(), 1);
     assert!(
         child_named::<gtk4::Label>(&hostile_rows[0], "row__title")

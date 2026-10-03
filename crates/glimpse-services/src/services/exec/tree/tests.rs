@@ -135,4 +135,5 @@ fn only(tree: &Tree, id: u32) -> Element {
 
 mod batches;
 mod props;
+mod rows;
 mod widgets;

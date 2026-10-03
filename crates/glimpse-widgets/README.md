@@ -21,9 +21,9 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
   add classes after `build()`, or a chain setting both paints a button behind a frameless icon.
 - **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a hidden
   `Section` reports no title.
-- **A row highlights only if its body acts**; `activatable: false` drops `can-target` and
-  `can-focus`. An end control that must stay clickable is parented beside the row, never inside
-  it, so that drop cannot reach it. A control that is the row's own state stays a `SwitchRow`.
+- **Inactive rows block input, never backend updates.** They fade once and leave Tab navigation;
+  slider recovery icons stay usable. Expander heads always permit inspection, and inactivity never
+  propagates to drawer children.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
 - **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
@@ -48,7 +48,7 @@ no tooltip rather than an empty box. Each `InhibitorList` row is an `Expandable`
 what it prevents and, when releasable, a destructive Release — it ends another app's hold, which
 "Cancel" does not say.
 
-## Calendar, Row, SplitRow and Placeholder
+## Calendar, LegacyRow, SplitRow and Placeholder
 
 **A month change slides; everything else repaints in place** — a new month paints into the hidden
 page of a two-page `Gtk.Stack` and slides from the side it lies on. **Month names use `%OB`, not
@@ -65,8 +65,8 @@ selecting would otherwise overflow the stack.
 one row in a long list hides what it just revealed. `.row` must reset `font-weight`, since libadwaita
 styles bare `button` bold and the grammar distinguishes a selected row by weight. `SwitchRow`'s
 `locked` disables the knob and makes a row-body click a no-op, but never the row itself —
-`set_sensitive(false)` would dim the subtitle explaining the lock. `SplitRow` wraps a `Row` rather
-than subclassing one, so its trailing button lands inside the row's box without `Row` knowing.
+`set_sensitive(false)` would dim the subtitle explaining the lock. `SplitRow` wraps a `LegacyRow` rather
+than subclassing one, so its trailing button lands inside the row's box without `LegacyRow` knowing.
 
 ## Section, EventList, WorldClock and the notification widgets
 
@@ -116,7 +116,7 @@ changes, not the name, so a credential cannot reach the next device.
 
 ## ForecastStrip, ForecastList, the media widgets, Fader and SourceList
 
-**Row's lead icon is `lead-icon`, not `icon-name`** — `Gtk.Button` already owns an `icon-name` that
+**LegacyRow's lead icon is `lead-icon`, not `icon-name`** — `Gtk.Button` already owns an `icon-name` that
 replaces the button's child, so a subclass calling `set_icon_name` destroys the row's template.
 Artwork is a `Gtk.Image`, the only one that can be told how big to be, since `Gtk.Picture` reports
 the paintable's natural width. `Pixbuf::file_info` reads dimensions out of the header without
@@ -140,7 +140,7 @@ own output is enabled **and** is the sole one enabled, never on a disabled outpu
 strand the user with no way to turn a display back on. **`set_output_power(false)` removes the
 switch from the row, rather than locking it** — `locked` answers "your last enabled display", the
 gate answers "this compositor cannot do this at all", and the two never fight. Blanking the screens
-in `DisplayPopover` is a plain `$Row`, never a `$SwitchRow` — DPMS has no state to sit in, since the
+in `DisplayPopover` is a plain `$LegacyRow`, never a `$SwitchRow` — DPMS has no state to sit in, since the
 first input undoes it. `AudioPopover` uses no `Gtk.Stack`: sound has no prompt page, unlike bluetooth
 or network, and its output master fader carries `.accent`, added in Rust, because `Fader` exposes no
 accent property. **`BrightnessPopover::set_sources` takes the slice already ordered with the current
@@ -185,14 +185,14 @@ content cannot change under its id — each render only rewrites the pin row's w
 and no placeholder. In `KdeconnectPopover`, **a card's rows are rebuilt only when its actions
 change**, so the row under the pointer of an open card is never swapped out, and a nearby row spins
 the moment it is pressed and ignores a second press while it does. In `RemovablePopover`, **every
-drive and volume is an `Expandable`**, keyed by id; the head swapping between `Row` and `SplitRow` is
+drive and volume is an `Expandable`**, keyed by id; the head swapping between `LegacyRow` and `SplitRow` is
 how a successful mount or unmount closes the card, and the capacity bar leads the mounted card since
 an `Expandable` toggles only on its head.
 
 ## PrintingPopover, PrivacyPopover, Swatch, ColorList, ColorPickerPopover and WorkspaceNamePopover
 
 **A job and a printer are the same shape: an `Expandable` whose whole row opens its card.** **An
-action is a row, never an icon button, and it cannot live in the head** — `Row` is a `Gtk.Button`,
+action is a row, never an icon button, and it cannot live in the head** — `LegacyRow` is a `Gtk.Button`,
 so a button inside one is a button inside a button and the inner never emits `clicked`. Formatting
 and sanitizing raw CUPS text is the panel applet's job, not this widget's.
 

@@ -16,7 +16,7 @@ use glimpse_services::{
     Edge, ExecBarRequest as BarRequest, ExecHandle, ExecUserEvent as UserEvent, Orientation,
     Placement, SessionActionsHandle, Tree, Zone,
 };
-use glimpse_widgets::{IndicatorSpec, PopoverShell, Row};
+use glimpse_widgets::{IndicatorSpec, LegacyRow, PopoverShell};
 use gtk4::{gio, prelude::*};
 
 use crate::{
@@ -305,7 +305,7 @@ impl Applet for Exec {
         dom.reconcile(&self.tree, self.generation);
         self.dom = Some(dom);
         if let Some((label, command)) = &self.settings {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.set_property("title", Some(label.as_str()));
             row.set_property("activatable", true);
             let command = command.clone();

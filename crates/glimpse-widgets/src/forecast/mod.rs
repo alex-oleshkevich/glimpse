@@ -161,7 +161,7 @@ impl ForecastList {
             let Some(row) = holders[index].head::<ForecastDay>() else {
                 continue;
             };
-            let item: &crate::Row = row.upcast_ref();
+            let item: &crate::LegacyRow = row.upcast_ref();
             item.set_title(Some(day.label.as_str()));
             item.set_lead_icon(Some(day.icon_name.as_str()));
             row.set_precipitation(

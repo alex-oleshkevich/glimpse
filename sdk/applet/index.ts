@@ -146,6 +146,59 @@ export const Fader = "fader" as unknown as FC<{
   onMute?: () => void;
 }>;
 
+export type RowTone = "warning" | "error" | "destructive";
+export type RowTypography = "numeric" | "monospace";
+type RowProps = {
+  icon?: string;
+  title?: string;
+  subtitle?: string;
+  value?: string;
+  tone?: RowTone;
+  inactive?: boolean;
+  tooltip?: string;
+  typography?: RowTypography;
+  busy?: boolean;
+};
+
+export const ActionRow = "actionrow" as unknown as FC<
+  RowProps & { onActivate?: () => void; children?: Node }
+>;
+export const ToggleRow = "togglerow" as unknown as FC<
+  RowProps & {
+    control?: "check" | "switch";
+    active?: boolean;
+    onToggle?: (active: boolean) => void;
+  }
+>;
+export const MeterRow = "meterrow" as unknown as FC<
+  RowProps & { level?: number; children?: Node }
+>;
+export const ExpanderRow = "expanderrow" as unknown as FC<
+  RowProps & {
+    open?: boolean;
+    tint?: boolean;
+    titleLines?: number;
+    onToggle?: (open: boolean) => void;
+    children?: Node;
+  }
+>;
+export const End = "end" as unknown as FC<{ children?: Node }>;
+export const Start = "start" as unknown as FC<{ children?: Node }>;
+export const SliderRow = "sliderrow" as unknown as FC<{
+  title?: string;
+  subtitle?: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  tone?: RowTone;
+  inactive?: boolean;
+  tooltip?: string;
+  onMove?: (value: number) => void;
+  onChange?: (value: number) => void;
+  children?: Node;
+}>;
+
 export const FactList = "factlist" as unknown as FC<{
   facts?: { label: string; value: string; warning?: boolean }[];
 }>;

@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, Placeholder, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, LegacyRow, Placeholder, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -80,9 +80,9 @@ pub struct NetworkPopover {
     #[template_child]
     pub other_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more: TemplateChild<Row>,
+    pub more: TemplateChild<LegacyRow>,
     #[template_child]
-    pub all: TemplateChild<Row>,
+    pub all: TemplateChild<LegacyRow>,
     #[template_child]
     pub looking: TemplateChild<Placeholder>,
     #[template_child]
@@ -100,7 +100,7 @@ pub struct NetworkPopover {
     #[template_child]
     pub hidden_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
-    pub hidden: TemplateChild<Row>,
+    pub hidden: TemplateChild<LegacyRow>,
     #[template_child]
     pub pages: TemplateChild<gtk4::Stack>,
     #[template_child]
@@ -119,7 +119,7 @@ pub struct NetworkPopover {
     #[template_child]
     pub prompt_accept: TemplateChild<gtk4::Button>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
@@ -127,7 +127,7 @@ pub struct NetworkPopover {
     pub wifi_held: RefCell<Vec<(String, Expandable)>>,
     pub wired_held: RefCell<Vec<(String, Expandable)>>,
     pub vpn_held: RefCell<Vec<(String, Expandable)>>,
-    pub lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
+    pub lines: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
     pub prompt: RefCell<Option<Ask>>,
     pub quiet: std::cell::Cell<bool>,
 }

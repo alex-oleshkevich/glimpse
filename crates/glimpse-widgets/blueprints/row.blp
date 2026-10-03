@@ -1,24 +1,16 @@
 using Gtk 4.0;
 
-template $Row: Gtk.Button {
-  has-frame: false;
+template $Row: Gtk.Widget {
+  focusable: false;
+  can-target: true;
+  accessible-role: list_item;
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
 
-  styles [
-    "row",
-  ]
-
-  Gtk.Box {
-    orientation: horizontal;
-    spacing: 10;
-
-    Gtk.Image check {
-      visible: false;
-      accessible-role: presentation;
-
-      styles [
-        "row__check",
-      ]
-    }
+  Gtk.Box content {
+    vexpand: true;
+    accessible-role: presentation;
 
     Gtk.Image icon {
       visible: false;
@@ -29,28 +21,19 @@ template $Row: Gtk.Button {
       ]
     }
 
-    Gtk.Box lead {
-      orientation: horizontal;
-      valign: center;
-      visible: false;
-
-      styles [
-        "row__lead",
-      ]
-    }
-
     Gtk.Box text {
       orientation: vertical;
       valign: center;
       hexpand: true;
-      halign: fill;
+      accessible-role: presentation;
 
       Gtk.Label title {
-        single-line-mode: true;
-        ellipsize: end;
-        max-width-chars: 24;
-        xalign: 0;
         visible: false;
+        xalign: 0;
+        ellipsize: end;
+        single-line-mode: true;
+        lines: 1;
+        max-width-chars: 24;
         accessible-role: presentation;
 
         styles [
@@ -59,11 +42,11 @@ template $Row: Gtk.Button {
       }
 
       Gtk.Label subtitle {
-        single-line-mode: true;
-        ellipsize: end;
-        max-width-chars: 34;
-        xalign: 0;
         visible: false;
+        xalign: 0;
+        ellipsize: end;
+        single-line-mode: true;
+        max-width-chars: 24;
         accessible-role: presentation;
 
         styles [
@@ -73,11 +56,11 @@ template $Row: Gtk.Button {
     }
 
     Gtk.Label value {
-      single-line-mode: true;
-      ellipsize: end;
-      max-width-chars: 26;
-      xalign: 1;
       visible: false;
+      xalign: 1;
+      ellipsize: end;
+      single-line-mode: true;
+      max-width-chars: 16;
       accessible-role: presentation;
 
       styles [
@@ -87,7 +70,6 @@ template $Row: Gtk.Button {
 
     Gtk.Spinner spinner {
       visible: false;
-      valign: center;
       accessible-role: presentation;
 
       styles [
@@ -95,14 +77,27 @@ template $Row: Gtk.Button {
       ]
     }
 
-    Gtk.Box trail {
-      orientation: horizontal;
-      valign: center;
+    Gtk.Box end {
       visible: false;
+      valign: center;
+      accessible-role: presentation;
+    }
+
+    Gtk.Image check {
+      visible: false;
+      icon-name: "object-select-symbolic";
+      accessible-role: presentation;
 
       styles [
-        "row__trail",
+        "row__check",
       ]
+    }
+
+    Gtk.Image chevron {
+      visible: false;
+      icon-name: "pan-end-symbolic";
+      accessible-role: presentation;
+      styles ["row__chevron"]
     }
   }
 }

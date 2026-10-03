@@ -21,7 +21,7 @@ template $RulerPopover: Gtk.Widget {
         "column",
       ]
 
-      $Row measure {
+      $LegacyRow measure {
         title: _("Measure the screen");
         lead-icon: "selection-mode-symbolic";
       }
@@ -41,7 +41,7 @@ template $RulerPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

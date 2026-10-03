@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Display, DisplayList, Hero, PopoverShell, Row, Section};
+use crate::{Display, DisplayList, Hero, LegacyRow, PopoverShell, Section};
 
 use super::{BLANKED, ENABLE_REQUESTED, FOOTER_ACTIVATED};
 
@@ -21,9 +21,9 @@ pub struct DisplayPopover {
     #[template_child]
     pub devices: TemplateChild<DisplayList>,
     #[template_child]
-    pub blank: TemplateChild<Row>,
+    pub blank: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub entries: RefCell<Vec<Display>>,
     pub output_power: Cell<bool>,

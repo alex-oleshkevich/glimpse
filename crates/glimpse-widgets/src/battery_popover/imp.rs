@@ -6,7 +6,7 @@ use gtk4::{
 };
 
 use crate::{
-    ChoiceList, Expandable, FactList, Hero, PopoverShell, Readout, Row, Section, SwitchRow,
+    ChoiceList, Expandable, FactList, Hero, LegacyRow, PopoverShell, Readout, Section, SwitchRow,
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -30,13 +30,13 @@ pub struct BatteryPopover {
     #[template_child]
     pub details: TemplateChild<Expandable>,
     #[template_child]
-    pub details_row: TemplateChild<Row>,
+    pub details_row: TemplateChild<LegacyRow>,
     #[template_child]
     pub facts: TemplateChild<FactList>,
     #[template_child]
     pub charge_limit: TemplateChild<SwitchRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 }
 
 #[glib::object_subclass]
@@ -54,7 +54,7 @@ impl ObjectSubclass for BatteryPopover {
         Expandable::static_type();
         FactList::static_type();
         SwitchRow::static_type();
-        Row::static_type();
+        LegacyRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);

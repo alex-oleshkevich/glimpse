@@ -100,7 +100,7 @@ pub(super) fn check() {
         .head::<SplitRow>()
         .expect("an empty workspace keeps its chevron")
         .emit_by_name::<()>("details", &[]);
-    let placeholder = children_of::<Row>(
+    let placeholder = children_of::<LegacyRow>(
         &empty
             .details::<gtk4::Box>()
             .expect("an empty workspace's card is filled"),
@@ -179,7 +179,7 @@ pub(super) fn check() {
             .details::<gtk4::Box>()
             .expect("the panel holds a rows box once it has been filled")
     };
-    let windows: Vec<Row> = children_of::<Row>(&rows_box(&holders[0]))
+    let windows: Vec<LegacyRow> = children_of::<LegacyRow>(&rows_box(&holders[0]))
         .into_iter()
         .filter(|row| row.get_visible())
         .collect();
@@ -244,7 +244,7 @@ pub(super) fn check() {
         "an event arriving must not close a panel the user opened"
     );
     assert_eq!(
-        children_of::<Row>(&rows_box(&holders[0]))[0]
+        children_of::<LegacyRow>(&rows_box(&holders[0]))[0]
             .title()
             .as_deref(),
         Some("a browser"),
@@ -257,7 +257,7 @@ pub(super) fn check() {
              a title changes on every keystroke"
     );
     assert_eq!(
-        children_of::<Row>(&rows_box(&holders[0]))[0],
+        children_of::<LegacyRow>(&rows_box(&holders[0]))[0],
         windows[0],
         "and it keeps its own row too: the panel reconciles by window id, so a retitle \
              rewrites a label rather than replacing the row under the pointer"
@@ -268,7 +268,7 @@ pub(super) fn check() {
         !panel(&holders[0]).reveals_child(),
         "opening another workspace's detail closes the one that was open"
     );
-    let switched = children_of::<Row>(&rows_box(&holders[1]));
+    let switched = children_of::<LegacyRow>(&rows_box(&holders[1]));
     assert_ne!(
         switched[0], windows[0],
         "another workspace's window is another row, not the first one refilled"

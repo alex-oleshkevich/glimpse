@@ -7,7 +7,7 @@ use gettextrs::ngettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Expandable, Fact, FactList, Row, none_if_empty};
+use crate::{Expandable, Fact, FactList, LegacyRow, none_if_empty};
 
 const MORE_ICON: &str = "view-more-symbolic";
 const PAST: &str = "event-list__row--past";
@@ -162,7 +162,7 @@ impl EventList {
     fn apply(&self, holder: &Expandable, event: &Event, leads: bool) {
         let opens = !event.links.is_empty() || !event.facts.is_empty();
         if let Some(row) = holder.head::<EventRow>() {
-            let item: &Row = row.upcast_ref();
+            let item: &LegacyRow = row.upcast_ref();
             item.set_title(Some(event.summary.as_str()));
             item.set_activatable(opens || self.imp().activatable.get());
             crate::set_css_class(item, PAST, event.past);
@@ -192,7 +192,7 @@ impl EventList {
             card.append(&facts);
         }
         for link in &event.links {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.set_title(Some(link.title.as_str()));
             let url = link.url.clone();
             row.connect_clicked(glib::clone!(
@@ -227,7 +227,7 @@ impl EventList {
     }
 }
 
-fn count(row: &Row, hidden: usize, singular: &str, plural: &str) {
+fn count(row: &LegacyRow, hidden: usize, singular: &str, plural: &str) {
     let visible = hidden > 0;
     if row.get_visible() != visible {
         row.set_visible(visible);
@@ -241,8 +241,8 @@ fn count(row: &Row, hidden: usize, singular: &str, plural: &str) {
     }
 }
 
-fn more_row() -> Row {
-    let row = Row::new();
+fn more_row() -> LegacyRow {
+    let row = LegacyRow::new();
     row.set_lead_icon(Some(MORE_ICON));
     row.set_activatable(true);
     row.set_visible(false);

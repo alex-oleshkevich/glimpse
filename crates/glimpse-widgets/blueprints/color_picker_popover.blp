@@ -32,7 +32,7 @@ template $ColorPickerPopover: Gtk.Widget {
         "column",
       ]
 
-      $Row pick {
+      $LegacyRow pick {
         title: _("Pick a color");
         lead-icon: "color-select-symbolic";
       }
@@ -46,7 +46,7 @@ template $ColorPickerPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

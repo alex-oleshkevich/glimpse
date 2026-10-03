@@ -49,7 +49,13 @@
         <file>widgets/readout.ui</file>
         <file>widgets/clipboard_popover.ui</file>
         <file>widgets/container.ui</file>
-        <file>widgets/row.ui</file>
+        <file>widgets/action_row.ui</file>
+    <file>widgets/legacy_row.ui</file>
+    <file>widgets/meter_row.ui</file>
+    <file>widgets/row.ui</file>
+    <file>widgets/expander_row.ui</file>
+    <file>widgets/slider_row.ui</file>
+    <file>widgets/toggle_row.ui</file>
         <file>widgets/scrubber.ui</file>
         <file>widgets/section.ui</file>
         <file>widgets/session_popover.ui</file>

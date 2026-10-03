@@ -26,13 +26,13 @@ template $NextEventPopover: Gtk.Widget {
         "column",
       ]
 
-      $Row join {
+      $LegacyRow join {
         visible: false;
         lead-icon: "camera-web-symbolic";
         activatable: true;
       }
 
-      $Row open_event {
+      $LegacyRow open_event {
         visible: false;
         lead-icon: "x-office-calendar-symbolic";
         activatable: true;
@@ -54,7 +54,7 @@ template $NextEventPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

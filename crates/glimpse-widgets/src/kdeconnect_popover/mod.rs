@@ -2,7 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Row, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row};
+use crate::{
+    Expandable, LegacyRow, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row,
+};
 
 pub use imp::{Action, Device, Nearby};
 
@@ -133,7 +135,7 @@ impl KdeconnectPopover {
     }
 
     fn device_row(&self) -> Expandable {
-        let head = Row::new();
+        let head = LegacyRow::new();
         let chevron = gtk4::Image::from_icon_name(CHEVRON);
         chevron.add_css_class(CHEVRON_CLASS);
         chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
@@ -142,7 +144,7 @@ impl KdeconnectPopover {
     }
 
     fn apply_device(&self, holder: &Expandable, device: &Device, actions_changed: bool) {
-        let Some(head) = holder.head::<Row>() else {
+        let Some(head) = holder.head::<LegacyRow>() else {
             return;
         };
         head.set_title(none_if_empty(&device.title));
@@ -161,7 +163,7 @@ impl KdeconnectPopover {
             details.remove(&child);
         }
         for action in &device.actions {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.set_title(Some(action.label.as_str()));
             crate::set_css_class(&row, crate::DESTRUCTIVE, action.destructive);
             let id = device.id.clone();

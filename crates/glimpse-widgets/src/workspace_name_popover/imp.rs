@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, gdk, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/workspace_name_popover.ui")]
@@ -23,11 +23,11 @@ pub struct WorkspaceNamePopover {
     #[template_child]
     pub recent_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
     pub given: RefCell<String>,
     pub taken_names: RefCell<Vec<(String, String)>>,
     pub recent_names: RefCell<Vec<String>>,
-    pub recent_held: RefCell<Vec<(String, Row)>>,
+    pub recent_held: RefCell<Vec<(String, LegacyRow)>>,
 }
 
 #[glib::object_subclass]

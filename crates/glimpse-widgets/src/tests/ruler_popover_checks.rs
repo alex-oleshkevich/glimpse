@@ -54,7 +54,7 @@ pub(super) fn check() {
     let first_row = ruler_imp
         .history_rows
         .first_child()
-        .and_downcast::<Row>()
+        .and_downcast::<LegacyRow>()
         .expect("a history row");
     assert_eq!(first_row.title().as_deref(), Some("365.7px"));
     assert_eq!(

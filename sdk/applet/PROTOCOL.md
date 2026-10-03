@@ -79,16 +79,18 @@ A subscribed handler fired.
 `seq` is always present. It is a number only for `onChange` and `onToggle`. The applet copies that
 number onto the next `set` of the same element when the set confirms the edited value.
 A `set` with no `seq` is a deliberate replacement and is stored as sent. The host keeps
-a newer local edit on screen when a later `set` of `value` carries an older `seq`; the
-stored tree still records that set.
+a newer local edit on screen when a later `set` of the element's controlled prop
+(`value`, `active`, `open`, `expanded` or `selected`) carries an older `seq`; the stored
+tree still records that set.
 
 | Handler | Elements | `args` |
 | --- | --- | --- |
 | `onPress` | indicator | `[button]` — pointer button code: `1` left, `2` middle, `3` right, otherwise the code as reported |
 | `onScroll` | indicator | `[dx, dy]` — scroll deltas, numbers |
-| `onActivate` | row | `[]` |
-| `onToggle` | switchrow, switch | `[active]` — boolean. `seq` is a number |
-| `onChange` | fader, scale | `[value]` — number. `seq` is a number |
+| `onActivate` | row, actionrow | `[]` |
+| `onToggle` | switchrow, switch, togglerow, expanderrow | `[active]` or `[open]` — boolean. `seq` is a number |
+| `onMove` | sliderrow | `[value]` — number during a drag. `seq` is `null` |
+| `onChange` | fader, scale, sliderrow | `[value]` — number. `seq` is a number |
 | `onMute` | fader | `[]` |
 | `onChange` | entry | `[value]` — string. `seq` is a number |
 | `onSubmit` | entry | `[value]` — string |
@@ -101,6 +103,13 @@ stored tree still records that set.
 
 A handler prop on an element is a boolean. `"onPress": true` subscribes. A missing or
 `false` handler does not.
+
+The controlled props are `togglerow.active`, `expanderrow.open`,
+and `sliderrow.value`, alongside the legacy controlled props.
+`sliderrow.onMove` reports motion without controlling `value`; `onChange` confirms the
+value. An `expanderrow` closed by the panel through the accordion
+or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `set` of
+`open` does not emit `onToggle`.
 
 ### `popover`
 
@@ -248,11 +257,18 @@ and in it the first `hero` and the first `footer`.
 | `stack` | body elements except `section` |
 | `hero` | at most 4 of `readout`, `switch`, `label`, `button`, drawn at its end |
 | `row` | at most 4 of `image`, `label`, `button`, `switch`, drawn at its end |
+| `actionrow`, `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
+| `expanderrow` | at most one `end`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
+| `end` | at most one of `image`, `readout`, `spinner` |
+| `start` | at most one of `image`, `button`, `readout`, `spinner` |
+| `sliderrow` | at most one `start` |
+| `togglerow` | nothing |
 | `box` | body elements except `section` |
 | `footer` | `button`, `row`, `label`, `box` |
 | anything else | nothing |
 
-Body elements are `section`, `row`, `switchrow`, `fader`, `entry`, `placeholder`, `box`,
+Body elements are `section`, `row`, `switchrow`, `fader`, `actionrow`, `togglerow`,
+`meterrow`, `expanderrow`, `sliderrow`, `entry`, `placeholder`, `box`,
 `container`,
 `label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator`,
 `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
@@ -271,8 +287,9 @@ pair the table does not list.
 ## Elements
 
 `type` is one of the lowercase names below. Props use camelCase. Every element takes
-`className`, one class from this list, or the key is dropped. `addon` and `container` do
-not take `className`:
+`className`, one class from this list, or the key is dropped. `addon`, `container`,
+`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start` and `sliderrow`
+do not take `className`:
 
 `dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
 `numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`.
@@ -286,6 +303,9 @@ Unless a row below says otherwise:
   control characters and bidi overrides, folds whitespace, trims, and appends `…` when
   the cap cuts the string. An empty result removes the prop.
 - `icon` and `overlay` must match `^[A-Za-z0-9_.-]+$`. Anything else is dropped.
+- Strings that are row `value`s are cleaned and capped the same way.
+- An enum prop (`tone`, `typography`, `control`, `severity`) with any string its table
+  does not list is dropped, as if absent.
 - Booleans default to `false`, except `sensitive`, which defaults to `true`.
 - A missing object defaults each prop as the tables say.
 
@@ -368,6 +388,8 @@ A body element. It holds body elements except another `section`.
 ### `row`
 
 Up to 4 end children, see the parent table.
+Deprecated: `selected`, `chevron` and end children are removed in 0.10, when this tag becomes
+the static row. Use `actionrow` for activation and `togglerow` for selection.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
@@ -384,6 +406,7 @@ Up to 4 end children, see the parent table.
 ### `switchrow`
 
 A leaf.
+Deprecated; removed in 0.10, use `togglerow`.
 
 | Prop | Type |
 | --- | --- |
@@ -398,6 +421,7 @@ A leaf.
 ### `fader`
 
 A leaf. `onMute: false` means the mute control is not shown.
+Deprecated; removed in 0.10, use `sliderrow`.
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -409,6 +433,125 @@ A leaf. `onMute: false` means the mute control is not shown.
 | `className` | class | |
 | `onChange` | boolean | |
 | `onMute` | boolean | |
+
+Inactive action, toggle and meter rows are insensitive, leave Tab navigation and fade once.
+Use `subtitle` to explain why a row is inactive. Backend `set` updates still render.
+
+### `actionrow`
+
+A body element. At most one end child: `image`, `readout` or `spinner`.
+`onActivate` sends `[]` when the row is activated; inactive rows emit nothing.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `icon` | string | Themed icon name |
+| `title` | string | |
+| `subtitle` | string | |
+| `value` | string | |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Suppresses primary user input |
+| `tooltip` | string | Plain text |
+| `typography` | `numeric`, `monospace` | Absent is default |
+| `busy` | boolean | |
+| `onActivate` | boolean | |
+
+### `togglerow`
+
+A leaf. `control` selects a check or switch control. `onToggle` sends
+`[active]` with a `seq`; inactive rows emit nothing. The actual `active` value remains visible.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `icon` | string | Themed icon name |
+| `title` | string | |
+| `subtitle` | string | |
+| `value` | string | |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Suppresses primary user input |
+| `tooltip` | string | Plain text |
+| `typography` | `numeric`, `monospace` | Absent is default |
+| `busy` | boolean | |
+| `control` | `check`, `switch` | Absent is `switch` |
+| `active` | boolean | Controlled by `onToggle` |
+| `onToggle` | boolean | |
+
+### `meterrow`
+
+A body element. At most one end child: `image`, `readout` or `spinner`.
+Its level is a fraction from `0` to `1`. No events.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `icon` | string | Themed icon name |
+| `title` | string | |
+| `subtitle` | string | |
+| `value` | string | |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Suppresses primary user input |
+| `tooltip` | string | Plain text |
+| `typography` | `numeric`, `monospace` | Absent is default |
+| `busy` | boolean | |
+| `level` | number | Clamped to `0`–`1`. Absent or non-finite draws no bar |
+
+### `expanderrow`
+
+A body element. Its head may contain one `end` element with at most one
+`image`, `readout` or `spinner` child. Its other children fill the drawer as
+listed in the parent table. `onToggle` sends `[open]` with a `seq` in every state.
+Expansion is inspection, so the head stays activatable when inactive. Every drawer participates
+in the accordion. `inactive` never propagates to drawer children.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `icon` | string | Themed icon name |
+| `title` | string | |
+| `subtitle` | string | |
+| `value` | string | |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Fades the head; expansion remains available |
+| `tooltip` | string | Plain text |
+| `typography` | `numeric`, `monospace` | Absent is default |
+| `busy` | boolean | |
+| `open` | boolean | Controlled by `onToggle` |
+| `tint` | boolean | `false`. Tone colors the whole head and drawer card |
+| `titleLines` | number | `1`. Non-finite, non-integer or less than 1 becomes 1; greater than 4 becomes 4 |
+| `onToggle` | boolean | |
+
+### `end`
+
+Only under `expanderrow`. It takes no props and holds at most one `image`,
+`readout` or `spinner`, drawn in the head's end slot. No events.
+
+### `start`
+
+Only under `sliderrow`. It takes no props and holds at most one `image`, `button`,
+`readout` or `spinner`, drawn left of the scale. Empty slots are hidden. No events.
+
+### `sliderrow`
+
+Holds at most one `start`. `onMove` sends `[value]` during a drag with `seq: null`;
+`onChange` sends `[value]` once at drag end or on a keyboard step, with a `seq`.
+Bounds: `min` `0`, `max` `1`, `step` `0.01`; a `step` that is not greater than `0`
+becomes `0.01`; `min >= max` resets both to `0` and `1`. A non-finite number is dropped and
+takes its default. `value` is clamped to `min`–`max`; a missing `value` is `min`. A `set`
+of `value` that arrives during a drag is dropped; the release wins, and a later `set` applies normally.
+Turning `inactive` on during a drag cancels it without a final `onChange`. Inactive rows
+suppress `onMove` and `onChange`. Only the scale is insensitive and faded;
+the start slot's owner controls its sensitivity. Backend `set` updates still render.
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `title` | string | Accessible name of the value control |
+| `subtitle` | string | Plain text, cleaned and capped at 256 characters |
+| `value` | number | `min`. Controlled by `onChange` |
+| `min` | number | `0` |
+| `max` | number | `1` |
+| `step` | number | `0.01`. Keyboard step |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Disables scale input |
+| `tooltip` | string | Plain text |
+| `onMove` | boolean | |
+| `onChange` | boolean | |
 
 ### `entry`
 
@@ -666,6 +809,7 @@ child at `visible` is shown.
 Holds any number of body children, including none. The header row toggles it; opening one
 expander in a popover closes the others, and that close is an `onToggle`. `onToggle` sends
 `[expanded]` with a `seq`, and does not fire for a state set by the applet.
+Deprecated; removed in 0.10, use `expanderrow`.
 
 | Prop | Type |
 | --- | --- |

@@ -3,7 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
-    Expandable, FactList, Row, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row,
+    Expandable, FactList, LegacyRow, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row,
 };
 
 pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
@@ -363,7 +363,7 @@ impl NetworkPopover {
     /// lives. Every other row joins on its body, and its chevron shows only when it has a card.
     fn head_for(&self, entry: &Entry) -> gtk4::Widget {
         if entry.selected {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.add_css_class(NETWORK);
             let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
             chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
@@ -416,7 +416,7 @@ impl NetworkPopover {
                 split.set_detail_visible(self.carded(&entry.id));
             }
             None => {
-                if let Some(row) = holder.head::<Row>() {
+                if let Some(row) = holder.head::<LegacyRow>() {
                     dress(&row, entry);
                 }
             }
@@ -473,7 +473,7 @@ impl NetworkPopover {
         all.into_iter()
     }
 
-    fn build_line(&self, id: &str, line: &Line) -> Row {
+    fn build_line(&self, id: &str, line: &Line) -> LegacyRow {
         let key = id.to_owned();
         let action = line.action.clone();
 
@@ -488,7 +488,7 @@ impl NetworkPopover {
             return toggle.upcast();
         }
 
-        let row = Row::new();
+        let row = LegacyRow::new();
         row.set_activatable(line.activates);
         crate::set_css_class(&row, crate::DESTRUCTIVE, line.destructive);
         if !line.activates {
@@ -503,14 +503,14 @@ impl NetworkPopover {
     }
 }
 
-fn dress(row: &Row, entry: &Entry) {
+fn dress(row: &LegacyRow, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_busy(entry.busy);
     row.set_selected(entry.selected);
 }
 
-fn dress_line(row: &Row, line: &Line) {
+fn dress_line(row: &LegacyRow, line: &Line) {
     row.set_title(none_if_empty(&line.title));
     row.set_busy(line.busy);
 

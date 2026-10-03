@@ -1,0 +1,18 @@
+using Gtk 4.0;
+
+template $ExpanderRow: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  $Expandable expandable {
+    styles ["expander-row__expandable"]
+    $ActionRow head {
+      styles ["expander-row__head"]
+    }
+
+    [details]
+    Gtk.Box details {
+      orientation: vertical;
+      styles ["expander-row__details"]
+    }
+  }
+}

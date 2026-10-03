@@ -38,7 +38,7 @@ mod imp {
     impl ObjectSubclass for EventRow {
         const NAME: &'static str = "EventRow";
         type Type = super::EventRow;
-        type ParentType = crate::Row;
+        type ParentType = crate::LegacyRow;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
@@ -58,12 +58,12 @@ mod imp {
 
     impl WidgetImpl for EventRow {}
     impl ButtonImpl for EventRow {}
-    impl crate::row::RowImpl for EventRow {}
+    impl crate::legacy_row::LegacyRowImpl for EventRow {}
 }
 
 glib::wrapper! {
     pub struct EventRow(ObjectSubclass<imp::EventRow>)
-        @extends crate::Row, gtk4::Button, gtk4::Widget,
+        @extends crate::LegacyRow, gtk4::Button, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
@@ -86,7 +86,7 @@ impl EventRow {
     }
 
     pub fn set_color(&self, color: Option<gdk::RGBA>, reserve: bool) {
-        let row: &crate::Row = self.upcast_ref();
+        let row: &crate::LegacyRow = self.upcast_ref();
         if !reserve {
             row.clear_lead();
             return;
@@ -97,7 +97,7 @@ impl EventRow {
     }
 
     fn dots(&self) -> Dots {
-        let row: &crate::Row = self.upcast_ref();
+        let row: &crate::LegacyRow = self.upcast_ref();
         if let Some(dots) = row.lead().and_downcast::<Dots>() {
             return dots;
         }

@@ -29,21 +29,21 @@ template $SessionSheet: Gtk.Widget {
             "session-sheet__menu",
           ]
 
-          $Row suspend {
+          $LegacyRow suspend {
             visible: false;
             title: _("Suspend…");
             lead-icon: "weather-clear-night-symbolic";
             activatable: true;
           }
 
-          $Row reboot {
+          $LegacyRow reboot {
             visible: false;
             title: _("Restart…");
             lead-icon: "system-reboot-symbolic";
             activatable: true;
           }
 
-          $Row power_off {
+          $LegacyRow power_off {
             visible: false;
             title: _("Power Off…");
             lead-icon: "system-shutdown-symbolic";

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::LegacyRow;
 
 glib::wrapper! {
     pub struct SplitRow(ObjectSubclass<imp::SplitRow>)
@@ -21,7 +21,7 @@ impl SplitRow {
         glib::Object::new()
     }
 
-    pub fn row(&self) -> Row {
+    pub fn row(&self) -> LegacyRow {
         self.imp().row.get()
     }
 
@@ -30,7 +30,7 @@ impl SplitRow {
     }
 
     /// Hides the divider and the detail button as one unit, for a row whose second target is not
-    /// offered this time — a plain `Row` reporting with nothing to press beside it.
+    /// offered this time — a plain `LegacyRow` reporting with nothing to press beside it.
     pub fn set_detail_visible(&self, visible: bool) {
         let imp = self.imp();
         imp.rule.set_visible(visible);

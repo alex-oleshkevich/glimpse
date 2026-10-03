@@ -4,16 +4,16 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use super::{Event, more_row};
-use crate::{Expandable, Row};
+use crate::{Expandable, LegacyRow};
 
 #[derive(Debug)]
 pub struct EventList {
     pub events: RefCell<Vec<Event>>,
     pub holders: RefCell<Vec<(String, Expandable)>>,
     pub cards: RefCell<HashMap<String, Event>>,
-    pub earlier: Row,
+    pub earlier: LegacyRow,
     pub rows: gtk4::Box,
-    pub more: Row,
+    pub more: LegacyRow,
     pub max_rows: Cell<u32>,
     pub show_earlier: Cell<bool>,
     pub show_all: Cell<bool>,

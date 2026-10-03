@@ -42,7 +42,7 @@ template $PlacesPopover: Gtk.Widget {
             orientation: vertical;
           }
 
-          $Row bookmarks_more {
+          $LegacyRow bookmarks_more {
             visible: false;
             activatable: true;
             lead-icon: "view-more-symbolic";
@@ -64,7 +64,7 @@ template $PlacesPopover: Gtk.Widget {
         title: _("Trash");
 
         $Expandable trash_item {
-          $Row trash_row {
+          $LegacyRow trash_row {
             activatable: true;
 
             [trail]
@@ -82,12 +82,12 @@ template $PlacesPopover: Gtk.Widget {
           Gtk.Box {
             orientation: vertical;
 
-            $Row trash_open {
+            $LegacyRow trash_open {
               title: _("Open the trash");
               activatable: true;
             }
 
-            $Row trash_empty {
+            $LegacyRow trash_empty {
               title: _("Empty the trash");
               activatable: true;
 
@@ -101,7 +101,7 @@ template $PlacesPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

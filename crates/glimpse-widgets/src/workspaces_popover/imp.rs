@@ -15,7 +15,7 @@ pub struct WorkspacesPopover {
     pub hero: TemplateChild<Hero>,
     #[template_child]
     pub list: TemplateChild<WorkspaceList>,
-    pub rows: std::cell::RefCell<Vec<(u64, crate::Row)>>,
+    pub rows: std::cell::RefCell<Vec<(u64, crate::LegacyRow)>>,
     pub workspaces: std::cell::RefCell<Vec<crate::Workspace>>,
 }
 

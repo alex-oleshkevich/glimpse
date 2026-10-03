@@ -67,7 +67,7 @@ template $NetworkPopover: Gtk.Widget {
             Gtk.Box {
               orientation: vertical;
 
-              $Row more {
+              $LegacyRow more {
                 visible: false;
                 activatable: true;
                 title: _("Other networks");
@@ -97,7 +97,7 @@ template $NetworkPopover: Gtk.Widget {
                     orientation: vertical;
                   }
 
-                  $Row all {
+                  $LegacyRow all {
                     visible: false;
                     activatable: true;
                     lead-icon: "view-more-symbolic";
@@ -121,7 +121,7 @@ template $NetworkPopover: Gtk.Widget {
             ]
           }
 
-          $Row hidden {
+          $LegacyRow hidden {
             visible: false;
             activatable: true;
             title: _("Connect to a hidden network…");
@@ -207,7 +207,7 @@ template $NetworkPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

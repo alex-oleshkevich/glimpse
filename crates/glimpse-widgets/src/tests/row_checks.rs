@@ -1,172 +1,414 @@
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+
+use gtk4::prelude::*;
+
 use super::*;
+use crate::{
+    ActionRow, MeterRow, Row, RowTone, RowTypography, TEXT_MAX_CHARS, ToggleControl, ToggleRow,
+};
 
-pub(super) fn slots(row: Row) {
-    let check = child_named::<gtk4::Image>(&row, "row__check");
-    let row_title = child_named::<gtk4::Label>(&row, "row__title");
-    let row_subtitle = child_named::<gtk4::Label>(&row, "row__subtitle");
-
-    assert!(
-        !check.is_visible(),
-        "a row that cannot be selected spends no width on the column"
-    );
-    row.set_selectable(true);
-    assert!(
-        check.is_visible() && check.icon_name().is_none(),
-        "a selectable row reserves the column before anything is selected, so a later \
-             selection does not shift the label"
-    );
-    row.set_selected(true);
-    assert_eq!(check.icon_name().as_deref(), Some("object-select-symbolic"));
-    assert!(row.has_css_class("row--on"));
-    row.set_selected(false);
-    assert!(check.icon_name().is_none() && !row.has_css_class("row--on"));
-
-    assert!(!row_subtitle.is_visible());
-    row.set_title(Some("Tenda_4A21F0"));
-    row.set_subtitle(Some("WPA2 · 5 GHz"));
-    assert!(row_subtitle.is_visible());
-    row.set_subtitle(None::<&str>);
-    assert!(!row_subtitle.is_visible());
-
-    row.set_title(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
-    assert_eq!(
-        row_title.text().chars().count(),
-        TEXT_MAX_CHARS,
-        "an SSID is another application's string: capped without slicing a character"
-    );
-
-    let row_icon = child_named::<gtk4::Image>(&row, "row__icon");
-    let row_value = child_named::<gtk4::Label>(&row, "row__value");
-    assert!(
-        !row_icon.get_visible() && !row_value.get_visible(),
-        "a row with neither reserves space for neither"
-    );
-    row.set_lead_icon(Some("network-wireless-symbolic"));
-    row.set_value(Some("WPA3"));
-    assert!(row_icon.get_visible() && row_value.get_visible());
-
-    let icon_changes = Rc::new(Cell::new(0u32));
-    row_icon.connect_icon_name_notify({
-        let icon_changes = Rc::clone(&icon_changes);
-        move |_| icon_changes.set(icon_changes.get() + 1)
-    });
-    row.set_lead_icon(Some("network-wireless-symbolic"));
-    assert_eq!(
-        icon_changes.get(),
-        0,
-        "an equal icon name is not reapplied, so a list re-rendering itself restyles nothing"
-    );
-
-    row.set_value(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
-    assert_eq!(
-        row_value.text().chars().count(),
-        TEXT_MAX_CHARS,
-        "a value is another application's string too"
-    );
-    row.set_value(None::<&str>);
-    assert!(
-        !row_value.get_visible(),
-        "a cleared value gives its width back rather than leaving a gap before the chevron"
-    );
-    row.set_lead_icon(None::<&str>);
-
-    let signal = gtk4::Image::from_icon_name("network-wireless-symbolic");
-    let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
-    let reparented = Rc::new(Cell::new(0u32));
-    signal.connect_parent_notify({
-        let reparented = Rc::clone(&reparented);
-        move |_| reparented.set(reparented.get() + 1)
-    });
-    row.set_lead(&signal);
-    row.set_lead(&signal);
-    assert_eq!(
-        reparented.get(),
-        1,
-        "filling a slot with the widget already in it does not unparent and reparent it, \
-             which is what a list re-rendering the same rows would otherwise do every update"
-    );
-    row.set_trail(&chevron);
-    assert_eq!(
-        signal.parent().and_then(|slot| slot.parent()),
-        chevron.parent().and_then(|slot| slot.parent()),
-        "both slots hang off the same row"
-    );
-    row.clear_trail();
-    assert!(chevron.parent().is_none());
-    assert!(
-        signal.parent().is_some(),
-        "clearing one slot leaves the other alone"
-    );
-
-    row.set_title(Some("W".repeat(40)));
-    let wide = row.measure(gtk4::Orientation::Horizontal, -1).1;
-    row.set_title(Some("W".repeat(120)));
-    assert_eq!(
-        row.measure(gtk4::Orientation::Horizontal, -1).1,
-        wide,
-        "past the cap a longer title asks for no more width, so an SSID cannot widen the \
-             popover it sits in. `ellipsize` alone does not do this — it lowers the minimum \
-             width and leaves the natural width at the full string."
-    );
+pub(super) fn checks() {
+    tone_and_type();
+    static_row();
+    slots();
+    hidden_slots();
+    text_caps();
+    compare_before_write();
+    action();
+    toggle();
+    meter();
+    roles();
+    gap();
+    inactive_input();
 }
 
-pub(super) fn activation(row: Row) {
-    assert!(row.can_target() && row.activatable());
-    row.set_activatable(false);
-    assert!(
-        !row.can_target() && !row.can_focus(),
-        "a row that does nothing takes neither the pointer nor the focus, so it cannot \
-             light up under a hover that leads nowhere"
-    );
-}
-
-pub(super) fn kinds() {
-    for make in [
-        (|| Row::new().upcast::<gtk4::Widget>()) as fn() -> gtk4::Widget,
-        || Notice::new().upcast(),
-        || EventRow::new().upcast(),
-        || PlayerRow::new().upcast(),
-        || ClockRow::new().upcast(),
-        || ForecastDay::new().upcast(),
-        || ForecastHour::new().upcast(),
-        || Hero::new().upcast(),
-    ] {
-        drop(make());
+fn gap() {
+    let row = Row::new();
+    row.set_icon_name(Some("folder-symbolic"));
+    row.set_title(Some("Folder"));
+    let content = &row.imp().content;
+    assert_eq!(content.spacing(), 0);
+    let (_, natural, _, _) = content.measure(gtk4::Orientation::Horizontal, -1);
+    let mut sum = 0;
+    let mut child = content.first_child();
+    while let Some(widget) = child {
+        if widget.get_visible() {
+            sum += widget.measure(gtk4::Orientation::Horizontal, -1).1;
+        }
+        child = widget.next_sibling();
     }
+    assert_eq!(natural - sum, 10);
 }
 
-pub(super) fn beside() {
-    let quiet = Row::new();
-    quiet.set_title(Some("Quiet"));
-    let end = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-    let knob = gtk4::Switch::new();
-    end.append(&knob);
-    let host = row::beside(&quiet, &end);
-    quiet.set_activatable(false);
-    assert!(!quiet.can_target() && !quiet.can_focus());
-    assert!(!end.is_ancestor(&quiet));
-    assert!(knob.can_focus() && knob.can_target());
-    let window = gtk4::Window::new();
-    window.set_child(Some(&host));
-    window.set_visible(true);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-    while !host.is_mapped() && std::time::Instant::now() < deadline {
-        if !gtk4::glib::MainContext::default().iteration(false) {
-            std::thread::sleep(std::time::Duration::from_millis(10));
+fn tone_and_type() {
+    let row = Row::new();
+    assert!(!row.has_css_class("row"));
+    assert_eq!(row.css_name().as_str(), "listrow");
+    for (tone, class) in [
+        (RowTone::Warning, "row--warning"),
+        (RowTone::Error, "row--error"),
+        (RowTone::Destructive, "row--destructive"),
+    ] {
+        row.set_tone(tone);
+        for candidate in ["row--warning", "row--error", "row--destructive"] {
+            assert_eq!(row.has_css_class(candidate), candidate == class);
         }
     }
-    assert!(host.is_mapped(), "the row host is mapped");
-    let bounds = knob.compute_bounds(&host).expect("the switch has bounds");
-    let picked = host
-        .pick(
-            f64::from(bounds.x() + bounds.width() / 2.0),
-            f64::from(bounds.y() + bounds.height() / 2.0),
-            gtk4::PickFlags::DEFAULT,
-        )
-        .expect("an inert row leaves its end switch clickable");
-    assert!(
-        picked == knob.clone().upcast::<gtk4::Widget>() || picked.is_ancestor(&knob),
-        "an inert row leaves its end switch clickable, picked {picked:?}"
+    let title = child_named::<gtk4::Label>(&row, "row__title");
+    assert!(row.has_css_class("row--destructive"));
+    assert!(title.has_css_class("row__title"));
+    row.set_tone(RowTone::Normal);
+    assert!(!row.has_css_class("row--warning"));
+    assert!(!row.has_css_class("row--error"));
+    assert!(!row.has_css_class("row--destructive"));
+
+    row.set_typography(RowTypography::Numeric);
+    assert!(row.has_css_class("row--numeric"));
+    assert!(!row.has_css_class("row--monospace"));
+    row.set_typography(RowTypography::Monospace);
+    assert!(row.has_css_class("row--monospace"));
+    assert!(!row.has_css_class("row--numeric"));
+    row.set_typography(RowTypography::Default);
+    assert!(!row.has_css_class("row--numeric"));
+    assert!(!row.has_css_class("row--monospace"));
+}
+
+fn static_row() {
+    let row = Row::new();
+    assert!(row.can_target());
+    assert!(!row.is_focusable());
+    assert!(!row.has_css_class("row--interactive"));
+    row.set_tooltip(Some("Where the pointer rests"));
+    assert!(row.has_tooltip());
+}
+
+fn slots() {
+    let row = Row::new();
+    row.set_value(Some("42"));
+    let value = child_named::<gtk4::Label>(&row, "row__value");
+    assert!(value.get_visible());
+    let mark = gtk4::Image::from_icon_name("go-next-symbolic");
+    row.set_end(&mark);
+    assert!(!value.get_visible());
+    let end = row.imp().end();
+    assert!(end.get_visible());
+    row.set_busy(true);
+    let spinner = child_named::<gtk4::Spinner>(&row, "row__spinner");
+    assert!(spinner.get_visible());
+    assert!(spinner.is_spinning());
+    assert!(!value.get_visible());
+    assert!(!end.get_visible());
+    row.set_busy(false);
+    assert!(!spinner.get_visible());
+    assert!(end.get_visible());
+    assert!(!value.get_visible());
+}
+
+fn hidden_slots() {
+    let parent = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    let row = Row::new();
+    parent.append(&row);
+    parent.set_visible(false);
+    let value = child_named::<gtk4::Label>(&row, "row__value");
+    let spinner = child_named::<gtk4::Spinner>(&row, "row__spinner");
+    row.set_busy(true);
+    assert!(spinner.get_visible());
+    row.set_busy(false);
+    assert!(!spinner.get_visible());
+    row.set_value(Some("42"));
+    assert!(value.get_visible());
+    row.set_value(None::<&str>);
+    assert!(!value.get_visible());
+}
+
+fn text_caps() {
+    let row = Row::new();
+    let long = "я".repeat(10_000);
+    row.set_title(Some(long.as_str()));
+    row.set_subtitle(Some(long.as_str()));
+    row.set_value(Some(long.as_str()));
+    row.set_tooltip(Some(long.as_str()));
+    for text in [row.title(), row.subtitle(), row.value(), row.tooltip()] {
+        let text = text.expect("capped text");
+        assert!(text.chars().count() <= TEXT_MAX_CHARS);
+        assert_eq!(text.chars().count(), TEXT_MAX_CHARS);
+        assert!(text.chars().all(|ch| ch == 'я'));
+    }
+}
+
+fn compare_before_write() {
+    let row = Row::new();
+    let title = child_named::<gtk4::Label>(&row, "row__title");
+    let notifies = Rc::new(Cell::new(0u32));
+    title.connect_notify_local(Some("label"), {
+        let notifies = notifies.clone();
+        move |_, _| notifies.set(notifies.get() + 1)
+    });
+    row.set_title(Some("Same"));
+    row.set_title(Some("Same"));
+    assert_eq!(notifies.get(), 1);
+}
+
+fn action() {
+    let row = ActionRow::new();
+    let window = gtk4::Window::new();
+    window.set_child(Some(&row));
+    window.present();
+    while gtk4::glib::MainContext::default().iteration(false) {}
+    assert_eq!(row.css_name().as_str(), "listrow");
+    assert!(row.is_focusable());
+    assert!(row.has_css_class("row--interactive"));
+    assert!(!row.upcast_ref::<Row>().imp().chevron().get_visible());
+    let hits = Rc::new(Cell::new(0u32));
+    row.connect_activated({
+        let hits = hits.clone();
+        move |_| hits.set(hits.get() + 1)
+    });
+    key(&row, gtk4::gdk::Key::Return);
+    key(&row, gtk4::gdk::Key::Return);
+    assert_eq!(hits.get(), 1);
+    key_release(&row, gtk4::gdk::Key::Return);
+    key(&row, gtk4::gdk::Key::Return);
+    key(&row, gtk4::gdk::Key::KP_Enter);
+    key(&row, gtk4::gdk::Key::space);
+    assert_eq!(hits.get(), 4);
+    click(
+        &row,
+        f64::from(row.width()) / 2.0,
+        f64::from(row.height()) / 2.0,
     );
+    assert_eq!(hits.get(), 5);
+    window.close();
+}
+
+fn toggle() {
+    let row = ToggleRow::new();
+    let window = gtk4::Window::new();
+    window.set_child(Some(&row));
+    window.present();
+    while gtk4::glib::MainContext::default().iteration(false) {}
+    assert_eq!(row.css_name().as_str(), "listrow");
+    assert!(!row.knob().can_target());
+    assert!(!row.knob().can_focus());
+    let end = row.upcast_ref::<Row>().imp().end();
+    assert_eq!(row.knob().parent().as_ref(), Some(end.upcast_ref()));
+    let hits = Rc::new(RefCell::new(Vec::new()));
+    row.connect_toggled({
+        let hits = hits.clone();
+        move |_, active| hits.borrow_mut().push(active)
+    });
+    key(&row, gtk4::gdk::Key::Return);
+    key(&row, gtk4::gdk::Key::Return);
+    assert_eq!(hits.borrow().as_slice(), &[true]);
+    key_release(&row, gtk4::gdk::Key::Return);
+    key(&row, gtk4::gdk::Key::KP_Enter);
+    key(&row, gtk4::gdk::Key::space);
+    click(
+        &row,
+        f64::from(row.width()) - 2.0,
+        f64::from(row.height()) / 2.0,
+    );
+    assert_eq!(hits.borrow().as_slice(), &[true, false, true, false]);
+    assert!(!row.active());
+
+    hits.borrow_mut().clear();
+    row.upcast_ref::<Row>().set_inactive(true);
+    assert!(!row.is_sensitive());
+    key(&row, gtk4::gdk::Key::space);
+    assert!(!row.active());
+    assert!(hits.borrow().is_empty());
+
+    row.upcast_ref::<Row>().set_inactive(false);
+    assert!(row.has_css_class("row--interactive"));
+    row.set_active(true);
+    assert!(row.active());
+    assert!(hits.borrow().is_empty());
+
+    row.set_control(ToggleControl::Check);
+    let check = child_named::<gtk4::Image>(&row, "row__check");
+    assert!(check.get_visible());
+    assert!(row.has_css_class("row--on"));
+    assert!(!row.knob().get_visible());
+    row.set_active(false);
+    assert!(!check.get_visible());
+    assert!(!row.has_css_class("row--on"));
+    window.close();
+}
+
+fn meter() {
+    let row = MeterRow::new();
+    assert_eq!(row.css_name().as_str(), "listrow");
+    let bar = child_named::<gtk4::ProgressBar>(&row, "meter-row__bar");
+    assert_eq!(row.level(), -1.0);
+    assert!(!bar.get_visible());
+    assert!(!row.is_focusable());
+    row.set_level(f64::NAN);
+    assert_eq!(row.level(), -1.0);
+    assert!(!bar.get_visible());
+    row.set_level(-0.5);
+    assert_eq!(row.level(), -1.0);
+    assert!(!bar.get_visible());
+    row.set_level(1.5);
+    assert_eq!(row.level(), 1.0);
+    assert!(bar.get_visible());
+    assert!((bar.fraction() - 1.0).abs() < f64::EPSILON);
+    row.set_level(f64::NAN);
+    assert_eq!(row.level(), -1.0);
+    assert!(!bar.get_visible());
+}
+
+fn roles() {
+    let row = Row::new();
+    row.set_title(Some("Static"));
+    row.set_subtitle(Some("Description"));
+    assert_eq!(row.accessible_role(), gtk4::AccessibleRole::ListItem);
+    assert!(gtk4::test_accessible_has_property(
+        &row,
+        gtk4::AccessibleProperty::Label
+    ));
+    assert!(gtk4::test_accessible_has_property(
+        &row,
+        gtk4::AccessibleProperty::Description
+    ));
+    assert_eq!(
+        ActionRow::new().accessible_role(),
+        gtk4::AccessibleRole::Button
+    );
+    let toggle = ToggleRow::new();
+    toggle.set_property("title", Some("Enabled"));
+    assert_eq!(toggle.accessible_role(), gtk4::AccessibleRole::Switch);
+    toggle.set_control(ToggleControl::Check);
+    assert_eq!(toggle.accessible_role(), gtk4::AccessibleRole::Checkbox);
+    key(&toggle, gtk4::gdk::Key::space);
+    assert!(toggle.active());
+    assert!(gtk4::test_accessible_has_state(
+        &toggle,
+        gtk4::AccessibleState::Checked
+    ));
+    assert!(gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+    assert_eq!(
+        MeterRow::new().accessible_role(),
+        gtk4::AccessibleRole::ProgressBar
+    );
+
+    let box_ = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    let action = ActionRow::new();
+    box_.append(&row);
+    box_.append(&action);
+    box_.append(&toggle);
+    let window = gtk4::Window::new();
+    window.set_child(Some(&box_));
+    window.present();
+    while gtk4::glib::MainContext::default().iteration(false) {}
+    assert_eq!(
+        gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+        Some(action.upcast_ref())
+    );
+    assert!(box_.child_focus(gtk4::DirectionType::TabForward));
+    assert_eq!(
+        gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+        Some(toggle.upcast_ref())
+    );
+    assert_ne!(
+        gtk4::prelude::GtkWindowExt::focus(&window).as_ref(),
+        Some(toggle.knob().upcast_ref())
+    );
+    window.close();
+}
+
+fn key_controller(row: &impl IsA<gtk4::Widget>) -> gtk4::EventControllerKey {
+    let controllers = row.observe_controllers();
+    (0..controllers.n_items())
+        .filter_map(|index| controllers.item(index))
+        .find_map(|controller| controller.downcast::<gtk4::EventControllerKey>().ok())
+        .expect("row key controller")
+}
+
+fn key(row: &impl IsA<gtk4::Widget>, key: gtk4::gdk::Key) {
+    key_controller(row).emit_by_name::<bool>(
+        "key-pressed",
+        &[&key, &0u32, &gtk4::gdk::ModifierType::empty()],
+    );
+}
+
+fn key_release(row: &impl IsA<gtk4::Widget>, key: gtk4::gdk::Key) {
+    key_controller(row).emit_by_name::<()>(
+        "key-released",
+        &[&key, &0u32, &gtk4::gdk::ModifierType::empty()],
+    );
+}
+
+pub(super) fn click(row: &impl IsA<gtk4::Widget>, x: f64, y: f64) {
+    let controllers = row.observe_controllers();
+    let click = (0..controllers.n_items())
+        .filter_map(|index| controllers.item(index))
+        .find_map(|controller| controller.downcast::<gtk4::GestureClick>().ok())
+        .expect("row click gesture");
+    click.emit_by_name::<()>("released", &[&1i32, &x, &y]);
+}
+
+fn inactive_input() {
+    let action = ActionRow::new();
+    let toggle = ToggleRow::new();
+    toggle.set_active(true);
+    let hits = Rc::new(Cell::new(0));
+    action.connect_activated({
+        let hits = hits.clone();
+        move |_| hits.set(hits.get() + 1)
+    });
+    toggle.connect_toggled({
+        let hits = hits.clone();
+        move |_, _| hits.set(hits.get() + 1)
+    });
+    let rows = [
+        Row::new(),
+        action.clone().upcast::<Row>(),
+        toggle.clone().upcast::<Row>(),
+    ];
+    let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    for row in &rows {
+        row.set_title(Some("Device"));
+        row.set_subtitle(Some("Device out of range"));
+        body.append(row);
+    }
+    let window = gtk4::Window::new();
+    window.set_child(Some(&body));
+    window.present();
+    while gtk4::glib::MainContext::default().iteration(false) {}
+    for row in &rows {
+        let interactive = row.has_css_class("row--interactive");
+        row.set_inactive(true);
+        assert!(!row.is_sensitive() && row.has_css_class("row--inactive"));
+        assert!(row.imp().subtitle.get_visible());
+        if row.is::<ActionRow>() || row.is::<ToggleRow>() {
+            click(
+                row,
+                f64::from(row.width()) / 2.0,
+                f64::from(row.height()) / 2.0,
+            );
+            for pressed in [
+                gtk4::gdk::Key::space,
+                gtk4::gdk::Key::Return,
+                gtk4::gdk::Key::KP_Enter,
+            ] {
+                key(row, pressed);
+                key_release(row, pressed);
+            }
+        }
+        row.activate();
+        assert_eq!(hits.get(), 0);
+        assert!(toggle.active());
+        row.set_inactive(false);
+        assert!(row.is_sensitive() && !row.has_css_class("row--inactive"));
+        assert_eq!(row.has_css_class("row--interactive"), interactive);
+    }
+    action.activate();
+    toggle.activate();
+    assert_eq!(hits.get(), 2);
+    assert!(!toggle.active());
     window.close();
 }

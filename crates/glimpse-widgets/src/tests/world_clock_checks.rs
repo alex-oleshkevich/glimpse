@@ -16,8 +16,8 @@ pub(super) fn check() {
     ]);
     clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 12, 0, 0.0).expect("instant"));
 
-    let clock_rows: Vec<Row> = children_of(&clock);
-    let time_of = |row: &Row| {
+    let clock_rows: Vec<LegacyRow> = children_of(&clock);
+    let time_of = |row: &LegacyRow| {
         child_named::<gtk4::Label>(row, "world-clock__time")
             .text()
             .to_string()
@@ -40,7 +40,7 @@ pub(super) fn check() {
     assert_eq!(clock_rows[2].subtitle(), None);
     assert_eq!(clock_rows[3].subtitle(), None);
 
-    let phase_of = |row: &Row| {
+    let phase_of = |row: &LegacyRow| {
         child_named::<gtk4::Image>(row, "world-clock__phase")
             .icon_name()
             .map(|name| name.to_string())

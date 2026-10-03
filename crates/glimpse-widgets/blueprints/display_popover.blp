@@ -30,7 +30,7 @@ template $DisplayPopover: Gtk.Widget {
 
           $DisplayList devices {}
 
-          $Row blank {
+          $LegacyRow blank {
             visible: false;
             activatable: true;
             title: _("Blank the screens");
@@ -41,7 +41,7 @@ template $DisplayPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

@@ -38,20 +38,20 @@ fn kdeconnect_popover_widgets() {
     assert!(imp.devices.get_visible());
     let holders = children_of::<Expandable>(&*imp.devices_rows);
     assert_eq!(holders.len(), 2);
-    let head = holders[0].head::<Row>().expect("a row head");
+    let head = holders[0].head::<LegacyRow>().expect("a row head");
     assert_eq!(head.title().as_deref(), Some("Pixel 10 Pro"));
     assert_eq!(head.subtitle(), None, "one line");
     assert_eq!(head.value().as_deref(), Some("76%"));
     assert_eq!(
         holders[1]
-            .head::<Row>()
+            .head::<LegacyRow>()
             .and_then(|row| row.value())
             .as_deref(),
         Some("Not connected")
     );
 
     let details = holders[0].details::<gtk4::Box>().expect("details");
-    let rows = children_of::<Row>(&details);
+    let rows = children_of::<LegacyRow>(&details);
     assert_eq!(rows.len(), 2);
 
     let fired = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
@@ -81,7 +81,7 @@ fn kdeconnect_popover_widgets() {
     assert_eq!(
         again[0]
             .details::<gtk4::Box>()
-            .map(|details| children_of::<Row>(&details)),
+            .map(|details| children_of::<LegacyRow>(&details)),
         Some(rows.clone()),
         "unchanged actions keep their rows, so the pointer's row is not swapped out"
     );

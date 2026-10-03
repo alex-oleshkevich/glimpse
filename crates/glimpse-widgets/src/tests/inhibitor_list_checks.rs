@@ -12,14 +12,14 @@ pub(super) fn check() {
     inhibitor_list.set_inhibitors(&[inhibitor(1, "Zoom", true), inhibitor(2, "OBS", false)]);
     let holders = children_of::<Expandable>(&inhibitor_list);
     assert_eq!(holders.len(), 2);
-    let first = holders[0].head::<Row>().expect("an inhibitor row");
-    let second = holders[1].head::<Row>().expect("an inhibitor row");
+    let first = holders[0].head::<LegacyRow>().expect("an inhibitor row");
+    let second = holders[1].head::<LegacyRow>().expect("an inhibitor row");
     let _chevron = child_named::<gtk4::Image>(&first, "drawer-chevron");
-    let release_of = |holder: &Expandable| -> Row {
+    let release_of = |holder: &Expandable| -> LegacyRow {
         holder
             .details::<gtk4::Box>()
             .and_then(|card| card.last_child())
-            .and_downcast::<Row>()
+            .and_downcast::<LegacyRow>()
             .expect("a card ends with Release")
     };
     let release = release_of(&holders[0]);
@@ -97,7 +97,7 @@ pub(super) fn check() {
     };
     inhibitor_list.set_inhibitors(&[entry_without_tabs]);
     let holder_without_tabs = children_of::<Expandable>(&inhibitor_list).remove(0);
-    let row_without_tabs = holder_without_tabs.head::<Row>().expect("a row");
+    let row_without_tabs = holder_without_tabs.head::<LegacyRow>().expect("a row");
     let chip_icon = child_named::<gtk4::Image>(&row_without_tabs, "row__icon");
     assert_eq!(
         chip_icon.icon_name().as_deref(),
@@ -114,9 +114,9 @@ pub(super) fn check() {
     );
     let card = holder_without_tabs.details::<gtk4::Box>().expect("a card");
     let facts = children_of::<FactList>(&card).remove(0);
-    let values = children_of::<Row>(&facts)
+    let values = children_of::<LegacyRow>(&facts)
         .iter()
-        .filter_map(Row::value)
+        .filter_map(LegacyRow::value)
         .collect::<Vec<_>>();
     assert_eq!(
         values.len(),
@@ -134,12 +134,12 @@ pub(super) fn check() {
         can_release: false,
     }]);
     let hostile_holder = children_of::<Expandable>(&inhibitor_list).remove(0);
-    let hostile_row = hostile_holder.head::<Row>().expect("a row");
+    let hostile_row = hostile_holder.head::<LegacyRow>().expect("a row");
     let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
     assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
     let hostile_facts =
         children_of::<FactList>(&hostile_holder.details::<gtk4::Box>().expect("a card")).remove(0);
-    assert!(children_of::<Row>(&hostile_facts).iter().all(|row| {
+    assert!(children_of::<LegacyRow>(&hostile_facts).iter().all(|row| {
         row.value()
             .is_none_or(|value| value.chars().count() <= TEXT_MAX_CHARS)
     }));

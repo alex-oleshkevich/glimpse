@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{EventList, FactList, Hero, PopoverShell, Readout, Row, Section};
+use crate::{EventList, FactList, Hero, LegacyRow, PopoverShell, Readout, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/next_event_popover.ui")]
@@ -17,9 +17,9 @@ pub struct NextEventPopover {
     #[template_child]
     pub countdown: TemplateChild<Readout>,
     #[template_child]
-    pub join: TemplateChild<Row>,
+    pub join: TemplateChild<LegacyRow>,
     #[template_child]
-    pub open_event: TemplateChild<Row>,
+    pub open_event: TemplateChild<LegacyRow>,
     #[template_child]
     pub details: TemplateChild<Section>,
     #[template_child]
@@ -29,7 +29,7 @@ pub struct NextEventPopover {
     #[template_child]
     pub later: TemplateChild<EventList>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
     pub join_url: RefCell<Option<String>>,
     pub open_event_url: RefCell<Option<String>>,
 }

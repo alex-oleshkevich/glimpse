@@ -103,12 +103,12 @@ pub(super) fn check() {
         move |_, id| idle_released.borrow_mut().push(id)
     });
     let holder = children_of::<Expandable>(&*idle.imp().list).remove(0);
-    holder.head::<Row>().expect("a row").emit_clicked();
+    holder.head::<LegacyRow>().expect("a row").emit_clicked();
     assert!(holder.expanded() && dimmed(idle.imp().hero.upcast_ref()));
     holder
         .details::<gtk4::Box>()
         .and_then(|card| card.last_child())
-        .and_downcast::<Row>()
+        .and_downcast::<LegacyRow>()
         .expect("Release")
         .emit_clicked();
     assert_eq!(*idle_released.borrow(), [1]);

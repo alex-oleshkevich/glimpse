@@ -86,13 +86,13 @@ pub(super) fn check() {
         }
         panic!("no row is holding {id}");
     };
-    let net_rows = |id: &str| -> Vec<Row> {
+    let net_rows = |id: &str| -> Vec<LegacyRow> {
         let page = net_panel(id)
             .child()
             .and_then(|card| card.last_child())
             .and_downcast::<gtk4::Box>()
             .expect("an opened panel has a page");
-        children_of::<Row>(&page)
+        children_of::<LegacyRow>(&page)
     };
 
     assert!(
@@ -223,7 +223,7 @@ pub(super) fn check() {
         !head.is::<SplitRow>(),
         "a network in use is one row with no join target, so a click cannot disconnect it"
     );
-    head.downcast::<Row>()
+    head.downcast::<LegacyRow>()
         .expect("a plain row")
         .emit_by_name::<()>("clicked", &[]);
     assert!(

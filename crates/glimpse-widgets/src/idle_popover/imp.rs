@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, InhibitorList, PopoverShell, Row, Section};
+use crate::{Expandable, Hero, InhibitorList, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/idle_popover.ui")]
@@ -19,23 +19,23 @@ pub struct IdlePopover {
     #[template_child]
     pub hold_card: TemplateChild<Expandable>,
     #[template_child]
-    pub hold_row: TemplateChild<Row>,
+    pub hold_row: TemplateChild<LegacyRow>,
     #[template_child]
-    pub preset_15m: TemplateChild<Row>,
+    pub preset_15m: TemplateChild<LegacyRow>,
     #[template_child]
-    pub preset_30m: TemplateChild<Row>,
+    pub preset_30m: TemplateChild<LegacyRow>,
     #[template_child]
-    pub preset_1h: TemplateChild<Row>,
+    pub preset_1h: TemplateChild<LegacyRow>,
     #[template_child]
-    pub preset_2h: TemplateChild<Row>,
+    pub preset_2h: TemplateChild<LegacyRow>,
     #[template_child]
-    pub preset_4h: TemplateChild<Row>,
+    pub preset_4h: TemplateChild<LegacyRow>,
     #[template_child]
     pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<InhibitorList>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub quiet: Cell<bool>,
 }

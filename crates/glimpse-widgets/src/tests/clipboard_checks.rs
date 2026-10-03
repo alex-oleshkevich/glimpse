@@ -85,7 +85,7 @@ fn clipboard_widgets() {
     assert_eq!(
         before
             .first_child()
-            .and_downcast::<Row>()
+            .and_downcast::<LegacyRow>()
             .and_then(|pin| pin.title())
             .as_deref(),
         Some("Unpin"),
@@ -168,7 +168,7 @@ fn clipboard_widgets() {
     color.emit_by_name::<()>("details", &[]);
     let card = cells[0].details::<gtk4::Box>().expect("a color card");
     assert!(card.first_child().and_downcast::<Swatch>().is_some());
-    children_of::<Row>(&card)
+    children_of::<LegacyRow>(&card)
         .into_iter()
         .find(|row| row.title().as_deref() == Some("Copy as RGB"))
         .expect("the type's own action")

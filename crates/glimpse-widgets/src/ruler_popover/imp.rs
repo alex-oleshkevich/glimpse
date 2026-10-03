@@ -7,7 +7,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct HistoryEntry {
@@ -24,16 +24,16 @@ pub struct RulerPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub measure: TemplateChild<Row>,
+    pub measure: TemplateChild<LegacyRow>,
     #[template_child]
     pub history_section: TemplateChild<Section>,
     #[template_child]
     pub history_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub history_data: RefCell<Vec<HistoryEntry>>,
-    pub history_held: RefCell<Vec<(u64, Row)>>,
+    pub history_held: RefCell<Vec<(u64, LegacyRow)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }
@@ -48,7 +48,7 @@ impl ObjectSubclass for RulerPopover {
         PopoverShell::static_type();
         Hero::static_type();
         Section::static_type();
-        Row::static_type();
+        LegacyRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);

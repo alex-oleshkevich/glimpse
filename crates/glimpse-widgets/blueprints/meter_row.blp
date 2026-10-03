@@ -1,0 +1,16 @@
+using Gtk 4.0;
+
+template $MeterRow: $Row {
+  focusable: false;
+  accessible-role: progress_bar;
+
+  Gtk.ProgressBar bar {
+    visible: false;
+    hexpand: true;
+    accessible-role: presentation;
+
+    styles [
+      "meter-row__bar",
+    ]
+  }
+}

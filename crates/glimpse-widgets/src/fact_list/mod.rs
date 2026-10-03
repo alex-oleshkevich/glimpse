@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::LegacyRow;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Fact {
@@ -55,7 +55,7 @@ impl FactList {
         let mut rows = imp.rows.borrow_mut();
         for (index, fact) in facts.iter().enumerate() {
             if rows.len() == index {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 row.set_activatable(false);
                 row.insert_after(self, rows.last());
                 rows.push(row);

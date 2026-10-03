@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fact, FactList, Row, reconcile};
+use crate::{Expandable, Fact, FactList, LegacyRow, reconcile};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InhibitorSource {
@@ -97,13 +97,13 @@ impl InhibitorList {
     /// An app's whole row opens a card of what it prevents and, when it may be ended, a
     /// destructive Release: it ends another app's hold, which is not what "Cancel" reads as.
     fn build_item(&self, id: u64) -> Expandable {
-        let row = Row::new();
+        let row = LegacyRow::new();
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
         chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
         chevron.add_css_class("drawer-chevron");
         row.set_trail(&chevron);
 
-        let release = Row::new();
+        let release = LegacyRow::new();
         release.set_title(Some(gettext("Release").as_str()));
         release.set_activatable(true);
         release.add_css_class(crate::DESTRUCTIVE);
@@ -127,7 +127,7 @@ impl InhibitorList {
 /// prevents and Release. One with no reason that prevents only idle and cannot be released has
 /// nothing left to show, and its row is plain text.
 fn dress(holder: &Expandable, entry: &InhibitorEntry) {
-    let Some(row) = holder.head::<Row>() else {
+    let Some(row) = holder.head::<LegacyRow>() else {
         return;
     };
     row.set_title(crate::none_if_empty(&entry.label));

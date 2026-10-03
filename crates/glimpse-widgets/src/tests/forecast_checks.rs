@@ -2,14 +2,14 @@ use super::*;
 
 pub(super) fn check() {
     let subclassed = ForecastDay::new();
-    let inherited: &Row = subclassed.upcast_ref();
+    let inherited: &LegacyRow = subclassed.upcast_ref();
     inherited.set_lead_icon(Some("weather-clear-symbolic"));
     assert_eq!(
         child_named::<gtk4::Image>(&subclassed, "row__icon")
             .icon_name()
             .as_deref(),
         Some("weather-clear-symbolic"),
-        "a Row subclass fills the lead through `lead-icon`; `icon-name` on a Gtk.Button is \
+        "a LegacyRow subclass fills the lead through `lead-icon`; `icon-name` on a Gtk.Button is \
              the parent's own property and would replace the row's child instead"
     );
     assert!(
@@ -117,7 +117,7 @@ pub(super) fn check() {
     );
 
     assert!(
-        children_of::<Row>(&forecast).is_empty(),
+        children_of::<LegacyRow>(&forecast).is_empty(),
         "a day is parented with the panel that unfolds under it, not directly"
     );
     let second = forecast.imp().holders.borrow()[1].clone();

@@ -41,7 +41,7 @@ pub(super) fn check() {
         Some("Speakers"),
         "one row names the device in use"
     );
-    let listed = || children_of::<Row>(&audio.imp().output_rows.get());
+    let listed = || children_of::<LegacyRow>(&audio.imp().output_rows.get());
     assert_eq!(listed().len(), 2, "its card lists every output device");
     assert!(
         !audio.imp().output_device.expanded(),
@@ -144,7 +144,7 @@ pub(super) fn check() {
             .map(|(_, holder)| holder.clone())
             .expect("a held app")
     };
-    let app_head = |id: &str| -> Row { app(id).head::<Row>().expect("an app row") };
+    let app_head = |id: &str| -> LegacyRow { app(id).head::<LegacyRow>().expect("an app row") };
     let muted_glyph = |id: &str| -> gtk4::Image {
         app_head(id)
             .trail()
@@ -285,11 +285,11 @@ pub(super) fn check() {
         "a block with adjustable: false yields an insensitive fader"
     );
 
-    let device_rows = children_of::<Row>(&block_devices_box(&pair[1]));
+    let device_rows = children_of::<LegacyRow>(&block_devices_box(&pair[1]));
     assert_eq!(device_rows.len(), 1);
     assert!(device_rows[0].selected());
     assert_eq!(
-        children_of::<Row>(&block_devices_box(&card_blocks("app-a")[0])).len(),
+        children_of::<LegacyRow>(&block_devices_box(&card_blocks("app-a")[0])).len(),
         1,
         "refreshing one app's card leaves another app's rows where they are"
     );

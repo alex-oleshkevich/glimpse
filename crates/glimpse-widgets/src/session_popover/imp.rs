@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/session_popover.ui")]
@@ -14,19 +14,19 @@ pub struct SessionPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub lock: TemplateChild<Row>,
+    pub lock: TemplateChild<LegacyRow>,
     #[template_child]
-    pub suspend: TemplateChild<Row>,
+    pub suspend: TemplateChild<LegacyRow>,
     #[template_child]
-    pub hibernate: TemplateChild<Row>,
+    pub hibernate: TemplateChild<LegacyRow>,
     #[template_child]
-    pub logout: TemplateChild<Row>,
+    pub logout: TemplateChild<LegacyRow>,
     #[template_child]
-    pub reboot: TemplateChild<Row>,
+    pub reboot: TemplateChild<LegacyRow>,
     #[template_child]
-    pub power_off: TemplateChild<Row>,
+    pub power_off: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 }
 
 #[glib::object_subclass]
@@ -39,7 +39,7 @@ impl ObjectSubclass for SessionPopover {
         PopoverShell::static_type();
         Hero::static_type();
         Section::static_type();
-        Row::static_type();
+        LegacyRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);

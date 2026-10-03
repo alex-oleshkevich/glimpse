@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty, reconcile, set_footer_row};
+use crate::{LegacyRow, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Entry, Trash};
 
@@ -192,8 +192,8 @@ impl PlacesPopover {
         imp.trash_empty.set_title(Some(prompt.as_str()));
     }
 
-    fn build_entry_row(&self, id: &str) -> Row {
-        let row = Row::new();
+    fn build_entry_row(&self, id: &str) -> LegacyRow {
+        let row = LegacyRow::new();
         let key = id.to_owned();
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
@@ -204,7 +204,7 @@ impl PlacesPopover {
     }
 }
 
-fn apply_entry_row(row: &Row, entry: &Entry) {
+fn apply_entry_row(row: &LegacyRow, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.subtitle));
     row.set_lead_icon(none_if_empty(&entry.icon));

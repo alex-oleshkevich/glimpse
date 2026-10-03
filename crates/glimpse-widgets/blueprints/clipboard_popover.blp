@@ -52,7 +52,7 @@ template $ClipboardPopover: Gtk.Widget {
 
           $ClipboardList recent {}
 
-          $Row more {
+          $LegacyRow more {
             visible: false;
             activatable: true;
             lead-icon: "view-more-symbolic";
@@ -62,13 +62,13 @@ template $ClipboardPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row clear {
+    $LegacyRow clear {
       visible: false;
       lead-icon: "edit-clear-all-symbolic";
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

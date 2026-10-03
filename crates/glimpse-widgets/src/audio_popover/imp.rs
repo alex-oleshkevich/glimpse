@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fader, Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Fader, Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -49,7 +49,7 @@ pub struct AudioPopover {
     #[template_child]
     pub output_device: TemplateChild<Expandable>,
     #[template_child]
-    pub output_current: TemplateChild<Row>,
+    pub output_current: TemplateChild<LegacyRow>,
     #[template_child]
     pub output_rows: TemplateChild<gtk4::Box>,
     #[template_child]
@@ -59,7 +59,7 @@ pub struct AudioPopover {
     #[template_child]
     pub input_device: TemplateChild<Expandable>,
     #[template_child]
-    pub input_current: TemplateChild<Row>,
+    pub input_current: TemplateChild<LegacyRow>,
     #[template_child]
     pub input_rows: TemplateChild<gtk4::Box>,
     #[template_child]
@@ -67,19 +67,19 @@ pub struct AudioPopover {
     #[template_child]
     pub app_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more_apps: TemplateChild<Row>,
+    pub more_apps: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub outputs_list: RefCell<Vec<Entry>>,
     pub inputs_list: RefCell<Vec<Entry>>,
     pub apps_list: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
-    pub output_held: RefCell<Vec<(String, Row)>>,
-    pub input_held: RefCell<Vec<(String, Row)>>,
+    pub output_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub input_held: RefCell<Vec<(String, LegacyRow)>>,
     pub app_held: RefCell<Vec<(String, Expandable)>>,
     pub blocks: RefCell<HashMap<String, Vec<(String, gtk4::Box)>>>,
-    pub block_devices: RefCell<HashMap<String, Vec<(String, Row)>>>,
+    pub block_devices: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
 }
 
 #[glib::object_subclass]

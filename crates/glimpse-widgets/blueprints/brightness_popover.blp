@@ -28,7 +28,7 @@ template $BrightnessPopover: Gtk.Widget {
         "column",
       ]
 
-      $Row primary_name {
+      $LegacyRow primary_name {
         visible: false;
         activatable: false;
       }
@@ -46,7 +46,7 @@ template $BrightnessPopover: Gtk.Widget {
       $Expandable night_light {
         visible: false;
 
-        $Row night_head {
+        $LegacyRow night_head {
           title: _("Night light");
 
           [trail]
@@ -85,7 +85,7 @@ template $BrightnessPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

@@ -16,6 +16,7 @@ import {
   stdinLines,
 } from "./reconciler.ts";
 import {
+  ActionRow,
   Box,
   Button,
   Calendar,
@@ -27,13 +28,17 @@ import {
   Dots,
   DropDown,
   Entry,
+  End,
+  Start,
   Expander,
+  ExpanderRow,
   FactList,
   Fragment,
   Hero,
   Image,
   Indicator,
   Label,
+  MeterRow,
   notify,
   Notice,
   openUri,
@@ -46,11 +51,13 @@ import {
   Row,
   run,
   Section,
+  SliderRow,
   Stack,
   session as hostSession,
   useOptions,
   useStateDir,
   ToggleButton,
+  ToggleRow,
   useState,
 } from "./index.ts";
 
@@ -212,6 +219,28 @@ function EntryWithSibling() {
         setText("new");
         setValue(next);
       },
+    }),
+  );
+}
+
+function ControlledRowApp({
+  type,
+  prop,
+  event,
+  initial,
+}: {
+  type: unknown;
+  prop: string;
+  event: string;
+  initial: boolean | number;
+}) {
+  const [value, setValue] = useState(initial);
+  return createElement(
+    Popover,
+    null,
+    createElement(type, {
+      [prop]: value,
+      [event]: (next: boolean | number) => setValue(next),
     }),
   );
 }
@@ -455,6 +484,73 @@ test("applet sdk", async (t) => {
     assert(nodes[12].children.length === 1 && nodes[12].props.onToggle === true, JSON.stringify(nodes[12]));
   });
 
+  await t.test("row family props and children reach the wire", async () => {
+    const lines = await drive(
+      createElement(
+        Popover,
+        null,
+        createElement(ActionRow, {
+          icon: "go-next-symbolic", title: "Action", subtitle: "Ready",
+          value: "Open", tone: "warning", inactive: true,
+          tooltip: "Open item", typography: "monospace", busy: true,
+          onActivate: () => {},
+        }, createElement(Image, { icon: "go-next-symbolic" })),
+        createElement(ToggleRow, {
+          icon: "emblem-ok-symbolic", title: "Toggle", subtitle: "State",
+          value: "On", tone: "error", inactive: true,
+          tooltip: "Toggle item", typography: "numeric", busy: true,
+          control: "switch", active: true, onToggle: () => {},
+        }),
+        createElement(MeterRow, {
+          icon: "battery-symbolic", title: "Meter", subtitle: "Charge",
+          value: "50%", tone: "destructive", inactive: true,
+          tooltip: "Battery charge", typography: "numeric", busy: true,
+          level: 0.5,
+        }, createElement(Readout, { value: "50", unit: "%" })),
+        createElement(ExpanderRow, {
+          icon: "folder-symbolic", title: "Details", subtitle: "More",
+          value: "2", tone: "warning", inactive: true,
+          tooltip: "Show details", typography: "numeric", busy: true,
+          open: true, tint: true, titleLines: 3, onToggle: () => {},
+        },
+        createElement(End, null, createElement(Image, { icon: "folder-symbolic" })),
+        createElement(ActionRow, { title: "Nested" })),
+        createElement(SliderRow, {
+          title: "Volume", subtitle: "Muted", value: 0.5,
+          min: 0, max: 1, step: 0.1, tone: "error", inactive: true,
+          tooltip: "Volume", onMove: () => {}, onChange: () => {},
+        }, createElement(Start, null, createElement(Button, { icon: "audio-volume-muted-symbolic", tooltip: "Unmute", className: "flat", onClick: () => {} }))),
+      ),
+      [hostLine()],
+    );
+    const nodes = JSON.parse(lines[1]).ops[0].node.children;
+    const expected = [
+      { icon: "go-next-symbolic", title: "Action", subtitle: "Ready", value: "Open", tone: "warning", inactive: true, tooltip: "Open item", typography: "monospace", busy: true, onActivate: true },
+      { icon: "emblem-ok-symbolic", title: "Toggle", subtitle: "State", value: "On", tone: "error", inactive: true, tooltip: "Toggle item", typography: "numeric", busy: true, control: "switch", active: true, onToggle: true },
+      { icon: "battery-symbolic", title: "Meter", subtitle: "Charge", value: "50%", tone: "destructive", inactive: true, tooltip: "Battery charge", typography: "numeric", busy: true, level: 0.5 },
+      { icon: "folder-symbolic", title: "Details", subtitle: "More", value: "2", tone: "warning", inactive: true, tooltip: "Show details", typography: "numeric", busy: true, open: true, tint: true, titleLines: 3, onToggle: true },
+      { title: "Volume", subtitle: "Muted", value: 0.5, min: 0, max: 1, step: 0.1, tone: "error", inactive: true, tooltip: "Volume", onMove: true, onChange: true },
+    ];
+    assert(
+      nodes.map((node: { type: string }) => node.type).join(",") ===
+        "actionrow,togglerow,meterrow,expanderrow,sliderrow",
+      JSON.stringify(nodes),
+    );
+    for (let index = 0; index < nodes.length; index++) {
+      assert(
+        JSON.stringify(canonical(nodes[index].props)) === JSON.stringify(canonical(expected[index])),
+        JSON.stringify(nodes[index]),
+      );
+    }
+    assert(nodes[0].children[0].type === "image", JSON.stringify(nodes[0]));
+    assert(nodes[2].children[0].type === "readout", JSON.stringify(nodes[2]));
+    assert(nodes[3].children[0].type === "end", JSON.stringify(nodes[3]));
+    assert(nodes[3].children[0].children[0].type === "image", JSON.stringify(nodes[3]));
+    assert(nodes[3].children[1].type === "actionrow", JSON.stringify(nodes[3]));
+    assert(nodes[4].children[0].type === "start", JSON.stringify(nodes[4]));
+    assert(nodes[4].children[0].children[0].props.onClick === true, JSON.stringify(nodes[4]));
+  });
+
   await t.test("series props take 366 items and no more", async () => {
     const series = (length: number) => Array.from({ length }, (_, index) => (index % 5 ? index : null));
     const lines = await drive(
@@ -681,6 +777,28 @@ test("applet sdk", async (t) => {
       sets[1],
     );
   });
+
+  for (const { type, prop, event, initial, next } of [
+    { type: ToggleRow, prop: "active", event: "onToggle", initial: false, next: true },
+    { type: ExpanderRow, prop: "open", event: "onToggle", initial: false, next: true },
+    { type: SliderRow, prop: "value", event: "onChange", initial: 0, next: 0.7 },
+  ]) {
+    await t.test(`${String(type)} ignores an older controlled event`, async () => {
+      const lines = await drive(
+        createElement(ControlledRowApp, { type, prop, event, initial }),
+        [
+          hostLine(),
+          { t: "event", id: 2, name: event, args: [next], seq: 5 },
+          { t: "event", id: 2, name: event, args: [initial], seq: 2 },
+        ],
+      );
+      const sets = lines.slice(2).flatMap((line) => JSON.parse(line).ops).filter(
+        (op: { op: string }) => op.op === "set",
+      );
+      assert(sets.length === 1, JSON.stringify(sets));
+      assert(sets[0].seq === 5 && sets[0].props[prop] === next, JSON.stringify(sets[0]));
+    });
+  }
 
   await t.test("a rejected edit confirms the controlled value", async () => {
     const lines = await drive(

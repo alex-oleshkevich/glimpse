@@ -13,17 +13,17 @@ template $SessionPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Row lock {
+          $LegacyRow lock {
             title: _("Lock");
             lead-icon: "system-lock-screen-symbolic";
           }
 
-          $Row suspend {
+          $LegacyRow suspend {
             title: _("Suspend");
             lead-icon: "weather-clear-night-symbolic";
           }
 
-          $Row hibernate {
+          $LegacyRow hibernate {
             title: _("Hibernate");
             lead-icon: "document-save-symbolic";
           }
@@ -34,17 +34,17 @@ template $SessionPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Row logout {
+          $LegacyRow logout {
             title: _("Log out");
             lead-icon: "system-log-out-symbolic";
           }
 
-          $Row reboot {
+          $LegacyRow reboot {
             title: _("Restart");
             lead-icon: "system-reboot-symbolic";
           }
 
-          $Row power_off {
+          $LegacyRow power_off {
             title: _("Shut down");
             lead-icon: "system-shutdown-symbolic";
           }
@@ -53,7 +53,7 @@ template $SessionPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

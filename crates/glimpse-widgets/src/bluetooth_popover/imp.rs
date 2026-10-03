@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -86,26 +86,26 @@ pub struct BluetoothPopover {
     #[template_child]
     pub device_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more_paired: TemplateChild<Row>,
+    pub more_paired: TemplateChild<LegacyRow>,
     #[template_child]
-    pub more_nearby: TemplateChild<Row>,
+    pub more_nearby: TemplateChild<LegacyRow>,
     #[template_child]
     pub nearby: TemplateChild<Section>,
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub search: TemplateChild<Row>,
+    pub search: TemplateChild<LegacyRow>,
     #[template_child]
     pub nearby_list: TemplateChild<gtk4::Revealer>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
     pub prompt: RefCell<Option<Ask>>,
     pub devices_held: RefCell<Vec<(String, Expandable)>>,
     pub nearby_held: RefCell<Vec<(String, Expandable)>>,
-    pub lines: RefCell<HashMap<String, Vec<(String, Row)>>>,
+    pub lines: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
     pub quiet: std::cell::Cell<bool>,
 }
 

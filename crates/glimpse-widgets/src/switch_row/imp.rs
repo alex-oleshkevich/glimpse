@@ -51,7 +51,7 @@ impl SwitchRow {
 impl ObjectSubclass for SwitchRow {
     const NAME: &'static str = "SwitchRow";
     type Type = super::SwitchRow;
-    type ParentType = crate::Row;
+    type ParentType = crate::LegacyRow;
 
     fn class_init(klass: &mut Self::Class) {
         klass.bind_template();
@@ -107,4 +107,4 @@ impl ObjectImpl for SwitchRow {
 
 impl WidgetImpl for SwitchRow {}
 impl ButtonImpl for SwitchRow {}
-impl crate::row::RowImpl for SwitchRow {}
+impl crate::legacy_row::LegacyRowImpl for SwitchRow {}

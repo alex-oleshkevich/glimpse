@@ -18,7 +18,7 @@ pub(super) fn check() {
     let declared: SplitRow = built.object("split").expect("SplitRow builds from a .ui");
     let knob: gtk4::Switch = built.object("knob").expect("the trail child builds");
     assert_eq!(
-        knob.ancestor(Row::static_type()),
+        knob.ancestor(LegacyRow::static_type()),
         Some(declared.row().upcast::<gtk4::Widget>()),
         "a [trail] child lands inside the row, so the detail button stays last"
     );

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty, reconcile};
+use crate::{LegacyRow, none_if_empty, reconcile};
 
 glib::wrapper! {
     pub struct WorkspaceNamePopover(ObjectSubclass<imp::WorkspaceNamePopover>)
@@ -61,7 +61,7 @@ impl WorkspaceNamePopover {
             names,
             |name| name.clone(),
             |name| {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 let name = name.clone();
                 row.connect_clicked(glib::clone!(
                     #[weak(rename_to = popover)]

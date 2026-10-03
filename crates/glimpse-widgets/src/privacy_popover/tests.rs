@@ -25,8 +25,8 @@ fn rows(parent: &gtk4::Box) -> Vec<Expandable> {
     rows
 }
 
-fn head(holder: &Expandable) -> Row {
-    holder.head::<Row>().expect("a head row")
+fn head(holder: &Expandable) -> LegacyRow {
+    holder.head::<LegacyRow>().expect("a head row")
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn privacy_popover_states() {
             .details::<gtk4::Box>()
             .and_then(|card| card.first_child())
             .and_then(|facts| facts.first_child())
-            .and_downcast::<Row>()
+            .and_downcast::<LegacyRow>()
             .expect("a status line")
     };
     assert_eq!(
@@ -98,7 +98,7 @@ fn privacy_popover_states() {
     let stop = sharing[0]
         .details::<gtk4::Box>()
         .and_then(|card| card.last_child())
-        .and_downcast::<Row>()
+        .and_downcast::<LegacyRow>()
         .expect("a Stop sharing row");
     assert_eq!(stop.title().as_deref(), Some("Stop sharing"));
     assert!(stop.has_css_class("row--destructive"));

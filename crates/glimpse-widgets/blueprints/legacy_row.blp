@@ -1,0 +1,108 @@
+using Gtk 4.0;
+
+template $LegacyRow: Gtk.Button {
+  has-frame: false;
+
+  styles [
+    "row",
+  ]
+
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 10;
+
+    Gtk.Image check {
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__check",
+      ]
+    }
+
+    Gtk.Image icon {
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__icon",
+      ]
+    }
+
+    Gtk.Box lead {
+      orientation: horizontal;
+      valign: center;
+      visible: false;
+
+      styles [
+        "row__lead",
+      ]
+    }
+
+    Gtk.Box text {
+      orientation: vertical;
+      valign: center;
+      hexpand: true;
+      halign: fill;
+
+      Gtk.Label title {
+        single-line-mode: true;
+        ellipsize: end;
+        max-width-chars: 24;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "row__title",
+        ]
+      }
+
+      Gtk.Label subtitle {
+        single-line-mode: true;
+        ellipsize: end;
+        max-width-chars: 34;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "row__subtitle",
+        ]
+      }
+    }
+
+    Gtk.Label value {
+      single-line-mode: true;
+      ellipsize: end;
+      max-width-chars: 26;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__value",
+      ]
+    }
+
+    Gtk.Spinner spinner {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "row__spinner",
+      ]
+    }
+
+    Gtk.Box trail {
+      orientation: horizontal;
+      valign: center;
+      visible: false;
+
+      styles [
+        "row__trail",
+      ]
+    }
+  }
+}

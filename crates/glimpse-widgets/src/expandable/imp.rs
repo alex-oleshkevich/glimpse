@@ -8,7 +8,7 @@ use crate::{PopoverShell, drawer};
 
 pub type Toggle = (gtk4::Widget, glib::SignalHandlerId);
 
-#[derive(Debug, Default, glib::Properties)]
+#[derive(Debug, glib::Properties)]
 #[properties(wrapper_type = super::Expandable)]
 pub struct Expandable {
     pub head: RefCell<Option<(gtk4::Widget, Option<Toggle>)>>,
@@ -16,6 +16,16 @@ pub struct Expandable {
 
     #[property(name = "expanded", get = Self::expanded, set = Self::set_expanded, explicit_notify)]
     expanded: PhantomData<bool>,
+}
+
+impl Default for Expandable {
+    fn default() -> Self {
+        Self {
+            head: RefCell::default(),
+            drawer: gtk4::Revealer::new(),
+            expanded: PhantomData,
+        }
+    }
 }
 
 impl Expandable {

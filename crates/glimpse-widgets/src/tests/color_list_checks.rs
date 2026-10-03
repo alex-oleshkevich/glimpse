@@ -45,7 +45,7 @@ pub(super) fn check() {
         Some(rgba([9, 0, 0])),
         "the card opens on a strip of the color itself, wide enough to judge"
     );
-    let notation = card.last_child().and_downcast::<Row>().unwrap();
+    let notation = card.last_child().and_downcast::<LegacyRow>().unwrap();
     assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
     let color_copied = Rc::new(RefCell::new(None));
     colors.connect_copied({

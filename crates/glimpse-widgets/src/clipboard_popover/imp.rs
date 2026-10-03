@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ClipboardList, Hero, Notice, PopoverShell, Row, Section};
+use crate::{ClipboardList, Hero, LegacyRow, Notice, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/clipboard_popover.ui")]
@@ -24,11 +24,11 @@ pub struct ClipboardPopover {
     #[template_child]
     pub recent: TemplateChild<ClipboardList>,
     #[template_child]
-    pub more: TemplateChild<Row>,
+    pub more: TemplateChild<LegacyRow>,
     #[template_child]
-    pub clear: TemplateChild<Row>,
+    pub clear: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 }
 
 #[glib::object_subclass]
@@ -45,7 +45,7 @@ impl ObjectSubclass for ClipboardPopover {
         Notice::static_type();
         Section::static_type();
         ClipboardList::static_type();
-        Row::static_type();
+        LegacyRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);

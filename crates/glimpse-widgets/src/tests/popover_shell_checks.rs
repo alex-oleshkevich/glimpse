@@ -5,7 +5,7 @@ pub(super) fn check() {
     let section = gtk4::Label::new(Some("Other players"));
     bare.set_hero(&gtk4::Label::new(Some("Now playing")));
     bare.set_content(&section);
-    bare.append_to_footer(&Row::new());
+    bare.append_to_footer(&LegacyRow::new());
     let rules = |shell: &PopoverShell| {
         (
             shell.imp().hero_rule.get_visible(),

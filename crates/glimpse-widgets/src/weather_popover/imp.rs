@@ -7,7 +7,8 @@ use gtk4::{
 
 use super::Page;
 use crate::{
-    Expandable, ForecastList, ForecastStrip, Hero, Notice, PopoverShell, Readout, Row, Section,
+    Expandable, ForecastList, ForecastStrip, Hero, LegacyRow, Notice, PopoverShell, Readout,
+    Section,
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -36,7 +37,7 @@ pub struct WeatherPopover {
     #[template_child]
     pub alerts: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub notices: RefCell<Vec<Expandable>>,
     pub built: RefCell<Vec<Page>>,

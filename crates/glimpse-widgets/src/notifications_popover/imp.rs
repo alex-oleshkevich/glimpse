@@ -9,7 +9,7 @@ use super::{
     ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED, FOOTER_ACTIVATED,
     Group,
 };
-use crate::{Hero, Notice, Placeholder, Row};
+use crate::{Hero, LegacyRow, Notice, Placeholder};
 
 const ATTENTIVE: &str = "preferences-system-notifications-symbolic";
 const SILENCED: &str = "notifications-disabled-symbolic";
@@ -32,9 +32,9 @@ pub struct NotificationsPopover {
     #[template_child]
     pub empty: TemplateChild<Placeholder>,
     #[template_child]
-    pub clear: TemplateChild<Row>,
+    pub clear: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub held: RefCell<Vec<Group>>,
     pub sections: RefCell<Vec<(String, gtk4::Revealer)>>,

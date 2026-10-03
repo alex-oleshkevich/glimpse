@@ -1,0 +1,19 @@
+using Gtk 4.0;
+
+template $ToggleRow: $Row {
+  focusable: true;
+  accessible-role: switch;
+
+  styles [
+    "row--interactive",
+  ]
+
+  [end]
+  Gtk.Switch knob {
+    can-target: false;
+    can-focus: false;
+    focusable: false;
+    valign: center;
+    accessible-role: presentation;
+  }
+}

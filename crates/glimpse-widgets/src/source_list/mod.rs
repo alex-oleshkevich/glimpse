@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Fader, Row, none_if_empty};
+use crate::{Fader, LegacyRow, none_if_empty};
 
 pub(crate) const CHANGED: &str = "changed";
 const BRIGHTNESS_ICON: &str = "display-brightness-symbolic";
@@ -86,8 +86,8 @@ impl SourceList {
         }
     }
 
-    fn build_row(&self, index: u32) -> (Row, Fader) {
-        let row = Row::new();
+    fn build_row(&self, index: u32) -> (LegacyRow, Fader) {
+        let row = LegacyRow::new();
         row.set_activatable(false);
 
         let fader = Fader::new();

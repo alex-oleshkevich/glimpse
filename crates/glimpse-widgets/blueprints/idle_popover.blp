@@ -28,7 +28,7 @@ template $IdlePopover: Gtk.Widget {
       ]
 
       $Expandable hold_card {
-        $Row hold_row {
+        $LegacyRow hold_row {
           title: _("Keep awake for…");
 
           [trail]
@@ -46,27 +46,27 @@ template $IdlePopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Row preset_15m {
+          $LegacyRow preset_15m {
             activatable: true;
             title: _("15 minutes");
           }
 
-          $Row preset_30m {
+          $LegacyRow preset_30m {
             activatable: true;
             title: _("30 minutes");
           }
 
-          $Row preset_1h {
+          $LegacyRow preset_1h {
             activatable: true;
             title: _("1 hour");
           }
 
-          $Row preset_2h {
+          $LegacyRow preset_2h {
             activatable: true;
             title: _("2 hours");
           }
 
-          $Row preset_4h {
+          $LegacyRow preset_4h {
             activatable: true;
             title: _("4 hours");
           }
@@ -82,7 +82,7 @@ template $IdlePopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

@@ -1,3 +1,4 @@
+pub(crate) mod action_row;
 pub mod actions;
 mod applet_popover;
 mod artwork;
@@ -22,6 +23,7 @@ mod dots;
 mod drawer;
 mod event_list;
 mod expandable;
+mod expander_row;
 mod fact_list;
 mod fader;
 mod forecast;
@@ -32,9 +34,11 @@ mod indicator_group;
 mod inhibitor_list;
 mod kdeconnect_popover;
 mod keyboard_popover;
+pub(crate) mod legacy_row;
 mod lens;
 mod lock_clock;
 mod lock_stage;
+pub(crate) mod meter_row;
 mod monitors;
 mod mpris_popover;
 mod network_popover;
@@ -80,6 +84,7 @@ mod shot_result_page;
 mod shot_shortcuts;
 mod shot_toolbar;
 mod shot_window_list;
+mod slider_row;
 mod source_list;
 mod sparkline;
 mod split_row;
@@ -88,6 +93,7 @@ mod swatch;
 mod switch_row;
 mod system_monitor_popover;
 mod theme;
+pub(crate) mod toggle_row;
 mod tooltip_card;
 mod track_card;
 mod transport;
@@ -100,6 +106,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
+pub use action_row::ActionRow;
 pub use applet_popover::{AppletPopover, PopoverSize};
 pub use artwork::{Thumbnail, artwork, thumbnail};
 pub use audio_popover::{
@@ -131,6 +138,7 @@ pub use display_popover::DisplayPopover;
 pub use dots::{Dots, SIZE as DOTS_SIZE};
 pub use event_list::{Event, EventList, EventRow, Link as EventLink};
 pub use expandable::Expandable;
+pub use expander_row::ExpanderRow;
 pub use fact_list::{Fact, FactList};
 pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
@@ -144,9 +152,11 @@ pub use kdeconnect_popover::{
     Nearby as KdeconnectNearby,
 };
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
+pub use legacy_row::{LegacyRow, beside};
 pub use lens::{Lens, zoomed};
 pub use lock_clock::LockClock;
 pub use lock_stage::LockStage;
+pub use meter_row::MeterRow;
 pub use monitors::watch_monitors;
 pub use mpris_popover::MprisPopover;
 pub use network_popover::{
@@ -177,7 +187,7 @@ pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
-pub use row::{Row, beside};
+pub use row::{Row, RowTone, RowTypography};
 pub use ruler_popover::{HistoryEntry, RulerPopover};
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
@@ -195,6 +205,7 @@ pub use shot_result_page::ShotResultPage;
 pub use shot_shortcuts::shot_shortcuts;
 pub use shot_toolbar::ShotToolbar;
 pub use shot_window_list::{ShotWindowEntry, ShotWindowList};
+pub use slider_row::SliderRow;
 pub use source_list::{Source, SourceList};
 pub use sparkline::Sparkline;
 pub use split_row::SplitRow;
@@ -206,6 +217,7 @@ pub use system_monitor_popover::{
 };
 pub(crate) use theme::animation_ms;
 pub use theme::{Sheets, Styles, duration_ms};
+pub use toggle_row::{ToggleControl, ToggleRow};
 pub use tooltip_card::TooltipCard;
 pub use track_card::{Track, TrackCard};
 pub use transport::{Repeat, Transport, TransportAction};
@@ -287,7 +299,7 @@ pub(crate) fn fact_card(holder: &crate::Expandable) -> gtk4::Box {
     card
 }
 
-pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
+pub(crate) fn set_footer_row(row: &crate::LegacyRow, label: Option<&str>) {
     use gtk4::prelude::*;
 
     row.set_visible(label.is_some());

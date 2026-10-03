@@ -4,7 +4,7 @@ use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Row, Workspace};
+use crate::{LegacyRow, Workspace};
 
 const NO_WINDOWS: &str = "workspace-card__empty";
 
@@ -79,10 +79,10 @@ impl WorkspacesPopover {
         );
         let placeholder = rows
             .last_child()
-            .and_downcast::<Row>()
+            .and_downcast::<LegacyRow>()
             .filter(|row| row.has_css_class(NO_WINDOWS))
             .unwrap_or_else(|| {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 row.add_css_class(NO_WINDOWS);
                 row.set_title(Some(gettext("No windows").as_str()));
                 row.set_activatable(false);
@@ -92,8 +92,8 @@ impl WorkspacesPopover {
         placeholder.set_visible(windows.is_empty());
     }
 
-    fn row_for(&self, id: u64) -> Row {
-        let row = Row::new();
+    fn row_for(&self, id: u64) -> LegacyRow {
+        let row = LegacyRow::new();
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]
             self,

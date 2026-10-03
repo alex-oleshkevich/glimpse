@@ -23,8 +23,8 @@ pub(super) fn check() {
     let player_rows = children_of::<PlayerRow>(&players);
     assert_eq!(player_rows.len(), 2);
 
-    let first: &Row = player_rows[0].upcast_ref();
-    let second: &Row = player_rows[1].upcast_ref();
+    let first: &LegacyRow = player_rows[0].upcast_ref();
+    let second: &LegacyRow = player_rows[1].upcast_ref();
     assert_eq!(first.subtitle().as_deref(), Some("Odd Lots · Firefox"));
     assert_eq!(
         second.subtitle().as_deref(),

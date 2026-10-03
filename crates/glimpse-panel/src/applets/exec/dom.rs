@@ -8,12 +8,14 @@ use std::{
 use gettextrs::gettext;
 use glimpse_services::{
     CalendarProps, ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, Paint,
-    PopoverSize as ExecSize, ROOT, Tone, Transition, Tree,
+    PopoverSize as ExecSize, ROOT, RowTone as ExecRowTone, RowTypography as ExecTypography,
+    ToggleControl as ExecControl, Tone, Transition, Tree,
 };
 use glimpse_widgets::{
-    Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, Expandable, FactList,
-    Fader, Hero, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout, Row, Section,
-    Sparkline, SwitchRow, Ymd, beside, reconcile::by_key,
+    ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, Expandable,
+    ExpanderRow, FactList, Fader, Hero, LegacyRow, MeterRow, Notice, Placeholder, PopoverShell,
+    PopoverSize, RangeBar, Readout, Row as UiRow, RowTone, RowTypography, Section, SliderRow,
+    Sparkline, SwitchRow, ToggleControl, ToggleRow, Ymd, beside, reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -30,6 +32,21 @@ const PROGRESS_GAP: i32 = 6;
 const DIM_ALPHA: f32 = 0.55;
 const MARKER_LIMIT: usize = 3;
 const OPTION_CHARS: i32 = 32;
+
+macro_rules! dress_row_base {
+    ($widget:expr, $props:expr) => {{
+        let p = $props;
+        $widget.set_property("icon-name", p.icon.as_deref());
+        $widget.set_property("title", p.title.as_deref());
+        $widget.set_property("subtitle", p.subtitle.as_deref());
+        $widget.set_property("value", p.value.as_deref());
+        $widget.set_property("tone", row_tone(p.tone));
+        $widget.set_property("inactive", p.inactive);
+        $widget.set_property("tooltip", p.tooltip.as_deref());
+        $widget.set_property("typography", row_typography(p.typography));
+        $widget.set_property("busy", p.busy);
+    }};
+}
 
 struct Mounted {
     widget: gtk4::Widget,
@@ -120,15 +137,17 @@ impl Dom {
         let drifted: Vec<_> = self
             .nodes
             .iter()
-            .filter_map(|(key, mounted)| {
-                let Element::Expander(props) = &mounted.node.element else {
-                    return None;
-                };
-                if !props.on_toggle {
-                    return None;
+            .filter_map(|(key, mounted)| match &mounted.node.element {
+                Element::Expander(props) if props.on_toggle => {
+                    let expandable = mounted.widget.downcast_ref::<Expandable>()?;
+                    (expandable.expanded() != props.expanded)
+                        .then_some((*key, expandable.expanded()))
                 }
-                let expandable = mounted.widget.downcast_ref::<Expandable>()?;
-                (expandable.expanded() != props.expanded).then_some((*key, expandable.expanded()))
+                Element::ExpanderRow(props) if props.on_toggle => {
+                    let row = mounted.widget.downcast_ref::<ExpanderRow>()?;
+                    (row.open() != props.open).then_some((*key, row.open()))
+                }
+                _ => None,
             })
             .collect();
         for (key, expanded) in drifted {
@@ -370,7 +389,45 @@ impl Dom {
         let widget = mounted.widget.clone();
         let inner = mounted.inner.clone();
         if let Some(inner) = inner {
-            self.reconcile_children(tree, generation, key, &inner, &node.children, live);
+            let children: Vec<_> = node
+                .children
+                .iter()
+                .copied()
+                .filter(|id| {
+                    tree.node(*id).is_some_and(|node| {
+                        !matches!(node.element, Element::End(_) | Element::Start(_))
+                    })
+                })
+                .collect();
+            self.reconcile_children(tree, generation, key, &inner, &children, live);
+            let slot = render::first_child_of_kind(tree, id, |element| {
+                matches!(element, Element::End(_) | Element::Start(_))
+            })
+            .and_then(|id| self.mount(tree, generation, id, live));
+            if let Some(row) = widget.downcast_ref::<ExpanderRow>() {
+                if let Some((_, end)) = slot.filter(|(_, end)| end.first_child().is_some()) {
+                    row.set_end(&end);
+                } else {
+                    row.clear_end();
+                }
+            } else if let Some(row) = widget.downcast_ref::<SliderRow>() {
+                let start = slot
+                    .as_ref()
+                    .map(|(_, widget)| widget)
+                    .unwrap_or(inner.upcast_ref());
+                row.set_start(start);
+                if let Some(parent) = start.parent() {
+                    parent.set_visible(start.first_child().is_some());
+                }
+            } else if matches!(&node.element, Element::ActionRow(_) | Element::MeterRow(_))
+                && let Some(row) = widget.downcast_ref::<UiRow>()
+            {
+                if node.children.is_empty() {
+                    row.clear_end();
+                } else {
+                    row.set_end(&inner);
+                }
+            }
         }
         if let Element::Stack(props) = &node.element {
             self.reconcile_stack(tree, generation, key, props.visible, &node.children, live);
@@ -453,7 +510,7 @@ impl Dom {
                 box_.upcast()
             }
             Element::Row(_) => {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 let slot = gtk4::Box::new(gtk4::Orientation::Horizontal, SLOT_SPACING);
                 slot.set_visible(false);
                 let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
@@ -512,6 +569,100 @@ impl Dom {
                     emit(&dispatch, slot, key, "onMute", vec![], None, false)
                 }));
                 fader.upcast()
+            }
+            Element::ActionRow(_) => {
+                let row = ActionRow::new();
+                inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
+                let dispatch = self.dispatch.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_activated(move |_| {
+                    emit(&dispatch, slot, key, "onActivate", vec![], None, true)
+                }));
+                row.upcast()
+            }
+            Element::ToggleRow(_) => {
+                let row = ToggleRow::new();
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_toggled(move |_, active| {
+                    emit(
+                        &dispatch,
+                        slot,
+                        key,
+                        "onToggle",
+                        vec![Value::Bool(active)],
+                        Some(bump(&seq, key)),
+                        false,
+                    )
+                }));
+                row.upcast()
+            }
+            Element::MeterRow(_) => {
+                inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
+                MeterRow::new().upcast()
+            }
+            Element::ExpanderRow(_) => {
+                let row = ExpanderRow::new();
+                inner = Some(row.details());
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                let applying = self.applying.clone();
+                let slot = self.slot;
+                handlers.push(row.connect_toggled(move |_, open| {
+                    if !applying.get() {
+                        emit(
+                            &dispatch,
+                            slot,
+                            key,
+                            "onToggle",
+                            vec![Value::Bool(open)],
+                            Some(bump(&seq, key)),
+                            false,
+                        );
+                    }
+                }));
+                row.upcast()
+            }
+            Element::End(_) | Element::Start(_) => {
+                let end = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+                inner = Some(end.clone());
+                end.upcast()
+            }
+            Element::SliderRow(_) => {
+                let row = SliderRow::new();
+                inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
+                let slot = self.slot;
+                let dispatch = self.dispatch.clone();
+                handlers.push(row.connect_moved(move |_, value| {
+                    if let Some(value) = Number::from_f64(value) {
+                        emit(
+                            &dispatch,
+                            slot,
+                            key,
+                            "onMove",
+                            vec![Value::Number(value)],
+                            None,
+                            false,
+                        );
+                    }
+                }));
+                let dispatch = self.dispatch.clone();
+                let seq = self.seq.clone();
+                handlers.push(row.connect_changed(move |_, value| {
+                    if let Some(value) = Number::from_f64(value) {
+                        emit(
+                            &dispatch,
+                            slot,
+                            key,
+                            "onChange",
+                            vec![Value::Number(value)],
+                            Some(bump(&seq, key)),
+                            false,
+                        );
+                    }
+                }));
+                row.upcast()
             }
             Element::Entry(_) => {
                 let entry = gtk4::Entry::new();
@@ -679,7 +830,7 @@ impl Dom {
                 stack.upcast()
             }
             Element::Expander(_) => {
-                let expandable = Expandable::new(&Row::new());
+                let expandable = Expandable::new(&LegacyRow::new());
                 let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
                 expandable.set_details(Some(&content));
                 inner = Some(content);
@@ -780,7 +931,7 @@ impl Dom {
                 container.upcast()
             }
             Element::Unsupported(_) => {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 row.set_property("activatable", false);
                 row.set_sensitive(false);
                 row.upcast()
@@ -805,7 +956,7 @@ impl Dom {
             Element::Row(_) => mounted
                 .widget
                 .first_child()
-                .filter(|child| child.is::<Row>())
+                .filter(|child| child.is::<LegacyRow>())
                 .unwrap_or_else(|| mounted.widget.clone()),
             _ => mounted.widget.clone(),
         };
@@ -851,7 +1002,9 @@ impl Dom {
                 widget.set_property("selected", p.selected.unwrap_or(false));
                 widget.set_property("activatable", p.on_activate);
                 widget.set_property("busy", p.busy);
-                if let (Some(row), Some(trail)) = (widget.downcast_ref::<Row>(), &mounted.trail) {
+                if let (Some(row), Some(trail)) =
+                    (widget.downcast_ref::<LegacyRow>(), &mounted.trail)
+                {
                     if let Some(chevron) = trail.last_child() {
                         chevron.set_visible(p.chevron);
                     }
@@ -882,6 +1035,45 @@ impl Dom {
                     && widget.property::<f64>("value") != p.value
                 {
                     widget.set_property("value", p.value);
+                }
+            }
+            Element::ActionRow(p) => {
+                dress_row_base!(widget, p);
+            }
+            Element::ToggleRow(p) => {
+                dress_row_base!(widget, p);
+                widget.set_property("control", control(p.control));
+                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                {
+                    widget.set_property("active", p.active);
+                }
+            }
+            Element::MeterRow(p) => {
+                dress_row_base!(widget, p);
+                widget.set_property("level", p.level.unwrap_or(-1.0));
+            }
+            Element::ExpanderRow(p) => {
+                dress_row_base!(widget, p);
+                widget.set_property("tint", p.tint);
+                widget.set_property("title-lines", p.title_lines);
+                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                {
+                    widget.set_property("open", p.open);
+                }
+            }
+            Element::End(_) | Element::Start(_) => {}
+            Element::SliderRow(p) => {
+                widget.set_property("title", p.title.as_deref());
+                widget.set_property("subtitle", p.subtitle.as_deref());
+                widget.set_property("min", p.min);
+                widget.set_property("max", p.max);
+                widget.set_property("step", p.step);
+                widget.set_property("tone", row_tone(p.tone));
+                widget.set_property("inactive", p.inactive);
+                widget.set_property("tooltip", p.tooltip.as_deref());
+                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
+                {
+                    widget.set_property("value", p.value.unwrap_or(p.min));
                 }
             }
             Element::Entry(p) => {
@@ -1067,7 +1259,7 @@ impl Dom {
             Element::Stack(_) => {}
             Element::Expander(p) => {
                 if let Some(expandable) = widget.downcast_ref::<Expandable>() {
-                    if let Some(head) = expandable.head::<Row>() {
+                    if let Some(head) = expandable.head::<LegacyRow>() {
                         head.set_title(p.title.as_deref());
                         head.set_subtitle(p.subtitle.as_deref());
                     }
@@ -1264,6 +1456,30 @@ impl Dom {
     }
 }
 
+fn row_tone(tone: ExecRowTone) -> RowTone {
+    match tone {
+        ExecRowTone::Normal => RowTone::Normal,
+        ExecRowTone::Warning => RowTone::Warning,
+        ExecRowTone::Error => RowTone::Error,
+        ExecRowTone::Destructive => RowTone::Destructive,
+    }
+}
+
+fn row_typography(typography: ExecTypography) -> RowTypography {
+    match typography {
+        ExecTypography::Default => RowTypography::Default,
+        ExecTypography::Numeric => RowTypography::Numeric,
+        ExecTypography::Monospace => RowTypography::Monospace,
+    }
+}
+
+fn control(control: ExecControl) -> ToggleControl {
+    match control {
+        ExecControl::Check => ToggleControl::Check,
+        ExecControl::Switch => ToggleControl::Switch,
+    }
+}
+
 fn element_class(element: &Element) -> Option<ClassName> {
     match element {
         Element::Popover(p) => p.class_name,
@@ -1301,6 +1517,13 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::Dots(p) => p.class_name,
         Element::Root
         | Element::FactList(_)
+        | Element::ActionRow(_)
+        | Element::ToggleRow(_)
+        | Element::MeterRow(_)
+        | Element::ExpanderRow(_)
+        | Element::End(_)
+        | Element::Start(_)
+        | Element::SliderRow(_)
         | Element::Unsupported(_)
         | Element::Addon(_)
         | Element::Container(_) => None,

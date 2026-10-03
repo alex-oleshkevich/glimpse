@@ -3,7 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
-    Expandable, FactList, Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile,
+    Expandable, FactList, LegacyRow, SplitRow, SwitchRow, drawer, none_if_empty, reconcile,
     set_footer_row,
 };
 
@@ -270,7 +270,7 @@ impl BluetoothPopover {
     /// one pairs on its body and has no card, because there is nothing to manage before it pairs.
     fn head_for(&self, entry: &Entry) -> gtk4::Widget {
         if entry.place == Place::Connected {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.add_css_class(DEVICE);
             let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
             chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
@@ -314,7 +314,7 @@ impl BluetoothPopover {
                 split.set_detail_visible(true);
             }
             None => {
-                if let Some(row) = holder.head::<Row>() {
+                if let Some(row) = holder.head::<LegacyRow>() {
                     dress_row(&row, entry);
                 }
             }
@@ -368,7 +368,7 @@ impl BluetoothPopover {
         all.into_iter()
     }
 
-    fn dress_line(&self, row: &Row, line: &Line) {
+    fn dress_line(&self, row: &LegacyRow, line: &Line) {
         row.set_title(none_if_empty(&line.title));
         row.set_busy(line.busy);
 
@@ -380,7 +380,7 @@ impl BluetoothPopover {
         }
     }
 
-    fn build_line(&self, id: &str, line: &Line) -> Row {
+    fn build_line(&self, id: &str, line: &Line) -> LegacyRow {
         if let Some(on) = line.toggle {
             let key = id.to_owned();
             let action = line.action.clone();
@@ -394,7 +394,7 @@ impl BluetoothPopover {
             return toggle.upcast();
         }
 
-        let row = Row::new();
+        let row = LegacyRow::new();
         row.set_activatable(line.activates);
         crate::set_css_class(&row, crate::DESTRUCTIVE, line.destructive);
         if !line.activates {
@@ -422,7 +422,7 @@ fn set_button(button: &gtk4::Button, label: &str) {
     button.set_label(label);
 }
 
-fn dress_row(row: &Row, entry: &Entry) {
+fn dress_row(row: &LegacyRow, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.problem));
     crate::set_css_class(row, WARNING, !entry.problem.is_empty());

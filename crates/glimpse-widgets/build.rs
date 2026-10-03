@@ -176,7 +176,28 @@ fn main() {
             "resources/widgets/clipboard_popover.ui",
         ),
         ("blueprints/container.blp", "resources/widgets/container.ui"),
+        (
+            "blueprints/action_row.blp",
+            "resources/widgets/action_row.ui",
+        ),
+        (
+            "blueprints/legacy_row.blp",
+            "resources/widgets/legacy_row.ui",
+        ),
+        ("blueprints/meter_row.blp", "resources/widgets/meter_row.ui"),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
+        (
+            "blueprints/expander_row.blp",
+            "resources/widgets/expander_row.ui",
+        ),
+        (
+            "blueprints/slider_row.blp",
+            "resources/widgets/slider_row.ui",
+        ),
+        (
+            "blueprints/toggle_row.blp",
+            "resources/widgets/toggle_row.ui",
+        ),
         ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),
         (

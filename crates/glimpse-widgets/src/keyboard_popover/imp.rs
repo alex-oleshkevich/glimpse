@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{PopoverShell, Row, Section};
+use crate::{LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Layout {
@@ -24,9 +24,9 @@ pub struct KeyboardPopover {
     #[template_child]
     pub rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
     pub layouts_data: RefCell<Vec<Layout>>,
-    pub widgets: RefCell<Vec<Row>>,
+    pub widgets: RefCell<Vec<LegacyRow>>,
 }
 
 #[glib::object_subclass]

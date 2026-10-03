@@ -38,6 +38,7 @@
     --gl-danger-text: var(--destructive-color, #ff938b);
     --gl-danger-soft: alpha(var(--destructive-bg-color, #c01c28), 0.18);
     --gl-warning-text: var(--warning-color, #ffc252);
+    --gl-warning-soft: alpha(var(--warning-bg-color, #e5a50a), 0.18);
 
     --gl-text-caption: 0.85rem;
     --gl-text-body: 1rem;
@@ -77,6 +78,19 @@
     --container-purple: var(--purple-3);
     --container-light: var(--light-1);
     --container-dark: var(--dark-5);
+    --row-height: 2.85rem;
+    --row-padding: 0 0.8rem;
+    --row-radius: 0.7rem;
+    --row-gap: 10px;
+    --row-hover-bg: var(--gl-hover, alpha(var(--gl-surface-fg), 0.08));
+    --row-active-bg: var(--gl-active, alpha(var(--gl-surface-fg), 0.16));
+    --row-tone-warning: var(--gl-warning-text, var(--warning-color, #ffc252));
+    --row-tone-error: var(--gl-danger-text, var(--destructive-color, #ff938b));
+    --row-tone-destructive: var(--gl-danger-text, var(--destructive-color, #ff938b));
+    --row-mono-font: monospace;
+    --meter-row-height: 0.3rem;
+    --meter-row-trough: var(--gl-faint, alpha(var(--gl-surface-fg), 0.22));
+    --meter-row-fill: var(--gl-muted, alpha(var(--gl-surface-fg), 0.65));
 }
 
 .panel {
@@ -395,6 +409,97 @@ popover separator {
 .row:focus-visible {
     outline: 2px solid var(--gl-accent-text);
     outline-offset: -2px;
+}
+
+listrow {
+    min-height: var(--row-height, 2.85rem);
+    padding: var(--row-padding, 0 0.8rem);
+    border-radius: var(--row-radius, 0.7rem);
+    font-weight: normal;
+    transition:
+        background-color var(--gl-duration, 150ms) var(--gl-ease, ease),
+        opacity var(--gl-duration, 150ms) var(--gl-ease, ease);
+}
+
+listrow > box {
+    border-spacing: var(--row-gap);
+}
+
+listrow.row--interactive:hover {
+    background-color: var(--row-hover-bg, var(--gl-hover, alpha(currentColor, 0.08)));
+}
+
+listrow.row--interactive:active {
+    background-color: var(--row-active-bg, var(--gl-active, alpha(currentColor, 0.16)));
+}
+
+listrow:focus-visible {
+    outline: 2px solid var(--gl-accent-text, currentColor);
+    outline-offset: -2px;
+}
+
+
+listrow:disabled:hover,
+listrow:disabled:active {
+    background-color: transparent;
+}
+
+listrow.row--numeric {
+    font-variant-numeric: tabular-nums;
+}
+
+listrow.row--monospace {
+    font-family: var(--row-mono-font, monospace);
+}
+
+listrow.row--warning .row__icon,
+listrow.row--warning .row__subtitle,
+listrow.row--warning .row__value {
+    color: var(--row-tone-warning, var(--gl-warning-text, currentColor));
+}
+
+listrow.row--error .row__icon,
+listrow.row--error .row__subtitle,
+listrow.row--error .row__value {
+    color: var(--row-tone-error, var(--gl-danger-text, currentColor));
+}
+
+listrow.row--destructive .row__title {
+    color: var(--row-tone-destructive, var(--gl-danger-text, currentColor));
+}
+
+listrow progressbar.meter-row__bar {
+    margin-top: 0.25rem;
+}
+
+listrow progressbar.meter-row__bar trough,
+listrow progressbar.meter-row__bar progress {
+    min-height: var(--meter-row-height, 0.3rem);
+    border-radius: 999px;
+}
+
+listrow progressbar.meter-row__bar trough {
+    background-color: var(--meter-row-trough, var(--gl-faint, alpha(currentColor, 0.22)));
+}
+
+listrow progressbar.meter-row__bar progress {
+    background-color: var(--meter-row-fill, var(--gl-muted, alpha(currentColor, 0.65)));
+}
+
+listrow.row--warning progressbar.meter-row__bar progress {
+    background-color: var(--row-tone-warning, var(--gl-warning-text, currentColor));
+}
+
+listrow.row--error progressbar.meter-row__bar progress {
+    background-color: var(--row-tone-error, var(--gl-danger-text, currentColor));
+}
+
+listrow.row--destructive progressbar.meter-row__bar progress {
+    background-color: var(--row-tone-destructive, var(--gl-danger-text, currentColor));
+}
+
+.slider-row__start {
+    margin-right: var(--row-gap, 0.625rem);
 }
 
 .row:disabled {
@@ -802,12 +907,46 @@ expandable.open > .row .drawer-chevron {
     transform: rotate(90deg);
 }
 
+listrow.row--open .row__chevron {
+    transform: rotate(90deg);
+}
+
+listrow.row--interactive.row--open:hover {
+    background-color: transparent;
+}
+
+listrow .row__chevron {
+    transition: transform var(--gl-duration, 150ms) var(--gl-ease, ease);
+}
+
+.expander-row--tint {
+    border-radius: var(--row-radius, 0.7rem);
+    background-color: var(--gl-hover, alpha(currentColor, 0.08));
+}
+
+.expander-row--tint.row--warning {
+    background-color: var(--gl-warning-soft, alpha(currentColor, 0.08));
+}
+
+.expander-row--tint.row--error,
+.expander-row--tint.row--destructive {
+    background-color: var(--gl-danger-soft, alpha(currentColor, 0.08));
+}
+
+.expander-row--tint expandable.card {
+    background-color: transparent;
+}
+
 expandable > revealer > * {
     padding: 0.15rem 0.3rem 0.3rem 0.3rem;
 }
 
 expandable > revealer .row {
     border-radius: 0.7rem;
+}
+
+expandable > revealer listrow {
+    border-radius: var(--row-radius);
 }
 
 expandable > revealer .fader {
@@ -1045,6 +1184,10 @@ expandable > revealer .fader {
 
 .notice--warning .notice__icon {
     color: var(--gl-warning-text);
+}
+
+.notice--warning {
+    background-color: var(--gl-warning-soft);
 }
 
 .notice--error {
@@ -2241,4 +2384,31 @@ window.shot-flash {
 
 .shot-canvas {
     background-color: var(--gl-surface);
+}
+
+listrow.row--inactive:not(.slider-row) image,
+listrow.row--inactive .row__icon,
+listrow.row--inactive .row__check,
+listrow.row--inactive .row__chevron,
+listrow.row--inactive .row__spinner,
+listrow.row--inactive .meter-row__bar {
+    filter: opacity(var(--gl-disabled, 0.5));
+}
+
+listrow.row--inactive:not(:disabled) label {
+    filter: opacity(var(--gl-disabled, 0.5));
+}
+
+listrow.row--inactive .row__title {
+    color: var(--gl-muted, alpha(currentColor, 0.65));
+}
+
+listrow.slider-row > box {
+    border-spacing: 0;
+}
+
+.slider-row__subtitle {
+    font-size: var(--gl-text-caption, 0.8rem);
+    color: var(--gl-muted, alpha(currentColor, 0.65));
+    padding-top: 0.25rem;
 }

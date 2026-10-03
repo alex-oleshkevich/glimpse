@@ -43,7 +43,7 @@ template $BatteryPopover: Gtk.Widget {
       $Expandable details {
         visible: false;
 
-        $Row details_row {
+        $LegacyRow details_row {
           title: _("Health");
 
           [trail]
@@ -72,7 +72,7 @@ template $BatteryPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

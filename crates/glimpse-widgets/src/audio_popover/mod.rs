@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fader, Row, none_if_empty, reconcile, set_footer_row};
+use crate::{Expandable, Fader, LegacyRow, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Block, Details, Entry};
 
@@ -273,8 +273,8 @@ impl AudioPopover {
         }
     }
 
-    fn build_device(&self, dir: &str, id: &str) -> Row {
-        let row = Row::new();
+    fn build_device(&self, dir: &str, id: &str) -> LegacyRow {
+        let row = LegacyRow::new();
         row.add_css_class(DEVICE);
         row.set_selectable(true);
         let dir = dir.to_owned();
@@ -297,7 +297,7 @@ impl AudioPopover {
             |entry| entry.id.clone(),
             |entry| Expandable::new(&self.build_app(&entry.id)),
             |holder, entry| {
-                if let Some(row) = holder.head::<Row>() {
+                if let Some(row) = holder.head::<LegacyRow>() {
                     dress_app(&row, entry);
                 }
             },
@@ -312,8 +312,8 @@ impl AudioPopover {
 
     /// An app's whole row opens its card; the trail carries the muted glyph beside the chevron,
     /// so a muted app is marked the way a muted fader is.
-    fn build_app(&self, id: &str) -> Row {
-        let row = Row::new();
+    fn build_app(&self, id: &str) -> LegacyRow {
+        let row = LegacyRow::new();
         row.add_css_class(APP);
         let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
         let muted = gtk4::Image::new();
@@ -440,8 +440,8 @@ impl AudioPopover {
         );
     }
 
-    fn build_block_device(&self, app_id: &str, dir: &str, id: &str) -> Row {
-        let row = Row::new();
+    fn build_block_device(&self, app_id: &str, dir: &str, id: &str) -> LegacyRow {
+        let row = LegacyRow::new();
         row.set_selectable(true);
         let app = app_id.to_owned();
         let dir = dir.to_owned();
@@ -476,7 +476,7 @@ fn devices_of(container: &gtk4::Box) -> gtk4::Box {
         .expect("a block carries its device rows after the fader")
 }
 
-fn dress_app(row: &Row, entry: &Entry) {
+fn dress_app(row: &LegacyRow, entry: &Entry) {
     dress_row(row, entry);
     let muted = row
         .trail()
@@ -492,7 +492,7 @@ fn dress_app(row: &Row, entry: &Entry) {
     }
 }
 
-fn dress_row(row: &Row, entry: &Entry) {
+fn dress_row(row: &LegacyRow, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_lead_icon(entry.icon.as_deref());
     row.set_value(entry.value.as_deref());

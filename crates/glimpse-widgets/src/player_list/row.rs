@@ -33,7 +33,7 @@ mod imp {
     impl ObjectSubclass for PlayerRow {
         const NAME: &'static str = "PlayerRow";
         type Type = super::PlayerRow;
-        type ParentType = crate::Row;
+        type ParentType = crate::LegacyRow;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
@@ -68,12 +68,12 @@ mod imp {
 
     impl WidgetImpl for PlayerRow {}
     impl ButtonImpl for PlayerRow {}
-    impl crate::row::RowImpl for PlayerRow {}
+    impl crate::legacy_row::LegacyRowImpl for PlayerRow {}
 }
 
 glib::wrapper! {
     pub struct PlayerRow(ObjectSubclass<imp::PlayerRow>)
-        @extends crate::Row, gtk4::Button, gtk4::Widget,
+        @extends crate::LegacyRow, gtk4::Button, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 

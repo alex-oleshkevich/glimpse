@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::SplitRow;
+use crate::{ActionRow, SplitRow};
 
 const CARD: &str = "card";
 pub const OPENER: &str = "expandable__opener";
@@ -56,22 +56,27 @@ impl Expandable {
             move || expandable.set_expanded(!expandable.expanded())
         );
         match (
+            head.downcast_ref::<ActionRow>(),
             head.downcast_ref::<SplitRow>(),
             head.downcast_ref::<gtk4::Button>(),
             opener(head),
         ) {
-            (Some(split), _, _) => Some((
+            (Some(row), _, _, _) => Some((
+                row.clone().upcast(),
+                row.connect_activated(move |_| toggle()),
+            )),
+            (None, Some(split), _, _) => Some((
                 split.clone().upcast(),
                 split.connect_details(move |_| toggle()),
             )),
-            (None, Some(row), _) => {
+            (None, None, Some(row), _) => {
                 Some((row.clone().upcast(), row.connect_clicked(move |_| toggle())))
             }
-            (None, None, Some(badge)) => Some((
+            (None, None, None, Some(badge)) => Some((
                 badge.clone().upcast(),
                 badge.connect_clicked(move |_| toggle()),
             )),
-            (None, None, None) => None,
+            (None, None, None, None) => None,
         }
     }
 
@@ -104,7 +109,7 @@ impl Expandable {
         };
         let opener = match head.downcast_ref::<SplitRow>() {
             Some(split) => split.detail().upcast(),
-            None if head.is::<gtk4::Button>() => head,
+            None if head.is::<gtk4::Button>() || head.is::<ActionRow>() => head,
             None => match opener(&head) {
                 Some(badge) => badge.upcast(),
                 None => return false,

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Fact, Row, Severity, none_if_empty};
+use crate::{Choice, Fact, LegacyRow, Severity, none_if_empty};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Device {
@@ -92,7 +92,7 @@ impl BatteryPopover {
         crate::clear_children(&imp.devices_box);
         imp.devices_section.set_visible(!devices.is_empty());
         for device in devices {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.set_title(none_if_empty(&device.name));
             row.set_subtitle(none_if_empty(&device.subtitle));
             row.set_lead_icon(none_if_empty(&device.icon_name));
@@ -128,7 +128,7 @@ impl BatteryPopover {
         let Some(limit) = limit else {
             return;
         };
-        let row = imp.charge_limit.upcast_ref::<Row>();
+        let row = imp.charge_limit.upcast_ref::<LegacyRow>();
         if row.title().as_deref() != Some(limit.title.as_str()) {
             row.set_title(Some(limit.title.as_str()));
         }

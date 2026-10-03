@@ -6,7 +6,7 @@ pub use row::ClockRow;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::LegacyRow;
 
 const UNKNOWN: &str = "—";
 const TWENTY_FOUR_HOUR: &str = "%R";
@@ -91,7 +91,7 @@ impl WorldClock {
                 rows.push(row);
             }
             let row = &rows[index];
-            let item: &Row = row.upcast_ref();
+            let item: &LegacyRow = row.upcast_ref();
             let there = glib::TimeZone::from_identifier(Some(&zone.timezone))
                 .and_then(|timezone| now.to_timezone(&timezone).ok());
 
@@ -124,7 +124,7 @@ fn phase<'a>(there: Option<&glib::DateTime>, icon_name: &'a str) -> Option<&'a s
     }
 }
 
-fn set_tooltip(row: &Row, timezone: &str, there: Option<&glib::DateTime>) {
+fn set_tooltip(row: &LegacyRow, timezone: &str, there: Option<&glib::DateTime>) {
     let identifier = crate::truncate(timezone, crate::TEXT_MAX_CHARS);
     let tooltip = match there.and_then(|there| there.format(OFFSET).ok()) {
         Some(offset) => format!("{identifier} · {offset}"),

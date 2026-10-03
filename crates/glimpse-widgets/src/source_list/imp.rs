@@ -4,14 +4,14 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
-use crate::{Fader, Row};
+use crate::{Fader, LegacyRow};
 
 use super::{CHANGED, Source};
 
 #[derive(Debug, Default)]
 pub struct SourceList {
     pub sources: RefCell<Vec<Source>>,
-    pub rows: RefCell<Vec<(Row, Fader)>>,
+    pub rows: RefCell<Vec<(LegacyRow, Fader)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }

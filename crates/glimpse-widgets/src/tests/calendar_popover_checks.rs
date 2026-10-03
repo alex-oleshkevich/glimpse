@@ -12,7 +12,7 @@ pub(super) fn check() {
 
     popover.set_footer(None);
     assert!(
-        !child_named::<Row>(&popover, "calendar-popover__footer").is_visible(),
+        !child_named::<LegacyRow>(&popover, "calendar-popover__footer").is_visible(),
         "a footer with no label is a row that would do nothing when clicked"
     );
     assert!(
@@ -21,7 +21,7 @@ pub(super) fn check() {
     );
 
     popover.set_footer(Some("Open calendar"));
-    assert!(child_named::<Row>(&popover, "calendar-popover__footer").is_visible());
+    assert!(child_named::<LegacyRow>(&popover, "calendar-popover__footer").is_visible());
     assert!(footer().is_visible());
 
     popover.set_zones(&[]);

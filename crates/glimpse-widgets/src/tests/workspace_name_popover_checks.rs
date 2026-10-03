@@ -63,7 +63,7 @@ fn workspace_name_popover_widgets() {
     assert!(imp.recent.get_visible());
     imp.recent_rows
         .first_child()
-        .and_downcast::<Row>()
+        .and_downcast::<LegacyRow>()
         .expect("a recent name")
         .emit_clicked();
     assert_eq!(submitted.borrow().as_deref(), Some("music"));

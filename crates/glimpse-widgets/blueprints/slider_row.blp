@@ -1,0 +1,50 @@
+using Gtk 4.0;
+
+template $SliderRow: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+  styles ["slider-row"]
+
+  Gtk.Box controls {
+    accessible-role: presentation;
+
+    Gtk.Box start {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+      styles ["slider-row__start"]
+    }
+
+    Gtk.Box text {
+      orientation: vertical;
+      hexpand: true;
+      accessible-role: presentation;
+
+      Gtk.Scale scale {
+        orientation: horizontal;
+        draw-value: false;
+        hexpand: true;
+        valign: center;
+        styles ["slider-row__scale"]
+
+        adjustment: Gtk.Adjustment {
+          lower: 0;
+          upper: 1;
+          value: 0;
+        };
+      }
+
+      Gtk.Label subtitle {
+        visible: false;
+        xalign: 0;
+        wrap: true;
+        ellipsize: end;
+        lines: 4;
+        max-width-chars: 24;
+        accessible-role: presentation;
+        styles ["slider-row__subtitle"]
+      }
+    }
+  }
+}

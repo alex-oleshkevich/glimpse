@@ -47,8 +47,8 @@ pub(super) fn check() {
             .details::<gtk4::Box>()
             .expect("an opened device has a card")
     };
-    let rows_of = |id: &str| -> Vec<Row> {
-        children_of::<Row>(
+    let rows_of = |id: &str| -> Vec<LegacyRow> {
+        children_of::<LegacyRow>(
             &card_of(id)
                 .last_child()
                 .and_downcast::<gtk4::Box>()
@@ -130,7 +130,7 @@ pub(super) fn check() {
     );
 
     holder("a")
-        .head::<Row>()
+        .head::<LegacyRow>()
         .expect("a plain row")
         .emit_clicked();
     assert!(
@@ -171,7 +171,7 @@ pub(super) fn check() {
         "a toggle line acts through its own row body, exactly once per press and both ways"
     );
     assert!(
-        children_of::<Row>(&facts)
+        children_of::<LegacyRow>(&facts)
             .iter()
             .all(|row| !row.activatable()),
         "a line that only states something must not light up under a hover leading nowhere"
@@ -324,7 +324,10 @@ pub(super) fn check() {
             .first()
             .map(|(_, holder)| holder.clone())
             .expect("the device");
-        opened.head::<Row>().expect("a plain row").emit_clicked();
+        opened
+            .head::<LegacyRow>()
+            .expect("a plain row")
+            .emit_clicked();
         assert!(opened.expanded());
         assert_eq!(
             width(&probe),

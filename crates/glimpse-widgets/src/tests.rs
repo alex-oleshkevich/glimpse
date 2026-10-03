@@ -65,16 +65,14 @@ fn secondary_click(widget: &impl IsA<gtk4::Widget>) {
 #[test]
 #[ignore = "needs a display"]
 fn widgets() {
-    if gtk4::init().is_err() {
-        return;
-    }
+    gtk4::init().expect("GTK display");
     register_resources().expect("resources");
     let _styles = Styles::install(adw::ColorScheme::Default);
 
     indicator_checks::check();
     hero_checks::check();
-    let row = Row::new();
-    row_checks::slots(row.clone());
+    let row = LegacyRow::new();
+    legacy_row_checks::slots(row.clone());
     inhibitor_list_checks::check();
     calendar_checks::check();
     notice_checks::check();
@@ -86,7 +84,7 @@ fn widgets() {
     fact_list_checks::check();
     forecast_checks::check();
     placeholder_checks::check();
-    row_checks::activation(row.clone());
+    legacy_row_checks::activation(row.clone());
     switch_row_checks::check();
     section_checks::check();
     event_list_checks::check();
@@ -101,7 +99,7 @@ fn widgets() {
     split_row_checks::check();
     pager_checks::check();
     workspaces_popover_checks::check();
-    row_checks::kinds();
+    legacy_row_checks::kinds();
     calendar_popover_checks::check();
     mpris_popover_checks::check();
     weather_popover_checks::check();
@@ -125,12 +123,15 @@ fn widgets() {
     notification_stack_checks::peeking(four);
     hero_checks::heights();
     chart_checks::check();
-    row_checks::beside();
+    legacy_row_checks::beside();
     widget_demo_popover_shows_the_header_check();
     popover_shell_title_setter_short_circuits_check();
     applet_popover_size_sets_the_wide_class_and_short_circuits_check();
     container_paint_and_width_check();
     header_only_shell_hides_the_footer_rule_check();
+    row_checks::checks();
+    expander_row_checks::check();
+    slider_row_checks::check();
 }
 
 fn widget_demo_popover_shows_the_header_check() {
@@ -140,7 +141,7 @@ fn widget_demo_popover_shows_the_header_check() {
     assert!(header.get_visible());
     assert_eq!(header.title().as_deref(), Some("Widget demo"));
     assert_eq!(header.subtitle().as_deref(), Some("Popover shell slots"));
-    assert_eq!(children(&shell.body()), 4);
+    assert_eq!(children(&shell.body()), 10);
     let addon = shell.imp().header.imp().slot.first_child();
     let switch = addon
         .and_downcast::<gtk4::Switch>()
@@ -329,6 +330,7 @@ mod color_list_checks;
 mod display_checks;
 mod event_list_checks;
 mod expandable_checks;
+mod expander_row_checks;
 mod fact_list_checks;
 mod fader_checks;
 mod forecast_checks;
@@ -338,6 +340,7 @@ mod indicator_checks;
 mod inhibitor_list_checks;
 mod kdeconnect_popover_checks;
 mod keyboard_popover_checks;
+mod legacy_row_checks;
 mod mpris_popover_checks;
 mod network_popover_checks;
 mod none_if_empty_checks;
@@ -369,6 +372,7 @@ mod shot_region_checks;
 mod shot_result_page_checks;
 mod shot_toolbar_checks;
 mod shot_window_list_checks;
+mod slider_row_checks;
 mod source_list_checks;
 mod split_row_checks;
 mod swatch_checks;

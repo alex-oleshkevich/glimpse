@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Calendar, EventList, Hero, PopoverShell, Row, Section, WorldClock};
+use crate::{Calendar, EventList, Hero, LegacyRow, PopoverShell, Section, WorldClock};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/calendar_popover.ui")]
@@ -27,7 +27,7 @@ pub struct CalendarPopover {
     #[template_child]
     pub clocks: TemplateChild<WorldClock>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 }
 
 #[glib::object_subclass]

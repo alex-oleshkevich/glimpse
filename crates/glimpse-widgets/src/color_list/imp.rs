@@ -4,14 +4,14 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::Shade;
-use crate::{Expandable, Row};
+use crate::{Expandable, LegacyRow};
 
 #[derive(Debug, Default)]
 pub struct ColorList {
     pub shades: RefCell<Vec<Shade>>,
     pub holders: RefCell<Vec<(u64, Expandable)>>,
     pub rows: gtk4::Box,
-    pub more: Row,
+    pub more: LegacyRow,
     pub show_all: Cell<bool>,
 }
 

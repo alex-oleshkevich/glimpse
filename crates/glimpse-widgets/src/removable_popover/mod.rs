@@ -3,7 +3,8 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
-    Expandable, FactList, Row, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row,
+    Expandable, FactList, LegacyRow, SplitRow, none_if_empty, reconcile, set_css_class,
+    set_footer_row,
 };
 
 pub use imp::{Drive, Volume};
@@ -179,12 +180,12 @@ impl RemovablePopover {
         }
     }
 
-    fn ensure_head(&self, holder: &Expandable, spec: &DeviceRow) -> Row {
+    fn ensure_head(&self, holder: &Expandable, spec: &DeviceRow) -> LegacyRow {
         let split = spec.head == Head::Split;
         if let Some(existing) = holder.head::<SplitRow>().filter(|_| split) {
             return existing.row();
         }
-        if let Some(existing) = holder.head::<Row>().filter(|_| !split) {
+        if let Some(existing) = holder.head::<LegacyRow>().filter(|_| !split) {
             set_opens(&existing, spec.head);
             return existing;
         }
@@ -203,7 +204,7 @@ impl RemovablePopover {
                 split_row.row()
             }
             false => {
-                let row = Row::new();
+                let row = LegacyRow::new();
                 let chevron = gtk4::Image::from_icon_name(CHEVRON);
                 chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
                 chevron.add_css_class("drawer-chevron");
@@ -257,14 +258,14 @@ impl RemovablePopover {
         body
     }
 
-    fn release(&self, title: String, signal: &'static str, id: &str) -> Row {
+    fn release(&self, title: String, signal: &'static str, id: &str) -> LegacyRow {
         let row = self.action(title, signal, id);
         row.add_css_class(crate::DESTRUCTIVE);
         row
     }
 
-    fn action(&self, title: String, signal: &'static str, id: &str) -> Row {
-        let row = Row::new();
+    fn action(&self, title: String, signal: &'static str, id: &str) -> LegacyRow {
+        let row = LegacyRow::new();
         row.set_title(Some(title.as_str()));
         let id = id.to_owned();
         row.connect_clicked(glib::clone!(
@@ -276,7 +277,7 @@ impl RemovablePopover {
     }
 }
 
-fn set_opens(row: &Row, head: Head) {
+fn set_opens(row: &LegacyRow, head: Head) {
     let opens = head == Head::Opens;
     let activatable = matches!(head, Head::Opens | Head::Acts);
     if row.activatable() != activatable {

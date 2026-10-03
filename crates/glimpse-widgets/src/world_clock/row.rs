@@ -49,7 +49,7 @@ mod imp {
     impl ObjectSubclass for ClockRow {
         const NAME: &'static str = "ClockRow";
         type Type = super::ClockRow;
-        type ParentType = crate::Row;
+        type ParentType = crate::LegacyRow;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
@@ -74,12 +74,12 @@ mod imp {
 
     impl WidgetImpl for ClockRow {}
     impl ButtonImpl for ClockRow {}
-    impl crate::row::RowImpl for ClockRow {}
+    impl crate::legacy_row::LegacyRowImpl for ClockRow {}
 }
 
 glib::wrapper! {
     pub struct ClockRow(ObjectSubclass<imp::ClockRow>)
-        @extends crate::Row, gtk4::Button, gtk4::Widget,
+        @extends crate::LegacyRow, gtk4::Button, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 

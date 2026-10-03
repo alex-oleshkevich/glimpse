@@ -27,7 +27,7 @@ fn job_holder(popover: &PrintingPopover, id: &str) -> Expandable {
         .expect("a held job")
 }
 
-fn actions(holder: &Expandable) -> Vec<Row> {
+fn actions(holder: &Expandable) -> Vec<LegacyRow> {
     rows_in(
         &holder
             .details::<gtk4::Box>()
@@ -35,12 +35,12 @@ fn actions(holder: &Expandable) -> Vec<Row> {
     )
 }
 
-fn rows_in(parent: &impl IsA<gtk4::Widget>) -> Vec<Row> {
+fn rows_in(parent: &impl IsA<gtk4::Widget>) -> Vec<LegacyRow> {
     let mut rows = Vec::new();
     let mut child = parent.first_child();
     while let Some(widget) = child {
         child = widget.next_sibling();
-        if let Ok(row) = widget.downcast::<Row>() {
+        if let Ok(row) = widget.downcast::<LegacyRow>() {
             rows.push(row);
         }
     }
@@ -69,7 +69,7 @@ fn printing_popover_states() {
     assert!(imp.jobs.get_visible());
     assert_eq!(imp.hero.subtitle().as_deref(), Some("1 print job"));
     let holder = job_holder(&popover, "1");
-    let row = holder.head::<Row>().expect("a job row");
+    let row = holder.head::<LegacyRow>().expect("a job row");
     assert!(row.subtitle().is_none(), "a job row is one line");
     assert!(row.activatable(), "a job opens its card from the whole row");
 
@@ -88,14 +88,15 @@ fn printing_popover_states() {
 
     row.emit_clicked();
     assert!(holder.expanded(), "the row opens the job's card");
-    let [pause, resume, cancel] = <[Row; 3]>::try_from(actions(&holder)).expect("three actions");
+    let [pause, resume, cancel] =
+        <[LegacyRow; 3]>::try_from(actions(&holder)).expect("three actions");
     assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
     let facts = holder
         .details::<gtk4::Box>()
         .and_then(|panel| panel.first_child())
         .and_downcast::<FactList>()
         .expect("the facts lead the card");
-    let [printed_on, status] = <[Row; 2]>::try_from(rows_in(&facts)).expect("two facts");
+    let [printed_on, status] = <[LegacyRow; 2]>::try_from(rows_in(&facts)).expect("two facts");
     assert_eq!(printed_on.value().as_deref(), Some("HP LaserJet 400"));
     assert_eq!(
         status.value().as_deref(),
@@ -164,7 +165,7 @@ fn printing_popover_states() {
         ..job("4", None)
     }]);
     let stuck = job_holder(&popover, "4");
-    let stuck_row = stuck.head::<Row>().expect("a job row");
+    let stuck_row = stuck.head::<LegacyRow>().expect("a job row");
     assert!(
         stuck_row.activatable(),
         "a job with nothing to do still opens the card that says where and how it is"
@@ -212,7 +213,7 @@ fn printing_popover_states() {
         .first()
         .map(|(_, holder)| holder.clone())
         .expect("a printer");
-    let printer_row = printer.head::<Row>().expect("a printer row");
+    let printer_row = printer.head::<LegacyRow>().expect("a printer row");
     assert_eq!(
         printer_row.subtitle().as_deref(),
         Some("Out of paper"),

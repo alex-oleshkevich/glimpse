@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Fact, Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Volume {
@@ -44,9 +44,9 @@ pub struct RemovablePopover {
     #[template_child]
     pub devices_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub devices_more: TemplateChild<Row>,
+    pub devices_more: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub devices_data: RefCell<Vec<Drive>>,
     pub devices_held: RefCell<Vec<(String, Expandable)>>,

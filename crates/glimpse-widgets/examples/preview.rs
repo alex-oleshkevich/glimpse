@@ -274,12 +274,12 @@ mod fixtures {
         BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
         DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
         Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
-        InhibitorTargets, NightLight, Notification, NotificationsPopover, NowPlaying, POWER_OFF,
-        Pager, Player, PlayerList, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover,
-        PrivacyUsage, REBOOT, Repeat, Row, SUSPEND, SessionActionState, SessionSheet, Severity,
-        Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail, SystemMonitorPopover,
-        SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
-        WeatherPopover, WorldClock, Ymd, Zone,
+        InhibitorTargets, LegacyRow, NightLight, Notification, NotificationsPopover, NowPlaying,
+        POWER_OFF, Pager, Player, PlayerList, PrintingJob, PrintingPopover, PrintingPrinter,
+        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, SUSPEND, SessionActionState, SessionSheet,
+        Severity, Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail,
+        SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency,
+        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -367,7 +367,7 @@ mod fixtures {
     }
 
     fn session_sheet_states(root: &gtk4::Widget) {
-        fn row_with_icon(rows: &[Row], icon: &str) -> Option<Row> {
+        fn row_with_icon(rows: &[LegacyRow], icon: &str) -> Option<LegacyRow> {
             rows.iter()
                 .find(|row| row.lead_icon().as_deref() == Some(icon))
                 .cloned()
@@ -405,7 +405,7 @@ mod fixtures {
                 },
             );
             sheet.toggle();
-            let rows = collect::<Row>(sheet.upcast_ref());
+            let rows = collect::<LegacyRow>(sheet.upcast_ref());
 
             match case.as_str() {
                 "menu" => {}
@@ -1854,8 +1854,9 @@ mod fixtures {
 
     mod lock {
         use super::{
-            DEMO, IndicatorSpec, Media, Notification, NowPlaying, POWER_OFF, REBOOT, Row, SUSPEND,
-            SessionActionState, TransportAction, Urgency, collect, find, tagged, themed_icon,
+            DEMO, IndicatorSpec, LegacyRow, Media, Notification, NowPlaying, POWER_OFF, REBOOT,
+            SUSPEND, SessionActionState, TransportAction, Urgency, collect, find, tagged,
+            themed_icon,
         };
         use glimpse_widgets::{
             ChipGroup, LockStage, MessageKind, NotificationCard, NotificationList, PasswordPrompt,
@@ -2097,7 +2098,7 @@ mod fixtures {
                     let state = Rc::clone(state);
                     move |blocked| {
                         state.blocked.set(blocked);
-                        for row in tagged::<Row>(&root, "session_suspend") {
+                        for row in tagged::<LegacyRow>(&root, "session_suspend") {
                             row.set_sensitive(!blocked);
                             row.set_property("subtitle", blocked.then_some(SUSPEND_BLOCKED));
                         }
@@ -2209,7 +2210,7 @@ mod fixtures {
                 eprintln!("session: power button");
             }
             glib::timeout_add_local_once(Duration::from_millis(2500), move || {
-                if let Some(restart) = collect::<Row>(stage.upcast_ref())
+                if let Some(restart) = collect::<LegacyRow>(stage.upcast_ref())
                     .into_iter()
                     .find(|row| row.lead_icon().as_deref() == Some("system-reboot-symbolic"))
                 {
@@ -3361,7 +3362,7 @@ mod fixtures {
             match widget.downcast_ref::<SplitRow>() {
                 Some(split) => split.row().set_busy(true),
                 None => eprintln!(
-                    ".{BUSY} sits on a {}; a $Row takes busy and a Gtk.Spinner takes spinning \
+                    ".{BUSY} sits on a {}; a $LegacyRow takes busy and a Gtk.Spinner takes spinning \
                      straight from the blueprint",
                     widget.type_().name()
                 ),
@@ -4146,7 +4147,7 @@ mod fixtures {
     }
 
     fn set_selected(widget: &gtk4::Widget, selected: bool) {
-        if let Some(row) = widget.downcast_ref::<Row>() {
+        if let Some(row) = widget.downcast_ref::<LegacyRow>() {
             row.set_selected(selected);
         }
         if let Some(split) = widget.downcast_ref::<SplitRow>() {
@@ -4198,7 +4199,7 @@ mod fixtures {
             .collect();
 
         for widget in collect::<gtk4::Widget>(host) {
-            if !(widget.is::<Row>() || widget.is::<SplitRow>() || widget.is::<Hero>()) {
+            if !(widget.is::<LegacyRow>() || widget.is::<SplitRow>() || widget.is::<Hero>()) {
                 continue;
             }
             let inside = open
@@ -4407,11 +4408,11 @@ fn ensure_types() {
         BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClipboardList,
         ClipboardPopover, ClockRow, ColorList, ColorPickerPopover, DisplayList, DisplayPopover,
         EventList, EventRow, Expandable, FactList, Fader, ForecastDay, ForecastHour, ForecastList,
-        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LockClock,
-        LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LegacyRow,
+        LockClock, LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
         NotificationImageBody, NotificationList, NotificationStack, NotificationTextBody,
         NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList,
-        PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout, Row, Scrubber,
+        PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber,
         Section, SessionPopover, SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown,
         ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar, ShotWindowList, SourceList,
         SplitRow, StatusIsland, Swatch, SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard,
@@ -4474,7 +4475,7 @@ fn ensure_types() {
         TooltipCard::static_type(),
         KeyboardPopover::static_type(),
         Placeholder::static_type(),
-        Row::static_type(),
+        LegacyRow::static_type(),
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),

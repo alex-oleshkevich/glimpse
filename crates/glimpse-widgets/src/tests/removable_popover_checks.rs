@@ -48,9 +48,9 @@ fn removable_popover_widgets() {
         let Some(card) = holder.details::<gtk4::Box>() else {
             return Vec::new();
         };
-        let mut rows = children_of::<Row>(&card);
+        let mut rows = children_of::<LegacyRow>(&card);
         for facts in children_of::<FactList>(&card) {
-            rows.extend(children_of::<Row>(&facts));
+            rows.extend(children_of::<LegacyRow>(&facts));
         }
         rows
     };
@@ -91,7 +91,9 @@ fn removable_popover_widgets() {
         "a volume nests under its drive"
     );
 
-    let header = cells[0].head::<Row>().expect("the drive row opens a card");
+    let header = cells[0]
+        .head::<LegacyRow>()
+        .expect("the drive row opens a card");
     header.emit_by_name::<()>("clicked", &[]);
     assert!(cells[0].expanded(), "a drive row opens its card");
     titled(&cells[0], "Eject")
@@ -104,7 +106,7 @@ fn removable_popover_widgets() {
     );
 
     let mounted = cells[1]
-        .head::<Row>()
+        .head::<LegacyRow>()
         .expect("a mounted volume is a plain opener");
     mounted.emit_by_name::<()>("clicked", &[]);
     assert!(cells[1].expanded(), "a volume in use opens its card");
@@ -129,7 +131,7 @@ fn removable_popover_widgets() {
     assert!(titled(&cells[1], "Eject").is_none());
 
     let idle = cells[2]
-        .head::<Row>()
+        .head::<LegacyRow>()
         .expect("nothing to show makes a plain row");
     assert!(
         cells[2].details::<gtk4::Widget>().is_none(),
@@ -155,7 +157,7 @@ fn removable_popover_widgets() {
     );
     assert!((bar.fraction() - 0.75).abs() < f64::EPSILON);
     assert!(
-        after[2].head::<Row>().expect("a row").busy(),
+        after[2].head::<LegacyRow>().expect("a row").busy(),
         "work in flight spins"
     );
 
@@ -191,7 +193,7 @@ fn removable_popover_widgets() {
     let single = &expandables()[0];
     assert!(
         single
-            .head::<Row>()
+            .head::<LegacyRow>()
             .expect("a row")
             .has_css_class("row--warning")
     );
@@ -217,7 +219,7 @@ fn removable_popover_widgets() {
     }]);
     let empty = &expandables()[0];
     assert!(empty.details::<gtk4::Widget>().is_none());
-    assert!(!empty.head::<Row>().expect("a row").activatable());
+    assert!(!empty.head::<LegacyRow>().expect("a row").activatable());
 
     let width = |popover: &RemovablePopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
     let drive = |id: &str, label: &str| RemovableDrive {

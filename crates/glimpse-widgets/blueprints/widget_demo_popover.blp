@@ -48,6 +48,197 @@ template $WidgetDemoPopover: Gtk.Widget {
       }
     }
 
+    $Section {
+      title: "Rows";
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $Row {
+          icon-name: "folder-symbolic";
+          title: "Normal row";
+          subtitle: "With a subtitle";
+          value: "Ready";
+          tooltip: "Static tooltip";
+        }
+
+        $Row {
+          title: "Warning row";
+          value: "1 234,56";
+          tone: warning;
+          typography: numeric;
+        }
+
+        $Row {
+          title: "Error row";
+          value: "a1:b2:c3";
+          tone: error;
+          typography: monospace;
+        }
+
+        $Row {
+          title: _("Inactive warning row");
+          tone: warning;
+          inactive: true;
+          subtitle: _("Device out of range");
+        }
+
+        $ActionRow {
+          icon-name: "emblem-system-symbolic";
+          title: "Open settings";
+        }
+
+        $ActionRow {
+          title: "Forget device";
+          tone: destructive;
+        }
+      }
+    }
+
+    $Section {
+      title: "Toggles";
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $ToggleRow {
+          title: "Wi-Fi";
+          active: true;
+        }
+
+        $ToggleRow {
+          title: "Remember";
+          control: check;
+        }
+
+        $ToggleRow {
+          title: "Airplane mode";
+          active: true;
+          inactive: true;
+          subtitle: _("Locked by the hardware switch");
+        }
+      }
+    }
+
+    $Section {
+      title: "Meters";
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $MeterRow {
+          title: "CPU";
+          level: 0.3;
+          value: "30%";
+        }
+
+        $MeterRow {
+          title: "Memory";
+          level: 0.8;
+          tone: warning;
+          value: "80%";
+        }
+
+        $MeterRow {
+          title: "Disk";
+          level: 0.95;
+          tone: error;
+          value: "95%";
+        }
+      }
+    }
+
+    $Section {
+      title: "Drawers";
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $ExpanderRow {
+          icon-name: "bluetooth-symbolic";
+          title: "Bluetooth device";
+
+          [end]
+          Gtk.Image {
+            icon-name: "object-select-symbolic";
+          }
+
+          $ActionRow {
+            title: "Connect";
+          }
+
+          $MeterRow {
+            title: "Battery";
+            level: 0.6;
+            value: "60%";
+          }
+
+          $ActionRow {
+            title: "Forget";
+            tone: destructive;
+          }
+
+          $ExpanderRow {
+            title: "Details";
+
+            $Row {
+              title: "Address";
+              value: "00:11:22:33:44:55";
+              typography: monospace;
+            }
+          }
+        }
+
+        $ExpanderRow {
+          title: "More devices";
+
+          $ActionRow {
+            title: "Pair new device";
+          }
+        }
+      }
+    }
+
+    $Section {
+      title: "Sliders";
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $SliderRow volume {
+          value: 0.5;
+
+          [start]
+          Gtk.Button mute {
+            icon-name: "audio-volume-medium-symbolic";
+            tooltip-text: _("Mute");
+            styles ["flat"]
+            clicked => $on_mute() swapped;
+          }
+        }
+
+        $SliderRow {
+          value: 0.2;
+          inactive: true;
+          tone: warning;
+        }
+      }
+    }
+
+    $ExpanderRow {
+      icon-name: "dialog-warning-symbolic";
+      tone: warning;
+      tint: true;
+      title-lines: 3;
+      title: _("Storm warning: strong wind gusts up to 90 km/h expected across the region");
+      subtitle: "Until 18:00";
+
+      $Row {
+        title: "Details";
+        subtitle: "Strong wind expected";
+      }
+    }
+
     $Container {
       height: 1024;
       background: yellow;

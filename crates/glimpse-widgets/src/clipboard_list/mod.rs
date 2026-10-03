@@ -5,7 +5,7 @@ use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 pub use imp::Actions;
 
 use crate::reconcile::by_key;
-use crate::{Expandable, Fact, FactList, Row, SplitRow, Swatch, none_if_empty};
+use crate::{Expandable, Fact, FactList, LegacyRow, SplitRow, Swatch, none_if_empty};
 
 const TILE_HEIGHT: i32 = 200;
 const NARROW: i32 = 1;
@@ -256,7 +256,7 @@ impl ClipboardList {
             card.append(&facts);
         }
         for action in &clip.actions {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.set_title(Some(action.title.as_str()));
             row.set_value(none_if_empty(&action.value));
             let key = action.key.clone();
@@ -280,7 +280,7 @@ impl ClipboardList {
             card.append(&row);
         }
 
-        let pin = Row::new();
+        let pin = LegacyRow::new();
         pin.add_css_class(PIN);
         pin.set_title(Some(self.pin_label(clip.pinned).as_str()));
         pin.connect_clicked(glib::clone!(
@@ -290,7 +290,7 @@ impl ClipboardList {
         ));
         card.append(&pin);
 
-        let remove = Row::new();
+        let remove = LegacyRow::new();
         remove.set_title(Some(self.imp().actions.borrow().forget.as_str()));
         remove.add_css_class(crate::DESTRUCTIVE);
         remove.connect_clicked(glib::clone!(
@@ -302,7 +302,7 @@ impl ClipboardList {
         card
     }
 
-    fn aside(&self, row: &Row, id: u64, key: &str) {
+    fn aside(&self, row: &LegacyRow, id: u64, key: &str) {
         let choices: Vec<ClipAction> = self
             .imp()
             .clips
@@ -322,7 +322,7 @@ impl ClipboardList {
             .has_arrow(false)
             .build();
         for choice in choices {
-            let item = Row::new();
+            let item = LegacyRow::new();
             item.set_title(Some(choice.title.as_str()));
             item.set_value(none_if_empty(&choice.value));
             item.connect_clicked(glib::clone!(
@@ -392,7 +392,7 @@ fn drag_source(texture: &gdk::Texture, file: &gio::File) -> gtk4::DragSource {
     source
 }
 
-fn pin_row(card: &gtk4::Box) -> Option<Row> {
+fn pin_row(card: &gtk4::Box) -> Option<LegacyRow> {
     let mut child = card.first_child();
     while let Some(widget) = child {
         if widget.has_css_class(PIN) {

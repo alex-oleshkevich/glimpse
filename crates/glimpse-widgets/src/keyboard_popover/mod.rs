@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty};
+use crate::{LegacyRow, none_if_empty};
 
 pub use imp::Layout;
 
@@ -78,8 +78,8 @@ impl KeyboardPopover {
         }
     }
 
-    fn build_row(&self, index: u32) -> Row {
-        let row = Row::new();
+    fn build_row(&self, index: u32) -> LegacyRow {
+        let row = LegacyRow::new();
         row.set_selectable(true);
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = popover)]

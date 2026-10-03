@@ -50,12 +50,12 @@ pub(super) fn check() {
             .expect("the enable switch follows the facts");
         (facts, switch)
     };
-    let heads_of = |holders: &[Expandable]| -> Vec<Row> {
+    let heads_of = |holders: &[Expandable]| -> Vec<LegacyRow> {
         holders.iter().filter_map(Expandable::head).collect()
     };
 
     displays.set_displays(&[built_in.clone(), external.clone()]);
-    let heads: Vec<Row> = heads_of(&children_of(&displays));
+    let heads: Vec<LegacyRow> = heads_of(&children_of(&displays));
     let holders: Vec<Expandable> = children_of(&displays);
     assert_eq!(heads.len(), 2);
     assert_eq!(holders.len(), 2);
@@ -74,8 +74,8 @@ pub(super) fn check() {
 
     let (built_in_facts, built_in_switch) = detail_of(&holders[0]);
     let (external_facts, external_switch) = detail_of(&holders[1]);
-    let built_in_fact_rows: Vec<Row> = children_of(&built_in_facts);
-    let external_fact_rows: Vec<Row> = children_of(&external_facts);
+    let built_in_fact_rows: Vec<LegacyRow> = children_of(&built_in_facts);
+    let external_fact_rows: Vec<LegacyRow> = children_of(&external_facts);
     assert_eq!(
         built_in_fact_rows.len(),
         4,
@@ -126,7 +126,7 @@ pub(super) fn check() {
         solo_switch.is_sensitive(),
         "the row itself stays sensitive so its explanation is not dimmed along with the knob"
     );
-    let solo_head: &Row = solo_switch.upcast_ref();
+    let solo_head: &LegacyRow = solo_switch.upcast_ref();
     assert_eq!(
         solo_head.subtitle().as_deref(),
         Some("The last enabled display can't be turned off")
@@ -138,7 +138,7 @@ pub(super) fn check() {
     assert!(!off_switch.active());
     let (off_facts, _) = detail_of(&holders[1]);
     assert_eq!(
-        children_of::<Row>(&off_facts)[0].value().as_deref(),
+        children_of::<LegacyRow>(&off_facts)[0].value().as_deref(),
         Some("Off"),
         "a disabled display's card says so instead of a mode"
     );
@@ -157,7 +157,7 @@ pub(super) fn check() {
 
     displays.set_displays(&[built_in.clone(), external.clone()]);
     let holders: Vec<Expandable> = children_of(&displays);
-    let heads: Vec<Row> = heads_of(&holders);
+    let heads: Vec<LegacyRow> = heads_of(&holders);
     assert!(!holders[0].expanded());
     assert!(!holders[0].has_css_class(crate::drawer::OPEN));
 
@@ -183,7 +183,7 @@ pub(super) fn check() {
         renders_before,
         "an identical slice returns early and never re-renders"
     );
-    let heads_after: Vec<Row> = heads_of(&children_of(&displays));
+    let heads_after: Vec<LegacyRow> = heads_of(&children_of(&displays));
     assert_eq!(heads_after.len(), 2);
     assert_eq!(heads_after[0], kept_head, "rows are reused, not rebuilt");
     assert!(
@@ -203,12 +203,14 @@ pub(super) fn check() {
     let holders: Vec<Expandable> = children_of(&displays);
     let (hostile_facts, _) = detail_of(&holders[0]);
     assert_eq!(
-        children_of::<Row>(&hostile_facts)[0].title().as_deref(),
+        children_of::<LegacyRow>(&hostile_facts)[0]
+            .title()
+            .as_deref(),
         Some("Connector"),
         "an enabled display with no current mode has no mode line"
     );
     assert!(
-        children_of::<Row>(&hostile_facts).iter().all(|row| {
+        children_of::<LegacyRow>(&hostile_facts).iter().all(|row| {
             row.value()
                 .map(|value| value.chars().count() <= TEXT_MAX_CHARS)
                 .unwrap_or(true)
@@ -243,7 +245,7 @@ pub(super) fn check() {
         "AC-1: output_power true, the default, keeps today's behaviour unchanged"
     );
 
-    let gate_heads: Vec<Row> = heads_of(&gate_holders);
+    let gate_heads: Vec<LegacyRow> = heads_of(&gate_holders);
     gate_heads[0].emit_clicked();
     let gate_panel = gate_holders[0].clone();
     assert!(
@@ -272,12 +274,12 @@ pub(super) fn check() {
         );
     }
     assert_eq!(
-        children_of::<Row>(&facts_of(&gate_holders_off[0])).len(),
+        children_of::<LegacyRow>(&facts_of(&gate_holders_off[0])).len(),
         4,
         "AC-3: the built-in display's own facts survive the gate"
     );
     assert_eq!(
-        children_of::<Row>(&facts_of(&gate_holders_off[1])).len(),
+        children_of::<LegacyRow>(&facts_of(&gate_holders_off[1])).len(),
         7,
         "AC-3: so do the external display's, mode through position"
     );
@@ -453,7 +455,7 @@ pub(super) fn check() {
     let night_head = brightness.imp().night_head.get();
     let night_facts = brightness.imp().night_facts.get();
     let night_values = || -> Vec<(Option<String>, Option<String>)> {
-        children_of::<Row>(&night_facts)
+        children_of::<LegacyRow>(&night_facts)
             .iter()
             .map(|row| (row.title(), row.value()))
             .collect()
@@ -701,8 +703,8 @@ pub(super) fn check() {
     );
     assert_eq!(
         display_popover.imp().blank.type_(),
-        Row::static_type(),
-        "AC-11: the blank row is a Row, never a SwitchRow — DPMS has no state to sit in, so \
+        LegacyRow::static_type(),
+        "AC-11: the blank row is a LegacyRow, never a SwitchRow — DPMS has no state to sit in, so \
              a knob that moved without the screen following it would be lying"
     );
 
@@ -764,7 +766,7 @@ pub(super) fn check() {
     display_popover.set_footer(Some("Display settings"));
     assert!(display_popover.imp().footer.get_visible());
 
-    let popover_heads: Vec<Row> = heads_of(&children_of(&*display_popover.imp().devices));
+    let popover_heads: Vec<LegacyRow> = heads_of(&children_of(&*display_popover.imp().devices));
     let dimmed = |widget: &gtk4::Widget| {
         std::iter::successors(Some(widget.clone()), |widget| widget.parent())
             .any(|widget| widget.has_css_class(crate::drawer::RECEDED))

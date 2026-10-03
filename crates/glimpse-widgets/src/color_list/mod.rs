@@ -4,7 +4,7 @@ use gettextrs::ngettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Expandable, Row, SplitRow, Swatch, none_if_empty};
+use crate::{Expandable, LegacyRow, SplitRow, Swatch, none_if_empty};
 
 const FOLDED_ROWS: usize = 8;
 
@@ -139,7 +139,7 @@ impl ColorList {
         strip.add_css_class("color-card__swatch");
         panel.append(&strip);
         for notation in &shade.notations {
-            let row = Row::new();
+            let row = LegacyRow::new();
             row.add_css_class("color-notation");
             row.set_title(Some(notation.value.as_str()));
             row.set_value(Some(notation.label.as_str()));

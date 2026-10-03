@@ -45,7 +45,7 @@ template $BluetoothPopover: Gtk.Widget {
                 orientation: vertical;
               }
 
-              $Row more_paired {
+              $LegacyRow more_paired {
                 visible: false;
                 activatable: true;
                 lead-icon: "view-more-symbolic";
@@ -59,7 +59,7 @@ template $BluetoothPopover: Gtk.Widget {
             Gtk.Box {
               orientation: vertical;
 
-              $Row search {
+              $LegacyRow search {
                 activatable: true;
                 title: _("Nearby devices");
 
@@ -84,7 +84,7 @@ template $BluetoothPopover: Gtk.Widget {
                     orientation: vertical;
                   }
 
-                  $Row more_nearby {
+                  $LegacyRow more_nearby {
                     visible: false;
                     activatable: true;
                     lead-icon: "view-more-symbolic";
@@ -169,7 +169,7 @@ template $BluetoothPopover: Gtk.Widget {
     }
 
     [footer]
-    $Row footer {
+    $LegacyRow footer {
       visible: false;
     }
   }

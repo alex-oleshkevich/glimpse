@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, PopoverShell, Row, Section, SplitRow};
+use crate::{Expandable, Hero, LegacyRow, PopoverShell, Section, SplitRow};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Action {
@@ -44,15 +44,15 @@ pub struct KdeconnectPopover {
     #[template_child]
     pub nearby: TemplateChild<Section>,
     #[template_child]
-    pub nearby_toggle: TemplateChild<Row>,
+    pub nearby_toggle: TemplateChild<LegacyRow>,
     #[template_child]
     pub nearby_drawer: TemplateChild<gtk4::Revealer>,
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub nearby_more: TemplateChild<Row>,
+    pub nearby_more: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub devices_held: RefCell<Vec<(String, Expandable)>>,
     pub devices_data: RefCell<Vec<Device>>,

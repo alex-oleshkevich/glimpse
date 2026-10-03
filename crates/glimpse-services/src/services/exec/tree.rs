@@ -48,6 +48,13 @@ pub enum ElementKind {
     Row,
     SwitchRow,
     Fader,
+    ActionRow,
+    ToggleRow,
+    MeterRow,
+    ExpanderRow,
+    End,
+    Start,
+    SliderRow,
     Entry,
     Placeholder,
     Box,
@@ -172,6 +179,13 @@ pub enum Element {
     Row(RowProps),
     SwitchRow(SwitchRowProps),
     Fader(FaderProps),
+    ActionRow(ActionRowProps),
+    ToggleRow(ToggleRowProps),
+    MeterRow(MeterRowProps),
+    ExpanderRow(ExpanderRowProps),
+    End(EndProps),
+    Start(EndProps),
+    SliderRow(SliderRowProps),
     Entry(EntryProps),
     Placeholder(PlaceholderProps),
     Box(BoxProps),
@@ -307,6 +321,179 @@ pub struct FaderProps {
     pub class_name: Option<ClassName>,
     pub on_change: bool,
     pub on_mute: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RowTone {
+    #[default]
+    #[serde(skip_deserializing)]
+    Normal,
+    Warning,
+    Error,
+    Destructive,
+}
+
+fn title_lines() -> i32 {
+    1
+}
+
+fn de_title_lines<'de, D: Deserializer<'de>>(deserializer: D) -> Result<i32, D::Error> {
+    let value = Value::deserialize(deserializer)?.as_f64().unwrap_or(1.0);
+    Ok(
+        if value.is_finite() && value.fract() == 0.0 && value >= 1.0 {
+            value.min(4.0) as i32
+        } else {
+            1
+        },
+    )
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RowTypography {
+    #[default]
+    #[serde(skip_deserializing)]
+    Default,
+    Numeric,
+    Monospace,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToggleControl {
+    Check,
+    #[default]
+    Switch,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ActionRowProps {
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub value: Option<String>,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub typography: RowTypography,
+    pub busy: bool,
+    pub on_activate: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ToggleRowProps {
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub value: Option<String>,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub typography: RowTypography,
+    pub busy: bool,
+    pub control: ToggleControl,
+    pub active: bool,
+    pub on_toggle: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct MeterRowProps {
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub value: Option<String>,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub typography: RowTypography,
+    pub busy: bool,
+    #[serde(default, deserialize_with = "de_optional_f64")]
+    pub level: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExpanderRowProps {
+    pub icon: Option<String>,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub value: Option<String>,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub typography: RowTypography,
+    pub busy: bool,
+    pub open: bool,
+    pub tint: bool,
+    #[serde(default = "title_lines", deserialize_with = "de_title_lines")]
+    pub title_lines: i32,
+    pub on_toggle: bool,
+}
+
+impl Default for ExpanderRowProps {
+    fn default() -> Self {
+        Self {
+            icon: None,
+            title: None,
+            subtitle: None,
+            value: None,
+            tone: RowTone::Normal,
+            inactive: false,
+            tooltip: None,
+            typography: RowTypography::Default,
+            busy: false,
+            open: false,
+            tint: false,
+            title_lines: 1,
+            on_toggle: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EndProps {}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SliderRowProps {
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    #[serde(default, deserialize_with = "de_optional_f64")]
+    pub value: Option<f64>,
+    #[serde(default, deserialize_with = "de_finite_f64")]
+    pub min: f64,
+    #[serde(default = "one", deserialize_with = "de_finite_f64")]
+    pub max: f64,
+    #[serde(default = "slider_step", deserialize_with = "de_finite_f64")]
+    pub step: f64,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub on_move: bool,
+    pub on_change: bool,
+}
+
+impl Default for SliderRowProps {
+    fn default() -> Self {
+        Self {
+            title: None,
+            subtitle: None,
+            value: None,
+            min: 0.0,
+            max: 1.0,
+            step: slider_step(),
+            tone: RowTone::Normal,
+            inactive: false,
+            tooltip: None,
+            on_move: false,
+            on_change: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -914,6 +1101,13 @@ impl Element {
             Self::Row(_) => ElementKind::Row,
             Self::SwitchRow(_) => ElementKind::SwitchRow,
             Self::Fader(_) => ElementKind::Fader,
+            Self::ActionRow(_) => ElementKind::ActionRow,
+            Self::ToggleRow(_) => ElementKind::ToggleRow,
+            Self::MeterRow(_) => ElementKind::MeterRow,
+            Self::ExpanderRow(_) => ElementKind::ExpanderRow,
+            Self::End(_) => ElementKind::End,
+            Self::Start(_) => ElementKind::Start,
+            Self::SliderRow(_) => ElementKind::SliderRow,
             Self::Entry(_) => ElementKind::Entry,
             Self::Placeholder(_) => ElementKind::Placeholder,
             Self::Box(_) => ElementKind::Box,
@@ -959,6 +1153,13 @@ impl ElementKind {
             Self::Row => "row",
             Self::SwitchRow => "switchrow",
             Self::Fader => "fader",
+            Self::ActionRow => "actionrow",
+            Self::ToggleRow => "togglerow",
+            Self::MeterRow => "meterrow",
+            Self::ExpanderRow => "expanderrow",
+            Self::End => "end",
+            Self::Start => "start",
+            Self::SliderRow => "sliderrow",
             Self::Entry => "entry",
             Self::Placeholder => "placeholder",
             Self::Box => "box",
@@ -1008,6 +1209,13 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "row" => ElementKind::Row,
         "switchrow" => ElementKind::SwitchRow,
         "fader" => ElementKind::Fader,
+        "actionrow" => ElementKind::ActionRow,
+        "togglerow" => ElementKind::ToggleRow,
+        "meterrow" => ElementKind::MeterRow,
+        "expanderrow" => ElementKind::ExpanderRow,
+        "end" => ElementKind::End,
+        "start" => ElementKind::Start,
+        "sliderrow" => ElementKind::SliderRow,
         "entry" => ElementKind::Entry,
         "placeholder" => ElementKind::Placeholder,
         "box" => ElementKind::Box,
@@ -1074,6 +1282,16 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
             child,
             ElementKind::Image | ElementKind::Label | ElementKind::Button | ElementKind::Switch
         ),
+        ElementKind::ActionRow | ElementKind::MeterRow | ElementKind::End => matches!(
+            child,
+            ElementKind::Image | ElementKind::Readout | ElementKind::Spinner
+        ),
+        ElementKind::ExpanderRow => child == ElementKind::End || is_drawer_child(child),
+        ElementKind::SliderRow => child == ElementKind::Start,
+        ElementKind::Start => matches!(
+            child,
+            ElementKind::Image | ElementKind::Button | ElementKind::Readout | ElementKind::Spinner
+        ),
         ElementKind::Footer => matches!(
             child,
             ElementKind::Button | ElementKind::Row | ElementKind::Label | ElementKind::Box
@@ -1089,6 +1307,11 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Row
             | ElementKind::SwitchRow
             | ElementKind::Fader
+            | ElementKind::ActionRow
+            | ElementKind::ToggleRow
+            | ElementKind::MeterRow
+            | ElementKind::ExpanderRow
+            | ElementKind::SliderRow
             | ElementKind::Entry
             | ElementKind::Placeholder
             | ElementKind::Box
@@ -1117,6 +1340,20 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Separator
             | ElementKind::Container
             | ElementKind::Unsupported
+    )
+}
+
+fn is_drawer_child(kind: ElementKind) -> bool {
+    matches!(
+        kind,
+        ElementKind::ActionRow
+            | ElementKind::ToggleRow
+            | ElementKind::MeterRow
+            | ElementKind::SliderRow
+            | ElementKind::ExpanderRow
+            | ElementKind::FactList
+            | ElementKind::ChoiceList
+            | ElementKind::Row
     )
 }
 
@@ -1207,6 +1444,15 @@ fn realize_into(
         ElementKind::Row => Element::Row(finish_row(read_props(id, raw, kept))),
         ElementKind::SwitchRow => Element::SwitchRow(finish_switch_row(read_props(id, raw, kept))),
         ElementKind::Fader => Element::Fader(finish_fader(read_props(id, raw, kept))),
+        ElementKind::ActionRow => Element::ActionRow(finish_action_row(read_props(id, raw, kept))),
+        ElementKind::ToggleRow => Element::ToggleRow(finish_toggle_row(read_props(id, raw, kept))),
+        ElementKind::MeterRow => Element::MeterRow(finish_meter_row(read_props(id, raw, kept))),
+        ElementKind::ExpanderRow => {
+            Element::ExpanderRow(finish_expander_row(read_props(id, raw, kept)))
+        }
+        ElementKind::End => Element::End(read_props(id, raw, kept)),
+        ElementKind::Start => Element::Start(read_props(id, raw, kept)),
+        ElementKind::SliderRow => Element::SliderRow(finish_slider_row(read_props(id, raw, kept))),
         ElementKind::Entry => Element::Entry(finish_entry(read_props(id, raw, kept))),
         ElementKind::Placeholder => {
             Element::Placeholder(finish_placeholder(read_props(id, raw, kept)))
@@ -1335,6 +1581,92 @@ fn finish_fader(mut props: FaderProps) -> FaderProps {
     props.value = finite_or(props.value, 0.0);
     props.floor = finite_or(props.floor, 0.0).max(0.0);
     props.maximum = finite_or(props.maximum, 100.0).max(props.floor);
+    props
+}
+
+fn finish_row_text(
+    icon_name: &mut Option<String>,
+    title: &mut Option<String>,
+    subtitle: &mut Option<String>,
+    value: &mut Option<String>,
+    tooltip: &mut Option<String>,
+) {
+    *icon_name = icon(icon_name.take());
+    *title = row_text(title.take());
+    *subtitle = row_text(subtitle.take());
+    *value = row_text(value.take());
+    *tooltip = row_text(tooltip.take());
+}
+
+fn finish_action_row(mut props: ActionRowProps) -> ActionRowProps {
+    finish_row_text(
+        &mut props.icon,
+        &mut props.title,
+        &mut props.subtitle,
+        &mut props.value,
+        &mut props.tooltip,
+    );
+    props
+}
+
+fn finish_toggle_row(mut props: ToggleRowProps) -> ToggleRowProps {
+    finish_row_text(
+        &mut props.icon,
+        &mut props.title,
+        &mut props.subtitle,
+        &mut props.value,
+        &mut props.tooltip,
+    );
+    props
+}
+
+fn finish_meter_row(mut props: MeterRowProps) -> MeterRowProps {
+    finish_row_text(
+        &mut props.icon,
+        &mut props.title,
+        &mut props.subtitle,
+        &mut props.value,
+        &mut props.tooltip,
+    );
+    props.level = props
+        .level
+        .filter(|level| level.is_finite())
+        .map(|level| level.clamp(0.0, 1.0));
+    props
+}
+
+fn finish_expander_row(mut props: ExpanderRowProps) -> ExpanderRowProps {
+    finish_row_text(
+        &mut props.icon,
+        &mut props.title,
+        &mut props.subtitle,
+        &mut props.value,
+        &mut props.tooltip,
+    );
+    props
+}
+
+fn finish_slider_row(mut props: SliderRowProps) -> SliderRowProps {
+    props.title = row_text(props.title);
+    props.subtitle = row_text(props.subtitle);
+    props.tooltip = row_text(props.tooltip);
+    props.min = finite_or(props.min, 0.0);
+    props.max = finite_or(props.max, 1.0);
+    props.step = finite_or(props.step, slider_step());
+    if props.min >= props.max {
+        props.min = 0.0;
+        props.max = 1.0;
+    }
+    if props.step <= 0.0 {
+        props.step = slider_step();
+    }
+    props.value = Some(
+        props
+            .value
+            .filter(|value| value.is_finite())
+            .unwrap_or(props.min)
+            .clamp(props.min, props.max),
+    );
     props
 }
 
@@ -1525,6 +1857,19 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
         let count = node.children.len();
         let fits = match node.element.kind() {
             ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
+            ElementKind::ActionRow
+            | ElementKind::MeterRow
+            | ElementKind::End
+            | ElementKind::Start
+            | ElementKind::SliderRow => count <= 1,
+            ElementKind::ExpanderRow => {
+                node.children
+                    .iter()
+                    .filter_map(|child| nodes.get(child))
+                    .filter(|child| child.element.kind() == ElementKind::End)
+                    .count()
+                    <= 1
+            }
             ElementKind::Addon | ElementKind::Container => count <= 1,
             ElementKind::Popover => {
                 node.children
@@ -1548,6 +1893,15 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
 
 fn text(value: Option<String>) -> Option<String> {
     capped(value, TEXT_CAP)
+}
+
+fn row_text(value: Option<String>) -> Option<String> {
+    let text = text(value)?;
+    if text.chars().count() <= TEXT_CAP {
+        Some(text)
+    } else {
+        Some(text.chars().take(TEXT_CAP - 1).chain(['…']).collect())
+    }
 }
 
 fn capped(value: Option<String>, cap: usize) -> Option<String> {
@@ -1602,6 +1956,10 @@ fn hundred() -> f64 {
 
 fn one() -> f64 {
     1.0
+}
+
+fn slider_step() -> f64 {
+    0.01
 }
 
 fn yes() -> bool {

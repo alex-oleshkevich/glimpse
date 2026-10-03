@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, PopoverShell, Row, Section};
+use crate::{Expandable, Hero, LegacyRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -37,7 +37,7 @@ pub struct PlacesPopover {
     #[template_child]
     pub bookmarks_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub bookmarks_more: TemplateChild<Row>,
+    pub bookmarks_more: TemplateChild<LegacyRow>,
     #[template_child]
     pub network: TemplateChild<Section>,
     #[template_child]
@@ -47,20 +47,20 @@ pub struct PlacesPopover {
     #[template_child]
     pub trash_item: TemplateChild<Expandable>,
     #[template_child]
-    pub trash_row: TemplateChild<Row>,
+    pub trash_row: TemplateChild<LegacyRow>,
     #[template_child]
-    pub trash_open: TemplateChild<Row>,
+    pub trash_open: TemplateChild<LegacyRow>,
     #[template_child]
-    pub trash_empty: TemplateChild<Row>,
+    pub trash_empty: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
 
     pub places_data: RefCell<Vec<Entry>>,
-    pub places_held: RefCell<Vec<(String, Row)>>,
+    pub places_held: RefCell<Vec<(String, LegacyRow)>>,
     pub bookmarks_data: RefCell<Vec<Entry>>,
-    pub bookmarks_held: RefCell<Vec<(String, Row)>>,
+    pub bookmarks_held: RefCell<Vec<(String, LegacyRow)>>,
     pub network_data: RefCell<Vec<Entry>>,
-    pub network_held: RefCell<Vec<(String, Row)>>,
+    pub network_held: RefCell<Vec<(String, LegacyRow)>>,
     pub trash_data: RefCell<Option<Trash>>,
     pub trash_armed: Cell<bool>,
 }

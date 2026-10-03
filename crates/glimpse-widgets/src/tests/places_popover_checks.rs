@@ -87,7 +87,7 @@ fn places_popover_widgets() {
         }
     });
     home_widget
-        .and_downcast::<Row>()
+        .and_downcast::<LegacyRow>()
         .expect("a row")
         .emit_by_name::<()>("clicked", &[]);
     assert_eq!(

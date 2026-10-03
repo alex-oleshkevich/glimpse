@@ -472,9 +472,12 @@ const CONTROLLED: Record<string, [string, string]> = {
   scale: ["onChange", "value"],
   switch: ["onToggle", "active"],
   switchrow: ["onToggle", "active"],
+  togglerow: ["onToggle", "active"],
   togglebutton: ["onToggle", "active"],
   checkbutton: ["onToggle", "active"],
   expander: ["onToggle", "expanded"],
+  expanderrow: ["onToggle", "open"],
+  sliderrow: ["onChange", "value"],
   dropdown: ["onSelect", "selected"],
   choicelist: ["onSelect", "selected"],
 };

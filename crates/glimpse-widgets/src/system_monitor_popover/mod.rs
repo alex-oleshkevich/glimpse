@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, Severity, none_if_empty, reconcile, set_css_class, set_footer_row};
+use crate::{LegacyRow, Severity, none_if_empty, reconcile, set_css_class, set_footer_row};
 
 pub use imp::{DetailTile, UsageTile};
 
@@ -56,7 +56,7 @@ impl SystemMonitorPopover {
             &mut imp.details_held.borrow_mut(),
             tiles,
             |tile| tile.id.clone(),
-            |_tile| Row::new(),
+            |_tile| LegacyRow::new(),
             |row, tile| {
                 row.set_activatable(false);
                 row.set_title(none_if_empty(&tile.title));
@@ -79,10 +79,10 @@ impl SystemMonitorPopover {
 }
 
 fn apply_usage_cell(cell: &gtk4::Box, tile: &UsageTile) {
-    let row = match cell.first_child().and_downcast::<Row>() {
+    let row = match cell.first_child().and_downcast::<LegacyRow>() {
         Some(row) => row,
         None => {
-            let row = Row::new();
+            let row = LegacyRow::new();
             cell.prepend(&row);
             row
         }

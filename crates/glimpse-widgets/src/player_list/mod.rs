@@ -5,7 +5,7 @@ pub use row::PlayerRow;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty};
+use crate::{LegacyRow, none_if_empty};
 
 const JOIN: &str = " · ";
 
@@ -76,7 +76,7 @@ impl PlayerList {
                 rows.push(row);
             }
             let row = &rows[index];
-            let item: &Row = row.upcast_ref();
+            let item: &LegacyRow = row.upcast_ref();
             item.set_title(none_if_empty(&player.title));
             item.set_subtitle(byline(player).as_deref());
             item.set_lead_icon(none_if_empty(&player.icon_name));

@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Row, none_if_empty, reconcile};
+use crate::{LegacyRow, none_if_empty, reconcile};
 
 pub use imp::HistoryEntry;
 
@@ -96,8 +96,8 @@ impl RulerPopover {
         imp.history_section.set_visible(!entries.is_empty());
     }
 
-    fn build_history_row(&self, entry: &HistoryEntry) -> Row {
-        let row = Row::new();
+    fn build_history_row(&self, entry: &HistoryEntry) -> LegacyRow {
+        let row = LegacyRow::new();
         row.add_css_class("ruler-row");
         row.set_activatable(true);
         let id = entry.id;
@@ -109,7 +109,7 @@ impl RulerPopover {
         row
     }
 
-    fn dress_history_row(&self, row: &Row, entry: &HistoryEntry) {
+    fn dress_history_row(&self, row: &LegacyRow, entry: &HistoryEntry) {
         row.set_title(none_if_empty(&entry.title));
         row.set_value(none_if_empty(&entry.value));
     }

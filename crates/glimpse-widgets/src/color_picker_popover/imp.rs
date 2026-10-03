@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ColorList, Hero, PopoverShell, Row, Section, Swatch};
+use crate::{ColorList, Hero, LegacyRow, PopoverShell, Section, Swatch};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/color_picker_popover.ui")]
@@ -19,9 +19,9 @@ pub struct ColorPickerPopover {
     #[template_child]
     pub palette: TemplateChild<ColorList>,
     #[template_child]
-    pub pick: TemplateChild<Row>,
+    pub pick: TemplateChild<LegacyRow>,
     #[template_child]
-    pub footer: TemplateChild<Row>,
+    pub footer: TemplateChild<LegacyRow>,
     pub resting: RefCell<Option<String>>,
 }
 
@@ -37,7 +37,7 @@ impl ObjectSubclass for ColorPickerPopover {
         Section::static_type();
         ColorList::static_type();
         Swatch::static_type();
-        Row::static_type();
+        LegacyRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);

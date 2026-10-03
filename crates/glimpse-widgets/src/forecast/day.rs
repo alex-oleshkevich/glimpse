@@ -61,7 +61,7 @@ mod imp {
     impl ObjectSubclass for ForecastDay {
         const NAME: &'static str = "ForecastDay";
         type Type = super::ForecastDay;
-        type ParentType = crate::Row;
+        type ParentType = crate::LegacyRow;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
@@ -81,12 +81,12 @@ mod imp {
 
     impl WidgetImpl for ForecastDay {}
     impl ButtonImpl for ForecastDay {}
-    impl crate::row::RowImpl for ForecastDay {}
+    impl crate::legacy_row::LegacyRowImpl for ForecastDay {}
 }
 
 glib::wrapper! {
     pub struct ForecastDay(ObjectSubclass<imp::ForecastDay>)
-        @extends crate::Row, gtk4::Button, gtk4::Widget,
+        @extends crate::LegacyRow, gtk4::Button, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 

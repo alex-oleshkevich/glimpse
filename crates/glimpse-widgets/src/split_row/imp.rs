@@ -2,7 +2,7 @@ use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
-use crate::Row;
+use crate::LegacyRow;
 
 const DETAIL_ICON: &str = "go-next-symbolic";
 
@@ -11,7 +11,7 @@ const DETAIL_ICON: &str = "go-next-symbolic";
 #[template(resource = "/me/aresa/GlimpseShell/widgets/split_row.ui")]
 pub struct SplitRow {
     #[template_child]
-    pub row: TemplateChild<Row>,
+    pub row: TemplateChild<LegacyRow>,
     #[template_child]
     pub rule: TemplateChild<gtk4::Separator>,
     #[template_child]

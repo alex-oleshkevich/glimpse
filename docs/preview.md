@@ -61,7 +61,7 @@ new example's drawer silently inert:
 
 - `expanders` gives any row carrying `.expander` a handler toggling its **next sibling**, and
   complains on stderr when that sibling is not a `Gtk.Revealer`. Matching on position keeps it out
-  of the blueprint. `Row`'s rule is still that it navigates rather than expands; this is the
+  of the blueprint. `LegacyRow`'s rule is still that it navigates rather than expands; this is the
   exception, an audio stream revealing its volume slider.
 - `drawer_nav` returns immediately when the tree holds no `Gtk.Revealer`, so a popover written
   entirely in Blueprint — a `Revealer` holding a `Gtk.Stack`, rows carrying `nav__<page>` —
@@ -72,9 +72,9 @@ new example's drawer silently inert:
   something clickable by neither is reported.
 - `pager` fills each `$Pager` from its `demo__<case>` class, since its slots come from Rust. An
   unrecognised case and a missing class are both reported.
-- `busy` spins anything carrying the `busy` class. A `$SplitRow` spins through its inner `$Row`,
+- `busy` spins anything carrying the `busy` class. A `$SplitRow` spins through its inner `$LegacyRow`,
   because `SplitRow` exposes no `busy` property of its own and its `row` is a template child a
-  blueprint cannot reach; a `$Row` can equally say `busy: true` in the blueprint and needs no class.
+  blueprint cannot reach; a `$LegacyRow` can equally say `busy: true` in the blueprint and needs no class.
   Anything else carrying the class is reported, since it has no spinner to turn on.
 - `expanded` opens each `$Expandable` carrying `state__open`, since `expanded: true` in a blueprint is
   applied before `[details]` exists and is dropped.
