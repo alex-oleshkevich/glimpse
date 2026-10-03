@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, Row, RowTypography, none_if_empty, reconcile};
+use crate::{ActionRow, Row, none_if_empty, reconcile};
 
 pub use imp::HistoryEntry;
 
@@ -80,8 +80,6 @@ impl RulerPopover {
 
     fn build_history_row(&self, entry: &HistoryEntry) -> ActionRow {
         let row = ActionRow::new();
-        row.upcast_ref::<Row>()
-            .set_typography(RowTypography::Monospace);
         let id = entry.id;
         row.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]

@@ -40,7 +40,6 @@ pub(super) fn check() {
         .and_downcast::<Row>()
         .expect("a history row");
     assert_eq!(first_row.title().as_deref(), Some("365.7px"));
-    assert_eq!(first_row.typography(), RowTypography::Monospace);
     assert_eq!(
         first_row.value().as_deref(),
         Some("342 \u{d7} 128 px \u{b7} 20.6\u{b0}")

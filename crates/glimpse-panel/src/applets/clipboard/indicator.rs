@@ -287,16 +287,6 @@ impl Clipboard {
             unpin: gettext("Unpin"),
             forget: gettext("Forget"),
         });
-        shown.set_subtitle(
-            summary(total, self.state.total_bytes)
-                .or_else(|| {
-                    self.state
-                        .unavailable
-                        .is_none()
-                        .then(|| gettext("Nothing copied yet"))
-                })
-                .as_deref(),
-        );
         shown.set_trouble(self.state.unavailable.as_deref());
         shown.set_searchable(total > 0);
         shown.set_pinned(&pinned);
@@ -540,19 +530,6 @@ fn wording_for(error: &CommandError, unavailable: &str) -> Option<String> {
             Some(gettext("That entry is no longer in the history."))
         }
         _ => None,
-    }
-}
-
-/// Nothing when the history is empty: the placeholder in the card already says so, and a hero
-/// repeating it word for word makes the surface state it twice.
-fn summary(count: usize, bytes: usize) -> Option<String> {
-    match count {
-        0 => None,
-        _ => Some(
-            gettext("{count} items · {size}")
-                .replace("{count}", &count.to_string())
-                .replace("{size}", &render::size(bytes)),
-        ),
     }
 }
 

@@ -21,10 +21,6 @@ impl ClipboardPopover {
         glib::Object::new()
     }
 
-    pub fn set_subtitle(&self, subtitle: Option<&str>) {
-        self.imp().hero.set_subtitle(subtitle);
-    }
-
     /// The one condition a notification cannot carry: the compositor not offering a data-control
     /// protocol at all. A failed command is reported by a notification and never by a banner here.
     pub fn set_trouble(&self, trouble: Option<&str>) {
