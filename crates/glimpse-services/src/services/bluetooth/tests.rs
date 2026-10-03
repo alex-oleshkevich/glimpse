@@ -172,6 +172,7 @@ fn state(power: Power, scanning: bool, devices: Vec<Device>) -> BluetoothState {
 
 mod commands;
 mod confirmation;
+mod connect;
 mod devices;
 mod failures;
 mod icon;
