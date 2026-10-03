@@ -422,18 +422,18 @@ fn screenshot_action(id: WindowId, path: &str) -> Value {
 
 fn arm_close_write_watch(dir: &Path) -> Result<OwnedFd, CompositorError> {
     let flags = inotify::CreateFlags::CLOEXEC | inotify::CreateFlags::NONBLOCK;
-    let watch = inotify::init(flags).map_err(|source| CompositorError::Watch {
+    let watch = inotify::init(flags).map_err(|error| CompositorError::Watch {
         path: dir.to_owned(),
-        source: source.into(),
+        error: error.into(),
     })?;
     inotify::add_watch(
         &watch,
         dir,
         inotify::WatchFlags::CLOSE_WRITE | inotify::WatchFlags::MOVED_TO,
     )
-    .map_err(|source| CompositorError::Watch {
+    .map_err(|error| CompositorError::Watch {
         path: dir.to_owned(),
-        source: source.into(),
+        error: error.into(),
     })?;
     Ok(watch)
 }

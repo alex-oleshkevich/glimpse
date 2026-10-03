@@ -7,11 +7,10 @@ pub enum CompositorError {
     Unsupported(&'static str),
     #[error("this compositor cannot {0}")]
     Unavailable(&'static str),
-    #[error("compositor socket {path}: {source}")]
+    #[error("compositor socket {}: {error}", path.display())]
     Connect {
         path: PathBuf,
-        #[source]
-        source: std::io::Error,
+        error: std::io::Error,
     },
     #[error("the compositor closed the connection before replying")]
     Closed,
@@ -23,19 +22,18 @@ pub enum CompositorError {
     NoFile(Duration),
     #[error("not an absolute UTF-8 file path: {}", .0.display())]
     InvalidPath(PathBuf),
-    #[error("watching {}: {source}", path.display())]
+    #[error("watching {}: {error}", path.display())]
     Watch {
         path: PathBuf,
-        #[source]
-        source: std::io::Error,
+        error: std::io::Error,
     },
 }
 
 impl CompositorError {
-    pub(crate) fn connect(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
+    pub(crate) fn connect(path: impl Into<PathBuf>, error: std::io::Error) -> Self {
         Self::Connect {
             path: path.into(),
-            source,
+            error,
         }
     }
 
