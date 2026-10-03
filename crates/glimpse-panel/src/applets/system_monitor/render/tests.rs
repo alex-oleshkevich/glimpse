@@ -71,6 +71,19 @@ fn the_cpu_chip_carries_the_measured_percentage_and_no_others_are_shown() {
 }
 
 #[test]
+fn temperature_chips_read_degrees_and_are_never_colored() {
+    let state = State {
+        cpu_temperature: Some(97.4),
+        ..State::default()
+    };
+
+    let chips = chips(&state, &[Chip::CpuTemp, Chip::GpuTemp], FORMAT, 85, 95);
+    assert_eq!(chips.len(), 1, "no GPU reading, so no GPU temperature chip");
+    assert_eq!(chips[0].label.as_deref(), Some("CPU 97°C"));
+    assert_eq!(chips[0].severity, None);
+}
+
+#[test]
 fn a_custom_chip_format_reorders_or_drops_either_token() {
     let state = State {
         cpu: Some(Cpu { percent: 42.4 }),

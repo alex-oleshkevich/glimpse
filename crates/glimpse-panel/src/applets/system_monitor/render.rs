@@ -102,6 +102,14 @@ fn chip_spec(
             let percent = state.gpu.and_then(|gpu| gpu.usage_percent)?;
             (gettext("GPU"), format!("{percent:.0}%"), Some(percent))
         }
+        Chip::CpuTemp => {
+            let temperature = state.cpu_temperature?;
+            (gettext("CPU"), format!("{temperature:.0}°C"), None)
+        }
+        Chip::GpuTemp => {
+            let temperature = state.gpu.and_then(|gpu| gpu.temp_c)?;
+            (gettext("GPU"), format!("{temperature:.0}°C"), None)
+        }
     };
     let label = crate::applets::tokens::render(format, |token| match token {
         "name" => Some(name.as_str()),

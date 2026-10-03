@@ -209,11 +209,12 @@ pub struct SystemMonitor {
     #[serde(deserialize_with = "chips")]
     pub chips: Vec<Chip>,
     /// How each chip's own label reads. `{name}` is the chip's own localized name ("CPU", "RAM",
-    /// …); `{value}` is its reading ("42%" for a percentage chip, "↓1.2 MB/s" for network). An
+    /// …); `{value}` is its reading ("42%" for a percentage chip, "↓1.2 MB/s" for network, "62°C" for a
+    /// temperature). An
     /// unrecognized token is left as literal text rather than silently emptied.
     pub chip_format: String,
     /// Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns
-    /// `Severity::Warning`. Network has no percentage and is never colored.
+    /// `Severity::Warning`. Network and temperatures have no percentage and are never colored.
     #[schemars(range(min = 1, max = 100))]
     pub warn_percent: u8,
     /// Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`
@@ -232,6 +233,8 @@ pub enum Chip {
     Swap,
     Network,
     Gpu,
+    CpuTemp,
+    GpuTemp,
 }
 
 impl Default for SystemMonitor {

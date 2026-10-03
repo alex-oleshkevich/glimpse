@@ -1208,7 +1208,7 @@
           "type": "object",
           "properties": {
             "chip-format": {
-              "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+              "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network, \"62°C\" for a\ntemperature). An\nunrecognized token is left as literal text rather than silently emptied.",
               "type": "string",
               "default": "{name} {value}"
             },
@@ -1257,7 +1257,7 @@
               ]
             },
             "warn-percent": {
-              "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+              "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network and temperatures have no percentage and are never colored.",
               "type": "integer",
               "format": "uint8",
               "default": 85,
@@ -2699,7 +2699,7 @@
             "type": "object",
             "properties": {
               "chip-format": {
-                "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network). An\nunrecognized token is left as literal text rather than silently emptied.",
+                "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network, \"62°C\" for a\ntemperature). An\nunrecognized token is left as literal text rather than silently emptied.",
                 "type": "string",
                 "default": "{name} {value}"
               },
@@ -2748,7 +2748,7 @@
                 ]
               },
               "warn-percent": {
-                "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network has no percentage and is never colored.",
+                "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network and temperatures have no percentage and are never colored.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 85,
@@ -3524,7 +3524,9 @@
         "ram",
         "swap",
         "network",
-        "gpu"
+        "gpu",
+        "cpu-temp",
+        "gpu-temp"
       ]
     },
     "Clipboard": {
