@@ -36,7 +36,6 @@ pub fn rows(layouts: &KeyboardLayouts) -> Vec<Row> {
         .enumerate()
         .map(|(index, layout)| Row {
             name: layout.name.clone(),
-            code: layout.code.clone(),
             active: layouts.current == Some(index as u8),
         })
         .collect()

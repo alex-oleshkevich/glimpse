@@ -5,12 +5,11 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, PopoverShell, Section, ToggleRow};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Layout {
     pub name: String,
-    pub code: String,
     pub active: bool,
 }
 
@@ -24,9 +23,9 @@ pub struct KeyboardPopover {
     #[template_child]
     pub rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
     pub layouts_data: RefCell<Vec<Layout>>,
-    pub widgets: RefCell<Vec<LegacyRow>>,
+    pub widgets: RefCell<Vec<ToggleRow>>,
 }
 
 #[glib::object_subclass]
@@ -36,7 +35,6 @@ impl ObjectSubclass for KeyboardPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
-        crate::Hero::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -62,7 +60,7 @@ impl ObjectImpl for KeyboardPopover {
     fn constructed(&self) {
         self.parent_constructed();
         let popover = self.obj();
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

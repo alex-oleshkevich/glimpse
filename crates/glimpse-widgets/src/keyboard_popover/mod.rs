@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty};
+use crate::{Row, ToggleControl, ToggleRow, none_if_empty};
 
 pub use imp::Layout;
 
@@ -33,7 +33,9 @@ impl KeyboardPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -67,10 +69,9 @@ impl KeyboardPopover {
                 rows.push(row);
             }
             let row = &rows[index];
-            row.set_title(none_if_empty(&layout.name));
-            row.set_value(none_if_empty(&layout.code));
-            row.set_selectable(true);
-            row.set_selected(layout.active);
+            row.upcast_ref::<Row>()
+                .set_title(none_if_empty(&layout.name));
+            row.set_active(layout.active);
         }
 
         for row in rows.split_off(layouts.len()) {
@@ -78,13 +79,17 @@ impl KeyboardPopover {
         }
     }
 
-    fn build_row(&self, index: u32) -> LegacyRow {
-        let row = LegacyRow::new();
-        row.set_selectable(true);
-        row.connect_clicked(glib::clone!(
+    fn build_row(&self, index: u32) -> ToggleRow {
+        let row = ToggleRow::new();
+        row.set_control(ToggleControl::Check);
+        row.connect_toggled(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| {
+            move |row, active| {
+                if !active {
+                    row.set_active(true);
+                    return;
+                }
                 popover.select(index);
                 popover.emit_by_name::<()>("activated", &[&index]);
             }
@@ -95,7 +100,7 @@ impl KeyboardPopover {
     fn select(&self, index: u32) {
         let imp = self.imp();
         for (i, row) in imp.widgets.borrow().iter().enumerate() {
-            row.set_selected(i as u32 == index);
+            row.set_active(i as u32 == index);
         }
     }
 }

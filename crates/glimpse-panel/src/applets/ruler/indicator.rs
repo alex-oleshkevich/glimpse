@@ -53,17 +53,6 @@ impl Ruler {
     }
 
     fn dress(&self, shown: &RulerPopover) {
-        let latest = self.state.history.first();
-        let title = latest.map(|measurement| format!("{:.1}px", measurement.distance));
-        let subtitle = latest.map(|measurement| {
-            format!(
-                "{} × {} px · {:.1}°",
-                measurement.dx.unsigned_abs(),
-                measurement.dy.unsigned_abs(),
-                measurement.angle
-            )
-        });
-        shown.set_latest(title.as_deref().zip(subtitle.as_deref()));
         shown.set_history(&render::history(&self.state.history));
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }

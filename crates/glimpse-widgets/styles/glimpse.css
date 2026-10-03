@@ -815,27 +815,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
     --applet-popover-padding: 1.1rem;
 }
 
-.ruler-popover .hero__title {
-    font-size: var(--gl-text-title);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.ruler-row .row__title {
-    font-family: monospace;
-    font-variant-numeric: tabular-nums;
-}
-
-.ruler-row .row__value {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-}
-
-.ruler-history .row {
-    border-radius: 0.75rem;
-    min-height: 3.2rem;
-}
-
 .clip-card__swatch,
 .color-card__swatch {
     min-height: 2.5rem;

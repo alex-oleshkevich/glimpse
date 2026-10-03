@@ -1,9 +1,8 @@
 mod imp;
 
-use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty, reconcile};
+use crate::{ActionRow, Row, RowTypography, none_if_empty, reconcile};
 
 pub use imp::HistoryEntry;
 
@@ -24,23 +23,6 @@ impl RulerPopover {
         glib::Object::new()
     }
 
-    pub fn set_latest(&self, latest: Option<(&str, &str)>) {
-        let imp = self.imp();
-        match latest {
-            Some((title, subtitle)) => {
-                imp.hero.set_title(Some(title));
-                imp.hero.set_subtitle(Some(subtitle));
-            }
-            None => {
-                imp.hero
-                    .set_title(Some(gettext("No measurement yet").as_str()));
-                imp.hero.set_subtitle(Some(
-                    gettext("Right-click the indicator to measure").as_str(),
-                ));
-            }
-        }
-    }
-
     pub fn set_history(&self, entries: &[HistoryEntry]) {
         let imp = self.imp();
         if imp.history_data.borrow().as_slice() == entries {
@@ -51,9 +33,9 @@ impl RulerPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        let row = &self.imp().footer;
-        row.set_title(none_if_empty(label.unwrap_or_default()));
-        row.set_visible(label.is_some());
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -96,12 +78,12 @@ impl RulerPopover {
         imp.history_section.set_visible(!entries.is_empty());
     }
 
-    fn build_history_row(&self, entry: &HistoryEntry) -> LegacyRow {
-        let row = LegacyRow::new();
-        row.add_css_class("ruler-row");
-        row.set_activatable(true);
+    fn build_history_row(&self, entry: &HistoryEntry) -> ActionRow {
+        let row = ActionRow::new();
+        row.upcast_ref::<Row>()
+            .set_typography(RowTypography::Monospace);
         let id = entry.id;
-        row.connect_clicked(glib::clone!(
+        row.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>("activated", &[&id])
@@ -109,7 +91,8 @@ impl RulerPopover {
         row
     }
 
-    fn dress_history_row(&self, row: &LegacyRow, entry: &HistoryEntry) {
+    fn dress_history_row(&self, row: &ActionRow, entry: &HistoryEntry) {
+        let row = row.upcast_ref::<Row>();
         row.set_title(none_if_empty(&entry.title));
         row.set_value(none_if_empty(&entry.value));
     }

@@ -8,30 +8,13 @@ pub(super) fn check() {
         let measure_requested = Rc::clone(&measure_requested);
         move |_| measure_requested.set(measure_requested.get() + 1)
     });
-    ruler_imp.measure.emit_clicked();
+    ruler_imp.measure.activate();
     assert_eq!(measure_requested.get(), 1);
 
     assert!(
         !ruler_imp.history_section.get_visible(),
         "an untouched popover shows no history section at all"
     );
-    ruler.set_latest(None);
-    assert_eq!(
-        ruler_imp.hero.title().as_deref(),
-        Some("No measurement yet")
-    );
-    assert_eq!(
-        ruler_imp.hero.subtitle().as_deref(),
-        Some("Right-click the indicator to measure")
-    );
-
-    ruler.set_latest(Some(("365.7px", "342 \u{d7} 128 px \u{b7} 20.6\u{b0}")));
-    assert_eq!(ruler_imp.hero.title().as_deref(), Some("365.7px"));
-    assert_eq!(
-        ruler_imp.hero.subtitle().as_deref(),
-        Some("342 \u{d7} 128 px \u{b7} 20.6\u{b0}")
-    );
-
     let entries = [
         HistoryEntry {
             id: 1,
@@ -54,9 +37,10 @@ pub(super) fn check() {
     let first_row = ruler_imp
         .history_rows
         .first_child()
-        .and_downcast::<LegacyRow>()
+        .and_downcast::<Row>()
         .expect("a history row");
     assert_eq!(first_row.title().as_deref(), Some("365.7px"));
+    assert_eq!(first_row.typography(), RowTypography::Monospace);
     assert_eq!(
         first_row.value().as_deref(),
         Some("342 \u{d7} 128 px \u{b7} 20.6\u{b0}")
@@ -83,7 +67,7 @@ pub(super) fn check() {
             activated.replace(Some(id));
         }
     });
-    first_row.emit_by_name::<()>("clicked", &[]);
+    first_row.activate();
     assert_eq!(
         *activated.borrow(),
         Some(1),
@@ -99,13 +83,16 @@ pub(super) fn check() {
 
     ruler.set_footer(Some("Settings"));
     assert!(ruler_imp.footer.get_visible());
-    assert_eq!(ruler_imp.footer.title().as_deref(), Some("Settings"));
+    assert_eq!(
+        ruler_imp.footer.upcast_ref::<Row>().title().as_deref(),
+        Some("Settings")
+    );
 
     let footer_activated = Rc::new(Cell::new(false));
     ruler.connect_footer_activated({
         let footer_activated = Rc::clone(&footer_activated);
         move |_| footer_activated.set(true)
     });
-    ruler_imp.footer.emit_by_name::<()>("clicked", &[]);
+    ruler_imp.footer.activate();
     assert!(footer_activated.get());
 }

@@ -56,7 +56,7 @@ fn rows_flag_the_current_layout() {
     let rows = rows(&layouts(Some(1)));
     assert_eq!(rows.len(), 3);
     assert!(!rows[0].active && rows[1].active && !rows[2].active);
-    assert_eq!(rows[1].code, "LT");
+    assert_eq!(rows[1].name, "Lithuanian");
 }
 
 #[test]
