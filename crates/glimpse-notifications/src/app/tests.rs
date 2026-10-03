@@ -128,11 +128,17 @@ fn a_popup_lives_as_long_as_its_sender_asked() {
         ),
         Some(Duration::from_millis(1500))
     );
+    assert_eq!(
+        lifetime(
+            &NotificationRecord {
+                resident: true,
+                ..record.clone()
+            },
+            delay
+        ),
+        Some(delay)
+    );
     for sticky in [
-        NotificationRecord {
-            resident: true,
-            ..record.clone()
-        },
         NotificationRecord {
             expire_timeout: 0,
             ..record.clone()

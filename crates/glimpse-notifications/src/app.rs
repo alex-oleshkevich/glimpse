@@ -755,7 +755,7 @@ fn timer(id: u32, lifetime: Option<Duration>, sender: ComponentSender<App>) -> T
 }
 
 fn lifetime(record: &NotificationRecord, hide_delay: Duration) -> Option<Duration> {
-    if record.resident || record.urgency == NotificationUrgency::Critical {
+    if record.urgency == NotificationUrgency::Critical {
         return None;
     }
     match u64::try_from(record.expire_timeout) {
