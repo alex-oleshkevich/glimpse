@@ -110,12 +110,11 @@ impl SystemMonitor {
     }
 
     fn dress(&self, shown: &SystemMonitorPopover) {
-        shown.set_usage(&render::usage_tiles(
+        shown.set_readings(&render::readings(
             &self.state,
             self.warn_percent,
             self.critical_percent,
         ));
-        shown.set_details(&render::detail_tiles(&self.state));
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 }

@@ -5,22 +5,34 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, MeterRow, PopoverShell, Row, Section};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UsageTile {
-    pub id: String,
-    pub title: String,
+pub struct Meter {
+    pub level: f64,
     pub value: String,
-    pub fraction: Option<f64>,
     pub severity: Option<crate::Severity>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DetailTile {
-    pub id: String,
+pub struct NamedMeter {
     pub title: String,
-    pub value: String,
+    pub meter: Meter,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Readings {
+    pub cpu: Option<Meter>,
+    pub memory: Option<Meter>,
+    pub swap: Option<Meter>,
+    pub disks: Vec<NamedMeter>,
+    pub gpu: Option<Meter>,
+    pub gpu_memory: Option<NamedMeter>,
+    pub load: Option<String>,
+    pub uptime: Option<String>,
+    pub network: Option<String>,
+    pub cpu_temp: Option<String>,
+    pub gpu_temp: Option<String>,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -29,22 +41,36 @@ pub struct SystemMonitorPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub usage: TemplateChild<Section>,
     #[template_child]
-    pub usage_rows: TemplateChild<gtk4::Box>,
+    pub cpu: TemplateChild<MeterRow>,
+    #[template_child]
+    pub memory: TemplateChild<MeterRow>,
+    #[template_child]
+    pub swap: TemplateChild<MeterRow>,
+    #[template_child]
+    pub disks: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub gpu: TemplateChild<MeterRow>,
+    #[template_child]
+    pub gpu_memory: TemplateChild<MeterRow>,
     #[template_child]
     pub details: TemplateChild<Section>,
     #[template_child]
-    pub details_rows: TemplateChild<gtk4::Box>,
+    pub load: TemplateChild<Row>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub uptime: TemplateChild<Row>,
+    #[template_child]
+    pub network: TemplateChild<Row>,
+    #[template_child]
+    pub cpu_temp: TemplateChild<Row>,
+    #[template_child]
+    pub gpu_temp: TemplateChild<Row>,
+    #[template_child]
+    pub footer: TemplateChild<ActionRow>,
 
-    pub usage_data: RefCell<Vec<UsageTile>>,
-    pub usage_held: RefCell<Vec<(String, gtk4::Box)>>,
-    pub details_data: RefCell<Vec<DetailTile>>,
-    pub details_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub readings: RefCell<Readings>,
+    pub disks_held: RefCell<Vec<(String, MeterRow)>>,
 }
 
 #[glib::object_subclass]
@@ -73,7 +99,7 @@ impl ObjectImpl for SystemMonitorPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

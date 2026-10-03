@@ -277,9 +277,9 @@ mod fixtures {
         InhibitorTargets, LegacyRow, NightLight, Notification, NotificationsPopover, NowPlaying,
         POWER_OFF, Pager, Player, PlayerList, PrintingJob, PrintingPopover, PrintingPrinter,
         PrivacyPopover, PrivacyUsage, REBOOT, Repeat, SUSPEND, SessionActionState, SessionSheet,
-        Severity, Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorDetail,
-        SystemMonitorPopover, SystemMonitorUsage, TransportAction, TrayChip, TrayStrip, Urgency,
-        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        Severity, Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorMeter,
+        SystemMonitorNamedMeter, SystemMonitorPopover, SystemMonitorReadings, TransportAction,
+        TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -3551,19 +3551,14 @@ mod fixtures {
     }
 
     fn system_monitor(root: &gtk4::Widget) {
-        let usage = |id: &str, title: &str, value: &str, fraction: Option<f64>, severity| {
-            SystemMonitorUsage {
-                id: id.to_owned(),
-                title: title.to_owned(),
-                value: value.to_owned(),
-                fraction,
-                severity,
-            }
-        };
-        let detail = |id: &str, title: &str, value: &str| SystemMonitorDetail {
-            id: id.to_owned(),
-            title: title.to_owned(),
+        let meter = |value: &str, level: f64, severity| SystemMonitorMeter {
+            level,
             value: value.to_owned(),
+            severity,
+        };
+        let named = |title: &str, meter| SystemMonitorNamedMeter {
+            title: title.to_owned(),
+            meter,
         };
 
         for popover in collect::<SystemMonitorPopover>(root) {
@@ -3576,46 +3571,31 @@ mod fixtures {
                 continue;
             };
 
-            let mut tiles = vec![
-                usage("cpu", "CPU", "42%", Some(0.42), None),
-                usage("ram", "Memory", "6.1 / 16.3 GB", Some(0.37), None),
-                usage(
-                    "disk-home",
-                    "/home",
-                    "870 / 1000 GB",
-                    Some(0.87),
-                    Some(Severity::Warning),
-                ),
-                usage(
-                    "disk-var",
-                    "/var",
-                    "970 / 1000 GB",
-                    Some(0.97),
-                    Some(Severity::Error),
-                ),
-            ];
-            let mut details = vec![
-                detail("load", "Load average", "1.24, 0.98, 0.87"),
-                detail("uptime", "Uptime", "2d 4h"),
-                detail("network", "Network", "↓ 1.2 MB/s ↑ 84 KB/s"),
-                detail("cpu-temp", "CPU temperature", "62°C"),
-            ];
+            let mut readings = SystemMonitorReadings {
+                cpu: Some(meter("42%", 0.42, None)),
+                memory: Some(meter("6.1 / 16.3 GB", 0.37, None)),
+                disks: vec![
+                    named(
+                        "/home",
+                        meter("870 / 1000 GB", 0.87, Some(Severity::Warning)),
+                    ),
+                    named("/var", meter("970 / 1000 GB", 0.97, Some(Severity::Error))),
+                ],
+                load: Some("1.24, 0.98, 0.87".to_owned()),
+                uptime: Some("2d 4h".to_owned()),
+                network: Some("↓ 1.2 MB/s ↑ 84 KB/s".to_owned()),
+                cpu_temp: Some("62°C".to_owned()),
+                ..Default::default()
+            };
 
             if case == "full" {
-                tiles.insert(2, usage("swap", "Swap", "1.1 / 8.0 GB", Some(0.14), None));
-                tiles.push(usage("gpu-usage", "GPU", "18%", Some(0.18), None));
-                tiles.push(usage(
-                    "gpu-memory",
-                    "GTT",
-                    "6.7 / 16.3 GB",
-                    Some(0.41),
-                    None,
-                ));
-                details.push(detail("gpu-temp", "GPU temperature", "54°C"));
+                readings.swap = Some(meter("1.1 / 8.0 GB", 0.14, None));
+                readings.gpu = Some(meter("18%", 0.18, None));
+                readings.gpu_memory = Some(named("GTT", meter("6.7 / 16.3 GB", 0.41, None)));
+                readings.gpu_temp = Some("54°C".to_owned());
             }
 
-            popover.set_usage(&tiles);
-            popover.set_details(&details);
+            popover.set_readings(&readings);
             popover.set_footer(Some("System Monitor settings"));
         }
     }

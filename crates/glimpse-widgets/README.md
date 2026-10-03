@@ -253,7 +253,7 @@ precedence rule — user beats theme beats built-in — holds in both schemes. A
 `progressbar progress`, `progressbar.warning progress` and `progressbar.error progress` — reading
 `--gl-faint`, `--gl-muted`, `--gl-warning-text` and `--gl-danger-text`, so a theme retints it by
 redefining those tokens. The selectors carry no class, which keeps their specificity below every
-native bar rule (`.capacity-bar`, `.system-monitor-usage-bar`, `.notification__progress`); each of
+native bar rule (`.capacity-bar`, `.notification__progress`); each of
 those sets the same four properties itself, so the bare rule never reaches a native bar.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with

@@ -78,6 +78,7 @@ impl MeterRow {
         if self.bar.get_visible() != shown {
             self.bar.set_visible(shown);
         }
+        crate::set_css_class(&*self.obj(), "meter-row--bar", shown);
         let announced = if shown { level } else { 0.0 };
         self.obj().update_property(&[
             accessible::Property::ValueMin(0.0),

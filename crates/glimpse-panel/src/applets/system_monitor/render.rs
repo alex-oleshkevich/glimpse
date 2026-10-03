@@ -7,7 +7,8 @@ use glimpse_services::{
     SystemMonitorUsage as Usage,
 };
 use glimpse_widgets::{
-    IndicatorSpec, Severity, SystemMonitorDetail as DetailTile, SystemMonitorUsage as UsageTile,
+    IndicatorSpec, Severity, SystemMonitorMeter as Meter, SystemMonitorNamedMeter as NamedMeter,
+    SystemMonitorReadings as Readings,
 };
 
 use glimpse_utils::size::bytes;
@@ -115,138 +116,59 @@ fn chip_spec(
     })
 }
 
-pub fn usage_tiles(state: &State, warn_percent: u8, critical_percent: u8) -> Vec<UsageTile> {
-    let mut tiles = Vec::new();
-
-    if let Some(cpu) = state.cpu {
-        tiles.push(UsageTile {
-            id: "cpu".to_owned(),
-            title: gettext("CPU"),
-            value: format!("{:.0}%", cpu.percent),
-            fraction: Some(f64::from(cpu.percent) / 100.0),
-            severity: severity_of(cpu.percent, warn_percent, critical_percent),
-        });
-    }
-    if let Some(memory) = state.memory.filter(|memory| memory.total > 0) {
-        tiles.push(usage_tile(
-            "memory",
-            gettext("Memory"),
-            memory,
-            warn_percent,
-            critical_percent,
-        ));
-    }
-    if let Some(swap) = state.swap.filter(|swap| swap.total > 0) {
-        tiles.push(usage_tile(
-            "swap",
-            gettext("Swap"),
-            swap,
-            warn_percent,
-            critical_percent,
-        ));
-    }
-    for disk in &state.disks {
-        let Some(usage) = disk.usage.filter(|usage| usage.total > 0) else {
-            continue;
-        };
-        tiles.push(usage_tile(
-            &disk.path,
-            disk.path.clone(),
-            usage,
-            warn_percent,
-            critical_percent,
-        ));
-    }
-    if let Some(gpu) = state.gpu {
-        if let Some(usage_percent) = gpu.usage_percent {
-            tiles.push(UsageTile {
-                id: "gpu-usage".to_owned(),
-                title: gettext("GPU"),
-                value: format!("{usage_percent:.0}%"),
-                fraction: Some(f64::from(usage_percent) / 100.0),
-                severity: severity_of(usage_percent, warn_percent, critical_percent),
-            });
-        }
-        if gpu.memory.total > 0 {
-            let title = match gpu.memory_kind {
-                GpuMemoryKind::Vram => "VRAM".to_owned(),
-                GpuMemoryKind::Gtt => "GTT".to_owned(),
-            };
-            tiles.push(usage_tile(
-                "gpu-memory",
-                title,
-                gpu.memory,
-                warn_percent,
-                critical_percent,
-            ));
-        }
-    }
-
-    tiles
-}
-
-fn usage_tile(
-    id: &str,
-    title: String,
-    usage: Usage,
-    warn_percent: u8,
-    critical_percent: u8,
-) -> UsageTile {
-    let fraction = usage.used as f64 / usage.total as f64;
-    let percent = (fraction * 100.0) as f32;
-    UsageTile {
-        id: id.to_owned(),
-        title,
-        value: value_text(usage),
-        fraction: Some(fraction),
+pub fn readings(state: &State, warn_percent: u8, critical_percent: u8) -> Readings {
+    let percent = |percent: f32| Meter {
+        level: f64::from(percent) / 100.0,
+        value: format!("{percent:.0}%"),
         severity: severity_of(percent, warn_percent, critical_percent),
-    }
-}
+    };
+    let meter = |usage: Usage| Meter {
+        level: usage.used as f64 / usage.total as f64,
+        value: value_text(usage),
+        severity: severity_of(percent_of(usage), warn_percent, critical_percent),
+    };
+    let measured = |usage: &Usage| usage.total > 0;
+    let degrees = |temperature: f32| format!("{temperature:.0}°C");
+    let gpu = state.gpu;
 
-pub fn detail_tiles(state: &State) -> Vec<DetailTile> {
-    let mut tiles = Vec::new();
-
-    if let Some(load) = state.load_average {
-        tiles.push(DetailTile {
-            id: "load-average".to_owned(),
-            title: gettext("Load average"),
-            value: format!("{:.2}, {:.2}, {:.2}", load.one, load.five, load.fifteen),
-        });
-    }
-    if let Some(uptime) = state.uptime {
-        tiles.push(DetailTile {
-            id: "uptime".to_owned(),
-            title: gettext("Uptime"),
-            value: uptime_text(uptime),
-        });
-    }
-    if let Some(network) = state.network {
-        tiles.push(DetailTile {
-            id: "network".to_owned(),
-            title: gettext("Network"),
-            value: format!(
+    Readings {
+        cpu: state.cpu.map(|cpu| percent(cpu.percent)),
+        memory: state.memory.filter(measured).map(meter),
+        swap: state.swap.filter(measured).map(meter),
+        disks: state
+            .disks
+            .iter()
+            .filter_map(|disk| {
+                disk.usage.filter(measured).map(|usage| NamedMeter {
+                    title: disk.path.clone(),
+                    meter: meter(usage),
+                })
+            })
+            .collect(),
+        gpu: gpu.and_then(|gpu| gpu.usage_percent).map(percent),
+        gpu_memory: gpu
+            .filter(|gpu| measured(&gpu.memory))
+            .map(|gpu| NamedMeter {
+                title: match gpu.memory_kind {
+                    GpuMemoryKind::Vram => "VRAM".to_owned(),
+                    GpuMemoryKind::Gtt => "GTT".to_owned(),
+                },
+                meter: meter(gpu.memory),
+            }),
+        load: state
+            .load_average
+            .map(|load| format!("{:.2}, {:.2}, {:.2}", load.one, load.five, load.fifteen)),
+        uptime: state.uptime.map(uptime_text),
+        network: state.network.map(|network| {
+            format!(
                 "↓ {} ↑ {}",
                 rate_text(network.rx_bytes_per_sec),
                 rate_text(network.tx_bytes_per_sec)
-            ),
-        });
+            )
+        }),
+        cpu_temp: state.cpu_temperature.map(degrees),
+        gpu_temp: gpu.and_then(|gpu| gpu.temp_c).map(degrees),
     }
-    if let Some(temperature) = state.cpu_temperature {
-        tiles.push(DetailTile {
-            id: "cpu-temp".to_owned(),
-            title: gettext("CPU temperature"),
-            value: format!("{temperature:.0}°C"),
-        });
-    }
-    if let Some(temperature) = state.gpu.and_then(|gpu| gpu.temp_c) {
-        tiles.push(DetailTile {
-            id: "gpu-temp".to_owned(),
-            title: gettext("GPU temperature"),
-            value: format!("{temperature:.0}°C"),
-        });
-    }
-
-    tiles
 }
 
 #[cfg(test)]

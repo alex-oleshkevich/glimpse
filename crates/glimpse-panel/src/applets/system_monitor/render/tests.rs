@@ -12,29 +12,22 @@ fn usage(used: u64, total: u64) -> Usage {
 }
 
 #[test]
-fn a_gpu_absent_state_produces_no_gpu_chip_or_tile() {
+fn a_gpu_absent_state_produces_no_gpu_chip_or_row() {
     let state = State::default();
 
     assert!(
         chips(&state, &[Chip::Gpu], FORMAT, 85, 95).is_empty(),
         "AC-3: no Gpu-derived chip"
     );
+    let readings = readings(&state, 85, 95);
     assert!(
-        usage_tiles(&state, 85, 95)
-            .iter()
-            .all(|tile| tile.id != "gpu-usage" && tile.id != "gpu-memory"),
-        "AC-3: no Gpu-derived usage tile"
-    );
-    assert!(
-        detail_tiles(&state)
-            .iter()
-            .all(|tile| tile.id != "gpu-temp"),
-        "AC-3: no Gpu-derived detail tile"
+        readings.gpu.is_none() && readings.gpu_memory.is_none() && readings.gpu_temp.is_none(),
+        "AC-3: no Gpu-derived row"
     );
 }
 
 #[test]
-fn a_disk_with_no_usage_produces_no_tile() {
+fn a_disk_with_no_usage_produces_no_row() {
     let mut state = State::default();
     state.disks.push(glimpse_services::SystemMonitorDiskUsage {
         path: "/mnt/gone".to_owned(),
@@ -42,7 +35,7 @@ fn a_disk_with_no_usage_produces_no_tile() {
     });
 
     assert!(
-        usage_tiles(&state, 85, 95).is_empty(),
+        readings(&state, 85, 95).disks.is_empty(),
         "AC-4a: a path whose usage is None renders no tile"
     );
 }
@@ -55,18 +48,14 @@ fn thresholds_map_below_warn_warn_and_critical_to_the_right_severity() {
 }
 
 #[test]
-fn no_swap_produces_no_swap_chip_or_tile() {
+fn no_swap_produces_no_swap_chip_or_row() {
     let state = State {
         cpu: Some(Cpu { percent: 10.0 }),
         ..State::default()
     };
 
     assert!(chips(&state, &[Chip::Swap], FORMAT, 85, 95).is_empty());
-    assert!(
-        usage_tiles(&state, 85, 95)
-            .iter()
-            .all(|tile| tile.id != "swap")
-    );
+    assert!(readings(&state, 85, 95).swap.is_none());
 }
 
 #[test]
@@ -103,21 +92,21 @@ fn a_custom_chip_format_reorders_or_drops_either_token() {
 }
 
 #[test]
-fn a_configured_disk_path_becomes_its_own_tile_keyed_by_path() {
+fn a_configured_disk_path_becomes_its_own_row_keyed_by_path() {
     let mut state = State::default();
     state.disks.push(glimpse_services::SystemMonitorDiskUsage {
         path: "/home".to_owned(),
         usage: Some(usage(870_000_000_000, 1_000_000_000_000)),
     });
 
-    let tiles = usage_tiles(&state, 85, 95);
-    assert_eq!(tiles.len(), 1);
-    assert_eq!(tiles[0].id, "/home");
-    assert_eq!(tiles[0].severity, Some(Severity::Warning));
+    let disks = readings(&state, 85, 95).disks;
+    assert_eq!(disks.len(), 1);
+    assert_eq!(disks[0].title, "/home");
+    assert_eq!(disks[0].meter.severity, Some(Severity::Warning));
 }
 
 #[test]
-fn gpu_memory_tile_is_titled_by_its_measured_kind() {
+fn gpu_memory_row_is_titled_by_its_measured_kind() {
     let state = State {
         gpu: Some(Gpu {
             usage_percent: None,
@@ -128,19 +117,19 @@ fn gpu_memory_tile_is_titled_by_its_measured_kind() {
         ..State::default()
     };
 
-    let tiles = usage_tiles(&state, 85, 95);
-    assert_eq!(tiles.len(), 1);
-    assert_eq!(tiles[0].title, "GTT");
+    let readings = readings(&state, 85, 95);
+    assert_eq!(
+        readings.gpu_memory.map(|memory| memory.title).as_deref(),
+        Some("GTT")
+    );
     assert!(
-        usage_tiles(&state, 85, 95)
-            .iter()
-            .all(|tile| tile.id != "gpu-usage"),
-        "usage_percent is None, so no separate usage tile appears"
+        readings.gpu.is_none(),
+        "usage_percent is None, so no separate usage row appears"
     );
 }
 
 #[test]
-fn detail_tiles_read_load_average_and_uptime() {
+fn details_read_load_average_and_uptime() {
     let state = State {
         load_average: Some(LoadAverage {
             one: 1.24,
@@ -151,13 +140,13 @@ fn detail_tiles_read_load_average_and_uptime() {
         ..State::default()
     };
 
-    let tiles = detail_tiles(&state);
-    assert_eq!(tiles[0].value, "1.24, 0.98, 0.87");
-    assert_eq!(tiles[1].value, "2d 4h");
+    let readings = readings(&state, 85, 95);
+    assert_eq!(readings.load.as_deref(), Some("1.24, 0.98, 0.87"));
+    assert_eq!(readings.uptime.as_deref(), Some("2d 4h"));
 }
 
 #[test]
-fn a_network_reading_produces_one_detail_tile_with_both_directions() {
+fn a_network_reading_shows_both_directions() {
     let state = State {
         network: Some(NetworkRate {
             rx_bytes_per_sec: 1_200_000.0,
@@ -166,7 +155,6 @@ fn a_network_reading_produces_one_detail_tile_with_both_directions() {
         ..State::default()
     };
 
-    let tiles = detail_tiles(&state);
-    assert_eq!(tiles.len(), 1);
-    assert!(tiles[0].value.contains('↓') && tiles[0].value.contains('↑'));
+    let network = readings(&state, 85, 95).network.unwrap_or_default();
+    assert!(network.contains('↓') && network.contains('↑'));
 }

@@ -468,8 +468,13 @@ listrow.row--destructive .row__title {
     color: var(--row-tone-destructive, var(--gl-danger-text, currentColor));
 }
 
+listrow.meter-row--bar .row__content {
+    padding-top: 1rem;
+}
+
 listrow progressbar.meter-row__bar {
-    margin-top: 0.25rem;
+    margin-top: 0.3rem;
+    margin-bottom: 0.9rem;
 }
 
 listrow progressbar.meter-row__bar trough,
@@ -1295,24 +1300,6 @@ expandable > revealer .fader {
     background-color: var(--gl-muted);
 }
 
-.system-monitor-usage-bar {
-    margin: 0 0.8rem 0.6rem;
-}
-
-.system-monitor-usage-bar trough,
-.system-monitor-usage-bar progress {
-    min-height: 0.3rem;
-    border-radius: 999px;
-}
-
-.system-monitor-usage-bar trough {
-    background-color: var(--gl-faint);
-}
-
-.system-monitor-usage-bar progress {
-    background-color: var(--gl-muted);
-}
-
 progressbar trough,
 progressbar progress {
     min-height: 0.3rem;
@@ -1333,16 +1320,6 @@ progressbar.warning progress {
 
 progressbar.error progress {
     background-color: var(--gl-danger-text, currentColor);
-}
-
-.usage-row--warning .row__title,
-.usage-row--warning .row__value {
-    color: var(--gl-warning-text);
-}
-
-.usage-row--error .row__title,
-.usage-row--error .row__value {
-    color: var(--gl-danger-text);
 }
 
 .notification__image {

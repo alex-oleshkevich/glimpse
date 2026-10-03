@@ -8,41 +8,79 @@ template $SystemMonitorPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "computer-symbolic";
-      title: _("System Monitor");
-    }
+    icon-name: "computer-symbolic";
+    title: _("System Monitor");
 
-    Gtk.Box column {
-      orientation: vertical;
-      hexpand: true;
+    $Section usage {
+      visible: false;
 
-      styles [
-        "column",
-      ]
+      Gtk.Box {
+        orientation: vertical;
 
-      $Section usage {
-        title: _("Usage");
-        visible: false;
+        $MeterRow cpu {
+          title: _("CPU");
+          visible: false;
+        }
 
-        Gtk.Box usage_rows {
+        $MeterRow memory {
+          title: _("Memory");
+          visible: false;
+        }
+
+        $MeterRow swap {
+          title: _("Swap");
+          visible: false;
+        }
+
+        Gtk.Box disks {
           orientation: vertical;
         }
-      }
 
-      $Section details {
-        title: _("Details");
-        visible: false;
+        $MeterRow gpu {
+          title: _("GPU");
+          visible: false;
+        }
 
-        Gtk.Box details_rows {
-          orientation: vertical;
+        $MeterRow gpu_memory {
+          visible: false;
         }
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $Section details {
+      visible: false;
+
+      Gtk.Box {
+        orientation: vertical;
+
+        $Row load {
+          title: _("Load average");
+          visible: false;
+        }
+
+        $Row uptime {
+          title: _("Uptime");
+          visible: false;
+        }
+
+        $Row network {
+          title: _("Network");
+          visible: false;
+        }
+
+        $Row cpu_temp {
+          title: _("CPU temperature");
+          visible: false;
+        }
+
+        $Row gpu_temp {
+          title: _("GPU temperature");
+          visible: false;
+        }
+      }
+    }
+
+    $ActionRow footer {
       visible: false;
     }
   }

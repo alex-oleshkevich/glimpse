@@ -63,7 +63,6 @@ mod player_list;
 mod popover_shell;
 mod printing_popover;
 mod privacy_popover;
-mod progress;
 mod range_bar;
 pub mod raster;
 mod readout;
@@ -213,7 +212,8 @@ pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
 pub use switch_row::SwitchRow;
 pub use system_monitor_popover::{
-    DetailTile as SystemMonitorDetail, SystemMonitorPopover, UsageTile as SystemMonitorUsage,
+    Meter as SystemMonitorMeter, NamedMeter as SystemMonitorNamedMeter,
+    Readings as SystemMonitorReadings, SystemMonitorPopover,
 };
 pub(crate) use theme::animation_ms;
 pub use theme::{Sheets, Styles, duration_ms};

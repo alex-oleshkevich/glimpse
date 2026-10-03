@@ -2,13 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, Severity, none_if_empty, reconcile, set_css_class, set_footer_row};
+use crate::{MeterRow, Row, RowTone, Severity, none_if_empty, reconcile};
 
-pub use imp::{DetailTile, UsageTile};
-
-const USAGE_BAR: &str = "system-monitor-usage-bar";
-const WARNING: &str = "usage-row--warning";
-const ERROR: &str = "usage-row--error";
+pub use imp::{Meter, NamedMeter, Readings};
 
 glib::wrapper! {
     pub struct SystemMonitorPopover(ObjectSubclass<imp::SystemMonitorPopover>)
@@ -27,46 +23,55 @@ impl SystemMonitorPopover {
         glib::Object::new()
     }
 
-    pub fn set_usage(&self, tiles: &[UsageTile]) {
+    pub fn set_readings(&self, readings: &Readings) {
         let imp = self.imp();
-        if imp.usage_data.borrow().as_slice() == tiles {
+        if *imp.readings.borrow() == *readings {
             return;
         }
-        imp.usage_data.replace(tiles.to_vec());
-        imp.usage.set_visible(!tiles.is_empty());
+        imp.readings.replace(readings.clone());
+        apply_meter(&imp.cpu, readings.cpu.as_ref());
+        apply_meter(&imp.memory, readings.memory.as_ref());
+        apply_meter(&imp.swap, readings.swap.as_ref());
         reconcile::by_key(
-            &*imp.usage_rows,
-            &mut imp.usage_held.borrow_mut(),
-            tiles,
-            |tile| tile.id.clone(),
-            |_tile| gtk4::Box::new(gtk4::Orientation::Vertical, 0),
-            apply_usage_cell,
+            &*imp.disks,
+            &mut imp.disks_held.borrow_mut(),
+            &readings.disks,
+            |disk| disk.title.clone(),
+            |_disk| MeterRow::new(),
+            apply_named,
         );
-    }
-
-    pub fn set_details(&self, tiles: &[DetailTile]) {
-        let imp = self.imp();
-        if imp.details_data.borrow().as_slice() == tiles {
-            return;
+        apply_meter(&imp.gpu, readings.gpu.as_ref());
+        if let Some(gpu_memory) = &readings.gpu_memory {
+            apply_named(&imp.gpu_memory, gpu_memory);
         }
-        imp.details_data.replace(tiles.to_vec());
-        imp.details.set_visible(!tiles.is_empty());
-        reconcile::by_key(
-            &*imp.details_rows,
-            &mut imp.details_held.borrow_mut(),
-            tiles,
-            |tile| tile.id.clone(),
-            |_tile| LegacyRow::new(),
-            |row, tile| {
-                row.set_activatable(false);
-                row.set_title(none_if_empty(&tile.title));
-                row.set_value(none_if_empty(&tile.value));
-            },
+        imp.gpu_memory.set_visible(readings.gpu_memory.is_some());
+        imp.usage.set_visible(
+            readings.cpu.is_some()
+                || readings.memory.is_some()
+                || readings.swap.is_some()
+                || !readings.disks.is_empty()
+                || readings.gpu.is_some()
+                || readings.gpu_memory.is_some(),
+        );
+
+        apply_value(&imp.load, readings.load.as_deref());
+        apply_value(&imp.uptime, readings.uptime.as_deref());
+        apply_value(&imp.network, readings.network.as_deref());
+        apply_value(&imp.cpu_temp, readings.cpu_temp.as_deref());
+        apply_value(&imp.gpu_temp, readings.gpu_temp.as_deref());
+        imp.details.set_visible(
+            readings.load.is_some()
+                || readings.uptime.is_some()
+                || readings.network.is_some()
+                || readings.cpu_temp.is_some()
+                || readings.gpu_temp.is_some(),
         );
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -78,19 +83,28 @@ impl SystemMonitorPopover {
     }
 }
 
-fn apply_usage_cell(cell: &gtk4::Box, tile: &UsageTile) {
-    let row = match cell.first_child().and_downcast::<LegacyRow>() {
-        Some(row) => row,
-        None => {
-            let row = LegacyRow::new();
-            cell.prepend(&row);
-            row
-        }
+fn apply_named(row: &MeterRow, named: &NamedMeter) {
+    row.upcast_ref::<Row>()
+        .set_title(none_if_empty(&named.title));
+    apply_meter(row, Some(&named.meter));
+}
+
+fn apply_meter(row: &MeterRow, meter: Option<&Meter>) {
+    row.set_visible(meter.is_some());
+    let Some(meter) = meter else {
+        return;
     };
-    row.set_activatable(false);
-    row.set_title(none_if_empty(&tile.title));
-    row.set_value(none_if_empty(&tile.value));
-    set_css_class(&row, WARNING, tile.severity == Some(Severity::Warning));
-    set_css_class(&row, ERROR, tile.severity == Some(Severity::Error));
-    crate::progress::apply_bar(cell, tile.fraction, USAGE_BAR);
+    row.set_level(meter.level);
+    let row = row.upcast_ref::<Row>();
+    row.set_value(none_if_empty(&meter.value));
+    row.set_tone(match meter.severity {
+        Some(Severity::Warning) => RowTone::Warning,
+        Some(Severity::Error) => RowTone::Error,
+        _ => RowTone::Normal,
+    });
+}
+
+fn apply_value(row: &Row, value: Option<&str>) {
+    row.set_visible(value.is_some());
+    row.set_value(value);
 }

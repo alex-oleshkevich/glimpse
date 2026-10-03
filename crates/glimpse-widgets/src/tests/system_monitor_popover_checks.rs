@@ -2,19 +2,25 @@ use super::*;
 
 pub(super) fn check() {
     let system_monitor = SystemMonitorPopover::new();
-    let tile = |id: &str, fraction| SystemMonitorUsage {
-        id: id.to_owned(),
-        title: id.to_owned(),
-        value: "1".to_owned(),
-        fraction,
-        severity: None,
+    let disk = |title: &str| SystemMonitorNamedMeter {
+        title: title.to_owned(),
+        meter: SystemMonitorMeter {
+            level: 0.5,
+            value: "1".to_owned(),
+            severity: None,
+        },
     };
-    system_monitor.set_usage(&[tile("a", Some(0.5)), tile("b", None)]);
-    assert_eq!(children(&*system_monitor.imp().usage_rows), 2);
-    system_monitor.set_usage(&[tile("a", Some(0.5))]);
+    let readings = |disks| SystemMonitorReadings {
+        disks,
+        ..Default::default()
+    };
+    system_monitor.set_readings(&readings(vec![disk("/"), disk("/home")]));
+    assert_eq!(children(&*system_monitor.imp().disks), 2);
+    assert!(!system_monitor.imp().cpu.get_visible());
+    system_monitor.set_readings(&readings(vec![disk("/")]));
     assert_eq!(
-        children(&*system_monitor.imp().usage_rows),
+        children(&*system_monitor.imp().disks),
         1,
-        "a tile whose key stops being passed must not remain"
+        "a disk whose path stops being passed must not remain"
     );
 }
