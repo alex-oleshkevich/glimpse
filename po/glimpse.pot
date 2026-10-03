@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-03 18:35+0200\n"
+"POT-Creation-Date: 2026-10-03 22:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -124,9 +124,9 @@ msgstr ""
 #: crates/glimpse-shot/src/gui/result.rs:973
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:159
 #: crates/glimpse-widgets/blueprints/network_popover.blp:194
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:102
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:152
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:202
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:166
@@ -175,7 +175,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:101
 #: crates/glimpse-panel/src/applets/network/render.rs:97
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:96
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:85
 msgid "That did not work."
 msgstr ""
 
@@ -345,7 +345,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:341
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:292
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:306
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
 #: crates/glimpse-panel/src/applets/places/render.rs:53
 #: crates/glimpse-panel/src/applets/removable/render.rs:52
 msgid "Show fewer"
@@ -780,7 +780,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
 #: crates/glimpse-panel/src/applets/brightness/render.rs:73
 #: crates/glimpse-panel/src/applets/brightness/render/tests.rs:206
-#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:14
+#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
 msgid "Keyboard"
 msgstr ""
 
@@ -919,11 +919,7 @@ msgstr ""
 msgid "Unpin"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
-msgid "Nothing copied yet"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:295
 #: crates/glimpse-panel/src/applets/places/render.rs:54
 #: crates/glimpse-panel/src/applets/removable/render.rs:53
@@ -932,63 +928,59 @@ msgid_plural "{count} more"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:318
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
 msgid "Clear history"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:439
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:429
 msgid "Save image"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:453
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:468
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:522
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:443
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:458
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:512
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
 msgid "Clipboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:455
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:445
 msgid "Could not save the image"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:470
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:460
 msgid "Could not send that"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:472
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:462
 #: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:180
 msgid "KDE Connect is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:526
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:516
 msgid "The clipboard is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:540
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:530
 msgid "That entry is no longer in the history."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:552
-msgid "{count} items · {size}"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:655
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
 msgid "Could not copy that"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:680
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:657
 msgid "Could not copy that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:702
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:679
 msgid "Could not pin that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:718
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:695
 msgid "Could not forget that entry"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:734
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
 msgid "Could not clear the history"
 msgstr ""
 
@@ -1607,7 +1599,6 @@ msgid "{count}d"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/pager/mod.rs:221
-#: crates/glimpse-panel/src/applets/workspace_name/render.rs:33
 msgid "{count} window"
 msgid_plural "{count} windows"
 msgstr[0] ""
@@ -1826,25 +1817,26 @@ msgstr ""
 msgid "The drive could not complete that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:74
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:63
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
 msgid "Ruler"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:92
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:81
 msgid "The ruler could not start, capture the screen or reach the clipboard."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:132
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:161
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:121
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:150
 msgid "Could not measure the screen"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:152
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:141
 msgid "Could not copy that measurement"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/ruler/render.rs:25
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:25
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
 msgid "Measure the screen"
 msgstr ""
 
@@ -1858,8 +1850,8 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:60
 #: crates/glimpse-panel/src/applets/session/render.rs:62
-#: crates/glimpse-widgets/blueprints/session_popover.blp:22
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:106
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:171
 msgid "Suspend"
 msgstr ""
@@ -1870,7 +1862,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:65
 #: crates/glimpse-panel/src/applets/session/render.rs:67
-#: crates/glimpse-widgets/blueprints/session_popover.blp:27
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
 msgid "Hibernate"
 msgstr ""
 
@@ -1880,7 +1872,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:70
 #: crates/glimpse-panel/src/applets/session/render.rs:72
-#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
 msgid "Log out"
 msgstr ""
 
@@ -1891,8 +1883,8 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:75
 #: crates/glimpse-panel/src/applets/session/render.rs:77
-#: crates/glimpse-widgets/blueprints/session_popover.blp:43
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:156
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
 msgid "Restart"
 msgstr ""
 
@@ -1902,7 +1894,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/session/render.rs:80
 #: crates/glimpse-panel/src/applets/session/render.rs:82
-#: crates/glimpse-widgets/blueprints/session_popover.blp:48
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
 msgid "Shut down"
 msgstr ""
 
@@ -1971,7 +1963,7 @@ msgid "No reading yet"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/weather/render.rs:16
-#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:34
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
 msgid "Clear"
 msgstr ""
 
@@ -2194,7 +2186,7 @@ msgstr ""
 msgid "Workspace {number}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/workspace_name/render.rs:65
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:56
 msgid "Already the name of {workspace}"
 msgstr ""
 
@@ -2619,15 +2611,11 @@ msgstr ""
 msgid "Drives and volumes"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:30
-msgid "History"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/scrubber.blp:17
 msgid "Seek"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_popover.blp:12
 msgid "Lock"
 msgstr ""
 
@@ -2635,36 +2623,36 @@ msgstr ""
 msgid "Suspend…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:41
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
 msgid "Restart…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:48
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
 msgid "Power Off…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:78
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
 msgid "Suspend now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:87
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
 msgid "The screen stays locked when it wakes."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:128
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
 msgid "Restart now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:137
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:187
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
 msgid "Open sessions may lose unsaved work."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:178
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
 msgid "Power off now?"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/session_sheet.blp:206
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
 msgid "Power Off"
 msgstr ""
 
@@ -3255,12 +3243,8 @@ msgid ""
 "Storm warning: strong wind gusts up to 90 km/h expected across the region"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
 msgid "Name this workspace"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:53
-msgid "Recent names"
 msgstr ""
 
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
@@ -3482,14 +3466,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/removable_popover/mod.rs:254
 msgid "Unmount"
-msgstr ""
-
-#: crates/glimpse-widgets/src/ruler_popover/mod.rs:36
-msgid "No measurement yet"
-msgstr ""
-
-#: crates/glimpse-widgets/src/ruler_popover/mod.rs:38
-msgid "Right-click the indicator to measure"
 msgstr ""
 
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:60
