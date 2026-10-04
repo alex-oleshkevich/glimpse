@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use gettextrs::gettext;
 
-use crate::InhibitorEntry;
+use crate::{InhibitorEntry, Row};
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)
@@ -24,10 +24,10 @@ impl IdlePopover {
     }
 
     pub fn set_heading(&self, icon_name: &str, title: &str, subtitle: Option<&str>) {
-        let imp = self.imp();
-        imp.hero.set_icon_name(Some(icon_name));
-        imp.hero.set_title(Some(title));
-        imp.hero.set_subtitle(subtitle);
+        let shell = &self.imp().shell;
+        shell.set_icon_name(Some(icon_name));
+        shell.set_title(Some(title));
+        shell.set_subtitle(subtitle);
     }
 
     pub fn set_hold_active(&self, on: bool) {
@@ -48,17 +48,18 @@ impl IdlePopover {
         if imp.others.get_visible() == entries.is_empty() {
             imp.others.set_visible(!entries.is_empty());
         }
-        imp.shell.set_footer_separated(!entries.is_empty());
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        footer.set_visible(label.is_some());
     }
 
     /// The hold row names what a preset will replace — "Awake until 15:40" while a timed hold
     /// runs — and falls back to its own "Keep awake for…" with `None`.
     pub fn set_hold_label(&self, label: Option<&str>) {
-        let row = &self.imp().hold_row;
+        let row = &self.imp().hold_card;
         let wanted = label
             .map(str::to_owned)
             .unwrap_or_else(|| gettext("Keep awake for…"));
@@ -67,9 +68,16 @@ impl IdlePopover {
         }
     }
 
+    /// Checks the preset of the timed hold that is running, and none with `None`.
+    pub fn set_hold_preset(&self, seconds: Option<u32>) {
+        for (row, preset) in self.imp().presets() {
+            row.set_active(seconds == Some(preset));
+        }
+    }
+
     /// Closes the presets once the hold chosen from them is set.
     pub fn collapse_hold(&self) {
-        self.imp().hold_card.set_expanded(false);
+        self.imp().hold_card.set_open(false);
     }
 
     pub fn connect_hold_toggled<F: Fn(&Self, bool) + 'static>(

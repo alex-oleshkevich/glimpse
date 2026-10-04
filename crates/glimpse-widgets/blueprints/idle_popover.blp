@@ -8,15 +8,12 @@ template $IdlePopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "view-conceal-symbolic";
+    icon-name: "view-conceal-symbolic";
 
-      [slot]
-      Gtk.Switch hold {
-        valign: center;
-        tooltip-text: _("Keep awake");
-      }
+    [addon]
+    Gtk.Switch hold {
+      valign: center;
+      tooltip-text: _("Keep awake");
     }
 
     Gtk.Box column {
@@ -27,49 +24,32 @@ template $IdlePopover: Gtk.Widget {
         "column",
       ]
 
-      $Expandable hold_card {
-        $LegacyRow hold_row {
-          title: _("Keep awake for…");
+      $ExpanderRow hold_card {
+        title: _("Keep awake for…");
 
-          [trail]
-          Gtk.Image {
-            icon-name: "go-next-symbolic";
-            accessible-role: presentation;
-
-            styles [
-              "drawer-chevron",
-            ]
-          }
+        $ToggleRow preset_15m {
+          control: check;
+          title: _("15 minutes");
         }
 
-        [details]
-        Gtk.Box {
-          orientation: vertical;
+        $ToggleRow preset_30m {
+          control: check;
+          title: _("30 minutes");
+        }
 
-          $LegacyRow preset_15m {
-            activatable: true;
-            title: _("15 minutes");
-          }
+        $ToggleRow preset_1h {
+          control: check;
+          title: _("1 hour");
+        }
 
-          $LegacyRow preset_30m {
-            activatable: true;
-            title: _("30 minutes");
-          }
+        $ToggleRow preset_2h {
+          control: check;
+          title: _("2 hours");
+        }
 
-          $LegacyRow preset_1h {
-            activatable: true;
-            title: _("1 hour");
-          }
-
-          $LegacyRow preset_2h {
-            activatable: true;
-            title: _("2 hours");
-          }
-
-          $LegacyRow preset_4h {
-            activatable: true;
-            title: _("4 hours");
-          }
+        $ToggleRow preset_4h {
+          control: check;
+          title: _("4 hours");
         }
       }
 
@@ -81,8 +61,7 @@ template $IdlePopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

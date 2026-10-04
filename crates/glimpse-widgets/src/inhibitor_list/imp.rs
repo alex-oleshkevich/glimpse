@@ -4,12 +4,12 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::InhibitorEntry;
-use crate::Expandable;
+use crate::ExpanderRow;
 
 #[derive(Debug, Default)]
 pub struct InhibitorList {
     pub entries: RefCell<Vec<InhibitorEntry>>,
-    pub items: RefCell<Vec<(u64, Expandable)>>,
+    pub items: RefCell<Vec<(u64, ExpanderRow)>>,
 }
 
 #[glib::object_subclass]

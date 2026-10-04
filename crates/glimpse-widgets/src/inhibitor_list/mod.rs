@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fact, FactList, LegacyRow, reconcile};
+use crate::{ActionRow, ExpanderRow, Fact, FactList, Row, RowTone, reconcile};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InhibitorSource {
@@ -96,72 +96,43 @@ impl InhibitorList {
 
     /// An app's whole row opens a card of what it prevents and, when it may be ended, a
     /// destructive Release: it ends another app's hold, which is not what "Cancel" reads as.
-    fn build_item(&self, id: u64) -> Expandable {
-        let row = LegacyRow::new();
-        let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
-        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
-        chevron.add_css_class("drawer-chevron");
-        row.set_trail(&chevron);
-
-        let release = LegacyRow::new();
-        release.set_title(Some(gettext("Release").as_str()));
-        release.set_activatable(true);
-        release.add_css_class(crate::DESTRUCTIVE);
-        release.connect_clicked(glib::clone!(
+    fn build_item(&self, id: u64) -> ExpanderRow {
+        let release = ActionRow::new();
+        release
+            .upcast_ref::<Row>()
+            .set_title(Some(gettext("Release").as_str()));
+        release.upcast_ref::<Row>().set_tone(RowTone::Destructive);
+        release.connect_activated(glib::clone!(
             #[weak(rename_to = list)]
             self,
             move |_| list.emit_by_name::<()>("release-requested", &[&id])
         ));
 
-        let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        card.append(&FactList::new());
-        card.append(&release);
-
-        let holder = Expandable::new(&row);
-        holder.set_details(Some(&card));
-        holder
+        let item = ExpanderRow::new();
+        let details = item.details();
+        details.append(&FactList::new());
+        details.append(&release);
+        item
     }
 }
 
 /// The row is one line and the source is its icon, so the card holds the reason, what the hold
-/// prevents and Release. One with no reason that prevents only idle and cannot be released has
-/// nothing left to show, and its row is plain text.
-fn dress(holder: &Expandable, entry: &InhibitorEntry) {
-    let Some(row) = holder.head::<LegacyRow>() else {
-        return;
-    };
-    row.set_title(crate::none_if_empty(&entry.label));
-    row.set_lead_icon(Some(entry.source.icon_name()));
+/// prevents and Release.
+fn dress(item: &ExpanderRow, entry: &InhibitorEntry) {
+    item.set_title(crate::none_if_empty(&entry.label));
+    item.set_icon_name(Some(entry.source.icon_name()));
 
-    let Some(card) = holder.details::<gtk4::Box>() else {
-        return;
-    };
-    if let Some(facts) = card.first_child().and_downcast::<FactList>() {
+    let details = item.details();
+    if let Some(facts) = details.first_child().and_downcast::<FactList>() {
         let reason =
             (!entry.status.is_empty()).then(|| Fact::new(gettext("Reason"), entry.status.clone()));
         let prevents = Fact::new(gettext("Prevents"), targets(&entry.targets));
         facts.set_facts(&reason.into_iter().chain([prevents]).collect::<Vec<_>>());
     }
-    if let Some(release) = card.last_child()
+    if let Some(release) = details.last_child()
         && release.get_visible() != entry.can_release
     {
         release.set_visible(entry.can_release);
-    }
-
-    let only_idle = entry.targets
-        == InhibitorTargets {
-            idle: true,
-            ..InhibitorTargets::default()
-        };
-    let carded = entry.can_release || !only_idle || !entry.status.is_empty();
-    row.set_activatable(carded);
-    if let Some(chevron) = row.trail()
-        && chevron.get_visible() != carded
-    {
-        chevron.set_visible(carded);
-    }
-    if !carded {
-        holder.set_expanded(false);
     }
 }
 

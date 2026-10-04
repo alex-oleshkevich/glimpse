@@ -86,11 +86,6 @@ impl PopoverShell {
         self.settle();
     }
 
-    pub fn set_footer_separated(&self, separated: bool) {
-        self.imp().footer_rule_suppressed.set(!separated);
-        self.settle();
-    }
-
     pub(crate) fn focus(&self, changed: &Expandable) {
         if changed.expanded() {
             for other in descendants::<Expandable>(self.upcast_ref()) {
@@ -176,7 +171,7 @@ impl PopoverShell {
         show(&*imp.footer_box, footer_shown);
         show(
             &*imp.footer_rule,
-            footer_shown && !imp.footer_rule_suppressed.get() && (content_shown || !hero_shown),
+            footer_shown && (content_shown || !hero_shown),
         );
         self.apply_cap(None);
     }

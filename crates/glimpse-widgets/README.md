@@ -44,7 +44,7 @@ the primary button and acting on a workspace happens in the popover.
 the strip shoves the chips already on the bar aside.
 
 `TooltipCard` reports itself invisible when every one of its four fields is empty, so a host shows
-no tooltip rather than an empty box. Each `InhibitorList` row is an `Expandable` opening a card of
+no tooltip rather than an empty box. Each `InhibitorList` row is an `ExpanderRow` opening a card of
 what it prevents and, when releasable, a destructive Release — it ends another app's hold, which
 "Cancel" does not say.
 

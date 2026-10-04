@@ -3,11 +3,9 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, Fact, FactList, LegacyRow, none_if_empty, reconcile};
+use crate::{ActionRow, ExpanderRow, Fact, FactList, Row, RowTone, none_if_empty, reconcile};
 
 pub use imp::Usage;
-
-const CHEVRON: &str = "go-next-symbolic";
 
 glib::wrapper! {
     pub struct PrivacyPopover(ObjectSubclass<imp::PrivacyPopover>)
@@ -78,72 +76,65 @@ impl PrivacyPopover {
             &*imp.usage_rows,
             &mut imp.usage_held.borrow_mut(),
             &usages,
-            |usage| usage.id.clone(),
-            |_| self.build_usage(),
-            |holder, usage| self.apply_usage(holder, usage),
+            |usage| (usage.id.clone(), carded(usage)),
+            |usage| self.build_usage(usage),
+            apply_usage,
         );
         imp.usages.set_visible(!usages.is_empty());
     }
 
-    fn build_usage(&self) -> Expandable {
-        let row = LegacyRow::new();
-        let chevron = gtk4::Image::from_icon_name(CHEVRON);
-        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
-        chevron.add_css_class("drawer-chevron");
-        row.set_trail(&chevron);
-        Expandable::new(&row)
-    }
-
-    fn apply_usage(&self, holder: &Expandable, usage: &Usage) {
-        let carded = usage.stoppable || usage.detail.is_some();
-        if let Some(row) = holder.head::<LegacyRow>() {
-            row.set_title(none_if_empty(&usage.title));
-            row.set_lead_icon(none_if_empty(&usage.icon));
-            if row.activatable() != carded {
-                row.set_activatable(carded);
-            }
-            if let Some(chevron) = row.trail()
-                && chevron.get_visible() != carded
-            {
-                chevron.set_visible(carded);
-            }
+    /// A use that has nothing to say and cannot be stopped is a plain row; any other opens a card
+    /// of what is in use and, when it can be ended, a destructive Stop sharing.
+    fn build_usage(&self, usage: &Usage) -> gtk4::Widget {
+        if !carded(usage) {
+            return Row::new().upcast();
         }
-        let card = match (carded, holder.details::<gtk4::Box>()) {
-            (false, Some(_)) => return holder.set_details(None::<&gtk4::Widget>),
-            (false, None) => return,
-            (true, Some(card)) => card,
-            (true, None) => {
-                let card = self.card(&usage.id);
-                holder.set_details(Some(&card));
-                card
-            }
-        };
-        if let Some(facts) = card.first_child().and_downcast::<FactList>() {
-            let in_use = usage
-                .detail
-                .as_ref()
-                .map(|detail| Fact::new(gettext("In use"), detail.clone()));
-            facts.set_facts(&in_use.into_iter().collect::<Vec<_>>());
-        }
-        if let Some(stop) = card.last_child() {
-            stop.set_visible(usage.stoppable);
-        }
-    }
-
-    fn card(&self, id: &str) -> gtk4::Box {
-        let stop = LegacyRow::new();
-        stop.set_title(Some(gettext("Stop sharing").as_str()));
-        stop.add_css_class(crate::DESTRUCTIVE);
-        let key = id.to_owned();
-        stop.connect_clicked(glib::clone!(
+        let stop = ActionRow::new();
+        stop.upcast_ref::<Row>()
+            .set_title(Some(gettext("Stop sharing").as_str()));
+        stop.upcast_ref::<Row>().set_tone(RowTone::Destructive);
+        let key = usage.id.clone();
+        stop.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>("stop-activated", &[&key])
         ));
-        let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        card.append(&FactList::new());
-        card.append(&stop);
-        card
+        let item = ExpanderRow::new();
+        let details = item.details();
+        details.append(&FactList::new());
+        details.append(&stop);
+        item.upcast()
+    }
+}
+
+fn carded(usage: &Usage) -> bool {
+    usage.stoppable || usage.detail.is_some()
+}
+
+fn apply_usage(widget: &gtk4::Widget, usage: &Usage) {
+    let title = none_if_empty(&usage.title);
+    let icon = none_if_empty(&usage.icon);
+    let Some(item) = widget.downcast_ref::<ExpanderRow>() else {
+        if let Some(row) = widget.downcast_ref::<Row>() {
+            row.set_title(title);
+            row.set_icon_name(icon);
+        }
+        return;
+    };
+    item.set_title(title);
+    item.set_icon_name(icon);
+    let details = item.details();
+    if let Some(facts) = details.first_child().and_downcast::<FactList>() {
+        let in_use = usage
+            .detail
+            .as_ref()
+            .map(|detail| Fact::new(gettext("In use"), detail.clone()));
+        facts.set_facts(&in_use.into_iter().collect::<Vec<_>>());
+    }
+    if let Some(stop) = details.last_child()
+        && stop.get_visible() != usage.stoppable
+    {
+        stop.set_visible(usage.stoppable);
     }
 }
 

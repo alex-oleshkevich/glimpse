@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, InhibitorList, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, InhibitorList, PopoverShell, Section, ToggleRow};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/idle_popover.ui")]
@@ -13,29 +13,25 @@ pub struct IdlePopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub hold: TemplateChild<gtk4::Switch>,
     #[template_child]
-    pub hold_card: TemplateChild<Expandable>,
+    pub hold_card: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub hold_row: TemplateChild<LegacyRow>,
+    pub preset_15m: TemplateChild<ToggleRow>,
     #[template_child]
-    pub preset_15m: TemplateChild<LegacyRow>,
+    pub preset_30m: TemplateChild<ToggleRow>,
     #[template_child]
-    pub preset_30m: TemplateChild<LegacyRow>,
+    pub preset_1h: TemplateChild<ToggleRow>,
     #[template_child]
-    pub preset_1h: TemplateChild<LegacyRow>,
+    pub preset_2h: TemplateChild<ToggleRow>,
     #[template_child]
-    pub preset_2h: TemplateChild<LegacyRow>,
-    #[template_child]
-    pub preset_4h: TemplateChild<LegacyRow>,
+    pub preset_4h: TemplateChild<ToggleRow>,
     #[template_child]
     pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<InhibitorList>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub quiet: Cell<bool>,
 }
@@ -47,6 +43,9 @@ impl ObjectSubclass for IdlePopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
+        ExpanderRow::static_type();
+        ToggleRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -90,17 +89,14 @@ impl ObjectImpl for IdlePopover {
             }
         ));
 
-        for (button, seconds) in [
-            (&self.preset_15m, 900u32),
-            (&self.preset_30m, 1800),
-            (&self.preset_1h, 3600),
-            (&self.preset_2h, 7200),
-            (&self.preset_4h, 14400),
-        ] {
-            button.connect_clicked(glib::clone!(
+        for (row, seconds) in self.presets() {
+            row.connect_toggled(glib::clone!(
                 #[weak]
                 popover,
-                move |_| popover.emit_by_name::<()>("hold-requested", &[&seconds])
+                move |_, _| {
+                    popover.set_hold_preset(Some(seconds));
+                    popover.emit_by_name::<()>("hold-requested", &[&seconds]);
+                }
             ));
         }
 
@@ -110,7 +106,7 @@ impl ObjectImpl for IdlePopover {
             move |_, id| popover.emit_by_name::<()>("release-requested", &[&id])
         ));
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
@@ -123,3 +119,15 @@ impl ObjectImpl for IdlePopover {
 }
 
 impl WidgetImpl for IdlePopover {}
+
+impl IdlePopover {
+    pub fn presets(&self) -> [(&ToggleRow, u32); 5] {
+        [
+            (&self.preset_15m, 900),
+            (&self.preset_30m, 1800),
+            (&self.preset_1h, 3600),
+            (&self.preset_2h, 7200),
+            (&self.preset_4h, 14400),
+        ]
+    }
+}

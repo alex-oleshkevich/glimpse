@@ -5,9 +5,8 @@ pub(super) fn check() {
     let idle_window = gtk4::Window::new();
     idle_window.set_child(Some(&idle));
     let idle_hold = idle.imp().hold.clone();
-    let idle_hold_row = idle.imp().hold_row.clone();
     let idle_hold_card = idle.imp().hold_card.clone();
-    let _hold_chevron = child_named::<gtk4::Image>(&idle_hold_row, "drawer-chevron");
+    let idle_hold_row = child_named::<ActionRow>(&idle_hold_card, "expander-row__head");
     assert!(
         !idle.imp().others.get_visible(),
         "no other app holding means no \"Kept awake by\" section at all"
@@ -30,19 +29,16 @@ pub(super) fn check() {
     idle_hold.set_active(true);
     assert_eq!(*idle_toggled.borrow(), [true]);
 
-    assert!(
-        !idle_hold_card.expanded(),
-        "the duration choices start closed"
-    );
-    assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+    assert!(!idle_hold_card.open(), "the duration choices start closed");
+    assert_eq!(idle_hold_card.title().as_deref(), Some("Keep awake for…"));
     idle.set_hold_label(Some("Awake until 15:40"));
     assert_eq!(
-        idle_hold_row.title().as_deref(),
+        idle_hold_card.title().as_deref(),
         Some("Awake until 15:40"),
         "while a timed hold runs, the row names what a preset would replace"
     );
     idle.set_hold_label(None);
-    assert_eq!(idle_hold_row.title().as_deref(), Some("Keep awake for…"));
+    assert_eq!(idle_hold_card.title().as_deref(), Some("Keep awake for…"));
 
     let dimmed = |widget: &gtk4::Widget| {
         std::iter::successors(Some(widget.clone()), |widget| widget.parent())
@@ -50,17 +46,16 @@ pub(super) fn check() {
     };
     idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
     idle.set_footer(Some("Idle settings"));
-    idle_hold_row.emit_clicked();
+    idle_hold_row.activate();
     assert!(
-        idle_hold_card.expanded()
-            && dimmed(idle.imp().hero.upcast_ref())
+        idle_hold_card.open()
             && dimmed(idle.imp().list.upcast_ref())
             && dimmed(idle.imp().footer.upcast_ref()),
         "the duration row opens its choices and dims the rest of the popover"
     );
-    idle_hold_row.emit_clicked();
+    idle_hold_row.activate();
     assert!(
-        !idle_hold_card.expanded() && !dimmed(idle.imp().hero.upcast_ref()),
+        !idle_hold_card.open() && !dimmed(idle.imp().list.upcast_ref()),
         "the same duration row closes its choices and restores the popover"
     );
 
@@ -69,29 +64,40 @@ pub(super) fn check() {
         let idle_requested = Rc::clone(&idle_requested);
         move |_, seconds| idle_requested.borrow_mut().push(seconds)
     });
-    for (button, seconds) in [
-        (&idle.imp().preset_15m, 900u32),
-        (&idle.imp().preset_30m, 1800),
-        (&idle.imp().preset_1h, 3600),
-        (&idle.imp().preset_2h, 7200),
-        (&idle.imp().preset_4h, 14400),
-    ] {
-        button.emit_clicked();
+    for (row, seconds) in idle.imp().presets() {
+        row.activate();
         assert_eq!(
             *idle_requested.borrow().last().unwrap(),
             seconds,
-            "each preset button must ask for its own duration, not a neighbour's"
+            "each preset row must ask for its own duration, not a neighbour's"
+        );
+        assert!(
+            idle.imp()
+                .presets()
+                .iter()
+                .all(|(other, preset)| other.active() == (*preset == seconds)),
+            "the chosen preset alone is checked"
         );
     }
+    idle.imp().preset_4h.activate();
+    assert!(
+        idle.imp().preset_4h.active(),
+        "pressing the running preset again keeps it checked"
+    );
+    idle.set_hold_preset(None);
+    assert!(
+        idle.imp().presets().iter().all(|(row, _)| !row.active()),
+        "no timed hold checks no preset"
+    );
     assert_eq!(
         *idle_requested.borrow(),
-        [900, 1800, 3600, 7200, 14400],
+        [900, 1800, 3600, 7200, 14400, 14400],
         "no preset asks for an indefinite hold: the switch is that"
     );
-    idle_hold_row.emit_clicked();
+    idle_hold_row.activate();
     idle.collapse_hold();
     assert!(
-        !idle_hold_card.expanded(),
+        !idle_hold_card.open(),
         "a hold that was set closes the choices it was picked from"
     );
 
@@ -102,20 +108,21 @@ pub(super) fn check() {
         let idle_released = Rc::clone(&idle_released);
         move |_, id| idle_released.borrow_mut().push(id)
     });
-    let holder = children_of::<Expandable>(&*idle.imp().list).remove(0);
-    holder.head::<LegacyRow>().expect("a row").emit_clicked();
-    assert!(holder.expanded() && dimmed(idle.imp().hero.upcast_ref()));
-    holder
-        .details::<gtk4::Box>()
-        .and_then(|card| card.last_child())
-        .and_downcast::<LegacyRow>()
-        .expect("Release")
-        .emit_clicked();
+    let item = children_of::<ExpanderRow>(&*idle.imp().list).remove(0);
+    child_named::<ActionRow>(&item, "expander-row__head").activate();
+    assert!(item.open() && dimmed(idle_hold_card.upcast_ref()));
+    let release = item
+        .details()
+        .last_child()
+        .and_downcast::<ActionRow>()
+        .expect("Release");
+    assert_eq!(release.upcast_ref::<Row>().tone(), RowTone::Destructive);
+    release.activate();
     assert_eq!(*idle_released.borrow(), [1]);
 
     idle.set_inhibitors(&[]);
     assert!(
-        !idle.imp().others.get_visible() && !dimmed(idle.imp().hero.upcast_ref()),
+        !idle.imp().others.get_visible() && !dimmed(idle_hold_card.upcast_ref()),
         "the section and the dimming clear when the list empties"
     );
 
@@ -125,14 +132,6 @@ pub(super) fn check() {
         move |_| idle_footer_activated.set(idle_footer_activated.get() + 1)
     });
     idle.set_footer(Some("Idle settings"));
-    assert!(
-        !idle.imp().shell.imp().footer_rule.get_visible(),
-        "an empty inhibitor list leaves no divider between Keep awake and settings"
-    );
-    idle.set_inhibitors(&[inhibitor(2, "Firefox", false)]);
-    assert!(idle.imp().shell.imp().footer_rule.get_visible());
-    idle.set_inhibitors(&[]);
-    assert!(!idle.imp().shell.imp().footer_rule.get_visible());
-    idle.imp().footer.emit_clicked();
+    idle.imp().footer.activate();
     assert_eq!(idle_footer_activated.get(), 1);
 }

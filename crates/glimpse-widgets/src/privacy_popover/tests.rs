@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::*;
+use crate::LegacyRow;
 
 fn usage(id: &str, title: &str) -> Usage {
     Usage {
@@ -13,20 +14,20 @@ fn usage(id: &str, title: &str) -> Usage {
     }
 }
 
-fn rows(parent: &gtk4::Box) -> Vec<Expandable> {
+fn rows<W: IsA<gtk4::Widget>>(parent: &gtk4::Box) -> Vec<W> {
     let mut rows = Vec::new();
     let mut child = parent.first_child();
     while let Some(widget) = child {
         child = widget.next_sibling();
-        if let Ok(row) = widget.downcast::<Expandable>() {
+        if let Ok(row) = widget.downcast::<W>() {
             rows.push(row);
         }
     }
     rows
 }
 
-fn head(holder: &Expandable) -> LegacyRow {
-    holder.head::<LegacyRow>().expect("a head row")
+fn head(item: &ExpanderRow) -> ActionRow {
+    item.imp().head.get()
 }
 
 #[test]
@@ -44,14 +45,13 @@ fn privacy_popover_states() {
 
     popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
     assert!(imp.usages.get_visible());
-    let chrome = rows(&imp.usage_rows);
+    let chrome = rows::<ExpanderRow>(&imp.usage_rows);
     assert_eq!(chrome.len(), 1);
-    assert_eq!(head(&chrome[0]).title().as_deref(), Some("Google Chrome"));
-    assert!(head(&chrome[0]).subtitle().is_none(), "a use is one line");
-    let status = |holder: &Expandable| {
-        holder
-            .details::<gtk4::Box>()
-            .and_then(|card| card.first_child())
+    assert_eq!(chrome[0].title().as_deref(), Some("Google Chrome"));
+    assert!(chrome[0].subtitle().is_none(), "a use is one line");
+    let status = |item: &ExpanderRow| {
+        item.details()
+            .first_child()
             .and_then(|facts| facts.first_child())
             .and_downcast::<LegacyRow>()
             .expect("a status line")
@@ -62,12 +62,10 @@ fn privacy_popover_states() {
         "the card says what is in use"
     );
     assert!(
-        head(&chrome[0]).activatable()
-            && !status(&chrome[0]).activatable()
-            && !chrome[0]
-                .details::<gtk4::Box>()
-                .and_then(|card| card.last_child())
-                .is_some_and(|stop| stop.get_visible()),
+        !chrome[0]
+            .details()
+            .last_child()
+            .is_some_and(|stop| stop.get_visible()),
         "a use with nothing to stop opens a card with no Stop sharing"
     );
 
@@ -88,27 +86,47 @@ fn privacy_popover_states() {
         stoppable: true,
         ..usage("app:Chrome", "Google Chrome")
     }]);
-    let sharing = rows(&imp.usage_rows);
+    let sharing = rows::<ExpanderRow>(&imp.usage_rows);
     assert_eq!(sharing[0], chrome[0], "the same app keeps its row");
-    head(&sharing[0]).emit_by_name::<()>("clicked", &[]);
+    head(&sharing[0]).activate();
     assert!(
-        sharing[0].expanded(),
+        sharing[0].open(),
         "a share that can be stopped opens its card"
     );
     let stop = sharing[0]
-        .details::<gtk4::Box>()
-        .and_then(|card| card.last_child())
-        .and_downcast::<LegacyRow>()
+        .details()
+        .last_child()
+        .and_downcast::<ActionRow>()
         .expect("a Stop sharing row");
-    assert_eq!(stop.title().as_deref(), Some("Stop sharing"));
-    assert!(stop.has_css_class("row--destructive"));
-    stop.emit_by_name::<()>("clicked", &[]);
+    assert_eq!(
+        stop.upcast_ref::<Row>().title().as_deref(),
+        Some("Stop sharing")
+    );
+    assert_eq!(stop.upcast_ref::<Row>().tone(), RowTone::Destructive);
+    stop.activate();
     assert_eq!(*stopped.borrow(), ["app:Chrome".to_owned()]);
 
     popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
     assert!(
         !stop.get_visible(),
         "a share that ended takes Stop sharing with it"
+    );
+
+    popover.set_usages(&[Usage {
+        detail: None,
+        ..usage("app:Chrome", "Google Chrome")
+    }]);
+    assert!(
+        rows::<ExpanderRow>(&imp.usage_rows).is_empty(),
+        "a use with nothing to say and nothing to stop opens nothing"
+    );
+    let plain = rows::<Row>(&imp.usage_rows);
+    assert_eq!(plain.len(), 1);
+    assert_eq!(plain[0].title().as_deref(), Some("Google Chrome"));
+    popover.set_usages(&[usage("app:Chrome", "Google Chrome")]);
+    assert!(
+        rows::<Row>(&imp.usage_rows).is_empty() && rows::<ExpanderRow>(&imp.usage_rows).len() == 1,
+        "a use that gains something to say gets its card back"
     );
 
     let toggles: Rc<RefCell<Vec<bool>>> = Rc::new(RefCell::new(Vec::new()));
@@ -122,9 +140,8 @@ fn privacy_popover_states() {
         toggles.borrow().is_empty(),
         "following the device's state is not a request to change it"
     );
-    imp.mute.set_property("active", false);
-    imp.mute.emit_by_name::<()>("clicked", &[]);
-    assert_eq!(toggles.borrow().last(), Some(&true));
+    imp.mute.activate();
+    assert_eq!(toggles.borrow().last(), Some(&false));
     popover.set_microphone_muted(None);
     assert!(!imp.mute.get_visible());
 

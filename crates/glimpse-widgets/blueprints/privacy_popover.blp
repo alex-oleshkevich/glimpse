@@ -8,11 +8,8 @@ template $PrivacyPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "security-medium-symbolic";
-      title: _("Privacy");
-    }
+    icon-name: "security-medium-symbolic";
+    title: _("Privacy");
 
     Gtk.Box column {
       orientation: vertical;
@@ -31,7 +28,7 @@ template $PrivacyPopover: Gtk.Widget {
         }
       }
 
-      $SwitchRow mute {
+      $ToggleRow mute {
         visible: false;
         title: _("Mute microphone");
       }

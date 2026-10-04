@@ -7,7 +7,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, PopoverShell, Section, SwitchRow};
+use crate::{ExpanderRow, PopoverShell, Section, ToggleRow};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Usage {
@@ -24,16 +24,14 @@ pub struct PrivacyPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub usages: TemplateChild<Section>,
     #[template_child]
     pub usage_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub mute: TemplateChild<SwitchRow>,
+    pub mute: TemplateChild<ToggleRow>,
 
     pub usage_data: RefCell<Vec<Usage>>,
-    pub usage_held: RefCell<Vec<(String, Expandable)>>,
+    pub usage_held: RefCell<Vec<((String, bool), gtk4::Widget)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }
@@ -45,6 +43,8 @@ impl ObjectSubclass for PrivacyPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ExpanderRow::static_type();
+        ToggleRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }

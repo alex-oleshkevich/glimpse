@@ -16,13 +16,15 @@ use crate::applet::{Applet, Ctx, Input, Opener};
 
 const MINUTE: Duration = Duration::from_secs(60);
 
+type Timed = Rc<Cell<Option<(DateTime<Local>, u32)>>>;
+
 pub struct Idle {
     idle: IdleProviderHandle,
     footer: Option<(String, Vec<String>)>,
     tooltip_format: Option<String>,
     state: IdleProviderState,
     manual_hold: Vec<u64>,
-    until: Rc<Cell<Option<DateTime<Local>>>>,
+    until: Timed,
     twelve: bool,
     icon: Option<(&'static str, gio::Icon)>,
     spec: Vec<IndicatorSpec>,
@@ -72,10 +74,19 @@ impl Applet for Idle {
                 let opener = opener.clone();
                 let until = Rc::clone(&until);
                 let popover = popover.downgrade();
+                let replaced = render::manual_hold_ids(&idle.snapshot().inhibitors);
                 relm4::spawn_local(async move {
                     match idle.hold(seconds).await {
                         Ok(_) => {
-                            until.set(Some(Local::now() + Duration::from_secs(seconds.into())));
+                            for id in replaced {
+                                if let Err(error) = idle.release(id).await {
+                                    tracing::warn!(operation = "idle.release", %error, "service command failed");
+                                }
+                            }
+                            until.set(Some((
+                                Local::now() + Duration::from_secs(seconds.into()),
+                                seconds,
+                            )));
                             if let Some(popover) = popover.upgrade() {
                                 popover.collapse_hold();
                             }
@@ -159,13 +170,13 @@ impl Idle {
         let held = render::manual_hold_ids(&self.state.inhibitors);
         let released = held.is_empty() && !self.manual_hold.is_empty();
         self.manual_hold = held;
-        if released || self.until.get().is_some_and(|at| at <= Local::now()) {
+        if released || self.until.get().is_some_and(|(at, _)| at <= Local::now()) {
             self.until.set(None);
         }
     }
 
     fn left(&self) -> Option<String> {
-        let seconds = (self.until.get()? - Local::now()).num_seconds();
+        let seconds = (self.until.get()?.0 - Local::now()).num_seconds();
         (seconds > 0).then(|| render::time_left((seconds + 59) / 60))
     }
 
@@ -174,7 +185,7 @@ impl Idle {
     fn ends(&self) -> Option<String> {
         self.until
             .get()
-            .map(|at| at.format(glimpse_config::clock(self.twelve)).to_string())
+            .map(|(at, _)| at.format(glimpse_config::clock(self.twelve)).to_string())
     }
 
     fn refresh(&mut self) {
@@ -235,6 +246,7 @@ impl Idle {
             )),
         );
         shown.set_hold_active(held);
+        shown.set_hold_preset(self.until.get().map(|(_, seconds)| seconds));
         shown.set_hold_label(ends.map(|at| render::awake_until(&at)).as_deref());
         shown.set_inhibitors(&render::to_inhibitor_entries(
             &self.state.inhibitors,

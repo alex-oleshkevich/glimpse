@@ -28,7 +28,6 @@ pub struct PopoverShell {
     pub footer_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
     pub footer_box: TemplateChild<gtk4::Box>,
-    pub footer_rule_suppressed: Cell<bool>,
     entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
     body_children: RefCell<Option<gtk4::gio::ListModel>>,
 
