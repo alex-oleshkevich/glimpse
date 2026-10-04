@@ -21,6 +21,28 @@ impl Section {
         glib::Object::new()
     }
 
+    pub fn set_visible(&self, visible: bool) {
+        let imp = self.imp();
+        if !visible && self.is_mapped() && crate::duration_ms() > 0 {
+            if !imp.pending_hide.replace(true) {
+                let section = self.downgrade();
+                glib::idle_add_local_full(glib::Priority::HIGH_IDLE, move || {
+                    if let Some(section) = section.upgrade() {
+                        section.imp().exit_finished();
+                    }
+                    glib::ControlFlow::Break
+                });
+            }
+            return;
+        }
+        imp.pending_hide.set(false);
+        WidgetExt::set_visible(self, visible);
+    }
+
+    pub(crate) fn exit_finished(&self) {
+        self.imp().exit_finished();
+    }
+
     pub fn set_content(&self, content: Option<&impl IsA<gtk4::Widget>>) {
         fill(&self.imp().content, content);
     }

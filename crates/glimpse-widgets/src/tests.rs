@@ -132,6 +132,7 @@ fn widgets() {
     row_checks::checks();
     expander_row_checks::check();
     slider_row_checks::check();
+    exit_presence_checks::check(&_styles);
 }
 
 fn widget_demo_popover_shows_the_header_check() {
@@ -329,6 +330,7 @@ mod clipboard_checks;
 mod color_list_checks;
 mod display_checks;
 mod event_list_checks;
+mod exit_presence_checks;
 mod expandable_checks;
 mod expander_row_checks;
 mod fact_list_checks;

@@ -1,4 +1,5 @@
 use gtk4::prelude::*;
+use std::{cell::Cell, rc::Rc};
 
 const LEAVING: &str = "leaving";
 
@@ -54,12 +55,63 @@ fn leave(parent: &gtk4::Widget, widget: gtk4::Widget) {
         return;
     }
     close_drawers(&widget);
+    let section = std::iter::successors(Some(parent.clone()), |node| node.parent())
+        .find_map(|node| node.downcast::<crate::Section>().ok())
+        .map(|section| section.downgrade());
+    let previous = widget.prev_sibling();
+    let revealer = gtk4::Revealer::new();
+    revealer.add_css_class(LEAVING);
+    revealer.set_reveal_child(true);
+    widget.unparent();
+    revealer.set_child(Some(&widget));
+    revealer.insert_after(parent, previous.as_ref());
+    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideUp);
+    revealer.set_transition_duration(crate::duration_ms());
     let parent = parent.downgrade();
+    let fading_parent = parent.clone();
+    let weak_revealer = revealer.downgrade();
+    let faded = Rc::new(Cell::new(false));
+    let finish = Rc::new({
+        let faded = faded.clone();
+        move || {
+            let Some(revealer) = weak_revealer.upgrade() else {
+                return;
+            };
+            if !faded.get() || revealer.is_child_revealed() {
+                return;
+            }
+            if let Some(parent) = parent.upgrade()
+                && revealer.parent().as_ref() == Some(&parent)
+            {
+                let child = revealer.child();
+                revealer.set_child(None::<&gtk4::Widget>);
+                revealer.unparent();
+                if let Some(child) = child {
+                    child.set_opacity(1.0);
+                }
+            }
+            if let Some(section) = section.as_ref().and_then(|section| section.upgrade()) {
+                section.exit_finished();
+            }
+        }
+    });
+    revealer.connect_child_revealed_notify({
+        let finish = finish.clone();
+        move |_| finish()
+    });
+    revealer.set_reveal_child(false);
+    let collapsing = revealer.downgrade();
     let leaving = widget.clone();
     crate::fade_out(&leaving.clone(), vec![widget], move || {
-        if leaving.parent() == parent.upgrade() {
-            leaving.unparent();
+        if let Some(revealer) = collapsing.upgrade()
+            && let Some(parent) = fading_parent.upgrade()
+            && revealer.parent().as_ref() == Some(&parent)
+            && leaving.parent().as_ref() == Some(revealer.upcast_ref())
+        {
+            leaving.set_opacity(0.0);
         }
+        faded.set(true);
+        finish();
     });
 }
 

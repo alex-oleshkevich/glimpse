@@ -70,11 +70,16 @@ than subclassing one, so its trailing button lands inside the row's box without 
 
 ## Section, EventList, WorldClock and the notification widgets
 
-**Visibility toggle, not a `Gtk.Stack`** — a stack sizes to its largest page, so a placeholder would
-reserve its height under a short agenda. **`when` arrives formatted; a `Zone` does not** — derive in
-the widget when formatting destroys the derivation, since `"00:47"` has thrown away that it is
-tomorrow there. A zone that does not resolve reads `—`, since `g_time_zone_new_identifier` returns
-NULL where the older `g_time_zone_new` silently returns UTC.
+Sections toggle visibility instead of stacking pages that reserve the largest page's height.
+Mapped keyed rows close their drawers and fade while a transient revealer collapses their height;
+the wrapper stays in place until both finish, and an enclosing Section defers hiding while any
+descendant is leaving. Showing the Section cancels that hide; unmapped rows and zero-duration exits
+remove synchronously.
+
+**`when` arrives formatted; a `Zone` does not** — derive in the widget when formatting destroys the
+derivation, since `"00:47"` has thrown away that it is tomorrow there. A zone that does not resolve
+reads `—`, since `g_time_zone_new_identifier` returns NULL where the older `g_time_zone_new` silently
+returns UTC.
 
 The card subclasses `Gtk.Widget`, not `Gtk.Button`, so its default action is a gesture plus keyboard
 activation on the root. **The image is bounded before it reaches the card, because the sender chose
