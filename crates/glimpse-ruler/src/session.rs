@@ -321,8 +321,11 @@ fn constrain(anchor: Option<(u32, u32)>, point: (u32, u32), locked: bool) -> (u3
 fn dress(surface: &Surface, index: usize, chain: &Chain, radius: f32, shift: bool) {
     let pointer = surface.lens.pointer();
     let anchor = chain.anchor_on(index);
-    let live = pointer.map(|_| constrain(anchor, surface.lens.pixel(), shift));
-    surface.marks.set(chain.on(index), anchor, live, pointer);
+    let focus = surface.lens.pixel();
+    let live = pointer.map(|_| constrain(anchor, focus, shift));
+    surface
+        .marks
+        .set(chain.on(index), anchor, live, pointer, focus);
     let (Some((x, y)), Some(live)) = (pointer, live) else {
         surface.pill.set_visible(false);
         return;
@@ -486,6 +489,7 @@ fn connect(
                 zoom.set(next);
                 for surface in surfaces.iter() {
                     surface.lens.set_zoom(next);
+                    surface.marks.set_zoom(next);
                 }
             }
             glib::Propagation::Stop

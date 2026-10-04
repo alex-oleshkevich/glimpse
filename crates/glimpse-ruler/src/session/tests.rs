@@ -179,3 +179,135 @@ fn the_readout_sits_under_the_lens_and_flips_above_it_near_the_bottom_edge() {
         (880.0, 398.0)
     );
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn widgets() {
+    use gtk4::{graphene, gsk, subclass::prelude::*};
+
+    gtk4::init().expect("GTK initializes");
+    let monitor = gdk::Display::default()
+        .expect("display")
+        .monitors()
+        .iter::<gdk::Monitor>()
+        .flatten()
+        .next()
+        .expect("monitor");
+    let surfaces = Rc::new(vec![surface(
+        &monitor,
+        Frame {
+            connector: String::new(),
+            width: 400,
+            height: 300,
+            pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
+            alpha: false,
+        },
+        1,
+        106.0,
+    )]);
+    let segment = Segment {
+        from: (190, 145),
+        to: (195, 145),
+    };
+    let chain = Rc::new(RefCell::new(Chain {
+        segments: vec![(0, segment)],
+        anchor: None,
+    }));
+    connect(
+        &surfaces,
+        0,
+        chain.clone(),
+        Rc::new(Cell::new(1)),
+        Rc::new(Cell::new(106.0)),
+        Settings {
+            radius: 106.0,
+            max_zoom: 30,
+        },
+        Rc::new(|_| {}),
+    );
+    let surface = &surfaces[0];
+    surface.lens.allocate(400, 300, -1, None);
+    surface.marks.allocate(400, 300, -1, None);
+    let controllers = surface.lens.observe_controllers();
+    let motion = controllers
+        .iter::<glib::Object>()
+        .flatten()
+        .find_map(|controller| controller.downcast::<gtk4::EventControllerMotion>().ok())
+        .expect("motion controller");
+    let scroll = controllers
+        .iter::<glib::Object>()
+        .flatten()
+        .find_map(|controller| controller.downcast::<gtk4::EventControllerScroll>().ok())
+        .expect("scroll controller");
+    let keys = surface
+        .window
+        .observe_controllers()
+        .iter::<glib::Object>()
+        .flatten()
+        .find_map(|controller| controller.downcast::<gtk4::EventControllerKey>().ok())
+        .expect("key controller");
+    let alpha = |marks: &Marks, x: usize, y: usize| {
+        let renderer = gsk::CairoRenderer::new();
+        renderer.realize(None).expect("renderer realizes");
+        let snapshot = gtk4::Snapshot::new();
+        marks.imp().snapshot(&snapshot);
+        let node = snapshot.to_node().expect("marks render");
+        let texture =
+            renderer.render_texture(&node, Some(&graphene::Rect::new(0.0, 0.0, 400.0, 300.0)));
+        let mut pixels = vec![0; 400 * 300 * 4];
+        texture.download(&mut pixels, 400 * 4);
+        renderer.unrealize();
+        pixels[(y * 400 + x) * 4 + 3]
+    };
+    motion.emit_by_name::<()>("motion", &[&200.5, &150.5]);
+    for _ in 0..4 {
+        assert!(scroll.emit_by_name::<bool>("scroll", &[&0.0, &-1.0]));
+    }
+    assert!(alpha(&surface.marks, 160, 125) > 200);
+    assert_eq!(alpha(&surface.marks, 193, 145), 0);
+    motion.emit_by_name::<()>("motion", &[&210.5, &150.5]);
+    assert!(alpha(&surface.marks, 120, 125) > 200);
+    for _ in 0..3 {
+        assert!(scroll.emit_by_name::<bool>("scroll", &[&0.0, &1.0]));
+    }
+    assert!(alpha(&surface.marks, 175, 140) > 200);
+    assert!(scroll.emit_by_name::<bool>("scroll", &[&0.0, &1.0]));
+    assert!(alpha(&surface.marks, 193, 145) > 200);
+    for _ in 0..4 {
+        assert!(scroll.emit_by_name::<bool>("scroll", &[&0.0, &-1.0]));
+    }
+    motion.emit_by_name::<()>("motion", &[&200.5, &150.5]);
+    for _ in 0..5 {
+        assert!(keys.emit_by_name::<bool>(
+            "key-pressed",
+            &[&gdk::Key::Right, &0u32, &gdk::ModifierType::empty()]
+        ));
+    }
+    assert!(alpha(&surface.marks, 140, 125) > 200);
+    motion.emit_by_name::<()>("leave", &[]);
+    assert!(alpha(&surface.marks, 193, 145) > 200);
+    chain.borrow_mut().segments.clear();
+    chain.borrow_mut().anchor = Some((0, (190, 140)));
+    motion.emit_by_name::<()>("motion", &[&200.5, &150.5]);
+    assert!(keys.emit_by_name::<bool>(
+        "key-pressed",
+        &[&gdk::Key::Right, &0u32, &gdk::ModifierType::SHIFT_MASK]
+    ));
+    assert!(alpha(&surface.marks, 175, 100) > 200);
+    surface.window.destroy();
+
+    let scaled = Marks::new((500, 375), 106.0);
+    scaled.allocate(400, 300, -1, None);
+    scaled.set_zoom(5);
+    scaled.set(
+        vec![Segment {
+            from: (238, 182),
+            to: (243, 182),
+        }],
+        None,
+        None,
+        Some((200.5, 150.5)),
+        (250, 187),
+    );
+    assert!(alpha(&scaled, 160, 130) > 200);
+}

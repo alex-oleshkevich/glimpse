@@ -23,6 +23,8 @@ mod imp {
     pub struct Marks {
         pub buffer: Cell<(u32, u32)>,
         pub radius: Cell<f32>,
+        pub zoom: Cell<u32>,
+        pub focus: Cell<(u32, u32)>,
         pub segments: RefCell<Vec<Segment>>,
         pub anchor: Cell<Option<(u32, u32)>>,
         pub live: Cell<Option<(u32, u32)>>,
@@ -76,12 +78,39 @@ mod imp {
                 child = track.next_sibling();
             }
 
-            if hole.is_some() {
+            self.draw(snapshot, width, height, at);
+
+            if let Some((x, y)) = hole {
+                snapshot.pop();
+                let (cx, cy) = (x as f32, y as f32);
+                let radius = self.radius.get();
+                let circle =
+                    graphene::Rect::new(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+                snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(circle, radius));
+                let cell = self.zoom.get() as f32 / (columns as f32 / width.max(1.0));
+                let focus = self.focus.get();
+                self.draw(snapshot, width, height, |(x, y)| {
+                    graphene::Point::new(
+                        cx + (x as f32 - focus.0 as f32) * cell,
+                        cy + (y as f32 - focus.1 as f32) * cell,
+                    )
+                });
                 snapshot.pop();
             }
+        }
+    }
 
+    impl Marks {
+        fn draw(
+            &self,
+            snapshot: &gtk4::Snapshot,
+            width: f32,
+            height: f32,
+            at: impl Fn((u32, u32)) -> graphene::Point,
+        ) {
+            let color = self.obj().color();
             let live = self.live.get();
-            if let Some(point) = live.map(at) {
+            if let Some(point) = live.map(&at) {
                 let hair = color.with_alpha(0.55);
                 snapshot.append_color(
                     &hair,
@@ -206,6 +235,7 @@ impl Marks {
         let marks: Self = glib::Object::new();
         marks.imp().buffer.set(buffer);
         marks.imp().radius.set(radius);
+        marks.imp().zoom.set(1);
         marks.add_css_class("ruler__marks");
         marks.set_can_target(false);
         Track::new(false, buffer.0).set_parent(&marks);
@@ -219,17 +249,25 @@ impl Marks {
         anchor: Option<(u32, u32)>,
         live: Option<(u32, u32)>,
         pointer: Option<(f64, f64)>,
+        focus: (u32, u32),
     ) {
         let imp = self.imp();
         imp.segments.replace(segments);
         imp.anchor.set(anchor);
         imp.live.set(live);
         imp.pointer.set(pointer);
+        imp.focus.set(focus);
         self.queue_draw();
     }
 
     pub fn set_radius(&self, radius: f32) {
         if self.imp().radius.replace(radius) != radius {
+            self.queue_draw();
+        }
+    }
+
+    pub fn set_zoom(&self, zoom: u32) {
+        if self.imp().zoom.replace(zoom) != zoom {
             self.queue_draw();
         }
     }
