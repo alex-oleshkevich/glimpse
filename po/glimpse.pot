@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-04 19:56+0200\n"
+"POT-Creation-Date: 2026-10-04 21:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1082,7 +1082,7 @@ msgstr ""
 msgid "External applet is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/mod.rs:232
+#: crates/glimpse-panel/src/applets/idle/mod.rs:240
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Idle"
