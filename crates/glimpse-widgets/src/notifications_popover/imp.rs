@@ -9,7 +9,7 @@ use super::{
     ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED, FOOTER_ACTIVATED,
     Group,
 };
-use crate::{Hero, LegacyRow, Notice, Placeholder};
+use crate::{ActionRow, Notice, Placeholder};
 
 const ATTENTIVE: &str = "preferences-system-notifications-symbolic";
 const SILENCED: &str = "notifications-disabled-symbolic";
@@ -19,8 +19,6 @@ const SILENCED: &str = "notifications-disabled-symbolic";
 pub struct NotificationsPopover {
     #[template_child]
     pub shell: TemplateChild<crate::PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub scroller: TemplateChild<gtk4::ScrolledWindow>,
     #[template_child]
@@ -32,9 +30,9 @@ pub struct NotificationsPopover {
     #[template_child]
     pub empty: TemplateChild<Placeholder>,
     #[template_child]
-    pub clear: TemplateChild<LegacyRow>,
+    pub clear: TemplateChild<ActionRow>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub held: RefCell<Vec<Group>>,
     pub sections: RefCell<Vec<(String, gtk4::Revealer)>>,
@@ -50,6 +48,7 @@ impl ObjectSubclass for NotificationsPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -94,14 +93,14 @@ impl ObjectImpl for NotificationsPopover {
             .set_tooltip_text(Some(&gettextrs::gettext(
                 "Show notification popups while this is on",
             )));
-        self.hero.set_slot(&self.notifications);
+        self.shell.set_addon(Some(&self.notifications));
 
         self.notifications.connect_active_notify(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |notifications| {
                 popover
-                    .hero
+                    .shell
                     .set_icon_name(Some(match notifications.is_active() {
                         true => ATTENTIVE,
                         false => SILENCED,
@@ -114,12 +113,12 @@ impl ObjectImpl for NotificationsPopover {
             }
         ));
 
-        self.clear.connect_clicked(glib::clone!(
+        self.clear.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.obj().emit_by_name::<()>(CLEAR_ALL, &[])
         ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.obj().emit_by_name::<()>(FOOTER_ACTIVATED, &[])

@@ -4,7 +4,7 @@ use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Notification, NotificationStack, Section};
+use crate::{ActionRow, Notification, NotificationStack, Row, Section};
 
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
@@ -199,11 +199,11 @@ impl NotificationsPopover {
     }
 
     pub fn set_clear_label(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().clear, label);
+        set_row(&self.imp().clear, label);
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        set_row(&self.imp().footer, label);
     }
 
     pub fn connect_activated<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -269,6 +269,11 @@ impl NotificationsPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
+}
+
+fn set_row(row: &ActionRow, label: Option<&str>) {
+    row.upcast_ref::<Row>().set_title(label);
+    row.set_visible(label.is_some());
 }
 
 fn descendant<T: IsA<gtk4::Widget>>(root: &impl IsA<gtk4::Widget>) -> Option<T> {

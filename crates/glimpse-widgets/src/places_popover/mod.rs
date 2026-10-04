@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty, reconcile, set_footer_row};
+use crate::{ActionRow, Row, none_if_empty, reconcile};
 
 pub use imp::{Entry, Trash};
 
@@ -61,11 +61,11 @@ impl PlacesPopover {
     }
 
     pub fn set_overflow(&self, bookmarks: Option<&str>) {
-        set_footer_row(&self.imp().bookmarks_more, bookmarks);
+        set_row(&self.imp().bookmarks_more, bookmarks);
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        set_footer_row(&self.imp().footer, label);
+        set_row(&self.imp().footer, label);
     }
 
     pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -87,7 +87,7 @@ impl PlacesPopover {
     pub(crate) fn press_empty_trash(&self) {
         let imp = self.imp();
         if imp.trash_armed.replace(false) {
-            imp.trash_item.set_expanded(false);
+            imp.trash_item.set_open(false);
             self.emit_by_name::<()>("empty-trash", &[]);
         } else {
             imp.trash_armed.set(true);
@@ -167,18 +167,16 @@ impl PlacesPopover {
             return;
         };
         let empty = trash.items == 0;
-        imp.trash_row.set_lead_icon(Some(match empty {
+        imp.trash_item.set_icon_name(Some(match empty {
             true => "user-trash-symbolic",
             false => "user-trash-full-symbolic",
         }));
-        imp.trash_row
-            .set_title(Some(gettextrs::gettext("Trash").as_str()));
         let value = match empty {
             true => gettextrs::gettext("Empty"),
             false => gettextrs::ngettext("{n} item", "{n} items", trash.items)
                 .replace("{n}", &trash.items.to_string()),
         };
-        imp.trash_row.set_value(Some(value.as_str()));
+        imp.trash_item.set_value(Some(value.as_str()));
         imp.trash_empty.set_visible(!empty);
         let prompt = match imp.trash_armed.get() {
             true => gettextrs::ngettext(
@@ -189,13 +187,15 @@ impl PlacesPopover {
             .replace("{n}", &trash.items.to_string()),
             false => gettextrs::gettext("Empty the trash"),
         };
-        imp.trash_empty.set_title(Some(prompt.as_str()));
+        imp.trash_empty
+            .upcast_ref::<Row>()
+            .set_title(Some(prompt.as_str()));
     }
 
-    fn build_entry_row(&self, id: &str) -> LegacyRow {
-        let row = LegacyRow::new();
+    fn build_entry_row(&self, id: &str) -> ActionRow {
+        let row = ActionRow::new();
         let key = id.to_owned();
-        row.connect_clicked(glib::clone!(
+        row.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>("activated", &[&key])
@@ -204,9 +204,15 @@ impl PlacesPopover {
     }
 }
 
-fn apply_entry_row(row: &LegacyRow, entry: &Entry) {
+fn apply_entry_row(row: &ActionRow, entry: &Entry) {
+    let row = row.upcast_ref::<Row>();
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.subtitle));
-    row.set_lead_icon(none_if_empty(&entry.icon));
+    row.set_icon_name(none_if_empty(&entry.icon));
     row.set_busy(entry.busy);
+}
+
+fn set_row(row: &ActionRow, label: Option<&str>) {
+    row.upcast_ref::<Row>().set_title(label);
+    row.set_visible(label.is_some());
 }

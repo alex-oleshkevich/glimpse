@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-03 22:01+0200\n"
+"POT-Creation-Date: 2026-10-03 22:34+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -53,7 +53,7 @@ msgid ""
 msgstr ""
 
 #: crates/glimpse-lock/src/chips.rs:38
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:14
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
 #: crates/glimpse-widgets/src/notification_chips/imp.rs:28
 msgid "Notifications"
 msgstr ""
@@ -473,7 +473,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/render.rs:258
 #: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-widgets/src/places_popover/mod.rs:177
+#: crates/glimpse-widgets/src/places_popover/mod.rs:175
 msgid "Empty"
 msgstr ""
 
@@ -1300,7 +1300,7 @@ msgid "WPA3 Personal"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:115
-#: crates/glimpse-widgets/blueprints/places_popover.blp:55
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
 #: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
 msgid "Network"
 msgstr ""
@@ -1606,8 +1606,8 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/places/indicator.rs:83
 #: crates/glimpse-panel/src/applets/places/render.rs:24
-#: crates/glimpse-widgets/blueprints/places_popover.blp:14
-#: crates/glimpse-widgets/blueprints/places_popover.blp:27
+#: crates/glimpse-widgets/blueprints/places_popover.blp:12
+#: crates/glimpse-widgets/blueprints/places_popover.blp:24
 msgid "Places"
 msgstr ""
 
@@ -2541,15 +2541,15 @@ msgstr ""
 msgid "Dismiss"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:32
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:29
 msgid "Notifications are unavailable"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:42
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:39
 msgid "Nothing new"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:43
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
 msgid "You are all caught up."
 msgstr ""
 
@@ -2561,21 +2561,21 @@ msgstr ""
 msgid "Caps Lock is on"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/places_popover.blp:36
+#: crates/glimpse-widgets/blueprints/places_popover.blp:33
 msgid "Bookmarks"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/places_popover.blp:64
-#: crates/glimpse-widgets/src/places_popover/mod.rs:175
+#: crates/glimpse-widgets/blueprints/places_popover.blp:60
+#: crates/glimpse-widgets/blueprints/places_popover.blp:63
 msgid "Trash"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/places_popover.blp:86
+#: crates/glimpse-widgets/blueprints/places_popover.blp:66
 msgid "Open the trash"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/places_popover.blp:91
-#: crates/glimpse-widgets/src/places_popover/mod.rs:190
+#: crates/glimpse-widgets/blueprints/places_popover.blp:70
+#: crates/glimpse-widgets/src/places_popover/mod.rs:188
 msgid "Empty the trash"
 msgstr ""
 
@@ -3416,7 +3416,7 @@ msgid_plural "{count} notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:95
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
 msgid "Show notification popups while this is on"
 msgstr ""
 
@@ -3424,13 +3424,13 @@ msgstr ""
 msgid "Clear these notifications"
 msgstr ""
 
-#: crates/glimpse-widgets/src/places_popover/mod.rs:178
+#: crates/glimpse-widgets/src/places_popover/mod.rs:176
 msgid "{n} item"
 msgid_plural "{n} items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/places_popover/mod.rs:185
+#: crates/glimpse-widgets/src/places_popover/mod.rs:183
 msgid "Delete {n} item for good?"
 msgid_plural "Delete {n} items for good?"
 msgstr[0] ""

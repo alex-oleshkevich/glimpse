@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -27,8 +27,6 @@ pub struct PlacesPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub places: TemplateChild<Section>,
     #[template_child]
     pub places_rows: TemplateChild<gtk4::Box>,
@@ -37,7 +35,7 @@ pub struct PlacesPopover {
     #[template_child]
     pub bookmarks_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub bookmarks_more: TemplateChild<LegacyRow>,
+    pub bookmarks_more: TemplateChild<ActionRow>,
     #[template_child]
     pub network: TemplateChild<Section>,
     #[template_child]
@@ -45,22 +43,20 @@ pub struct PlacesPopover {
     #[template_child]
     pub trash: TemplateChild<Section>,
     #[template_child]
-    pub trash_item: TemplateChild<Expandable>,
+    pub trash_item: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub trash_row: TemplateChild<LegacyRow>,
+    pub trash_open: TemplateChild<ActionRow>,
     #[template_child]
-    pub trash_open: TemplateChild<LegacyRow>,
+    pub trash_empty: TemplateChild<ActionRow>,
     #[template_child]
-    pub trash_empty: TemplateChild<LegacyRow>,
-    #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub places_data: RefCell<Vec<Entry>>,
-    pub places_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub places_held: RefCell<Vec<(String, ActionRow)>>,
     pub bookmarks_data: RefCell<Vec<Entry>>,
-    pub bookmarks_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub bookmarks_held: RefCell<Vec<(String, ActionRow)>>,
     pub network_data: RefCell<Vec<Entry>>,
-    pub network_held: RefCell<Vec<(String, LegacyRow)>>,
+    pub network_held: RefCell<Vec<(String, ActionRow)>>,
     pub trash_data: RefCell<Option<Trash>>,
     pub trash_armed: Cell<bool>,
 }
@@ -72,7 +68,8 @@ impl ObjectSubclass for PlacesPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
-        Expandable::static_type();
+        ActionRow::static_type();
+        ExpanderRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -101,30 +98,27 @@ impl ObjectImpl for PlacesPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.trash_open.connect_clicked(glib::clone!(
+        self.trash_open.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("activated", &[&"trash".to_owned()])
         ));
-        self.trash_empty.connect_clicked(glib::clone!(
+        self.trash_empty.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.press_empty_trash()
         ));
-        self.trash_item.connect_notify_local(
-            Some("expanded"),
-            glib::clone!(
-                #[weak]
-                popover,
-                move |_, _| popover.disarm_empty_trash()
-            ),
-        );
-        self.bookmarks_more.connect_clicked(glib::clone!(
+        self.trash_item.connect_toggled(glib::clone!(
+            #[weak]
+            popover,
+            move |_, _| popover.disarm_empty_trash()
+        ));
+        self.bookmarks_more.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("more", &[])
         ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

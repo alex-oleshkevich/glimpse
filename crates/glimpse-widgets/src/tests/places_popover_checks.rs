@@ -34,21 +34,21 @@ fn places_popover_widgets() {
         move |_| emptied.set(emptied.get() + 1)
     });
     popover.set_trash(Some(PlacesTrash { items: 3 }));
-    imp.trash_empty.emit_clicked();
+    imp.trash_empty.activate();
     assert_eq!(emptied.get(), 0, "the first press only asks");
     assert_eq!(
-        imp.trash_empty.title().as_deref(),
+        imp.trash_empty.upcast_ref::<Row>().title().as_deref(),
         Some("Delete 3 items for good?")
     );
-    imp.trash_item.set_expanded(true);
-    imp.trash_item.set_expanded(false);
+    imp.trash_item.set_open(true);
+    imp.trash_item.set_open(false);
     assert_eq!(
-        imp.trash_empty.title().as_deref(),
+        imp.trash_empty.upcast_ref::<Row>().title().as_deref(),
         Some("Empty the trash"),
         "closing the card takes the question back"
     );
-    imp.trash_empty.emit_clicked();
-    imp.trash_empty.emit_clicked();
+    imp.trash_empty.activate();
+    imp.trash_empty.activate();
     assert_eq!(emptied.get(), 1, "the second press empties");
     popover.set_trash(Some(PlacesTrash { items: 0 }));
     assert!(
@@ -87,9 +87,9 @@ fn places_popover_widgets() {
         }
     });
     home_widget
-        .and_downcast::<LegacyRow>()
+        .and_downcast::<ActionRow>()
         .expect("a row")
-        .emit_by_name::<()>("clicked", &[]);
+        .activate();
     assert_eq!(
         activated.borrow().as_deref(),
         Some("home"),
@@ -112,15 +112,15 @@ fn places_popover_widgets() {
     // Trash: a known count of zero is "Empty", not absence either.
     popover.set_trash(Some(PlacesTrash { items: 0 }));
     assert!(imp.trash.get_visible());
-    assert_eq!(imp.trash_row.value().as_deref(), Some("Empty"));
+    assert_eq!(imp.trash_item.value().as_deref(), Some("Empty"));
     assert_eq!(
-        imp.trash_row.lead_icon().as_deref(),
+        imp.trash_item.icon_name().as_deref(),
         Some("user-trash-symbolic")
     );
     popover.set_trash(Some(PlacesTrash { items: 363 }));
-    assert_eq!(imp.trash_row.value().as_deref(), Some("363 items"));
+    assert_eq!(imp.trash_item.value().as_deref(), Some("363 items"));
     assert_eq!(
-        imp.trash_row.lead_icon().as_deref(),
+        imp.trash_item.icon_name().as_deref(),
         Some("user-trash-full-symbolic")
     );
     popover.set_trash(None);
@@ -150,7 +150,7 @@ fn places_popover_widgets() {
         move |_| more.set(true)
     });
     popover.set_overflow(Some("3 more"));
-    imp.bookmarks_more.emit_by_name::<()>("clicked", &[]);
+    imp.bookmarks_more.activate();
     assert!(more.get());
 
     let footer_activated = Rc::new(Cell::new(false));
@@ -160,6 +160,6 @@ fn places_popover_widgets() {
     });
     popover.set_footer(Some("Open file manager"));
     assert!(imp.footer.get_visible());
-    imp.footer.emit_by_name::<()>("clicked", &[]);
+    imp.footer.activate();
     assert!(footer_activated.get());
 }

@@ -8,11 +8,8 @@ template $PlacesPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "folder-symbolic";
-      title: _("Places");
-    }
+    icon-name: "folder-symbolic";
+    title: _("Places");
 
     Gtk.Box column {
       orientation: vertical;
@@ -42,10 +39,9 @@ template $PlacesPopover: Gtk.Widget {
             orientation: vertical;
           }
 
-          $LegacyRow bookmarks_more {
+          $ActionRow bookmarks_more {
             visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+            icon-name: "view-more-symbolic";
           }
         }
       }
@@ -63,45 +59,22 @@ template $PlacesPopover: Gtk.Widget {
         visible: false;
         title: _("Trash");
 
-        $Expandable trash_item {
-          $LegacyRow trash_row {
-            activatable: true;
+        $ExpanderRow trash_item {
+          title: _("Trash");
 
-            [trail]
-            Gtk.Image {
-              icon-name: "go-next-symbolic";
-              accessible-role: presentation;
-
-              styles [
-                "drawer-chevron",
-              ]
-            }
+          $ActionRow trash_open {
+            title: _("Open the trash");
           }
 
-          [details]
-          Gtk.Box {
-            orientation: vertical;
-
-            $LegacyRow trash_open {
-              title: _("Open the trash");
-              activatable: true;
-            }
-
-            $LegacyRow trash_empty {
-              title: _("Empty the trash");
-              activatable: true;
-
-              styles [
-                "row--destructive",
-              ]
-            }
+          $ActionRow trash_empty {
+            title: _("Empty the trash");
+            tone: destructive;
           }
         }
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

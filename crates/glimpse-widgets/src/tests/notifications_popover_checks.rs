@@ -243,4 +243,21 @@ pub(super) fn check() {
         popover_imp.empty.get_visible() && !popover_imp.clear.get_visible(),
         "clearing the last notification puts the placeholder back and takes the row away"
     );
+
+    let fired = Rc::new(RefCell::new(Vec::<&str>::new()));
+    popover.connect_clear_all({
+        let fired = Rc::clone(&fired);
+        move |_| fired.borrow_mut().push("clear")
+    });
+    popover.connect_footer_activated({
+        let fired = Rc::clone(&fired);
+        move |_| fired.borrow_mut().push("footer")
+    });
+    popover.set_footer(Some("Settings"));
+    assert!(popover_imp.footer.get_visible());
+    popover_imp.clear.activate();
+    popover_imp.footer.activate();
+    assert_eq!(*fired.borrow(), ["clear", "footer"]);
+    popover.set_footer(None);
+    assert!(!popover_imp.footer.get_visible());
 }

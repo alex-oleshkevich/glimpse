@@ -8,11 +8,8 @@ template $NotificationsPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "preferences-system-notifications-symbolic";
-      title: _("Notifications");
-    }
+    icon-name: "preferences-system-notifications-symbolic";
+    title: _("Notifications");
 
     Gtk.ScrolledWindow scroller {
       hscrollbar-policy: never;
@@ -45,13 +42,11 @@ template $NotificationsPopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $LegacyRow clear {
+    $ActionRow clear {
       visible: false;
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }
