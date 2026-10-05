@@ -126,6 +126,14 @@ pub enum ClassName {
     Pill,
     #[serde(rename = "circular")]
     Circular,
+    #[serde(rename = "column")]
+    Column,
+    #[serde(rename = "network-popover__rule")]
+    NetworkPopoverRule,
+    #[serde(rename = "bluetooth-popover")]
+    BluetoothPopover,
+    #[serde(rename = "network-popover")]
+    NetworkPopover,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
@@ -1268,9 +1276,9 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
             child,
             ElementKind::Readout | ElementKind::Switch | ElementKind::Container
         ),
-        ElementKind::Container => is_body(child) && child != ElementKind::Section,
-        ElementKind::Section
-        | ElementKind::Box
+        ElementKind::Box => is_body(child),
+        ElementKind::Container
+        | ElementKind::Section
         | ElementKind::Revealer
         | ElementKind::Stack
         | ElementKind::Expander => is_body(child) && child != ElementKind::Section,

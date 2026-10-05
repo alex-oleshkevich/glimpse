@@ -8,15 +8,12 @@ template $BluetoothPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "bluetooth-symbolic";
+    icon-name: "bluetooth-symbolic";
 
-      [slot]
-      Gtk.Switch power {
-        valign: center;
-        tooltip-text: _("Bluetooth");
-      }
+    [addon]
+    Gtk.Switch power {
+      valign: center;
+      tooltip-text: _("Bluetooth");
     }
 
     Gtk.Stack pages {
@@ -36,7 +33,6 @@ template $BluetoothPopover: Gtk.Widget {
 
           $Section devices {
             visible: false;
-            title: _("Devices");
 
             Gtk.Box {
               orientation: vertical;
@@ -45,10 +41,9 @@ template $BluetoothPopover: Gtk.Widget {
                 orientation: vertical;
               }
 
-              $LegacyRow more_paired {
+              $ActionRow more_paired {
                 visible: false;
-                activatable: true;
-                lead-icon: "view-more-symbolic";
+                icon-name: "view-more-symbolic";
               }
             }
           }
@@ -56,40 +51,16 @@ template $BluetoothPopover: Gtk.Widget {
           $Section nearby {
             visible: false;
 
-            Gtk.Box {
-              orientation: vertical;
+            $ExpanderRow search {
+              title: _("Nearby devices");
 
-              $LegacyRow search {
-                activatable: true;
-                title: _("Nearby devices");
-
-                [trail]
-                Gtk.Image {
-                  icon-name: "go-next-symbolic";
-                  accessible-role: presentation;
-
-                  styles [
-                    "drawer-chevron",
-                  ]
-                }
+              Gtk.Box nearby_rows {
+                orientation: vertical;
               }
 
-              Gtk.Revealer nearby_list {
-                transition-type: slide_down;
-
-                child: Gtk.Box {
-                  orientation: vertical;
-
-                  Gtk.Box nearby_rows {
-                    orientation: vertical;
-                  }
-
-                  $LegacyRow more_nearby {
-                    visible: false;
-                    activatable: true;
-                    lead-icon: "view-more-symbolic";
-                  }
-                };
+              $ActionRow more_nearby {
+                visible: false;
+                icon-name: "view-more-symbolic";
               }
             }
           }
@@ -168,8 +139,7 @@ template $BluetoothPopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

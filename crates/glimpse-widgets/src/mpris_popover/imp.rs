@@ -4,13 +4,13 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Fader, LegacyRow, NowPlaying, PlayerList, PopoverShell, Section};
+use crate::{AppletPopover, Fader, LegacyRow, NowPlaying, PlayerList, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/mpris_popover.ui")]
 pub struct MprisPopover {
     #[template_child]
-    pub shell: TemplateChild<PopoverShell>,
+    pub card: TemplateChild<AppletPopover>,
     #[template_child]
     pub player: TemplateChild<NowPlaying>,
     #[template_child]

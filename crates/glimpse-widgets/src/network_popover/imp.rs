@@ -1,12 +1,12 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, LegacyRow, Placeholder, PopoverShell, Section};
+use super::row::NetworkRow;
+use crate::{ActionRow, ExpanderRow, Fact, Placeholder, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -70,19 +70,15 @@ pub struct NetworkPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub wifi: TemplateChild<gtk4::Switch>,
     #[template_child]
     pub other: TemplateChild<Section>,
     #[template_child]
-    pub others_drawer: TemplateChild<gtk4::Revealer>,
-    #[template_child]
     pub other_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more: TemplateChild<LegacyRow>,
+    pub more: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub all: TemplateChild<LegacyRow>,
+    pub all: TemplateChild<ActionRow>,
     #[template_child]
     pub looking: TemplateChild<Placeholder>,
     #[template_child]
@@ -100,7 +96,7 @@ pub struct NetworkPopover {
     #[template_child]
     pub hidden_rule: TemplateChild<gtk4::Separator>,
     #[template_child]
-    pub hidden: TemplateChild<LegacyRow>,
+    pub hidden: TemplateChild<ActionRow>,
     #[template_child]
     pub pages: TemplateChild<gtk4::Stack>,
     #[template_child]
@@ -119,17 +115,17 @@ pub struct NetworkPopover {
     #[template_child]
     pub prompt_accept: TemplateChild<gtk4::Button>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
-    pub other_held: RefCell<Vec<(String, Expandable)>>,
-    pub wifi_held: RefCell<Vec<(String, Expandable)>>,
-    pub wired_held: RefCell<Vec<(String, Expandable)>>,
-    pub vpn_held: RefCell<Vec<(String, Expandable)>>,
-    pub lines: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
+    pub other_held: RefCell<Vec<(String, NetworkRow)>>,
+    pub wifi_held: RefCell<Vec<(String, NetworkRow)>>,
+    pub wired_held: RefCell<Vec<(String, NetworkRow)>>,
+    pub vpn_held: RefCell<Vec<(String, NetworkRow)>>,
     pub prompt: RefCell<Option<Ask>>,
     pub quiet: std::cell::Cell<bool>,
+    pub radio_settable: std::cell::Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -139,6 +135,9 @@ impl ObjectSubclass for NetworkPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
+        ExpanderRow::static_type();
+        NetworkRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -197,19 +196,23 @@ impl ObjectImpl for NetworkPopover {
             }
         ));
 
-        self.more.connect_clicked(glib::clone!(
+        self.more.connect_toggled(glib::clone!(
             #[weak]
             object,
-            move |_| object.emit_by_name::<()>("expanded", &[])
+            move |_, _| {
+                if !object.imp().quiet.get() {
+                    object.emit_by_name::<()>("expanded", &[]);
+                }
+            }
         ));
 
-        self.all.connect_clicked(glib::clone!(
+        self.all.connect_activated(glib::clone!(
             #[weak]
             object,
             move |_| object.emit_by_name::<()>("show-all", &[])
         ));
 
-        self.hidden.connect_clicked(glib::clone!(
+        self.hidden.connect_activated(glib::clone!(
             #[weak]
             object,
             move |_| object.emit_by_name::<()>("hidden-network", &[])
@@ -247,7 +250,7 @@ impl ObjectImpl for NetworkPopover {
             move |_| object.answer(true)
         ));
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             object,
             move |_| object.emit_by_name::<()>("footer-activated", &[])

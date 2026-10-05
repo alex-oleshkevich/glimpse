@@ -126,14 +126,10 @@ fn the_parent_table_rejects_the_combinations_it_names() {
     let boxed = tree
         .apply(vec![insert(1, leaf(2, "box"), None)])
         .expect("box");
-    assert_eq!(
+    assert!(
         boxed
             .apply(vec![insert(2, leaf(3, "section"), None)])
-            .expect_err("section in a box"),
-        Violation::BadParent {
-            parent: ElementKind::Box,
-            child: ElementKind::Section,
-        }
+            .is_ok()
     );
     let footer = tree
         .apply(vec![insert(

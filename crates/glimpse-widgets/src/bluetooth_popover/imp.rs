@@ -1,12 +1,13 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, Fact, PopoverShell, Section};
+
+use super::BluetoothDevice;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -62,8 +63,6 @@ pub struct BluetoothPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub power: TemplateChild<gtk4::Switch>,
     #[template_child]
     pub pages: TemplateChild<gtk4::Stack>,
@@ -86,26 +85,23 @@ pub struct BluetoothPopover {
     #[template_child]
     pub device_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more_paired: TemplateChild<LegacyRow>,
+    pub more_paired: TemplateChild<ActionRow>,
     #[template_child]
-    pub more_nearby: TemplateChild<LegacyRow>,
+    pub more_nearby: TemplateChild<ActionRow>,
     #[template_child]
     pub nearby: TemplateChild<Section>,
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub search: TemplateChild<LegacyRow>,
+    pub search: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub nearby_list: TemplateChild<gtk4::Revealer>,
-    #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
     pub prompt: RefCell<Option<Ask>>,
-    pub devices_held: RefCell<Vec<(String, Expandable)>>,
-    pub nearby_held: RefCell<Vec<(String, Expandable)>>,
-    pub lines: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
+    pub devices_held: RefCell<Vec<(String, BluetoothDevice)>>,
+    pub nearby_held: RefCell<Vec<(String, BluetoothDevice)>>,
     pub quiet: std::cell::Cell<bool>,
 }
 
@@ -116,6 +112,9 @@ impl ObjectSubclass for BluetoothPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
+        ExpanderRow::static_type();
+        BluetoothDevice::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -172,22 +171,26 @@ impl ObjectImpl for BluetoothPopover {
                 popover.emit_by_name::<()>("powered", &[&switch.is_active()]);
             }
         ));
-        self.search.connect_clicked(glib::clone!(
+        self.search.connect_toggled(glib::clone!(
             #[weak]
             popover,
-            move |_| popover.emit_by_name::<()>("nearby-toggled", &[])
+            move |_, _| {
+                if !popover.imp().quiet.get() {
+                    popover.emit_by_name::<()>("nearby-toggled", &[]);
+                }
+            }
         ));
-        self.more_paired.connect_clicked(glib::clone!(
+        self.more_paired.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"paired".to_owned()])
         ));
-        self.more_nearby.connect_clicked(glib::clone!(
+        self.more_nearby.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"nearby".to_owned()])
         ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

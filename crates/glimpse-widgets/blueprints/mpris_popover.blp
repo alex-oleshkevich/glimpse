@@ -7,18 +7,19 @@ template $MprisPopover: Gtk.Widget {
     "mpris-popover",
   ]
 
-  $PopoverShell shell {
-    [hero]
-    $NowPlaying player {
-      icon-name: "multimedia-player-symbolic";
-    }
-
+  $AppletPopover card {
     Gtk.Box {
       orientation: vertical;
 
       styles [
         "column",
+        "popover-body",
       ]
+
+      $NowPlaying player {
+        visible: false;
+        icon-name: "multimedia-player-symbolic";
+      }
 
       $Fader volume {
         visible: false;
@@ -32,11 +33,10 @@ template $MprisPopover: Gtk.Widget {
 
         $PlayerList list {}
       }
-    }
 
-    [footer]
-    $LegacyRow footer {
-      visible: false;
+      $LegacyRow footer {
+        visible: false;
+      }
     }
   }
 }

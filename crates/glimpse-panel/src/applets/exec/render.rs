@@ -98,6 +98,10 @@ pub fn class_name(class: ClassName) -> &'static str {
         ClassName::Flat => "flat",
         ClassName::Pill => "pill",
         ClassName::Circular => "circular",
+        ClassName::Column => "column",
+        ClassName::NetworkPopoverRule => "network-popover__rule",
+        ClassName::BluetoothPopover => "bluetooth-popover",
+        ClassName::NetworkPopover => "network-popover",
     }
 }
 

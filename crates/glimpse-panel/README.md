@@ -169,8 +169,8 @@ because BlueZ escalates mid-flow. `BondBroken` is stated on the row, never notif
 
 **network** — the chip is the connection's own icon alone. **The password is asked for before the
 join**, because NetworkManager drops the working connection the moment activation is requested.
-**A connection in use is one row that opens its card, and Disconnect lives only there.** A wired
-row routes to `connect_device` — sent to `connect_access_point` it is silently not found.
+**Every network row opens a drawer with Connect or Disconnect first.** A wired row routes to
+`connect_device` — sent to `connect_access_point` it is silently not found.
 
 **audio** — needs a PulseAudio-protocol server and renders nothing without one. **Muted is the
 muted glyph in the warning colour everywhere**, never a greyed icon or the word *Muted*. **A master

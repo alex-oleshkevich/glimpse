@@ -1,0 +1,37 @@
+using Gtk 4.0;
+
+template $NetworkRow: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  $ExpanderRow expander {
+    styles [
+      "network-popover__row",
+    ]
+
+    [end]
+    Gtk.Image status {
+      visible: false;
+      icon-name: "changes-prevent-symbolic";
+      accessible-role: presentation;
+    }
+
+    $ActionRow connection {
+      title: _("Connect");
+    }
+
+    $FactList facts {
+      visible: false;
+    }
+
+    $ToggleRow autoconnect {
+      visible: false;
+      title: _("Connect automatically");
+    }
+
+    $ActionRow forget {
+      visible: false;
+      title: _("Forget this network");
+      tone: destructive;
+    }
+  }
+}

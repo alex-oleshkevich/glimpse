@@ -2,6 +2,20 @@ use super::*;
 
 pub(super) fn check() {
     let mpris = MprisPopover::new();
+    let column = mpris.player().parent().unwrap();
+    assert_eq!(
+        column.parent().as_ref(),
+        Some(mpris.imp().card.upcast_ref())
+    );
+    assert_eq!(
+        column.first_child().as_ref(),
+        Some(mpris.player().upcast_ref())
+    );
+    assert!(!mpris.player().get_visible());
+    assert_eq!(
+        column.last_child().as_ref(),
+        Some(mpris.imp().footer.upcast_ref())
+    );
     let seen = Rc::new(RefCell::new(Vec::new()));
     mpris.connect_raise_requested({
         let seen = seen.clone();
@@ -78,9 +92,9 @@ pub(super) fn check() {
     );
 
     mpris.set_footer(None);
-    assert!(!child_named::<gtk4::Box>(&mpris, "popover-shell__footer").is_visible());
+    assert!(!mpris.imp().footer.is_visible());
     mpris.set_footer(Some("Open Spotify"));
-    assert!(child_named::<gtk4::Box>(&mpris, "popover-shell__footer").is_visible());
+    assert!(mpris.imp().footer.is_visible());
 
     assert!(
         mpris.player().scrubber().is_ancestor(&mpris),

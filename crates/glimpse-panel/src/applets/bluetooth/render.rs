@@ -330,9 +330,6 @@ fn problem(device: &Device) -> String {
     String::new()
 }
 
-/// The card under a device: first what it is — its kind, and its battery and codec when BlueZ has
-/// them — then what can be done with it: how it reconnects, Disconnect and Forget. A nearby device
-/// has only its kind until it pairs. Address, signal and services are diagnostics.
 pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     let device = state.device(id)?;
     let mut facts = vec![Fact::new(gettext("Type"), kind(device.icon))];
@@ -340,21 +337,34 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     if let Some(codec) = device.codec.filter(|_| device.connected) {
         facts.push(Fact::new(gettext("Codec"), codec_name(codec)));
     }
-    let mut lines = Vec::new();
+    let mut lines = vec![Line {
+        action: if device.connected {
+            "disconnect"
+        } else if device.known() {
+            "connect"
+        } else {
+            "pair"
+        }
+        .to_owned(),
+        title: if device.connected {
+            gettext("Disconnect")
+        } else if device.known() {
+            gettext("Connect")
+        } else {
+            gettext("Pair")
+        },
+        activates: true,
+        busy: matches!(
+            device.busy,
+            Some(Busy::Connecting | Busy::Disconnecting | Busy::Pairing)
+        ),
+        ..Default::default()
+    }];
     if device.known() {
         lines.push(Line {
             action: "trust".to_owned(),
             title: gettext("Connect automatically"),
             toggle: Some(device.trusted),
-            ..Default::default()
-        });
-    }
-    if device.connected {
-        lines.push(Line {
-            action: "disconnect".to_owned(),
-            title: gettext("Disconnect"),
-            activates: true,
-            busy: matches!(device.busy, Some(Busy::Disconnecting)),
             ..Default::default()
         });
     }

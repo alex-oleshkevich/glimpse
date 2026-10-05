@@ -289,16 +289,6 @@ pub(crate) fn fade_out(
     }
 }
 
-pub(crate) fn fact_card(holder: &crate::Expandable) -> gtk4::Box {
-    use gtk4::prelude::*;
-
-    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    card.append(&crate::FactList::new());
-    card.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
-    holder.set_details(Some(&card));
-    card
-}
-
 pub(crate) fn set_footer_row(row: &crate::LegacyRow, label: Option<&str>) {
     use gtk4::prelude::*;
 

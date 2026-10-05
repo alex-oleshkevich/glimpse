@@ -98,8 +98,8 @@ blurred card is translucent and would show a strip through its own bottom.
 `PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
 separator between each pair, and every separator paints transparent. **A row in a list is one line;
 its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
-**A detail card lists its facts first, in a `$FactList`, then its actions**, and has at most one red
-action, `crate::DESTRUCTIVE`: the least reversible one, so Forget outranks Disconnect.
+**Facts precede actions; network and Bluetooth lead with Connect, Pair or Disconnect.**
+Cards have at most one destructive action, so Forget outranks Disconnect.
 
 **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
 `init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `card` into

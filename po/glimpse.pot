@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-04 21:33+0200\n"
+"POT-Creation-Date: 2026-10-05 13:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -122,8 +122,8 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:188
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:201
 #: crates/glimpse-shot/src/gui/result.rs:973
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:159
-#: crates/glimpse-widgets/blueprints/network_popover.blp:194
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:166
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:149
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
@@ -366,7 +366,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/brightness/render.rs:112
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:375
+#: crates/glimpse-widgets/src/lib.rs:365
 msgid "{percent}%"
 msgstr ""
 
@@ -385,7 +385,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/battery/mod.rs:206
 #: crates/glimpse-panel/src/applets/battery/render.rs:112
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:339
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:336
 #: crates/glimpse-widgets/blueprints/battery_popover.blp:14
 msgid "Battery"
 msgstr ""
@@ -564,7 +564,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:302
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:321
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:67
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:18
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
 msgid "Bluetooth"
 msgstr ""
 
@@ -629,7 +629,7 @@ msgid "Is this the code shown on the device?"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:166
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:164
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
 msgid "Confirm"
 msgstr ""
 
@@ -680,144 +680,162 @@ msgstr ""
 msgid "Pairing will not survive a restart"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:338
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:335
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
 #: crates/glimpse-panel/src/applets/network/render.rs:315
 msgid "Type"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:341
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:338
 msgid "Codec"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:347
-#: crates/glimpse-panel/src/applets/network/render.rs:271
-msgid "Connect automatically"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:355
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:350
 #: crates/glimpse-panel/src/applets/network/render.rs:242
+#: crates/glimpse-widgets/src/network_popover/mod.rs:417
 msgid "Disconnect"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:352
+#: crates/glimpse-panel/src/applets/network/indicator.rs:265
+#: crates/glimpse-panel/src/applets/network/indicator.rs:274
+#: crates/glimpse-panel/src/applets/network/indicator.rs:293
+#: crates/glimpse-widgets/blueprints/network_popover.blp:170
+#: crates/glimpse-widgets/blueprints/network_row.blp:19
+#: crates/glimpse-widgets/src/network_popover/mod.rs:418
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
+msgid "Connect"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:354
+msgid "Pair"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:366
+#: crates/glimpse-panel/src/applets/network/render.rs:271
+#: crates/glimpse-widgets/blueprints/network_row.blp:28
+msgid "Connect automatically"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:374
 msgid "Forget this device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
 msgid "The device is switched off or out of range."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:391
 msgid "The device refused the connection."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
 msgid "The device offers nothing this computer can connect to."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
 msgid "The PIN or passkey did not match."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
 msgid "The device rejected the pairing. Put it in pairing mode and try again."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
 msgid "The pairing timed out."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:398
 msgid "The pairing was cancelled."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:400
 msgid ""
 "This panel could not register a pairing agent, so it cannot pair. Devices "
 "that are already paired still connect."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:402
 msgid "The device is busy, possibly connected to another device."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:403
 msgid "Bluetooth is switched off."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:404
 msgid "The device disconnected."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:405
 msgid "The pairing with this device is no longer valid."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:407
 msgid ""
 "This computer could not open a connection to the device. Try again, or "
 "switch Bluetooth off and on."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:409
 msgid "Bluetooth could not complete that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
 msgid "Headset"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
 msgid "Headphones"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:434
 msgid "Speaker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:435
 #: crates/glimpse-panel/src/applets/brightness/render.rs:73
 #: crates/glimpse-panel/src/applets/brightness/render/tests.rs:206
 #: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
 msgid "Keyboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:436
 msgid "Mouse"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:437
 msgid "Gamepad"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:438
 msgid "Tablet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:439
 msgid "Phone"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:440
 msgid "Computer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:441
 msgid "Display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:442
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:203
 msgid "Printer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:443
 msgid "Device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:457
 msgid "Vendor codec"
 msgstr ""
 
@@ -1265,7 +1283,7 @@ msgstr ""
 msgid "Built-in display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:364
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:366
 msgid "Open {player}"
 msgstr ""
 
@@ -1305,9 +1323,9 @@ msgstr ""
 msgid "Network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:202
-#: crates/glimpse-widgets/blueprints/network_popover.blp:18
-#: crates/glimpse-widgets/blueprints/network_popover.blp:57
+#: crates/glimpse-panel/src/applets/network/indicator.rs:204
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr ""
 
@@ -1325,15 +1343,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:263
 msgid "Choose how the network is secured, then type its password."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/network/indicator.rs:265
-#: crates/glimpse-panel/src/applets/network/indicator.rs:274
-#: crates/glimpse-panel/src/applets/network/indicator.rs:293
-#: crates/glimpse-widgets/blueprints/network_popover.blp:198
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
-msgid "Connect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:272
@@ -1501,6 +1510,7 @@ msgid "Band"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:285
+#: crates/glimpse-widgets/blueprints/network_row.blp:33
 msgid "Forget this network"
 msgstr ""
 
@@ -2395,12 +2405,11 @@ msgid "Health"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/battery_popover.blp:65
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:39
 #: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:27
 msgid "Devices"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:64
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
 #: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:41
 msgid "Nearby devices"
 msgstr ""
@@ -2500,27 +2509,27 @@ msgstr ""
 msgid "Kept awake by"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:32
 msgid "Other players"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:39
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
 msgid "Ethernet"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:48
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
 msgid "VPN"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:73
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
 msgid "Other networks"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:112
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
 msgid "Looking for networks…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:127
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
 msgid "Connect to a hidden network…"
 msgstr ""
 
@@ -2582,7 +2591,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:334
+#: crates/glimpse-widgets/src/lib.rs:324
 msgid "Play"
 msgstr ""
 
@@ -3377,7 +3386,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:333
+#: crates/glimpse-widgets/src/lib.rs:323
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:164
 msgid "Pause"
 msgstr ""
