@@ -131,9 +131,6 @@ impl ObjectImpl for BluetoothPopover {
                 glib::subclass::Signal::builder("powered")
                     .param_types([bool::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("activated")
-                    .param_types([String::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("acted")
                     .param_types([String::static_type(), String::static_type()])
                     .build(),

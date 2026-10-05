@@ -98,9 +98,14 @@ fn the_connected_network_shows_its_address_and_a_beacon_in_range_has_none() {
     let other = state.networks[1].id.as_str().to_owned();
     let stranger =
         details(&state, &other).expect("a stranger's card says what the one-line row does not");
+    let actions: Vec<&str> = stranger
+        .lines
+        .iter()
+        .map(|line| line.action.as_str())
+        .collect();
     assert!(
-        stranger.lines.is_empty() && !stranger.facts.is_empty(),
-        "a stranger's card only describes it"
+        actions == ["connect"] && !stranger.facts.is_empty(),
+        "a stranger's card describes it and offers only Connect"
     );
 }
 
@@ -131,9 +136,10 @@ fn a_vpn_names_its_own_address_and_an_inactive_one_has_none() {
     state.vpn[0].active = false;
     state.vpn[0].address = None;
     let idle = details(&state, "/s/vpn").expect("the card names the kind");
+    let actions: Vec<&str> = idle.lines.iter().map(|line| line.action.as_str()).collect();
     assert!(
-        idle.lines.is_empty() && idle.facts.len() == 1,
-        "a tunnel not in use connects from its row; its card only names what it is"
+        actions == ["connect"] && idle.facts.len() == 1,
+        "a tunnel not in use names what it is and offers Connect"
     );
 }
 
@@ -159,9 +165,20 @@ fn a_wired_connection_in_use_has_a_card_that_disconnects_and_names_its_address()
 
     state.wired[0].active = false;
     state.wired[0].address = None;
+    let actions = |state: &NetworkState| -> Vec<String> {
+        details(state, "/org/freedesktop/NetworkManager/Devices/459")
+            .map(|card| card.lines.into_iter().map(|line| line.action).collect())
+            .unwrap_or_default()
+    };
+    assert_eq!(
+        actions(&state),
+        ["connect"],
+        "a cable not in use offers Connect"
+    );
+    state.wired[0].carrier = false;
     assert!(
-        details(&state, "/org/freedesktop/NetworkManager/Devices/459").is_none(),
-        "a cable not in use connects from its row and has no card"
+        actions(&state).is_empty(),
+        "an unplugged cable offers nothing that can only fail"
     );
 }
 
@@ -294,8 +311,8 @@ fn a_saved_network_carries_the_settings_that_only_a_profile_has() {
         .collect();
     assert_eq!(
         actions,
-        ["autoconnect", "forget"],
-        "the row joins; the card describes the network, then what a profile has"
+        ["autoconnect", "connect", "forget"],
+        "the card describes the network, joins it, then offers what a profile has"
     );
     assert_eq!(
         saved.lines[0].toggle,

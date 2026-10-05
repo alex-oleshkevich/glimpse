@@ -58,9 +58,6 @@ impl BluetoothPopover {
 
     pub fn set_details(&self, details: &[Details]) {
         let imp = self.imp();
-        if imp.details.borrow().as_slice() == details {
-            return;
-        }
         imp.details.replace(details.to_vec());
         for (id, device) in self.devices() {
             device.set_details(details.iter().find(|details| details.id == id));
@@ -127,8 +124,10 @@ impl BluetoothPopover {
     }
 
     pub fn set_controls_sensitive(&self, on: bool) {
-        let imp = self.imp();
-        imp.search.set_sensitive(on);
+        let search = &self.imp().search;
+        if search.get_sensitive() != on {
+            search.set_sensitive(on);
+        }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -140,14 +139,6 @@ impl BluetoothPopover {
             "powered",
             false,
             glib::closure_local!(move |popover: Self, on: bool| f(&popover, on)),
-        )
-    }
-
-    pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "activated",
-            false,
-            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
 
@@ -268,10 +259,8 @@ impl BluetoothPopover {
             device,
             move |_| {
                 let action = device.imp().primary_action.borrow().clone();
-                match action.as_str() {
-                    "connect" | "pair" => popover.emit_by_name::<()>("activated", &[&key]),
-                    "disconnect" => popover.emit_by_name::<()>("acted", &[&key, &action]),
-                    _ => {}
+                if !action.is_empty() {
+                    popover.emit_by_name::<()>("acted", &[&key, &action]);
                 }
             }
         ));

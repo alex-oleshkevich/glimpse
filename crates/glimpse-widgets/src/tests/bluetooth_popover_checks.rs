@@ -79,11 +79,6 @@ pub(super) fn check() {
         let acted = Rc::clone(&acted);
         move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
     });
-    let activated = Rc::new(RefCell::new(Vec::new()));
-    popover.connect_activated({
-        let activated = Rc::clone(&activated);
-        move |_, id| activated.borrow_mut().push(id.to_owned())
-    });
     let toggled = Rc::new(RefCell::new(Vec::new()));
     popover.connect_toggled({
         let toggled = Rc::clone(&toggled);
@@ -125,7 +120,7 @@ pub(super) fn check() {
 
     press(&row("a"));
     assert!(row("a").open());
-    assert!(activated.borrow().is_empty() && acted.borrow().is_empty());
+    assert!(acted.borrow().is_empty());
     press(&row("a"));
     assert!(!row("a").open(), "the second press closes the drawer");
     press(&row("a"));
@@ -172,6 +167,13 @@ pub(super) fn check() {
     assert!(a.imp().trust.active());
     assert_eq!(*toggled.borrow(), ["a/trust/true", "a/trust/false"]);
     assert_eq!(*acted.borrow(), ["a/disconnect"]);
+    a.imp().trust.emit_by_name::<()>("activate", &[]);
+    assert!(!a.imp().trust.active());
+    popover.set_details(&[in_use(true), paired.clone()]);
+    assert!(
+        a.imp().trust.active(),
+        "unchanged details restore a toggle the command did not move"
+    );
 
     press(&row("b"));
     assert!(!row("a").open() && row("b").open());
@@ -185,9 +187,8 @@ pub(super) fn check() {
         Some("Connect")
     );
     device("b").imp().primary.activate();
-    assert_eq!(*activated.borrow(), ["b"]);
     device("b").imp().forget.activate();
-    assert_eq!(*acted.borrow(), ["a/disconnect", "b/forget"]);
+    assert_eq!(*acted.borrow(), ["a/disconnect", "b/connect", "b/forget"]);
     popover.collapse("b");
     assert!(!row("b").open());
     assert!(row("b").subtitle().is_none());
@@ -232,7 +233,7 @@ pub(super) fn check() {
     );
     assert!(!n.imp().trust.get_visible() && !n.imp().forget.get_visible());
     n.imp().primary.activate();
-    assert_eq!(*activated.borrow(), ["b", "n"]);
+    assert_eq!(acted.borrow().last().map(String::as_str), Some("n/pair"));
     popover.collapse("n");
     assert!(popover.imp().search.open() && !row("n").open());
 

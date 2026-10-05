@@ -1,7 +1,6 @@
 mod imp;
 mod row;
 
-use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{Row, RowTone, none_if_empty, reconcile};
@@ -70,13 +69,16 @@ impl NetworkPopover {
     }
 
     pub fn set_details(&self, details: &[Details]) {
-        let imp = self.imp();
-        if imp.details.borrow().as_slice() == details {
-            return;
-        }
-        imp.details.replace(details.to_vec());
+        self.imp().details.replace(details.to_vec());
         for (id, row) in self.holders() {
             self.fill(&id, &row);
+        }
+    }
+
+    /// Closes one network's card: what an applet calls once the action taken from it succeeded.
+    pub fn collapse(&self, id: &str) {
+        if let Some((_, row)) = self.holders().find(|(held, _)| held == id) {
+            row.imp().expander.set_open(false);
         }
     }
 
@@ -357,24 +359,18 @@ impl NetworkPopover {
             #[weak(rename_to = popover)]
             self,
             move |_| {
-                let entry = popover
+                let action = popover
                     .imp()
-                    .entries
+                    .details
                     .borrow()
                     .iter()
-                    .find(|entry| entry.id == key)
-                    .cloned();
-                let Some(entry) = entry else {
-                    return;
-                };
-                if entry.selected {
-                    let action = match entry.place {
-                        Place::Vpn => "disconnect-vpn",
-                        _ => "disconnect",
-                    };
-                    popover.emit_by_name::<()>("acted", &[&key, &action]);
-                } else {
-                    popover.emit_by_name::<()>("activated", &[&key]);
+                    .find(|details| details.id == key)
+                    .and_then(primary)
+                    .map(|line| line.action.clone());
+                match action.as_deref() {
+                    Some("connect") => popover.emit_by_name::<()>("activated", &[&key]),
+                    Some(action) => popover.emit_by_name::<()>("acted", &[&key, &action]),
+                    None => {}
                 }
             }
         ));
@@ -398,8 +394,7 @@ impl NetworkPopover {
         imp.expander.set_title(none_if_empty(&entry.title));
         imp.expander.set_icon_name(none_if_empty(&entry.icon));
         imp.expander.set_busy(entry.busy);
-        imp.status
-            .set_css_classes(if entry.selected { &["accent"] } else { &[] });
+        crate::set_css_class(&*imp.status, "accent", entry.selected);
         let status = match entry.selected {
             true => "object-select-symbolic",
             false => "changes-prevent-symbolic",
@@ -411,11 +406,6 @@ impl NetworkPopover {
         if imp.status.get_visible() != visible {
             imp.status.set_visible(visible);
         }
-        let connection = imp.connection.upcast_ref::<Row>();
-        connection.set_title(Some(match entry.selected {
-            true => gettext("Disconnect"),
-            false => gettext("Connect"),
-        }));
         self.fill(&entry.id, row);
     }
 
@@ -433,18 +423,20 @@ impl NetworkPopover {
         if card.facts.get_visible() == details.facts.is_empty() {
             card.facts.set_visible(!details.facts.is_empty());
         }
-        let primary = details.lines.iter().find(|line| {
-            matches!(
-                line.action.as_str(),
-                "connect" | "disconnect" | "disconnect-vpn"
-            )
-        });
+        let primary = primary(&details);
         let connection = card.connection.upcast_ref::<Row>();
-        connection.set_tone(match primary.is_some_and(|line| line.destructive) {
-            true => RowTone::Destructive,
-            false => RowTone::Normal,
-        });
-        connection.set_busy(primary.map_or_else(|| card.expander.busy(), |line| line.busy));
+        if connection.get_visible() != primary.is_some() {
+            connection.set_visible(primary.is_some());
+        }
+        if let Some(line) = primary {
+            connection.set_title(none_if_empty(&line.title));
+            connection.set_inactive(!line.activates);
+            connection.set_busy(line.busy);
+            connection.set_tone(match line.destructive {
+                true => RowTone::Destructive,
+                false => RowTone::Normal,
+            });
+        }
         let autoconnect = details
             .lines
             .iter()
@@ -477,4 +469,13 @@ impl NetworkPopover {
         }
         all.into_iter()
     }
+}
+
+fn primary(details: &Details) -> Option<&Line> {
+    details.lines.iter().find(|line| {
+        matches!(
+            line.action.as_str(),
+            "connect" | "disconnect" | "disconnect-vpn"
+        )
+    })
 }

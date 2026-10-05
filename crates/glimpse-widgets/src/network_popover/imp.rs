@@ -238,6 +238,17 @@ impl ObjectImpl for NetworkPopover {
             );
         }
 
+        self.prompt_secret.connect_activate(glib::clone!(
+            #[weak]
+            object,
+            move |_| object.answer(true)
+        ));
+        self.prompt_name.connect_activate(glib::clone!(
+            #[weak]
+            object,
+            move |_| object.answer(true)
+        ));
+
         self.prompt_cancel.connect_clicked(glib::clone!(
             #[weak]
             object,

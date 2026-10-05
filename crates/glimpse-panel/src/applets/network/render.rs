@@ -245,6 +245,13 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
         destructive,
         ..Default::default()
     };
+    let connect = |busy: Option<NetworkBusy>| Line {
+        action: "connect".to_owned(),
+        title: gettext("Connect"),
+        activates: true,
+        busy: matches!(busy, Some(NetworkBusy::Connecting)),
+        ..Default::default()
+    };
     let card = |facts: Vec<Fact>, lines: Vec<Line>| {
         (!facts.is_empty() || !lines.is_empty()).then(|| Details {
             id: id.to_owned(),
@@ -273,12 +280,13 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
                 ..Default::default()
             });
         }
-        if network.active {
-            lines.push(disconnect(
+        lines.push(match network.active {
+            true => disconnect(
                 matches!(network.busy, Some(NetworkBusy::Disconnecting)),
                 profile.is_none(),
-            ));
-        }
+            ),
+            false => connect(network.busy),
+        });
         if let Some(profile) = profile {
             lines.push(Line {
                 action: "forget".to_owned(),
@@ -297,7 +305,7 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
             return card(vec![status(gettext("Cable unplugged"))], Vec::new());
         }
         if !wired.active {
-            return None;
+            return card(Vec::new(), vec![connect(wired.busy)]);
         }
         let mut facts: Vec<Fact> = metered(true).into_iter().collect();
         if let Some(speed) = wired.speed.filter(|speed| *speed > 0) {
@@ -316,7 +324,7 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
             .into_iter()
             .collect();
         if !vpn.active {
-            return card(facts, Vec::new());
+            return card(facts, vec![connect(vpn.busy)]);
         }
         facts.extend(address(&vpn.address));
         let disconnect = Line {

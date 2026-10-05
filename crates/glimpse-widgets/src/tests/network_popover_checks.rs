@@ -88,8 +88,9 @@ pub(super) fn check() {
     let net_rows = |id: &str| {
         let row = net_row(id);
         let imp = row.imp();
-        let mut rows = vec![imp.connection.upcast_ref::<Row>().clone()];
+        let mut rows = Vec::new();
         for row in [
+            imp.connection.upcast_ref::<Row>(),
             imp.autoconnect.upcast_ref::<Row>(),
             imp.forget.upcast_ref::<Row>(),
         ] {
@@ -134,6 +135,16 @@ pub(super) fn check() {
         id: id.to_owned(),
         facts: vec![Fact::new("Security", "WPA2")],
         lines: lines.clone(),
+    };
+    let action_card = |id: &str, action: &str, title: &str| NetworkDetails {
+        id: id.to_owned(),
+        facts: Vec::new(),
+        lines: vec![NetworkLine {
+            action: action.to_owned(),
+            title: title.to_owned(),
+            activates: true,
+            ..Default::default()
+        }],
     };
     network.set_details(&[card("/ap/1"), card("/s/1")]);
     assert!(!net_head("/ap/1").open());
@@ -203,6 +214,12 @@ pub(super) fn check() {
         .expect("an action")
         .emit_by_name::<()>("activated", &[]);
     assert_eq!(*joined.borrow(), ["/ap/1"]);
+    assert!(net_head("/ap/1").open(), "dispatch alone does not close");
+    network.collapse("/ap/1");
+    assert!(
+        !net_head("/ap/1").open(),
+        "a successful action closes its card"
+    );
 
     let toggled = Rc::new(RefCell::new(Vec::new()));
     network.connect_toggled({
@@ -243,6 +260,13 @@ pub(super) fn check() {
     network.set_details(&[card("/ap/1"), card("/s/1")]);
     assert!(!setting.active());
     assert_eq!(toggled.borrow().len(), 2);
+    setting.emit_by_name::<()>("activate", &[]);
+    assert!(setting.active());
+    network.set_details(&[card("/ap/1"), card("/s/1")]);
+    assert!(
+        !setting.active(),
+        "unchanged details restore a toggle the command did not move"
+    );
 
     let acted = Rc::new(RefCell::new(Vec::new()));
     network.connect_acted({
@@ -263,19 +287,19 @@ pub(super) fn check() {
     assert_eq!(*acted.borrow(), ["/s/1/forget"]);
 
     network.set_details(&[card("/ap/1")]);
-    assert_eq!(
-        net_rows("/s/1").len(),
-        1,
-        "missing actions hide their fixed rows"
+    assert!(
+        net_rows("/s/1").is_empty(),
+        "missing actions hide their fixed rows, Connect included"
     );
     assert!(
         net_head("/s/1").open(),
-        "losing optional detail keeps the Connect action open"
+        "losing optional detail keeps the drawer open"
     );
 
     let mut connected = entries.clone();
     connected[0].selected = true;
     network.set_entries(&connected);
+    network.set_details(&[action_card("/ap/1", "disconnect", "Disconnect")]);
     assert_eq!(
         net_row("/ap/1").imp().status.icon_name().as_deref(),
         Some("object-select-symbolic")
@@ -306,6 +330,7 @@ pub(super) fn check() {
         "Disconnect cannot emit a join"
     );
     network.set_entries(&entries);
+    network.set_details(&[card("/ap/1")]);
     assert!(!status.has_css_class("accent"));
     assert_eq!(net_rows("/ap/1")[0].title().as_deref(), Some("Connect"));
 
@@ -323,6 +348,10 @@ pub(super) fn check() {
         },
     ];
     network.set_entries(&devices);
+    network.set_details(&[
+        action_card("/wired/1", "connect", "Connect"),
+        action_card("/vpn/1", "disconnect-vpn", "Disconnect"),
+    ]);
     toggle("/wired/1");
     assert!(
         net_head("/wired/1").open(),
@@ -404,6 +433,14 @@ pub(super) fn check() {
         !network.can_submit(),
         "an empty box cannot be submitted, here as in the dialog"
     );
+    network
+        .imp()
+        .prompt_name
+        .emit_by_name::<()>("activate", &[]);
+    assert!(
+        answers.borrow().is_empty(),
+        "Enter on an empty box sends nothing"
+    );
 
     network.type_in("Skylink Guest");
     assert!(network.can_submit());
@@ -437,6 +474,15 @@ pub(super) fn check() {
 
     network.type_in("wrongpassword");
     assert!(network.can_submit());
+    network
+        .imp()
+        .prompt_secret
+        .emit_by_name::<()>("activate", &[]);
+    assert_eq!(
+        answers.borrow().last(),
+        Some(&(true, "wrongpassword".to_owned())),
+        "Enter in the password box submits it"
+    );
     network.set_prompt(Some(&NetworkAsk {
         key: "802-11-wireless-security:Skylink Guest".to_owned(),
         network: "Skylink Guest".to_owned(),

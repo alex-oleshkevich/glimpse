@@ -16,7 +16,7 @@ use glimpse_services::{
 use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover};
 
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, spawn_command, spawn_reported};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
 
 use super::render;
 
@@ -101,27 +101,38 @@ fn asks_first(state: &NetworkState, id: &NetworkId) -> Option<String> {
         .then(|| render::name_of(access))
 }
 
-fn tell<F, T>(
+fn tell<T: 'static>(
     notifications: &NotificationsProviderHandle,
+    opener: &Opener,
+    closing: Option<(&glib::WeakRef<NetworkPopover>, &NetworkId)>,
     operation: &'static str,
     summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, NetworkError>> + Send + 'static,
-    T: Send + 'static,
-{
+    future: impl std::future::Future<Output = Result<T, NetworkError>> + 'static,
+) {
     let report = Report {
         notifications: notifications.clone(),
         app_name: gettext("Network"),
         icon: IDLE.to_owned(),
         summary,
     };
-    spawn_reported(
-        operation,
-        report,
-        |error| error.failure().and_then(render::wording),
-        future,
-    );
+    let opener = opener.clone();
+    let closing = closing.map(|(shown, id)| (shown.clone(), id.clone()));
+    relm4::spawn_local(async move {
+        match future.await {
+            Ok(_) => {
+                if let Some((shown, id)) = closing
+                    && let Some(shown) = shown.upgrade()
+                {
+                    shown.collapse(id.as_str());
+                }
+            }
+            Err(error) => {
+                let wording = error.failure().and_then(render::wording);
+                report_failure(operation, report, wording, error).await;
+            }
+        }
+        opener.wake();
+    });
 }
 
 pub struct Network {
@@ -360,10 +371,13 @@ impl Applet for Network {
         shown.connect_wifi_toggled({
             let network = self.network.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, on| {
                 let network = network.clone();
                 tell(
                     &notifications,
+                    &opener,
+                    None,
                     "network.set_wifi_enabled",
                     gettext("Could not switch Wi-Fi"),
                     async move { network.set_wifi_enabled(on).await },
@@ -376,9 +390,10 @@ impl Applet for Network {
             let notifications = self.notifications.clone();
             let asking = Rc::clone(&self.asking);
             let opener = seat.opener();
+            let shown = shown.downgrade();
             move |_, id| {
                 let id = NetworkId::new(id);
-                let opener = opener.clone();
+                let key = id.clone();
                 let state = network.snapshot();
                 let route = route(&state, &id);
                 if let Some(name) = asks_first(&state, &id) {
@@ -387,33 +402,41 @@ impl Applet for Network {
                     return;
                 }
                 let network = network.clone();
+                let closing = Some((&shown, &key));
                 match route {
                     Route::Vpn => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.connect_vpn",
                         gettext("Could not connect the VPN"),
                         async move { network.connect_vpn(id).await },
                     ),
                     Route::Profile => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.connect_profile",
                         gettext("Could not connect"),
                         async move { network.connect_profile(id).await },
                     ),
                     Route::Wired => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.connect_device",
                         gettext("Could not connect"),
                         async move { network.connect_device(id).await },
                     ),
                     Route::AccessPoint => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.connect_access_point",
                         gettext("Could not connect"),
                         async move { network.connect_access_point(id, None).await },
                     ),
                 }
-                opener.wake();
             }
         });
 
@@ -421,37 +444,46 @@ impl Applet for Network {
             let network = self.network.clone();
             let notifications = self.notifications.clone();
             let opener = seat.opener();
+            let shown = shown.downgrade();
             move |_, id, action| {
                 let id = NetworkId::new(id);
+                let key = id.clone();
+                let closing = Some((&shown, &key));
                 let network = network.clone();
                 match action {
                     "disconnect" => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.disconnect",
                         gettext("Could not disconnect"),
                         async move { network.disconnect(id).await },
                     ),
                     "forget" => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.forget",
                         gettext("Could not forget that network"),
                         async move { network.forget(id).await },
                     ),
                     "disconnect-vpn" => tell(
                         &notifications,
+                        &opener,
+                        closing,
                         "network.disconnect_vpn",
                         gettext("Could not disconnect the VPN"),
                         async move { network.disconnect_vpn(id).await },
                     ),
                     _ => {}
                 }
-                opener.wake();
             }
         });
 
         shown.connect_toggled({
             let network = self.network.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, id, action, on| {
                 if action != "autoconnect" {
                     return;
@@ -460,6 +492,8 @@ impl Applet for Network {
                 let network = network.clone();
                 tell(
                     &notifications,
+                    &opener,
+                    None,
                     "network.set_autoconnect",
                     gettext("Could not change that setting"),
                     async move { network.set_autoconnect(id, on).await },
@@ -500,6 +534,8 @@ impl Applet for Network {
                             .then(|| NetworkSecret::new(entered.to_owned()));
                         tell(
                             &notifications,
+                            &opener,
+                            None,
                             "network.connect_hidden",
                             gettext("Could not connect"),
                             async move { network.connect_hidden(ssid, security, secret).await },
@@ -509,6 +545,8 @@ impl Applet for Network {
                         let secret = NetworkSecret::new(entered.to_owned());
                         tell(
                             &notifications,
+                            &opener,
+                            None,
                             "network.connect_access_point",
                             gettext("Could not connect"),
                             async move { network.connect_access_point(id, Some(secret)).await },
@@ -521,10 +559,13 @@ impl Applet for Network {
                         };
                         tell(
                             &notifications,
+                            &opener,
+                            None,
                             "network.answer_secret",
                             gettext("Could not send that password"),
                             async move { network.answer_secret(answer).await },
                         );
+                        return;
                     }
                     _ => {}
                 }

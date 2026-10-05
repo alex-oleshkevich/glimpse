@@ -13,9 +13,7 @@ use gtk4::prelude::*;
 use render::Asked;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{
-    Applet, Ctx, Input, Opener, Report, report_failure, spawn_command, spawn_reported,
-};
+use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
 
 use super::render;
 
@@ -57,7 +55,14 @@ impl Applet for Bluetooth {
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => {
+                let was = render::powered(&self.state);
                 self.state = self.bluetooth.snapshot();
+                if !was
+                    && render::powered(&self.state)
+                    && self.shown.upgrade().is_some_and(|shown| shown.is_mapped())
+                {
+                    look(self.bluetooth.clone(), self.raised.is_some());
+                }
                 self.raise(ctx);
             }
             Input::Tick | Input::Pointer(_) => return,
@@ -75,50 +80,16 @@ impl Applet for Bluetooth {
         shown.connect_powered({
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, on| {
                 let bluetooth = bluetooth.clone();
                 tell(
                     &notifications,
+                    &opener,
                     "bluetooth.set_powered",
                     gettext("Could not switch Bluetooth"),
                     async move { bluetooth.set_powered(on).await },
                 );
-            }
-        });
-
-        shown.connect_activated({
-            let bluetooth = self.bluetooth.clone();
-            let notifications = self.notifications.clone();
-            let shown = shown.downgrade();
-            let opener = seat.opener();
-            move |_, id| {
-                let id = DeviceId::new(id);
-                let key = id.clone();
-                let known = bluetooth
-                    .snapshot()
-                    .device(&id)
-                    .is_some_and(|device| device.known());
-                let bluetooth = bluetooth.clone();
-                match known {
-                    true => act(
-                        &notifications,
-                        "bluetooth.connect_device",
-                        gettext("Could not connect"),
-                        &shown,
-                        &opener,
-                        key,
-                        async move { bluetooth.connect(id).await },
-                    ),
-                    false => act(
-                        &notifications,
-                        "bluetooth.pair_device",
-                        gettext("Could not pair"),
-                        &shown,
-                        &opener,
-                        key,
-                        async move { bluetooth.pair(id).await },
-                    ),
-                }
             }
         });
 
@@ -131,6 +102,30 @@ impl Applet for Bluetooth {
                 let id = DeviceId::new(id);
                 let bluetooth = bluetooth.clone();
                 match action {
+                    "connect" => {
+                        let key = id.clone();
+                        act(
+                            &notifications,
+                            "bluetooth.connect_device",
+                            gettext("Could not connect"),
+                            &shown,
+                            &opener,
+                            key,
+                            async move { bluetooth.connect(id).await },
+                        );
+                    }
+                    "pair" => {
+                        let key = id.clone();
+                        act(
+                            &notifications,
+                            "bluetooth.pair_device",
+                            gettext("Could not pair"),
+                            &shown,
+                            &opener,
+                            key,
+                            async move { bluetooth.pair(id).await },
+                        );
+                    }
                     "disconnect" => {
                         let key = id.clone();
                         act(
@@ -145,6 +140,7 @@ impl Applet for Bluetooth {
                     }
                     "forget" => tell(
                         &notifications,
+                        &opener,
                         "bluetooth.forget_device",
                         gettext("Could not remove the device"),
                         async move { bluetooth.forget(id, false).await },
@@ -157,6 +153,7 @@ impl Applet for Bluetooth {
         shown.connect_toggled({
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
+            let opener = seat.opener();
             move |_, id, action, on| {
                 if action != "trust" {
                     return;
@@ -165,6 +162,7 @@ impl Applet for Bluetooth {
                 let bluetooth = bluetooth.clone();
                 tell(
                     &notifications,
+                    &opener,
                     "bluetooth.set_trusted",
                     gettext("Could not change that setting"),
                     async move { bluetooth.set_trusted(id, on).await },
@@ -176,6 +174,7 @@ impl Applet for Bluetooth {
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
             let asked = Rc::clone(&self.asked);
+            let opener = seat.opener();
             move |_, accepted| {
                 let bluetooth = bluetooth.clone();
                 let Some(asked) = asked.borrow().clone() else {
@@ -189,6 +188,7 @@ impl Applet for Bluetooth {
                         };
                         tell(
                             &notifications,
+                            &opener,
                             "bluetooth.answer_pairing",
                             gettext("Could not pair"),
                             async move { bluetooth.answer_pairing(answer).await },
@@ -196,6 +196,7 @@ impl Applet for Bluetooth {
                     }
                     Asked::Forget(id) if accepted => tell(
                         &notifications,
+                        &opener,
                         "bluetooth.forget_device",
                         gettext("Could not remove the device"),
                         async move { bluetooth.forget(id, true).await },
@@ -232,25 +233,13 @@ impl Applet for Bluetooth {
             }
         });
 
-        let powered = render::powered(&self.state);
         let prompting = self.raised.is_some();
         shown.connect_map({
             let bluetooth = self.bluetooth.clone();
             move |_| {
-                if !powered {
-                    return;
+                if render::powered(&bluetooth.snapshot()) {
+                    look(bluetooth.clone(), prompting);
                 }
-                let bluetooth = bluetooth.clone();
-                spawn_command("bluetooth.start_scan", async move {
-                    let scanned = match prompting {
-                        true => Ok(()),
-                        false => bluetooth.start_scan(Hold::Timed).await,
-                    };
-                    if let Err(error) = bluetooth.set_discoverable(true).await {
-                        tracing::warn!(%error, "could not make the adapter visible");
-                    }
-                    scanned
-                });
             }
         });
 
@@ -288,22 +277,39 @@ impl Applet for Bluetooth {
     }
 }
 
-fn tell<F, T>(
+fn look(bluetooth: BluetoothHandle, prompting: bool) {
+    spawn_command("bluetooth.start_scan", async move {
+        let scanned = match prompting {
+            true => Ok(()),
+            false => bluetooth.start_scan(Hold::Timed).await,
+        };
+        if let Err(error) = bluetooth.set_discoverable(true).await {
+            tracing::warn!(%error, "could not make the adapter visible");
+        }
+        scanned
+    });
+}
+
+fn tell<T: 'static>(
     notifications: &NotificationsProviderHandle,
+    opener: &Opener,
     operation: &'static str,
     summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, BluetoothError>> + Send + 'static,
-    T: Send + 'static,
-{
+    future: impl std::future::Future<Output = Result<T, BluetoothError>> + 'static,
+) {
     let report = Report {
         notifications: notifications.clone(),
         app_name: gettext("Bluetooth"),
         icon: render::IDLE.to_owned(),
         summary,
     };
-    spawn_reported(operation, report, wording, future);
+    let opener = opener.clone();
+    relm4::spawn_local(async move {
+        if let Err(error) = future.await {
+            report_failure(operation, report, wording(&error), error).await;
+        }
+        opener.wake();
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
