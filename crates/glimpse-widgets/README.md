@@ -95,7 +95,7 @@ blurred card is translucent and would show a strip through its own bottom.
 
 ## Popovers
 
-`PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
+Framed applet popovers use `PopoverShell`: optional hero, one content child, optional footer, a
 separator between each pair, and every separator paints transparent. **A row in a list is one line;
 its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
 **Facts precede actions; network and Bluetooth lead with Connect, Pair or Disconnect.**

@@ -8,34 +8,40 @@ template $MprisPopover: Gtk.Widget {
   ]
 
   $AppletPopover card {
-    Gtk.Box {
-      orientation: vertical;
+    Gtk.ScrolledWindow scroller {
+      hscrollbar-policy: never;
+      vscrollbar-policy: automatic;
+      propagate-natural-height: true;
 
-      styles [
-        "column",
-        "popover-body",
-      ]
+      Gtk.Box {
+        orientation: vertical;
 
-      $NowPlaying player {
-        visible: false;
-        icon-name: "multimedia-player-symbolic";
-      }
+        styles [
+          "column",
+          "popover-body",
+        ]
 
-      $Fader volume {
-        visible: false;
-        toggleable: false;
-        icon-name: "audio-volume-high-symbolic";
-      }
+        $NowPlaying player {
+          visible: false;
+          icon-name: "multimedia-player-symbolic";
+        }
 
-      $Section others {
-        visible: false;
-        title: _("Other players");
+        $Fader volume {
+          visible: false;
+          toggleable: false;
+          icon-name: "audio-volume-high-symbolic";
+        }
 
-        $PlayerList list {}
-      }
+        $Section others {
+          visible: false;
+          title: _("Other players");
 
-      $LegacyRow footer {
-        visible: false;
+          $PlayerList list {}
+        }
+
+        $LegacyRow footer {
+          visible: false;
+        }
       }
     }
   }

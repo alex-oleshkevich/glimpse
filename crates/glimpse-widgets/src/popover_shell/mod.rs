@@ -95,6 +95,10 @@ impl PopoverShell {
                     other.set_expanded(false);
                 }
             }
+        } else {
+            for descendant in descendants::<Expandable>(changed.upcast_ref()) {
+                descendant.set_expanded(false);
+            }
         }
         self.recede(None);
     }
@@ -199,7 +203,7 @@ impl PopoverShell {
 
 const MAX_HEIGHT_SHARE: f64 = 0.6;
 
-fn body_cap(monitor_height: i32, chrome: i32) -> i32 {
+pub(crate) fn body_cap(monitor_height: i32, chrome: i32) -> i32 {
     ((monitor_height as f64 * MAX_HEIGHT_SHARE) as i32 - chrome).max(0)
 }
 

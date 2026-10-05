@@ -417,7 +417,6 @@ impl NetworkPopover {
             true => gettext("Disconnect"),
             false => gettext("Connect"),
         }));
-        connection.set_busy(entry.busy);
         self.fill(&entry.id, row);
     }
 
@@ -430,9 +429,6 @@ impl NetworkPopover {
             .find(|details| details.id == id)
             .cloned();
         let card = row.imp();
-        if details.is_none() {
-            card.expander.set_open(false);
-        }
         let details = details.unwrap_or_default();
         card.facts.set_facts(&details.facts);
         if card.facts.get_visible() == details.facts.is_empty() {

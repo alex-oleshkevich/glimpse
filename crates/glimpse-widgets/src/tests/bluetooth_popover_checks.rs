@@ -62,11 +62,27 @@ pub(super) fn check() {
         Some("object-select-symbolic")
     );
     assert!(!device("b").imp().status.get_visible());
+    let mut charged = entry("a", BluetoothPlace::Connected);
+    charged.value = "72%".to_owned();
+    first.set_entry(&charged);
+    assert_eq!(first.imp().battery.text(), "72%");
+    assert!(first.imp().battery.get_visible() && first.imp().status.get_visible());
+    let end = first
+        .imp()
+        .battery
+        .parent()
+        .expect("battery and marker container");
+    assert_eq!(first.imp().status.parent(), Some(end.clone()));
+    assert!(end.parent().expect("row end slot").get_visible());
+    charged.busy = true;
+    first.set_entry(&charged);
+    assert!(!end.parent().expect("row end slot").get_visible());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Paired),
         entry("b", BluetoothPlace::Paired),
     ]);
     assert!(!first.imp().status.get_visible());
+    assert!(!first.imp().battery.get_visible());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Connected),
         entry("b", BluetoothPlace::Paired),

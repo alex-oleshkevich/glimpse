@@ -280,10 +280,8 @@ pub(super) fn check() {
         "missing actions hide their fixed rows"
     );
     assert!(
-        !net_head("/s/1").open()
-            && !dimmed(net_head("/ap/1").upcast_ref())
-            && !dimmed(network.imp().wifi.upcast_ref()),
-        "losing detail closes the drawer and clears receding"
+        net_head("/s/1").open(),
+        "losing optional detail keeps the Connect action open"
     );
 
     let mut connected = entries.clone();
@@ -340,6 +338,17 @@ pub(super) fn check() {
     assert!(
         net_head("/wired/1").open(),
         "a connect-only drawer still opens"
+    );
+    let mut refreshed = devices.to_vec();
+    refreshed.push(NetworkEntry {
+        id: "/ap/refreshed".to_owned(),
+        place: NetworkPlace::Wifi,
+        ..Default::default()
+    });
+    network.set_entries(&refreshed);
+    assert!(
+        net_head("/wired/1").open(),
+        "a Wi-Fi refresh keeps an open connect-only Ethernet drawer"
     );
     net_rows("/wired/1")[0]
         .clone()

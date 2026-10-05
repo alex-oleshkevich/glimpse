@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{cell::RefCell, sync::OnceLock};
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
@@ -12,6 +12,8 @@ pub struct MprisPopover {
     #[template_child]
     pub card: TemplateChild<AppletPopover>,
     #[template_child]
+    pub scroller: TemplateChild<gtk4::ScrolledWindow>,
+    #[template_child]
     pub player: TemplateChild<NowPlaying>,
     #[template_child]
     pub volume: TemplateChild<Fader>,
@@ -21,6 +23,7 @@ pub struct MprisPopover {
     pub list: TemplateChild<PlayerList>,
     #[template_child]
     pub footer: TemplateChild<LegacyRow>,
+    entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
 }
 
 #[glib::object_subclass]
@@ -91,4 +94,48 @@ impl ObjectImpl for MprisPopover {
     }
 }
 
-impl WidgetImpl for MprisPopover {}
+impl MprisPopover {
+    fn apply_cap(&self, entered: Option<&gtk4::gdk::Monitor>) {
+        let Some(surface) = self.obj().native().and_then(|native| native.surface()) else {
+            return;
+        };
+        let Some(monitor) = entered
+            .cloned()
+            .or_else(|| surface.display().monitor_at_surface(&surface))
+        else {
+            return;
+        };
+        let (_, card, _, _) = self.card.measure(gtk4::Orientation::Vertical, -1);
+        let (_, scroller, _, _) = self.scroller.measure(gtk4::Orientation::Vertical, -1);
+        let chrome = card.saturating_sub(scroller);
+        let cap = crate::popover_shell::body_cap(monitor.geometry().height(), chrome);
+        if self.scroller.max_content_height() != cap {
+            self.scroller.set_max_content_height(cap);
+        }
+    }
+}
+
+impl WidgetImpl for MprisPopover {
+    fn map(&self) {
+        self.parent_map();
+        self.apply_cap(None);
+        let object = self.obj();
+        if let Some(surface) = object.native().and_then(|native| native.surface()) {
+            let handler = surface.connect_enter_monitor(glib::clone!(
+                #[weak]
+                object,
+                move |_, monitor| object.imp().apply_cap(Some(monitor))
+            ));
+            if let Some((old, handler)) = self.entered.replace(Some((surface, handler))) {
+                old.disconnect(handler);
+            }
+        }
+    }
+
+    fn unmap(&self) {
+        if let Some((surface, handler)) = self.entered.take() {
+            surface.disconnect(handler);
+        }
+        self.parent_unmap();
+    }
+}

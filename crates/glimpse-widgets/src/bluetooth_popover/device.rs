@@ -16,6 +16,8 @@ mod imp {
         #[template_child]
         pub row: TemplateChild<ExpanderRow>,
         #[template_child]
+        pub battery: TemplateChild<gtk4::Label>,
+        #[template_child]
         pub status: TemplateChild<gtk4::Image>,
         #[template_child]
         pub primary: TemplateChild<ActionRow>,
@@ -76,6 +78,7 @@ impl BluetoothDevice {
         });
         row.set_icon_name(none_if_empty(&entry.icon));
         row.set_value(none_if_empty(&entry.value));
+        crate::set_text(&self.imp().battery, row.value().as_deref());
         row.set_busy(entry.busy);
         self.imp()
             .status

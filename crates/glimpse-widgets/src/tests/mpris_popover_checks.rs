@@ -4,9 +4,10 @@ pub(super) fn check() {
     let mpris = MprisPopover::new();
     let column = mpris.player().parent().unwrap();
     assert_eq!(
-        column.parent().as_ref(),
+        mpris.imp().scroller.parent().as_ref(),
         Some(mpris.imp().card.upcast_ref())
     );
+    assert!(column.is_ancestor(&mpris.imp().scroller.get()));
     assert_eq!(
         column.first_child().as_ref(),
         Some(mpris.player().upcast_ref())
@@ -100,4 +101,42 @@ pub(super) fn check() {
         mpris.player().scrubber().is_ancestor(&mpris),
         "the primary player is composed whole, not reassembled out of its parts here"
     );
+
+    let crowded = MprisPopover::new();
+    let players: Vec<_> = (0..40)
+        .map(|index| Player {
+            key: index.to_string(),
+            name: format!("Player {index}"),
+            ..Default::default()
+        })
+        .collect();
+    crowded.set_others(Some(&players));
+    crowded.set_footer(Some("Open player"));
+    let window = gtk4::Window::new();
+    window.set_default_size(500, 200);
+    window.set_child(Some(&crowded));
+    window.present();
+    let context = glib::MainContext::default();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    let scroller = &crowded.imp().scroller;
+    while (scroller.max_content_height() < 0 || scroller.height() == 0)
+        && std::time::Instant::now() < deadline
+    {
+        while context.pending() {
+            context.iteration(false);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    let cap = scroller.max_content_height();
+    assert!(cap > 0, "the mapped MPRIS popover has a monitor height cap");
+    let (_, natural, _, _) = scroller.measure(gtk4::Orientation::Vertical, 500);
+    assert!(
+        natural <= cap,
+        "additional players cannot exceed the height cap"
+    );
+    let scroll = scroller.vadjustment();
+    assert!(scroll.upper() > scroll.page_size());
+    scroll.set_value(scroll.upper() - scroll.page_size());
+    assert!(scroll.value() > 0.0, "the lower controls remain scrollable");
+    window.close();
 }
