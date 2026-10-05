@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{AppletPopover, Fader, LegacyRow, NowPlaying, PlayerList, Section};
+use crate::{AppletPopover, LegacyRow, NowPlaying, PlayerList, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/mpris_popover.ui")]
@@ -15,8 +15,6 @@ pub struct MprisPopover {
     pub scroller: TemplateChild<gtk4::ScrolledWindow>,
     #[template_child]
     pub player: TemplateChild<NowPlaying>,
-    #[template_child]
-    pub volume: TemplateChild<Fader>,
     #[template_child]
     pub others: TemplateChild<Section>,
     #[template_child]
@@ -54,9 +52,6 @@ impl ObjectImpl for MprisPopover {
                 glib::subclass::Signal::builder("toggle-requested")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("volume-changed")
-                    .param_types([f64::static_type()])
-                    .build(),
             ]
         })
     }
@@ -75,12 +70,6 @@ impl ObjectImpl for MprisPopover {
             #[weak]
             popover,
             move |_, key| popover.emit_by_name::<()>("raise-requested", &[&key])
-        ));
-
-        self.volume.connect_changed(glib::clone!(
-            #[weak]
-            popover,
-            move |_, value| popover.emit_by_name::<()>("volume-changed", &[&(value / 100.0)])
         ));
         self.list.connect_toggled(glib::clone!(
             #[weak]

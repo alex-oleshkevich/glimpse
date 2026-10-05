@@ -138,7 +138,7 @@ Celsius reading mid-flight.
 
 **mpris** — **position is advanced here, not polled there**: MPRIS emits no change signal for
 `Position`, so `position_us`/`position_at`/`rate` are interpolated locally. Volume stays with the
-audio applet — the popover slider is only the current player's own `Volume`.
+audio applet; the popover has no volume control.
 
 **keyboard** — the compositor owns the layout list; this applet only renders it and sends the
 switch command. **pager** — groups workspaces under each display's name, shared with the privacy

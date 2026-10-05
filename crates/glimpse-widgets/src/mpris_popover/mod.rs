@@ -35,30 +35,6 @@ impl MprisPopover {
         imp.list.set_players(players);
     }
 
-    pub fn set_volume(&self, volume: Option<f64>) {
-        let fader = &self.imp().volume;
-        if fader.get_visible() != volume.is_some() {
-            fader.set_visible(volume.is_some());
-        }
-        if let Some(volume) = volume.filter(|volume| volume.is_finite()) {
-            let value = (volume * 100.0).clamp(0.0, 100.0);
-            if fader.value() != value {
-                fader.set_value(value);
-            }
-        }
-    }
-
-    pub fn connect_volume_changed<F: Fn(&Self, f64) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "volume-changed",
-            false,
-            glib::closure_local!(move |popover: Self, volume: f64| handler(&popover, volume)),
-        )
-    }
-
     pub fn set_footer(&self, label: Option<&str>) {
         crate::set_footer_row(&self.imp().footer, label);
     }
