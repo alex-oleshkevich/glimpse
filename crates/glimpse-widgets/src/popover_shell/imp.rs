@@ -154,7 +154,39 @@ impl ObjectImpl for PopoverShell {
     }
 }
 
+impl PopoverShell {
+    fn scroll_only_when_capped(&self, width: i32) {
+        let (_, content, _, _) = self.body.measure(gtk4::Orientation::Vertical, width);
+        let cap = self.scroller.max_content_height();
+        let wanted = match cap >= 0 && content > cap {
+            true => gtk4::PolicyType::Automatic,
+            false => gtk4::PolicyType::Never,
+        };
+        if self.scroller.vscrollbar_policy() == wanted {
+            return;
+        }
+        let scroller = self.scroller.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(scroller) = scroller.upgrade()
+                && scroller.vscrollbar_policy() != wanted
+            {
+                scroller.set_vscrollbar_policy(wanted);
+            }
+        });
+    }
+}
+
 impl WidgetImpl for PopoverShell {
+    fn measure(&self, orientation: gtk4::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
+        let (minimum, natural, _, _) = self.card.measure(orientation, for_size);
+        (minimum, natural, -1, -1)
+    }
+
+    fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+        self.scroll_only_when_capped(width);
+        self.card.allocate(width, height, baseline, None);
+    }
+
     fn map(&self) {
         self.parent_map();
         let obj = self.obj();

@@ -31,34 +31,10 @@ pub struct Section {
     #[property(name = "empty", get = Self::empty, set = Self::set_empty)]
     empty: Cell<bool>,
     pub accessible_name: RefCell<String>,
-    pub pending_hide: Cell<bool>,
+    pub hiding: Cell<bool>,
 }
 
 impl Section {
-    pub(crate) fn has_leaving(&self) -> bool {
-        fn leaving(widget: &gtk4::Widget) -> bool {
-            if widget.has_css_class("leaving") {
-                return true;
-            }
-            let mut child = widget.first_child();
-            while let Some(node) = child {
-                if leaving(&node) {
-                    return true;
-                }
-                child = node.next_sibling();
-            }
-            false
-        }
-        leaving(self.obj().upcast_ref())
-    }
-
-    pub(crate) fn exit_finished(&self) {
-        if self.pending_hide.get() && !self.has_leaving() {
-            self.pending_hide.set(false);
-            WidgetExt::set_visible(&*self.obj(), false);
-        }
-    }
-
     fn title(&self) -> Option<String> {
         let title = self.title.text();
         (!title.is_empty()).then(|| title.to_string())

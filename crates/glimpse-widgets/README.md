@@ -70,11 +70,14 @@ than subclassing one, so its trailing button lands inside the row's box without 
 
 ## Section, EventList, WorldClock and the notification widgets
 
-Sections toggle visibility instead of stacking pages that reserve the largest page's height.
-Mapped keyed rows close their drawers and fade while a transient revealer collapses their height;
-the wrapper stays in place until both finish, and an enclosing Section defers hiding while any
-descendant is leaving. Showing the Section cancels that hide; unmapped rows and zero-duration exits
-remove synchronously.
+Sections toggle visibility instead of stacking pages that reserve the largest page's height. A
+mapped keyed row that leaves, and a mapped Section that hides, leave a picture of themselves in a
+collapsing, fading revealer and go at once, so the real widget is never reparented or kept alive
+for an animation. A Section takes that picture a painted frame after the hide, because a row
+reconciled out of it in the same turn leaves it unallocated and it would draw nothing. Exits need a
+`Gtk.Box` parent; elsewhere, unmapped, or at zero duration they remove synchronously.
+`PopoverShell` scrolls only when its body exceeds the cap, since an unused scrollbar still adds its
+minimum height.
 
 **`when` arrives formatted; a `Zone` does not** — derive in the widget when formatting destroys the
 derivation, since `"00:47"` has thrown away that it is tomorrow there. A zone that does not resolve

@@ -10,10 +10,9 @@ pub(super) fn check(styles: &Styles) {
 
     synchronous_removal();
     animated_removal();
-    section_presence(false, false);
-    section_presence(true, false);
-    section_presence(false, true);
+    section_exit();
     unmapped_section();
+    idle_section_leaves_with_its_last_row();
 
     let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     let mut held = Vec::new();
@@ -61,7 +60,7 @@ fn mapped(widget: &impl IsA<gtk4::Widget>) -> gtk4::Window {
 }
 
 fn wait_until(ready: impl Fn() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + Duration::from_secs(10);
     let context = glib::MainContext::default();
     while !ready() {
         assert!(Instant::now() < deadline, "exit presence timed out");
@@ -101,71 +100,76 @@ fn animated_removal() {
     });
 
     update(&list, &mut held, &[1, 3]);
-    let exit = b
-        .parent()
-        .and_downcast::<gtk4::Revealer>()
-        .expect("the leaving row stays inside a collapse wrapper");
-    assert_eq!(exit.parent(), Some(list.clone().upcast()));
-    assert!(b.has_css_class("leaving") && exit.has_css_class("leaving"));
-    assert_eq!(
-        exit.transition_type(),
-        gtk4::RevealerTransitionType::SlideUp
+    assert!(b.parent().is_none(), "the real row leaves at once");
+    assert!(
+        !expandable.expanded(),
+        "its drawer is closed so the dimming lifts"
     );
-    assert_eq!(exit.transition_duration(), duration_ms());
-    assert!(!exit.reveals_child() && exit.is_child_revealed());
-    assert!(!expandable.expanded());
-    assert_eq!(list.first_child(), Some(a.clone().upcast()));
-    assert_eq!(a.next_sibling(), Some(exit.clone().upcast()));
+    let exit = a
+        .next_sibling()
+        .and_downcast::<gtk4::Revealer>()
+        .expect("a picture of the row holds its place");
+    assert!(exit.has_css_class("exiting"));
+    assert!(
+        exit.child()
+            .is_some_and(|child| child.is::<gtk4::Picture>() && child.opacity() > 0.5),
+        "the picture starts visible and fades from there"
+    );
     assert_eq!(exit.next_sibling(), Some(c.clone().upcast()));
     assert_eq!(reparents.get(), 0);
     let height = exit.measure(gtk4::Orientation::Vertical, -1).1;
+    assert!(height > 0);
     wait_until(|| {
-        let opacity = b.opacity();
-        opacity > 0.0 && opacity < 1.0 && exit.measure(gtk4::Orientation::Vertical, -1).1 < height
+        exit.parent().is_some() && exit.measure(gtk4::Orientation::Vertical, -1).1 < height
     });
-    assert!(exit.parent().is_some());
     wait_until(|| exit.parent().is_none());
-    assert!(b.parent().is_none());
     assert_eq!(a.next_sibling(), Some(c.upcast()));
     assert_eq!(reparents.get(), 0);
     window.close();
 }
 
-fn section_presence(cancel_hide: bool, hide_first: bool) {
+fn section_exit() {
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     let section = Section::new();
-    let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    section.set_content(Some(&list));
-    let mut held = Vec::new();
-    update(&list, &mut held, &[1]);
-    let row = held[0].1.clone();
-    let window = mapped(&section);
-    if hide_first {
-        section.set_visible(false);
-    }
-    update(&list, &mut held, &[]);
-    let exit = list.first_child().expect("the exit remains parented");
-    if !hide_first {
-        section.set_visible(false);
-    }
-    glib::MainContext::default().iteration(false);
-    assert!(section.get_visible());
-    assert!(section.is_mapped() && row.is_mapped());
-    assert_eq!(exit.parent(), Some(list.clone().upcast()));
-    if cancel_hide {
-        section.set_visible(true);
-    }
+    section.set_content(Some(&gtk4::Label::new(Some("Row"))));
+    column.append(&section);
+    let window = mapped(&column);
+    section.set_visible(false);
+    assert!(
+        section.get_visible(),
+        "the section waits for a painted frame"
+    );
+    wait_until(|| !section.get_visible());
+    let exit = section
+        .next_sibling()
+        .and_downcast::<gtk4::Revealer>()
+        .expect("a picture of the section collapses in its place");
+    assert!(exit.has_css_class("exiting"));
     wait_until(|| exit.parent().is_none());
-    assert_eq!(section.get_visible(), cancel_hide);
-    assert!(row.parent().is_none());
     window.close();
 }
 
 fn unmapped_section() {
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     let section = Section::new();
-    let row = gtk4::Label::new(Some("Unmapped exit"));
-    row.add_css_class("leaving");
-    section.set_content(Some(&row));
-    assert!(!section.is_mapped());
+    column.append(&section);
     section.set_visible(false);
     assert!(!section.get_visible());
+    assert!(section.next_sibling().is_none());
+}
+
+fn idle_section_leaves_with_its_last_row() {
+    let idle = IdlePopover::new();
+    idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
+    let window = mapped(&idle);
+    let others = idle.imp().others.get();
+    wait_until(|| others.is_mapped());
+    idle.set_inhibitors(&[]);
+    wait_until(|| !others.get_visible());
+    let exit = others
+        .next_sibling()
+        .filter(|sibling| sibling.has_css_class("exiting"))
+        .expect("the section and its last row collapse as one picture");
+    wait_until(|| exit.parent().is_none());
+    window.close();
 }

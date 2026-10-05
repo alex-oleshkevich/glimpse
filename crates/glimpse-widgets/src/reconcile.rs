@@ -1,7 +1,6 @@
-use gtk4::prelude::*;
-use std::{cell::Cell, rc::Rc};
+use gtk4::{glib, prelude::*};
 
-const LEAVING: &str = "leaving";
+const EXITING: &str = "exiting";
 
 pub fn by_key<T, W, K>(
     parent: &impl IsA<gtk4::Widget>,
@@ -28,7 +27,7 @@ pub fn by_key<T, W, K>(
 
     for (_, widget) in held.drain(..) {
         if widget.parent().as_ref() == Some(parent.upcast_ref()) {
-            leave(parent.upcast_ref(), widget.upcast());
+            leave(widget.upcast());
         }
     }
 
@@ -49,70 +48,60 @@ pub fn by_key<T, W, K>(
     *held = next;
 }
 
-fn leave(parent: &gtk4::Widget, widget: gtk4::Widget) {
-    if !widget.is_mapped() || crate::duration_ms() == 0 {
-        widget.unparent();
+fn leave(widget: gtk4::Widget) {
+    close_drawers(&widget);
+    exit(&widget);
+    widget.unparent();
+}
+
+pub(crate) fn exit(widget: &gtk4::Widget) {
+    use adw::prelude::*;
+
+    let duration = crate::duration_ms() * 2;
+    let Some(parent) = widget.parent() else {
+        return;
+    };
+    if !widget.is_mapped()
+        || duration == 0
+        || !parent
+            .layout_manager()
+            .is_some_and(|layout| layout.is::<gtk4::BoxLayout>())
+    {
         return;
     }
-    close_drawers(&widget);
-    let section = std::iter::successors(Some(parent.clone()), |node| node.parent())
-        .find_map(|node| node.downcast::<crate::Section>().ok())
-        .map(|section| section.downgrade());
-    let previous = widget.prev_sibling();
-    let revealer = gtk4::Revealer::new();
-    revealer.add_css_class(LEAVING);
-    revealer.set_reveal_child(true);
-    widget.unparent();
-    revealer.set_child(Some(&widget));
-    revealer.insert_after(parent, previous.as_ref());
-    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideUp);
-    revealer.set_transition_duration(crate::duration_ms());
-    let parent = parent.downgrade();
-    let fading_parent = parent.clone();
-    let weak_revealer = revealer.downgrade();
-    let faded = Rc::new(Cell::new(false));
-    let finish = Rc::new({
-        let faded = faded.clone();
-        move || {
-            let Some(revealer) = weak_revealer.upgrade() else {
-                return;
-            };
-            if !faded.get() || revealer.is_child_revealed() {
-                return;
+    let ghost =
+        gtk4::Picture::for_paintable(&gtk4::WidgetPaintable::new(Some(widget)).current_image());
+    ghost.set_can_shrink(false);
+    let exit = gtk4::Revealer::builder()
+        .transition_type(gtk4::RevealerTransitionType::SlideUp)
+        .transition_duration(0)
+        .reveal_child(true)
+        .child(&ghost)
+        .build();
+    exit.add_css_class(EXITING);
+    exit.insert_after(&parent, Some(widget));
+    exit.connect_child_revealed_notify(|exit| {
+        if exit.reveals_child() || exit.is_child_revealed() {
+            return;
+        }
+        let exit = exit.clone();
+        glib::idle_add_local_once(move || {
+            if exit.parent().is_some() {
+                exit.unparent();
             }
-            if let Some(parent) = parent.upgrade()
-                && revealer.parent().as_ref() == Some(&parent)
-            {
-                let child = revealer.child();
-                revealer.set_child(None::<&gtk4::Widget>);
-                revealer.unparent();
-                if let Some(child) = child {
-                    child.set_opacity(1.0);
-                }
-            }
-            if let Some(section) = section.as_ref().and_then(|section| section.upgrade()) {
-                section.exit_finished();
-            }
+        });
+    });
+    exit.set_transition_duration(duration);
+    exit.set_reveal_child(false);
+    let fading = ghost.downgrade();
+    let target = adw::CallbackAnimationTarget::new(move |value| {
+        if let Some(ghost) = fading.upgrade() {
+            ghost.set_opacity(value);
         }
     });
-    revealer.connect_child_revealed_notify({
-        let finish = finish.clone();
-        move |_| finish()
-    });
-    revealer.set_reveal_child(false);
-    let collapsing = revealer.downgrade();
-    let leaving = widget.clone();
-    crate::fade_out(&leaving.clone(), vec![widget], move || {
-        if let Some(revealer) = collapsing.upgrade()
-            && let Some(parent) = fading_parent.upgrade()
-            && revealer.parent().as_ref() == Some(&parent)
-            && leaving.parent().as_ref() == Some(revealer.upcast_ref())
-        {
-            leaving.set_opacity(0.0);
-        }
-        faded.set(true);
-        finish();
-    });
+    let fade = adw::TimedAnimation::new(&parent, 1.0, 0.0, duration, target);
+    fade.set_easing(adw::Easing::EaseOutCubic);
+    fade.play();
 }
 
 fn close_drawers(widget: &gtk4::Widget) {
@@ -130,5 +119,5 @@ fn close_drawers(widget: &gtk4::Widget) {
 
 fn staying_before(widget: &gtk4::Widget) -> Option<gtk4::Widget> {
     std::iter::successors(widget.prev_sibling(), |sibling| sibling.prev_sibling())
-        .find(|sibling| !sibling.has_css_class(LEAVING))
+        .find(|sibling| !sibling.has_css_class(EXITING))
 }
