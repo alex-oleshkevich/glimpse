@@ -197,10 +197,11 @@ impl Network {
     }
 
     fn dress(&self, shown: &NetworkPopover) {
+        let ask = self.ask();
+        shown.set_prompt(ask.as_ref());
         let radio = self.state.wifi;
         shown.set_radio(
             &gettext("Wi-Fi"),
-            &render::status(&self.state),
             self.state.icon_name().unwrap_or(IDLE),
             radio.is_some_and(|one| one.enabled),
             radio.is_some_and(|one| !one.blocked()),
@@ -225,8 +226,6 @@ impl Network {
 
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
 
-        let ask = self.ask();
-        shown.set_prompt(ask.as_ref());
         if let Some(opener) = &self.opener {
             opener.typing(ask.is_some());
         }

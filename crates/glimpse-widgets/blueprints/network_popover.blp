@@ -8,15 +8,12 @@ template $NetworkPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "network-wireless-symbolic";
+    icon-name: "network-wireless-symbolic";
 
-      [slot]
-      Gtk.Switch wifi {
-        valign: center;
-        tooltip-text: _("Wi-Fi");
-      }
+    [addon]
+    Gtk.Switch wifi {
+      valign: center;
+      tooltip-text: _("Wi-Fi");
     }
 
     Gtk.Stack pages {
@@ -64,45 +61,21 @@ template $NetworkPopover: Gtk.Widget {
           $Section other {
             visible: false;
 
-            Gtk.Box {
-              orientation: vertical;
+            $ExpanderRow more {
+              visible: false;
+              title: _("Other networks");
 
-              $LegacyRow more {
-                visible: false;
-                activatable: true;
-                title: _("Other networks");
+              styles [
+                "network-popover__others",
+              ]
 
-                [trail]
-                Gtk.Image {
-                  icon-name: "go-next-symbolic";
-                  accessible-role: presentation;
-
-                  styles [
-                    "drawer-chevron",
-                  ]
-                }
-
-                styles [
-                  "network-popover__others",
-                ]
+              Gtk.Box other_rows {
+                orientation: vertical;
               }
 
-              Gtk.Revealer others_drawer {
-                transition-type: slide_down;
-
-                child: Gtk.Box {
-                  orientation: vertical;
-
-                  Gtk.Box other_rows {
-                    orientation: vertical;
-                  }
-
-                  $LegacyRow all {
-                    visible: false;
-                    activatable: true;
-                    lead-icon: "view-more-symbolic";
-                  }
-                };
+              $ActionRow all {
+                visible: false;
+                icon-name: "view-more-symbolic";
               }
             }
 
@@ -121,11 +94,10 @@ template $NetworkPopover: Gtk.Widget {
             ]
           }
 
-          $LegacyRow hidden {
+          $ActionRow hidden {
             visible: false;
-            activatable: true;
             title: _("Connect to a hidden network…");
-            lead-icon: "list-add-symbolic";
+            icon-name: "list-add-symbolic";
           }
         };
       }
@@ -206,8 +178,7 @@ template $NetworkPopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

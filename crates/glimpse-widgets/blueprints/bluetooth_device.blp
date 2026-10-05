@@ -1,0 +1,34 @@
+using Gtk 4.0;
+
+template $BluetoothDevice: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  $ExpanderRow row {
+    sensitive: false;
+
+    [end]
+    Gtk.Image status {
+      visible: false;
+      icon-name: "object-select-symbolic";
+      accessible-role: presentation;
+      styles ["accent"]
+    }
+
+    $ActionRow primary {
+      visible: false;
+    }
+
+    $FactList facts {
+      visible: false;
+    }
+
+    $ToggleRow trust {
+      visible: false;
+    }
+
+    $ActionRow forget {
+      visible: false;
+      tone: destructive;
+    }
+  }
+}

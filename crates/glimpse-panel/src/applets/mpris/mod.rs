@@ -12,7 +12,7 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
 use glimpse_services::MprisHandle;
 use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
-use gtk4::{gdk, glib};
+use gtk4::{gdk, glib, prelude::*};
 
 use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
@@ -317,6 +317,7 @@ impl Mpris {
     fn dress(&self, shown: &MprisPopover) {
         let Some(player) = self.current() else {
             self.aimed.replace(String::new());
+            shown.player().set_visible(false);
             shown.set_others(None);
             shown.set_volume(None);
             shown.set_footer(None);
@@ -328,6 +329,7 @@ impl Mpris {
         self.aimed.replace(player.id.clone());
 
         let playing = shown.player();
+        playing.set_visible(true);
         playing.set_source(Some(player.identity.clone()));
         playing.set_title(player.title.clone());
         playing.set_artist(player.artist.clone());

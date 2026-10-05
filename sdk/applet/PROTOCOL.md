@@ -263,7 +263,7 @@ and in it the first `hero` and the first `footer`.
 | `start` | at most one of `image`, `button`, `readout`, `spinner` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
-| `box` | body elements except `section` |
+| `box` | body elements |
 | `footer` | `button`, `row`, `label`, `box` |
 | anything else | nothing |
 
@@ -281,7 +281,7 @@ An array prop with more than 64 items, at any depth, rejects the commit. The `va
 An unknown `type` is `unsupported`. Its name is the type string after text cleaning,
 capped at 64 characters. Markup in that name is kept literal.
 
-A child on a leaf is rejected, as are a `section` inside a `section` or a `box` and any
+A child on a leaf is rejected, as are a `section` inside a `section` and any
 pair the table does not list.
 
 ## Elements
@@ -292,7 +292,9 @@ pair the table does not list.
 do not take `className`:
 
 `dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
-`numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`.
+`numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`,
+`column`, `network-popover__rule`,
+`bluetooth-popover`, `network-popover`.
 
 There is no applet CSS.
 
@@ -588,7 +590,7 @@ Only under `popover`. Holds `button`, `row`, `label` and `box`.
 
 ### `box`
 
-A body element. Holds body elements except `section`.
+A body element. Holds body elements.
 
 | Prop | Type | Default |
 | --- | --- | --- |

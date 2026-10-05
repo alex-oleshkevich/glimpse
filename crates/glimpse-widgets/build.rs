@@ -35,6 +35,10 @@ fn main() {
             "resources/widgets/bluetooth_popover.ui",
         ),
         (
+            "blueprints/bluetooth_device.blp",
+            "resources/widgets/bluetooth_device.ui",
+        ),
+        (
             "blueprints/brightness_popover.blp",
             "resources/widgets/brightness_popover.ui",
         ),
@@ -45,6 +49,10 @@ fn main() {
         (
             "blueprints/network_popover.blp",
             "resources/widgets/network_popover.ui",
+        ),
+        (
+            "blueprints/network_row.blp",
+            "resources/widgets/network_row.ui",
         ),
         (
             "blueprints/network_secret_dialog.blp",

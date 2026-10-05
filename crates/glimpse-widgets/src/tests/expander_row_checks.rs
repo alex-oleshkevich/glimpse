@@ -164,4 +164,27 @@ pub(super) fn check() {
     assert!(shell.dismiss_from(outside.upcast_ref()));
     assert!(!legacy.expanded() && !third.open());
     assert_eq!(third_closed.get(), 1);
+
+    first.set_open(true);
+    nested.set_open(true);
+    first.set_open(false);
+    assert!(
+        !nested.open(),
+        "closing a disclosure closes its nested drawer"
+    );
+    assert!(!outside.has_css_class(crate::drawer::RECEDED));
+    assert!(!shell.dismiss_from(outside.upcast_ref()));
+
+    let inner = Expandable::new(&LegacyRow::new());
+    inner.set_details(Some(&gtk4::Label::new(Some("nested detail"))));
+    legacy.set_details(Some(&inner));
+    legacy.set_expanded(true);
+    inner.set_expanded(true);
+    legacy.set_expanded(false);
+    assert!(
+        !inner.expanded(),
+        "legacy disclosures close their nested drawers"
+    );
+    assert!(!outside.has_css_class(crate::drawer::RECEDED));
+    assert!(!shell.dismiss_from(outside.upcast_ref()));
 }

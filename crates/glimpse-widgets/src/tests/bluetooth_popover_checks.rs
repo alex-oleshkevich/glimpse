@@ -2,14 +2,19 @@ use super::*;
 
 pub(super) fn check() {
     let popover = BluetoothPopover::new();
-    popover.set_adapter(
-        "Bluetooth",
-        "No device connected",
-        "bluetooth-symbolic",
-        true,
-        true,
-    );
+    let powered = Rc::new(RefCell::new(Vec::new()));
+    popover.connect_powered({
+        let powered = Rc::clone(&powered);
+        move |_, on| powered.borrow_mut().push(on)
+    });
+    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
     assert!(popover.imp().power.is_active());
+    assert!(popover.imp().shell.subtitle().is_none());
+    assert!(powered.borrow().is_empty());
+    popover.imp().power.set_active(false);
+    assert_eq!(*powered.borrow(), [false]);
+    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
+    assert_eq!(*powered.borrow(), [false]);
     assert!(!popover.imp().devices.get_visible());
 
     let entry = |id: &str, place: BluetoothPlace| BluetoothEntry {
@@ -18,7 +23,6 @@ pub(super) fn check() {
         problem: String::new(),
         icon: "audio-headset-symbolic".to_owned(),
         place,
-        value: String::new(),
         busy: false,
     };
     popover.set_entries(&[
@@ -27,59 +31,48 @@ pub(super) fn check() {
         entry("c", BluetoothPlace::Paired),
     ]);
     assert!(popover.imp().devices.get_visible());
-    assert_eq!(
-        popover.imp().devices_held.borrow().len(),
-        3,
-        "connected and paired devices are one list"
-    );
+    assert_eq!(popover.imp().devices_held.borrow().len(), 3);
 
-    let holder = |id: &str| -> Expandable {
+    let device = |id: &str| -> crate::bluetooth_popover::BluetoothDevice {
         let imp = popover.imp();
         for held in [&imp.devices_held, &imp.nearby_held] {
-            if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                return holder.clone();
+            if let Some((_, device)) = held.borrow().iter().find(|(key, _)| key == id) {
+                return device.clone();
             }
         }
         panic!("no row is holding {id}");
     };
-    let card_of = |id: &str| -> gtk4::Box {
-        holder(id)
-            .details::<gtk4::Box>()
-            .expect("an opened device has a card")
-    };
-    let rows_of = |id: &str| -> Vec<LegacyRow> {
-        children_of::<LegacyRow>(
-            &card_of(id)
-                .last_child()
-                .and_downcast::<gtk4::Box>()
-                .expect("a card ends in its lines"),
-        )
-    };
+    let row = |id: &str| device(id).imp().row.get();
+    let press = |row: &ExpanderRow| row.imp().head.activate();
     let dimmed = |widget: &gtk4::Widget| {
         std::iter::successors(Some(widget.clone()), |widget| widget.parent())
             .any(|widget| widget.has_css_class("receded"))
     };
-
-    let first = holder("a");
+    let first = device("a");
+    assert!(first.imp().status.get_visible());
+    assert!(first.imp().status.has_css_class("accent"));
+    assert_eq!(
+        first.imp().status.icon_name().as_deref(),
+        Some("object-select-symbolic")
+    );
+    assert!(!device("b").imp().status.get_visible());
+    assert!(row("a").value().is_none());
+    let end = first.imp().status.parent().expect("row end slot");
+    assert!(end.get_visible());
+    let mut busy = entry("a", BluetoothPlace::Connected);
+    busy.busy = true;
+    first.set_entry(&busy);
+    assert!(!end.get_visible());
+    popover.set_entries(&[
+        entry("a", BluetoothPlace::Paired),
+        entry("b", BluetoothPlace::Paired),
+    ]);
+    assert!(!first.imp().status.get_visible());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Connected),
         entry("b", BluetoothPlace::Paired),
     ]);
-    assert_eq!(
-        holder("a"),
-        first,
-        "a key that stays keeps its widget, and its card with it"
-    );
-    assert!(
-        holder("a").head::<SplitRow>().is_none(),
-        "a device in use opens its card from the whole row, so a click can never disconnect it"
-    );
-    assert!(
-        holder("b")
-            .head::<SplitRow>()
-            .is_some_and(|split| split.detail().get_visible()),
-        "a paired device connects on its body and opens its card from the chevron"
-    );
+    assert_eq!(device("a"), first, "a stable key keeps its drawer");
 
     let acted = Rc::new(RefCell::new(Vec::new()));
     popover.connect_acted({
@@ -91,7 +84,18 @@ pub(super) fn check() {
         let activated = Rc::clone(&activated);
         move |_, id| activated.borrow_mut().push(id.to_owned())
     });
+    let toggled = Rc::new(RefCell::new(Vec::new()));
+    popover.connect_toggled({
+        let toggled = Rc::clone(&toggled);
+        move |_, id, action, on| toggled.borrow_mut().push(format!("{id}/{action}/{on}"))
+    });
 
+    let primary = |action: &str, title: &str| BluetoothLine {
+        action: action.to_owned(),
+        title: title.to_owned(),
+        activates: true,
+        ..Default::default()
+    };
     let trust = |on: bool| BluetoothLine {
         action: "trust".to_owned(),
         title: "Connect automatically".to_owned(),
@@ -99,327 +103,282 @@ pub(super) fn check() {
         ..Default::default()
     };
     let forget = BluetoothLine {
-        action: "forget".to_owned(),
-        title: "Forget this device".to_owned(),
-        activates: true,
-        ..Default::default()
+        destructive: true,
+        ..primary("forget", "Forget this device")
     };
     let in_use = |on: bool| BluetoothDetails {
         id: "a".to_owned(),
         facts: vec![Fact::new("Battery", "72%")],
         lines: vec![
+            primary("disconnect", "Disconnect"),
             trust(on),
-            BluetoothLine {
-                action: "disconnect".to_owned(),
-                title: "Disconnect".to_owned(),
-                activates: true,
-                ..Default::default()
-            },
             forget.clone(),
         ],
     };
     let paired = BluetoothDetails {
         id: "b".to_owned(),
         facts: vec![Fact::new("Type", "Headset")],
-        lines: vec![trust(true), forget.clone()],
+        lines: vec![primary("connect", "Connect"), trust(true), forget.clone()],
     };
     popover.set_details(&[in_use(false), paired.clone()]);
+    assert!(!row("a").open(), "data updates open nothing");
+
+    press(&row("a"));
+    assert!(row("a").open());
+    assert!(activated.borrow().is_empty() && acted.borrow().is_empty());
+    press(&row("a"));
+    assert!(!row("a").open(), "the second press closes the drawer");
+    press(&row("a"));
     assert!(
-        !holder("a").expanded(),
-        "handing the details over opens nothing"
+        !dimmed(row("a").upcast_ref())
+            && dimmed(row("b").upcast_ref())
+            && dimmed(popover.imp().shell.imp().header.upcast_ref()),
+        "the device stays lit while the surrounding content recedes"
     );
 
-    holder("a")
-        .head::<LegacyRow>()
-        .expect("a plain row")
-        .emit_clicked();
-    assert!(
-        holder("a").expanded() && activated.borrow().is_empty(),
-        "the whole row of a device in use opens its card and reports nothing"
-    );
-    let a_head = holder("a").head::<gtk4::Widget>().expect("a head");
-    let b_head = holder("b").head::<gtk4::Widget>().expect("a head");
-    assert!(
-        !dimmed(&a_head) && dimmed(&b_head) && dimmed(popover.imp().hero.upcast_ref()),
-        "everything the card is read against recedes while it is open"
-    );
-
-    let lines = rows_of("a");
+    let a = device("a");
+    let lines = children_of::<Row>(&row("a").details());
     assert_eq!(lines.len(), 3);
-    assert!(
-        lines[0].clone().downcast::<SwitchRow>().is_ok(),
-        "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
-    );
-    assert!(
-        lines[1].activatable() && lines[2].activatable(),
-        "a line that acts keeps the pointer"
-    );
-    let facts = card_of("a")
-        .first_child()
-        .and_downcast::<FactList>()
-        .expect("the facts lead the card");
-    let toggled = Rc::new(RefCell::new(Vec::new()));
-    popover.connect_toggled({
-        let toggled = Rc::clone(&toggled);
-        move |_, id, action, on| toggled.borrow_mut().push(format!("{id}/{action}/{on}"))
-    });
-    lines[0].emit_clicked();
-    lines[0].emit_clicked();
+    assert!(lines[0].is::<ActionRow>());
+    assert!(lines[1].is::<ToggleRow>());
+    assert!(lines[2].is::<ActionRow>());
+    assert_eq!(lines[0].title().as_deref(), Some("Disconnect"));
+    assert_eq!(lines[2].tone(), RowTone::Destructive);
     assert_eq!(
-        *toggled.borrow(),
-        ["a/trust/true", "a/trust/false"],
-        "a toggle line acts through its own row body, exactly once per press and both ways"
+        row("a").details().first_child(),
+        Some(a.imp().primary.get().upcast()),
+        "the connection action leads the drawer"
     );
+    a.imp().trust.emit_by_name::<()>("activate", &[]);
+    a.imp().trust.emit_by_name::<()>("activate", &[]);
+    assert_eq!(*toggled.borrow(), ["a/trust/true", "a/trust/false"]);
+    assert!(!a.imp().trust.active());
     assert!(
-        children_of::<LegacyRow>(&facts)
+        children_of::<LegacyRow>(&*a.imp().facts)
             .iter()
-            .all(|row| !row.activatable()),
-        "a line that only states something must not light up under a hover leading nowhere"
+            .all(|row| !row.activatable())
     );
-    lines[1].emit_by_name::<()>("clicked", &[]);
+    let facts = children_of::<LegacyRow>(&*a.imp().facts);
+    assert_eq!(facts[0].title().as_deref(), Some("Battery"));
+    assert_eq!(facts[0].value().as_deref(), Some("72%"));
+    a.imp().primary.activate();
+    assert_eq!(*acted.borrow(), ["a/disconnect"]);
+    assert!(
+        row("a").open(),
+        "dispatch waits for a successful reply to close"
+    );
+
+    popover.set_details(&[in_use(true), paired.clone()]);
+    assert!(a.imp().trust.active());
+    assert_eq!(*toggled.borrow(), ["a/trust/true", "a/trust/false"]);
     assert_eq!(*acted.borrow(), ["a/disconnect"]);
 
-    let switch = lines[0]
-        .trail()
-        .and_downcast::<gtk4::Switch>()
-        .expect("a toggle row carries a switch");
-    assert!(!switch.is_active());
-    popover.set_details(&[in_use(true), paired.clone()]);
-    assert!(
-        switch.is_active(),
-        "a reused row must follow the backend, not the last click"
-    );
+    press(&row("b"));
+    assert!(!row("a").open() && row("b").open());
     assert_eq!(
-        *acted.borrow(),
-        ["a/disconnect"],
-        "redressing the switch is not the user toggling it"
+        device("b")
+            .imp()
+            .primary
+            .upcast_ref::<Row>()
+            .title()
+            .as_deref(),
+        Some("Connect")
     );
-
-    holder("b")
-        .head::<SplitRow>()
-        .expect("a split row")
-        .emit_by_name::<()>("details", &[]);
-    assert!(
-        !holder("a").expanded() && holder("b").expanded(),
-        "opening one device closes the one that was open"
-    );
-    acted.borrow_mut().clear();
-    rows_of("b")[1].emit_by_name::<()>("clicked", &[]);
-    assert_eq!(
-        *acted.borrow(),
-        ["b/forget"],
-        "a row whose action key repeats across devices must not act on the one no longer shown"
-    );
+    device("b").imp().primary.activate();
+    assert_eq!(*activated.borrow(), ["b"]);
+    device("b").imp().forget.activate();
+    assert_eq!(*acted.borrow(), ["a/disconnect", "b/forget"]);
     popover.collapse("b");
-    assert!(
-        !holder("b").expanded(),
-        "an action that succeeded closes the card it was taken from"
-    );
-    holder("b")
-        .head::<SplitRow>()
-        .expect("a split row")
-        .emit_by_name::<()>("activated", &[]);
-    assert_eq!(
-        *activated.borrow(),
-        ["b"],
-        "a paired device's body connects"
-    );
-
-    assert!(
-        holder("b")
-            .head::<SplitRow>()
-            .is_some_and(|split| split.row().subtitle().is_none()),
-        "a device row is one line"
-    );
+    assert!(!row("b").open());
+    assert!(row("b").subtitle().is_none());
 
     let pressed = Rc::new(Cell::new(0u32));
     popover.connect_nearby_toggled({
         let pressed = Rc::clone(&pressed);
         move |_| pressed.set(pressed.get() + 1)
     });
-
     popover.set_nearby(0, true);
-    assert!(
-        !popover.imp().nearby.get_visible(),
-        "nothing found is no header at all, never an open list over nothing"
-    );
+    assert!(!popover.imp().nearby.get_visible() && !popover.imp().search.open());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Connected),
         entry("b", BluetoothPlace::Paired),
         entry("n", BluetoothPlace::Nearby),
     ]);
+    let nearby = BluetoothDetails {
+        id: "n".to_owned(),
+        facts: vec![Fact::new("Type", "Headset")],
+        lines: vec![primary("pair", "Pair")],
+    };
+    popover.set_details(&[in_use(true), paired.clone(), nearby]);
     popover.set_nearby(1, false);
-    assert!(
-        popover.imp().nearby.get_visible()
-            && !popover.imp().nearby_list.reveals_child()
-            && !popover.imp().search.has_css_class("open"),
-        "closed, Nearby devices is one header line, the same as Other networks"
-    );
+    assert!(popover.imp().nearby.get_visible() && !popover.imp().search.open());
     popover.set_nearby(1, true);
+    assert!(popover.imp().search.open());
+    assert_eq!(pressed.get(), 0, "backend updates never dispatch a toggle");
+    press(&popover.imp().search);
+    assert!(!popover.imp().search.open());
+    press(&popover.imp().search);
+    assert!(popover.imp().search.open());
+    assert_eq!(pressed.get(), 2, "each disclosure press dispatches once");
+    press(&row("n"));
     assert!(
-        popover.imp().nearby_list.reveals_child() && popover.imp().search.has_css_class("open"),
-        "open, its chevron turns and the list shows"
+        popover.imp().search.open() && row("n").open(),
+        "opening a nearby device preserves its disclosure ancestor"
     );
-    let nearby = holder("n").head::<SplitRow>().expect("a split row");
-    assert!(
-        nearby.detail().get_visible(),
-        "a nearby device's card names what it is, so it has a chevron"
-    );
-    nearby.emit_by_name::<()>("activated", &[]);
+    let n = device("n");
     assert_eq!(
-        *activated.borrow(),
-        ["b", "n"],
-        "its body is the one action: pair it"
+        n.imp().primary.upcast_ref::<Row>().title().as_deref(),
+        Some("Pair")
     );
-    assert_eq!(
-        pressed.get(),
-        0,
-        "redressing the header is not the user pressing it"
-    );
-    popover.imp().search.emit_clicked();
-    assert_eq!(pressed.get(), 1, "the header is the toggle");
+    assert!(!n.imp().trust.get_visible() && !n.imp().forget.get_visible());
+    n.imp().primary.activate();
+    assert_eq!(*activated.borrow(), ["b", "n"]);
+    popover.collapse("n");
+    assert!(popover.imp().search.open() && !row("n").open());
 
+    let expanded = Rc::new(RefCell::new(Vec::new()));
+    popover.connect_expanded({
+        let expanded = Rc::clone(&expanded);
+        move |_, place| expanded.borrow_mut().push(place.to_owned())
+    });
+    popover.set_overflow(Some("Show more"), Some("More nearby"));
+    popover.imp().more_paired.activate();
+    popover.imp().more_nearby.activate();
+    assert_eq!(*expanded.borrow(), ["paired", "nearby"]);
+    popover.set_overflow(None, None);
+    assert!(!popover.imp().more_paired.get_visible() && !popover.imp().more_nearby.get_visible());
+    let footer_pressed = Rc::new(Cell::new(0u32));
+    popover.connect_footer_activated({
+        let footer_pressed = Rc::clone(&footer_pressed);
+        move |_| footer_pressed.set(footer_pressed.get() + 1)
+    });
+    popover.set_footer(Some("Settings"));
+    popover.imp().footer.activate();
+    assert_eq!(footer_pressed.get(), 1);
+    popover.set_footer(None);
+    assert!(!popover.imp().footer.get_visible());
     popover.set_controls_sensitive(false);
     assert!(!popover.imp().search.get_sensitive());
     popover.set_controls_sensitive(true);
 
     let width = |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
-    {
-        let probe = BluetoothPopover::new();
-        probe.set_adapter(
-            "Bluetooth",
-            "No device connected",
-            "bluetooth-symbolic",
-            true,
-            true,
-        );
-        probe.set_entries(&[entry("a", BluetoothPlace::Connected)]);
-        let floor = width(&probe);
+    let probe = BluetoothPopover::new();
+    probe.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
+    probe.set_entries(&[entry("a", BluetoothPlace::Connected)]);
+    let floor = width(&probe);
+    probe.set_adapter(
+        "Connected to Bose QuietComfort Ultra and 2 others",
+        "bluetooth-active-symbolic",
+        true,
+        true,
+    );
+    assert_eq!(
+        width(&probe),
+        floor,
+        "a growing heading keeps the card's width"
+    );
+    probe.set_details(&[BluetoothDetails {
+        id: "a".to_owned(),
+        facts: vec![Fact::new(
+            "Codec",
+            "Audio, Calls, Remote control, Network, File transfer",
+        )],
+        lines: vec![primary("disconnect", "Disconnect")],
+    }]);
+    let opened = probe
+        .imp()
+        .devices_held
+        .borrow()
+        .first()
+        .map(|(_, device)| device.imp().row.get())
+        .expect("the device");
+    press(&opened);
+    assert!(opened.open());
+    assert_eq!(width(&probe), floor, "long facts keep the card's width");
 
-        probe.set_adapter(
-            "Bluetooth",
-            "Connected to Bose QuietComfort Ultra and 2 others",
-            "bluetooth-active-symbolic",
-            true,
-            true,
-        );
-        assert_eq!(
-            width(&probe),
-            floor,
-            "a hero subtitle that grows with the device list widened the whole card"
-        );
+    let answers = Rc::new(RefCell::new(Vec::new()));
+    probe.connect_answered({
+        let answers = Rc::clone(&answers);
+        move |_, accepted| answers.borrow_mut().push(accepted)
+    });
+    probe.set_prompt(Some(&BluetoothAsk {
+        key: "pair:/org/bluez/hci0/dev_a".to_owned(),
+        device: "Pixel 9 Pro".to_owned(),
+        question: "Is this the code shown on the device?".to_owned(),
+        code: "419 274".to_owned(),
+        progress: String::new(),
+        accept: "Confirm".to_owned(),
+        cancel: "Cancel".to_owned(),
+        destructive: false,
+    }));
+    assert!(!opened.open(), "a prompt closes the device drawer");
+    assert_eq!(width(&probe), floor, "a prompt preserves the surface width");
+    assert_eq!(
+        probe.imp().pages.visible_child_name().as_deref(),
+        Some("prompt")
+    );
+    assert!(!probe.imp().shell.imp().header.get_sensitive() && !probe.imp().footer.get_sensitive());
+    assert_eq!(probe.imp().prompt_device.text(), "Pixel 9 Pro");
+    assert_eq!(
+        probe.imp().prompt_ask.text(),
+        "Is this the code shown on the device?"
+    );
+    assert_eq!(probe.imp().prompt_code.text(), "419 274");
+    assert!(probe.imp().prompt_accept.get_visible() && probe.imp().prompt_code.get_visible());
+    probe.imp().prompt_accept.emit_by_name::<()>("clicked", &[]);
+    probe.imp().prompt_cancel.emit_by_name::<()>("clicked", &[]);
+    assert_eq!(*answers.borrow(), [true, false]);
 
-        probe.set_details(&[BluetoothDetails {
-            id: "a".to_owned(),
-            facts: vec![Fact::new(
-                "Codec",
-                "Audio, Calls, Remote control, Network, File transfer",
-            )],
-            lines: Vec::new(),
-        }]);
-        let opened = probe
+    probe.set_prompt(Some(&BluetoothAsk {
+        key: "pair:/org/bluez/hci0/dev_long".to_owned(),
+        device: "HP OfficeJet 8025".to_owned(),
+        question: "Type this PIN on the device.".to_owned(),
+        code: "0".repeat(32),
+        progress: String::new(),
+        accept: String::new(),
+        cancel: "Cancel".to_owned(),
+        destructive: false,
+    }));
+    assert_eq!(width(&probe), floor, "a peer's code cannot widen the card");
+    assert!(!probe.imp().prompt_accept.get_visible());
+    probe.set_prompt(Some(&BluetoothAsk {
+        key: "forget:/org/bluez/hci0/dev_b".to_owned(),
+        device: "UE BOOM 3".to_owned(),
+        question: "Forget this device?".to_owned(),
+        code: String::new(),
+        progress: String::new(),
+        accept: "Forget".to_owned(),
+        cancel: "Cancel".to_owned(),
+        destructive: true,
+    }));
+    assert!(
+        probe
             .imp()
-            .devices_held
-            .borrow()
-            .first()
-            .map(|(_, holder)| holder.clone())
-            .expect("the device");
-        opened
-            .head::<LegacyRow>()
-            .expect("a plain row")
-            .emit_clicked();
-        assert!(opened.expanded());
-        assert_eq!(
-            width(&probe),
-            floor,
-            "a row's value has to stop asking for room at some point, or opening a device \
-                 resizes the card under the pointer that opened it"
-        );
-
-        let answers = Rc::new(RefCell::new(Vec::new()));
-        probe.connect_answered({
-            let answers = Rc::clone(&answers);
-            move |_, accepted| answers.borrow_mut().push(accepted)
-        });
-
-        probe.set_prompt(Some(&BluetoothAsk {
-            key: "pair:/org/bluez/hci0/dev_a".to_owned(),
-            device: "Pixel 9 Pro".to_owned(),
-            question: "Is this the code shown on the device?".to_owned(),
-            code: "419 274".to_owned(),
-            progress: String::new(),
-            accept: "Confirm".to_owned(),
-            cancel: "Cancel".to_owned(),
-            destructive: false,
-        }));
-        assert!(
-            !opened.expanded(),
-            "a prompt takes the card over, so a device card left open behind it would dim it"
-        );
-        assert_eq!(
-            width(&probe),
-            floor,
-            "a prompt taking over the card must not resize the surface it took over"
-        );
-        assert_eq!(
-            probe.imp().pages.visible_child_name().as_deref(),
-            Some("prompt")
-        );
-        assert!(
-            !probe.imp().hero.get_sensitive() && !probe.imp().footer.get_sensitive(),
-            "a prompt owns the surface, so nothing behind it stays pressable"
-        );
-        assert!(probe.imp().prompt_accept.get_visible());
-        assert!(probe.imp().prompt_code.get_visible());
-
-        probe.set_prompt(Some(&BluetoothAsk {
-            key: "pair:/org/bluez/hci0/dev_long".to_owned(),
-            device: "HP OfficeJet 8025".to_owned(),
-            question: "Type this PIN on the device.".to_owned(),
-            code: "0".repeat(32),
-            progress: String::new(),
-            accept: String::new(),
-            cancel: "Cancel".to_owned(),
-            destructive: false,
-        }));
-        assert_eq!(
-            width(&probe),
-            floor,
-            "a code the peer chose must not be able to widen the card"
-        );
-
-        probe.imp().prompt_accept.emit_by_name::<()>("clicked", &[]);
-        probe.imp().prompt_cancel.emit_by_name::<()>("clicked", &[]);
-        assert_eq!(*answers.borrow(), [true, false]);
-
-        probe.set_prompt(Some(&BluetoothAsk {
-            key: "pair:/org/bluez/hci0/dev_b".to_owned(),
-            device: "UE BOOM 3".to_owned(),
-            question: "This device wants to pair with this computer.".to_owned(),
-            code: String::new(),
-            progress: String::new(),
-            accept: String::new(),
-            cancel: "Deny".to_owned(),
-            destructive: false,
-        }));
-        assert!(
-            !probe.imp().prompt_accept.get_visible(),
-            "a prompt with nothing to accept offers only the way out"
-        );
-        assert!(!probe.imp().prompt_code.get_visible());
-        assert!(
-            probe
-                .imp()
-                .prompt_actions
-                .has_css_class("prompt__actions--bare")
-        );
-
-        probe.set_prompt(None);
-        assert_eq!(
-            probe.imp().pages.visible_child_name().as_deref(),
-            Some("devices"),
-            "an answered prompt hands the card back to the device list"
-        );
-        assert!(probe.imp().hero.get_sensitive() && probe.imp().footer.get_sensitive());
-    }
+            .prompt_accept
+            .has_css_class("prompt__accept--danger")
+    );
+    assert!(!probe.imp().prompt_code.get_visible());
+    assert!(
+        probe
+            .imp()
+            .prompt_actions
+            .has_css_class("prompt__actions--bare")
+    );
+    probe.set_prompt(None);
+    assert_eq!(
+        probe.imp().pages.visible_child_name().as_deref(),
+        Some("devices")
+    );
+    assert!(probe.imp().shell.imp().header.get_sensitive() && probe.imp().footer.get_sensitive());
+    probe.set_nearby(1, true);
+    probe.set_prompt(Some(&BluetoothAsk {
+        key: "pair:/org/bluez/hci0/dev_n".to_owned(),
+        ..Default::default()
+    }));
+    assert!(!probe.imp().search.open());
+    probe.set_nearby(1, true);
+    assert!(
+        !probe.imp().search.open(),
+        "a hidden disclosure cannot dim the prompt"
+    );
 }

@@ -43,7 +43,11 @@ export type ClassName =
   | "error"
   | "flat"
   | "pill"
-  | "circular";
+  | "circular"
+  | "column"
+  | "network-popover__rule"
+  | "bluetooth-popover"
+  | "network-popover";
 
 export type Tone = "accent" | "dim" | "success" | "warning" | "error";
 

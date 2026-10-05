@@ -2,12 +2,36 @@ use super::*;
 
 pub(super) fn check() {
     let network = NetworkPopover::new();
-    network.set_radio(
-        "Wi-Fi",
-        "Skylink",
-        "network-wireless-signal-good-symbolic",
-        true,
-        true,
+    let radio_changes = Rc::new(Cell::new(0));
+    network.connect_wifi_toggled({
+        let changes = Rc::clone(&radio_changes);
+        move |_, _| changes.set(changes.get() + 1)
+    });
+    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
+    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
+    assert_eq!(
+        radio_changes.get(),
+        0,
+        "rendering radio state sends no command"
+    );
+    assert!(network.imp().shell.subtitle().is_none());
+    network.set_footer(Some("Network settings"));
+    assert_eq!(
+        network.imp().shell.body().last_child(),
+        Some(network.imp().footer.get().upcast()),
+        "settings is the last body action"
+    );
+    let hidden_requests = Rc::new(Cell::new(0));
+    network.connect_hidden_network({
+        let requests = Rc::clone(&hidden_requests);
+        move |_| requests.set(requests.get() + 1)
+    });
+    network.set_hidden_entry(true);
+    network.imp().hidden.emit_by_name::<()>("activated", &[]);
+    assert_eq!(
+        hidden_requests.get(),
+        1,
+        "the hidden-network action still emits its request"
     );
 
     let entries = vec![
@@ -17,8 +41,7 @@ pub(super) fn check() {
             icon: "network-wireless-signal-good-symbolic".to_owned(),
             place: NetworkPlace::Other,
             secured: true,
-            selected: false,
-            busy: false,
+            ..Default::default()
         },
         NetworkEntry {
             id: "/s/1".to_owned(),
@@ -28,34 +51,26 @@ pub(super) fn check() {
         },
     ];
     network.set_entries(&entries);
-    assert_eq!(
-        all_named(&network, "network-popover__row").len(),
-        2,
-        "one row per entry, split across their sections"
-    );
-
+    network.set_others(1, false, None);
     let held = all_named(&network, "network-popover__row");
+    assert_eq!(held.len(), 2);
+
     let mut renamed = entries.clone();
     renamed[1].title = "Skylink 5G".to_owned();
     network.set_entries(&renamed);
     let again = all_named(&network, "network-popover__row");
-    assert!(
-        held[0] == again[0],
-        "a row whose content changed is updated in place, not replaced"
-    );
+    assert_eq!(held[0], again[0], "changing a title keeps its drawer");
     assert_eq!(
         again[0]
             .clone()
-            .downcast::<SplitRow>()
-            .expect("a split row")
-            .row()
+            .downcast::<ExpanderRow>()
+            .expect("an expander")
             .title()
-            .map(|title| title.to_string()),
-        Some("Skylink 5G".to_owned()),
-        "and it actually took the new title"
+            .as_deref(),
+        Some("Skylink 5G")
     );
 
-    let net_panel = |id: &str| -> gtk4::Revealer {
+    let net_row = |id: &str| {
         let imp = network.imp();
         for held in [
             &imp.other_held,
@@ -63,61 +78,36 @@ pub(super) fn check() {
             &imp.wired_held,
             &imp.vpn_held,
         ] {
-            if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                return holder
-                    .last_child()
-                    .and_downcast::<gtk4::Revealer>()
-                    .expect("a network row carries its own panel");
+            if let Some((_, row)) = held.borrow().iter().find(|(key, _)| key == id) {
+                return row.clone();
             }
         }
         panic!("no row is holding {id}");
     };
-    let net_head = |id: &str| -> gtk4::Widget {
-        let imp = network.imp();
-        for held in [
-            &imp.other_held,
-            &imp.wifi_held,
-            &imp.wired_held,
-            &imp.vpn_held,
+    let net_head = |id: &str| net_row(id).imp().expander.get();
+    let net_rows = |id: &str| {
+        let row = net_row(id);
+        let imp = row.imp();
+        let mut rows = vec![imp.connection.upcast_ref::<Row>().clone()];
+        for row in [
+            imp.autoconnect.upcast_ref::<Row>(),
+            imp.forget.upcast_ref::<Row>(),
         ] {
-            if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
-                return holder.first_child().expect("a holder leads with its row");
+            if row.get_visible() {
+                rows.push(row.clone());
             }
         }
-        panic!("no row is holding {id}");
+        rows
     };
-    let net_rows = |id: &str| -> Vec<LegacyRow> {
-        let page = net_panel(id)
-            .child()
-            .and_then(|card| card.last_child())
-            .and_downcast::<gtk4::Box>()
-            .expect("an opened panel has a page");
-        children_of::<LegacyRow>(&page)
+    let toggle = |id: &str| {
+        net_head(id).imp().head.emit_by_name::<()>("activated", &[]);
     };
-
-    assert!(
-        net_head("/ap/1")
-            .downcast::<SplitRow>()
-            .expect("a split row")
-            .row()
-            .trail()
-            .is_some_and(|lock| lock.get_visible()),
-        "a secured network says so with a padlock"
-    );
-    assert!(
-        net_head("/s/1")
-            .downcast::<SplitRow>()
-            .expect("a split row")
-            .row()
-            .trail()
-            .is_some_and(|lock| !lock.get_visible()),
-        "and an unsecured one hides the same padlock rather than growing a second widget"
-    );
-
-    assert!(
-        !net_panel("/ap/1").reveals_child(),
-        "a network reveals nothing until its chevron opens it"
-    );
+    let dimmed = |widget: &gtk4::Widget| {
+        std::iter::successors(Some(widget.clone()), |widget| widget.parent())
+            .any(|widget| widget.has_css_class("receded"))
+    };
+    assert!(net_row("/ap/1").imp().status.get_visible());
+    assert!(!net_row("/s/1").imp().status.get_visible());
 
     let lines = vec![
         NetworkLine {
@@ -136,6 +126,7 @@ pub(super) fn check() {
             action: "forget".to_owned(),
             title: "Forget this network".to_owned(),
             activates: true,
+            destructive: true,
             ..Default::default()
         },
     ];
@@ -144,109 +135,232 @@ pub(super) fn check() {
         facts: vec![Fact::new("Security", "WPA2")],
         lines: lines.clone(),
     };
-    let chevron = |id: &str| {
-        net_head(id)
-            .downcast::<SplitRow>()
-            .expect("a split row")
-            .emit_by_name::<()>("details", &[])
-    };
-    let dimmed = |widget: &gtk4::Widget| {
-        std::iter::successors(Some(widget.clone()), |widget| widget.parent())
-            .any(|widget| widget.has_css_class("receded"))
-    };
     network.set_details(&[card("/ap/1"), card("/s/1")]);
+    assert!(!net_head("/ap/1").open());
+    network
+        .imp()
+        .more
+        .imp()
+        .head
+        .emit_by_name::<()>("activated", &[]);
+    assert!(network.imp().more.open());
+    toggle("/ap/1");
     assert!(
-        !net_panel("/ap/1").reveals_child(),
-        "handing the details over opens nothing; the chevron does"
+        net_head("/ap/1").open() && network.imp().more.open(),
+        "opening a nested network preserves its disclosure"
     );
-    chevron("/ap/1");
     assert!(
-        net_panel("/ap/1").reveals_child(),
-        "the detail belongs under the network it describes, not beside the list"
+        !dimmed(net_head("/ap/1").upcast_ref())
+            && dimmed(net_head("/s/1").upcast_ref())
+            && dimmed(network.imp().wifi.upcast_ref()),
+        "unrelated controls recede around the open network"
+    );
+    let details = net_head("/ap/1").details();
+    assert!(
+        details
+            .first_child()
+            .is_some_and(|child| child.is::<ActionRow>())
     );
     assert!(
-        !dimmed(&net_head("/ap/1"))
-            && dimmed(&net_head("/s/1"))
-            && dimmed(network.imp().hero.upcast_ref()),
-        "everything the panel is read against recedes while it is open"
+        details
+            .first_child()
+            .and_then(|child| child.next_sibling())
+            .is_some_and(|child| child.is::<FactList>()),
+        "the connection action comes first, then the facts"
     );
     let opened = net_rows("/ap/1");
     assert_eq!(opened.len(), 3);
+    assert_eq!(opened[0].title().as_deref(), Some("Connect"));
+    assert!(opened[1].is::<ToggleRow>());
+    assert_eq!(opened[2].tone(), RowTone::Destructive);
+    toggle("/ap/1");
     assert!(
-        net_panel("/ap/1")
-            .child()
-            .and_then(|card| card.first_child())
-            .and_downcast::<FactList>()
-            .is_some(),
-        "the facts lead the card, before any action"
+        !net_head("/ap/1").open(),
+        "the same head also closes its drawer"
     );
     assert!(
-        opened[1].clone().downcast::<SwitchRow>().is_ok(),
-        "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
+        network.imp().more.open(),
+        "closing its child preserves the disclosure"
     );
+
+    let joined = Rc::new(RefCell::new(Vec::new()));
+    network.connect_activated({
+        let joined = Rc::clone(&joined);
+        let entries = entries.clone();
+        move |popover, id| {
+            joined.borrow_mut().push(id.to_owned());
+            popover.set_entries(&entries);
+        }
+    });
+    toggle("/ap/1");
+    assert!(
+        joined.borrow().is_empty(),
+        "opening a drawer sends no join command"
+    );
+    opened[0]
+        .clone()
+        .downcast::<ActionRow>()
+        .expect("an action")
+        .emit_by_name::<()>("activated", &[]);
+    assert_eq!(*joined.borrow(), ["/ap/1"]);
+
+    let toggled = Rc::new(RefCell::new(Vec::new()));
+    network.connect_toggled({
+        let toggled = Rc::clone(&toggled);
+        move |_, id, action, on| {
+            toggled
+                .borrow_mut()
+                .push((id.to_owned(), action.to_owned(), on))
+        }
+    });
+    let setting = opened[1].clone().downcast::<ToggleRow>().expect("a toggle");
+    setting.emit_by_name::<()>("activate", &[]);
+    setting.emit_by_name::<()>("activate", &[]);
+    assert_eq!(
+        *toggled.borrow(),
+        [
+            ("/ap/1".to_owned(), "autoconnect".to_owned(), true),
+            ("/ap/1".to_owned(), "autoconnect".to_owned(), false),
+        ]
+    );
+    setting.set_active(true);
+    assert_eq!(toggled.borrow().len(), 2, "reconciliation stays quiet");
+    let mut updated = card("/ap/1");
+    updated.lines[1].toggle = Some(true);
+    updated.lines[2].busy = true;
+    network.set_details(&[updated, card("/s/1")]);
+    assert_eq!(
+        net_rows("/ap/1"),
+        opened,
+        "updates reuse the template actions"
+    );
+    assert!(setting.active() && net_rows("/ap/1")[2].busy());
+    assert_eq!(
+        toggled.borrow().len(),
+        2,
+        "backend state does not echo a command"
+    );
+    network.set_details(&[card("/ap/1"), card("/s/1")]);
+    assert!(!setting.active());
+    assert_eq!(toggled.borrow().len(), 2);
 
     let acted = Rc::new(RefCell::new(Vec::new()));
     network.connect_acted({
         let acted = Rc::clone(&acted);
         move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
     });
-    chevron("/s/1");
+    toggle("/s/1");
+    assert!(!net_head("/ap/1").open() && net_head("/s/1").open());
     assert!(
-        !net_panel("/ap/1").reveals_child() && net_panel("/s/1").reveals_child(),
-        "opening one network closes the one that was open"
+        !network.imp().more.open(),
+        "a separate drawer closes the disclosure"
     );
-    net_rows("/s/1")[2].emit_by_name::<()>("clicked", &[]);
-    assert_eq!(
-        *acted.borrow(),
-        ["/s/1/forget"],
-        "a row whose action key repeats across networks must not forget the one no longer shown"
-    );
+    net_rows("/s/1")[2]
+        .clone()
+        .downcast::<ActionRow>()
+        .expect("an action")
+        .emit_by_name::<()>("activated", &[]);
+    assert_eq!(*acted.borrow(), ["/s/1/forget"]);
 
     network.set_details(&[card("/ap/1")]);
+    assert_eq!(
+        net_rows("/s/1").len(),
+        1,
+        "missing actions hide their fixed rows"
+    );
     assert!(
-        !net_panel("/s/1").reveals_child()
-            && !dimmed(&net_head("/ap/1"))
-            && !dimmed(network.imp().hero.upcast_ref()),
-        "a network whose detail is gone closes, and takes the dimming with it"
+        net_head("/s/1").open(),
+        "losing optional detail keeps the Connect action open"
     );
 
-    let joined = Rc::new(RefCell::new(Vec::new()));
-    network.connect_activated({
-        let joined = Rc::clone(&joined);
-        move |_, id| joined.borrow_mut().push(id.to_owned())
-    });
     let mut connected = entries.clone();
     connected[0].selected = true;
     network.set_entries(&connected);
-    let head = net_head("/ap/1");
-    assert!(
-        !head.is::<SplitRow>(),
-        "a network in use is one row with no join target, so a click cannot disconnect it"
+    assert_eq!(
+        net_row("/ap/1").imp().status.icon_name().as_deref(),
+        Some("object-select-symbolic")
     );
-    head.downcast::<LegacyRow>()
-        .expect("a plain row")
-        .emit_by_name::<()>("clicked", &[]);
+    let status = net_row("/ap/1").imp().status.get();
+    assert!(status.has_css_class("accent"));
     assert!(
-        net_panel("/ap/1").reveals_child() && joined.borrow().is_empty(),
-        "its whole row opens its card, where Disconnect lives, and reports nothing"
+        gtk4::IconTheme::for_display(&status.display())
+            .has_icon(status.icon_name().as_deref().expect("connected marker")),
+        "the connected marker exists in the icon theme"
+    );
+    assert_eq!(net_rows("/ap/1")[0].title().as_deref(), Some("Disconnect"));
+    network.imp().more.set_open(true);
+    toggle("/ap/1");
+    let before = joined.borrow().len();
+    net_rows("/ap/1")[0]
+        .clone()
+        .downcast::<ActionRow>()
+        .expect("an action")
+        .emit_by_name::<()>("activated", &[]);
+    assert_eq!(
+        acted.borrow().last().map(String::as_str),
+        Some("/ap/1/disconnect")
+    );
+    assert_eq!(
+        joined.borrow().len(),
+        before,
+        "Disconnect cannot emit a join"
     );
     network.set_entries(&entries);
+    assert!(!status.has_css_class("accent"));
+    assert_eq!(net_rows("/ap/1")[0].title().as_deref(), Some("Connect"));
+
+    let devices = [
+        NetworkEntry {
+            id: "/wired/1".to_owned(),
+            place: NetworkPlace::Wired,
+            ..Default::default()
+        },
+        NetworkEntry {
+            id: "/vpn/1".to_owned(),
+            place: NetworkPlace::Vpn,
+            selected: true,
+            ..Default::default()
+        },
+    ];
+    network.set_entries(&devices);
+    toggle("/wired/1");
     assert!(
-        net_head("/ap/1").is::<SplitRow>(),
-        "once it is no longer in use its row joins again"
+        net_head("/wired/1").open(),
+        "a connect-only drawer still opens"
+    );
+    let mut refreshed = devices.to_vec();
+    refreshed.push(NetworkEntry {
+        id: "/ap/refreshed".to_owned(),
+        place: NetworkPlace::Wifi,
+        ..Default::default()
+    });
+    network.set_entries(&refreshed);
+    assert!(
+        net_head("/wired/1").open(),
+        "a Wi-Fi refresh keeps an open connect-only Ethernet drawer"
+    );
+    net_rows("/wired/1")[0]
+        .clone()
+        .downcast::<ActionRow>()
+        .expect("an action")
+        .emit_by_name::<()>("activated", &[]);
+    assert_eq!(joined.borrow().last().map(String::as_str), Some("/wired/1"));
+    network.set_entries(&devices);
+    net_rows("/vpn/1")[0]
+        .clone()
+        .downcast::<ActionRow>()
+        .expect("an action")
+        .emit_by_name::<()>("activated", &[]);
+    assert_eq!(
+        acted.borrow().last().map(String::as_str),
+        Some("/vpn/1/disconnect-vpn")
     );
 
+    network.set_others(0, false, None);
     network.set_entries(&[]);
-    assert!(
-        !network.imp().other.get_visible(),
-        "with no networks and no scan there is nothing to head"
-    );
+    assert!(!network.imp().other.get_visible());
     network.set_scanning(true);
-    assert!(
-        network.imp().other.get_visible() && network.imp().other.empty(),
-        "a scan that has found nothing yet is the whole reason the placeholder exists; a \
-             hidden section shows it to nobody"
-    );
+    assert!(network.imp().other.get_visible() && network.imp().other.empty());
     network.set_scanning(false);
     network.set_entries(&entries);
 
@@ -257,9 +371,10 @@ pub(super) fn check() {
     });
 
     assert!(
-        !network.prompting() && network.imp().hero.is_sensitive(),
+        !network.prompting() && network.imp().wifi.is_sensitive(),
         "nothing is being asked, so the list is the page"
     );
+    network.set_others(1, true, None);
     network.set_prompt(Some(&NetworkAsk {
         key: "hidden".to_owned(),
         network: "Hidden network".to_owned(),
@@ -276,8 +391,14 @@ pub(super) fn check() {
         "a network with no name to show asks for one, not for a password"
     );
     assert!(
-        !network.imp().hero.is_sensitive(),
+        !network.imp().wifi.is_sensitive(),
         "the Wi-Fi switch is not a way out of a question that is being asked"
+    );
+    assert!(!network.imp().more.open());
+    network.set_others(1, true, None);
+    assert!(
+        !network.imp().more.open() && !dimmed(network.imp().prompt_accept.upcast_ref()),
+        "network refreshes cannot reopen a drawer over the password page"
     );
     assert!(
         !network.can_submit(),
@@ -374,7 +495,7 @@ pub(super) fn check() {
     network.set_prompt(None);
     assert!(
         !network.prompting()
-            && network.imp().hero.is_sensitive()
+            && network.imp().wifi.is_sensitive()
             && network.imp().pages.visible_child_name().as_deref() == Some("networks"),
         "the question answered, the list comes back"
     );
@@ -408,18 +529,13 @@ pub(super) fn check() {
     assert!(
         header.get_visible()
             && header.value().is_none()
-            && !header.has_css_class("open")
+            && !header.open()
             && !network.imp().all.get_visible(),
-        "closed, Other networks is one header line, with no count beside it"
+        "collapsed, Other networks has no count or extra action"
     );
     network.set_others(12, true, Some("4 more networks"));
-    assert!(
-        header.has_css_class("open") && network.imp().all.get_visible(),
-        "open and capped, the header turns and the list ends in a row that shows the rest"
-    );
+    assert!(header.open() && network.imp().all.get_visible());
+    assert!(network.imp().all.is::<ActionRow>());
     network.set_others(0, false, None);
-    assert!(
-        !header.get_visible(),
-        "no stranger in range, no header to open"
-    );
+    assert!(!header.get_visible() && !header.open());
 }

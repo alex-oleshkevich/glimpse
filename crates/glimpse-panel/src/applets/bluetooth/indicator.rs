@@ -381,15 +381,10 @@ impl Bluetooth {
 
     fn dress(&self, shown: &BluetoothPopover) {
         let hero = render::hero(&self.state);
-        shown.set_adapter(
-            &hero.title,
-            &hero.subtitle,
-            &hero.icon,
-            hero.on,
-            hero.settable,
-        );
+        shown.set_adapter(&hero.title, &hero.icon, hero.on, hero.settable);
         shown.set_controls_sensitive(hero.controls);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_prompt(render::prompt(&self.state).as_ref());
 
         let listing = render::entries(
             &self.state,
@@ -410,7 +405,6 @@ impl Bluetooth {
             .filter_map(|entry| render::details(&self.state, &DeviceId::new(&entry.id)))
             .collect();
         shown.set_details(&details);
-        shown.set_prompt(render::prompt(&self.state).as_ref());
         self.asked.replace(render::asked(&self.state));
     }
 

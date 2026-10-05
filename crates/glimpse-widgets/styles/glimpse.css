@@ -998,6 +998,11 @@ expandable > revealer .fader {
     min-width: var(--applet-popover-width);
 }
 
+.popover-shell.bluetooth-popover .popover-body > .column,
+.popover-shell.network-popover .popover-body > .column {
+    min-width: calc(var(--applet-popover-width) + 1.5rem);
+}
+
 .column > .notice + .notice,
 .column > .notice + .row,
 .column > .row + .notice,

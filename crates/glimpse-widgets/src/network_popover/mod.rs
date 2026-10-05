@@ -1,14 +1,14 @@
 mod imp;
+mod row;
 
+use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{
-    Expandable, FactList, LegacyRow, SplitRow, SwitchRow, none_if_empty, reconcile, set_footer_row,
-};
+use crate::{Row, RowTone, none_if_empty, reconcile};
+use row::NetworkRow;
 
 pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
 
-const NETWORK: &str = "network-popover__row";
 const NETWORKS_PAGE: &str = "networks";
 const PROMPT_PAGE: &str = "prompt";
 
@@ -29,19 +29,20 @@ impl NetworkPopover {
         glib::Object::new()
     }
 
-    pub fn set_radio(&self, title: &str, subtitle: &str, icon: &str, on: bool, settable: bool) {
+    pub fn set_radio(&self, title: &str, icon: &str, on: bool, settable: bool) {
         let imp = self.imp();
-        imp.hero.set_title(none_if_empty(title));
-        imp.hero.set_subtitle(none_if_empty(subtitle));
-        imp.hero.set_icon_name(none_if_empty(icon));
+        imp.shell.set_title(none_if_empty(title));
+        imp.shell.set_icon_name(none_if_empty(icon));
+        imp.radio_settable.set(settable);
 
         imp.quiet.set(true);
         if imp.wifi.is_active() != on {
             imp.wifi.set_active(on);
         }
         imp.quiet.set(false);
-        if imp.wifi.is_sensitive() != settable {
-            imp.wifi.set_sensitive(settable);
+        let sensitive = settable && !self.prompting();
+        if imp.wifi.is_sensitive() != sensitive {
+            imp.wifi.set_sensitive(sensitive);
         }
     }
 
@@ -68,35 +69,30 @@ impl NetworkPopover {
         self.settle_other();
     }
 
-    /// Every listed entry's detail, keyed by `Details::id`. A card is built the first time its
-    /// chevron opens it and refreshed from here afterwards; an entry whose detail is gone closes.
     pub fn set_details(&self, details: &[Details]) {
         let imp = self.imp();
         if imp.details.borrow().as_slice() == details {
             return;
         }
         imp.details.replace(details.to_vec());
-        for (id, holder) in self.holders() {
-            if let Some(split) = holder.head::<SplitRow>() {
-                split.set_detail_visible(self.carded(&id));
-            }
-            if holder.details::<gtk4::Widget>().is_some() {
-                self.fill(&id, &holder);
-            }
+        for (id, row) in self.holders() {
+            self.fill(&id, &row);
         }
     }
 
-    /// Other networks as a disclosure: the header turns its chevron while `open`, and `rest` is the row at the bottom of an open list that the cap has
-    /// cut short. No other network in range hides the header.
     pub fn set_others(&self, count: usize, open: bool, rest: Option<&str>) {
         let imp = self.imp();
         let header = &imp.more;
         if header.get_visible() != (count > 0) {
             header.set_visible(count > 0);
         }
-        crate::set_css_class(&**header, crate::drawer::OPEN, open);
-        crate::drawer::set(&imp.others_drawer, open);
-        set_footer_row(&imp.all, rest);
+        imp.quiet.set(true);
+        header.set_open(count > 0 && open && !self.prompting());
+        imp.quiet.set(false);
+        imp.all.upcast_ref::<Row>().set_title(rest);
+        if imp.all.get_visible() != rest.is_some() {
+            imp.all.set_visible(rest.is_some());
+        }
         self.settle_other();
     }
 
@@ -124,7 +120,11 @@ impl NetworkPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<Row>().set_title(label);
+        if footer.get_visible() != label.is_some() {
+            footer.set_visible(label.is_some());
+        }
     }
 
     pub fn set_prompt(&self, ask: Option<&Ask>) {
@@ -201,7 +201,7 @@ impl NetworkPopover {
         let prompt = imp.prompt.borrow().clone();
         let Some(ask) = prompt else {
             imp.pages.set_visible_child_name(NETWORKS_PAGE);
-            imp.hero.set_sensitive(true);
+            imp.wifi.set_sensitive(imp.radio_settable.get());
             imp.footer.set_sensitive(true);
             return;
         };
@@ -226,11 +226,14 @@ impl NetworkPopover {
         }
         imp.revalidate();
 
-        for (_, holder) in self.holders() {
-            holder.set_expanded(false);
+        for (_, row) in self.holders() {
+            row.imp().expander.set_open(false);
         }
+        imp.quiet.set(true);
+        imp.more.set_open(false);
+        imp.quiet.set(false);
         imp.pages.set_visible_child_name(PROMPT_PAGE);
-        imp.hero.set_sensitive(false);
+        imp.wifi.set_sensitive(false);
         imp.footer.set_sensitive(false);
         match naming {
             true => imp.prompt_name.grab_focus(),
@@ -249,8 +252,6 @@ impl NetworkPopover {
         )
     }
 
-    /// A row that is not in use was pressed: join it. A row in use opens its card instead, and
-    /// never reports here.
     pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -314,14 +315,6 @@ impl NetworkPopover {
         )
     }
 
-    fn carded(&self, id: &str) -> bool {
-        self.imp()
-            .details
-            .borrow()
-            .iter()
-            .any(|details| details.id == id)
-    }
-
     fn render_entries(&self) {
         let imp = self.imp();
         let entries = imp.entries.borrow().clone();
@@ -347,177 +340,141 @@ impl NetworkPopover {
                 &mut held.borrow_mut(),
                 &wanted,
                 |entry| entry.id.clone(),
-                |entry| Expandable::new(&self.head_for(entry)),
-                |holder, entry| self.apply(holder, entry),
+                |entry| self.build_row(entry),
+                |row, entry| self.apply(row, entry),
             );
             if place != Place::Other {
                 section.set_visible(!wanted.is_empty());
             }
         }
         self.settle_other();
-        let live: Vec<String> = entries.iter().map(|entry| entry.id.clone()).collect();
-        imp.lines.borrow_mut().retain(|id, _| live.contains(id));
     }
 
-    /// A row in use is about that connection: the whole row opens its card, where Disconnect
-    /// lives. Every other row joins on its body, and its chevron shows only when it has a card.
-    fn head_for(&self, entry: &Entry) -> gtk4::Widget {
-        if entry.selected {
-            let row = LegacyRow::new();
-            row.add_css_class(NETWORK);
-            let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
-            chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
-            chevron.add_css_class("drawer-chevron");
-            row.set_trail(&chevron);
-            let key = entry.id.clone();
-            row.connect_clicked(glib::clone!(
-                #[weak(rename_to = popover)]
-                self,
-                move |_| popover.open(&key)
-            ));
-            return row.upcast();
-        }
-
-        let split = SplitRow::new();
-        split.add_css_class(NETWORK);
-
-        let lock = gtk4::Image::from_icon_name("changes-prevent-symbolic");
-        lock.set_accessible_role(gtk4::AccessibleRole::Presentation);
-        lock.set_visible(false);
-        split.set_trail(&lock);
-
+    fn build_row(&self, entry: &Entry) -> NetworkRow {
+        let row: NetworkRow = glib::Object::new();
         let key = entry.id.clone();
-        split.connect_activated(glib::clone!(
+        row.imp().connection.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("activated", &[&key])
+            move |_| {
+                let entry = popover
+                    .imp()
+                    .entries
+                    .borrow()
+                    .iter()
+                    .find(|entry| entry.id == key)
+                    .cloned();
+                let Some(entry) = entry else {
+                    return;
+                };
+                if entry.selected {
+                    let action = match entry.place {
+                        Place::Vpn => "disconnect-vpn",
+                        _ => "disconnect",
+                    };
+                    popover.emit_by_name::<()>("acted", &[&key, &action]);
+                } else {
+                    popover.emit_by_name::<()>("activated", &[&key]);
+                }
+            }
         ));
-
         let key = entry.id.clone();
-        split.connect_details(glib::clone!(
+        row.imp().autoconnect.connect_toggled(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.open(&key)
+            move |_, on| popover.emit_by_name::<()>("toggled", &[&key, &"autoconnect", &on])
         ));
-        split.upcast()
+        let key = entry.id.clone();
+        row.imp().forget.connect_activated(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            move |_| popover.emit_by_name::<()>("acted", &[&key, &"forget"])
+        ));
+        row
     }
 
-    fn apply(&self, holder: &Expandable, entry: &Entry) {
-        if entry.selected == holder.head::<SplitRow>().is_some() {
-            holder.set_head(&self.head_for(entry));
+    fn apply(&self, row: &NetworkRow, entry: &Entry) {
+        let imp = row.imp();
+        imp.expander.set_title(none_if_empty(&entry.title));
+        imp.expander.set_icon_name(none_if_empty(&entry.icon));
+        imp.expander.set_busy(entry.busy);
+        imp.status
+            .set_css_classes(if entry.selected { &["accent"] } else { &[] });
+        let status = match entry.selected {
+            true => "object-select-symbolic",
+            false => "changes-prevent-symbolic",
+        };
+        if imp.status.icon_name().as_deref() != Some(status) {
+            imp.status.set_icon_name(Some(status));
         }
-        match holder.head::<SplitRow>() {
-            Some(split) => {
-                let row = split.row();
-                dress(&row, entry);
-                if let Some(lock) = row.trail() {
-                    lock.set_visible(entry.secured);
-                }
-                split.set_detail_visible(self.carded(&entry.id));
-            }
-            None => {
-                if let Some(row) = holder.head::<LegacyRow>() {
-                    dress(&row, entry);
-                }
-            }
+        let visible = entry.secured || entry.selected;
+        if imp.status.get_visible() != visible {
+            imp.status.set_visible(visible);
         }
+        let connection = imp.connection.upcast_ref::<Row>();
+        connection.set_title(Some(match entry.selected {
+            true => gettext("Disconnect"),
+            false => gettext("Connect"),
+        }));
+        self.fill(&entry.id, row);
     }
 
-    fn open(&self, id: &str) {
-        let holder = self.holders().find(|(held, _)| held == id);
-        if let Some((_, holder)) = holder
-            && holder.details::<gtk4::Widget>().is_none()
-        {
-            self.fill(id, &holder);
-        }
-    }
-
-    fn fill(&self, id: &str, holder: &Expandable) {
+    fn fill(&self, id: &str, row: &NetworkRow) {
         let imp = self.imp();
-        let Some(details) = imp
+        let details = imp
             .details
             .borrow()
             .iter()
             .find(|details| details.id == id)
-            .cloned()
-        else {
-            holder.set_details(None::<&gtk4::Widget>);
-            return;
-        };
-        let card = holder
-            .details::<gtk4::Box>()
-            .unwrap_or_else(|| crate::fact_card(holder));
-        if let Some(facts) = card.first_child().and_downcast::<FactList>() {
-            facts.set_facts(&details.facts);
+            .cloned();
+        let card = row.imp();
+        let details = details.unwrap_or_default();
+        card.facts.set_facts(&details.facts);
+        if card.facts.get_visible() == details.facts.is_empty() {
+            card.facts.set_visible(!details.facts.is_empty());
         }
-        let Some(rows) = card.last_child().and_downcast::<gtk4::Box>() else {
-            return;
-        };
-        let mut lines = imp.lines.borrow_mut();
-        reconcile::by_key(
-            &rows,
-            lines.entry(id.to_owned()).or_default(),
-            &details.lines,
-            |line| line.action.clone(),
-            |line| self.build_line(id, line),
-            dress_line,
-        );
+        let primary = details.lines.iter().find(|line| {
+            matches!(
+                line.action.as_str(),
+                "connect" | "disconnect" | "disconnect-vpn"
+            )
+        });
+        let connection = card.connection.upcast_ref::<Row>();
+        connection.set_tone(match primary.is_some_and(|line| line.destructive) {
+            true => RowTone::Destructive,
+            false => RowTone::Normal,
+        });
+        connection.set_busy(primary.map_or_else(|| card.expander.busy(), |line| line.busy));
+        let autoconnect = details
+            .lines
+            .iter()
+            .find(|line| line.action == "autoconnect");
+        let on = autoconnect.and_then(|line| line.toggle);
+        card.autoconnect.set_active(on.unwrap_or(false));
+        card.autoconnect
+            .upcast_ref::<Row>()
+            .set_busy(autoconnect.is_some_and(|line| line.busy));
+        if card.autoconnect.get_visible() != on.is_some() {
+            card.autoconnect.set_visible(on.is_some());
+        }
+        let forget = details.lines.iter().find(|line| line.action == "forget");
+        card.forget
+            .upcast_ref::<Row>()
+            .set_busy(forget.is_some_and(|line| line.busy));
+        card.forget
+            .upcast_ref::<Row>()
+            .set_inactive(forget.is_none_or(|line| !line.activates));
+        if card.forget.get_visible() != forget.is_some() {
+            card.forget.set_visible(forget.is_some());
+        }
     }
 
-    fn holders(&self) -> impl Iterator<Item = (String, Expandable)> + use<> {
+    fn holders(&self) -> impl Iterator<Item = (String, NetworkRow)> + use<> {
         let imp = self.imp();
         let mut all = imp.other_held.borrow().clone();
         for held in [&imp.wifi_held, &imp.wired_held, &imp.vpn_held] {
             all.extend(held.borrow().iter().cloned());
         }
         all.into_iter()
-    }
-
-    fn build_line(&self, id: &str, line: &Line) -> LegacyRow {
-        let key = id.to_owned();
-        let action = line.action.clone();
-
-        if let Some(on) = line.toggle {
-            let toggle = SwitchRow::new();
-            toggle.set_active(on);
-            toggle.connect_toggled(glib::clone!(
-                #[weak(rename_to = popover)]
-                self,
-                move |_, on| popover.emit_by_name::<()>("toggled", &[&key, &action, &on])
-            ));
-            return toggle.upcast();
-        }
-
-        let row = LegacyRow::new();
-        row.set_activatable(line.activates);
-        crate::set_css_class(&row, crate::DESTRUCTIVE, line.destructive);
-        if !line.activates {
-            return row;
-        }
-        row.connect_clicked(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| popover.emit_by_name::<()>("acted", &[&key, &action])
-        ));
-        row
-    }
-}
-
-fn dress(row: &LegacyRow, entry: &Entry) {
-    row.set_title(none_if_empty(&entry.title));
-    row.set_lead_icon(none_if_empty(&entry.icon));
-    row.set_busy(entry.busy);
-    row.set_selected(entry.selected);
-}
-
-fn dress_line(row: &LegacyRow, line: &Line) {
-    row.set_title(none_if_empty(&line.title));
-    row.set_busy(line.busy);
-
-    let Some(on) = line.toggle else {
-        return;
-    };
-    if let Some(toggle) = row.downcast_ref::<SwitchRow>() {
-        toggle.set_active(on);
     }
 }

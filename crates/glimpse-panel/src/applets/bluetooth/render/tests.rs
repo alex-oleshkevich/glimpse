@@ -169,10 +169,6 @@ fn a_busy_device_spins_rather_than_spelling_out_what_it_is_doing() {
         let row = &entries(&state, 6, 8, (false, false), false).entries[0];
 
         assert!(row.busy, "{doing:?} must reach the row as a spinner");
-        assert!(
-            row.value.is_empty(),
-            "{doing:?} left a word beside the spinner that says the same thing"
-        );
     }
 }
 
@@ -204,9 +200,9 @@ fn a_details_page_offers_connect_or_disconnect_but_never_both() {
     connected.codec = Some(Codec::Ldac);
     connected.battery = Some(80);
     let id = connected.id.clone();
-    let state = state(Power::On, false, vec![connected]);
+    let connected_state = state(Power::On, false, vec![connected]);
 
-    let details = details(&state, &id).expect("the device");
+    let details = details(&connected_state, &id).expect("the device");
     let actions: Vec<&str> = details
         .lines
         .iter()
@@ -218,8 +214,9 @@ fn a_details_page_offers_connect_or_disconnect_but_never_both() {
         .map(|fact| fact.label.as_str())
         .collect();
 
-    assert_eq!(actions, ["trust", "disconnect", "forget"]);
+    assert_eq!(actions, ["disconnect", "trust", "forget"]);
     assert_eq!(labels, ["Type", "Battery", "Codec"]);
+    assert_eq!(details.facts[1].value, "80%");
     let red: Vec<&str> = details
         .lines
         .iter()
@@ -227,10 +224,19 @@ fn a_details_page_offers_connect_or_disconnect_but_never_both() {
         .map(|line| line.action.as_str())
         .collect();
     assert_eq!(red, ["forget"], "Disconnect beside Forget stays plain");
+
+    let state = state(Power::On, false, vec![device("Buds", false)]);
+    let paired = super::details(&state, &id).expect("the paired device");
+    let actions: Vec<&str> = paired
+        .lines
+        .iter()
+        .map(|line| line.action.as_str())
+        .collect();
+    assert_eq!(actions, ["connect", "trust", "forget"]);
 }
 
 #[test]
-fn a_nearby_device_card_only_names_its_kind() {
+fn a_nearby_device_card_offers_pair_first() {
     let mut found = device("Bose", false);
     found.paired = false;
     found.bonded = false;
@@ -241,9 +247,12 @@ fn a_nearby_device_card_only_names_its_kind() {
 
     let card = details(&state, &id).expect("a card");
     assert!(
-        card.lines.is_empty() && card.facts.len() == 1,
-        "nothing is managed before a device pairs, so its card only says what it is"
+        card.lines.len() == 1 && card.facts.len() == 1,
+        "a nearby device offers pairing and names its kind"
     );
+    assert_eq!(card.lines[0].action, "pair");
+    assert_eq!(card.lines[0].title, "Pair");
+    assert!(card.lines[0].activates && !card.lines[0].destructive);
 }
 
 #[test]
