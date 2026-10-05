@@ -7,18 +7,13 @@ pub(super) fn check() {
         let powered = Rc::clone(&powered);
         move |_, on| powered.borrow_mut().push(on)
     });
-    popover.set_adapter(
-        "Bluetooth",
-        "No device connected",
-        "bluetooth-symbolic",
-        true,
-        true,
-    );
+    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
     assert!(popover.imp().power.is_active());
+    assert!(popover.imp().shell.subtitle().is_none());
     assert!(powered.borrow().is_empty());
     popover.imp().power.set_active(false);
     assert_eq!(*powered.borrow(), [false]);
-    popover.set_adapter("Bluetooth", "", "bluetooth-symbolic", true, true);
+    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
     assert_eq!(*powered.borrow(), [false]);
     assert!(!popover.imp().devices.get_visible());
 
@@ -28,7 +23,6 @@ pub(super) fn check() {
         problem: String::new(),
         icon: "audio-headset-symbolic".to_owned(),
         place,
-        value: String::new(),
         busy: false,
     };
     popover.set_entries(&[
@@ -62,27 +56,18 @@ pub(super) fn check() {
         Some("object-select-symbolic")
     );
     assert!(!device("b").imp().status.get_visible());
-    let mut charged = entry("a", BluetoothPlace::Connected);
-    charged.value = "72%".to_owned();
-    first.set_entry(&charged);
-    assert_eq!(first.imp().battery.text(), "72%");
-    assert!(first.imp().battery.get_visible() && first.imp().status.get_visible());
-    let end = first
-        .imp()
-        .battery
-        .parent()
-        .expect("battery and marker container");
-    assert_eq!(first.imp().status.parent(), Some(end.clone()));
-    assert!(end.parent().expect("row end slot").get_visible());
-    charged.busy = true;
-    first.set_entry(&charged);
-    assert!(!end.parent().expect("row end slot").get_visible());
+    assert!(row("a").value().is_none());
+    let end = first.imp().status.parent().expect("row end slot");
+    assert!(end.get_visible());
+    let mut busy = entry("a", BluetoothPlace::Connected);
+    busy.busy = true;
+    first.set_entry(&busy);
+    assert!(!end.get_visible());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Paired),
         entry("b", BluetoothPlace::Paired),
     ]);
     assert!(!first.imp().status.get_visible());
-    assert!(!first.imp().battery.get_visible());
     popover.set_entries(&[
         entry("a", BluetoothPlace::Connected),
         entry("b", BluetoothPlace::Paired),
@@ -173,6 +158,9 @@ pub(super) fn check() {
             .iter()
             .all(|row| !row.activatable())
     );
+    let facts = children_of::<LegacyRow>(&*a.imp().facts);
+    assert_eq!(facts[0].title().as_deref(), Some("Battery"));
+    assert_eq!(facts[0].value().as_deref(), Some("72%"));
     a.imp().primary.activate();
     assert_eq!(*acted.borrow(), ["a/disconnect"]);
     assert!(
@@ -275,17 +263,10 @@ pub(super) fn check() {
 
     let width = |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
     let probe = BluetoothPopover::new();
-    probe.set_adapter(
-        "Bluetooth",
-        "No device connected",
-        "bluetooth-symbolic",
-        true,
-        true,
-    );
+    probe.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
     probe.set_entries(&[entry("a", BluetoothPlace::Connected)]);
     let floor = width(&probe);
     probe.set_adapter(
-        "Bluetooth",
         "Connected to Bose QuietComfort Ultra and 2 others",
         "bluetooth-active-symbolic",
         true,

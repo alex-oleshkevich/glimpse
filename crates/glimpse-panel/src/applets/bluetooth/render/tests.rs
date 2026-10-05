@@ -169,10 +169,6 @@ fn a_busy_device_spins_rather_than_spelling_out_what_it_is_doing() {
         let row = &entries(&state, 6, 8, (false, false), false).entries[0];
 
         assert!(row.busy, "{doing:?} must reach the row as a spinner");
-        assert!(
-            row.value.is_empty(),
-            "{doing:?} left a word beside the spinner that says the same thing"
-        );
     }
 }
 
@@ -220,6 +216,7 @@ fn a_details_page_offers_connect_or_disconnect_but_never_both() {
 
     assert_eq!(actions, ["disconnect", "trust", "forget"]);
     assert_eq!(labels, ["Type", "Battery", "Codec"]);
+    assert_eq!(details.facts[1].value, "80%");
     let red: Vec<&str> = details
         .lines
         .iter()

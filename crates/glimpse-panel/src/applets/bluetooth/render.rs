@@ -65,7 +65,6 @@ pub fn hero(state: &BluetoothState) -> Hero {
 
     Hero {
         title: gettext("Bluetooth"),
-        subtitle: status(power, searching, connected),
         icon: glimpse_services::icon_for(power, searching, connected > 0).to_owned(),
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
@@ -211,7 +210,6 @@ fn digits(passkey: u32) -> String {
 
 pub struct Hero {
     pub title: String,
-    pub subtitle: String,
     pub icon: String,
     pub controls: bool,
     pub on: bool,
@@ -302,9 +300,6 @@ fn entry(device: &Device, place: Place) -> Entry {
         problem: problem(device),
         icon: icon(device.icon).to_owned(),
         place,
-        value: battery(device)
-            .filter(|_| device.busy.is_none() && device.connected)
-            .unwrap_or_default(),
         busy: device.busy.is_some(),
     }
 }

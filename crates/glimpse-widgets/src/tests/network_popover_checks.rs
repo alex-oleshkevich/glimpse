@@ -7,25 +7,14 @@ pub(super) fn check() {
         let changes = Rc::clone(&radio_changes);
         move |_, _| changes.set(changes.get() + 1)
     });
-    network.set_radio(
-        "Wi-Fi",
-        "Skylink",
-        "network-wireless-signal-good-symbolic",
-        true,
-        true,
-    );
-    network.set_radio(
-        "Wi-Fi",
-        "Skylink",
-        "network-wireless-signal-good-symbolic",
-        true,
-        true,
-    );
+    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
+    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
     assert_eq!(
         radio_changes.get(),
         0,
         "rendering radio state sends no command"
     );
+    assert!(network.imp().shell.subtitle().is_none());
     network.set_footer(Some("Network settings"));
     assert_eq!(
         network.imp().shell.body().last_child(),

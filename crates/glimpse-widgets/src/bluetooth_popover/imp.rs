@@ -24,7 +24,6 @@ pub struct Entry {
     pub problem: String,
     pub icon: String,
     pub place: Place,
-    pub value: String,
     pub busy: bool,
 }
 

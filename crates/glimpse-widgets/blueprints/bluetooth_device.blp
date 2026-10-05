@@ -7,25 +7,11 @@ template $BluetoothDevice: Gtk.Widget {
     sensitive: false;
 
     [end]
-    Gtk.Box {
-      spacing: 8;
-
-      Gtk.Label battery {
-        visible: false;
-        xalign: 1;
-        ellipsize: end;
-        single-line-mode: true;
-        max-width-chars: 16;
-        accessible-role: presentation;
-        styles ["row__value"]
-      }
-
-      Gtk.Image status {
-        visible: false;
-        icon-name: "object-select-symbolic";
-        accessible-role: presentation;
-        styles ["accent"]
-      }
+    Gtk.Image status {
+      visible: false;
+      icon-name: "object-select-symbolic";
+      accessible-role: presentation;
+      styles ["accent"]
     }
 
     $ActionRow primary {

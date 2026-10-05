@@ -32,10 +32,9 @@ impl BluetoothPopover {
         glib::Object::new()
     }
 
-    pub fn set_adapter(&self, title: &str, subtitle: &str, icon: &str, on: bool, settable: bool) {
+    pub fn set_adapter(&self, title: &str, icon: &str, on: bool, settable: bool) {
         let imp = self.imp();
         imp.shell.set_title(none_if_empty(title));
-        imp.shell.set_subtitle(none_if_empty(subtitle));
         imp.shell.set_icon_name(none_if_empty(icon));
 
         imp.quiet.set(true);
