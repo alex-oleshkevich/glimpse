@@ -124,9 +124,7 @@ pub(super) fn kinds() {
     for make in [
         (|| LegacyRow::new().upcast::<gtk4::Widget>()) as fn() -> gtk4::Widget,
         || Notice::new().upcast(),
-        || EventRow::new().upcast(),
         || PlayerRow::new().upcast(),
-        || ClockRow::new().upcast(),
         || ForecastDay::new().upcast(),
         || ForecastHour::new().upcast(),
         || Hero::new().upcast(),

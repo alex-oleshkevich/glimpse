@@ -1091,39 +1091,6 @@ expandable > revealer .fader {
     color: var(--gl-warning-text);
 }
 
-.calendar-popover__truncated {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-    padding: 0.3rem 0.75rem;
-}
-
-.event-list__row--past .row__title,
-.event-list__row--past .event-list__time {
-    color: var(--gl-muted);
-}
-
-.event-list__time,
-.world-clock__time {
-    font-size: var(--gl-text-caption);
-    font-variant-numeric: tabular-nums;
-    color: var(--gl-muted);
-}
-
-.world-clock .row {
-    min-height: 3.2rem;
-    padding: 0 0.8rem;
-}
-
-.world-clock .row:hover,
-.world-clock .row:active {
-    background-color: transparent;
-}
-
-.world-clock__phase {
-    -gtk-icon-size: 1.15rem;
-    color: var(--gl-muted);
-}
-
 .notice {
     --gl-notice-radius: 0.7rem;
     padding: 0.6rem 0.8rem;

@@ -130,7 +130,7 @@ pub use container::{Container, Paint as ContainerPaint};
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::{DisplayPopover, NightLight};
 pub use dots::{Dots, SIZE as DOTS_SIZE};
-pub use event_list::{Event, EventList, EventRow, Link as EventLink};
+pub use event_list::{Event, EventList, Link as EventLink};
 pub use expandable::Expandable;
 pub use expander_row::ExpanderRow;
 pub use fact_list::{Fact, FactList};
@@ -229,7 +229,7 @@ pub use workspace_list::{Window as WorkspaceWindow, Workspace, WorkspaceList};
 pub use workspace_name_popover::WorkspaceNamePopover;
 pub use workspace_section::WorkspaceSection;
 pub use workspaces_popover::WorkspacesPopover;
-pub use world_clock::{ClockRow, WorldClock, Zone};
+pub use world_clock::{WorldClock, Zone};
 
 #[cfg(test)]
 use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};

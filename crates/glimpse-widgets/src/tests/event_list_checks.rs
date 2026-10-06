@@ -11,64 +11,52 @@ pub(super) fn check() {
     let blue = gdk::RGBA::new(0.2, 0.5, 0.9, 1.0);
 
     let events = EventList::new();
-    let heads = |list: &EventList| -> Vec<EventRow> {
+    let heads = |list: &EventList| -> Vec<Row> {
         list.imp()
             .holders
             .borrow()
             .iter()
-            .filter_map(|(_, holder)| holder.head::<EventRow>())
+            .map(|(_, holder)| match holder.downcast_ref::<ExpanderRow>() {
+                Some(expander) => expander.imp().head.get().upcast(),
+                None => holder.clone().downcast().expect("a row"),
+            })
             .collect()
     };
     events.set_events(&[
         event("Team standup", "09:30", Some(blue)),
         event("Design review", "14:00", None),
     ]);
-    let event_rows: Vec<LegacyRow> = heads(&events).into_iter().map(|row| row.upcast()).collect();
+    let event_rows = heads(&events);
     assert_eq!(event_rows.len(), 2);
     assert_eq!(event_rows[0].title().as_deref(), Some("Team standup"));
+    assert_eq!(event_rows[0].value().as_deref(), Some("09:30"));
     assert!(
-        event_rows[1].imp().lead.get_visible(),
-        "one event with a color gives every row the same lead column, so the summaries \
+        event_rows[1].imp().start.get_visible(),
+        "one event with a color gives every row the same start column, so the summaries \
              still line up"
     );
     assert_eq!(
         event_rows[0]
             .imp()
-            .lead
+            .start
             .measure(gtk4::Orientation::Horizontal, -1)
             .1,
         (dots::SIZE * 3.0) as i32,
-        "an event carries one color, so its lead is one dot wide rather than the three the \
-             calendar reserves"
+        "an event carries one color, so its start is one dot wide"
     );
     assert!(
-        !event_rows[0].can_target(),
-        "an event with nothing behind it and nobody listening does not light up under the \
-             pointer: a hover is a promise that clicking does something"
+        !event_rows[0].is::<ActionRow>(),
+        "an event with nothing behind it is a static row: a hover is a promise that \
+             clicking does something"
     );
-    events.set_activatable(true);
-    assert!(event_rows[0].can_target());
-
-    let activated = Rc::new(RefCell::new(Vec::new()));
-    events.connect_activated({
-        let activated = Rc::clone(&activated);
-        move |_, index| activated.borrow_mut().push(index)
-    });
-    event_rows[1].emit_clicked();
-    assert_eq!(*activated.borrow(), [1u32]);
-    events.set_activatable(false);
 
     events.set_events(&[event("Team standup", "09:30", None)]);
     assert!(
-        !heads(&events)[0]
-            .upcast_ref::<LegacyRow>()
-            .imp()
-            .lead
-            .get_visible(),
-        "with no color anywhere the lead column goes away rather than sitting empty"
+        !heads(&events)[0].imp().start.get_visible(),
+        "with no color anywhere the start column goes away rather than sitting empty"
     );
     assert!(
-        event_rows[0] == heads(&events)[0].clone().upcast::<LegacyRow>(),
+        event_rows[0] == heads(&events)[0],
         "an event keeps its row across a refresh rather than rebuilding it"
     );
     assert!(
@@ -85,18 +73,19 @@ pub(super) fn check() {
         ..event("Design review", "14:00", None)
     };
     events.set_events(&[event("Team standup", "09:30", None), meeting.clone()]);
-    let holder = events.imp().holders.borrow()[1].1.clone();
-    assert!(
-        heads(&events)[1].can_target() && !heads(&events)[0].can_target(),
-        "an event with a link or a fact opens; one with neither stays inert"
-    );
-    heads(&events)[1].emit_clicked();
-    assert!(holder.expanded(), "the event row opens its own card");
-    let card = holder.details::<gtk4::Box>().expect("a card");
+    let holder = events.imp().holders.borrow()[1]
+        .1
+        .clone()
+        .downcast::<ExpanderRow>()
+        .expect("an event with a link or a fact opens");
+    holder.imp().head.emit_by_name::<()>("activated", &[]);
+    assert!(holder.open(), "the event row opens its own drawer");
+    let card = holder.details();
+    let first = card.first_child();
     events.set_events(&[event("Team standup", "10:00", None), meeting.clone()]);
     assert!(
-        holder.details::<gtk4::Box>().as_ref() == Some(&card),
-        "a refresh that leaves the card's content alone keeps the card, so a press on it lands"
+        card.first_child() == first,
+        "a refresh that leaves the drawer's content alone keeps it, so a press on it lands"
     );
     let links = Rc::new(RefCell::new(Vec::new()));
     events.connect_link_activated({
@@ -105,13 +94,25 @@ pub(super) fn check() {
     });
     assert!(
         card.first_child().and_downcast::<FactList>().is_some(),
-        "the facts lead the card, before its links"
+        "the facts lead the drawer, before its links"
     );
-    children_of::<LegacyRow>(&card)
+    children_of::<ActionRow>(&card)
         .first()
         .expect("the join row")
-        .emit_clicked();
+        .emit_by_name::<()>("activated", &[]);
     assert_eq!(*links.borrow(), ["https://meet.google.com/abc"]);
+
+    events.set_events(&[event("Design review", "14:00", None)]);
+    events.set_events(std::slice::from_ref(&meeting));
+    let reopened = events.imp().holders.borrow()[0]
+        .1
+        .clone()
+        .downcast::<ExpanderRow>()
+        .expect("an expander again");
+    assert!(
+        reopened.details().first_child().is_some(),
+        "an event that loses its drawer and gets it back is filled again"
+    );
 
     let past = |summary: &str| Event {
         past: true,
@@ -129,7 +130,7 @@ pub(super) fn check() {
     let titles = |list: &EventList| -> Vec<String> {
         heads(list)
             .iter()
-            .map(|row| row.upcast_ref::<LegacyRow>().title().unwrap_or_default())
+            .map(|row| row.title().unwrap_or_default())
             .collect()
     };
     assert_eq!(
@@ -137,17 +138,23 @@ pub(super) fn check() {
         ["Three", "Four", "Five"],
         "what is over folds away and the cap counts only what is left"
     );
-    assert_eq!(events.imp().earlier.title().as_deref(), Some("2 earlier"));
     assert_eq!(
-        events.imp().more.title().as_deref(),
+        events.imp().earlier.upcast_ref::<Row>().title().as_deref(),
+        Some("2 earlier")
+    );
+    assert_eq!(
+        events.imp().more.upcast_ref::<Row>().title().as_deref(),
         Some("1 more event"),
         "one hidden event is not `1 more events`"
     );
-    events.imp().earlier.emit_clicked();
+    events.imp().earlier.emit_by_name::<()>("activated", &[]);
     assert_eq!(titles(&events).len(), 5, "the fold opens in place");
     assert!(!events.imp().earlier.get_visible());
-    assert!(heads(&events)[0].has_css_class("event-list__row--past"));
-    events.imp().more.emit_clicked();
+    assert!(
+        heads(&events)[0].inactive(),
+        "what is over is inactive, and still opens"
+    );
+    events.imp().more.emit_by_name::<()>("activated", &[]);
     assert_eq!(titles(&events).len(), 6);
     assert!(!events.overflows());
     events.fold();
@@ -163,7 +170,6 @@ pub(super) fn check() {
     events.set_events(&[event(&"ё".repeat(TEXT_MAX_CHARS * 2), "09:30", None)]);
     assert_eq!(
         heads(&events)[0]
-            .upcast_ref::<LegacyRow>()
             .title()
             .unwrap_or_default()
             .chars()
@@ -178,7 +184,6 @@ pub(super) fn check() {
     buried.set_empty(true);
     assert_eq!(
         heads(&events)[0]
-            .upcast_ref::<LegacyRow>()
             .title()
             .unwrap_or_default()
             .chars()

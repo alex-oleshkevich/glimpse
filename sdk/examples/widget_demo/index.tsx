@@ -3,6 +3,7 @@ import {
   ActionRow,
   Button,
   Container,
+  Dots,
   End,
   ExpanderRow,
   Image,
@@ -88,6 +89,9 @@ function WidgetDemo() {
           <ExpanderRow title="More devices" open={moreOpen} onToggle={setMoreOpen}>
             <ActionRow title="Pair new device" />
           </ExpanderRow>
+          <ActionRow title="Design review" value="14:00" typography="numeric">
+            <Start><Dots colors={["accent"]} size={12} max={1} /></Start>
+          </ActionRow>
         </Section>
         <Section title="Sliders">
           <SliderRow

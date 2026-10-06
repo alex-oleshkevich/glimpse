@@ -400,32 +400,44 @@ impl Dom {
                 })
                 .collect();
             self.reconcile_children(tree, generation, key, &inner, &children, live);
-            let slot = render::first_child_of_kind(tree, id, |element| {
-                matches!(element, Element::End(_) | Element::Start(_))
+            let end =
+                render::first_child_of_kind(tree, id, |element| matches!(element, Element::End(_)))
+                    .and_then(|id| self.mount(tree, generation, id, live))
+                    .map(|(_, widget)| widget)
+                    .filter(|widget| widget.first_child().is_some());
+            let start = render::first_child_of_kind(tree, id, |element| {
+                matches!(element, Element::Start(_))
             })
-            .and_then(|id| self.mount(tree, generation, id, live));
+            .and_then(|id| self.mount(tree, generation, id, live))
+            .map(|(_, widget)| widget);
+            let lead = start
+                .clone()
+                .filter(|widget| widget.first_child().is_some());
             if let Some(row) = widget.downcast_ref::<ExpanderRow>() {
-                if let Some((_, end)) = slot.filter(|(_, end)| end.first_child().is_some()) {
-                    row.set_end(&end);
-                } else {
-                    row.clear_end();
+                match end {
+                    Some(end) => row.set_end(&end),
+                    None => row.clear_end(),
+                }
+                match lead {
+                    Some(lead) => row.set_start(&lead),
+                    None => row.clear_start(),
                 }
             } else if let Some(row) = widget.downcast_ref::<SliderRow>() {
-                let start = slot
-                    .as_ref()
-                    .map(|(_, widget)| widget)
-                    .unwrap_or(inner.upcast_ref());
-                row.set_start(start);
+                let start = start.unwrap_or_else(|| inner.clone().upcast());
+                row.set_start(&start);
                 if let Some(parent) = start.parent() {
                     parent.set_visible(start.first_child().is_some());
                 }
             } else if matches!(&node.element, Element::ActionRow(_) | Element::MeterRow(_))
                 && let Some(row) = widget.downcast_ref::<UiRow>()
             {
-                if node.children.is_empty() {
-                    row.clear_end();
-                } else {
-                    row.set_end(&inner);
+                match inner.first_child() {
+                    Some(_) => row.set_end(&inner),
+                    None => row.clear_end(),
+                }
+                match lead {
+                    Some(lead) => row.set_start(&lead),
+                    None => row.clear_start(),
                 }
             }
         }

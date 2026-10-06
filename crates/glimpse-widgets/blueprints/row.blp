@@ -25,6 +25,13 @@ template $Row: Gtk.Widget {
       ]
     }
 
+    Gtk.Box start {
+      visible: false;
+      valign: center;
+      halign: center;
+      accessible-role: presentation;
+    }
+
     Gtk.Box text {
       orientation: vertical;
       valign: center;

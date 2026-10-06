@@ -16,12 +16,8 @@ pub(super) fn check() {
     ]);
     clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 12, 0, 0.0).expect("instant"));
 
-    let clock_rows: Vec<LegacyRow> = children_of(&clock);
-    let time_of = |row: &LegacyRow| {
-        child_named::<gtk4::Label>(row, "world-clock__time")
-            .text()
-            .to_string()
-    };
+    let clock_rows: Vec<Row> = children_of(&clock);
+    let time_of = |row: &Row| row.value().unwrap_or_default();
     assert_eq!(clock_rows.len(), 4);
     assert_eq!(time_of(&clock_rows[0]), "14:00");
     assert_eq!(time_of(&clock_rows[1]), "00:00");
@@ -40,11 +36,7 @@ pub(super) fn check() {
     assert_eq!(clock_rows[2].subtitle(), None);
     assert_eq!(clock_rows[3].subtitle(), None);
 
-    let phase_of = |row: &LegacyRow| {
-        child_named::<gtk4::Image>(row, "world-clock__phase")
-            .icon_name()
-            .map(|name| name.to_string())
-    };
+    let phase_of = |row: &Row| row.icon_name();
     assert_eq!(
         phase_of(&clock_rows[0]),
         Some("weather-clear-symbolic".to_owned()),
@@ -95,7 +87,7 @@ pub(super) fn check() {
              just does not light up, since the tooltip is all the click would have given"
     );
     assert!(
-        !clock_rows[0].can_focus(),
+        !clock_rows[0].is_focusable(),
         "and it is not a tab stop, because there is nothing to activate once you reach it"
     );
 

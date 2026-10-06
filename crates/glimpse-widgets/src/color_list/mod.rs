@@ -93,7 +93,7 @@ impl ColorList {
         let swatch = Swatch::default();
         swatch.set_valign(gtk4::Align::Center);
         swatch.set_color(Some(&shade.color));
-        row.set_end(&swatch);
+        row.set_start(&swatch);
         let details = row.details();
         if details.first_child().is_some() {
             clear_children(&details);

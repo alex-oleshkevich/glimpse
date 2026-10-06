@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 18:33+0200\n"
+"POT-Creation-Date: 2026-10-06 19:33+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -899,12 +899,12 @@ msgstr "Сегодня"
 
 #: crates/glimpse-panel/src/applets/clock/popover.rs:31
 #: crates/glimpse-panel/src/applets/weather/render.rs:137
-#: crates/glimpse-widgets/src/world_clock/mod.rs:151
+#: crates/glimpse-widgets/src/world_clock/mod.rs:147
 msgid "Tomorrow"
 msgstr "Завтра"
 
 #: crates/glimpse-panel/src/applets/clock/popover.rs:32
-#: crates/glimpse-widgets/src/world_clock/mod.rs:152
+#: crates/glimpse-widgets/src/world_clock/mod.rs:148
 msgid "Yesterday"
 msgstr "Вчера"
 
@@ -1016,12 +1016,12 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1425
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1437
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:449
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1430
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1442
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:454
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
@@ -2632,7 +2632,7 @@ msgstr "Вперёд"
 msgid "Some events on this day aren't shown."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:48
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:49
 msgid "World clock"
 msgstr "Мировые часы"
 
@@ -2744,13 +2744,13 @@ msgstr ""
 msgid "Connect to a hidden network…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:43
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:41
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:132
 msgid "Details"
 msgstr "Подробности"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:50
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:48
 msgid "Coming up"
 msgstr "Далее"
 

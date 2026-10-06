@@ -15,8 +15,18 @@ fn new_row_parent_table_and_legacy_row() {
         ),
         wire(2, "expanderrow", json!({}), vec![leaf(3, "section")]),
         wire(2, "togglerow", json!({}), vec![leaf(3, "image")]),
-        wire(2, "actionrow", json!({}), vec![leaf(3, "start")]),
-        wire(2, "expanderrow", json!({}), vec![leaf(3, "start")]),
+        wire(
+            2,
+            "expanderrow",
+            json!({}),
+            vec![leaf(3, "start"), leaf(4, "start")],
+        ),
+        wire(
+            2,
+            "expanderrow",
+            json!({}),
+            vec![wire(3, "start", json!({}), vec![leaf(4, "section")])],
+        ),
         wire(
             2,
             "sliderrow",
@@ -62,6 +72,24 @@ fn new_row_parent_table_and_legacy_row() {
         &tree.node(4).expect("button").element,
         Element::Button(_)
     ));
+    for row in ["actionrow", "expanderrow"] {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(
+                1,
+                wire(
+                    2,
+                    row,
+                    json!({}),
+                    vec![wire(3, "start", json!({}), vec![leaf(4, "dots")])],
+                ),
+                None,
+            )])
+            .expect("a row leads with dots");
+        assert!(matches!(
+            &tree.node(4).expect("dots").element,
+            Element::Dots(_)
+        ));
+    }
     let tree = hosted(&Tree::default())
         .apply(vec![insert(
             1,

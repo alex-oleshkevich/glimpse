@@ -257,10 +257,11 @@ and in it the first `hero` and the first `footer`.
 | `stack` | body elements except `section` |
 | `hero` | at most 4 of `readout`, `switch`, `label`, `button`, drawn at its end |
 | `row` | at most 4 of `image`, `label`, `button`, `switch`, drawn at its end |
-| `actionrow`, `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
-| `expanderrow` | at most one `end`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
+| `actionrow` | at most one of `image`, `readout`, `spinner`, drawn at its end, and at most one `start` |
+| `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
+| `expanderrow` | at most one `end` and one `start`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
 | `end` | at most one of `image`, `readout`, `spinner` |
-| `start` | at most one of `image`, `button`, `readout`, `spinner` |
+| `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
 | `box` | body elements |
@@ -441,7 +442,8 @@ Use `subtitle` to explain why a row is inactive. Backend `set` updates still ren
 
 ### `actionrow`
 
-A body element. At most one end child: `image`, `readout` or `spinner`.
+A body element. At most one end child: `image`, `readout` or `spinner`, and at most one
+`start`.
 `onActivate` sends `[]` when the row is activated; inactive rows emit nothing.
 
 | Prop | Type | Notes |
@@ -498,7 +500,7 @@ Its level is a fraction from `0` to `1`. No events.
 ### `expanderrow`
 
 A body element. Its head may contain one `end` element with at most one
-`image`, `readout` or `spinner` child. Its other children fill the drawer as
+`image`, `readout` or `spinner` child, and one `start` element. Its other children fill the drawer as
 listed in the parent table. `onToggle` sends `[open]` with a `seq` in every state.
 Expansion is inspection, so the head stays activatable when inactive. Every drawer participates
 in the accordion. `inactive` never propagates to drawer children.
@@ -526,8 +528,10 @@ Only under `expanderrow`. It takes no props and holds at most one `image`,
 
 ### `start`
 
-Only under `sliderrow`. It takes no props and holds at most one `image`, `button`,
-`readout` or `spinner`, drawn left of the scale. Empty slots are hidden. No events.
+Under `sliderrow`, `actionrow` or `expanderrow`. It takes no props and holds at most one
+`image`, `button`, `readout`, `spinner` or `dots`. Under `sliderrow` it is drawn left of the
+scale; under a row it takes the icon's place, centred, and hides `icon`. Empty slots are hidden.
+No events.
 
 ### `sliderrow`
 

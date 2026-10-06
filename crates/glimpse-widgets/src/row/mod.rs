@@ -23,6 +23,14 @@ impl Row {
         glib::Object::new()
     }
 
+    pub fn set_start(&self, widget: &impl IsA<gtk4::Widget>) {
+        self.imp().set_start(widget);
+    }
+
+    pub fn clear_start(&self) {
+        self.imp().clear_start();
+    }
+
     pub fn set_end(&self, widget: &impl IsA<gtk4::Widget>) {
         self.imp().set_end(widget);
     }

@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{EventList, FactList, Hero, LegacyRow, PopoverShell, Readout, Section};
+use crate::{ActionRow, EventList, FactList, Hero, PopoverShell, Readout, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/next_event_popover.ui")]
@@ -17,9 +17,9 @@ pub struct NextEventPopover {
     #[template_child]
     pub countdown: TemplateChild<Readout>,
     #[template_child]
-    pub join: TemplateChild<LegacyRow>,
+    pub join: TemplateChild<ActionRow>,
     #[template_child]
-    pub open_event: TemplateChild<LegacyRow>,
+    pub open_event: TemplateChild<ActionRow>,
     #[template_child]
     pub details: TemplateChild<Section>,
     #[template_child]
@@ -29,7 +29,7 @@ pub struct NextEventPopover {
     #[template_child]
     pub later: TemplateChild<EventList>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
     pub join_url: RefCell<Option<String>>,
     pub open_event_url: RefCell<Option<String>>,
 }
@@ -71,12 +71,12 @@ impl ObjectImpl for NextEventPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
         ));
-        self.join.connect_clicked(glib::clone!(
+        self.join.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| {
@@ -86,7 +86,7 @@ impl ObjectImpl for NextEventPopover {
                 popover.emit_by_name::<()>("join-activated", &[&url]);
             }
         ));
-        self.open_event.connect_clicked(glib::clone!(
+        self.open_event.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| {

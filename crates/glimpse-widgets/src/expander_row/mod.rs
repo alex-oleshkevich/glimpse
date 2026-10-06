@@ -36,6 +36,14 @@ impl ExpanderRow {
         self.imp().head.upcast_ref::<crate::Row>().set_end(widget);
     }
 
+    pub fn set_start(&self, widget: &impl IsA<gtk4::Widget>) {
+        self.imp().head.upcast_ref::<crate::Row>().set_start(widget);
+    }
+
+    pub fn clear_start(&self) {
+        self.imp().head.upcast_ref::<crate::Row>().clear_start();
+    }
+
     pub fn clear_end(&self) {
         self.imp().head.upcast_ref::<crate::Row>().clear_end();
     }

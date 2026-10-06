@@ -1,12 +1,13 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
 
-use super::{ClockRow, Zone};
+use super::Zone;
+use crate::Row;
 
 #[derive(Debug, Default)]
 pub struct WorldClock {
     pub zones: RefCell<Vec<Zone>>,
-    pub rows: RefCell<Vec<ClockRow>>,
+    pub rows: RefCell<Vec<Row>>,
     pub now: RefCell<Option<glib::DateTime>>,
     pub twelve_hour: Cell<bool>,
 }

@@ -1,12 +1,9 @@
 mod imp;
-mod row;
-
-pub use row::ClockRow;
 
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::LegacyRow;
+use crate::{Row, RowTypography};
 
 const UNKNOWN: &str = "—";
 const TWENTY_FOUR_HOUR: &str = "%R";
@@ -86,27 +83,30 @@ impl WorldClock {
         let mut rows = imp.rows.borrow_mut();
         for (index, zone) in zones.iter().enumerate() {
             if rows.len() == index {
-                let row = ClockRow::new();
+                let row = Row::new();
+                row.set_typography(RowTypography::Numeric);
                 row.insert_after(self, rows.last());
                 rows.push(row);
             }
             let row = &rows[index];
-            let item: &LegacyRow = row.upcast_ref();
             let there = glib::TimeZone::from_identifier(Some(&zone.timezone))
                 .and_then(|timezone| now.to_timezone(&timezone).ok());
 
-            item.set_title(Some(zone.label.as_str()));
-            row.set_time(Some(match &there {
-                Some(there) => there
-                    .format(format)
-                    .map(|time| time.trim().to_owned())
-                    .unwrap_or_else(|_| UNKNOWN.to_owned()),
-                None => UNKNOWN.to_owned(),
-            }));
+            row.set_title(Some(zone.label.as_str()));
+            row.set_value(Some(
+                match &there {
+                    Some(there) => there
+                        .format(format)
+                        .map(|time| time.trim().to_owned())
+                        .unwrap_or_else(|_| UNKNOWN.to_owned()),
+                    None => UNKNOWN.to_owned(),
+                }
+                .as_str(),
+            ));
             let day = there.as_ref().and_then(|there| day_note(&now, there));
-            item.set_subtitle(subtitle(day.as_deref(), &zone.note).as_deref());
-            row.set_phase_icon(phase(there.as_ref(), &zone.icon_name));
-            set_tooltip(item, &zone.timezone, there.as_ref());
+            row.set_subtitle(subtitle(day.as_deref(), &zone.note).as_deref());
+            row.set_icon_name(phase(there.as_ref(), &zone.icon_name));
+            row.set_tooltip(Some(tooltip(&zone.timezone, there.as_ref()).as_str()));
         }
 
         for row in rows.split_off(zones.len()) {
@@ -124,16 +124,12 @@ fn phase<'a>(there: Option<&glib::DateTime>, icon_name: &'a str) -> Option<&'a s
     }
 }
 
-fn set_tooltip(row: &LegacyRow, timezone: &str, there: Option<&glib::DateTime>) {
+fn tooltip(timezone: &str, there: Option<&glib::DateTime>) -> String {
     let identifier = crate::truncate(timezone, crate::TEXT_MAX_CHARS);
-    let tooltip = match there.and_then(|there| there.format(OFFSET).ok()) {
+    match there.and_then(|there| there.format(OFFSET).ok()) {
         Some(offset) => format!("{identifier} · {offset}"),
         None => identifier,
-    };
-    if row.tooltip_text().as_deref() == Some(tooltip.as_str()) {
-        return;
     }
-    row.set_tooltip_text(Some(&tooltip));
 }
 
 fn subtitle(day: Option<&str>, note: &str) -> Option<String> {

@@ -40,6 +40,8 @@ pub struct Row {
     #[template_child]
     pub icon: TemplateChild<gtk4::Image>,
     #[template_child]
+    pub start: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub title: TemplateChild<gtk4::Label>,
     #[template_child]
     pub subtitle: TemplateChild<gtk4::Label>,
@@ -136,6 +138,22 @@ impl Row {
         self.chevron.get()
     }
 
+    pub(crate) fn set_start(&self, widget: &impl IsA<gtk4::Widget>) {
+        fill_slot(&self.start, widget);
+        self.sync_lead();
+    }
+
+    pub(crate) fn clear_start(&self) {
+        crate::clear_children(&self.start);
+        self.sync_lead();
+    }
+
+    fn sync_lead(&self) {
+        let occupied = self.start.first_child().is_some();
+        reveal(&*self.start, occupied);
+        reveal(&*self.icon, !occupied && self.icon.icon_name().is_some());
+    }
+
     pub(crate) fn set_end(&self, widget: &impl IsA<gtk4::Widget>) {
         fill_slot(&self.end, widget);
         self.sync_slots();
@@ -164,7 +182,7 @@ impl Row {
             return;
         }
         self.icon.set_icon_name(icon.as_deref());
-        reveal(&*self.icon, icon.is_some());
+        self.sync_lead();
         self.obj().notify_icon_name();
     }
 

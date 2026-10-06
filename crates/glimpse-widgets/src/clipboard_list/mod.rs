@@ -158,10 +158,10 @@ impl ClipboardList {
                     let swatch = Swatch::default();
                     swatch.set_valign(gtk4::Align::Center);
                     swatch.set_color(Some(color));
-                    row.set_end(&swatch);
+                    row.set_start(&swatch);
                 }
                 None => {
-                    row.clear_end();
+                    row.clear_start();
                     row.set_icon_name(none_if_empty(&clip.icon));
                 }
             }
