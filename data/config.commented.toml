@@ -320,6 +320,7 @@
 # [applets.printing]
 # extends = "printing"
 # jobs = 8
+# show = "always"
 
 # [applets.bluetooth]
 # extends = "bluetooth"

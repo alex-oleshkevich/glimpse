@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use gettextrs::gettext;
-use glimpse_config::{Applet as AppletConfig, AppletKind};
+use glimpse_config::{Applet as AppletConfig, AppletKind, PrintingShow};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{PrintingError, PrintingHandle, PrintingState};
 
@@ -12,7 +12,7 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure};
 
 use super::render;
@@ -24,6 +24,8 @@ pub struct Printing {
     tooltip_format: Option<String>,
     spec: Vec<IndicatorSpec>,
     jobs: usize,
+    show: PrintingShow,
+    footer: Option<(String, Vec<String>)>,
     pending: Rc<RefCell<HashSet<u32>>>,
     shown: glib::WeakRef<PrintingPopover>,
 }
@@ -38,7 +40,12 @@ impl Applet for Printing {
             return;
         };
         self.jobs = cfg.jobs;
+        self.show = cfg.show;
         self.tooltip_format = config.common.tooltip_format.clone();
+        self.footer = config
+            .common
+            .settings()
+            .map(|(label, command)| (label.to_owned(), command.to_vec()));
         self.refresh();
     }
 
@@ -144,6 +151,11 @@ impl Applet for Printing {
             }
         });
 
+        if let Some((_, command)) = &self.footer {
+            let command = command.clone();
+            shown.connect_footer_activated(move |_| run(&command));
+        }
+
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
@@ -210,6 +222,8 @@ impl Printing {
             tooltip_format: None,
             spec: Vec::new(),
             jobs: 8,
+            show: PrintingShow::default(),
+            footer: None,
             pending: Rc::new(RefCell::new(HashSet::new())),
             shown: glib::WeakRef::new(),
         }
@@ -223,6 +237,7 @@ impl Printing {
     }
 
     fn dress(&self, shown: &PrintingPopover) {
+        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         let pending = self.pending.borrow();
         shown.set_jobs(&render::jobs(&self.state, self.jobs, &pending));
         shown.set_printers(&render::printers(&self.state));
@@ -231,7 +246,7 @@ impl Printing {
     fn indicator(&self) -> Option<IndicatorSpec> {
         let attention = render::attention(&self.state);
         Some(IndicatorSpec {
-            icon: Some(themed(render::chip(&self.state)?)),
+            icon: Some(themed(render::chip(&self.state, self.show)?)),
             attention,
             severity: attention.then_some(Severity::Warning),
             tooltip: render::tooltip(&self.state, self.tooltip_format.as_deref(), self.jobs),

@@ -3780,27 +3780,28 @@ mod fixtures {
                     ]);
                     popover.set_printers(&[
                         PrintingPrinter {
+                            id: "brother".into(),
+                            name: "Brother DCP-L2530".into(),
+                            problem: String::new(),
+                            network: false,
+                            facts: Vec::new(),
+                        },
+                        PrintingPrinter {
                             id: "laserjet".into(),
                             name: "HP LaserJet 400".into(),
-                            status: "Paper jam in tray 2".into(),
-                            warning: true,
-                            network: false,
+                            problem: String::new(),
+                            network: true,
                             facts: vec![
-                                Fact::new("Location", "Study"),
-                                Fact::new("Paper loaded", "A4, Letter"),
+                                Fact::new("Model", "HP LaserJet Pro 400 M401dn"),
+                                Fact::new("Location", "Office, 2nd floor"),
                             ],
                         },
                         PrintingPrinter {
                             id: "kitchen".into(),
                             name: "Kitchen".into(),
-                            status: "IPP Everywhere · idle".into(),
-                            warning: false,
-                            network: true,
-                            facts: vec![
-                                Fact::new("Location", "Kitchen"),
-                                Fact::new("Prints", "Black & white, single-sided"),
-                                Fact::new("Resolution", "600 dpi"),
-                            ],
+                            problem: "Out of paper".into(),
+                            network: false,
+                            facts: vec![Fact::new("Location", "Ground floor, by the fridge")],
                         },
                     ]);
                 }

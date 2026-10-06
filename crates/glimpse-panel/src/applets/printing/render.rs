@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use gettextrs::{gettext, ngettext};
+use glimpse_config::PrintingShow;
 use glimpse_services::{
     JobState, PrintJob, Printer as ServicePrinter, PrinterState, PrintingState,
 };
@@ -15,10 +16,7 @@ pub fn cap(text: &str) -> String {
     glimpse_utils::clean(text, NAME_CAP)
 }
 
-/// An indicator is an icon and takes no colour of its own: `attention` is what asks the bar to
-/// mark it, so the icon itself stays the same neutral glyph whether or not something needs
-/// looking at.
-pub fn chip(state: &PrintingState) -> Option<&'static str> {
+pub fn chip(state: &PrintingState, show: PrintingShow) -> Option<&'static str> {
     if attention(state) {
         return Some(IDLE);
     }
@@ -32,7 +30,10 @@ pub fn chip(state: &PrintingState) -> Option<&'static str> {
     if state.jobs.iter().any(|job| job.state.is_active()) {
         return Some(IDLE);
     }
-    None
+    match show {
+        PrintingShow::Always if !state.printers.is_empty() => Some(IDLE),
+        _ => None,
+    }
 }
 
 pub fn attention(state: &PrintingState) -> bool {
@@ -44,10 +45,6 @@ pub fn attention(state: &PrintingState) -> bool {
     })
 }
 
-/// Counts exactly the jobs `jobs(state, cap)` hands the popover, so the chip's tooltip and the
-/// popover's own hero subtitle can never disagree about how many jobs there are — the widget has
-/// no overflow affordance to build a "true total" on top of, so the truncated count is the only
-/// number both surfaces can honestly agree on.
 pub fn tooltip(state: &PrintingState, format: Option<&str>, cap_count: usize) -> Option<String> {
     if !state.jobs.iter().any(|job| job.state.is_active()) {
         return None;
@@ -71,9 +68,6 @@ fn status_summary(shown: usize) -> String {
         .replace("{count}", &shown.to_string())
 }
 
-/// `pending` names the job ids a cancel/pause/resume command is already in flight for: their row
-/// is shown busy and its buttons disabled, so a second click before the next poll cannot fire a
-/// second command against a job that may already be gone.
 pub fn jobs(state: &PrintingState, cap_count: usize, pending: &HashSet<u32>) -> Vec<PrintingJob> {
     state
         .jobs
@@ -122,51 +116,78 @@ pub fn printers(state: &PrintingState) -> Vec<PrintingPrinter> {
 }
 
 fn printer(printer: &ServicePrinter) -> PrintingPrinter {
+    let problem = problem(printer);
     PrintingPrinter {
         id: cap(&printer.name),
         name: cap(&printer.name),
-        status: printer_status(printer),
-        warning: troubled(printer),
-        network: false,
-        facts: printer_facts(printer),
+        facts: printer_facts(printer, problem.is_some()),
+        problem: problem.unwrap_or_default(),
+        network: is_network(&printer.device_uri),
     }
 }
 
-/// A printer's card holds only where it is: the specs a queue reports — colour, sides, paper,
-/// resolution — are nothing a person acts on from a panel, and its status leads the card as a
-/// static line. A printer with neither has no card at all.
-fn printer_facts(printer: &ServicePrinter) -> Vec<Fact> {
-    match printer.location.is_empty() {
-        true => Vec::new(),
-        false => vec![Fact::new(gettext("Location"), printer.location.clone())],
-    }
+fn printer_facts(printer: &ServicePrinter, troubled: bool) -> Vec<Fact> {
+    let model = cap(&printer.make_model);
+    let location = cap(&printer.location);
+    let busy = !troubled && printer.state != PrinterState::Idle;
+    [
+        (gettext("Model"), model),
+        (gettext("Location"), location),
+        (
+            gettext("Status"),
+            if busy {
+                gettext("Printing")
+            } else {
+                String::new()
+            },
+        ),
+    ]
+    .into_iter()
+    .filter(|(_, value)| !value.is_empty())
+    .map(|(label, value)| Fact::new(label, value))
+    .collect()
 }
 
-fn troubled(printer: &ServicePrinter) -> bool {
-    printer.state == PrinterState::Stopped
-        || !printer.accepting_jobs
-        || !printer.state_message.is_empty()
-}
-
-/// The row's second line: the printer's own message when it reports one, since that is the
-/// problem a person opened the popover about, then a refusal to take jobs, then its state.
-fn printer_status(printer: &ServicePrinter) -> String {
+fn problem(printer: &ServicePrinter) -> Option<String> {
     if !printer.state_message.is_empty() {
-        return cap(&printer.state_message);
+        return Some(cap(&printer.state_message));
     }
     if !printer.accepting_jobs {
-        return gettext("Not accepting jobs");
+        return Some(gettext("Not accepting jobs"));
     }
     match printer.state {
-        PrinterState::Idle => gettext("Idle"),
-        PrinterState::Processing => gettext("Printing"),
-        PrinterState::Stopped => printer
-            .state_reasons
-            .first()
-            .map(|reason| cap(reason))
-            .filter(|reason| !reason.is_empty())
-            .unwrap_or_else(|| gettext("Stopped")),
+        PrinterState::Stopped => Some(
+            printer
+                .state_reasons
+                .first()
+                .map(|reason| cap(reason))
+                .filter(|reason| !reason.is_empty())
+                .unwrap_or_else(|| gettext("Stopped")),
+        ),
+        PrinterState::Idle | PrinterState::Processing => None,
     }
+}
+
+fn is_network(device_uri: &str) -> bool {
+    let Some((scheme, rest)) = device_uri.split_once(':') else {
+        return false;
+    };
+    if scheme.eq_ignore_ascii_case("hp") {
+        return rest.starts_with("/net/");
+    }
+    [
+        "ipp",
+        "ipps",
+        "http",
+        "https",
+        "socket",
+        "lpd",
+        "dnssd",
+        "implicitclass",
+        "smb",
+    ]
+    .iter()
+    .any(|network| scheme.eq_ignore_ascii_case(network))
 }
 
 #[cfg(test)]
