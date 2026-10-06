@@ -1087,11 +1087,6 @@ expandable > revealer .fader {
     opacity: var(--gl-disabled);
 }
 
-.weather-popover__alerts,
-.weather-popover__alerts > expandable + expandable {
-    margin-top: 0.35rem;
-}
-
 .workspace-row--urgent .row__title {
     color: var(--gl-warning-text);
 }
@@ -1476,12 +1471,6 @@ window.notification-popup {
 
 .forecast__temperature {
     font-size: var(--gl-text-body);
-    font-variant-numeric: tabular-nums;
-}
-
-.forecast__precipitation {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
     font-variant-numeric: tabular-nums;
 }
 

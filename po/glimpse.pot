@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 16:40+0200\n"
+"POT-Creation-Date: 2026-10-06 18:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -367,7 +367,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:373
+#: crates/glimpse-widgets/src/lib.rs:384
 msgid "{percent}%"
 msgstr ""
 
@@ -2171,18 +2171,6 @@ msgstr ""
 msgid "Day length"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:378
-msgid "Issued"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/weather/render.rs:381
-msgid "Expires"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/weather/render.rs:384
-msgid "Source"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
 #: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
 msgid "Workspaces"
@@ -2580,7 +2568,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:325
+#: crates/glimpse-widgets/src/lib.rs:336
 msgid "Play"
 msgstr ""
 
@@ -3379,7 +3367,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:324
+#: crates/glimpse-widgets/src/lib.rs:335
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:134
 msgid "Pause"
 msgstr ""

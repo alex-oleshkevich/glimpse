@@ -1,8 +1,8 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::RefCell;
 
-use super::{Day, ForecastHour, Hour};
-use crate::Expandable;
+use super::{Day, ForecastDay, ForecastHour, Hour};
+use crate::ExpanderRow;
 
 #[derive(Debug, Default)]
 pub struct ForecastStrip {
@@ -46,7 +46,7 @@ impl WidgetImpl for ForecastStrip {}
 #[derive(Debug, Default)]
 pub struct ForecastList {
     pub days: RefCell<Vec<Day>>,
-    pub holders: RefCell<Vec<Expandable>>,
+    pub holders: RefCell<Vec<(ExpanderRow, ForecastDay)>>,
     pub unit: RefCell<String>,
 }
 
@@ -74,8 +74,8 @@ impl ObjectImpl for ForecastList {
     }
 
     fn dispose(&self) {
-        for holder in self.holders.borrow_mut().drain(..) {
-            holder.unparent();
+        for (row, _) in self.holders.borrow_mut().drain(..) {
+            row.unparent();
         }
     }
 }

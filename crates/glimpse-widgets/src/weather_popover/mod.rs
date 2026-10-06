@@ -2,7 +2,10 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Day, Expandable, Fact, FactList, Hour, Notice, Section, Severity};
+use crate::{
+    Day, ExpanderRow, Fact, FactList, Hour, Notice, RowTone, Section, Severity, replace_children,
+    set_action_label,
+};
 
 const DESCRIPTION: &str = "detail-card__description";
 
@@ -94,13 +97,13 @@ impl WeatherPopover {
         let before = holders.len();
         for (index, advisory) in alerts.iter().enumerate() {
             if holders.len() == index {
-                let holder = Expandable::new(&Notice::new());
-                imp.alerts.append(&holder);
-                holders.push(holder);
+                let row = ExpanderRow::new();
+                row.set_tint(true);
+                row.set_title_lines(2);
+                imp.alerts.append(&row);
+                holders.push(row);
             }
-            if let Some(notice) = holders[index].head::<Notice>() {
-                dress(&notice, advisory);
-            }
+            alert(&holders[index], advisory);
         }
         for holder in holders.split_off(alerts.len()) {
             imp.alerts.remove(&holder);
@@ -138,16 +141,18 @@ impl WeatherPopover {
     fn fill_alerts(&self) {
         let imp = self.imp();
         let pages = imp.built.borrow();
-        for (index, holder) in imp.notices.borrow().iter().enumerate() {
+        for (index, row) in imp.notices.borrow().iter().enumerate() {
             let page = pages
                 .iter()
                 .find(|page| matches!(locate(&page.key), Some(Slot::Alert(at)) if at == index));
-            holder.set_details(page.map(build).as_ref());
+            let page = page.filter(|page| page.description.is_some() || !page.facts.is_empty());
+            row.set_openable(page.is_some());
+            replace_children(&row.details(), page.map(build).as_ref());
         }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
@@ -171,6 +176,16 @@ fn dress(notice: &Notice, advisory: &Advisory) {
     notice.set_visible(true);
 }
 
+fn alert(row: &ExpanderRow, advisory: &Advisory) {
+    row.set_icon_name(Some(advisory.icon_name.as_str()));
+    row.set_title(Some(advisory.title.as_str()));
+    row.set_tone(match advisory.severity {
+        Severity::Info => RowTone::Normal,
+        Severity::Warning => RowTone::Warning,
+        Severity::Error => RowTone::Error,
+    });
+}
+
 fn show(section: &Section, rule: &gtk4::Separator, visible: bool) {
     section.set_visible(visible);
     rule.set_visible(visible);
@@ -188,9 +203,11 @@ fn build(page: &Page) -> gtk4::Widget {
         card.append(&label);
     }
 
-    let facts = FactList::new();
-    facts.set_facts(&page.facts);
-    card.append(&facts);
+    if !page.facts.is_empty() {
+        let facts = FactList::new();
+        facts.set_facts(&page.facts);
+        card.append(&facts);
+    }
     card.upcast()
 }
 

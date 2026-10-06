@@ -236,6 +236,17 @@ use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
 
 pub(crate) const TEXT_MAX_CHARS: usize = 128;
 
+pub(crate) fn replace_children(container: &gtk4::Box, child: Option<&gtk4::Widget>) {
+    use gtk4::prelude::*;
+
+    if let Some(child) = child {
+        container.append(child);
+    }
+    while let Some(old) = container.first_child().filter(|old| Some(old) != child) {
+        container.remove(&old);
+    }
+}
+
 pub(crate) fn clear_children(container: &gtk4::Box) {
     use gtk4::prelude::*;
 

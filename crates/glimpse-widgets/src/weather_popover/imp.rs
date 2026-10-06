@@ -7,7 +7,7 @@ use gtk4::{
 
 use super::Page;
 use crate::{
-    Expandable, ForecastList, ForecastStrip, Hero, LegacyRow, Notice, PopoverShell, Readout,
+    ActionRow, ExpanderRow, ForecastList, ForecastStrip, Hero, Notice, PopoverShell, Readout,
     Section,
 };
 
@@ -37,9 +37,9 @@ pub struct WeatherPopover {
     #[template_child]
     pub alerts: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
-    pub notices: RefCell<Vec<Expandable>>,
+    pub notices: RefCell<Vec<ExpanderRow>>,
     pub built: RefCell<Vec<Page>>,
 }
 
@@ -69,7 +69,7 @@ impl ObjectImpl for WeatherPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
