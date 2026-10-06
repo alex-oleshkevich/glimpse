@@ -4,14 +4,14 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
-use crate::{Fader, LegacyRow};
+use crate::{Row, SliderRow};
 
 use super::{CHANGED, Source};
 
 #[derive(Debug, Default)]
 pub struct SourceList {
     pub sources: RefCell<Vec<Source>>,
-    pub rows: RefCell<Vec<(LegacyRow, Fader)>>,
+    pub rows: RefCell<Vec<(Row, SliderRow)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
 }
@@ -50,9 +50,9 @@ impl ObjectImpl for SourceList {
     }
 
     fn dispose(&self) {
-        for (row, fader) in self.rows.borrow_mut().drain(..) {
+        for (row, slider) in self.rows.borrow_mut().drain(..) {
             row.unparent();
-            fader.unparent();
+            slider.unparent();
         }
     }
 }

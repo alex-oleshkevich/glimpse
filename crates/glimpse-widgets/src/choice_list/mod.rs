@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty};
+use crate::{Row, RowTone, ToggleControl, ToggleRow, none_if_empty};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Choice {
@@ -71,11 +71,15 @@ impl ChoiceList {
                 row.insert_after(self, rows.last());
                 rows.push(row);
             }
-            let row = &rows[index];
+            let row = rows[index].upcast_ref::<Row>();
             row.set_title(none_if_empty(&choice.label));
+            row.set_icon_name(none_if_empty(&choice.icon_name));
             row.set_subtitle(none_if_empty(&choice.detail));
-            row.set_lead_icon(none_if_empty(&choice.icon_name));
-            crate::set_css_class(row, "row--warning", choice.warning);
+            row.set_tone(if choice.warning {
+                RowTone::Warning
+            } else {
+                RowTone::Normal
+            });
         }
 
         for row in rows.split_off(choices.len()) {
@@ -87,25 +91,45 @@ impl ChoiceList {
         self.sync_selection();
     }
 
-    fn build_row(&self, index: u32) -> LegacyRow {
-        let row = LegacyRow::new();
-        row.set_selectable(true);
-        row.connect_clicked(glib::clone!(
+    fn build_row(&self, index: u32) -> ToggleRow {
+        let row = ToggleRow::new();
+        row.set_control(ToggleControl::Check);
+        row.connect_toggled(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_| {
-                list.set_selected(Some(index));
-                list.emit_by_name::<()>("activated", &[&index]);
-            }
+            move |row, on| list.on_toggled(index, on, row)
         ));
         row
+    }
+
+    fn on_toggled(&self, index: u32, on: bool, row: &ToggleRow) {
+        let imp = self.imp();
+        if imp
+            .rows
+            .borrow()
+            .get(index as usize)
+            .is_none_or(|current| current != row)
+        {
+            return;
+        }
+        if !on {
+            if imp.selected.get() == Some(index) {
+                row.set_active(true);
+            }
+            return;
+        }
+        let changed = imp.selected.replace(Some(index)) != Some(index);
+        self.sync_selection();
+        if changed {
+            self.emit_by_name::<()>("activated", &[&index]);
+        }
     }
 
     fn sync_selection(&self) {
         let imp = self.imp();
         let selected = imp.selected.get();
         for (index, row) in imp.rows.borrow().iter().enumerate() {
-            row.set_selected(selected == Some(index as u32));
+            row.set_active(selected == Some(index as u32));
         }
     }
 }

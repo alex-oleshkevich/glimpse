@@ -25,6 +25,29 @@ impl SliderRow {
         start.set_visible(true);
     }
 
+    pub(crate) fn set_lead_icon(&self, name: &str) {
+        if self.lead_icon().as_deref() == Some(name) {
+            return;
+        }
+        let image = gtk4::Image::from_icon_name(name);
+        image.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        self.set_start(&image);
+    }
+
+    pub(crate) fn lead_icon(&self) -> Option<glib::GString> {
+        self.imp()
+            .start
+            .first_child()
+            .and_downcast::<gtk4::Image>()
+            .and_then(|image| image.icon_name())
+    }
+
+    pub(crate) fn set_range(&self, min: f64, max: f64) {
+        self.set_min(min);
+        self.set_max(max);
+        self.set_step((max / 100.0).max(1.0));
+    }
+
     pub fn connect_moved<F: Fn(&Self, f64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "moved",

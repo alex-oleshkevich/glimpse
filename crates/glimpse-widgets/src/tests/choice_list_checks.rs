@@ -1,3 +1,8 @@
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gtk4::prelude::*;
+
 use super::*;
 
 pub(super) fn check() {
@@ -11,50 +16,68 @@ pub(super) fn check() {
     outputs.set_choices(&[
         choice("WH-1000XM5", "Bluetooth"),
         choice("Built-in speakers", ""),
+        Choice {
+            icon_name: "power-profile-performance-symbolic".into(),
+            label: "Performance".into(),
+            detail: "Unavailable: laptop on lap".into(),
+            warning: true,
+        },
     ]);
-    let choice_rows = children_of::<LegacyRow>(&outputs);
-    assert_eq!(choice_rows.len(), 2);
-    assert_eq!(choice_rows[0].subtitle().as_deref(), Some("Bluetooth"));
-    assert_eq!(choice_rows[1].subtitle(), None);
+    let choice_rows = children_of::<ToggleRow>(&outputs);
+    assert_eq!(choice_rows.len(), 3);
     assert!(
-        choice_rows.iter().all(|row| row.selectable()),
-        "every row reserves the check, so choosing one does not shunt the labels sideways"
+        choice_rows
+            .iter()
+            .all(|row| row.control() == ToggleControl::Check)
     );
+    assert_eq!(
+        face(&choice_rows[0]).icon_name().as_deref(),
+        Some("audio-headphones-symbolic")
+    );
+    assert_eq!(
+        face(&choice_rows[0]).subtitle().as_deref(),
+        Some("Bluetooth")
+    );
+    assert_eq!(face(&choice_rows[0]).tone(), RowTone::Normal);
+    assert_eq!(face(&choice_rows[1]).subtitle(), None);
+    assert_eq!(
+        face(&choice_rows[2]).subtitle().as_deref(),
+        Some("Unavailable: laptop on lap")
+    );
+    assert_eq!(face(&choice_rows[2]).tone(), RowTone::Warning);
     assert!(
-        !choice_rows[0].selected() && !choice_rows[1].selected(),
-        "a list nobody has chosen from shows no check at all rather than defaulting to the \
-             first, which would claim something untrue about the backend"
+        !choice_rows[0].active() && !choice_rows[1].active() && !choice_rows[2].active(),
+        "a list nobody has chosen from shows no check"
     );
 
-    outputs.set_selected(Some(1));
-    assert!(!choice_rows[0].selected() && choice_rows[1].selected());
-
-    outputs.connect_activated(|list, index| {
-        assert_eq!(
-            list.selected(),
-            Some(index),
-            "the check has already moved by the time the handler runs; a list that waits for \
-                 the backend to confirm shows the old row as chosen for a whole round trip"
-        );
+    let seen = Rc::new(Cell::new(0u32));
+    outputs.connect_activated({
+        let seen = Rc::clone(&seen);
+        move |list, index| {
+            assert_eq!(list.selected(), Some(index));
+            seen.set(seen.get() + 1);
+        }
     });
-    choice_rows[0].emit_clicked();
+    outputs.set_selected(Some(1));
+    assert_eq!(seen.get(), 0);
+    assert!(!choice_rows[0].active() && choice_rows[1].active());
+
+    choice_rows[0].activate();
+    assert_eq!(seen.get(), 1);
     assert_eq!(outputs.selected(), Some(0));
-    assert!(choice_rows[0].selected() && !choice_rows[1].selected());
+    assert!(choice_rows[0].active() && !choice_rows[1].active());
+    choice_rows[0].activate();
+    assert_eq!(seen.get(), 1);
+    assert!(choice_rows[0].active() && !choice_rows[1].active() && !choice_rows[2].active());
 
     outputs.set_choices(&[choice("Built-in speakers", "")]);
-    assert_eq!(
-        outputs.selected(),
-        None,
-        "any change to the list drops the selection, because it is positional: index 0 \
-             named the headphones a moment ago and names the speakers now, so keeping it would \
-             quietly check the wrong device"
-    );
-    assert_eq!(children_of::<LegacyRow>(&outputs).len(), 1);
+    assert_eq!(outputs.selected(), None);
+    assert_eq!(children_of::<ToggleRow>(&outputs).len(), 1);
 
     outputs.set_selected(Some(7));
-    assert_eq!(
-        outputs.selected(),
-        None,
-        "and an index past the end is refused rather than stored to confuse the next render"
-    );
+    assert_eq!(outputs.selected(), None);
+}
+
+fn face(row: &ToggleRow) -> &Row {
+    row.upcast_ref()
 }

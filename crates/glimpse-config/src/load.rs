@@ -393,6 +393,7 @@ pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigErro
 
 pub fn unknown_applets(config: &Config) -> Vec<String> {
     let mut unknown = Vec::new();
+    let mut warned = std::collections::BTreeSet::new();
     for (index, panel) in config.panels.iter().enumerate() {
         for (zone, names) in [
             ("left", &panel.left),
@@ -400,7 +401,18 @@ pub fn unknown_applets(config: &Config) -> Vec<String> {
             ("right", &panel.right),
         ] {
             for name in names {
-                if config.applets.contains_key(name) || Applet::from_name(name).is_some() {
+                if config.applets.contains_key(name) {
+                    continue;
+                }
+                if warned.insert(name)
+                    && let Some(renamed) = crate::schema::renamed_to(name)
+                {
+                    tracing::warn!(
+                        applet = name,
+                        "panel zone entry `{name}` is deprecated; use `{renamed}`"
+                    );
+                }
+                if Applet::from_name(name).is_some() {
                     continue;
                 }
                 unknown.push(format!(

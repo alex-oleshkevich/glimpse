@@ -1,9 +1,16 @@
+use chrono::{DateTime, Duration, Local, TimeZone, Timelike, Utc};
 use gettextrs::gettext;
 use glimpse_config::BatteryIndicatorStyle;
+use glimpse_dbus::idle::{HealthKind, IdleProviderState};
 use glimpse_dbus::upower::{ChargeState, DeviceKind, Technology, WarningLevel};
-use glimpse_services::{BatteryState, BatterySupply, Charge, Profiles};
-use glimpse_widgets::{BatteryChargeLimit, BatteryDevice, Choice, Fact, IndicatorSpec, Severity};
+use glimpse_services::{BatteryHistoryPoint, BatteryState, BatterySupply, Charge, Profiles};
+use glimpse_widgets::{
+    Choice, Fact, IndicatorSpec, PowerChargeLimit, PowerDevice, PowerHistory, PowerHoldNotice,
+    Severity, Tick,
+};
 
+use crate::applets::idle::keep_awake::{awake_until, manual_holds};
+use crate::applets::idle::render::holds_idle_or_sleep;
 use crate::applets::tokens;
 
 const HEALTHY: u8 = 80;
@@ -14,8 +21,13 @@ pub fn chip(
     style: BatteryIndicatorStyle,
     format: &str,
     tooltip_format: Option<&str>,
-) -> Option<IndicatorSpec> {
-    let charge = state.display.as_ref()?;
+) -> IndicatorSpec {
+    let Some(charge) = state.display.as_ref() else {
+        return IndicatorSpec {
+            tooltip: Some(gettext("Power")),
+            ..Default::default()
+        };
+    };
     let label = match style {
         BatteryIndicatorStyle::IconOnly => None,
         BatteryIndicatorStyle::IconText | BatteryIndicatorStyle::Text => {
@@ -23,41 +35,28 @@ pub fn chip(
         }
     };
     let (severity, attention) = warning(charge.warning);
-    Some(IndicatorSpec {
+    IndicatorSpec {
         icon: None,
         label,
         tooltip: Some(tooltip(charge, tooltip_format)),
         severity,
         attention,
         ..Default::default()
-    })
+    }
 }
 
 pub fn shows_icon(style: BatteryIndicatorStyle) -> bool {
     !matches!(style, BatteryIndicatorStyle::Text)
 }
 
-pub struct Heading {
-    pub icon: String,
-    pub subtitle: Option<String>,
-    pub percentage: u8,
-    pub severity: Option<Severity>,
-}
-
-pub fn heading(state: &BatteryState, full_at: Option<&str>) -> Option<Heading> {
-    let charge = state.display.as_ref()?;
-    let held_at = state
-        .internals
-        .first()
-        .and_then(|supply| supply.charge_threshold)
-        .filter(|threshold| threshold.enabled)
-        .and_then(|threshold| threshold.end);
-    Some(Heading {
-        icon: charge.icon_name(),
-        subtitle: subtitle(charge, held_at, full_at),
-        percentage: charge.percentage,
-        severity: warning(charge.warning).0,
-    })
+pub fn header_icon(state: &BatteryState) -> String {
+    if let Some(charge) = &state.display {
+        return charge.icon_name();
+    }
+    match &state.profile {
+        Some(profile) => format!("power-profile-{}-symbolic", profile.active),
+        None => "ac-adapter-symbolic".to_owned(),
+    }
 }
 
 pub fn health(supply: &BatterySupply) -> Option<(String, bool)> {
@@ -88,13 +87,12 @@ pub fn profiles(profile: Option<&Profiles>) -> (Vec<Choice>, Option<u32>) {
     (choices, selected)
 }
 
-pub fn devices(state: &BatteryState) -> Vec<BatteryDevice> {
-    let mut rows: Vec<BatteryDevice> = state
+pub fn devices(state: &BatteryState) -> Vec<PowerDevice> {
+    let mut rows: Vec<PowerDevice> = state
         .devices
         .iter()
-        .map(|device| BatteryDevice {
-            name: device.name.clone(),
-            subtitle: device_state(&device.charge),
+        .map(|device| PowerDevice {
+            name: glimpse_utils::clean(&device.name, 80),
             icon_name: device
                 .icon_name
                 .clone()
@@ -104,13 +102,15 @@ pub fn devices(state: &BatteryState) -> Vec<BatteryDevice> {
         })
         .collect();
     rows.extend(state.internals.iter().skip(1).map(|supply| {
-        BatteryDevice {
-            name: supply
-                .model
-                .clone()
-                .or_else(|| supply.vendor.clone())
-                .unwrap_or_else(|| gettext("Battery")),
-            subtitle: device_state(&supply.charge),
+        PowerDevice {
+            name: glimpse_utils::clean(
+                &supply
+                    .model
+                    .clone()
+                    .or_else(|| supply.vendor.clone())
+                    .unwrap_or_else(|| gettext("Battery")),
+                80,
+            ),
             icon_name: if supply.charge.icon_name.is_empty() {
                 "battery-symbolic".to_owned()
             } else {
@@ -123,8 +123,21 @@ pub fn devices(state: &BatteryState) -> Vec<BatteryDevice> {
     rows
 }
 
-pub fn facts(supply: &BatterySupply) -> Vec<Fact> {
+pub fn battery_facts(supply: &BatterySupply, charge: &Charge) -> Vec<Fact> {
     let mut facts = Vec::new();
+    if let Some(rate) = charge.energy_rate_mw.filter(|rate| *rate > 0) {
+        facts.push(Fact::new(
+            gettext("Power draw"),
+            gettext("{watts} W").replace("{watts}", &tenths(rate)),
+        ));
+    }
+    if let Some((value, warning)) = health(supply) {
+        facts.push(Fact {
+            label: gettext("Health"),
+            value,
+            warning,
+        });
+    }
     if let (Some(now), Some(full)) = (supply.energy_mwh, supply.energy_full_mwh) {
         facts.push(Fact::new(
             gettext("Energy"),
@@ -140,31 +153,24 @@ pub fn facts(supply: &BatterySupply) -> Vec<Fact> {
     if let Some(cycles) = supply.cycles {
         facts.push(Fact::new(gettext("Cycles"), cycles.to_string()));
     }
-    if let Some(voltage) = supply.voltage_mv {
-        facts.push(Fact::new(
-            gettext("Voltage"),
-            format!("{} V", tenths(voltage)),
-        ));
-    }
     if let Some(technology) = technology_label(supply.technology) {
         facts.push(Fact::new(gettext("Technology"), technology));
     }
     if let Some(model) = &supply.model {
-        facts.push(Fact::new(gettext("Model"), model.clone()));
+        facts.push(Fact::new(gettext("Model"), glimpse_utils::clean(model, 80)));
     }
     if let Some(vendor) = &supply.vendor {
-        facts.push(Fact::new(gettext("Make"), vendor.clone()));
+        facts.push(Fact::new(gettext("Make"), glimpse_utils::clean(vendor, 80)));
     }
     facts
 }
 
-pub fn charge_limit(supply: &BatterySupply) -> Option<BatteryChargeLimit> {
+pub fn charge_limit(supply: &BatterySupply) -> Option<PowerChargeLimit> {
     let threshold = supply.charge_threshold?;
     let percent = threshold.end?;
-    Some(BatteryChargeLimit {
+    Some(PowerChargeLimit {
         enabled: threshold.enabled,
         title: gettext("Limit charge to {percent}%").replace("{percent}", &percent.to_string()),
-        subtitle: gettext("Slows battery wear"),
     })
 }
 
@@ -178,7 +184,9 @@ fn tooltip(charge: &Charge, format: Option<&str>) -> String {
 fn fill(format: &str, charge: &Charge) -> String {
     let percentage = format!("{}%", charge.percentage);
     let state = state_label(charge.state);
-    let remaining = remaining(charge).unwrap_or_default();
+    let remaining = remaining(charge)
+        .map(|(_, value)| value)
+        .unwrap_or_default();
     tokens::render(format, |token| match token {
         "percentage" => Some(percentage.as_str()),
         "state" => Some(state.as_str()),
@@ -194,27 +202,6 @@ fn trimmed(rendered: &str) -> Option<String> {
         .then(|| text.to_owned())
 }
 
-fn subtitle(charge: &Charge, held_at: Option<u32>, full_at: Option<&str>) -> Option<String> {
-    match (charge.state, held_at) {
-        (ChargeState::Charging, _) => Some(match full_at {
-            Some(time) => gettext("Full at {time}").replace("{time}", time),
-            None => gettext("Charging"),
-        }),
-        (ChargeState::PendingCharge | ChargeState::PendingDischarge, Some(percent)) => {
-            Some(gettext("Held at {percent}%").replace("{percent}", &percent.to_string()))
-        }
-        (ChargeState::Discharging, _) => remaining(charge).or_else(|| Some(gettext("Discharging"))),
-        (state, _) => Some(state_label(state)).filter(|label| !label.is_empty()),
-    }
-}
-
-fn device_state(charge: &Charge) -> String {
-    match charge.state {
-        ChargeState::Charging => gettext("Charging"),
-        _ => String::new(),
-    }
-}
-
 fn running_low(charge: &Charge) -> bool {
     charge.percentage <= LOW && charge.state != ChargeState::Charging
 }
@@ -226,16 +213,156 @@ fn held_back(profile: &Profiles) -> Option<&str> {
         .filter(|reason| matches!(*reason, "lap-detected" | "high-operating-temperature"))
 }
 
-fn remaining(charge: &Charge) -> Option<String> {
+pub fn remaining(charge: &Charge) -> Option<(String, String)> {
     match charge.state {
-        ChargeState::Charging | ChargeState::PendingDischarge => charge
+        ChargeState::Charging => charge
             .time_to_full
-            .map(|seconds| gettext("{time} to full").replace("{time}", &clock(seconds))),
-        ChargeState::Discharging | ChargeState::PendingCharge | ChargeState::Empty => charge
+            .map(|seconds| (gettext("Until full"), clock(seconds))),
+        ChargeState::Discharging => charge
             .time_to_empty
-            .map(|seconds| gettext("{time} left").replace("{time}", &clock(seconds))),
-        ChargeState::Full | ChargeState::Unknown => None,
+            .map(|seconds| (gettext("Remaining"), clock(seconds))),
+        _ => None,
     }
+}
+
+pub fn since_unplugged(charge: &Charge, seconds: Option<u32>) -> Option<Fact> {
+    if charge.state != ChargeState::Discharging {
+        return None;
+    }
+    seconds.map(|seconds| Fact::new(gettext("Since unplugged"), clock(seconds)))
+}
+
+pub fn unplugged_at(
+    state: Option<ChargeState>,
+    seen_plugged: &mut bool,
+    previous: Option<DateTime<Local>>,
+    now: DateTime<Local>,
+) -> Option<DateTime<Local>> {
+    match state {
+        Some(ChargeState::Charging | ChargeState::PendingCharge | ChargeState::Full) => {
+            *seen_plugged = true;
+            None
+        }
+        Some(ChargeState::Discharging) => previous.or_else(|| seen_plugged.then_some(now)),
+        _ => previous,
+    }
+}
+
+pub fn keep_awake_available(state: &IdleProviderState) -> bool {
+    state.available && state.health.login1.kind == HealthKind::Ready
+}
+
+pub fn history_minute<Tz: TimeZone>(now: DateTime<Tz>) -> DateTime<Tz> {
+    now.clone()
+        - Duration::seconds(now.timestamp().rem_euclid(60))
+        - Duration::nanoseconds(i64::from(now.timestamp_subsec_nanos()))
+}
+
+pub fn history_view<Tz: TimeZone>(
+    points: &[BatteryHistoryPoint],
+    now: DateTime<Tz>,
+    twelve: bool,
+) -> PowerHistory
+where
+    Tz::Offset: std::fmt::Display,
+{
+    let start = now.clone() - Duration::hours(24);
+    let mut sorted: Vec<&BatteryHistoryPoint> = points.iter().collect();
+    sorted.sort_by_key(|point| point.at);
+    let mut pending = sorted.into_iter().peekable();
+    let mut carried = None;
+    let slots: Vec<(i64, Option<&BatteryHistoryPoint>)> = (0..96)
+        .map(|slot| {
+            let begin = start.timestamp() + slot * 900;
+            let within = |point: &&BatteryHistoryPoint| {
+                let at = i64::from(point.at);
+                at < begin + 900 || (slot == 95 && at <= now.timestamp())
+            };
+            while let Some(point) = pending.next_if(within) {
+                carried = Some(point);
+            }
+            (begin, carried)
+        })
+        .collect();
+    let hour = now
+        .with_minute(0)
+        .and_then(|at| at.with_second(0))
+        .and_then(|at| at.with_nanosecond(0))
+        .unwrap_or_else(|| now.clone());
+    let mut ticks: Vec<_> = (0..=24)
+        .rev()
+        .filter_map(|hours| {
+            let at = hour.clone() - Duration::hours(hours);
+            (at >= start
+                && now.clone().signed_duration_since(&at) > Duration::minutes(2)
+                && at.hour().is_multiple_of(6)
+                && at.minute() == 0
+                && at.second() == 0)
+                .then(|| Tick {
+                    at: (at.timestamp() - start.timestamp()) as f64 / 86_400.0,
+                    label: at.format(glimpse_config::clock(twelve)).to_string(),
+                })
+        })
+        .collect();
+    ticks.push(Tick {
+        at: 1.0,
+        label: gettext("Now"),
+    });
+    PowerHistory {
+        values: slots
+            .iter()
+            .map(|(_, point)| point.map(|point| point.percent))
+            .collect(),
+        marked: slots
+            .iter()
+            .map(|(_, point)| point.is_some_and(|point| point.charging))
+            .collect(),
+        ticks,
+        tooltips: slots
+            .iter()
+            .map(|(begin, point)| {
+                let point = (*point)?;
+                let at = Utc.timestamp_opt(*begin, 0).single()?;
+                Some(
+                    gettext("{time} · {percent}%")
+                        .replace(
+                            "{time}",
+                            &at.with_timezone(&now.timezone())
+                                .format(glimpse_config::clock(twelve))
+                                .to_string(),
+                        )
+                        .replace("{percent}", &format!("{:.0}", point.percent)),
+                )
+            })
+            .collect(),
+    }
+}
+
+pub fn hold_notice(state: &IdleProviderState, until: Option<&str>) -> Option<PowerHoldNotice> {
+    if !state.inhibitors.iter().any(holds_idle_or_sleep) {
+        return None;
+    }
+    let manual = manual_holds(&state.inhibitors);
+    let app = state
+        .inhibitors
+        .iter()
+        .find(|record| holds_idle_or_sleep(record) && !manual.contains(record))
+        .map(|record| glimpse_utils::clean(&crate::applets::idle::render::row_label(record), 80));
+    Some(PowerHoldNotice {
+        title: match until.filter(|_| {
+            state
+                .inhibitors
+                .iter()
+                .any(|record| holds_idle_or_sleep(record) && manual.contains(&record))
+        }) {
+            Some(time) => awake_until(time),
+            None => gettext("Kept awake"),
+        },
+        subtitle: match app {
+            Some(app) => gettext("Held by {app}").replace("{app}", &app),
+            None => gettext("Held by you"),
+        },
+    })
 }
 
 fn clock(seconds: u32) -> String {
@@ -281,10 +408,9 @@ fn profile_label(name: &str) -> String {
 
 fn profile_detail(name: &str, degraded: Option<&str>) -> String {
     match name {
-        "power-saver" => gettext("Longer battery life, slower response"),
         "performance" => match degraded {
-            Some("lap-detected") => gettext("Held back — on a lap"),
-            Some("high-operating-temperature") => gettext("Held back — too hot"),
+            Some("lap-detected") => gettext("Unavailable: laptop on lap"),
+            Some("high-operating-temperature") => gettext("Unavailable: too hot"),
             _ => String::new(),
         },
         _ => String::new(),

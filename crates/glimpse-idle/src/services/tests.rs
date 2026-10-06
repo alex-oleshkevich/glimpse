@@ -129,11 +129,13 @@ async fn emit_changes_sends_inhibitors_changed_on_every_mutation() {
     let client = bus.connection().await;
     let proxy = Idle1Proxy::new(&client).await.unwrap();
     let mut changes = proxy.receive_inhibitors_changed().await;
+    let mut expiry_changes = proxy.receive_hold_expiries_changed().await;
 
     shared_registry
         .mutate(|registry| {
             let id = registry.mint_id();
-            registry.insert(idle_targeting_record(id), None)
+            registry.insert(idle_targeting_record(id), None);
+            registry.set_hold_expiry(id, 1_900);
         })
         .await;
 
@@ -141,6 +143,29 @@ async fn emit_changes_sends_inhibitors_changed_on_every_mutation() {
         .await
         .expect("an Inhibitors PropertiesChanged signal within the timeout")
         .expect("a live property-change stream item");
+
+    let changed = tokio::time::timeout(Duration::from_secs(5), expiry_changes.next())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        changed
+            .get()
+            .await
+            .unwrap()
+            .values()
+            .copied()
+            .collect::<Vec<_>>(),
+        [1_900]
+    );
+    shared_registry
+        .mutate(|registry| registry.release_record(1))
+        .await;
+    let changed = tokio::time::timeout(Duration::from_secs(5), expiry_changes.next())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(changed.get().await.unwrap().is_empty());
 
     cancel.cancel();
     let _ = task.await;

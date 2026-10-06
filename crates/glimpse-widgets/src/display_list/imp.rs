@@ -2,14 +2,14 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
-use crate::Expandable;
+use crate::ExpanderRow;
 
 use super::{Display, ENABLE_REQUESTED};
 
 #[derive(Debug)]
 pub struct DisplayList {
     pub displays: RefCell<Vec<Display>>,
-    pub holders: RefCell<Vec<(String, Expandable)>>,
+    pub holders: RefCell<Vec<(String, ExpanderRow)>>,
     pub output_power: Cell<bool>,
     #[cfg(test)]
     pub renders: Cell<u32>,

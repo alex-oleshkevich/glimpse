@@ -395,23 +395,21 @@ async fn the_session_applet_needs_the_dialog_host() {
 }
 
 #[tokio::test]
-async fn the_brightness_display_and_idle_applets_produce_a_builder() {
+async fn the_display_and_idle_applets_produce_a_builder() {
     let services = crate::services::PanelServices::start_with_buses(
         &glimpse_config::Config::default(),
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
-    let brightness_config: AppletConfig = AppletKind::Brightness(<_>::default()).into();
-    let display_config: AppletConfig = AppletKind::Display {}.into();
+    let display_config: AppletConfig = AppletKind::Display(<_>::default()).into();
     let idle_config: AppletConfig = AppletKind::Idle {}.into();
-    let battery_config: AppletConfig = AppletKind::Battery(<_>::default()).into();
+    let power_config: AppletConfig = AppletKind::Power(<_>::default()).into();
     let command_config: AppletConfig = AppletKind::Command(<_>::default()).into();
     let ruler_config: AppletConfig = AppletKind::Ruler {}.into();
 
     for config in [
-        &brightness_config,
         &display_config,
         &idle_config,
-        &battery_config,
+        &power_config,
         &command_config,
         &ruler_config,
     ] {

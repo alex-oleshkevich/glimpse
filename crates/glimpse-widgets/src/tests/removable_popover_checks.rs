@@ -48,11 +48,16 @@ fn removable_popover_widgets() {
         let Some(card) = holder.details::<gtk4::Box>() else {
             return Vec::new();
         };
-        let mut rows = children_of::<LegacyRow>(&card);
-        for facts in children_of::<FactList>(&card) {
-            rows.extend(children_of::<LegacyRow>(&facts));
-        }
-        rows
+        children_of::<LegacyRow>(&card)
+    };
+    let fact_titled = |holder: &Expandable, title: &str| {
+        holder.details::<gtk4::Box>().is_some_and(|card| {
+            children_of::<FactList>(&card).iter().any(|facts| {
+                children_of::<Row>(facts)
+                    .iter()
+                    .any(|row| row.title().as_deref() == Some(title))
+            })
+        })
     };
     let titled = |holder: &Expandable, title: &str| {
         card_rows(holder)
@@ -101,7 +106,7 @@ fn removable_popover_widgets() {
         .emit_by_name::<()>("clicked", &[]);
     assert_eq!(ejected.borrow().as_deref(), Some("cruzer"));
     assert!(
-        titled(&cells[0], "Size").is_some(),
+        fact_titled(&cells[0], "Size"),
         "the drive's facts sit in its card"
     );
 

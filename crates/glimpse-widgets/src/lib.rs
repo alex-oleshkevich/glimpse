@@ -4,11 +4,9 @@ mod applet_popover;
 mod artwork;
 mod audio_popover;
 mod bars;
-mod battery_popover;
 mod bluetooth_pairing_dialog;
 mod bluetooth_popover;
 pub mod blur;
-mod brightness_popover;
 mod calendar;
 mod calendar_popover;
 mod choice_list;
@@ -61,6 +59,7 @@ mod placeholder;
 mod places_popover;
 mod player_list;
 mod popover_shell;
+mod power_popover;
 mod printing_popover;
 mod privacy_popover;
 mod range_bar;
@@ -112,9 +111,6 @@ pub use audio_popover::{
     AudioPopover, Block as AudioBlock, Details as AudioDetails, Entry as AudioEntry,
 };
 pub use bars::Bars;
-pub use battery_popover::{
-    BatteryPopover, ChargeLimit as BatteryChargeLimit, Device as BatteryDevice,
-};
 pub use bluetooth_pairing_dialog::{
     Entry as PairingEntry, PASSKEY_MAX, PIN_MAX, PairingAnswer, PairingDialog,
 };
@@ -123,7 +119,6 @@ pub use bluetooth_popover::{
     Line as BluetoothLine, Place as BluetoothPlace,
 };
 pub use blur::roundtrip;
-pub use brightness_popover::{BrightnessPopover, NightLight};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
@@ -133,7 +128,7 @@ pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
 pub use container::{Container, Paint as ContainerPaint};
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
-pub use display_popover::DisplayPopover;
+pub use display_popover::{DisplayPopover, NightLight};
 pub use dots::{Dots, SIZE as DOTS_SIZE};
 pub use event_list::{Event, EventList, EventRow, Link as EventLink};
 pub use expandable::Expandable;
@@ -181,6 +176,10 @@ pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
 pub use popover_shell::PopoverShell;
+pub use power_popover::{
+    ChargeLimit as PowerChargeLimit, Device as PowerDevice, History as PowerHistory,
+    HoldNotice as PowerHoldNotice, PowerPopover,
+};
 pub use printing_popover::{Job as PrintingJob, Printer as PrintingPrinter, PrintingPopover};
 pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
@@ -206,7 +205,7 @@ pub use shot_toolbar::ShotToolbar;
 pub use shot_window_list::{ShotWindowEntry, ShotWindowList};
 pub use slider_row::SliderRow;
 pub use source_list::{Source, SourceList};
-pub use sparkline::Sparkline;
+pub use sparkline::{Sparkline, Tick};
 pub use split_row::SplitRow;
 pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};

@@ -50,12 +50,13 @@
           "required": []
         },
         "battery": {
-          "description": "Charge level and time remaining, with the power profile in its popover.",
+          "description": "Battery, power mode, keep awake and peripheral batteries in its popover.",
           "type": "object",
           "properties": {
             "extends": {
               "type": "string",
-              "const": "battery"
+              "const": "battery",
+              "deprecated": true
             },
             "indicator-style": {
               "$ref": "#/$defs/BatteryIndicatorStyle",
@@ -138,12 +139,13 @@
           "required": []
         },
         "brightness": {
-          "description": "Display backlight level, and the keyboard's own where the machine has one.",
+          "description": "Connected outputs, brightness and night light in one popover.",
           "type": "object",
           "properties": {
             "extends": {
               "type": "string",
-              "const": "brightness"
+              "const": "brightness",
+              "deprecated": true
             },
             "scroll-step": {
               "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
@@ -440,12 +442,20 @@
           "required": []
         },
         "display": {
-          "description": "Connected outputs, their modes and their arrangement.",
+          "description": "Connected outputs, brightness and night light in one popover.",
           "type": "object",
           "properties": {
             "extends": {
               "type": "string",
               "const": "display"
+            },
+            "scroll-step": {
+              "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 5,
+              "maximum": 100,
+              "minimum": 1
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -460,6 +470,11 @@
                 "string",
                 "null"
               ]
+            },
+            "show-keyboard": {
+              "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
+              "type": "boolean",
+              "default": true
             },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
@@ -1004,6 +1019,47 @@
           "additionalProperties": false,
           "required": []
         },
+        "power": {
+          "description": "Battery, power mode, keep awake and peripheral batteries in its popover.",
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "power"
+            },
+            "indicator-style": {
+              "$ref": "#/$defs/BatteryIndicatorStyle",
+              "default": "icon-only"
+            },
+            "label-format": {
+              "type": "string",
+              "default": "{percentage}"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
         "printing": {
           "description": "Active print jobs.",
           "type": "object",
@@ -1494,12 +1550,12 @@
             ]
           },
           {
-            "description": "Charge level and time remaining, with the power profile in its popover.",
+            "description": "Battery, power mode, keep awake and peripheral batteries in its popover.",
             "type": "object",
             "properties": {
               "extends": {
                 "type": "string",
-                "const": "battery"
+                "const": "power"
               },
               "indicator-style": {
                 "$ref": "#/$defs/BatteryIndicatorStyle",
@@ -1571,54 +1627,6 @@
                   "string",
                   "null"
                 ]
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "description": "Display backlight level, and the keyboard's own where the machine has one.",
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "brightness"
-              },
-              "scroll-step": {
-                "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
-                "type": "integer",
-                "format": "uint8",
-                "default": 5,
-                "maximum": 100,
-                "minimum": 1
-              },
-              "settings-command": {
-                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "settings-label": {
-                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "show-keyboard": {
-                "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
-                "type": "boolean",
-                "default": true
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
@@ -1898,12 +1906,20 @@
             ]
           },
           {
-            "description": "Connected outputs, their modes and their arrangement.",
+            "description": "Connected outputs, brightness and night light in one popover.",
             "type": "object",
             "properties": {
               "extends": {
                 "type": "string",
                 "const": "display"
+              },
+              "scroll-step": {
+                "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 5,
+                "maximum": 100,
+                "minimum": 1
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1918,6 +1934,11 @@
                   "string",
                   "null"
                 ]
+              },
+              "show-keyboard": {
+                "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
+                "type": "boolean",
+                "default": true
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
@@ -2954,6 +2975,99 @@
             "required": [
               "extends"
             ]
+          },
+          {
+            "description": "Battery, power mode, keep awake and peripheral batteries in its popover.",
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "battery",
+                "deprecated": true
+              },
+              "indicator-style": {
+                "$ref": "#/$defs/BatteryIndicatorStyle",
+                "default": "icon-only"
+              },
+              "label-format": {
+                "type": "string",
+                "default": "{percentage}"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "description": "Connected outputs, brightness and night light in one popover.",
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "brightness",
+                "deprecated": true
+              },
+              "scroll-step": {
+                "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 5,
+                "maximum": 100,
+                "minimum": 1
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "show-keyboard": {
+                "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
+                "type": "boolean",
+                "default": true
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
           }
         ]
       },
@@ -3219,10 +3333,9 @@
             "bluetooth",
             "network",
             "display",
-            "brightness",
             "audio",
             "idle",
-            "battery",
+            "power",
             "keyboard",
             "session"
           ],
@@ -4350,10 +4463,9 @@
             "bluetooth",
             "network",
             "display",
-            "brightness",
             "audio",
             "idle",
-            "battery",
+            "power",
             "keyboard",
             "session"
           ],

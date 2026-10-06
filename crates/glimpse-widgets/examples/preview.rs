@@ -270,16 +270,17 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Action, Advisory, BatteryChargeLimit, BatteryDevice, BatteryPopover, Body,
-        BrightnessPopover, Calendar, Choice, ChoiceList, Day, Display, DisplayList, DisplayLogical,
-        DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList, Focus, Group,
-        Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
-        InhibitorTargets, LegacyRow, NightLight, Notification, NotificationsPopover, NowPlaying,
-        POWER_OFF, Pager, Player, PlayerList, PrintingJob, PrintingPopover, PrintingPrinter,
-        PrivacyPopover, PrivacyUsage, REBOOT, Repeat, SUSPEND, SessionActionState, SessionSheet,
-        Severity, Shape, Slot, SourceList, SplitRow, StatusIsland, SystemMonitorMeter,
-        SystemMonitorNamedMeter, SystemMonitorPopover, SystemMonitorReadings, TransportAction,
-        TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Display, DisplayList,
+        DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList,
+        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
+        InhibitorSource, InhibitorTargets, LegacyRow, NightLight, Notification,
+        NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player, PlayerList, PowerChargeLimit,
+        PowerDevice, PowerHistory, PowerHoldNotice, PowerPopover, PrintingJob, PrintingPopover,
+        PrintingPrinter, PrivacyPopover, PrivacyUsage, REBOOT, Repeat, SUSPEND, SessionActionState,
+        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
+        SystemMonitorMeter, SystemMonitorNamedMeter, SystemMonitorPopover, SystemMonitorReadings,
+        Tick, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
+        WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -1209,22 +1210,66 @@ mod fixtures {
     }
 
     fn battery_popover(root: &gtk4::Widget) {
-        let Some(popover) = find::<BatteryPopover>(root) else {
+        let Some(popover) = find::<PowerPopover>(root) else {
             return;
         };
-        popover.set_heading(
-            Some("battery-level-70-symbolic"),
-            Some("3 h 12 m left"),
-            Some(74),
-            None,
-        );
+        popover.set_header("battery-level-70-symbolic", Some(76));
+        popover.set_notice(Some(&PowerHoldNotice {
+            title: "Awake until 15:30".to_owned(),
+            subtitle: "Held by Firefox".to_owned(),
+        }));
+        popover.set_remaining(Some(("Remaining", "3 h 10 min")));
+        popover.set_battery(&[
+            Fact::new("Since unplugged", "2 h 40 min"),
+            Fact::new("Power draw", "8.4 W"),
+            Fact::new("Health", "87%"),
+            Fact::new("Energy", "41.2 / 47.5 Wh"),
+            Fact::new("Capacity when new", "54.0 Wh"),
+            Fact::new("Cycles", "312"),
+            Fact::new("Technology", "Lithium-ion"),
+        ]);
+        popover.set_charge_limit(Some(&PowerChargeLimit {
+            enabled: true,
+            title: "Limit charge to 80%".to_owned(),
+        }));
+        popover.set_history(Some(&PowerHistory {
+            values: vec![Some(90.0), Some(70.0), Some(55.0), Some(76.0)],
+            marked: vec![false, true, true, false],
+            ticks: vec![
+                Tick {
+                    at: 0.0,
+                    label: "16:00".to_owned(),
+                },
+                Tick {
+                    at: 0.25,
+                    label: "22:00".to_owned(),
+                },
+                Tick {
+                    at: 0.5,
+                    label: "04:00".to_owned(),
+                },
+                Tick {
+                    at: 0.75,
+                    label: "10:00".to_owned(),
+                },
+                Tick {
+                    at: 1.0,
+                    label: "Now".to_owned(),
+                },
+            ],
+            tooltips: vec![
+                Some("90%".to_owned()),
+                Some("70%".to_owned()),
+                None,
+                Some("76%".to_owned()),
+            ],
+        }));
         popover.set_profiles(
             &[
                 Choice {
                     label: "Power saver".to_owned(),
-                    detail: "Longer battery life, slower response".to_owned(),
                     icon_name: "power-profile-power-saver-symbolic".to_owned(),
-                    warning: false,
+                    ..Default::default()
                 },
                 Choice {
                     label: "Balanced".to_owned(),
@@ -1233,54 +1278,36 @@ mod fixtures {
                 },
                 Choice {
                     label: "Performance".to_owned(),
-                    detail: "Held back — too hot".to_owned(),
+                    detail: "Unavailable: laptop on lap".to_owned(),
                     icon_name: "power-profile-performance-symbolic".to_owned(),
                     warning: true,
                 },
             ],
             Some(1),
         );
-        popover.set_charge_limit(Some(&BatteryChargeLimit {
-            enabled: true,
-            title: "Limit charge to 80%".to_owned(),
-            subtitle: "Slows battery wear".to_owned(),
-        }));
-        popover.set_health(
-            Some("87%"),
-            false,
-            &[
-                Fact::new("Energy", "41.2 / 52.0 Wh"),
-                Fact::new("Capacity when new", "57.0 Wh"),
-                Fact::new("Cycles", "312"),
-                Fact::new("Voltage", "12.1 V"),
-                Fact::new("Technology", "Li-ion"),
-                Fact::new("Model", "A32-K55"),
-                Fact::new("Make", "ASUS"),
-            ],
-        );
+        popover.set_hold_active(true);
+        popover.set_hold_preset(Some(3_600));
         popover.set_devices(&[
-            BatteryDevice {
-                name: "MX Master 3S".to_owned(),
-                subtitle: String::new(),
-                icon_name: "input-mouse-symbolic".to_owned(),
-                value: "41%".to_owned(),
-                warning: false,
-            },
-            BatteryDevice {
-                name: "WH-1000XM4".to_owned(),
-                subtitle: "Charging".to_owned(),
-                icon_name: "audio-headphones-symbolic".to_owned(),
-                value: "18%".to_owned(),
-                warning: false,
-            },
-            BatteryDevice {
-                name: "Keychron K3".to_owned(),
-                subtitle: String::new(),
+            PowerDevice {
+                name: "MX Keys S".to_owned(),
                 icon_name: "input-keyboard-symbolic".to_owned(),
-                value: "9%".to_owned(),
+                value: "54%".to_owned(),
+                warning: false,
+            },
+            PowerDevice {
+                name: "WH-1000XM4".to_owned(),
+                icon_name: "audio-headphones-symbolic".to_owned(),
+                value: "80%".to_owned(),
+                warning: false,
+            },
+            PowerDevice {
+                name: "Pixel 8".to_owned(),
+                icon_name: "phone-symbolic".to_owned(),
+                value: "12%".to_owned(),
                 warning: true,
             },
         ]);
+        popover.set_footer(Some("Power Settings"));
     }
 
     fn brightness_popover_states(root: &gtk4::Widget) {
@@ -1293,24 +1320,24 @@ mod fixtures {
             floor: 0.0,
         };
 
-        for popover in tagged::<BrightnessPopover>(root, "none") {
+        for popover in tagged::<DisplayPopover>(root, "none") {
             popover.set_sources(&[]);
         }
-        for popover in tagged::<BrightnessPopover>(root, "one") {
+        for popover in tagged::<DisplayPopover>(root, "one") {
             popover.set_sources(&[level("built-in", "Built-in", 65.0)]);
         }
-        for popover in tagged::<BrightnessPopover>(root, "three") {
+        for popover in tagged::<DisplayPopover>(root, "three") {
             popover.set_sources(&[
                 level("built-in", "Built-in", 40.0),
                 level("dp-1", "DP-1", 60.0),
                 level("dp-2", "DP-2", 80.0),
             ]);
         }
-        for popover in tagged::<BrightnessPopover>(root, "unavailable") {
+        for popover in tagged::<DisplayPopover>(root, "unavailable") {
             popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
             popover.set_night_light(None);
         }
-        for popover in tagged::<BrightnessPopover>(root, "off") {
+        for popover in tagged::<DisplayPopover>(root, "off") {
             popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
             popover.set_night_light(Some(&NightLight {
                 enabled: false,
@@ -1318,7 +1345,7 @@ mod fixtures {
                 ..Default::default()
             }));
         }
-        for popover in tagged::<BrightnessPopover>(root, "day") {
+        for popover in tagged::<DisplayPopover>(root, "day") {
             popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
             popover.set_night_light(Some(&NightLight {
                 enabled: true,
@@ -1328,7 +1355,7 @@ mod fixtures {
                 ..Default::default()
             }));
         }
-        for popover in tagged::<BrightnessPopover>(root, "on") {
+        for popover in tagged::<DisplayPopover>(root, "on") {
             popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
             popover.set_night_light(Some(&NightLight {
                 enabled: true,
@@ -3985,6 +4012,19 @@ mod fixtures {
                     line.set_show_last(true);
                 }
                 "flat" => values = vec![Some(5.0); 30],
+                "battery" => {
+                    values = (0..48)
+                        .map(|i| {
+                            Some(match i {
+                                0..=17 => 100.0 - i as f64 * 3.4,
+                                18..=27 => 42.0 + (i - 18) as f64 * 5.8,
+                                _ => 100.0 - (i - 28) as f64 * 1.2,
+                            })
+                        })
+                        .collect();
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
                 "single" => {
                     values = vec![None; 30];
                     values[14] = Some(3.0);
@@ -4385,25 +4425,30 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        BatteryPopover, BrightnessPopover, Calendar, CalendarPopover, ChoiceList, ClipboardList,
-        ClipboardPopover, ClockRow, ColorList, ColorPickerPopover, DisplayList, DisplayPopover,
-        EventList, EventRow, Expandable, FactList, Fader, ForecastDay, ForecastHour, ForecastList,
-        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LegacyRow,
-        LockClock, LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
-        NotificationImageBody, NotificationList, NotificationStack, NotificationTextBody,
-        NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList,
-        PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber,
-        Section, SessionPopover, SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown,
-        ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar, ShotWindowList, SourceList,
-        SplitRow, StatusIsland, Swatch, SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard,
-        Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
+        Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ClockRow,
+        ColorList, ColorPickerPopover, DisplayList, DisplayPopover, EventList, EventRow,
+        Expandable, FactList, Fader, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero,
+        Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LegacyRow, LockClock, LockStage,
+        Notice, NotificationCard, NotificationChips, NotificationHeader, NotificationImageBody,
+        NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
+        NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList, PlayerRow, PopoverShell,
+        PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber, Section, SessionPopover,
+        SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion,
+        ShotResultPage, ShotToolbar, ShotWindowList, SourceList, SplitRow, StatusIsland, Swatch,
+        SwitchRow, SystemMonitorPopover, TooltipCard, TrackCard, Transport, TrayStrip,
+        WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
         glimpse_widgets::Bars::static_type(),
         glimpse_widgets::Sparkline::static_type(),
-        BatteryPopover::static_type(),
-        BrightnessPopover::static_type(),
+        glimpse_widgets::Row::static_type(),
+        glimpse_widgets::ActionRow::static_type(),
+        glimpse_widgets::ToggleRow::static_type(),
+        glimpse_widgets::MeterRow::static_type(),
+        glimpse_widgets::ExpanderRow::static_type(),
+        glimpse_widgets::SliderRow::static_type(),
+        glimpse_widgets::PowerPopover::static_type(),
         Calendar::static_type(),
         CalendarPopover::static_type(),
         ChoiceList::static_type(),

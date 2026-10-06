@@ -1,8 +1,6 @@
 mod agenda;
 pub mod audio;
-mod battery;
 pub(crate) mod bluetooth;
-mod brightness;
 mod clipboard;
 mod clock;
 mod color_picker;
@@ -19,6 +17,7 @@ mod next_event;
 mod notifications;
 mod pager;
 mod places;
+mod power;
 mod printing;
 mod privacy;
 mod removable;
@@ -193,7 +192,7 @@ pub fn build(
                 Box::new(audio::Audio::start(audio, notifications))
             }))
         }
-        AppletKind::Brightness(_) => {
+        AppletKind::Display(_) => {
             let brightness = brightness.clone();
             let night_light = night_light.clone();
             let compositor = compositor.clone();
@@ -202,20 +201,12 @@ pub fn build(
                 ctx.watch(brightness.subscribe());
                 ctx.watch(night_light.subscribe());
                 ctx.watch(compositor.subscribe());
-                Box::new(brightness::Brightness::start(
+                Box::new(display::Display::start(
                     brightness,
                     night_light,
                     compositor,
                     notifications,
                 ))
-            }))
-        }
-        AppletKind::Display {} => {
-            let compositor = compositor.clone();
-            let notifications = notifications.clone();
-            Some(Box::new(move |ctx| {
-                ctx.watch(compositor.subscribe());
-                Box::new(display::Display::start(compositor, notifications))
             }))
         }
         AppletKind::Idle {} => {
@@ -233,12 +224,14 @@ pub fn build(
                 Box::new(session::Session::start(session_actions, dialog))
             }))
         }
-        AppletKind::Battery(_) => {
+        AppletKind::Power(_) => {
             let battery = battery.clone();
+            let idle = idle.clone();
             let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(battery.subscribe());
-                Box::new(battery::Battery::start(battery, notifications))
+                ctx.watch(idle.subscribe());
+                Box::new(power::Power::start(battery, idle, notifications))
             }))
         }
         AppletKind::Clipboard(_) => {

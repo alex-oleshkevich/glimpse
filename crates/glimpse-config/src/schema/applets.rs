@@ -55,15 +55,15 @@ pub struct Common {
     rename_all_fields = "kebab-case",
     deny_unknown_fields
 )]
+#[schemars(transform = renamed_aliases)]
 pub enum Kind {
     /// Output volume, with the default sink and per-application streams in its popover.
     Audio {},
-    /// Charge level and time remaining, with the power profile in its popover.
-    Battery(Battery),
+    /// Battery, power mode, keep awake and peripheral batteries in its popover.
+    #[serde(alias = "battery")]
+    Power(Power),
     /// Adapter state and paired devices.
     Bluetooth(Bluetooth),
-    /// Display backlight level, and the keyboard's own where the machine has one.
-    Brightness(Brightness),
     /// Clipboard history.
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
@@ -73,8 +73,9 @@ pub enum Kind {
     ColorPicker {},
     /// A chip the user defines, running a program on a click or a scroll.
     Command(Box<Command>),
-    /// Connected outputs, their modes and their arrangement.
-    Display {},
+    /// Connected outputs, brightness and night light in one popover.
+    #[serde(alias = "brightness")]
+    Display(Display),
     /// A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).
     Exec(Box<Exec>),
     /// A counter that ticks once a second. A development fixture: it proves the service is
@@ -334,7 +335,7 @@ pub enum NotificationIndicatorStyle {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Battery {
+pub struct Power {
     pub indicator_style: BatteryIndicatorStyle,
     pub label_format: String,
 }
@@ -348,7 +349,7 @@ pub enum BatteryIndicatorStyle {
     Text,
 }
 
-impl Default for Battery {
+impl Default for Power {
     fn default() -> Self {
         Self {
             indicator_style: BatteryIndicatorStyle::IconOnly,
@@ -553,11 +554,11 @@ impl Default for Privacy {
     }
 }
 
-/// Settings for the brightness applet. The floor a display can reach is `[brightness] minimum`;
+/// Settings for the display applet. The floor a display can reach is `[brightness] minimum`;
 /// this is only how the bar and its popover behave.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Brightness {
+pub struct Display {
     /// How much a scroll notch on the chip moves the current display, in percent of its range.
     /// Converted to native units at the call site and rounded away from zero, so a notch always
     /// moves something even on a display with a small native range. Zero would leave the wheel
@@ -570,7 +571,7 @@ pub struct Brightness {
     pub show_keyboard: bool,
 }
 
-impl Default for Brightness {
+impl Default for Display {
     fn default() -> Self {
         Self {
             scroll_step: 5,
@@ -689,6 +690,32 @@ pub enum Place {
         /// City and country code, written as `City, CC`.
         name: String,
     },
+}
+
+fn renamed_aliases(schema: &mut Schema) {
+    let Some(branches) = schema
+        .get_mut("oneOf")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        return;
+    };
+    for (old, new) in [("battery", "power"), ("brightness", "display")] {
+        let Some(mut alias) = branches
+            .iter()
+            .find(|branch| {
+                branch
+                    .pointer("/properties/extends/const")
+                    .and_then(serde_json::Value::as_str)
+                    == Some(new)
+            })
+            .cloned()
+        else {
+            continue;
+        };
+        alias["properties"]["extends"]["const"] = serde_json::json!(old);
+        alias["properties"]["extends"]["deprecated"] = serde_json::json!(true);
+        branches.push(alias);
+    }
 }
 
 fn coordinate_alias(schema: &mut Schema) {
@@ -871,6 +898,24 @@ impl Applet {
     }
 }
 
+pub fn renamed_to(name: &str) -> Option<&'static str> {
+    match name {
+        "battery" => Some("power"),
+        "brightness" => Some("display"),
+        _ => None,
+    }
+}
+
+pub(crate) fn warn_if_renamed(name: &str, extends: &str) {
+    let Some(renamed) = renamed_to(extends) else {
+        return;
+    };
+    tracing::warn!(
+        applet = name,
+        "[applets.{name}]: {extends} is deprecated; use {renamed}"
+    );
+}
+
 pub fn is_desktop_id(name: &str) -> bool {
     let mut segments = name.split('.');
     let valid = |segment: &str| {
@@ -910,8 +955,15 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
             .or_insert_with(|| toml::Value::String(name.to_owned()));
     }
     let keys: Vec<String> = table.keys().cloned().collect();
+    let extends = table
+        .get("extends")
+        .and_then(toml::Value::as_str)
+        .map(str::to_owned);
     let mut kind =
         Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
+    if let Some(extends) = extends {
+        warn_if_renamed(name, &extends);
+    }
     if let Kind::Exec(exec) = &kind
         && !is_desktop_id(&exec.applet)
     {

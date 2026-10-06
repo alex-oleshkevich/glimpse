@@ -212,10 +212,9 @@ right = [
     "bluetooth",
     "network",
     "display",
-    "brightness",
     "audio",
     "idle",
-    "battery",
+    "power",
     "keyboard",
     "session",
 ]

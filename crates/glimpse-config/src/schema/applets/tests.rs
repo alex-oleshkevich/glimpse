@@ -250,11 +250,11 @@ fn notification_indicator_style_defaults_to_a_dot_and_reads_every_variant() {
 }
 
 #[test]
-fn battery_defaults_to_icon_only_and_reads_every_style() {
+fn power_defaults_to_icon_only_and_reads_every_style() {
     let default: crate::Config =
-        toml::from_str("[applets.battery]\n").expect("the built-in battery applet loads");
-    let Kind::Battery(default) = &default.applets["battery"].kind else {
-        panic!("battery resolves to its own kind");
+        toml::from_str("[applets.power]\n").expect("the built-in power applet loads");
+    let Kind::Power(default) = &default.applets["power"].kind else {
+        panic!("power resolves to its own kind");
     };
     assert_eq!(default.indicator_style, BatteryIndicatorStyle::IconOnly);
     assert_eq!(default.label_format, "{percentage}");
@@ -264,18 +264,177 @@ fn battery_defaults_to_icon_only_and_reads_every_style() {
         ("icon-text", BatteryIndicatorStyle::IconText),
         ("text", BatteryIndicatorStyle::Text),
     ] {
-        let text = format!("[applets.battery]\nindicator-style = \"{value}\"\n");
+        let text = format!("[applets.power]\nindicator-style = \"{value}\"\n");
         let document: crate::Config = toml::from_str(&text).expect("the style is valid");
-        let Kind::Battery(settings) = &document.applets["battery"].kind else {
-            panic!("battery resolves to its own kind");
+        let Kind::Power(settings) = &document.applets["power"].kind else {
+            panic!("power resolves to its own kind");
         };
         assert_eq!(settings.indicator_style, expected);
     }
 
-    toml::from_str::<crate::Config>("[applets.battery]\nindicator-style = \"percent\"\n")
+    toml::from_str::<crate::Config>("[applets.power]\nindicator-style = \"percent\"\n")
         .expect_err("an undocumented spelling is refused");
-    toml::from_str::<crate::Config>("[applets.battery]\nunknown = 1\n")
+    toml::from_str::<crate::Config>("[applets.power]\nunknown = 1\n")
         .expect_err("a struct variant refuses keys that are not its own");
+}
+
+#[test]
+fn battery_aliases_load_power_with_defaults() {
+    let document: crate::Config =
+        toml::from_str("[applets.battery]\n[applets.laptop]\nextends = \"battery\"\n")
+            .expect("both deprecated spellings load");
+    for name in ["battery", "laptop"] {
+        assert_eq!(
+            document.applets[name].kind,
+            Kind::Power(super::Power::default())
+        );
+    }
+    assert_eq!(
+        super::Applet::from_name("battery").map(|applet| applet.kind),
+        Some(Kind::Power(super::Power::default()))
+    );
+    assert!(
+        crate::Panel::default()
+            .right
+            .iter()
+            .any(|name| name == "power")
+    );
+    assert!(
+        crate::Panel::default()
+            .right
+            .iter()
+            .any(|name| name == "idle")
+    );
+}
+
+#[test]
+fn schema_accepts_deprecated_extends_aliases() {
+    let document: serde_json::Value = serde_json::from_str(&crate::json_schema_document()).unwrap();
+    let applets = &document["properties"]["applets"];
+    let branches = applets["additionalProperties"]["oneOf"].as_array().unwrap();
+    for (old, new) in [("battery", "power"), ("brightness", "display")] {
+        let alias = branches
+            .iter()
+            .find(|branch| branch["properties"]["extends"]["const"] == old)
+            .unwrap();
+        let current = branches
+            .iter()
+            .find(|branch| branch["properties"]["extends"]["const"] == new)
+            .unwrap();
+        assert_eq!(alias["properties"]["extends"]["deprecated"], true);
+        let mut normalized = alias.clone();
+        normalized["properties"]["extends"]["const"] = serde_json::json!(new);
+        normalized["properties"]["extends"]
+            .as_object_mut()
+            .unwrap()
+            .remove("deprecated");
+        assert_eq!(&normalized, current);
+        assert_eq!(
+            applets["properties"][old]["properties"]["extends"]["const"],
+            old
+        );
+        assert_eq!(
+            applets["properties"][old]["properties"]["extends"]["deprecated"],
+            true
+        );
+    }
+    let generated: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../../data/config.schema.json")).unwrap();
+    assert_eq!(generated, document);
+}
+
+fn alias_warnings(document: &str, zones: &[&str], expected: &Kind) -> String {
+    #[derive(Clone, Default)]
+    struct Logged(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Logged {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .map_err(|_| std::io::Error::other("log poisoned"))?
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let logged = Logged::default();
+    let sink = logged.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(move || sink.clone())
+        .with_max_level(tracing::Level::WARN)
+        .with_ansi(false)
+        .without_time()
+        .finish();
+    tracing::subscriber::with_default(subscriber, || {
+        let config: crate::Config = toml::from_str(document).expect("applets load");
+        assert!(crate::unknown_applets(&config).is_empty());
+        for _ in 0..3 {
+            for name in zones {
+                let applet = super::resolve_applet(name, &config.applets).expect("zone resolves");
+                assert_eq!(&applet.kind, expected);
+            }
+        }
+    });
+    let bytes = logged.0.lock().expect("log is not poisoned");
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+#[test]
+fn each_battery_alias_logs_one_warning_naming_its_table() {
+    let lines = alias_warnings(
+        "[applets.power]\n[applets.battery]\n[applets.laptop]\nextends = \"battery\"\n",
+        &["power", "battery", "laptop"],
+        &Kind::Power(super::Power::default()),
+    );
+    assert_eq!(lines.matches("battery is deprecated").count(), 2);
+    assert_eq!(lines.matches("[applets.battery]").count(), 1);
+    assert_eq!(lines.matches("[applets.laptop]").count(), 1);
+    assert!(!lines.contains("[applets.power]"));
+}
+
+#[test]
+fn a_bare_battery_zone_logs_one_deprecation_warning() {
+    let lines = alias_warnings(
+        "[[panels]]\nleft = [\"battery\"]\nright = [\"power\", \"battery\"]\n[[panels]]\ncenter = [\"battery\"]\n",
+        &["power", "battery"],
+        &Kind::Power(super::Power::default()),
+    );
+    assert_eq!(
+        lines
+            .matches("panel zone entry `battery` is deprecated; use `power`")
+            .count(),
+        1
+    );
+    assert!(!lines.contains("[applets.battery]"));
+    assert!(!lines.contains("[applets.power]"));
+}
+
+#[test]
+fn brightness_aliases_warn_for_the_zone_entry_and_the_table() {
+    let lines = alias_warnings(
+        "[[panels]]\nleft = [\"brightness\"]\nright = [\"display\", \"brightness\", \"screen\"]\n[applets.screen]\nextends = \"brightness\"\n",
+        &["display", "brightness", "screen"],
+        &Kind::Display(super::Display::default()),
+    );
+    assert_eq!(
+        lines
+            .matches("brightness is deprecated; use display")
+            .count(),
+        1
+    );
+    assert_eq!(
+        lines
+            .matches("panel zone entry `brightness` is deprecated; use `display`")
+            .count(),
+        1
+    );
+    assert!(!lines.contains("[applets.brightness]"));
+    assert_eq!(lines.matches("[applets.screen]").count(), 1);
+    assert!(!lines.contains("[applets.display]"));
 }
 
 #[test]
@@ -327,4 +486,81 @@ fn privacy_defaults_and_refuses_an_unknown_key() {
 
     toml::from_str::<crate::Config>("[applets.privacy]\nbogus = 1\n")
         .expect_err("a struct variant refuses keys that are not its own");
+}
+
+#[test]
+fn display_and_brightness_aliases_load_the_same_defaults() {
+    let document: crate::Config = toml::from_str(
+        "[applets.display]\n[applets.brightness]\n[applets.screen]\nextends = \"brightness\"\n",
+    )
+    .expect("display and both alias forms load");
+    let expected = Kind::Display(super::Display {
+        scroll_step: 5,
+        show_keyboard: true,
+    });
+    for name in ["display", "brightness", "screen"] {
+        assert_eq!(document.applets[name].kind, expected);
+    }
+    for name in ["display", "brightness"] {
+        assert_eq!(
+            super::resolve_applet(name, &std::collections::BTreeMap::new())
+                .expect("a bare zone name resolves")
+                .kind,
+            expected
+        );
+    }
+}
+
+#[test]
+fn display_settings_parse_and_validate_under_both_names() {
+    for name in ["display", "brightness"] {
+        let document: crate::Config = toml::from_str(&format!(
+            "[applets.{name}]\nscroll-step = 12\nshow-keyboard = false\n"
+        ))
+        .expect("both names carry display settings");
+        assert_eq!(
+            document.applets[name].kind,
+            Kind::Display(super::Display {
+                scroll_step: 12,
+                show_keyboard: false,
+            })
+        );
+        for value in [1, 100] {
+            let document: crate::Config =
+                toml::from_str(&format!("[applets.{name}]\nscroll-step = {value}\n"))
+                    .expect("range endpoints load");
+            assert_eq!(
+                document.applets[name].kind,
+                Kind::Display(super::Display {
+                    scroll_step: value,
+                    show_keyboard: true,
+                })
+            );
+        }
+        for setting in ["scroll-step = 0", "scroll-step = 101", "unknown = true"] {
+            let error = toml::from_str::<crate::Config>(&format!("[applets.{name}]\n{setting}\n"))
+                .expect_err("invalid display settings are refused")
+                .to_string();
+            assert!(error.contains(&format!("[applets.{name}]")), "{error}");
+        }
+    }
+}
+
+#[test]
+fn the_default_zones_place_display_once_without_brightness() {
+    let panel = crate::Panel::default();
+    let names: Vec<_> = panel
+        .left
+        .iter()
+        .chain(&panel.center)
+        .chain(&panel.right)
+        .collect();
+    assert_eq!(
+        names
+            .iter()
+            .filter(|name| name.as_str() == "display")
+            .count(),
+        1
+    );
+    assert!(!names.iter().any(|name| name.as_str() == "brightness"));
 }

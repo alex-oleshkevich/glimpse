@@ -21,6 +21,7 @@ fn healthy() -> InhibitorsHealth {
 fn state(inhibitors: Vec<IdleInhibitorRecord>) -> IdleProviderState {
     IdleProviderState {
         inhibitors,
+        hold_expiries: Default::default(),
         health: healthy(),
         available: true,
         reason: None,
@@ -68,16 +69,13 @@ fn screen_saver_record(id: u64) -> IdleInhibitorRecord {
 fn a_daemon_with_no_owner_reports_itself_first() {
     let mut down = state(vec![screen_saver_record(1)]);
     down.available = false;
-    assert_eq!(
-        hero_subtitle(&down, &[], None, None),
-        "Idle daemon not running"
-    );
+    assert_eq!(hero_subtitle(&down, None, None), "Idle daemon not running");
 }
 
 #[test]
 fn no_inhibitors_at_all_reads_as_nothing_preventing_idle() {
     assert_eq!(
-        hero_subtitle(&state(vec![]), &[], None, None),
+        hero_subtitle(&state(vec![]), None, None),
         "Nothing preventing idle"
     );
 }
@@ -86,25 +84,23 @@ fn no_inhibitors_at_all_reads_as_nothing_preventing_idle() {
 fn a_lone_manual_hold_says_it_is_the_reason() {
     let held = state(vec![manual_hold_record(9)]);
     assert_eq!(
-        hero_subtitle(&held, &[9], None, None),
+        hero_subtitle(&held, None, None),
         "Awake until you turn it off"
     );
 }
 
 #[test]
-fn a_hold_id_not_present_any_more_is_not_trusted() {
-    let held = state(vec![screen_saver_record(1)]);
-    assert_eq!(
-        hero_subtitle(&held, &[999], None, None),
-        "1 app preventing idle"
-    );
+fn a_removed_manual_hold_leaves_only_the_other_apps() {
+    let mut held = state(vec![screen_saver_record(1), manual_hold_record(999)]);
+    held.inhibitors.pop();
+    assert_eq!(hero_subtitle(&held, None, None), "1 app preventing idle");
 }
 
 #[test]
 fn two_holds_of_our_own_still_read_as_one_awake_clause() {
     let held = state(vec![manual_hold_record(9), manual_hold_record(10)]);
     assert_eq!(
-        hero_subtitle(&held, &[9, 10], None, None),
+        hero_subtitle(&held, None, None),
         "Awake until you turn it off"
     );
 }
@@ -112,10 +108,7 @@ fn two_holds_of_our_own_still_read_as_one_awake_clause() {
 #[test]
 fn idle_only_apps_say_idle_and_nothing_about_sleep() {
     let held = state(vec![screen_saver_record(1), screen_saver_record(2)]);
-    assert_eq!(
-        hero_subtitle(&held, &[], None, None),
-        "2 apps preventing idle"
-    );
+    assert_eq!(hero_subtitle(&held, None, None), "2 apps preventing idle");
 }
 
 #[test]
@@ -131,7 +124,7 @@ fn one_app_taking_suspend_upgrades_the_whole_summary_to_or_sleep() {
     );
     let held = state(vec![screen_saver_record(1), sleepy]);
     assert_eq!(
-        hero_subtitle(&held, &[], None, None),
+        hero_subtitle(&held, None, None),
         "2 apps preventing idle or sleep"
     );
 }
@@ -148,7 +141,7 @@ fn a_shutdown_target_counts_as_sleepy_wording_too() {
         IdleInhibitorSource::login1(4400, 0, Login1Mode::Block),
     );
     assert_eq!(
-        hero_subtitle(&state(vec![record]), &[], None, None),
+        hero_subtitle(&state(vec![record]), None, None),
         "1 app preventing idle or sleep"
     );
 }
@@ -157,7 +150,7 @@ fn a_shutdown_target_counts_as_sleepy_wording_too() {
 fn manual_hold_plus_others_combines_both_clauses() {
     let held = state(vec![manual_hold_record(9), screen_saver_record(1)]);
     assert_eq!(
-        hero_subtitle(&held, &[9], None, None),
+        hero_subtitle(&held, None, None),
         "Awake until you turn it off · 1 app preventing idle"
     );
 }
@@ -167,8 +160,8 @@ fn a_forged_manual_hold_shaped_record_is_not_ours_when_it_cannot_be_released() {
     let mut forged = manual_hold_record(2);
     forged.can_release = false;
     assert_eq!(
-        manual_hold_ids(&[forged]),
-        Vec::<u64>::new(),
+        manual_holds(&[forged]).len(),
+        0,
         "a record the daemon itself refuses to release is never ours, whatever its shape"
     );
 }
@@ -180,12 +173,102 @@ fn the_hold_set_is_derived_from_the_records_rather_than_remembered() {
         manual_hold_record(2),
         manual_hold_record(3),
     ];
-    assert_eq!(manual_hold_ids(&records), vec![2, 3]);
+    assert_eq!(manual_holds(&records), vec![&records[1], &records[2]]);
     assert_eq!(
-        manual_hold_ids(&records[..1]),
-        Vec::<u64>::new(),
+        manual_holds(&records[..1]).len(),
+        0,
         "a hold that has left the provider's list leaves the panel's with it"
     );
+}
+
+#[test]
+fn the_deadline_picks_the_newest_manual_hold() {
+    use super::super::keep_awake::deadline;
+
+    let timed = IdleInhibitorRecord {
+        added_at_unix: 1_000,
+        ..manual_hold_record(9)
+    };
+    let records = vec![
+        IdleInhibitorRecord {
+            added_at_unix: 500,
+            id: 8,
+            ..timed.clone()
+        },
+        timed.clone(),
+        IdleInhibitorRecord {
+            added_at_unix: 2_000,
+            ..screen_saver_record(10)
+        },
+        IdleInhibitorRecord {
+            added_at_unix: 300,
+            ..manual_hold_record(11)
+        },
+        IdleInhibitorRecord {
+            can_release: false,
+            added_at_unix: 4_000,
+            id: 12,
+            ..timed
+        },
+    ];
+    let expiries =
+        std::collections::BTreeMap::from([(8, 4_100), (9, 1_900), (10, 3_800), (12, 7_600)]);
+    let (at, seconds) = deadline(&records, &expiries).unwrap();
+    assert_eq!(at.timestamp(), 1_900);
+    assert_eq!(seconds, 900);
+    assert_eq!(deadline(&records[2..], &expiries), None);
+}
+
+#[test]
+fn presets_use_the_duration_recorded_by_the_provider() {
+    use super::super::keep_awake::deadline;
+
+    for seconds in [900, 1_800, 3_600, 7_200, 14_400] {
+        let records = [IdleInhibitorRecord {
+            added_at_unix: 1_000,
+            ..manual_hold_record(9)
+        }];
+        let expiries = std::collections::BTreeMap::from([(9, 1_000 + u64::from(seconds))]);
+        assert_eq!(deadline(&records, &expiries).unwrap().1, seconds);
+    }
+}
+
+#[test]
+fn a_replacement_in_the_same_second_uses_the_newer_id() {
+    use super::super::keep_awake::deadline;
+
+    let old = IdleInhibitorRecord {
+        added_at_unix: 1_000,
+        ..manual_hold_record(9)
+    };
+    let new = IdleInhibitorRecord {
+        id: 10,
+        ..old.clone()
+    };
+    let expiries = std::collections::BTreeMap::from([(9, 1_900), (10, 4_600)]);
+    assert_eq!(deadline(&[new, old], &expiries).unwrap().1, 3_600);
+}
+
+#[test]
+fn invalid_deadlines_are_ignored_without_overflowing() {
+    use super::super::keep_awake::deadline;
+
+    for (added_at_unix, expires_at_unix) in [
+        (1_000, 999),
+        (1_000, 1_000 + u64::from(u32::MAX) + 1),
+        (u64::MAX - 900, u64::MAX),
+    ] {
+        assert_eq!(
+            deadline(
+                &[IdleInhibitorRecord {
+                    added_at_unix,
+                    ..manual_hold_record(9)
+                }],
+                &std::collections::BTreeMap::from([(9, expires_at_unix)])
+            ),
+            None
+        );
+    }
 }
 
 #[test]
@@ -203,7 +286,7 @@ fn a_degraded_wayland_backend_is_named_rather_than_reading_as_a_healthy_daemon()
              nothing to report"
     );
     assert_eq!(
-        hero_subtitle(&broken, &[], None, None),
+        hero_subtitle(&broken, None, None),
         "The compositor is not reporting idle time"
     );
     assert!(
@@ -241,7 +324,7 @@ fn a_portal_row_is_labelled_flatpak_and_a_login1_row_carries_its_pid() {
         IdleInhibitorSource::login1(555, 0, Login1Mode::Block),
     );
 
-    let entries = to_inhibitor_entries(&[portal, login1], &[], now);
+    let entries = to_inhibitor_entries(&[portal, login1], now);
     assert!(entries[0].status.ends_with("(Flatpak via portal)"));
     assert!(entries[1].status.contains("pid 555"));
 }
@@ -249,7 +332,7 @@ fn a_portal_row_is_labelled_flatpak_and_a_login1_row_carries_its_pid() {
 #[test]
 fn glimpses_own_hold_is_listed_as_glimpse_and_can_be_released() {
     let now = Utc.with_ymd_and_hms(2026, 9, 18, 12, 0, 0).unwrap();
-    let entries = to_inhibitor_entries(&[manual_hold_record(9), screen_saver_record(1)], &[9], now);
+    let entries = to_inhibitor_entries(&[manual_hold_record(9), screen_saver_record(1)], now);
     assert_eq!(
         entries
             .iter()
@@ -280,7 +363,7 @@ fn a_key_or_lid_handler_prevents_neither_idle_nor_sleep() {
 fn a_timed_hold_counts_down_in_minutes_then_hours() {
     let held = state(vec![manual_hold_record(9)]);
     assert_eq!(
-        hero_subtitle(&held, &[9], Some("15:40"), Some(&time_left(12))),
+        hero_subtitle(&held, Some("15:40"), Some(&time_left(12))),
         format!("{} · 12 minutes left", awake_until("15:40"))
     );
     assert_eq!(time_left(1), "1 minute left");
@@ -291,11 +374,11 @@ fn a_timed_hold_counts_down_in_minutes_then_hours() {
 fn a_timed_hold_says_when_it_ends() {
     let held = state(vec![manual_hold_record(9)]);
     assert_eq!(
-        hero_subtitle(&held, &[9], Some("15:40"), None),
+        hero_subtitle(&held, Some("15:40"), None),
         awake_until("15:40")
     );
     assert_eq!(
-        hero_subtitle(&held, &[9], None, None),
+        hero_subtitle(&held, None, None),
         "Awake until you turn it off"
     );
 }
@@ -310,7 +393,7 @@ fn an_extremely_long_reason_never_pushes_the_source_suffix_off_the_end() {
     );
     verbose.why = "x".repeat(240);
 
-    let entries = to_inhibitor_entries(&[verbose], &[], now);
+    let entries = to_inhibitor_entries(&[verbose], now);
     assert!(
         entries[0].status.ends_with("(Flatpak via portal)"),
         "a hostile why must not be able to push the source marker off the end: {}",
@@ -338,7 +421,7 @@ fn tooltip_falls_back_to_the_reason_while_the_daemon_is_down() {
     down.available = false;
     down.reason = Some("provider has no bus owner".to_owned());
     assert_eq!(
-        tooltip(&down, &[], None, None).as_deref(),
+        tooltip(&down, None, None).as_deref(),
         Some("provider has no bus owner")
     );
 }
@@ -346,7 +429,7 @@ fn tooltip_falls_back_to_the_reason_while_the_daemon_is_down() {
 #[test]
 fn tooltip_always_reports_something_while_the_daemon_is_up() {
     assert_eq!(
-        tooltip(&state(vec![]), &[], None, None).as_deref(),
+        tooltip(&state(vec![]), None, None).as_deref(),
         Some("Nothing preventing idle"),
         "the chip is always shown while the daemon is up, so its tooltip always has content"
     );
@@ -356,7 +439,7 @@ fn tooltip_always_reports_something_while_the_daemon_is_up() {
 fn a_tooltip_format_fills_the_status_token() {
     let held = state(vec![screen_saver_record(1)]);
     assert_eq!(
-        tooltip(&held, &[], None, Some("Idle: {status}")).as_deref(),
+        tooltip(&held, None, Some("Idle: {status}")).as_deref(),
         Some("Idle: 1 app preventing idle")
     );
 }

@@ -113,7 +113,6 @@ fn widgets() {
     display_checks::check();
     idle_popover_checks::check();
     session_popover_checks::check();
-    battery_popover_checks::check();
     swatch_checks::check();
     color_list_checks::check();
     expandable_checks::check();
@@ -133,6 +132,67 @@ fn widgets() {
     expander_row_checks::check();
     slider_row_checks::check();
     exit_presence_checks::check(&_styles);
+    power_popover_checks::check();
+    held_display_readout_check();
+    toggle_disabled_accessibility_check();
+}
+
+fn held_display_readout_check() {
+    let popover = DisplayPopover::new();
+    let mut source = Source {
+        key: "built-in".to_owned(),
+        name: "Built-in".to_owned(),
+        icon: String::new(),
+        value: 42.0,
+        maximum: 100.0,
+        floor: 0.0,
+    };
+    popover.set_sources(&[source.clone()]);
+    let imp = popover.imp();
+    imp.primary.imp().scale.set_value(63.0);
+    imp.primary.imp().held.set(true);
+    source.value = 20.0;
+    popover.set_sources(&[source.clone()]);
+    assert_eq!(imp.primary.value(), 63.0);
+    assert_eq!(imp.readout.value().as_deref(), Some("63"));
+    imp.primary.imp().held.set(false);
+    source.value = 21.0;
+    popover.set_sources(&[source]);
+    assert_eq!(imp.readout.value().as_deref(), Some("21"));
+}
+
+fn toggle_disabled_accessibility_check() {
+    let toggle = ToggleRow::new();
+    for (sensitive, locked) in [
+        (true, false),
+        (false, false),
+        (false, true),
+        (false, false),
+        (true, false),
+        (true, true),
+        (true, false),
+    ] {
+        toggle.set_sensitive(sensitive);
+        toggle.set_locked(locked);
+        let mismatch: Option<glib::GString> = unsafe {
+            glib::translate::from_glib_full(gtk4::ffi::gtk_test_accessible_check_state(
+                toggle.as_ptr().cast(),
+                gtk4::ffi::GTK_ACCESSIBLE_STATE_DISABLED,
+                i32::from(locked || !sensitive),
+            ))
+        };
+        assert!(mismatch.is_none(), "{mismatch:?}");
+        let active = toggle.active();
+        toggle.activate();
+        assert_eq!(
+            toggle.active(),
+            if locked || !sensitive {
+                active
+            } else {
+                !active
+            }
+        );
+    }
 }
 
 fn widget_demo_popover_shows_the_header_check() {
@@ -320,7 +380,6 @@ fn inhibitor(id: u64, label: &str, can_release: bool) -> InhibitorEntry {
 }
 
 mod audio_popover_checks;
-mod battery_popover_checks;
 mod bluetooth_popover_checks;
 mod calendar_checks;
 mod calendar_popover_checks;
@@ -358,6 +417,7 @@ mod placeholder_checks;
 mod places_popover_checks;
 mod player_list_checks;
 mod popover_shell_checks;
+mod power_popover_checks;
 mod range_bar_checks;
 mod readout_checks;
 mod removable_popover_checks;

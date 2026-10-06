@@ -136,28 +136,28 @@ units**, never a literal 100 or 0, and clamp each other on write so neither sett
 range; both skip `NaN`, since `g_param_value_validate`'s `CLAMP` leaves it unchanged and glib-rs
 reads that as changed (`NaN != NaN`) and panics before either setter body runs. `toggleable: false`
 swaps the leading `ToggleButton` for a plain, non-dimmed `Gtk.Image`, since an insensitive
-`ToggleButton` renders dimmed. `SourceList` has no template: a row and its `Fader` are parented as
-siblings, never nested, so the row's `activatable: false` cannot reach the fader beneath it.
-`Fader::set_floor` is the one place that reconciles `maximum` and `floor`, so `SourceList` must not
-pre-clamp either value.
+`ToggleButton` renders dimmed. `SourceList` has no template: a row and its `SliderRow` are parented as
+siblings, never nested, so the row's `activatable: false` cannot reach the slider beneath it.
+`SliderRow::set_range` takes the device's own floor and maximum and steps by a hundredth of the
+maximum, so neither `SourceList` nor `DisplayPopover` pre-clamps a value.
 
-## DisplayList, DisplayPopover, AudioPopover, BrightnessPopover, BatteryPopover and SessionPopover
+## DisplayList, DisplayPopover, AudioPopover, PowerPopover and SessionPopover
 
-Each entry is an `Expandable` keyed by connector. The enable switch's `locked` is set only when its
+Each entry is an `ExpanderRow` keyed by connector. The enable toggle cannot be turned off only when its
 own output is enabled **and** is the sole one enabled, never on a disabled output, which would
 strand the user with no way to turn a display back on. **`set_output_power(false)` removes the
-switch from the row, rather than locking it** — `locked` answers "your last enabled display", the
+toggle from the row, rather than locking it** — that guard answers "your last enabled display", the
 gate answers "this compositor cannot do this at all", and the two never fight. Blanking the screens
-in `DisplayPopover` is a plain `$LegacyRow`, never a `$SwitchRow` — DPMS has no state to sit in, since the
+in `DisplayPopover` is a plain `$ActionRow`, never a `$ToggleRow` — DPMS has no state to sit in, since the
 first input undoes it. `AudioPopover` uses no `Gtk.Stack`: sound has no prompt page, unlike bluetooth
 or network, and its output master fader carries `.accent`, added in Rust, because `Fader` exposes no
-accent property. **`BrightnessPopover::set_sources` takes the slice already ordered with the current
+accent property. **`DisplayPopover::set_sources` takes the slice already ordered with the current
 source first**; `SourceList` renders only `sources[1..]`. Its night light section keeps its
 last-good snapshot rather than collapsing on `None`, since the provider is a separate process that
 can restart mid-popover — a snapshot that has never arrived is a different state, no section at all.
 
-`BatteryPopover`'s Health is an `Expandable` whose card is a `$FactList`, hidden and closed when
-empty; `.row--warning` turns a row's subtitle and value amber. `SessionPopover`'s other-sessions and
+`PowerPopover`'s Battery drawer shows while it has facts or a charge limit, and closes before it
+hides; History closes before it hides too, and emits `history-opened` only on opening. `SessionPopover`'s other-sessions and
 updates sections hide when empty, and the widget emits `action-requested` and `activate-session`
 without knowing logind.
 

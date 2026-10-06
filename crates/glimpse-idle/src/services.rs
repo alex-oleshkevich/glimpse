@@ -262,7 +262,12 @@ async fn emit(connection: &Connection, signal: Signal) {
     let emitter = interface.signal_emitter();
     let server = interface.get().await;
     let emitted = match signal {
-        Signal::Inhibitors => server.inhibitors_changed(emitter).await,
+        Signal::Inhibitors => {
+            if let Err(error) = server.hold_expiries_changed(emitter).await {
+                tracing::warn!(%error, member = "HoldExpiries", "failed to emit an Idle1 change");
+            }
+            server.inhibitors_changed(emitter).await
+        }
         Signal::Health => server.health_changed(emitter).await,
     };
     if let Err(error) = emitted {

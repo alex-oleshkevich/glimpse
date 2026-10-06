@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use futures_util::StreamExt;
@@ -220,6 +221,9 @@ pub trait Idle1 {
     fn inhibitors(&self) -> zbus::Result<Vec<IdleInhibitorRecord>>;
 
     #[zbus(property)]
+    fn hold_expiries(&self) -> zbus::Result<HashMap<u64, u64>>;
+
+    #[zbus(property)]
     fn health(&self) -> zbus::Result<InhibitorsHealth>;
 
     fn hold(&self, seconds: u32) -> zbus::Result<u64>;
@@ -229,6 +233,7 @@ pub trait Idle1 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdleProviderState {
     pub inhibitors: Vec<IdleInhibitorRecord>,
+    pub hold_expiries: BTreeMap<u64, u64>,
     pub health: InhibitorsHealth,
     pub available: bool,
     pub reason: Option<String>,
@@ -239,6 +244,7 @@ impl IdleProviderState {
     fn unavailable(reason: impl Into<String>, health: Option<InhibitorsHealth>) -> Self {
         Self {
             inhibitors: Vec::new(),
+            hold_expiries: BTreeMap::new(),
             health: health.unwrap_or_else(InhibitorsHealth::unknown),
             available: false,
             reason: Some(clean(&reason.into(), REASON)),
@@ -253,6 +259,8 @@ pub enum IdleProviderError {
     Unavailable(String),
     #[error("idle provider call timed out")]
     TimedOut,
+    #[error("idle inhibitor already gone")]
+    UnknownObject,
     #[error("idle provider call failed: {0}")]
     Call(String),
 }
@@ -349,6 +357,11 @@ impl IdleProviderHandle {
 async fn call<T>(request: impl Future<Output = zbus::Result<T>>) -> Result<T, IdleProviderError> {
     match tokio::time::timeout(super::DEADLINE, request).await {
         Ok(Ok(value)) => Ok(value),
+        Ok(Err(zbus::Error::FDO(error)))
+            if matches!(*error, zbus::fdo::Error::UnknownObject(_)) =>
+        {
+            Err(IdleProviderError::UnknownObject)
+        }
         Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
             let reason = clean(&reason.unwrap_or_default(), REASON);
             match name.as_str() {
@@ -357,6 +370,7 @@ async fn call<T>(request: impl Future<Output = zbus::Result<T>>) -> Result<T, Id
                     Err(IdleProviderError::Unavailable(reason))
                 }
                 "org.freedesktop.DBus.Error.NoReply" => Err(IdleProviderError::TimedOut),
+                "org.freedesktop.DBus.Error.UnknownObject" => Err(IdleProviderError::UnknownObject),
                 _ => Err(IdleProviderError::Call(reason)),
             }
         }
@@ -383,6 +397,37 @@ async fn cached_or_live_health(proxy: &Idle1Proxy<'static>) -> zbus::Result<Inhi
     }
 }
 
+async fn cached_or_live_hold_expiries(
+    proxy: &Idle1Proxy<'static>,
+) -> zbus::Result<HashMap<u64, u64>> {
+    let result = match proxy.cached_hold_expiries() {
+        Ok(Some(expiries)) => Ok(expiries),
+        Ok(None) => proxy.hold_expiries().await,
+        Err(error) => Err(error),
+    };
+    match result {
+        Err(zbus::Error::FDO(error)) if matches!(*error, zbus::fdo::Error::UnknownProperty(_)) => {
+            Ok(HashMap::new())
+        }
+        Err(zbus::Error::MethodError(name, _, _))
+            if name.as_str() == "org.freedesktop.DBus.Error.UnknownProperty" =>
+        {
+            Ok(HashMap::new())
+        }
+        result => result,
+    }
+}
+
+async fn hold_expiries_or_empty(proxy: &Idle1Proxy<'static>) -> BTreeMap<u64, u64> {
+    match cached_or_live_hold_expiries(proxy).await {
+        Ok(expiries) => expiries.into_iter().collect(),
+        Err(error) => {
+            tracing::warn!(%error, "idle hold expiries read failed");
+            BTreeMap::new()
+        }
+    }
+}
+
 async fn publish_state(
     updates: &watch::Sender<IdleProviderState>,
     current: &RwLock<Option<Idle1Proxy<'static>>>,
@@ -398,6 +443,7 @@ async fn publish_state(
     }
     let state = IdleProviderState {
         inhibitors: decode_inhibitors(inhibitors),
+        hold_expiries: hold_expiries_or_empty(proxy).await,
         health: decode_health(health),
         available: true,
         reason: None,
@@ -473,6 +519,7 @@ async fn follow_provider(
         };
         let mut inhibitors_changed = proxy.receive_inhibitors_changed().await;
         let mut health_changed = proxy.receive_health_changed().await;
+        let mut hold_expiries_changed = proxy.receive_hold_expiries_changed().await;
 
         let mut serving = match (
             cached_or_live_inhibitors(&proxy).await,
@@ -484,6 +531,7 @@ async fn follow_provider(
                 last_health = Some(health.clone());
                 let state = IdleProviderState {
                     inhibitors: decode_inhibitors(inhibitors),
+                    hold_expiries: hold_expiries_or_empty(&proxy).await,
                     health: decode_health(health),
                     available: true,
                     reason: None,
@@ -507,6 +555,14 @@ async fn follow_provider(
 
         let reason = loop {
             tokio::select! {
+                changed = hold_expiries_changed.next() => {
+                    let Some(_) = changed else {
+                        break "idle hold expiries stream ended".to_owned();
+                    };
+                    if let (Some(inhibitors), Some(health)) = (last_inhibitors.clone(), last_health.clone()) {
+                        publish_state(&updates, &current, &proxy, &mut serving, inhibitors, health).await;
+                    }
+                }
                 changed = inhibitors_changed.next() => {
                     let Some(changed) = changed else {
                         break "idle inhibitors stream ended".to_owned();

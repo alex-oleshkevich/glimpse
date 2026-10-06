@@ -101,6 +101,13 @@ pub struct Profiles {
     pub performance_degraded: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HistoryPoint {
+    pub at: u32,
+    pub percent: f64,
+    pub charging: bool,
+}
+
 pub enum Command {
     SetProfile {
         name: String,
@@ -110,6 +117,9 @@ pub enum Command {
         path: String,
         enabled: bool,
         reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    History {
+        reply: oneshot::Sender<Result<Vec<HistoryPoint>, CommandError>>,
     },
 }
 
@@ -209,6 +219,14 @@ impl BatteryHandle {
             )
         })?
     }
+
+    pub async fn history(&self) -> Result<Vec<HistoryPoint>, CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::History { reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("battery stopped before fetching history".to_owned())
+        })?
+    }
 }
 
 impl Service for Battery {
@@ -291,6 +309,9 @@ impl Service for Battery {
             }) => {
                 self.enable_threshold(ctx, path, enabled, reply);
             }
+            Input::Command(Command::History { reply }) => {
+                self.history(ctx, reply);
+            }
             Input::Config(_) => {}
         }
     }
@@ -342,6 +363,29 @@ impl Battery {
         };
         ctx.spawn_detached(move |_ctx| async move {
             let _ = reply.send(enable_charge_threshold(&bus, &path, enabled).await);
+        });
+    }
+
+    fn history(
+        &self,
+        ctx: &Ctx<Self>,
+        reply: oneshot::Sender<Result<Vec<HistoryPoint>, CommandError>>,
+    ) {
+        let (_, internals, _) = assemble(&self.upower.devices, self.upower.display_path.as_deref());
+        let Some(supply) = internals.into_iter().next() else {
+            let _ = reply.send(Err(CommandError::Unavailable(
+                "no present internal battery for history".to_owned(),
+            )));
+            return;
+        };
+        let Ok(bus) = ctx.system_bus().cloned() else {
+            let _ = reply.send(Err(CommandError::Unavailable(
+                "no system bus for UPower".to_owned(),
+            )));
+            return;
+        };
+        ctx.spawn_detached(move |_ctx| async move {
+            let _ = reply.send(fetch_history(&bus, &supply.path).await);
         });
     }
 }
@@ -619,6 +663,44 @@ async fn enable_charge_threshold(
         .enable_charge_threshold(enabled)
         .await
         .map_err(|error| CommandError::Internal(say(error)))
+}
+
+async fn fetch_history(bus: &Connection, path: &str) -> Result<Vec<HistoryPoint>, CommandError> {
+    let proxy = upower::UPowerDeviceProxy::builder(bus)
+        .path(path)
+        .map_err(|error| CommandError::Internal(say(error)))?
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
+        .map_err(|error| CommandError::Unavailable(say(error)))?;
+    proxy
+        .get_history("charge", 0, 1_000)
+        .await
+        .map(history_points)
+        .map_err(|error| CommandError::Internal(say(error)))
+}
+
+fn history_points(raw: Vec<(u32, f64, u32)>) -> Vec<HistoryPoint> {
+    let mut points = BTreeMap::new();
+    for (at, percent, state) in raw {
+        if state != 0 {
+            points.insert(
+                at,
+                (
+                    percent.clamp(0.0, 100.0),
+                    ChargeState::from_code(state) == ChargeState::Charging,
+                ),
+            );
+        }
+    }
+    points
+        .into_iter()
+        .map(|(at, (percent, charging))| HistoryPoint {
+            at,
+            percent,
+            charging,
+        })
+        .collect()
 }
 
 #[cfg(test)]

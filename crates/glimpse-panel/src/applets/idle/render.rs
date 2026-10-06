@@ -3,6 +3,8 @@ use gettextrs::{gettext, ngettext};
 use glimpse_dbus::idle::{HealthKind, IdleInhibitorRecord, IdleProviderState, SourceKind};
 use glimpse_widgets::{InhibitorEntry, InhibitorSource, InhibitorTargets};
 
+pub use super::keep_awake::{awake_until, manual_holds};
+
 pub const ICON_IDLE: &str = "view-conceal-symbolic";
 pub const ICON_ACTIVE: &str = "view-reveal-symbolic";
 const WHY_CAP: usize = 80;
@@ -32,10 +34,6 @@ pub fn unusable(state: &IdleProviderState) -> Option<String> {
     }
 }
 
-pub fn awake_until(time: &str) -> String {
-    gettext("Awake until {time}").replace("{time}", time)
-}
-
 pub fn time_left(minutes: i64) -> String {
     if minutes < 60 {
         return ngettext("{n} minute left", "{n} minutes left", minutes as u32)
@@ -50,12 +48,7 @@ pub fn holds_idle_or_sleep(record: &IdleInhibitorRecord) -> bool {
     record.targets.idle || record.targets.suspend || record.targets.shutdown
 }
 
-pub fn hero_subtitle(
-    state: &IdleProviderState,
-    manual_hold: &[u64],
-    ends: Option<&str>,
-    left: Option<&str>,
-) -> String {
+pub fn hero_subtitle(state: &IdleProviderState, ends: Option<&str>, left: Option<&str>) -> String {
     if !state.available {
         return gettext("Idle daemon not running");
     }
@@ -66,14 +59,12 @@ pub fn hero_subtitle(
         return gettext("Nothing preventing idle");
     }
 
-    let mine = state
-        .inhibitors
-        .iter()
-        .any(|record| manual_hold.contains(&record.id));
+    let manual_hold = manual_holds(&state.inhibitors);
+    let mine = !manual_hold.is_empty();
     let others: Vec<&IdleInhibitorRecord> = state
         .inhibitors
         .iter()
-        .filter(|record| !manual_hold.contains(&record.id))
+        .filter(|record| !manual_hold.contains(record))
         .collect();
 
     let held = match (ends, left) {
@@ -109,14 +100,13 @@ fn apps_wording(records: &[&IdleInhibitorRecord], count: usize) -> String {
 
 pub fn tooltip(
     state: &IdleProviderState,
-    manual_hold: &[u64],
     ends: Option<&str>,
     format: Option<&str>,
 ) -> Option<String> {
     if !state.available {
         return state.reason.clone();
     }
-    let status = hero_subtitle(state, manual_hold, ends, None);
+    let status = hero_subtitle(state, ends, None);
     Some(match format {
         None => status,
         Some(format) => crate::applets::tokens::render(format, |token| match token {
@@ -124,21 +114,6 @@ pub fn tooltip(
             _ => None,
         }),
     })
-}
-
-pub fn manual_hold_ids(records: &[IdleInhibitorRecord]) -> Vec<u64> {
-    records
-        .iter()
-        .filter(|record| is_manual_hold(record))
-        .map(|record| record.id)
-        .collect()
-}
-
-fn is_manual_hold(record: &IdleInhibitorRecord) -> bool {
-    record.can_release
-        && record.source.kind == SourceKind::Login1
-        && record.who == "glimpse-idle"
-        && record.why == "Manual hold"
 }
 
 pub fn row_label(record: &IdleInhibitorRecord) -> String {
@@ -213,13 +188,13 @@ fn row_targets(record: &IdleInhibitorRecord) -> InhibitorTargets {
 
 pub fn to_inhibitor_entries(
     records: &[IdleInhibitorRecord],
-    manual_hold: &[u64],
     now: DateTime<Utc>,
 ) -> Vec<InhibitorEntry> {
+    let manual_hold = manual_holds(records);
     records
         .iter()
         .map(|record| {
-            let mine = manual_hold.contains(&record.id);
+            let mine = manual_hold.contains(&record);
             InhibitorEntry {
                 id: record.id,
                 source: row_source(record.source.kind),

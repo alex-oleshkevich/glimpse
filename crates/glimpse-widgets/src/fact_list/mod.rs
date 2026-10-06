@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::LegacyRow;
+use crate::{Row, RowTone};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Fact {
@@ -55,14 +55,17 @@ impl FactList {
         let mut rows = imp.rows.borrow_mut();
         for (index, fact) in facts.iter().enumerate() {
             if rows.len() == index {
-                let row = LegacyRow::new();
-                row.set_activatable(false);
+                let row = Row::new();
                 row.insert_after(self, rows.last());
                 rows.push(row);
             }
             rows[index].set_title(Some(fact.label.as_str()));
             rows[index].set_value(Some(fact.value.as_str()));
-            crate::set_css_class(&rows[index], "row--warning", fact.warning);
+            rows[index].set_tone(if fact.warning {
+                RowTone::Warning
+            } else {
+                RowTone::Normal
+            });
         }
         for row in rows.split_off(facts.len()) {
             row.unparent();

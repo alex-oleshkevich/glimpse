@@ -33,18 +33,18 @@ use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, BlurSurface, ColorScheme};
 pub use applets::{
-    Applet, Battery as BatteryAppletConfig, BatteryIndicatorStyle,
-    Bluetooth as BluetoothAppletConfig, Brightness as BrightnessAppletConfig,
-    Chip as SystemMonitorChip, Clipboard as ClipboardAppletConfig, Clock as ClockConfig,
-    Command as CommandAppletConfig, Common as AppletCommon, Exec as ExecAppletConfig, FirstDay,
+    Applet, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig, Chip as SystemMonitorChip,
+    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
+    Common as AppletCommon, Display as DisplayAppletConfig, Exec as ExecAppletConfig, FirstDay,
     Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
-    PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
+    PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig, Power as PowerAppletConfig,
     Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
     Removable as RemovableAppletConfig, Sandbox as AppletSandbox,
     SystemMonitor as SystemMonitorAppletConfig, Timezone as ClockTimezone,
-    Tray as TrayAppletConfig, Weather as WeatherAppletConfig, is_desktop_id, resolve_applet,
+    Tray as TrayAppletConfig, Weather as WeatherAppletConfig, is_desktop_id, renamed_to,
+    resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;

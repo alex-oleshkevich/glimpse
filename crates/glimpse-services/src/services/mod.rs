@@ -51,7 +51,8 @@ pub use audio::{
 };
 pub use battery::{
     Battery, BatteryHandle, BatteryState, Charge, Dependencies as BatteryDependencies,
-    Peripheral as BatteryPeripheral, Profiles, Source as BatterySource, Supply as BatterySupply,
+    HistoryPoint as BatteryHistoryPoint, Peripheral as BatteryPeripheral, Profiles,
+    Source as BatterySource, Supply as BatterySupply,
 };
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{

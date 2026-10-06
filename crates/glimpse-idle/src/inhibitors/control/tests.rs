@@ -98,8 +98,19 @@ async fn hold_returns_an_id_with_manual_hold_targets_and_auto_releases() {
     ));
     assert_eq!(record.who, "glimpse-idle");
     assert_eq!(record.why, "Manual hold");
+    let _indefinite = proxy.hold(0).await.unwrap();
+    assert_eq!(
+        proxy.hold_expiries().await.unwrap(),
+        HashMap::from([(id, record.added_at_unix + 1)])
+    );
 
     wait_until_released(&registry, id).await;
+    assert!(
+        registry
+            .read(|registry| registry.hold_expiries())
+            .await
+            .is_empty()
+    );
     assert_fd_closed(&fake_login1, 0);
 }
 #[tokio::test(start_paused = true)]
@@ -110,6 +121,8 @@ async fn hold_zero_seconds_never_auto_releases_only_release_clears_it() {
     let proxy = Idle1Proxy::new(&client).await.unwrap();
 
     let id = proxy.hold(0).await.unwrap();
+
+    assert!(proxy.hold_expiries().await.unwrap().is_empty());
 
     tokio::time::advance(Duration::from_secs(3600)).await;
     for _ in 0..50 {

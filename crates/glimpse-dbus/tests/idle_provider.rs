@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -81,8 +82,13 @@ impl TestProvider {
         99
     }
 
-    fn release(&self, id: u64) {
+    fn release(&self, id: u64) -> zbus::fdo::Result<()> {
         self.calls.lock().unwrap().push(("release", id));
+        if id == 7 {
+            Ok(())
+        } else {
+            Err(zbus::fdo::Error::UnknownObject("already gone".to_owned()))
+        }
     }
 }
 
@@ -155,6 +161,76 @@ async fn wait_until(
     .unwrap();
 }
 
+struct ExpiryProvider {
+    expiries: Arc<Mutex<BTreeMap<u64, u64>>>,
+}
+
+#[zbus::interface(name = "me.aresa.Glimpse.Idle1")]
+impl ExpiryProvider {
+    #[zbus(property)]
+    fn inhibitors(&self) -> Vec<IdleInhibitorRecord> {
+        vec![one_record()]
+    }
+
+    #[zbus(property)]
+    fn health(&self) -> InhibitorsHealth {
+        ready()
+    }
+
+    #[zbus(property)]
+    fn hold_expiries(&self) -> HashMap<u64, u64> {
+        self.expiries
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(id, expiry)| (*id, *expiry))
+            .collect()
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn client_decodes_and_follows_additive_hold_expiries() {
+    let bus = PrivateBus::start();
+    let server = bus.connection().await;
+    let expiries = Arc::new(Mutex::new(BTreeMap::from([(7, 1_789_386_000)])));
+    server
+        .object_server()
+        .at(
+            GLIMPSE_IDLE_OBJECT_PATH,
+            ExpiryProvider {
+                expiries: expiries.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&server, GLIMPSE_IDLE_BUS_NAME)
+        .await
+        .unwrap();
+    let mut provider = IdleProvider::start(bus.connection().await);
+    let mut updates = provider.handle().subscribe();
+    wait_until(&mut updates, |state| state.available).await;
+    assert_eq!(
+        updates.borrow().hold_expiries,
+        BTreeMap::from([(7, 1_789_386_000)])
+    );
+    assert_eq!(updates.borrow().inhibitors, [one_record()]);
+    expiries.lock().unwrap().clear();
+    let interface = server
+        .object_server()
+        .interface::<_, ExpiryProvider>(GLIMPSE_IDLE_OBJECT_PATH)
+        .await
+        .unwrap();
+    interface
+        .get()
+        .await
+        .hold_expiries_changed(interface.signal_emitter())
+        .await
+        .unwrap();
+    wait_until(&mut updates, |state| state.hold_expiries.is_empty()).await;
+    assert!(updates.borrow().available);
+    provider.shutdown().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
     let mut bus = PrivateBus::start();
@@ -172,6 +248,7 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
     wait_until(&mut state, |state| state.owner).await;
     let snapshot = handle.snapshot();
     assert!(snapshot.available);
+    assert!(snapshot.hold_expiries.is_empty());
     assert_eq!(snapshot.inhibitors, vec![one_record()]);
     assert_eq!(snapshot.health, ready());
 
@@ -182,6 +259,10 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
         calls.lock().unwrap().as_slice(),
         &[("hold", 30), ("release", 7)]
     );
+    assert!(matches!(
+        handle.release(99).await,
+        Err(glimpse_dbus::idle::IdleProviderError::UnknownObject)
+    ));
 
     inhibitors.lock().unwrap().push(another_record());
     emit_inhibitors_changed(&first).await;

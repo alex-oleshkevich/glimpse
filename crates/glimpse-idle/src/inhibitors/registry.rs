@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use glimpse_dbus::idle::{IdleInhibitorRecord, SourceKind};
 use zbus::zvariant::OwnedFd;
@@ -14,6 +14,7 @@ pub struct Registry {
     next_cookie: u32,
     version: u64,
     records: HashMap<u64, InternalRecord>,
+    hold_expiries: BTreeMap<u64, u64>,
     cookie_to_id: HashMap<u32, u64>,
     bus_name_to_ids: HashMap<String, Vec<u64>>,
 }
@@ -104,6 +105,7 @@ impl Registry {
 
     pub fn release_record(&mut self, id: u64) -> Option<u64> {
         let internal = self.records.remove(&id)?;
+        self.hold_expiries.remove(&id);
         tracing::info!(
             id,
             source = ?internal.record.source.kind,
@@ -164,6 +166,15 @@ impl Registry {
             .values()
             .map(|internal| internal.record.clone())
             .collect()
+    }
+
+    pub fn set_hold_expiry(&mut self, id: u64, expires_at_unix: u64) {
+        self.hold_expiries.insert(id, expires_at_unix);
+        self.version += 1;
+    }
+
+    pub fn hold_expiries(&self) -> BTreeMap<u64, u64> {
+        self.hold_expiries.clone()
     }
 
     pub fn can_release(&self, id: u64) -> Option<bool> {

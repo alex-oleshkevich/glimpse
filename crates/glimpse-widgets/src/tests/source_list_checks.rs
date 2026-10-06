@@ -28,14 +28,14 @@ pub(super) fn check() {
         source("dp-2", "DP-2", 80.0, 100.0, 5.0),
     ]);
 
-    let rows: Vec<LegacyRow> = children_of(&sources);
-    let faders: Vec<Fader> = children_of(&sources);
+    let rows: Vec<Row> = children_of(&sources);
+    let faders: Vec<SliderRow> = children_of(&sources);
     assert_eq!(rows.len(), 3);
     assert_eq!(faders.len(), 3);
     assert_eq!(rows[0].title().as_deref(), Some("Built-in"));
     assert_eq!(rows[2].title().as_deref(), Some("DP-2"));
     assert!(
-        !rows[0].activatable(),
+        !rows[0].is::<ActionRow>() && !rows[0].is_focusable(),
         "a titled row above a fader takes no click of its own"
     );
     assert_eq!(
@@ -53,11 +53,11 @@ pub(super) fn check() {
     assert_eq!(faders[2].value(), 80.0);
 
     assert_eq!(
-        faders[2].floor(),
+        SliderRow::min(&faders[2]),
         5.0,
         "a source's own floor becomes the fader's floor"
     );
-    assert_eq!(faders[2].maximum(), 100.0);
+    assert_eq!(SliderRow::max(&faders[2]), 100.0);
 
     faders[1].emit_by_name::<()>("changed", &[&65.0f64]);
     assert_eq!(
@@ -74,8 +74,8 @@ pub(super) fn check() {
         source("dp-1", "DP-1", 65.0, 100.0, 0.0),
         source("dp-2", "DP-2", 80.0, 100.0, 5.0),
     ]);
-    let rows_after: Vec<LegacyRow> = children_of(&sources);
-    let faders_after: Vec<Fader> = children_of(&sources);
+    let rows_after: Vec<Row> = children_of(&sources);
+    let faders_after: Vec<SliderRow> = children_of(&sources);
     assert_eq!(
         rows_after[0], first_row,
         "an untouched row is reused rather than rebuilt"
@@ -96,7 +96,7 @@ pub(super) fn check() {
     );
 
     sources.set_sources(&[source("hostile", &"ё".repeat(300), 10.0, 100.0, 0.0)]);
-    let hostile_rows: Vec<LegacyRow> = children_of(&sources);
+    let hostile_rows: Vec<Row> = children_of(&sources);
     assert_eq!(hostile_rows.len(), 1);
     assert!(
         child_named::<gtk4::Label>(&hostile_rows[0], "row__title")

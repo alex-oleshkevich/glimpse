@@ -21,7 +21,7 @@ tolerates.
   behind `Idle1.Health`
 - `inhibitors/shared.rs` — `SharedRegistry`, the `Arc`+`Mutex` wrapper every surface shares
 - `inhibitors/control.rs` — `Idle1Server`, serving `me.aresa.Glimpse.Idle1` (`Hold`/`Release`,
-  `Inhibitors`/`Health`)
+  `Inhibitors`/`HoldExpiries`/`Health`)
 - `inhibitors/screen_saver.rs` — `ScreenSaverServer`, serving `org.freedesktop.ScreenSaver`
   (`Inhibit`/`UnInhibit` only) and auto-releasing a departed client's records
 - `inhibitors/login1_observer.rs` — polls `Login1Manager.ListInhibitors`, mirroring external
@@ -97,7 +97,7 @@ that doesn't touch it never wakes the idle gate's subscriber for nothing.
 only on operations that change what a reader could observe (`insert`, `release_record`,
 `set_process_name`) — never on a rejected `Inhibit` or an unknown-cookie `UnInhibit`, or every
 session-bus disconnect would broadcast the full `Inhibitors` array. `services::emit_changes` is the
-crate's only `Inhibitors` and `Health` `PropertiesChanged` emitter, driven by this signal and by
+crate's only `Inhibitors`, `HoldExpiries` and `Health` `PropertiesChanged` emitter, driven by this signal and by
 the login1 observer's health generation.
 
 **A manual `Hold` records itself as `SourceKind::Login1` with `pid == std::process::id()`**, since

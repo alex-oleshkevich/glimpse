@@ -227,10 +227,9 @@
 #     "bluetooth",
 #     "network",
 #     "display",
-#     "brightness",
 #     "audio",
 #     "idle",
-#     "battery",
+#     "power",
 #     "keyboard",
 #     "session",
 # ]
@@ -335,9 +334,6 @@
 
 # [applets.display]
 # extends = "display"
-
-# [applets.brightness]
-# extends = "brightness"
 # scroll-step = 5
 # show-keyboard = true
 
@@ -347,8 +343,8 @@
 # [applets.idle]
 # extends = "idle"
 
-# [applets.battery]
-# extends = "battery"
+# [applets.power]
+# extends = "power"
 # indicator-style = "icon-only"
 # label-format = "{percentage}"
 

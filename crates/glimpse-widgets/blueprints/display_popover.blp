@@ -1,5 +1,4 @@
 using Gtk 4.0;
-using Adw 1;
 
 template $DisplayPopover: Gtk.Widget {
   layout-manager: BinLayout {};
@@ -9,39 +8,84 @@ template $DisplayPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "video-display-symbolic";
-      title: _("Displays");
+    icon-name: "display-brightness-symbolic";
+    title: _("Display");
+
+    [addon]
+    $Readout readout {
+      valign: center;
+      visible: false;
+      unit: "%";
     }
 
-    Adw.Bin column {
+    Gtk.Box {
+      orientation: vertical;
       hexpand: true;
 
       styles [
         "column",
       ]
 
-      $Section displays {
+      $Section brightness {
         visible: false;
+        title: _("Brightness");
 
         Gtk.Box {
           orientation: vertical;
 
-          $DisplayList devices {}
-
-          $LegacyRow blank {
+          $Row primary_name {
             visible: false;
-            activatable: true;
+          }
+
+          $SliderRow primary {
+            visible: false;
+          }
+
+          $SourceList devices {
+            visible: false;
+          }
+
+          $ExpanderRow night_light {
+            visible: false;
+            title: _("Night light");
+
+            $FactList night_facts {}
+
+            $ToggleRow enabled {
+              title: _("Enabled");
+            }
+
+            $SliderRow temperature {
+              styles [
+                "slider-row--warm",
+              ]
+            }
+
+            $ChoiceList schedules {
+              visible: false;
+            }
+          }
+        }
+      }
+
+      $Section displays_section {
+        visible: false;
+        title: _("Displays");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          $DisplayList displays {}
+
+          $ActionRow blank {
+            visible: false;
             title: _("Blank the screens");
-            subtitle: _("Any input wakes them again");
           }
         }
       }
     }
 
-    [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

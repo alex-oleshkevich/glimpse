@@ -1,10 +1,54 @@
 use super::*;
 
+struct OldIdle1;
+
+#[zbus::interface(name = "me.aresa.Glimpse.Idle1")]
+impl OldIdle1 {
+    #[zbus(property)]
+    fn inhibitors(&self) -> Vec<IdleInhibitorRecord> {
+        Vec::new()
+    }
+}
+
+#[tokio::test]
+async fn a_missing_expiry_property_decodes_as_an_empty_map_without_an_error() {
+    let bus = crate::testing::PrivateBus::start();
+    let server = bus.connection().await;
+    server
+        .object_server()
+        .at(GLIMPSE_IDLE_OBJECT_PATH, OldIdle1)
+        .await
+        .unwrap();
+    crate::own_name(&server, GLIMPSE_IDLE_BUS_NAME)
+        .await
+        .unwrap();
+    let client = bus.connection().await;
+    let proxy = Idle1Proxy::new(&client).await.unwrap();
+    assert!(
+        cached_or_live_hold_expiries(&proxy)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn unknown_object_is_preserved_as_a_typed_call_error() {
+    let request = std::future::ready(Err::<(), _>(
+        zbus::fdo::Error::UnknownObject("gone".to_owned()).into(),
+    ));
+    assert!(matches!(
+        call(request).await,
+        Err(IdleProviderError::UnknownObject)
+    ));
+}
+
 #[test]
 fn wire_signatures_match_the_versioned_contract() {
     assert_eq!(SourceKind::SIGNATURE, "u");
     assert_eq!(InhibitionTargets::SIGNATURE, "(bbbbbbb)");
     assert_eq!(IdleInhibitorSource::SIGNATURE, "(uussuuu)");
+    assert_eq!(BTreeMap::<u64, u64>::SIGNATURE, "a{tt}");
     assert_eq!(
         IdleInhibitorRecord::SIGNATURE,
         "(tssss(uussuuu)(bbbbbbb)bt)"

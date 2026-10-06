@@ -4,6 +4,62 @@ use tokio_util::sync::CancellationToken;
 
 use crate::ServiceRuntime;
 
+#[test]
+fn history_is_sorted_without_gaps_and_keeps_the_last_duplicate() {
+    let points = history_points(vec![
+        (30, 50.0, 2),
+        (10, 90.0, 2),
+        (20, 0.0, 0),
+        (10, 91.0, 2),
+        (40, 120.0, 1),
+    ]);
+    assert_eq!(
+        points,
+        vec![
+            HistoryPoint {
+                at: 10,
+                percent: 91.0,
+                charging: false,
+            },
+            HistoryPoint {
+                at: 30,
+                percent: 50.0,
+                charging: false,
+            },
+            HistoryPoint {
+                at: 40,
+                percent: 100.0,
+                charging: true,
+            },
+        ]
+    );
+}
+
+#[test]
+fn empty_history_has_no_points() {
+    assert!(history_points(Vec::new()).is_empty());
+}
+
+#[tokio::test]
+async fn history_without_an_internal_supply_is_unavailable() {
+    let cancel = CancellationToken::new();
+    let (mut runtime, handle) = ServiceRuntime::<Battery>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        cancel.clone(),
+    );
+    let running = tokio::spawn(async move { runtime.run(Dependencies::default()).await });
+    let result = tokio::time::timeout(std::time::Duration::from_secs(1), handle.history())
+        .await
+        .expect("history replies without a bus");
+    assert!(matches!(
+        result,
+        Err(CommandError::Unavailable(reason)) if reason == "no present internal battery for history"
+    ));
+    cancel.cancel();
+    let _ = running.await;
+}
+
 fn battery(
     path: &str,
     present: bool,

@@ -149,11 +149,11 @@ pub(super) fn check() {
     assert_eq!(*toggled.borrow(), ["a/trust/true", "a/trust/false"]);
     assert!(!a.imp().trust.active());
     assert!(
-        children_of::<LegacyRow>(&*a.imp().facts)
+        children_of::<Row>(&*a.imp().facts)
             .iter()
-            .all(|row| !row.activatable())
+            .all(|row| row.type_() == Row::static_type())
     );
-    let facts = children_of::<LegacyRow>(&*a.imp().facts);
+    let facts = children_of::<Row>(&*a.imp().facts);
     assert_eq!(facts[0].title().as_deref(), Some("Battery"));
     assert_eq!(facts[0].value().as_deref(), Some("72%"));
     a.imp().primary.activate();

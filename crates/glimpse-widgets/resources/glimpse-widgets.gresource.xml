@@ -3,11 +3,10 @@
     <gresource prefix="/me/aresa/GlimpseShell">
         <file>widgets/applet_popover.ui</file>
         <file>widgets/audio_popover.ui</file>
-        <file>widgets/battery_popover.ui</file>
+        <file>widgets/power_popover.ui</file>
         <file>widgets/bluetooth_pairing_dialog.ui</file>
         <file>widgets/bluetooth_popover.ui</file>
         <file>widgets/bluetooth_device.ui</file>
-        <file>widgets/brightness_popover.ui</file>
         <file>widgets/display_popover.ui</file>
         <file>widgets/network_popover.ui</file>
         <file>widgets/network_row.ui</file>

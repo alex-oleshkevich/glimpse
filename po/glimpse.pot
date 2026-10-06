@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-05 14:58+0200\n"
+"POT-Creation-Date: 2026-10-06 11:36+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -123,7 +123,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:200
 #: crates/glimpse-shot/src/gui/result.rs:973
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
-#: crates/glimpse-widgets/blueprints/network_popover.blp:166
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:149
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
@@ -156,24 +156,25 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:139
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:293
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:287
+#: crates/glimpse-panel/src/applets/display/indicator.rs:332
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:140
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:294
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:288
+#: crates/glimpse-panel/src/applets/display/indicator.rs:333
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:141
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:295
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:289
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:299
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:101
+#: crates/glimpse-panel/src/applets/display/indicator.rs:334
+#: crates/glimpse-panel/src/applets/display/indicator.rs:344
 #: crates/glimpse-panel/src/applets/network/render.rs:97
+#: crates/glimpse-panel/src/applets/power/mod.rs:354
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
 #: crates/glimpse-panel/src/applets/ruler/indicator.rs:85
 msgid "That did not work."
@@ -270,7 +271,7 @@ msgid "{minutes} min"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:222
-#: crates/glimpse-panel/src/applets/battery/render.rs:247
+#: crates/glimpse-panel/src/applets/power/render.rs:374
 msgid "{hours} h"
 msgstr ""
 
@@ -296,9 +297,9 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:117
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:177
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:480
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:169
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:278
-#: crates/glimpse-panel/src/applets/network/indicator.rs:464
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:167
+#: crates/glimpse-panel/src/applets/display/indicator.rs:323
+#: crates/glimpse-panel/src/applets/network/indicator.rs:498
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:99
 msgid "Could not change that setting"
 msgstr ""
@@ -327,8 +328,8 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:285
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:296
+#: crates/glimpse-panel/src/applets/display/indicator.rs:330
+#: crates/glimpse-panel/src/applets/display/indicator.rs:341
 msgid "That was not a valid value."
 msgstr ""
 
@@ -364,9 +365,9 @@ msgid "Muted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
-#: crates/glimpse-panel/src/applets/brightness/render.rs:112
+#: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:365
+#: crates/glimpse-widgets/src/lib.rs:364
 msgid "{percent}%"
 msgstr ""
 
@@ -375,194 +376,36 @@ msgstr ""
 msgid "Unknown application"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/battery/mod.rs:156
-msgid "Could not change the power mode"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/mod.rs:178
-msgid "Could not change the charge limit"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/mod.rs:206
-#: crates/glimpse-panel/src/applets/battery/render.rs:112
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:14
-msgid "Battery"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/mod.rs:210
-msgid "The battery service is unavailable."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:130
-msgid "Energy"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:136
-msgid "Capacity when new"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:141
-msgid "Cycles"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:145
-msgid "Voltage"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:150
-msgid "Technology"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:153
-#: crates/glimpse-widgets/src/display_list/mod.rs:180
-msgid "Model"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:156
-#: crates/glimpse-widgets/src/display_list/mod.rs:177
-msgid "Make"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:166
-msgid "Limit charge to {percent}%"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:167
-msgid "Slows battery wear"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:200
-msgid "Full at {time}"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:201
-#: crates/glimpse-panel/src/applets/battery/render.rs:213
-#: crates/glimpse-panel/src/applets/battery/render.rs:256
-msgid "Charging"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:204
-msgid "Held at {percent}%"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:206
-#: crates/glimpse-panel/src/applets/battery/render.rs:257
-msgid "Discharging"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:233
-msgid "{time} to full"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:236
-msgid "{time} left"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:245
-msgid "Less than a minute"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:246
-msgid "{minutes} m"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:248
-msgid "{hours} h {minutes} m"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:258
-#: crates/glimpse-panel/src/applets/pager/mod.rs:220
-#: crates/glimpse-widgets/src/places_popover/mod.rs:175
-msgid "Empty"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:259
-msgid "Fully charged"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:260
-msgid "Not charging"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:275
-msgid "Power saver"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:276
-msgid "Balanced"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:277
-msgid "Performance"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:284
-msgid "Longer battery life, slower response"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:286
-msgid "Held back — on a lap"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:287
-msgid "Held back — too hot"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:318
-msgid "Li-ion"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:319
-msgid "Li-poly"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:320
-msgid "LiFePO4"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:321
-msgid "Lead acid"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:322
-msgid "NiCd"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/battery/render.rs:323
-msgid "NiMH"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:83
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:90
 msgid "Could not switch Bluetooth"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:106
-#: crates/glimpse-panel/src/applets/network/indicator.rs:400
-#: crates/glimpse-panel/src/applets/network/indicator.rs:406
-#: crates/glimpse-panel/src/applets/network/indicator.rs:412
-#: crates/glimpse-panel/src/applets/network/indicator.rs:504
-#: crates/glimpse-panel/src/applets/network/indicator.rs:513
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:110
+#: crates/glimpse-panel/src/applets/network/indicator.rs:420
+#: crates/glimpse-panel/src/applets/network/indicator.rs:428
+#: crates/glimpse-panel/src/applets/network/indicator.rs:436
+#: crates/glimpse-panel/src/applets/network/indicator.rs:540
+#: crates/glimpse-panel/src/applets/network/indicator.rs:551
 msgid "Could not connect"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:115
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:122
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
 msgid "Could not pair"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:139
-#: crates/glimpse-panel/src/applets/network/indicator.rs:431
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:134
+#: crates/glimpse-panel/src/applets/network/indicator.rs:459
 msgid "Could not disconnect"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:149
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:200
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:145
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
 msgid "Could not remove the device"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:302
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:321
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:327
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:67
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
 msgid "Bluetooth"
@@ -683,8 +526,14 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:330
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
-#: crates/glimpse-panel/src/applets/network/render.rs:315
+#: crates/glimpse-panel/src/applets/network/render.rs:323
 msgid "Type"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:331
+#: crates/glimpse-panel/src/applets/power/render.rs:111
+#: crates/glimpse-widgets/blueprints/power_popover.blp:41
+msgid "Battery"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:333
@@ -693,17 +542,15 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:345
 #: crates/glimpse-panel/src/applets/network/render.rs:242
-#: crates/glimpse-widgets/src/network_popover/mod.rs:416
 msgid "Disconnect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:347
-#: crates/glimpse-panel/src/applets/network/indicator.rs:264
-#: crates/glimpse-panel/src/applets/network/indicator.rs:273
-#: crates/glimpse-panel/src/applets/network/indicator.rs:292
-#: crates/glimpse-widgets/blueprints/network_popover.blp:170
-#: crates/glimpse-widgets/blueprints/network_row.blp:19
-#: crates/glimpse-widgets/src/network_popover/mod.rs:417
+#: crates/glimpse-panel/src/applets/network/indicator.rs:275
+#: crates/glimpse-panel/src/applets/network/indicator.rs:284
+#: crates/glimpse-panel/src/applets/network/indicator.rs:303
+#: crates/glimpse-panel/src/applets/network/render.rs:250
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
 msgid "Connect"
@@ -714,7 +561,7 @@ msgid "Pair"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
-#: crates/glimpse-panel/src/applets/network/render.rs:271
+#: crates/glimpse-panel/src/applets/network/render.rs:278
 #: crates/glimpse-widgets/blueprints/network_row.blp:28
 msgid "Connect automatically"
 msgstr ""
@@ -796,8 +643,8 @@ msgid "Speaker"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
-#: crates/glimpse-panel/src/applets/brightness/render.rs:73
-#: crates/glimpse-panel/src/applets/brightness/render/tests.rs:206
+#: crates/glimpse-panel/src/applets/display/render.rs:82
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:206
 #: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
 msgid "Keyboard"
 msgstr ""
@@ -823,6 +670,7 @@ msgid "Computer"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:436
+#: crates/glimpse-widgets/blueprints/display_popover.blp:12
 msgid "Display"
 msgstr ""
 
@@ -837,41 +685,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:452
 msgid "Vendor codec"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:262
-#: crates/glimpse-panel/src/applets/display/indicator.rs:124
-#: crates/glimpse-widgets/blueprints/display_popover.blp:15
-msgid "Displays"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:264
-msgid "Could not change the brightness"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:276
-#: crates/glimpse-widgets/blueprints/brightness_popover.blp:50
-msgid "Night light"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:286
-msgid "The brightness service is unavailable."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:295
-msgid "That was not a valid setting."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:297
-msgid "The night light is not running."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/indicator.rs:298
-msgid "That took too long."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/brightness/render.rs:109
-msgid "{name}: {percent}%"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
@@ -1063,18 +876,54 @@ msgstr ""
 msgid "{program} could not be started."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:79
+#: crates/glimpse-panel/src/applets/display/indicator.rs:214
 msgid "Could not change that display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:95
+#: crates/glimpse-panel/src/applets/display/indicator.rs:230
 msgid "Could not blank the screens"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:128
+#: crates/glimpse-panel/src/applets/display/indicator.rs:307
+#: crates/glimpse-panel/src/applets/display/indicator.rs:360
+#: crates/glimpse-widgets/blueprints/display_popover.blp:73
+msgid "Displays"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:309
+msgid "Could not change the brightness"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:321
+#: crates/glimpse-widgets/blueprints/display_popover.blp:50
+msgid "Night light"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:331
+msgid "The brightness service is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:340
+msgid "That was not a valid setting."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:342
+msgid "The night light is not running."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:343
+#: crates/glimpse-panel/src/applets/power/mod.rs:352
+msgid "That took too long."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:364
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:156
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:226
 msgid "The compositor is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/display/render.rs:118
+msgid "{name}: {percent}%"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/exec/dom.rs:1425
@@ -1100,94 +949,94 @@ msgstr ""
 msgid "External applet is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/mod.rs:240
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+msgid "Awake until {time}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:197
 #: crates/glimpse-panel/src/applets/printing/render.rs:161
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
 msgid "Idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:23
-#: crates/glimpse-panel/src/applets/idle/render.rs:60
+#: crates/glimpse-panel/src/applets/idle/render.rs:25
+#: crates/glimpse-panel/src/applets/idle/render.rs:53
 msgid "Idle daemon not running"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:28
-#: crates/glimpse-panel/src/applets/idle/render.rs:63
+#: crates/glimpse-panel/src/applets/idle/render.rs:30
+#: crates/glimpse-panel/src/applets/idle/render.rs:56
 msgid "The compositor is not reporting idle time"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:36
-msgid "Awake until {time}"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/idle/render.rs:41
+#: crates/glimpse-panel/src/applets/idle/render.rs:39
 msgid "{n} minute left"
 msgid_plural "{n} minutes left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:44
+#: crates/glimpse-panel/src/applets/idle/render.rs:42
 msgid "{hours} h {minutes} min left"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:66
+#: crates/glimpse-panel/src/applets/idle/render.rs:59
 msgid "Nothing preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:82
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
 msgid "Awake until you turn it off"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:97
+#: crates/glimpse-panel/src/applets/idle/render.rs:88
 msgid "{n} app preventing idle or sleep"
 msgid_plural "{n} apps preventing idle or sleep"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:102
+#: crates/glimpse-panel/src/applets/idle/render.rs:93
 msgid "{n} app preventing idle"
 msgid_plural "{n} apps preventing idle"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:154
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
 msgid "Unknown"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:161
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
 msgid "just now"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:164
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
 msgid "{n} minute ago"
 msgid_plural "{n} minutes ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:168
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
 msgid "{n} hour ago"
 msgid_plural "{n} hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:173
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
 msgid "(Flatpak via portal)"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:175
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
 msgid "(systemd-inhibit · pid {pid})"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:184
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
 msgid "Preventing idle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:227
+#: crates/glimpse-panel/src/applets/idle/render.rs:202
 #: crates/glimpse-panel/src/config_alert.rs:110
 msgid "Glimpse"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/idle/render.rs:233
+#: crates/glimpse-panel/src/applets/idle/render.rs:208
 msgid "Manual hold"
 msgstr ""
 
@@ -1279,11 +1128,11 @@ msgstr ""
 msgid "Wants to pair"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mod.rs:65
+#: crates/glimpse-panel/src/applets/mod.rs:64
 msgid "Built-in display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:366
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:352
 msgid "Open {player}"
 msgstr ""
 
@@ -1317,70 +1166,70 @@ msgstr ""
 msgid "WPA3 Personal"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:115
+#: crates/glimpse-panel/src/applets/network/indicator.rs:114
 #: crates/glimpse-widgets/blueprints/places_popover.blp:51
 #: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
 msgid "Network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:204
+#: crates/glimpse-panel/src/applets/network/indicator.rs:215
 #: crates/glimpse-widgets/blueprints/network_popover.blp:16
 #: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+#: crates/glimpse-panel/src/applets/network/indicator.rs:263
 msgid "Hidden network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
 msgid "Type the name the network broadcasts nothing about."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+#: crates/glimpse-panel/src/applets/network/indicator.rs:266
 msgid "Continue"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+#: crates/glimpse-panel/src/applets/network/indicator.rs:273
 msgid "Choose how the network is secured, then type its password."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:271
-#: crates/glimpse-panel/src/applets/network/indicator.rs:286
+#: crates/glimpse-panel/src/applets/network/indicator.rs:282
+#: crates/glimpse-panel/src/applets/network/indicator.rs:297
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
 msgid "The network needs a password before this computer can join it."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
 msgid "{network} refused that password. Check it and try again."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:291
+#: crates/glimpse-panel/src/applets/network/indicator.rs:302
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
 msgid "Try again"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:317
+#: crates/glimpse-panel/src/applets/network/indicator.rs:328
 msgid "VPN is connected"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:368
+#: crates/glimpse-panel/src/applets/network/indicator.rs:382
 msgid "Could not switch Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:394
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
 msgid "Could not connect the VPN"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:437
+#: crates/glimpse-panel/src/applets/network/indicator.rs:467
 msgid "Could not forget that network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+#: crates/glimpse-panel/src/applets/network/indicator.rs:475
 msgid "Could not disconnect the VPN"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:525
+#: crates/glimpse-panel/src/applets/network/indicator.rs:565
 msgid "Could not send that password"
 msgstr ""
 
@@ -1420,7 +1269,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/network/render.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:56
 #: crates/glimpse-panel/src/applets/network/render/tests.rs:64
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:203
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:220
 msgid "Metered connection"
 msgstr ""
 
@@ -1477,7 +1326,7 @@ msgid "Open, encrypted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:206
-#: crates/glimpse-panel/src/applets/network/render/tests.rs:256
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:273
 msgid "{count} more network"
 msgid_plural "{count} more networks"
 msgstr[0] ""
@@ -1487,7 +1336,7 @@ msgstr[1] ""
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
 #: crates/glimpse-panel/src/applets/removable/render.rs:136
 #: crates/glimpse-panel/src/applets/removable/render.rs:177
-#: crates/glimpse-widgets/src/display_list/mod.rs:170
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:138
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:204
 msgid "Status"
@@ -1501,28 +1350,28 @@ msgstr ""
 msgid "IP address"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:258
+#: crates/glimpse-panel/src/applets/network/render.rs:265
 msgid "Security"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:259
+#: crates/glimpse-panel/src/applets/network/render.rs:266
 msgid "Band"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:285
+#: crates/glimpse-panel/src/applets/network/render.rs:293
 #: crates/glimpse-widgets/blueprints/network_row.blp:33
 msgid "Forget this network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:297
+#: crates/glimpse-panel/src/applets/network/render.rs:305
 msgid "Cable unplugged"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:305
+#: crates/glimpse-panel/src/applets/network/render.rs:313
 msgid "Speed"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:306
+#: crates/glimpse-panel/src/applets/network/render.rs:314
 msgid "{speed} Mb/s"
 msgstr ""
 
@@ -1608,6 +1457,12 @@ msgstr ""
 msgid "{count}d"
 msgstr ""
 
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:175
+msgid "Empty"
+msgstr ""
+
 #: crates/glimpse-panel/src/applets/pager/mod.rs:221
 msgid "{count} window"
 msgid_plural "{count} windows"
@@ -1627,6 +1482,187 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/places/indicator.rs:118
 msgid "Some items could not be deleted."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:304
+msgid "Could not change the power mode"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:326
+msgid "Could not change the charge limit"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:345
+#: crates/glimpse-panel/src/applets/power/mod.rs:376
+#: crates/glimpse-panel/src/applets/power/render.rs:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:12
+#: crates/glimpse-widgets/blueprints/status_island.blp:34
+#: crates/glimpse-widgets/blueprints/status_island.blp:37
+msgid "Power"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:347
+msgid "Could not change keep awake"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:351
+msgid "The idle service is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:380
+msgid "The battery service is unavailable."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:130
+msgid "Power draw"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:131
+msgid "{watts} W"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:136
+msgid "Health"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:143
+msgid "Energy"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:149
+msgid "Capacity when new"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:154
+msgid "Cycles"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:157
+msgid "Technology"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:160
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
+msgid "Model"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
+msgid "Make"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:173
+msgid "Limit charge to {percent}%"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:220
+msgid "Until full"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:223
+msgid "Remaining"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:232
+msgid "Since unplugged"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:309
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:454
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:467
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:535
+msgid "Now"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:327
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:440
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:519
+msgid "{time} · {percent}%"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:359
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:787
+msgid "Kept awake"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:362
+msgid "Held by {app}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:363
+msgid "Held by you"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:372
+msgid "Less than a minute"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:373
+msgid "{minutes} m"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:375
+msgid "{hours} h {minutes} m"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:383
+msgid "Charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:384
+msgid "Discharging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:386
+msgid "Fully charged"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:387
+msgid "Not charging"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:402
+msgid "Power saver"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:403
+msgid "Balanced"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:404
+msgid "Performance"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:412
+msgid "Unavailable: laptop on lap"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:413
+msgid "Unavailable: too hot"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:444
+msgid "Li-ion"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:445
+msgid "Li-poly"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:446
+msgid "LiFePO4"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:447
+msgid "Lead acid"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:448
+msgid "NiCd"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/power/render.rs:449
+msgid "NiMH"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/printing/indicator.rs:78
@@ -2396,31 +2432,9 @@ msgstr ""
 msgid "Applications"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:33
-msgid "Power mode"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:47
-msgid "Health"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/battery_popover.blp:65
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:27
-msgid "Devices"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
 #: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:41
 msgid "Nearby devices"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/brightness_popover.blp:14
-msgid "Brightness"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/brightness_popover.blp:70
-#: crates/glimpse-widgets/src/display_list/mod.rs:112
-msgid "Enabled"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
@@ -2462,12 +2476,17 @@ msgstr ""
 msgid "Palette"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/display_popover.blp:36
-msgid "Blank the screens"
+#: crates/glimpse-widgets/blueprints/display_popover.blp:31
+msgid "Brightness"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/display_popover.blp:37
-msgid "Any input wakes them again"
+#: crates/glimpse-widgets/blueprints/display_popover.blp:55
+#: crates/glimpse-widgets/src/display_list/mod.rs:109
+msgid "Enabled"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:82
+msgid "Blank the screens"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
@@ -2477,31 +2496,39 @@ msgid "Mute"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:16
+#: crates/glimpse-widgets/blueprints/power_popover.blp:70
+#: crates/glimpse-widgets/blueprints/power_popover.blp:77
 msgid "Keep awake"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:28
+#: crates/glimpse-widgets/blueprints/power_popover.blp:81
 #: crates/glimpse-widgets/src/idle_popover/mod.rs:65
 msgid "Keep awake for…"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/blueprints/power_popover.blp:85
 msgid "15 minutes"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:37
+#: crates/glimpse-widgets/blueprints/power_popover.blp:90
 msgid "30 minutes"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:42
+#: crates/glimpse-widgets/blueprints/power_popover.blp:95
 msgid "1 hour"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:47
+#: crates/glimpse-widgets/blueprints/power_popover.blp:100
 msgid "2 hours"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:105
 msgid "4 hours"
 msgstr ""
 
@@ -2509,7 +2536,12 @@ msgstr ""
 msgid "Kept awake by"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/mpris_popover.blp:37
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:113
+msgid "Devices"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
 msgid "Other players"
 msgstr ""
 
@@ -2591,8 +2623,16 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:324
+#: crates/glimpse-widgets/src/lib.rs:323
 msgid "Play"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:52
+msgid "History"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:64
+msgid "Power mode"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/printing_popover.blp:15
@@ -3198,11 +3238,6 @@ msgstr ""
 msgid "Other workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/status_island.blp:34
-#: crates/glimpse-widgets/blueprints/status_island.blp:37
-msgid "Power"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
 msgid "System Monitor"
 msgstr ""
@@ -3284,30 +3319,6 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:212
-msgid "Not reaching any display"
-msgstr ""
-
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:252
-msgid "Schedule"
-msgstr ""
-
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:255
-msgid "Temperature"
-msgstr ""
-
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:262
-msgid "Sunset to sunrise"
-msgstr ""
-
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:264
-msgid "Fixed hours"
-msgstr ""
-
-#: crates/glimpse-widgets/src/brightness_popover/mod.rs:270
-msgid "{kelvin} K"
-msgstr ""
-
 #: crates/glimpse-widgets/src/color_list/mod.rs:70
 msgid "{count} more color"
 msgid_plural "{count} more colors"
@@ -3318,40 +3329,64 @@ msgstr[1] ""
 msgid "Nothing picked yet"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:148
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
 msgid "The last enabled display can't be turned off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:170
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
 msgid "Off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:171
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
 msgid "Mode"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:174
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
 msgid "Connector"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:183
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
 msgid "Serial"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:186
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
 msgid "Scale"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:187
+#: crates/glimpse-widgets/src/display_list/mod.rs:179
 msgid "Position"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:198
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
 msgid "{width} × {height} · {hz} Hz"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_list/mod.rs:216
+#: crates/glimpse-widgets/src/display_list/mod.rs:208
 msgid "{x}, {y}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:213
+msgid "Schedule"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:216
+msgid "Temperature"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:265
+msgid "Not reaching any display"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:332
+msgid "Sunset to sunrise"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:334
+msgid "Fixed hours"
+msgstr ""
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:340
+msgid "{kelvin} K"
 msgstr ""
 
 #: crates/glimpse-widgets/src/inhibitor_list/mod.rs:103
@@ -3386,7 +3421,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:323
+#: crates/glimpse-widgets/src/lib.rs:322
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:164
 msgid "Pause"
 msgstr ""

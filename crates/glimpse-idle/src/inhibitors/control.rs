@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -36,6 +37,15 @@ impl Idle1Server {
     #[zbus(property)]
     async fn inhibitors(&self) -> Vec<IdleInhibitorRecord> {
         self.registry.read(|registry| registry.snapshot()).await
+    }
+
+    #[zbus(property)]
+    async fn hold_expiries(&self) -> HashMap<u64, u64> {
+        self.registry
+            .read(|registry| registry.hold_expiries())
+            .await
+            .into_iter()
+            .collect()
     }
 
     #[zbus(property)]
@@ -94,6 +104,9 @@ impl Idle1Server {
                     added_at_unix,
                 };
                 registry.insert(record, Some(fd));
+                if seconds > 0 {
+                    registry.set_hold_expiry(id, added_at_unix + u64::from(seconds));
+                }
                 Ok(())
             })
             .await

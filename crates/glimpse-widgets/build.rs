@@ -23,8 +23,8 @@ fn main() {
             "resources/widgets/audio_popover.ui",
         ),
         (
-            "blueprints/battery_popover.blp",
-            "resources/widgets/battery_popover.ui",
+            "blueprints/power_popover.blp",
+            "resources/widgets/power_popover.ui",
         ),
         (
             "blueprints/bluetooth_pairing_dialog.blp",
@@ -37,10 +37,6 @@ fn main() {
         (
             "blueprints/bluetooth_device.blp",
             "resources/widgets/bluetooth_device.ui",
-        ),
-        (
-            "blueprints/brightness_popover.blp",
-            "resources/widgets/brightness_popover.ui",
         ),
         (
             "blueprints/display_popover.blp",

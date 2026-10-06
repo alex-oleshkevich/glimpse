@@ -151,9 +151,13 @@ and still replies `Ok`, so only the snapshot knows whether the rename happened.
 
 **notifications** — the chip is kept even when the list is empty so do-not-disturb stays reachable;
 **the icon cache is pruned against each new list**, so sender-controlled keys cannot accumulate.
-**display** — the chip is `video-display-symbolic` regardless of output count, and **the glyph
-deliberately does not track it**, since a chip that changes shape on hotplug reads as a different
-applet appearing.
+**display** — one chip and popover for brightness, night light and connected outputs. The chip is
+`display-brightness-symbolic` while a backlight source or reachable night light exists, otherwise
+`video-display-symbolic` while there are outputs, with no chip when neither exists. **The glyph
+does not track output count**, since changing shape on hotplug reads as a different applet.
+**The current display resolves in three rungs**: the focused output's source, then the one with no
+connector (the internal panel), then the first. **The switch reads `schedule != "off"`, never
+`active`** — `active` is `temperature != DAY`, false every daylight hour under Automatic.
 
 **tray** — the second applet supplying its own view, for the pager's reason. **The icon ladder is
 six steps**: an absolute path that exists wins over a themed name, the item's own `IconThemePath`
@@ -177,20 +181,12 @@ muted glyph in the warning colour everywhere**, never a greyed icon or the word 
 fader carries no device id of its own** — its controls resolve the current default device from a
 fresh snapshot at signal time, never a value captured when the popover was built.
 
-**brightness** — the chip renders as long as either a backlight source or a reachable night light
-exists. **The current display resolves in three rungs**: the focused output's source, then the one
-with no connector (the internal panel), then the first. **The switch reads `schedule != "off"`,
-never `active`** — `active` is `temperature != DAY`, false every daylight hour under Automatic.
+**idle** — the chip stays reachable while the daemon answers, so its presets remain accessible.
+**The provider owns each manual hold's deadline in `Idle1.HoldExpiries`, keyed by inhibitor ID.**
+**Preset replacement releases only manual holds in the current snapshot**, excluding the new hold.
 
-**idle** — the chip stays reachable while the daemon answers, since it is the only way to reach the
-hold presets. **The daemon keeps no end time, so the applet remembers the one it asked for**; a
-restart forgets it. **A hold's id never reaches the applet directly** — `manual_hold_ids` derives
-the set from the daemon's own literal each time, so it never adopts an id the provider has stopped
-reporting.
-
-**battery** — the chip is `DisplayDevice`; internals and the charge-limit switch come from the
-first present `BAT*` object, since the composite omits them. **The hero says when, not what**: time
-left while draining, "Full at {time}" while charging, "Held at N%" under an enabled charge limit.
+**power** — charge comes from `DisplayDevice`, with a profile or AC icon on desktops; internals
+and the charge-limit switch come from the first present `BAT*` object, since the composite omits them.
 
 **command** — a user-defined chip running one argv per gesture with no shell; a program that
 cannot start is throttled to one notification per interval. **session** — power actions confirm on

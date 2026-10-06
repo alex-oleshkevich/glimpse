@@ -25,6 +25,8 @@ pub struct ToggleRow {
     control: Cell<ToggleControl>,
     #[property(name = "active", get, set = Self::set_active, explicit_notify)]
     active: Cell<bool>,
+    #[property(get, set = Self::set_locked, explicit_notify)]
+    locked: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -55,8 +57,9 @@ impl ObjectImpl for ToggleRow {
                     .action()
                     .run_first()
                     .class_handler(|values| {
-                        let row = values[0].get::<super::ToggleRow>().unwrap();
-                        row.imp().activate_from_user();
+                        if let Ok(row) = values[0].get::<super::ToggleRow>() {
+                            row.imp().activate_from_user();
+                        }
                         None
                     })
                     .build(),
@@ -83,6 +86,9 @@ impl ObjectImpl for ToggleRow {
         self.sync_check();
         self.sync_role();
         self.sync_state();
+        self.obj()
+            .connect_sensitive_notify(|row| row.imp().sync_disabled());
+        self.sync_disabled();
     }
 
     fn dispose(&self) {
@@ -103,7 +109,7 @@ impl crate::row::RowImpl for ToggleRow {}
 
 impl ToggleRow {
     pub(crate) fn activate_from_user(&self) {
-        if !self.obj().is_sensitive() {
+        if self.locked.get() || !self.obj().is_sensitive() {
             return;
         }
         let next = !self.active.get();
@@ -123,6 +129,21 @@ impl ToggleRow {
 
     fn set_active(&self, active: bool) {
         self.apply_active(active);
+    }
+
+    fn set_locked(&self, locked: bool) {
+        if self.locked.replace(locked) == locked {
+            return;
+        }
+        self.knob.set_sensitive(!locked);
+        self.sync_disabled();
+        self.obj().notify_locked();
+    }
+
+    fn sync_disabled(&self) {
+        self.obj().update_state(&[accessible::State::Disabled(
+            self.locked.get() || !self.obj().is_sensitive(),
+        )]);
     }
 
     fn apply_active(&self, active: bool) {

@@ -1,0 +1,126 @@
+using Gtk 4.0;
+
+template $PowerPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "power-popover",
+  ]
+
+  $PopoverShell shell {
+    icon-name: "battery-symbolic";
+    title: _("Power");
+
+    [addon]
+    $Readout readout {
+      valign: center;
+      visible: false;
+      unit: "%";
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Notice notice {
+        visible: false;
+        severity: info;
+        icon-name: "alarm-symbolic";
+      }
+
+      $Row remaining {
+        visible: false;
+      }
+
+      $ExpanderRow battery {
+        visible: false;
+        title: _("Battery");
+
+        $FactList facts {}
+
+        $ToggleRow charge_limit {
+          visible: false;
+        }
+      }
+
+      $ExpanderRow history {
+        visible: false;
+        title: _("History");
+
+        $Sparkline sparkline {
+          hexpand: true;
+          styles [
+            "power-popover__history",
+          ]
+        }
+      }
+
+      $Section profiles_section {
+        visible: false;
+        title: _("Power mode");
+
+        $ChoiceList profiles {}
+      }
+
+      $Section keep {
+        title: _("Keep awake");
+
+        Gtk.Box {
+          orientation: vertical;
+          hexpand: true;
+
+          $ToggleRow hold {
+            title: _("Keep awake");
+          }
+
+          $ExpanderRow hold_card {
+            title: _("Keep awake for…");
+
+            $ToggleRow preset_15m {
+              control: check;
+              title: _("15 minutes");
+            }
+
+            $ToggleRow preset_30m {
+              control: check;
+              title: _("30 minutes");
+            }
+
+            $ToggleRow preset_1h {
+              control: check;
+              title: _("1 hour");
+            }
+
+            $ToggleRow preset_2h {
+              control: check;
+              title: _("2 hours");
+            }
+
+            $ToggleRow preset_4h {
+              control: check;
+              title: _("4 hours");
+            }
+          }
+        }
+      }
+
+      $Section devices_section {
+        visible: false;
+        title: _("Devices");
+
+        Gtk.Box devices_box {
+          orientation: vertical;
+          hexpand: true;
+        }
+      }
+    }
+
+    $ActionRow footer {
+      visible: false;
+    }
+  }
+}

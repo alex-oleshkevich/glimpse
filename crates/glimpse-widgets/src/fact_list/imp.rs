@@ -2,12 +2,12 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::RefCell;
 
 use super::Fact;
-use crate::LegacyRow;
+use crate::Row;
 
 #[derive(Debug, Default)]
 pub struct FactList {
     pub facts: RefCell<Vec<Fact>>,
-    pub rows: RefCell<Vec<LegacyRow>>,
+    pub rows: RefCell<Vec<Row>>,
 }
 
 #[glib::object_subclass]

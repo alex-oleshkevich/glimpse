@@ -162,6 +162,12 @@ pub trait UPowerDevice {
     #[zbus(property)]
     fn capacity(&self) -> zbus::Result<f64>;
     fn enable_charge_threshold(&self, enable: bool) -> zbus::Result<()>;
+    fn get_history(
+        &self,
+        kind: &str,
+        timespan: u32,
+        resolution: u32,
+    ) -> zbus::Result<Vec<(u32, f64, u32)>>;
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
