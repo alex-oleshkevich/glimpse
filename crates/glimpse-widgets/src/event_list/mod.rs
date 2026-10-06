@@ -5,7 +5,7 @@ use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
 use crate::{
-    ActionRow, Dots, ExpanderRow, Fact, FactList, Row, RowTypography, clear_children, none_if_empty,
+    ActionRow, Dots, ExpanderRow, Fact, Row, RowTypography, clear_children, fact_row, none_if_empty,
 };
 
 const MORE_ICON: &str = "view-more-symbolic";
@@ -153,11 +153,10 @@ impl EventList {
         }
         let details = expander.details();
         clear_children(&details);
-        if !event.facts.is_empty() {
-            let facts = FactList::new();
-            facts.set_facts(&event.facts);
-            details.append(&facts);
+        for fact in &event.facts {
+            details.append(&fact_row(fact));
         }
+
         for link in &event.links {
             let action = ActionRow::new();
             action

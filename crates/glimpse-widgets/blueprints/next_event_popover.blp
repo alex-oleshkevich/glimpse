@@ -40,7 +40,9 @@ template $NextEventPopover: Gtk.Widget {
         visible: false;
         title: _("Details");
 
-        $FactList facts {}
+        Gtk.Box facts {
+          orientation: vertical;
+        }
       }
 
       $Section upcoming {

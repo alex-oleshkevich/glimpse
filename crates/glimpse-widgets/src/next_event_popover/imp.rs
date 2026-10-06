@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, EventList, FactList, Hero, PopoverShell, Readout, Section};
+use crate::{ActionRow, EventList, Hero, PopoverShell, Readout, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/next_event_popover.ui")]
@@ -23,7 +23,7 @@ pub struct NextEventPopover {
     #[template_child]
     pub details: TemplateChild<Section>,
     #[template_child]
-    pub facts: TemplateChild<FactList>,
+    pub facts: TemplateChild<gtk4::Box>,
     #[template_child]
     pub upcoming: TemplateChild<Section>,
     #[template_child]
@@ -41,7 +41,6 @@ impl ObjectSubclass for NextEventPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
-        FactList::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
