@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, ExpanderRow, Fact, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, PopoverShell, Section};
 
 use super::RemovableDevice;
 
@@ -13,13 +13,15 @@ use super::RemovableDevice;
 pub struct Volume {
     pub id: String,
     pub title: String,
-    pub icon: String,
-    pub fraction: Option<f64>,
-    pub space: String,
-    pub busy: bool,
+    pub size: String,
     pub mounted: bool,
-    pub problem: String,
-    pub facts: Vec<Fact>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Space {
+    pub title: String,
+    pub fraction: f64,
+    pub text: String,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -27,11 +29,13 @@ pub struct Drive {
     pub id: String,
     pub title: String,
     pub icon: String,
-    pub ejectable: bool,
     pub busy: bool,
-    pub dimmed: bool,
-    pub facts: Vec<Fact>,
+    pub mounted: bool,
+    pub problem: String,
+    pub space: Option<Space>,
     pub volumes: Vec<Volume>,
+    pub open: Option<String>,
+    pub removable: bool,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -87,9 +91,6 @@ impl ObjectImpl for RemovablePopover {
                     .param_types([bool::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("eject")
-                    .param_types([String::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("unmount")
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("footer-activated").build(),

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{DriveId, RemovableError, RemovableHandle, RemovableState, VolumeId};
+use glimpse_services::{DriveId, RemovableError, RemovableHandle, RemovableState};
 
 use glimpse_widgets::{IndicatorSpec, RemovablePopover};
 use gtk4::gio;
@@ -73,12 +73,33 @@ impl Applet for Removable {
                 }
                 Some(render::Activation::Mount(id)) => {
                     let removable = removable.clone();
-                    tell(
-                        &notifications,
-                        "removable.mount_volume",
-                        gettext("Could not open that drive"),
-                        async move { removable.mount(id).await },
-                    );
+                    let notifications = notifications.clone();
+                    relm4::spawn_local(async move {
+                        let mut states = removable.subscribe();
+                        if let Err(error) = removable.mount(id.clone()).await {
+                            tell(
+                                &notifications,
+                                "removable.mount_volume",
+                                gettext("Could not open that drive"),
+                                async move { Err::<(), _>(error) },
+                            );
+                            return;
+                        }
+                        let mounted = states
+                            .wait_for(|state| {
+                                state
+                                    .volume(&id)
+                                    .is_none_or(|volume| volume.mount.is_some())
+                            })
+                            .await
+                            .ok()
+                            .and_then(|state| {
+                                state.volume(&id)?.mount.as_ref().map(|m| m.at.clone())
+                            });
+                        if let Some(at) = mounted {
+                            open(gio::File::for_path(&at).uri().to_string());
+                        }
+                    });
                 }
                 None => {}
             }
@@ -92,24 +113,9 @@ impl Applet for Removable {
                 let id = DriveId::new(id);
                 tell(
                     &notifications,
-                    "removable.eject_drive",
+                    "removable.remove_drive",
                     gettext("Could not eject that drive"),
-                    async move { removable.eject(id).await },
-                );
-            }
-        });
-
-        shown.connect_unmount({
-            let removable = self.removable.clone();
-            let notifications = self.notifications.clone();
-            move |_, id| {
-                let removable = removable.clone();
-                let id = VolumeId::new(id);
-                tell(
-                    &notifications,
-                    "removable.unmount_volume",
-                    gettext("Could not unmount that drive"),
-                    async move { removable.unmount(id).await },
+                    async move { removable.remove(id).await },
                 );
             }
         });

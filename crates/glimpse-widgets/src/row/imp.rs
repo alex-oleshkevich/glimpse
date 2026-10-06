@@ -145,7 +145,7 @@ impl Row {
     pub(crate) fn sync_slots(&self) {
         let busy = self.busy.get();
         let occupied = self.end.first_child().is_some();
-        let show_value = !busy && !occupied && !self.value.text().is_empty();
+        let show_value = !busy && !self.value.text().is_empty();
         reveal(&*self.spinner, busy);
         if self.spinner.is_spinning() != busy {
             self.spinner.set_spinning(busy);

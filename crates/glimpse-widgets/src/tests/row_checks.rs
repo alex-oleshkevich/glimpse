@@ -90,7 +90,10 @@ fn slots() {
     assert!(value.get_visible());
     let mark = gtk4::Image::from_icon_name("go-next-symbolic");
     row.set_end(&mark);
-    assert!(!value.get_visible());
+    assert!(
+        value.get_visible(),
+        "a trailing widget sits beside the value"
+    );
     let end = row.imp().end();
     assert!(end.get_visible());
     row.set_busy(true);
@@ -102,7 +105,7 @@ fn slots() {
     row.set_busy(false);
     assert!(!spinner.get_visible());
     assert!(end.get_visible());
-    assert!(!value.get_visible());
+    assert!(value.get_visible());
 }
 
 fn hidden_slots() {

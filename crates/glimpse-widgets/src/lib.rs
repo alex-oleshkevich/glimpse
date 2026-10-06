@@ -184,7 +184,9 @@ pub use printing_popover::{Job as PrintingJob, Printer as PrintingPrinter, Print
 pub use privacy_popover::{PrivacyPopover, Usage as PrivacyUsage};
 pub use range_bar::RangeBar;
 pub use readout::Readout;
-pub use removable_popover::{Drive as RemovableDrive, RemovablePopover, Volume as RemovableVolume};
+pub use removable_popover::{
+    Drive as RemovableDrive, RemovablePopover, Space as RemovableSpace, Volume as RemovableVolume,
+};
 pub use row::{Row, RowTone, RowTypography};
 pub use ruler_popover::{HistoryEntry, RulerPopover};
 pub use scrubber::{Scrubber, clock};

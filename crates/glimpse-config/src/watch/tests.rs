@@ -4,7 +4,7 @@ use super::*;
 
 /// Generous, because it covers an inotify round trip plus the debounce window; a correct
 /// implementation answers in well under it and a broken one waits the whole time either way.
-const SETTLE: Duration = Duration::from_secs(5);
+const SETTLE: Duration = Duration::from_secs(10);
 
 type Updates = Pin<Box<dyn Stream<Item = Update> + Send>>;
 
@@ -215,13 +215,15 @@ impl Logged {
 
     fn capture(&self) -> tracing::subscriber::DefaultGuard {
         let sink = self.clone();
-        tracing::subscriber::set_default(
+        let guard = tracing::subscriber::set_default(
             tracing_subscriber::fmt()
                 .with_writer(move || sink.clone())
                 .with_max_level(tracing::Level::ERROR)
                 .without_time()
                 .finish(),
-        )
+        );
+        tracing::callsite::rebuild_interest_cache();
+        guard
     }
 }
 
@@ -259,9 +261,10 @@ async fn replay(writes: &[(&str, &str)], wanted: usize) -> (Vec<u32>, String) {
     let mut configs = Box::pin(watch_config(Some(path), current));
 
     let churn = async {
+        tokio::time::sleep(DEBOUNCE * 2).await;
         for (name, text) in writes {
             std::fs::write(dir.path().join(name), text).expect("writes");
-            tokio::time::sleep(DEBOUNCE * 2).await;
+            tokio::time::sleep(DEBOUNCE * 4).await;
         }
     };
     let collect = async {

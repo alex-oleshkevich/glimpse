@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use zbus::proxy::CacheProperties;
 use zbus::{Connection, Result};
 
-use glimpse_dbus::udisks2::{DriveProxy, FilesystemProxy};
+use glimpse_dbus::udisks2::{DriveProxy, EncryptedProxy, FilesystemProxy};
 
 pub async fn drive(connection: &Connection, path: &str) -> Result<DriveProxy<'static>> {
     DriveProxy::builder(connection)
@@ -44,5 +44,15 @@ pub async fn power_off(connection: &Connection, path: &str) -> Result<()> {
     drive(connection, path)
         .await?
         .power_off(HashMap::new())
+        .await
+}
+
+pub async fn lock(connection: &Connection, path: &str) -> Result<()> {
+    EncryptedProxy::builder(connection)
+        .path(path.to_owned())?
+        .cache_properties(CacheProperties::No)
+        .build()
+        .await?
+        .lock(HashMap::new())
         .await
 }

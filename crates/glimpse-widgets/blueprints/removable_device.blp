@@ -4,21 +4,35 @@ template $RemovableDevice: Gtk.Widget {
   layout-manager: BinLayout {};
 
   $ExpanderRow row {
+    [end]
+    Gtk.Image mounted {
+      visible: false;
+      icon-name: "object-select-symbolic";
+      accessible-role: presentation;
+
+      styles [
+        "accent",
+      ]
+    }
+
     $MeterRow space {
       visible: false;
       title: _("Space");
     }
 
-    $FactList facts {
+    Gtk.Box extras {
       visible: false;
+      orientation: vertical;
     }
 
     $ActionRow primary {
       visible: false;
+      title: _("Open");
     }
 
     $ActionRow release {
       visible: false;
+      title: _("Eject");
       tone: destructive;
     }
   }

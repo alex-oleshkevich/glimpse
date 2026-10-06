@@ -1,40 +1,16 @@
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Fact, Row, RowTone, none_if_empty};
+use crate::{ActionRow, Row, RowTone, none_if_empty, reconcile};
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Release {
-    Eject(String),
-    Unmount(String),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) enum Primary {
-    Open,
-    Mount,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct Entry {
-    pub id: String,
-    pub title: String,
-    pub icon: String,
-    pub busy: bool,
-    pub inactive: bool,
-    pub problem: String,
-    pub space: Option<(f64, String)>,
-    pub facts: Vec<Fact>,
-    pub primary: Option<Primary>,
-    pub release: Option<Release>,
-}
+use super::{Drive, Volume};
 
 mod imp {
     use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
     use std::cell::RefCell;
 
-    use crate::{ActionRow, ExpanderRow, FactList, MeterRow};
+    use crate::{ActionRow, ExpanderRow, MeterRow};
 
-    use super::Release;
+    use super::super::RemovablePopover;
 
     #[derive(Debug, Default, CompositeTemplate)]
     #[template(resource = "/me/aresa/GlimpseShell/widgets/removable_device.ui")]
@@ -42,15 +18,20 @@ mod imp {
         #[template_child]
         pub row: TemplateChild<ExpanderRow>,
         #[template_child]
+        pub mounted: TemplateChild<gtk4::Image>,
+        #[template_child]
         pub space: TemplateChild<MeterRow>,
         #[template_child]
-        pub facts: TemplateChild<FactList>,
+        pub extras: TemplateChild<gtk4::Box>,
         #[template_child]
         pub primary: TemplateChild<ActionRow>,
         #[template_child]
         pub release: TemplateChild<ActionRow>,
 
-        pub(crate) release_action: RefCell<Option<Release>>,
+        pub(crate) drive: RefCell<String>,
+        pub(crate) open: RefCell<Option<String>>,
+        pub(crate) held: RefCell<Vec<(String, ActionRow)>>,
+        pub(crate) owner: glib::WeakRef<RemovablePopover>,
     }
 
     #[glib::object_subclass]
@@ -63,7 +44,6 @@ mod imp {
             ActionRow::static_type();
             ExpanderRow::static_type();
             MeterRow::static_type();
-            FactList::static_type();
             klass.bind_template();
             klass.set_accessible_role(gtk4::AccessibleRole::Group);
         }
@@ -94,27 +74,42 @@ fn show(row: &Row, visible: bool) {
     }
 }
 
+fn enable(row: &Row, sensitive: bool) {
+    if row.get_sensitive() != sensitive {
+        row.set_sensitive(sensitive);
+    }
+}
+
 impl RemovableDevice {
-    pub(super) fn set_entry(&self, entry: &Entry) {
+    pub(super) fn set_owner(&self, owner: &super::RemovablePopover) {
+        self.imp().owner.set(Some(owner));
+    }
+
+    pub(super) fn set_entry(&self, drive: &Drive) {
         let imp = self.imp();
         let row = &imp.row;
-        row.set_title(none_if_empty(&entry.title));
-        row.set_icon_name(none_if_empty(&entry.icon));
-        row.set_busy(entry.busy);
-        row.set_inactive(entry.inactive);
-        row.set_subtitle(none_if_empty(&entry.problem));
-        row.set_tone(if entry.problem.is_empty() {
+        imp.drive.replace(drive.id.clone());
+        imp.open.replace(drive.open.clone());
+        row.set_title(none_if_empty(&drive.title));
+        row.set_icon_name(none_if_empty(&drive.icon));
+        row.set_busy(drive.busy);
+        if imp.mounted.get_visible() != drive.mounted {
+            imp.mounted.set_visible(drive.mounted);
+        }
+        row.set_subtitle(none_if_empty(&drive.problem));
+        row.set_tone(if drive.problem.is_empty() {
             RowTone::Normal
         } else {
             RowTone::Warning
         });
 
         let space: &Row = imp.space.upcast_ref();
-        show(space, entry.space.is_some());
-        if let Some((fraction, text)) = &entry.space {
-            imp.space.set_level(*fraction);
-            space.set_value(none_if_empty(text));
-            let tone = if !entry.problem.is_empty() || *fraction >= 1.0 {
+        show(space, drive.space.is_some());
+        if let Some(meter) = &drive.space {
+            space.set_title(none_if_empty(&meter.title));
+            imp.space.set_level(meter.fraction);
+            space.set_value(none_if_empty(&meter.text));
+            let tone = if !drive.problem.is_empty() || meter.fraction >= 1.0 {
                 RowTone::Warning
             } else {
                 RowTone::Normal
@@ -124,38 +119,63 @@ impl RemovableDevice {
             }
         }
 
-        imp.facts.set_facts(&entry.facts);
-        if imp.facts.get_visible() == entry.facts.is_empty() {
-            imp.facts.set_visible(!entry.facts.is_empty());
+        let idle = !drive.busy;
+        let owner = imp.owner.clone();
+        reconcile::by_key(
+            &*imp.extras,
+            &mut imp.held.borrow_mut(),
+            &drive.volumes,
+            |volume| volume.id.clone(),
+            |volume| extra_row(volume, &owner),
+            |row, volume| apply_extra(row, volume, idle),
+        );
+        let extras = !drive.volumes.is_empty();
+        if imp.extras.get_visible() != extras {
+            imp.extras.set_visible(extras);
         }
 
         let primary: &Row = imp.primary.upcast_ref();
-        show(primary, entry.primary.is_some());
-        if let Some(kind) = entry.primary {
-            primary.set_title(Some(match kind {
-                Primary::Open => gettextrs::gettext("Open"),
-                Primary::Mount => gettextrs::gettext("Mount"),
-            }));
-        }
+        show(primary, drive.open.is_some());
+        enable(primary, idle);
 
         let release: &Row = imp.release.upcast_ref();
-        show(release, entry.release.is_some());
-        match &entry.release {
-            Some(Release::Eject(_)) => release.set_title(Some(gettextrs::gettext("Eject"))),
-            Some(Release::Unmount(_)) => release.set_title(Some(gettextrs::gettext("Unmount"))),
-            None => {}
-        }
-        imp.release_action.replace(entry.release.clone());
+        show(release, drive.removable);
+        enable(release, idle);
 
-        let drawer = entry.space.is_some()
-            || !entry.facts.is_empty()
-            || entry.primary.is_some()
-            || entry.release.is_some();
+        let drawer = drive.space.is_some() || extras || drive.open.is_some() || drive.removable;
         if row.get_sensitive() != drawer {
             row.set_sensitive(drawer);
         }
         if !drawer {
             row.set_open(false);
         }
+    }
+}
+
+fn extra_row(volume: &Volume, owner: &glib::WeakRef<super::RemovablePopover>) -> ActionRow {
+    let row = ActionRow::new();
+    let key = volume.id.clone();
+    let owner = owner.clone();
+    row.connect_activated(move |_| {
+        if let Some(popover) = owner.upgrade() {
+            popover.emit_by_name::<()>("activated", &[&key]);
+        }
+    });
+    row
+}
+
+fn apply_extra(row: &ActionRow, volume: &Volume, idle: bool) {
+    let base: &Row = row.upcast_ref();
+    base.set_title(none_if_empty(&volume.title));
+    base.set_value(none_if_empty(&volume.size));
+    enable(base, idle);
+    let marked = base.imp().end().first_child().is_some();
+    if volume.mounted && !marked {
+        let check = gtk4::Image::from_icon_name("object-select-symbolic");
+        check.add_css_class("accent");
+        check.set_accessible_role(gtk4::AccessibleRole::Presentation);
+        base.set_end(&check);
+    } else if !volume.mounted && marked {
+        base.clear_end();
     }
 }

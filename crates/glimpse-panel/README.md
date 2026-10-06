@@ -126,9 +126,11 @@ icon-only, since a measurement has no swatch to substitute it with.
 
 **places** — a share reads as its folder over `host · PROTOCOL`, parsed out of the GVFS mount name,
 never the raw `smb-share:` string; bookmark and volume labels are capped through `render::cap`,
-since that text comes from another application. **removable** — renders no chip with nothing
-attached; capacity is a free-of-total string, never a percentage, and a volume with none left says
-so in words rather than printing `0 B free`.
+since that text comes from another application. **removable** — renders no chip with no
+visible device; an empty card reader is not one. **A device is one row, and its main volume is the
+largest, the first on a tie.** Space is the short "N free" form, never a percentage, and a main
+volume with none left says so in words rather than printing `0 B free`. A refused eject reads "In use
+by an app"; the overflow cap counts devices.
 
 **kdeconnect** — renders no chip while `kdeconnectd` is not running. **An incoming pair request is
 answered in its own notification, never the popover** — `kdeconnectd` posts Accept/Reject itself.

@@ -5,7 +5,7 @@ use glimpse_services::{
     Drive as ServiceDrive, RemovableCapacity, RemovableFailure, RemovableState,
     Volume as ServiceVolume, VolumeId,
 };
-use glimpse_widgets::{Fact, RemovableDrive, RemovableVolume};
+use glimpse_widgets::{RemovableDrive, RemovableSpace, RemovableVolume};
 
 pub const ICON: &str = "drive-removable-media-symbolic";
 const NAME_CAP: usize = 60;
@@ -14,18 +14,24 @@ fn cap(name: &str) -> String {
     glimpse_utils::clean(name, NAME_CAP)
 }
 
+fn shown(drive: &ServiceDrive) -> bool {
+    drive.media_available || !drive.volumes.is_empty()
+}
+
+fn visible(removable: &RemovableState) -> impl Iterator<Item = &ServiceDrive> {
+    removable.drives.iter().filter(|drive| shown(drive))
+}
+
 pub fn chip(removable: &RemovableState) -> bool {
-    !removable.drives.is_empty()
+    visible(removable).next().is_some()
 }
 
 pub fn tooltip(removable: &RemovableState, format: Option<&str>) -> String {
     let Some(format) = format else {
         return gettext("Removable");
     };
-    let drives = removable.drives.len().to_string();
-    let volumes = removable
-        .drives
-        .iter()
+    let drives = visible(removable).count().to_string();
+    let volumes = visible(removable)
         .map(|drive| drive.volumes.len())
         .sum::<usize>()
         .to_string();
@@ -53,18 +59,14 @@ pub enum Activation {
 }
 
 pub fn activation(state: &RemovableState, id: &str) -> Option<Activation> {
-    locate_volume(state, id).map(|volume| match &volume.mount {
+    let volume = state
+        .drives
+        .iter()
+        .flat_map(|drive| &drive.volumes)
+        .find(|volume| volume.id.as_str() == id)?;
+    Some(match &volume.mount {
         Some(mount) => Activation::Open(mount.at.clone()),
         None => Activation::Mount(volume.id.clone()),
-    })
-}
-
-fn locate_volume<'a>(state: &'a RemovableState, id: &str) -> Option<&'a ServiceVolume> {
-    state.drives.iter().find_map(|drive| {
-        drive
-            .volumes
-            .iter()
-            .find(|volume| format!("{}/{}", drive.id.as_str(), volume.id.as_str()) == id)
     })
 }
 
@@ -113,30 +115,11 @@ fn drive_icon(drive: &ServiceDrive) -> &'static str {
     media_icon(drive.media)
 }
 
-fn drive_facts(drive: &ServiceDrive) -> Vec<Fact> {
-    if !drive.media_available {
-        return vec![Fact::new(gettext("Status"), gettext("No media"))];
-    }
-    let mut facts = vec![Fact::new(
-        gettext("Size"),
-        glimpse_utils::size::bytes(drive.size),
-    )];
-    if drive.volumes.len() > 1 {
-        facts.push(Fact::new(
-            gettext("Volumes"),
-            drive.volumes.len().to_string(),
-        ));
-    }
-    facts
-}
-
-fn capacity_text(capacity: RemovableCapacity) -> String {
-    gettext("{available} free of {total}")
-        .replace(
-            "{available}",
-            &glimpse_utils::size::bytes(capacity.available),
-        )
-        .replace("{total}", &glimpse_utils::size::bytes(capacity.total))
+fn free_text(capacity: RemovableCapacity) -> String {
+    gettext("{available} free").replace(
+        "{available}",
+        &glimpse_utils::size::bytes(capacity.available),
+    )
 }
 
 fn full(volume: &ServiceVolume) -> bool {
@@ -147,46 +130,6 @@ fn full(volume: &ServiceVolume) -> bool {
         .is_some_and(|capacity| capacity.available == 0)
 }
 
-fn volume_status(volume: &ServiceVolume) -> Vec<Fact> {
-    match &volume.mount {
-        Some(_) => Vec::new(),
-        None => vec![
-            Fact::new(gettext("Status"), gettext("Not mounted")),
-            Fact::new(gettext("Size"), glimpse_utils::size::bytes(volume.size)),
-        ],
-    }
-}
-
-fn volume_facts(volume: &ServiceVolume) -> Vec<Fact> {
-    let filesystem = volume
-        .fs
-        .as_deref()
-        .filter(|fs| !fs.is_empty())
-        .map(|fs| Fact::new(gettext("Filesystem"), cap(fs)));
-    let mounted_at = volume
-        .mount
-        .as_ref()
-        .map(|mount| Fact::new(gettext("Mounted at"), cap(&mount.at.to_string_lossy())));
-    let read_only = volume
-        .read_only
-        .then(|| Fact::new(gettext("Access"), gettext("Read-only")));
-    volume_status(volume)
-        .into_iter()
-        .chain(filesystem)
-        .chain(mounted_at)
-        .chain(read_only)
-        .collect()
-}
-
-fn volume_title(volume: &ServiceVolume, drive: &ServiceDrive) -> String {
-    let label = cap(&volume.label);
-    match (label.is_empty(), drive.volumes.len() > 1) {
-        (true, _) => cap(&drive.name),
-        (false, true) => format!("{} \u{b7} {label}", cap(&drive.name)),
-        (false, false) => label,
-    }
-}
-
 fn fraction(capacity: Option<RemovableCapacity>) -> Option<f64> {
     let capacity = capacity?;
     if capacity.total == 0 {
@@ -195,39 +138,78 @@ fn fraction(capacity: Option<RemovableCapacity>) -> Option<f64> {
     Some(1.0 - (capacity.available as f64 / capacity.total as f64))
 }
 
-fn volume_row(volume: &ServiceVolume, drive: &ServiceDrive, icon: &str) -> RemovableVolume {
-    let capacity = volume.mount.as_ref().and_then(|mount| mount.capacity);
+pub fn main_volume(drive: &ServiceDrive) -> Option<&ServiceVolume> {
+    drive.volumes.iter().reduce(|best, volume| {
+        if volume.size > best.size {
+            volume
+        } else {
+            best
+        }
+    })
+}
+
+fn space(drive: &ServiceDrive, main: &ServiceVolume) -> Option<RemovableSpace> {
+    let capacity = main.mount.as_ref()?.capacity?;
+    let title = match cap(&main.label) {
+        label if drive.volumes.len() > 1 && !label.is_empty() => label,
+        _ => gettext("Space"),
+    };
+    Some(RemovableSpace {
+        title,
+        fraction: fraction(Some(capacity))?,
+        text: free_text(capacity),
+    })
+}
+
+fn extra(volume: &ServiceVolume) -> RemovableVolume {
+    let size = glimpse_utils::size::bytes(volume.size);
+    let label = cap(&volume.label);
+    let title = match (
+        label.is_empty(),
+        volume.fs.as_deref().filter(|fs| !fs.is_empty()),
+    ) {
+        (false, _) => label,
+        (true, Some(fs)) => cap(fs),
+        (true, None) => size.clone(),
+    };
     RemovableVolume {
         id: volume.id.as_str().to_owned(),
-        title: volume_title(volume, drive),
-        icon: icon.to_owned(),
-        fraction: fraction(capacity),
-        space: capacity.map(capacity_text).unwrap_or_default(),
-        busy: drive.busy.is_some() || volume.busy.is_some(),
+        title,
+        size,
         mounted: volume.mount.is_some(),
-        problem: match full(volume) {
-            true => gettext("No space left"),
-            false => String::new(),
-        },
-        facts: volume_facts(volume),
+    }
+}
+
+fn problem(drive: &ServiceDrive, main: Option<&ServiceVolume>) -> String {
+    if drive.failure == Some(RemovableFailure::Busy) {
+        return gettext("In use by an app");
+    }
+    match main.is_some_and(full) {
+        true => gettext("No space left"),
+        false => String::new(),
     }
 }
 
 fn drive_row(drive: &ServiceDrive) -> RemovableDrive {
-    let icon = drive_icon(drive);
+    let main = main_volume(drive);
     RemovableDrive {
         id: drive.id.as_str().to_owned(),
         title: cap(&drive.name),
-        icon: icon.to_owned(),
-        ejectable: drive.ejectable,
-        busy: drive.busy.is_some(),
-        dimmed: !drive.media_available && drive.volumes.is_empty(),
-        facts: drive_facts(drive),
+        icon: drive_icon(drive).to_owned(),
+        busy: drive.busy.is_some() || drive.volumes.iter().any(|volume| volume.busy.is_some()),
+        mounted: main.is_some_and(|main| main.mount.is_some()),
+        problem: problem(drive, main),
+        space: main.and_then(|main| space(drive, main)),
         volumes: drive
             .volumes
             .iter()
-            .map(|volume| volume_row(volume, drive, icon))
+            .filter(|volume| Some(volume.id.as_str()) != main.map(|main| main.id.as_str()))
+            .map(extra)
             .collect(),
+        open: main.map(|main| main.id.as_str().to_owned()),
+        removable: drive.ejectable
+            || drive.can_power_off
+            || drive.volumes.iter().any(|volume| volume.mount.is_some()),
     }
 }
 
@@ -237,32 +219,10 @@ pub struct Devices {
     pub more: Option<String>,
 }
 
-fn rows(drive: &RemovableDrive) -> usize {
-    drive.volumes.len().max(1)
-}
-
 pub fn devices(state: &RemovableState, cap: usize) -> Devices {
-    let mut drives = Vec::new();
-    let mut rest = Vec::new();
-    let mut room = cap;
-    let mut total = 0;
-    for drive in state.drives.iter().map(drive_row) {
-        let count = rows(&drive);
-        total += count;
-        if count <= room {
-            room -= count;
-            drives.push(drive);
-        } else if room == 0 {
-            rest.push(drive);
-        } else {
-            let mut tail = drive.clone();
-            let mut head = drive;
-            tail.volumes = head.volumes.split_off(room);
-            room = 0;
-            drives.push(head);
-            rest.push(tail);
-        }
-    }
+    let mut drives: Vec<RemovableDrive> = visible(state).map(drive_row).collect();
+    let total = drives.len();
+    let rest = drives.split_off(cap.min(total));
     Devices {
         drives,
         rest,

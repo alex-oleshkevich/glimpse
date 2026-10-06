@@ -597,3 +597,217 @@ fn a_drive_with_no_vendor_or_model_falls_back_to_its_serial_then_a_generic_name(
         "SanDisk Cruzer"
     );
 }
+
+fn refused(name: &str) -> zbus::Error {
+    zbus::Error::MethodError(
+        zbus::names::OwnedErrorName::try_from(format!("org.freedesktop.UDisks2.Error.{name}"))
+            .expect("a well-formed error name"),
+        None,
+        zbus::message::Message::method_call("/org/freedesktop/UDisks2", "Whatever")
+            .expect("a call")
+            .build(&())
+            .expect("a message"),
+    )
+}
+
+async fn removal(
+    volumes: &[&str],
+    finish: Finish,
+    refusing: Option<(Step, &str)>,
+) -> (Vec<Step>, zbus::Result<()>) {
+    locked_removal(volumes, &[], finish, refusing).await
+}
+
+async fn locked_removal(
+    volumes: &[&str],
+    locks: &[&str],
+    finish: Finish,
+    refusing: Option<(Step, &str)>,
+) -> (Vec<Step>, zbus::Result<()>) {
+    let owned = |all: &[&str]| all.iter().map(|one| (*one).to_owned()).collect();
+    let seen = std::cell::RefCell::new(Vec::new());
+    let outcome = remove(owned(volumes), owned(locks), finish, |step| {
+        seen.borrow_mut().push(step.clone());
+        let result = match &refusing {
+            Some((target, name)) if *target == step => Err(refused(name)),
+            _ => Ok(()),
+        };
+        async move { result }
+    })
+    .await;
+    (seen.into_inner(), outcome)
+}
+
+#[tokio::test]
+async fn removing_an_ejectable_drive_unmounts_every_volume_then_ejects() {
+    let (steps, outcome) = removal(&["a", "b"], Finish::Eject, None).await;
+    assert!(outcome.is_ok());
+    assert_eq!(
+        steps,
+        [
+            Step::Unmount("a".to_owned()),
+            Step::Unmount("b".to_owned()),
+            Step::Eject
+        ]
+    );
+}
+
+#[tokio::test]
+async fn removing_a_drive_that_cannot_eject_powers_it_off_after_the_unmounts() {
+    let (steps, outcome) = removal(&["a"], Finish::PowerOff, None).await;
+    assert!(outcome.is_ok());
+    assert_eq!(steps, [Step::Unmount("a".to_owned()), Step::PowerOff]);
+}
+
+#[tokio::test]
+async fn removing_a_drive_that_can_neither_eject_nor_power_off_only_unmounts() {
+    let (steps, outcome) = removal(&["a", "b"], Finish::Nothing, None).await;
+    assert!(outcome.is_ok());
+    assert_eq!(
+        steps,
+        [Step::Unmount("a".to_owned()), Step::Unmount("b".to_owned())]
+    );
+}
+
+#[tokio::test]
+async fn a_refused_unmount_stops_the_removal_and_leaves_the_drive_attached() {
+    let (steps, outcome) = removal(
+        &["a", "b"],
+        Finish::PowerOff,
+        Some((Step::Unmount("b".to_owned()), "DeviceBusy")),
+    )
+    .await;
+    assert_eq!(
+        steps,
+        [Step::Unmount("a".to_owned()), Step::Unmount("b".to_owned())],
+        "nothing is powered off after a volume refused to unmount"
+    );
+    assert_eq!(
+        classify(Action::Unmount, &outcome.expect_err("a refusal")),
+        Err(Failure::Busy)
+    );
+}
+
+#[tokio::test]
+async fn a_volume_that_is_already_unmounted_does_not_stop_the_removal() {
+    let (steps, outcome) = removal(
+        &["a"],
+        Finish::Eject,
+        Some((Step::Unmount("a".to_owned()), "NotMounted")),
+    )
+    .await;
+    assert!(outcome.is_ok());
+    assert_eq!(steps.last(), Some(&Step::Eject));
+}
+
+#[tokio::test]
+async fn an_unlocked_volume_is_locked_after_the_unmounts_and_before_the_eject() {
+    let (steps, outcome) = locked_removal(&["clear"], &["luks"], Finish::Eject, None).await;
+    assert!(outcome.is_ok());
+    assert_eq!(
+        steps,
+        [
+            Step::Unmount("clear".to_owned()),
+            Step::Lock("luks".to_owned()),
+            Step::Eject
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_refused_lock_stops_the_removal_before_the_eject() {
+    let (steps, outcome) = locked_removal(
+        &[],
+        &["luks"],
+        Finish::Eject,
+        Some((Step::Lock("luks".to_owned()), "DeviceBusy")),
+    )
+    .await;
+    assert!(outcome.is_err());
+    assert_eq!(steps, [Step::Lock("luks".to_owned())]);
+}
+
+#[tokio::test]
+async fn the_unlocked_list_names_the_backing_device_of_each_cleartext_volume_on_the_drive() {
+    let (mut service, ctx, _state, _health) = removable().await;
+    enumerated(&mut service, &ctx, session()).await;
+    assert!(service.unlocked_on(DRIVE).is_empty());
+
+    service
+        .blocks
+        .get_mut(DATA)
+        .and_then(|record| record.block.as_mut())
+        .expect("the volume")
+        .crypto_backing_device = Some(RESERVE.to_owned());
+    assert_eq!(service.unlocked_on(DRIVE), [RESERVE.to_owned()]);
+    assert!(service.unlocked_on(FIXED_DRIVE).is_empty());
+}
+
+async fn refused_as_busy(reply: oneshot::Receiver<Result<(), RemovableError>>) -> bool {
+    matches!(
+        reply.await,
+        Ok(Err(RemovableError::Service(CommandError::Unavailable(_))))
+    )
+}
+
+#[tokio::test]
+async fn a_drive_command_waits_out_a_volume_command_on_that_drive_and_the_reverse() {
+    let (mut service, ctx, _state, _health) = removable().await;
+    enumerated(&mut service, &ctx, session()).await;
+
+    service.blocks.get_mut(DATA).expect("the volume").busy = Some(Busy::Mounting);
+    let (reply, refused) = oneshot::channel();
+    service.spawned_drive(
+        &ctx,
+        DriveId::new(DRIVE),
+        Busy::Ejecting,
+        Action::Eject,
+        reply,
+        async { Ok(()) },
+    );
+    assert!(
+        refused_as_busy(refused).await,
+        "no eject while a volume mounts"
+    );
+    assert_eq!(service.drives.get(DRIVE).and_then(|d| d.busy), None);
+
+    service.blocks.get_mut(DATA).expect("the volume").busy = None;
+    service.drives.get_mut(DRIVE).expect("the drive").busy = Some(Busy::Ejecting);
+    let (reply, refused) = oneshot::channel();
+    service.spawned_volume(
+        &ctx,
+        VolumeId::new(RESERVE),
+        Busy::Mounting,
+        Action::Mount,
+        reply,
+        async { Ok(()) },
+    );
+    assert!(
+        refused_as_busy(refused).await,
+        "no mount while the drive ejects"
+    );
+    assert_eq!(service.blocks.get(RESERVE).and_then(|v| v.busy), None);
+}
+
+#[tokio::test]
+async fn the_finishing_step_follows_the_drive_capabilities() {
+    let (mut service, ctx, _state, _health) = removable().await;
+    enumerated(&mut service, &ctx, session()).await;
+    assert_eq!(service.finish_for(DRIVE), Finish::Eject);
+
+    let drive = service
+        .drives
+        .get_mut(DRIVE)
+        .and_then(|record| record.drive.as_mut())
+        .expect("the drive");
+    drive.ejectable = Some(false);
+    assert_eq!(service.finish_for(DRIVE), Finish::PowerOff);
+
+    let drive = service
+        .drives
+        .get_mut(DRIVE)
+        .and_then(|record| record.drive.as_mut())
+        .expect("the drive");
+    drive.can_power_off = Some(false);
+    assert_eq!(service.finish_for(DRIVE), Finish::Nothing);
+}
