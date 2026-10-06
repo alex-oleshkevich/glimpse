@@ -2,15 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{
-    Expandable, LegacyRow, SplitRow, none_if_empty, reconcile, set_css_class, set_footer_row,
-};
+use crate::{ActionRow, ExpanderRow, Row, RowTone, none_if_empty, reconcile, set_action_label};
 
 pub use imp::{Action, Device, Nearby};
-
-const CHEVRON: &str = "go-next-symbolic";
-const CHEVRON_CLASS: &str = "drawer-chevron";
-const OPEN: &str = "open";
 
 glib::wrapper! {
     pub struct KdeconnectPopover(ObjectSubclass<imp::KdeconnectPopover>)
@@ -29,13 +23,6 @@ impl KdeconnectPopover {
         glib::Object::new()
     }
 
-    pub fn set_summary(&self, summary: &str) {
-        let hero = &self.imp().hero;
-        if hero.subtitle().as_deref() != none_if_empty(summary) {
-            hero.set_subtitle(none_if_empty(summary));
-        }
-    }
-
     pub fn set_devices(&self, devices: &[Device]) {
         let imp = self.imp();
         if imp.devices_data.borrow().as_slice() == devices {
@@ -48,7 +35,7 @@ impl KdeconnectPopover {
             &mut imp.devices_held.borrow_mut(),
             devices,
             |device| device.id.clone(),
-            |_| self.device_row(),
+            |_| ExpanderRow::new(),
             |holder, device| {
                 let unchanged = previous
                     .iter()
@@ -61,8 +48,11 @@ impl KdeconnectPopover {
 
     pub fn set_nearby(&self, nearby: &[Nearby], more: Option<&str>) {
         let imp = self.imp();
-        set_footer_row(&imp.nearby_more, more);
+        set_action_label(&imp.nearby_more, more);
         imp.nearby.set_visible(!nearby.is_empty());
+        if nearby.is_empty() {
+            imp.nearby_toggle.set_open(false);
+        }
         reconcile::by_key(
             &*imp.nearby_rows,
             &mut imp.nearby_held.borrow_mut(),
@@ -71,38 +61,25 @@ impl KdeconnectPopover {
             |entry| self.nearby_row(&entry.id),
             apply_nearby,
         );
-        self.sync_nearby();
     }
 
     pub fn set_nearby_open(&self, open: bool) {
-        self.imp().nearby_open.set(open);
-        self.sync_nearby();
-    }
-
-    fn sync_nearby(&self) {
-        let imp = self.imp();
-        let open = imp.nearby_open.get();
-        set_css_class(&*imp.nearby_toggle, OPEN, open);
-        crate::drawer::set(&imp.nearby_drawer, open);
-        let more = imp.nearby_more.title().is_some();
-        if imp.nearby_more.get_visible() != more {
-            imp.nearby_more.set_visible(more);
-        }
+        self.imp().nearby_toggle.set_open(open);
     }
 
     pub fn nearby_open(&self) -> bool {
-        self.imp().nearby_open.get()
+        self.imp().nearby_toggle.open()
     }
 
     pub fn collapse(&self, id: &str) {
         let held = self.imp().devices_held.borrow();
         if let Some((_, holder)) = held.iter().find(|(key, _)| key == id) {
-            holder.set_expanded(false);
+            holder.set_open(false);
         }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        set_footer_row(&self.imp().footer, label);
+        set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_action<F: Fn(&Self, &str, &str) + 'static>(
@@ -134,41 +111,28 @@ impl KdeconnectPopover {
         )
     }
 
-    fn device_row(&self) -> Expandable {
-        let head = LegacyRow::new();
-        let chevron = gtk4::Image::from_icon_name(CHEVRON);
-        chevron.add_css_class(CHEVRON_CLASS);
-        chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
-        head.set_trail(&chevron);
-        Expandable::new(&head)
-    }
-
-    fn apply_device(&self, holder: &Expandable, device: &Device, actions_changed: bool) {
-        let Some(head) = holder.head::<LegacyRow>() else {
+    fn apply_device(&self, holder: &ExpanderRow, device: &Device, actions_changed: bool) {
+        holder.set_title(none_if_empty(&device.title));
+        holder.set_value(none_if_empty(&device.value));
+        if !actions_changed {
             return;
-        };
-        head.set_title(none_if_empty(&device.title));
-        head.set_value(none_if_empty(&device.value));
-
-        let details = match holder.details::<gtk4::Box>() {
-            Some(_) if !actions_changed => return,
-            Some(details) => details,
-            None => {
-                let details = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                holder.set_details(Some(&details));
-                details
-            }
-        };
+        }
+        let details = holder.details();
         while let Some(child) = details.first_child() {
             details.remove(&child);
         }
         for action in &device.actions {
-            let row = LegacyRow::new();
-            row.set_title(Some(action.label.as_str()));
-            crate::set_css_class(&row, crate::DESTRUCTIVE, action.destructive);
+            let row = ActionRow::new();
+            let base = row.upcast_ref::<Row>();
+            base.set_title(Some(action.label.as_str()));
+            base.set_tone(if action.destructive {
+                RowTone::Destructive
+            } else {
+                RowTone::Normal
+            });
             let id = device.id.clone();
             let key = action.key.clone();
-            row.connect_clicked(glib::clone!(
+            row.connect_activated(glib::clone!(
                 #[weak(rename_to = popover)]
                 self,
                 move |_| popover.emit_by_name::<()>("action", &[&id, &key])
@@ -177,15 +141,14 @@ impl KdeconnectPopover {
         }
     }
 
-    fn nearby_row(&self, id: &str) -> SplitRow {
-        let split = SplitRow::new();
-        split.set_detail_visible(false);
+    fn nearby_row(&self, id: &str) -> ActionRow {
+        let row = ActionRow::new();
         let id = id.to_owned();
-        split.connect_activated(glib::clone!(
+        row.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |split| {
-                let row = split.row();
+            move |row| {
+                let row = row.upcast_ref::<Row>();
                 if row.busy() {
                     return;
                 }
@@ -193,12 +156,12 @@ impl KdeconnectPopover {
                 popover.emit_by_name::<()>("pair", &[&id]);
             }
         ));
-        split
+        row
     }
 }
 
-fn apply_nearby(split: &SplitRow, entry: &Nearby) {
-    let row = split.row();
+fn apply_nearby(row: &ActionRow, entry: &Nearby) {
+    let row = row.upcast_ref::<Row>();
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.subtitle));
     row.set_busy(entry.busy);

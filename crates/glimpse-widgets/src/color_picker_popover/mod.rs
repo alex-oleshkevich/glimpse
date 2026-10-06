@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Shade, none_if_empty};
+use crate::{Shade, set_action_label};
 
 glib::wrapper! {
     pub struct ColorPickerPopover(ObjectSubclass<imp::ColorPickerPopover>)
@@ -47,9 +47,7 @@ impl ColorPickerPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        let row = &self.imp().footer;
-        row.set_title(none_if_empty(label.unwrap_or_default()));
-        row.set_visible(label.is_some());
+        set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {

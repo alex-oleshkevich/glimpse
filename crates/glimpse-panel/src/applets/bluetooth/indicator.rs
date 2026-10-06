@@ -383,7 +383,7 @@ impl Bluetooth {
 
     fn dress(&self, shown: &BluetoothPopover) {
         let hero = render::hero(&self.state);
-        shown.set_adapter(&hero.title, &hero.icon, hero.on, hero.settable);
+        shown.set_adapter(&hero.title, hero.on, hero.settable);
         shown.set_controls_sensitive(hero.controls);
         shown.set_footer(self.footer.label().as_deref());
         shown.set_prompt(render::prompt(&self.state).as_ref());

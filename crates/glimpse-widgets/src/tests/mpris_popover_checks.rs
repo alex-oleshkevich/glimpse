@@ -55,7 +55,7 @@ pub(super) fn check() {
     assert!(mpris.imp().others.get_visible());
 
     let rows = mpris.imp().list.imp().rows.borrow().clone();
-    rows[1].emit_by_name::<()>("clicked", &[]);
+    rows[1].emit_by_name::<()>("activated", &[]);
     rows[0].emit_by_name::<()>("toggled", &[]);
     assert_eq!(
         *seen.borrow(),

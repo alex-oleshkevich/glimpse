@@ -5,7 +5,7 @@ pub use row::PlayerRow;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{LegacyRow, none_if_empty};
+use crate::none_if_empty;
 
 const JOIN: &str = " · ";
 
@@ -76,10 +76,9 @@ impl PlayerList {
                 rows.push(row);
             }
             let row = &rows[index];
-            let item: &LegacyRow = row.upcast_ref();
-            item.set_title(none_if_empty(&player.title));
-            item.set_subtitle(byline(player).as_deref());
-            item.set_lead_icon(none_if_empty(&player.icon_name));
+            row.set_title(none_if_empty(&player.title));
+            row.set_subtitle(byline(player).as_deref());
+            row.set_icon_name(none_if_empty(&player.icon_name));
             row.set_playing(player.playing);
         }
 
@@ -93,7 +92,7 @@ impl PlayerList {
     /// that position first.
     fn build_row(&self, index: u32) -> PlayerRow {
         let row = PlayerRow::new();
-        row.connect_clicked(glib::clone!(
+        row.connect_activated(glib::clone!(
             #[weak(rename_to = list)]
             self,
             move |_| list.report("activated", index)

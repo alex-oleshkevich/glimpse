@@ -52,23 +52,22 @@ template $ClipboardPopover: Gtk.Widget {
 
           $ClipboardList recent {}
 
-          $LegacyRow more {
+          $ActionRow more {
             visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+            icon-name: "view-more-symbolic";
           }
         }
       }
     }
 
     [footer]
-    $LegacyRow clear {
+    $ActionRow clear {
       visible: false;
-      lead-icon: "edit-clear-all-symbolic";
+      icon-name: "edit-clear-all-symbolic";
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

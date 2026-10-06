@@ -4,12 +4,11 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::Clip;
-use crate::Expandable;
 
 #[derive(Debug, Default)]
 pub struct ClipboardList {
     pub clips: RefCell<Vec<Clip>>,
-    pub holders: RefCell<Vec<(u64, Expandable)>>,
+    pub holders: RefCell<Vec<(u64, gtk4::Widget)>>,
     /// Wording for the two action rows. A widget owns structure and no content, so these arrive
     /// from the applet rather than being written here.
     pub actions: RefCell<Actions>,

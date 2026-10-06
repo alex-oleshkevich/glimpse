@@ -15,10 +15,6 @@ template $NetworkRow: Gtk.Widget {
       accessible-role: presentation;
     }
 
-    $ActionRow connection {
-      visible: false;
-    }
-
     $FactList facts {
       visible: false;
     }
@@ -26,6 +22,10 @@ template $NetworkRow: Gtk.Widget {
     $ToggleRow autoconnect {
       visible: false;
       title: _("Connect automatically");
+    }
+
+    $ActionRow connection {
+      visible: false;
     }
 
     $ActionRow forget {

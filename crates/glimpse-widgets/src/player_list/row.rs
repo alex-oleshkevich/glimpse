@@ -10,6 +10,8 @@ mod imp {
     #[template(resource = "/me/aresa/GlimpseShell/widgets/player_row.ui")]
     pub struct PlayerRow {
         #[template_child]
+        pub row: TemplateChild<crate::ActionRow>,
+        #[template_child]
         pub toggle: TemplateChild<gtk4::Button>,
 
         #[property(name = "playing", get = Self::playing, set = Self::set_playing)]
@@ -33,9 +35,10 @@ mod imp {
     impl ObjectSubclass for PlayerRow {
         const NAME: &'static str = "PlayerRow";
         type Type = super::PlayerRow;
-        type ParentType = crate::LegacyRow;
+        type ParentType = gtk4::Widget;
 
         fn class_init(klass: &mut Self::Class) {
+            crate::ActionRow::static_type();
             klass.bind_template();
         }
 
@@ -48,7 +51,12 @@ mod imp {
     impl ObjectImpl for PlayerRow {
         fn signals() -> &'static [glib::subclass::Signal] {
             static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-            SIGNALS.get_or_init(|| vec![glib::subclass::Signal::builder("toggled").build()])
+            SIGNALS.get_or_init(|| {
+                vec![
+                    glib::subclass::Signal::builder("activated").build(),
+                    glib::subclass::Signal::builder("toggled").build(),
+                ]
+            })
         }
 
         fn constructed(&self) {
@@ -59,6 +67,11 @@ mod imp {
                 obj,
                 move |_| obj.emit_by_name::<()>("toggled", &[])
             ));
+            self.row.connect_activated(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.emit_by_name::<()>("activated", &[])
+            ));
         }
 
         fn dispose(&self) {
@@ -67,14 +80,12 @@ mod imp {
     }
 
     impl WidgetImpl for PlayerRow {}
-    impl ButtonImpl for PlayerRow {}
-    impl crate::legacy_row::LegacyRowImpl for PlayerRow {}
 }
 
 glib::wrapper! {
     pub struct PlayerRow(ObjectSubclass<imp::PlayerRow>)
-        @extends crate::LegacyRow, gtk4::Button, gtk4::Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+        @extends gtk4::Widget,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
 impl Default for PlayerRow {
@@ -86,6 +97,32 @@ impl Default for PlayerRow {
 impl PlayerRow {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    pub fn set_title(&self, title: Option<&str>) {
+        self.imp().row.upcast_ref::<crate::Row>().set_title(title);
+    }
+
+    pub fn set_subtitle(&self, subtitle: Option<&str>) {
+        self.imp()
+            .row
+            .upcast_ref::<crate::Row>()
+            .set_subtitle(subtitle);
+    }
+
+    pub fn set_icon_name(&self, icon_name: Option<&str>) {
+        self.imp()
+            .row
+            .upcast_ref::<crate::Row>()
+            .set_icon_name(icon_name);
+    }
+
+    pub fn connect_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "activated",
+            false,
+            glib::closure_local!(move |row: Self| f(&row)),
+        )
     }
 
     pub fn connect_toggled<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {

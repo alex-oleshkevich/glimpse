@@ -106,7 +106,7 @@ blurred card is translucent and would show a strip through its own bottom.
 Framed applet popovers use `PopoverShell`: optional hero, one content child, optional footer (a `[footer]` child; any other child scrolls with the body), a
 separator between each pair, and every separator paints transparent. **A row in a list is one line;
 its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
-**Facts precede actions; network and Bluetooth lead with Connect, Pair or Disconnect.**
+**Facts precede actions in every drawer.**
 Cards have at most one destructive action, so Forget outranks Disconnect.
 
 **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:

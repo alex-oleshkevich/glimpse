@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ClipboardList, Hero, LegacyRow, Notice, PopoverShell, Section};
+use crate::{ActionRow, ClipboardList, Hero, Notice, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/clipboard_popover.ui")]
@@ -24,11 +24,11 @@ pub struct ClipboardPopover {
     #[template_child]
     pub recent: TemplateChild<ClipboardList>,
     #[template_child]
-    pub more: TemplateChild<LegacyRow>,
+    pub more: TemplateChild<ActionRow>,
     #[template_child]
-    pub clear: TemplateChild<LegacyRow>,
+    pub clear: TemplateChild<ActionRow>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -45,7 +45,7 @@ impl ObjectSubclass for ClipboardPopover {
         Notice::static_type();
         Section::static_type();
         ClipboardList::static_type();
-        LegacyRow::static_type();
+        ActionRow::static_type();
         klass.set_layout_manager_type::<gtk4::BinLayout>();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
@@ -113,17 +113,17 @@ impl ObjectImpl for ClipboardPopover {
             obj,
             move |entry| obj.emit_by_name::<()>("searched", &[&entry.text().to_string()])
         ));
-        self.more.connect_clicked(glib::clone!(
+        self.more.connect_activated(glib::clone!(
             #[weak]
             obj,
             move |_| obj.emit_by_name::<()>("more", &[])
         ));
-        self.clear.connect_clicked(glib::clone!(
+        self.clear.connect_activated(glib::clone!(
             #[weak]
             obj,
             move |_| obj.emit_by_name::<()>("cleared", &[])
         ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             obj,
             move |_| obj.emit_by_name::<()>("footer-activated", &[])

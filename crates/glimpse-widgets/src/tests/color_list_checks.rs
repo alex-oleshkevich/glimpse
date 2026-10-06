@@ -27,17 +27,19 @@ pub(super) fn check() {
         move |_, id| color_activated.set(Some(id))
     });
     let second = colors.imp().holders.borrow()[1].1.clone();
-    let split = second
-        .head::<SplitRow>()
-        .expect("a shade leads with its row");
-    split.emit_by_name::<()>("activated", &[]);
+    assert!(second.details().first_child().is_none());
+    second.set_open(true);
+    assert!(second.open(), "the row opens its own shade");
+    let card = second.details();
+    assert!(
+        card.first_child().is_some(),
+        "the notations are built on first open"
+    );
+    children_of::<ActionRow>(&card)
+        .pop()
+        .expect("a copy row")
+        .emit_by_name::<()>("activated", &[]);
     assert_eq!(color_activated.get(), Some(9));
-
-    split.emit_by_name::<()>("details", &[]);
-    assert!(second.expanded(), "the chevron opens its own shade");
-    let card = second
-        .details::<gtk4::Box>()
-        .expect("the notations are built on first open");
     assert_eq!(
         card.first_child()
             .and_downcast::<Swatch>()
@@ -45,14 +47,17 @@ pub(super) fn check() {
         Some(rgba([9, 0, 0])),
         "the card opens on a strip of the color itself, wide enough to judge"
     );
-    let notation = card.last_child().and_downcast::<LegacyRow>().unwrap();
-    assert_eq!(notation.title().as_deref(), Some("rgb(9 0 0)"));
+    let notation = children_of::<ActionRow>(&card)[1].clone();
+    assert_eq!(
+        notation.upcast_ref::<Row>().title().as_deref(),
+        Some("rgb(9 0 0)")
+    );
     let color_copied = Rc::new(RefCell::new(None));
     colors.connect_copied({
         let color_copied = Rc::clone(&color_copied);
         move |_, id, key| *color_copied.borrow_mut() = Some((id, key.to_owned()))
     });
-    notation.emit_clicked();
+    notation.emit_by_name::<()>("activated", &[]);
     assert_eq!(*color_copied.borrow(), Some((9, "rgb".to_owned())));
     colors.set_shades(&[
         shade(3, "#030000"),
@@ -64,11 +69,12 @@ pub(super) fn check() {
         second,
         "a new color arriving above keeps the open one's row, so its card follows the shade"
     );
-    assert!(second.expanded() && second.details::<gtk4::Widget>().is_some());
+    assert!(second.open() && second.details().first_child().is_some());
     assert!(
         colors.imp().holders.borrow()[0]
             .1
-            .details::<gtk4::Widget>()
+            .details()
+            .first_child()
             .is_none(),
         "a shade nobody opened carries no card"
     );
@@ -87,8 +93,11 @@ pub(super) fn check() {
         "a long palette folds past eight rows"
     );
     assert!(colors.imp().more.get_visible());
-    assert_eq!(colors.imp().more.title().as_deref(), Some("2 more colors"));
-    colors.imp().more.emit_clicked();
+    assert_eq!(
+        colors.imp().more.upcast_ref::<Row>().title().as_deref(),
+        Some("2 more colors")
+    );
+    colors.imp().more.emit_by_name::<()>("activated", &[]);
     assert_eq!(
         colors.imp().holders.borrow().len(),
         10,
@@ -113,7 +122,7 @@ pub(super) fn check() {
         let pick_requested = Rc::clone(&pick_requested);
         move |_| pick_requested.set(pick_requested.get() + 1)
     });
-    picker.imp().pick.emit_clicked();
+    picker.imp().pick.emit_by_name::<()>("activated", &[]);
     assert_eq!(pick_requested.get(), 1);
     picker.set_latest(None);
     assert!(!picker.imp().latest.get_visible());

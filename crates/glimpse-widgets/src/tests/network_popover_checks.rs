@@ -7,8 +7,8 @@ pub(super) fn check() {
         let changes = Rc::clone(&radio_changes);
         move |_, _| changes.set(changes.get() + 1)
     });
-    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
-    network.set_radio("Wi-Fi", "network-wireless-signal-good-symbolic", true, true);
+    network.set_radio("Wi-Fi", true, true);
+    network.set_radio("Wi-Fi", true, true);
     assert_eq!(
         radio_changes.get(),
         0,
@@ -170,19 +170,13 @@ pub(super) fn check() {
     assert!(
         details
             .first_child()
-            .is_some_and(|child| child.is::<ActionRow>())
-    );
-    assert!(
-        details
-            .first_child()
-            .and_then(|child| child.next_sibling())
             .is_some_and(|child| child.is::<FactList>()),
-        "the connection action comes first, then the facts"
+        "the facts lead the drawer"
     );
     let opened = net_rows("/ap/1");
     assert_eq!(opened.len(), 3);
-    assert_eq!(opened[0].title().as_deref(), Some("Connect"));
-    assert!(opened[1].is::<ToggleRow>());
+    assert!(opened[0].is::<ToggleRow>());
+    assert_eq!(opened[1].title().as_deref(), Some("Connect"));
     assert_eq!(opened[2].tone(), RowTone::Destructive);
     toggle("/ap/1");
     assert!(

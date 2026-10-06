@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{AppletPopover, LegacyRow, NowPlaying, PlayerList, Section};
+use crate::{ActionRow, AppletPopover, NowPlaying, PlayerList, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/mpris_popover.ui")]
@@ -20,7 +20,7 @@ pub struct MprisPopover {
     #[template_child]
     pub list: TemplateChild<PlayerList>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
     entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
 }
 
@@ -31,6 +31,7 @@ impl ObjectSubclass for MprisPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -60,7 +61,7 @@ impl ObjectImpl for MprisPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

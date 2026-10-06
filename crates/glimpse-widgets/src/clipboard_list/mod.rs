@@ -5,7 +5,9 @@ use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 pub use imp::Actions;
 
 use crate::reconcile::by_key;
-use crate::{Expandable, Fact, FactList, LegacyRow, SplitRow, Swatch, none_if_empty};
+use crate::{
+    ActionRow, Expandable, ExpanderRow, Fact, FactList, Row, RowTone, Swatch, none_if_empty,
+};
 
 const TILE_HEIGHT: i32 = 200;
 const NARROW: i32 = 1;
@@ -80,24 +82,22 @@ impl ClipboardList {
         );
     }
 
-    fn build(&self, clip: &Clip) -> Expandable {
+    fn build(&self, clip: &Clip) -> gtk4::Widget {
         let id = clip.id;
         match &clip.image {
-            Some(texture) => self.tile(id, texture, clip.file.as_ref()),
+            Some(texture) => self.tile(id, texture, clip.file.as_ref()).upcast(),
             None => {
-                let split = SplitRow::new();
-                split.set_detail_tooltip(Some(gettextrs::gettext("Details")));
-                split.connect_activated(glib::clone!(
+                let row = ExpanderRow::new();
+                row.connect_toggled(glib::clone!(
                     #[weak(rename_to = list)]
                     self,
-                    move |_| list.emit_by_name::<()>("restored", &[&id])
+                    move |_, open| {
+                        if open {
+                            list.fill(id);
+                        }
+                    }
                 ));
-                split.connect_details(glib::clone!(
-                    #[weak(rename_to = list)]
-                    self,
-                    move |_| list.fill(id)
-                ));
-                Expandable::new(&split)
+                row.upcast()
             }
         }
     }
@@ -149,41 +149,40 @@ impl ClipboardList {
         Expandable::new(&tile)
     }
 
-    fn apply(&self, holder: &Expandable, clip: &Clip) {
-        if let Some(split) = holder.head::<SplitRow>() {
-            let row = split.row();
+    fn apply(&self, holder: &gtk4::Widget, clip: &Clip) {
+        if let Some(row) = holder.downcast_ref::<ExpanderRow>() {
             row.set_title(none_if_empty(&clip.title));
             match clip.swatch {
                 Some(color) => {
-                    let swatch = match row.lead().and_downcast::<Swatch>() {
-                        Some(swatch) => swatch,
-                        None => {
-                            let swatch = Swatch::default();
-                            swatch.set_valign(gtk4::Align::Center);
-                            row.set_lead(&swatch);
-                            swatch
-                        }
-                    };
+                    row.set_icon_name(None::<&str>);
+                    let swatch = Swatch::default();
+                    swatch.set_valign(gtk4::Align::Center);
                     swatch.set_color(Some(color));
+                    row.set_end(&swatch);
                 }
                 None => {
-                    if row.lead().and_downcast::<Swatch>().is_some() {
-                        row.clear_lead();
-                    }
-                    row.set_lead_icon(none_if_empty(&clip.icon));
+                    row.clear_end();
+                    row.set_icon_name(none_if_empty(&clip.icon));
                 }
             }
+            if let Some(pin) = pin_row(&row.details()) {
+                pin.upcast_ref::<Row>()
+                    .set_title(Some(self.pin_label(clip.pinned).as_str()));
+            }
         }
-        if let Some(tile) = holder.head::<gtk4::Overlay>()
-            && let Some(body) = tile.child()
-        {
-            body.update_property(&[gtk4::accessible::Property::Label(&clip.title)]);
-        }
-        if let Some(pin) = holder
-            .details::<gtk4::Box>()
-            .and_then(|card| pin_row(&card))
-        {
-            pin.set_title(Some(self.pin_label(clip.pinned).as_str()));
+        if let Some(holder) = holder.downcast_ref::<Expandable>() {
+            if let Some(tile) = holder.head::<gtk4::Overlay>()
+                && let Some(body) = tile.child()
+            {
+                body.update_property(&[gtk4::accessible::Property::Label(&clip.title)]);
+            }
+            if let Some(pin) = holder
+                .details::<gtk4::Box>()
+                .and_then(|card| pin_row(&card))
+            {
+                pin.upcast_ref::<Row>()
+                    .set_title(Some(self.pin_label(clip.pinned).as_str()));
+            }
         }
     }
 
@@ -202,10 +201,20 @@ impl ClipboardList {
             .iter()
             .find(|clip| clip.id == id)
             .cloned();
-        if let (Some(holder), Some(clip)) = (holder, clip)
+        let (Some(holder), Some(clip)) = (holder, clip) else {
+            return;
+        };
+        if let Some(row) = holder.downcast_ref::<ExpanderRow>() {
+            let details = row.details();
+            if details.first_child().is_none() {
+                self.drawer(&details, &clip, true);
+            }
+        } else if let Some(holder) = holder.downcast_ref::<Expandable>()
             && holder.details::<gtk4::Widget>().is_none()
         {
-            holder.set_details(Some(&self.card(&clip)));
+            let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            self.drawer(&card, &clip, false);
+            holder.set_details(Some(&card));
         }
     }
 
@@ -225,9 +234,8 @@ impl ClipboardList {
         }
     }
 
-    fn card(&self, clip: &Clip) -> gtk4::Box {
+    fn drawer(&self, card: &gtk4::Box, clip: &Clip, restore: bool) {
         let id = clip.id;
-        let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
 
         if let Some(color) = clip.swatch {
             let strip = Swatch::default();
@@ -255,22 +263,30 @@ impl ClipboardList {
             facts.set_facts(&clip.facts);
             card.append(&facts);
         }
+        if restore {
+            let copy = action_row(&gettextrs::gettext("Copy"), None);
+            copy.connect_activated(glib::clone!(
+                #[weak(rename_to = list)]
+                self,
+                move |_| list.emit_by_name::<()>("restored", &[&id])
+            ));
+            card.append(&copy);
+        }
         for action in &clip.actions {
-            let row = LegacyRow::new();
-            row.set_title(Some(action.title.as_str()));
-            row.set_value(none_if_empty(&action.value));
+            let row = action_row(&action.title, none_if_empty(&action.value));
             let key = action.key.clone();
             match action.choices.is_empty() {
                 true => {
-                    row.connect_clicked(glib::clone!(
+                    row.connect_activated(glib::clone!(
                         #[weak(rename_to = list)]
                         self,
                         move |_| list.emit_by_name::<()>("acted", &[&id, &key])
                     ));
                 }
                 false => {
-                    row.set_trail(&gtk4::Image::from_icon_name(CHEVRON));
-                    row.connect_clicked(glib::clone!(
+                    row.upcast_ref::<Row>()
+                        .set_end(&gtk4::Image::from_icon_name(CHEVRON));
+                    row.connect_activated(glib::clone!(
                         #[weak(rename_to = list)]
                         self,
                         move |row| list.aside(row, id, &key)
@@ -280,29 +296,26 @@ impl ClipboardList {
             card.append(&row);
         }
 
-        let pin = LegacyRow::new();
+        let pin = action_row(self.pin_label(clip.pinned).as_str(), None);
         pin.add_css_class(PIN);
-        pin.set_title(Some(self.pin_label(clip.pinned).as_str()));
-        pin.connect_clicked(glib::clone!(
+        pin.connect_activated(glib::clone!(
             #[weak(rename_to = list)]
             self,
             move |_| list.emit_by_name::<()>("pinned", &[&id, &!list.pinned(id)])
         ));
         card.append(&pin);
 
-        let remove = LegacyRow::new();
-        remove.set_title(Some(self.imp().actions.borrow().forget.as_str()));
-        remove.add_css_class(crate::DESTRUCTIVE);
-        remove.connect_clicked(glib::clone!(
+        let remove = action_row(self.imp().actions.borrow().forget.as_str(), None);
+        remove.upcast_ref::<Row>().set_tone(RowTone::Destructive);
+        remove.connect_activated(glib::clone!(
             #[weak(rename_to = list)]
             self,
             move |_| list.emit_by_name::<()>("removed", &[&id])
         ));
         card.append(&remove);
-        card
     }
 
-    fn aside(&self, row: &LegacyRow, id: u64, key: &str) {
+    fn aside(&self, row: &ActionRow, id: u64, key: &str) {
         let choices: Vec<ClipAction> = self
             .imp()
             .clips
@@ -322,10 +335,8 @@ impl ClipboardList {
             .has_arrow(false)
             .build();
         for choice in choices {
-            let item = LegacyRow::new();
-            item.set_title(Some(choice.title.as_str()));
-            item.set_value(none_if_empty(&choice.value));
-            item.connect_clicked(glib::clone!(
+            let item = action_row(&choice.title, none_if_empty(&choice.value));
+            item.connect_activated(glib::clone!(
                 #[weak(rename_to = list)]
                 self,
                 #[weak]
@@ -392,7 +403,15 @@ fn drag_source(texture: &gdk::Texture, file: &gio::File) -> gtk4::DragSource {
     source
 }
 
-fn pin_row(card: &gtk4::Box) -> Option<LegacyRow> {
+fn action_row(title: &str, value: Option<&str>) -> ActionRow {
+    let row = ActionRow::new();
+    let base: &Row = row.upcast_ref();
+    base.set_title(Some(title));
+    base.set_value(value);
+    row
+}
+
+fn pin_row(card: &gtk4::Box) -> Option<ActionRow> {
     let mut child = card.first_child();
     while let Some(widget) = child {
         if widget.has_css_class(PIN) {

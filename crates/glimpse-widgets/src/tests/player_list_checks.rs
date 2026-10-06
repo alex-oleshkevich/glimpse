@@ -23,11 +23,20 @@ pub(super) fn check() {
     let player_rows = children_of::<PlayerRow>(&players);
     assert_eq!(player_rows.len(), 2);
 
-    let first: &LegacyRow = player_rows[0].upcast_ref();
-    let second: &LegacyRow = player_rows[1].upcast_ref();
-    assert_eq!(first.subtitle().as_deref(), Some("Odd Lots · Firefox"));
+    let first = player_rows[0]
+        .first_child()
+        .and_downcast::<ActionRow>()
+        .unwrap();
+    let second = player_rows[1]
+        .first_child()
+        .and_downcast::<ActionRow>()
+        .unwrap();
     assert_eq!(
-        second.subtitle().as_deref(),
+        first.upcast_ref::<Row>().subtitle().as_deref(),
+        Some("Odd Lots · Firefox")
+    );
+    assert_eq!(
+        second.upcast_ref::<Row>().subtitle().as_deref(),
         Some("VLC"),
         "a video with no artist says which application is playing it rather than showing a \
              bare separator"
@@ -49,7 +58,7 @@ pub(super) fn check() {
         let toggled = Rc::clone(&toggled);
         move |_, key| toggled.borrow_mut().push(key)
     });
-    player_rows[1].emit_clicked();
+    player_rows[1].imp().row.emit_by_name::<()>("activated", &[]);
     toggle.emit_clicked();
     assert_eq!(*promoted.borrow(), ["vlc".to_owned()]);
     assert_eq!(
@@ -64,7 +73,7 @@ pub(super) fn check() {
         name: "VLC".to_owned(),
         ..Default::default()
     }]);
-    children_of::<PlayerRow>(&players)[0].emit_clicked();
+    children_of::<PlayerRow>(&players)[0].emit_by_name::<()>("activated", &[]);
     assert_eq!(
         *promoted.borrow(),
         ["vlc".to_owned(), "vlc".to_owned()],

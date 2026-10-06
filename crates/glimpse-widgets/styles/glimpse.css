@@ -376,8 +376,7 @@ popover separator {
     margin: 0.28rem 0.55rem;
 }
 
-.popover-shell__hero,
-.popover-shell__footer {
+.popover-shell__hero {
     padding: 0.55rem 0.8rem;
 }
 
@@ -1783,10 +1782,6 @@ window.notification-popup {
 button.row--warning .row__subtitle,
 button.row--warning .row__value {
     color: var(--gl-warning-text);
-}
-
-button.row--destructive .row__title {
-    color: var(--gl-danger-text);
 }
 
 .audio-popover__hero--muted .hero__icon,

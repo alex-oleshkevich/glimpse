@@ -76,6 +76,7 @@ impl PopoverShell {
     }
 
     pub fn append_to_footer(&self, widget: &impl IsA<gtk4::Widget>) {
+        widget.set_hexpand(true);
         self.imp().footer_box.append(widget);
         self.watch(widget);
         self.settle();
