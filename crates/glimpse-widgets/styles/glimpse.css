@@ -1780,12 +1780,12 @@ window.notification-popup {
     margin: 0.3rem 0.65rem 0.5rem 0.65rem;
 }
 
-.row--warning .row__subtitle,
-.row--warning .row__value {
+button.row--warning .row__subtitle,
+button.row--warning .row__value {
     color: var(--gl-warning-text);
 }
 
-.row--destructive .row__title {
+button.row--destructive .row__title {
     color: var(--gl-danger-text);
 }
 

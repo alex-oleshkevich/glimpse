@@ -36,23 +36,15 @@ pub fn tooltip(removable: &RemovableState, format: Option<&str>) -> String {
     })
 }
 
-fn shown(cap: usize, expanded: bool) -> usize {
-    match expanded {
-        true => usize::MAX,
-        false => cap,
-    }
-}
-
-fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
+fn more(total: usize, cap: usize) -> Option<String> {
     let hidden = total.saturating_sub(cap);
     if hidden == 0 {
         return None;
     }
-    Some(match expanded {
-        true => gettext("Show fewer"),
-        false => ngettext("{count} more", "{count} more", hidden as u32)
+    Some(
+        ngettext("{count} more", "{count} more", hidden as u32)
             .replace("{count}", &hidden.to_string()),
-    })
+    )
 }
 
 pub enum Activation {
@@ -68,22 +60,12 @@ pub fn activation(state: &RemovableState, id: &str) -> Option<Activation> {
 }
 
 fn locate_volume<'a>(state: &'a RemovableState, id: &str) -> Option<&'a ServiceVolume> {
-    for drive in &state.drives {
-        match drive.volumes.as_slice() {
-            [volume] if drive.id.as_str() == id => return Some(volume),
-            [] => {}
-            volumes => {
-                if let Some(volume) = volumes.iter().find(|volume| compound(drive, volume) == id) {
-                    return Some(volume);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn compound(drive: &ServiceDrive, volume: &ServiceVolume) -> String {
-    format!("{}/{}", drive.id.as_str(), volume.id.as_str())
+    state.drives.iter().find_map(|drive| {
+        drive
+            .volumes
+            .iter()
+            .find(|volume| format!("{}/{}", drive.id.as_str(), volume.id.as_str()) == id)
+    })
 }
 
 fn media_icon(media: glimpse_dbus::udisks2::Media) -> &'static str {
@@ -167,12 +149,7 @@ fn full(volume: &ServiceVolume) -> bool {
 
 fn volume_status(volume: &ServiceVolume) -> Vec<Fact> {
     match &volume.mount {
-        Some(_) if full(volume) => Vec::new(),
-        Some(mount) => mount
-            .capacity
-            .map(|capacity| Fact::new(gettext("Space"), capacity_text(capacity)))
-            .into_iter()
-            .collect(),
+        Some(_) => Vec::new(),
         None => vec![
             Fact::new(gettext("Status"), gettext("Not mounted")),
             Fact::new(gettext("Size"), glimpse_utils::size::bytes(volume.size)),
@@ -203,9 +180,10 @@ fn volume_facts(volume: &ServiceVolume) -> Vec<Fact> {
 
 fn volume_title(volume: &ServiceVolume, drive: &ServiceDrive) -> String {
     let label = cap(&volume.label);
-    match label.is_empty() {
-        true => cap(&drive.name),
-        false => label,
+    match (label.is_empty(), drive.volumes.len() > 1) {
+        (true, _) => cap(&drive.name),
+        (false, true) => format!("{} \u{b7} {label}", cap(&drive.name)),
+        (false, false) => label,
     }
 }
 
@@ -224,6 +202,7 @@ fn volume_row(volume: &ServiceVolume, drive: &ServiceDrive, icon: &str) -> Remov
         title: volume_title(volume, drive),
         icon: icon.to_owned(),
         fraction: fraction(capacity),
+        space: capacity.map(capacity_text).unwrap_or_default(),
         busy: drive.busy.is_some() || volume.busy.is_some(),
         mounted: volume.mount.is_some(),
         problem: match full(volume) {
@@ -254,15 +233,40 @@ fn drive_row(drive: &ServiceDrive) -> RemovableDrive {
 
 pub struct Devices {
     pub drives: Vec<RemovableDrive>,
+    pub rest: Vec<RemovableDrive>,
     pub more: Option<String>,
 }
 
-pub fn devices(state: &RemovableState, cap: usize, expanded: bool) -> Devices {
-    let take = shown(cap, expanded);
-    let drives = state.drives.iter().take(take).map(drive_row).collect();
+fn rows(drive: &RemovableDrive) -> usize {
+    drive.volumes.len().max(1)
+}
+
+pub fn devices(state: &RemovableState, cap: usize) -> Devices {
+    let mut drives = Vec::new();
+    let mut rest = Vec::new();
+    let mut room = cap;
+    let mut total = 0;
+    for drive in state.drives.iter().map(drive_row) {
+        let count = rows(&drive);
+        total += count;
+        if count <= room {
+            room -= count;
+            drives.push(drive);
+        } else if room == 0 {
+            rest.push(drive);
+        } else {
+            let mut tail = drive.clone();
+            let mut head = drive;
+            tail.volumes = head.volumes.split_off(room);
+            room = 0;
+            drives.push(head);
+            rest.push(tail);
+        }
+    }
     Devices {
         drives,
-        more: more(state.drives.len(), cap, expanded),
+        rest,
+        more: more(total, cap),
     }
 }
 

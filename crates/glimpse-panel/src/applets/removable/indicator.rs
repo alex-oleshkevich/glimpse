@@ -119,8 +119,8 @@ impl Applet for Removable {
         shown.connect_more({
             let expanded = Rc::clone(&self.expanded);
             let opener = seat.opener();
-            move |_| {
-                expanded.set(!expanded.get());
+            move |_, open| {
+                expanded.set(open);
                 opener.wake();
             }
         });
@@ -193,9 +193,12 @@ impl Removable {
 
     fn dress(&self, shown: &RemovablePopover) {
         let state = self.state.borrow();
-        let devices = render::devices(&state, self.volumes_cap, self.expanded.get());
-        shown.set_devices(&devices.drives);
-        shown.set_overflow(devices.more.as_deref());
+        let devices = render::devices(&state, self.volumes_cap);
+        if devices.more.is_none() {
+            self.expanded.set(false);
+        }
+        shown.set_devices(&devices.drives, &devices.rest);
+        shown.set_overflow(devices.more.as_deref(), self.expanded.get());
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
     }
 

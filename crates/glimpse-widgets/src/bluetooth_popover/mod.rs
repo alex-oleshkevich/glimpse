@@ -3,7 +3,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, Row, none_if_empty, reconcile};
+use crate::{none_if_empty, reconcile, set_action_label};
 
 pub(crate) use device::BluetoothDevice;
 
@@ -295,11 +295,4 @@ fn set_button(button: &gtk4::Button, label: &str) {
         return;
     }
     button.set_label(label);
-}
-
-fn set_action_label(row: &ActionRow, label: Option<&str>) {
-    row.upcast_ref::<Row>().set_title(label);
-    if row.get_visible() != label.is_some() {
-        row.set_visible(label.is_some());
-    }
 }

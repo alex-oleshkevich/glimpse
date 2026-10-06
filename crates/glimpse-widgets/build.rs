@@ -153,6 +153,10 @@ fn main() {
             "resources/widgets/places_popover.ui",
         ),
         (
+            "blueprints/removable_device.blp",
+            "resources/widgets/removable_device.ui",
+        ),
+        (
             "blueprints/removable_popover.blp",
             "resources/widgets/removable_popover.ui",
         ),

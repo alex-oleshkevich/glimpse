@@ -328,6 +328,15 @@ pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
 
 pub(crate) const DESTRUCTIVE: &str = "row--destructive";
 
+pub(crate) fn set_action_label(row: &ActionRow, label: Option<&str>) {
+    use gtk4::prelude::*;
+
+    row.upcast_ref::<Row>().set_title(label);
+    if row.get_visible() != label.is_some() {
+        row.set_visible(label.is_some());
+    }
+}
+
 pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {
     use gtk4::prelude::*;
 
