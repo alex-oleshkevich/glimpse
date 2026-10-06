@@ -8,37 +8,38 @@ template $RemovablePopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "drive-removable-media-symbolic";
-      title: _("Removable");
-      subtitle: _("Drives and volumes");
-    }
+    title: _("Removable");
 
-    $Section devices {
-      visible: false;
+    Gtk.Box {
+      orientation: vertical;
 
       styles [
         "column",
       ]
 
-      Gtk.Box {
-        orientation: vertical;
+      $Section devices {
+        visible: false;
 
-        Gtk.Box devices_rows {
+        Gtk.Box {
           orientation: vertical;
-        }
 
-        $LegacyRow devices_more {
-          visible: false;
-          activatable: true;
-          lead-icon: "view-more-symbolic";
+          Gtk.Box devices_rows {
+            orientation: vertical;
+          }
+
+          $ExpanderRow devices_more {
+            visible: false;
+
+            Gtk.Box more_rows {
+              orientation: vertical;
+            }
+          }
         }
       }
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

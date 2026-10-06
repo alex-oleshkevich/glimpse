@@ -1,0 +1,25 @@
+using Gtk 4.0;
+
+template $RemovableDevice: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  $ExpanderRow row {
+    $MeterRow space {
+      visible: false;
+      title: _("Space");
+    }
+
+    $FactList facts {
+      visible: false;
+    }
+
+    $ActionRow primary {
+      visible: false;
+    }
+
+    $ActionRow release {
+      visible: false;
+      tone: destructive;
+    }
+  }
+}

@@ -505,7 +505,7 @@ impl Default for Places {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Removable {
-    /// How many drives the popover lists before the rest go behind a drawer.
+    /// How many volume rows the popover lists before the rest go behind a drawer.
     pub volumes: usize,
 }
 

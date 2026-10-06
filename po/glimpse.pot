@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 11:36+0200\n"
+"POT-Creation-Date: 2026-10-06 13:22+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -348,7 +348,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:290
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
 #: crates/glimpse-panel/src/applets/places/render.rs:53
-#: crates/glimpse-panel/src/applets/removable/render.rs:52
 msgid "Show fewer"
 msgstr ""
 
@@ -367,7 +366,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:364
+#: crates/glimpse-widgets/src/lib.rs:373
 msgid "{percent}%"
 msgstr ""
 
@@ -693,8 +692,8 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
-#: crates/glimpse-panel/src/applets/removable/render.rs:139
-#: crates/glimpse-panel/src/applets/removable/render.rs:178
+#: crates/glimpse-panel/src/applets/removable/render.rs:121
+#: crates/glimpse-panel/src/applets/removable/render.rs:155
 msgid "Size"
 msgstr ""
 
@@ -730,7 +729,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
 #: crates/glimpse-panel/src/applets/network/render.rs:103
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:247
+#: crates/glimpse-widgets/src/removable_popover/device.rs:136
 msgid "Open"
 msgstr ""
 
@@ -753,7 +752,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:295
 #: crates/glimpse-panel/src/applets/places/render.rs:54
-#: crates/glimpse-panel/src/applets/removable/render.rs:53
+#: crates/glimpse-panel/src/applets/removable/render.rs:45
 msgid "{count} more"
 msgid_plural "{count} more"
 msgstr[0] ""
@@ -1334,8 +1333,8 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:232
 #: crates/glimpse-panel/src/applets/next_event/render.rs:252
-#: crates/glimpse-panel/src/applets/removable/render.rs:136
-#: crates/glimpse-panel/src/applets/removable/render.rs:177
+#: crates/glimpse-panel/src/applets/removable/render.rs:118
+#: crates/glimpse-panel/src/applets/removable/render.rs:154
 #: crates/glimpse-widgets/src/display_list/mod.rs:162
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:138
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:204
@@ -1779,87 +1778,83 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:160
 #: crates/glimpse-panel/src/applets/removable/render.rs:23
-#: crates/glimpse-widgets/blueprints/removable_popover.blp:14
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:11
 msgid "Removable"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:136
+#: crates/glimpse-panel/src/applets/removable/render.rs:118
 msgid "No media"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:144
+#: crates/glimpse-panel/src/applets/removable/render.rs:126
 msgid "Volumes"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:152
+#: crates/glimpse-panel/src/applets/removable/render.rs:134
 msgid "{available} free of {total}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:173
-msgid "Space"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/removable/render.rs:177
+#: crates/glimpse-panel/src/applets/removable/render.rs:154
 msgid "Not mounted"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:188
+#: crates/glimpse-panel/src/applets/removable/render.rs:165
 msgid "Filesystem"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:192
+#: crates/glimpse-panel/src/applets/removable/render.rs:169
 msgid "Mounted at"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:195
+#: crates/glimpse-panel/src/applets/removable/render.rs:172
 msgid "Access"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:195
+#: crates/glimpse-panel/src/applets/removable/render.rs:172
 msgid "Read-only"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:230
+#: crates/glimpse-panel/src/applets/removable/render.rs:209
 msgid "No space left"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:271
+#: crates/glimpse-panel/src/applets/removable/render.rs:275
 msgid "That drive is not mounted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:272
+#: crates/glimpse-panel/src/applets/removable/render.rs:276
 msgid "The drive is busy with something else."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:273
+#: crates/glimpse-panel/src/applets/removable/render.rs:277
 msgid "That drive is already mounted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:274
+#: crates/glimpse-panel/src/applets/removable/render.rs:278
 msgid "This computer is not authorized to do that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:275
+#: crates/glimpse-panel/src/applets/removable/render.rs:279
 msgid "That is not supported for this drive."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:276
+#: crates/glimpse-panel/src/applets/removable/render.rs:280
 msgid "That option is not permitted."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:277
+#: crates/glimpse-panel/src/applets/removable/render.rs:281
 msgid "The drive did not respond in time."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:278
+#: crates/glimpse-panel/src/applets/removable/render.rs:282
 msgid "That would wake a sleeping drive."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:279
+#: crates/glimpse-panel/src/applets/removable/render.rs:283
 msgid "The action was cancelled."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/removable/render.rs:280
+#: crates/glimpse-panel/src/applets/removable/render.rs:284
 msgid "The drive could not complete that."
 msgstr ""
 
@@ -2569,7 +2564,6 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/split_row.blp:27
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:89
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:132
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:197
 msgid "Details"
 msgstr ""
 
@@ -2656,8 +2650,8 @@ msgstr ""
 msgid "Mute microphone"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/removable_popover.blp:15
-msgid "Drives and volumes"
+#: crates/glimpse-widgets/blueprints/removable_device.blp:9
+msgid "Space"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/scrubber.blp:17
@@ -3504,11 +3498,15 @@ msgstr ""
 msgid "In use"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:251
+#: crates/glimpse-widgets/src/removable_popover/device.rs:137
+msgid "Mount"
+msgstr ""
+
+#: crates/glimpse-widgets/src/removable_popover/device.rs:144
 msgid "Eject"
 msgstr ""
 
-#: crates/glimpse-widgets/src/removable_popover/mod.rs:254
+#: crates/glimpse-widgets/src/removable_popover/device.rs:145
 msgid "Unmount"
 msgstr ""
 

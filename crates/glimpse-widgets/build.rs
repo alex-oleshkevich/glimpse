@@ -4,11 +4,17 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
         if let Some(parent) = std::path::Path::new(out).parent() {
             std::fs::create_dir_all(parent).unwrap();
         }
-        let status = std::process::Command::new("blueprint-compiler")
-            .args(["compile", "--output", out, src])
-            .status()
+        let output = std::process::Command::new("blueprint-compiler")
+            .args(["compile", src])
+            .output()
             .expect("blueprint-compiler not found");
-        assert!(status.success(), "blueprint-compiler failed for {src}");
+        assert!(
+            output.status.success(),
+            "blueprint-compiler failed for {src}"
+        );
+        if std::fs::read(out).ok().as_deref() != Some(output.stdout.as_slice()) {
+            std::fs::write(out, &output.stdout).unwrap();
+        }
     }
 }
 
@@ -145,6 +151,10 @@ fn main() {
         (
             "blueprints/places_popover.blp",
             "resources/widgets/places_popover.ui",
+        ),
+        (
+            "blueprints/removable_device.blp",
+            "resources/widgets/removable_device.ui",
         ),
         (
             "blueprints/removable_popover.blp",
