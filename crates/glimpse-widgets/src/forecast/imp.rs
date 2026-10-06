@@ -28,7 +28,6 @@ impl ObjectImpl for ForecastStrip {
         self.parent_constructed();
         let strip = self.obj();
         self.unit.replace(super::DEFAULT_UNIT.to_owned());
-        strip.add_css_class("forecast-strip");
         if let Some(layout) = strip.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_homogeneous(true);
         }

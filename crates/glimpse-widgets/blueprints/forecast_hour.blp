@@ -18,17 +18,14 @@ template $ForecastHour: Gtk.Widget {
     accessible-role: presentation;
 
     styles [
-      "forecast__time",
+      "caption",
     ]
   }
 
   Gtk.Image icon {
+    pixel-size: 28;
     visible: false;
     accessible-role: presentation;
-
-    styles [
-      "forecast__icon",
-    ]
   }
 
   Gtk.Label temperature {
@@ -37,7 +34,7 @@ template $ForecastHour: Gtk.Widget {
     accessible-role: presentation;
 
     styles [
-      "forecast__temperature",
+      "numeric",
     ]
   }
 }

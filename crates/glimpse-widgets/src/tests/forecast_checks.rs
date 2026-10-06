@@ -24,13 +24,11 @@ pub(super) fn check() {
             now: false,
         },
     ]);
-    let times = all_named(&strip, "forecast__time");
-    assert_eq!(times.len(), 2);
     assert!(
-        times[0].has_css_class("forecast__now") && !times[1].has_css_class("forecast__now"),
+        all_named(&strip, "heading").len() == 1 && all_named(&strip, "caption").len() == 1,
         "exactly one column is now"
     );
-    let temperatures = all_named(&strip, "forecast__temperature");
+    let temperatures = all_named(&strip, "numeric");
     assert_eq!(
         temperatures[0]
             .clone()

@@ -1414,33 +1414,6 @@ window.notification-popup {
     color: var(--gl-muted, alpha(currentColor, 0.65));
 }
 
-.forecast-strip {
-    padding: 0.42rem 0.48rem 0.72rem 0.48rem;
-}
-
-.forecast__time {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-    font-variant-numeric: tabular-nums;
-}
-
-.forecast__now {
-    color: var(--gl-surface-fg);
-    font-weight: 600;
-}
-
-.forecast__icon {
-    -gtk-icon-size: 1.8rem;
-    color: var(--gl-surface-fg);
-    margin-top: 0.24rem;
-    margin-bottom: 0.42rem;
-}
-
-.forecast__temperature {
-    font-size: var(--gl-text-body);
-    font-variant-numeric: tabular-nums;
-}
-
 .now-playing {
     padding: 0.2rem 0.2rem 0 0.2rem;
 }
