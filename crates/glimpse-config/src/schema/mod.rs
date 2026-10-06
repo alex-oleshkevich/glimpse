@@ -40,7 +40,7 @@ pub use applets::{
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
     PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig, Power as PowerAppletConfig,
-    Printing as PrintingAppletConfig, Privacy as PrivacyAppletConfig,
+    Printing as PrintingAppletConfig, PrintingShow, Privacy as PrivacyAppletConfig,
     Removable as RemovableAppletConfig, Sandbox as AppletSandbox,
     SystemMonitor as SystemMonitorAppletConfig, Timezone as ClockTimezone,
     Tray as TrayAppletConfig, Weather as WeatherAppletConfig, is_desktop_id, renamed_to,

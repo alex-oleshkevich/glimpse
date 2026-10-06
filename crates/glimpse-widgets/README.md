@@ -199,10 +199,11 @@ an `Expandable` toggles only on its head.
 
 ## PrintingPopover, PrivacyPopover, Swatch, ColorList, ColorPickerPopover and WorkspaceNamePopover
 
-**A job and a printer are the same shape: an `Expandable` whose whole row opens its card.** **An
-action is a row, never an icon button, and it cannot live in the head** — `LegacyRow` is a `Gtk.Button`,
-so a button inside one is a button inside a button and the inner never emits `clicked`. Formatting
-and sanitizing raw CUPS text is the panel applet's job, not this widget's.
+**A job and a printer are an `ExpanderRow` whose head opens the drawer; a printer with no facts is a
+plain `Row`.** A drawer holds info first, then toggles, then actions, with the destructive one
+last: a job's `FactList`, Pause or Resume as allowed, then Cancel. The job count is the section's
+count, and there is no hero. Formatting and sanitizing raw CUPS text is the panel applet's job, not
+this widget's.
 
 In `PrivacyPopover`, **a row is one app, and it opens to what it uses and, when it can be stopped,
 Stop sharing.** `Mute

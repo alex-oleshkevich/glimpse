@@ -8,12 +8,7 @@ template $PrintingPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "printer-symbolic";
-      title: _("Printing");
-      subtitle: _("No print jobs");
-    }
+    title: _("Printing");
 
     Gtk.Box column {
       orientation: vertical;
@@ -40,6 +35,10 @@ template $PrintingPopover: Gtk.Widget {
           orientation: vertical;
         }
       }
+    }
+
+    $ActionRow footer {
+      visible: false;
     }
   }
 }

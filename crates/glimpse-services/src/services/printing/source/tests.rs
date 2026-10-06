@@ -201,3 +201,28 @@ async fn the_notifier_source_is_inert_without_a_system_bus() {
         "with no system bus the notifier must degrade to an empty stream, never panic"
     );
 }
+
+#[test]
+fn the_device_uri_is_read_and_capped() {
+    let long = format!("socket://{}", "h".repeat(400));
+    let attributes = group(
+        DelimiterTag::PrinterAttributes,
+        vec![(
+            "device-uri",
+            IppValue::Uri(long.as_str().try_into().expect("a uri string")),
+        )],
+    );
+    let printers = parse_printers(&attributes);
+    assert_eq!(
+        printers[0].device_uri,
+        long.chars().take(NAME_CAP).collect::<String>()
+    );
+    let nameless = group(
+        DelimiterTag::PrinterAttributes,
+        vec![(
+            "printer-name",
+            IppValue::NameWithoutLanguage("office".try_into().expect("a name")),
+        )],
+    );
+    assert!(parse_printers(&nameless)[0].device_uri.is_empty());
+}

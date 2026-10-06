@@ -26,6 +26,7 @@ const DEFAULT_SERVER_URL: &str = "http://localhost:631/";
 pub struct Printer {
     pub name: String,
     pub make_model: String,
+    pub device_uri: String,
     pub state: PrinterState,
     pub state_reasons: Vec<String>,
     pub state_message: String,

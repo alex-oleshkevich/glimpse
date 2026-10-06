@@ -7,7 +7,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fact, Hero, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, Fact, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Job {
@@ -26,13 +26,8 @@ pub struct Job {
 pub struct Printer {
     pub id: String,
     pub name: String,
-    pub status: String,
+    pub problem: String,
     pub network: bool,
-    /// The status is a problem — stopped, refusing jobs, or reporting a message — and the row says
-    /// so in the warning colour rather than behind its card.
-    pub warning: bool,
-    /// The facts the printer's card lists after its status. The applet formats every label and
-    /// value; the widget only draws them, so nothing here is translated in this crate.
     pub facts: Vec<Fact>,
 }
 
@@ -42,8 +37,6 @@ pub struct PrintingPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
     #[template_child]
-    pub hero: TemplateChild<Hero>,
-    #[template_child]
     pub jobs: TemplateChild<Section>,
     #[template_child]
     pub job_rows: TemplateChild<gtk4::Box>,
@@ -51,11 +44,13 @@ pub struct PrintingPopover {
     pub printers: TemplateChild<Section>,
     #[template_child]
     pub printer_rows: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub footer: TemplateChild<ActionRow>,
 
     pub job_data: RefCell<Vec<Job>>,
     pub printer_data: RefCell<Vec<Printer>>,
-    pub job_held: RefCell<Vec<(String, Expandable)>>,
-    pub printer_held: RefCell<Vec<(String, Expandable)>>,
+    pub job_held: RefCell<Vec<(String, ExpanderRow)>>,
+    pub printer_held: RefCell<Vec<((String, bool), gtk4::Widget)>>,
     #[cfg(test)]
     pub renders: Cell<u32>,
     #[cfg(test)]
@@ -69,6 +64,7 @@ impl ObjectSubclass for PrintingPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -83,6 +79,7 @@ impl ObjectImpl for PrintingPopover {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
+                glib::subclass::Signal::builder("footer-activated").build(),
                 glib::subclass::Signal::builder("cancelled")
                     .param_types([String::static_type()])
                     .build(),
@@ -94,6 +91,16 @@ impl ObjectImpl for PrintingPopover {
                     .build(),
             ]
         })
+    }
+
+    fn constructed(&self) {
+        self.parent_constructed();
+        let popover = self.obj().clone();
+        self.footer.connect_activated(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.emit_by_name::<()>("footer-activated", &[])
+        ));
     }
 
     fn dispose(&self) {

@@ -521,12 +521,28 @@ impl Default for Removable {
 pub struct Printing {
     /// Print jobs listed in the popover before older ones are hidden.
     pub jobs: usize,
+    /// When the bar shows the printing chip.
+    pub show: PrintingShow,
 }
 
 impl Default for Printing {
     fn default() -> Self {
-        Self { jobs: 8 }
+        Self {
+            jobs: 8,
+            show: PrintingShow::default(),
+        }
     }
+}
+
+/// When the printing chip is on the bar.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum PrintingShow {
+    /// The chip stays on the bar whenever a printer exists, idle or not.
+    #[default]
+    Always,
+    /// The chip appears only while a print job is active or a printer needs attention.
+    Jobs,
 }
 
 /// The privacy applet's own settings: which of its sources it shows.

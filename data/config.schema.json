@@ -1089,6 +1089,11 @@
                 "null"
               ]
             },
+            "show": {
+              "description": "When the bar shows the printing chip.",
+              "$ref": "#/$defs/PrintingShow",
+              "default": "always"
+            },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
               "type": [
@@ -2534,6 +2539,11 @@
                   "string",
                   "null"
                 ]
+              },
+              "show": {
+                "description": "When the bar shows the printing chip.",
+                "$ref": "#/$defs/PrintingShow",
+                "default": "always"
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
@@ -4638,6 +4648,21 @@
         }
       },
       "additionalProperties": false
+    },
+    "PrintingShow": {
+      "description": "When the printing chip is on the bar.",
+      "oneOf": [
+        {
+          "description": "The chip stays on the bar whenever a printer exists, idle or not.",
+          "type": "string",
+          "const": "always"
+        },
+        {
+          "description": "The chip appears only while a print job is active or a printer needs attention.",
+          "type": "string",
+          "const": "jobs"
+        }
+      ]
     },
     "Profile": {
       "type": "object",

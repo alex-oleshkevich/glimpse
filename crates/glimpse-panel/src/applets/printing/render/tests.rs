@@ -15,6 +15,7 @@ fn printer_at(name: &str, state: PrinterState) -> ServicePrinter {
     ServicePrinter {
         name: name.to_owned(),
         make_model: "Office LaserJet".to_owned(),
+        device_uri: String::new(),
         state,
         state_reasons: Vec::new(),
         state_message: String::new(),
@@ -34,7 +35,7 @@ fn no_pending() -> HashSet<u32> {
 
 #[test]
 fn no_jobs_and_no_problems_shows_no_chip() {
-    assert!(chip(&PrintingState::default()).is_none());
+    assert!(chip(&PrintingState::default(), PrintingShow::Jobs).is_none());
 }
 
 #[test]
@@ -43,7 +44,7 @@ fn a_processing_job_lights_the_printing_icon() {
         printers: vec![printer_at("office", PrinterState::Idle)],
         jobs: vec![job_at(1, "office", JobState::Processing)],
     };
-    assert_eq!(chip(&state).unwrap(), PRINTING);
+    assert_eq!(chip(&state, PrintingShow::Jobs).unwrap(), PRINTING);
     assert!(!attention(&state));
 }
 
@@ -53,7 +54,7 @@ fn a_queued_job_on_a_healthy_printer_shows_the_idle_icon() {
         printers: vec![printer_at("office", PrinterState::Idle)],
         jobs: vec![job_at(1, "office", JobState::Pending)],
     };
-    assert_eq!(chip(&state).unwrap(), IDLE);
+    assert_eq!(chip(&state, PrintingShow::Jobs).unwrap(), IDLE);
 }
 
 #[test]
@@ -63,7 +64,7 @@ fn a_job_stuck_behind_a_stopped_printer_asks_for_attention_but_takes_no_colour()
         jobs: vec![job_at(1, "office", JobState::Pending)],
     };
     assert_eq!(
-        chip(&state).unwrap(),
+        chip(&state, PrintingShow::Jobs).unwrap(),
         IDLE,
         "attention is carried by the indicator's own attention-dot styling, never by a \
              colour baked into the icon"
@@ -77,7 +78,7 @@ fn a_completed_job_does_not_light_the_chip() {
         printers: vec![printer_at("office", PrinterState::Idle)],
         jobs: vec![job_at(1, "office", JobState::Completed)],
     };
-    assert!(chip(&state).is_none());
+    assert!(chip(&state, PrintingShow::Jobs).is_none());
     assert!(tooltip(&state, None, 8).is_none());
 }
 
@@ -144,12 +145,41 @@ fn a_hostile_printer_name_is_capped_before_it_reaches_the_widget() {
 }
 
 #[test]
-fn a_printer_carries_no_device_type_information_so_it_is_never_marked_network() {
+fn the_device_uri_scheme_decides_whether_a_printer_is_network() {
+    for (uri, network) in [
+        ("ipp://192.168.1.40/ipp/print", true),
+        ("ipps://kitchen.local:631/ipp/print", true),
+        ("http://printer.local/ipp", true),
+        ("https://printer.local/ipp", true),
+        ("socket://192.168.1.40:9100", true),
+        ("lpd://192.168.1.40/queue", true),
+        ("dnssd://Kitchen._ipp._tcp.local/", true),
+        ("IPP://upper.case/", true),
+        ("implicitclass://Kitchen/", true),
+        ("smb://server/queue", true),
+        ("hp:/net/LaserJet?ip=192.168.1.40", true),
+        ("usb://HP/LaserJet?serial=1", false),
+        ("hp:/usb/LaserJet?serial=1", false),
+        ("parallel:/dev/lp0", false),
+        ("serial:/dev/ttyS0", false),
+        ("file:///dev/null", false),
+        ("ippfoo://not.a.scheme/", false),
+        ("", false),
+        ("no-scheme-at-all", false),
+    ] {
+        assert_eq!(is_network(uri), network, "{uri}");
+    }
+}
+
+#[test]
+fn a_printer_is_network_by_its_device_uri() {
+    let mut source = printer_at("office", PrinterState::Idle);
+    source.device_uri = "ipp://office.local/ipp/print".to_owned();
     let converted = printers(&PrintingState {
-        printers: vec![printer_at("office", PrinterState::Idle)],
+        printers: vec![source],
         jobs: Vec::new(),
     });
-    assert!(!converted[0].network);
+    assert!(converted[0].network);
 }
 
 #[test]
@@ -181,51 +211,80 @@ fn progress_is_only_some_when_both_page_counts_are_known() {
     );
 }
 
-#[test]
-fn a_printer_card_holds_only_its_location() {
-    let bare = printer_at("Office", PrinterState::Idle);
-    assert!(
-        printer_facts(&bare).is_empty(),
-        "a printer with no location has no card at all"
-    );
-
-    let mut full = printer_at("Office", PrinterState::Idle);
-    full.location = "Study".to_owned();
-    full.color = true;
-    full.duplex = true;
-    full.media_ready = vec!["A4".to_owned()];
-    full.resolution = "600 dpi".to_owned();
-    let details = printer_facts(&full);
-    assert_eq!(
-        details.len(),
-        1,
-        "specs are nothing a person acts on from a panel"
-    );
-    assert_eq!(details[0].label, "Location");
-    assert_eq!(details[0].value, "Study");
+fn labels(printer: &PrintingPrinter) -> Vec<(String, String)> {
+    printer
+        .facts
+        .iter()
+        .map(|fact| (fact.label.clone(), fact.value.clone()))
+        .collect()
 }
 
 #[test]
-fn a_printer_problem_is_its_status_in_the_warning_colour() {
-    let idle = printer_at("Office", PrinterState::Idle);
-    let calm = printer(&idle);
-    assert!(!calm.warning);
+fn a_printer_with_no_model_or_location_has_no_facts() {
+    let mut bare = printer_at("Office", PrinterState::Idle);
+    bare.make_model = String::new();
+    assert!(printer(&bare).facts.is_empty());
+}
+
+#[test]
+fn a_printer_lists_its_model_then_its_location() {
+    let mut full = printer_at("Office", PrinterState::Idle);
+    full.location = "Study".to_owned();
+    full.color = true;
+    full.resolution = "600 dpi".to_owned();
+    assert_eq!(
+        labels(&printer(&full)),
+        [
+            (gettext("Model"), "Office LaserJet".to_owned()),
+            (gettext("Location"), "Study".to_owned()),
+        ],
+        "specs are nothing a person acts on from a panel"
+    );
+}
+
+#[test]
+fn status_is_a_fact_only_for_a_printer_that_is_not_idle() {
+    let mut bare = printer_at("Office", PrinterState::Idle);
+    bare.make_model = String::new();
+    assert!(printer(&bare).facts.is_empty(), "idle says nothing");
+
+    bare.state = PrinterState::Processing;
+    assert_eq!(
+        labels(&printer(&bare)),
+        [(gettext("Status"), gettext("Printing"))],
+        "a printer at work says so, last"
+    );
+
+    let mut full = printer_at("Office", PrinterState::Processing);
+    full.location = "Study".to_owned();
+    let facts = labels(&printer(&full));
+    assert_eq!(facts.last().map(|fact| fact.0.as_str()), Some("Status"));
+
+    let mut stopped = printer_at("Office", PrinterState::Stopped);
+    stopped.make_model = String::new();
+    assert!(
+        printer(&stopped).facts.is_empty(),
+        "a problem is the row's second line, never repeated as a fact"
+    );
+}
+
+#[test]
+fn a_printer_problem_is_its_second_line() {
+    let calm = printer(&printer_at("Office", PrinterState::Idle));
+    assert!(calm.problem.is_empty());
 
     let mut jammed = printer_at("Office", PrinterState::Idle);
     jammed.state_message = "Paper jam in tray 2".to_owned();
-    let row = printer(&jammed);
-    assert!(row.warning);
-    assert_eq!(row.status, "Paper jam in tray 2");
+    assert_eq!(printer(&jammed).problem, "Paper jam in tray 2");
 
     let mut refusing = printer_at("Office", PrinterState::Idle);
     refusing.accepting_jobs = false;
-    let row = printer(&refusing);
-    assert!(row.warning);
-    assert_eq!(row.status, gettext("Not accepting jobs"));
+    assert_eq!(printer(&refusing).problem, gettext("Not accepting jobs"));
 
     let stopped = printer(&printer_at("Office", PrinterState::Stopped));
-    assert!(
-        stopped.warning,
+    assert_eq!(
+        stopped.problem,
+        gettext("Stopped"),
         "a stopped queue is a problem even with no message"
     );
 }
@@ -273,4 +332,41 @@ fn a_job_with_a_command_in_flight_is_busy_and_offers_no_action() {
     assert!(!converted[0].cancellable);
     assert!(!converted[0].pausable);
     assert!(!converted[0].resumable);
+}
+
+fn idle_state(jobs: Vec<PrintJob>) -> PrintingState {
+    PrintingState {
+        printers: vec![printer_at("office", PrinterState::Idle)],
+        jobs,
+    }
+}
+
+#[test]
+fn always_shows_the_idle_icon_for_an_idle_printer() {
+    let state = idle_state(Vec::new());
+    assert_eq!(chip(&state, PrintingShow::Always), Some(IDLE));
+    assert_eq!(chip(&state, PrintingShow::Jobs), None);
+}
+
+#[test]
+fn always_hides_the_chip_with_no_printers() {
+    let state = PrintingState::default();
+    assert_eq!(chip(&state, PrintingShow::Always), None);
+    assert_eq!(chip(&state, PrintingShow::Jobs), None);
+}
+
+#[test]
+fn always_keeps_the_job_icons() {
+    let queued = idle_state(vec![job_at(1, "office", JobState::Pending)]);
+    assert_eq!(chip(&queued, PrintingShow::Always), Some(IDLE));
+    let processing = idle_state(vec![job_at(1, "office", JobState::Processing)]);
+    assert_eq!(chip(&processing, PrintingShow::Always), Some(PRINTING));
+    assert_eq!(chip(&processing, PrintingShow::Jobs), Some(PRINTING));
+}
+
+#[test]
+fn a_completed_job_leaves_always_on_the_idle_icon() {
+    let state = idle_state(vec![job_at(1, "office", JobState::Completed)]);
+    assert_eq!(chip(&state, PrintingShow::Always), Some(IDLE));
+    assert_eq!(chip(&state, PrintingShow::Jobs), None);
 }

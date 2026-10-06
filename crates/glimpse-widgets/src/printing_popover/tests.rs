@@ -16,35 +16,58 @@ fn job(id: &str, progress: Option<(u32, u32)>) -> Job {
     }
 }
 
-fn job_holder(popover: &PrintingPopover, id: &str) -> Expandable {
+fn job_row(popover: &PrintingPopover, id: &str) -> ExpanderRow {
     popover
         .imp()
         .job_held
         .borrow()
         .iter()
         .find(|(held, _)| held == id)
-        .map(|(_, holder)| holder.clone())
+        .map(|(_, row)| row.clone())
         .expect("a held job")
 }
 
-fn actions(holder: &Expandable) -> Vec<LegacyRow> {
-    rows_in(
-        &holder
-            .details::<gtk4::Box>()
-            .expect("a job carries its actions"),
-    )
-}
-
-fn rows_in<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {
-    let mut rows = Vec::new();
+fn children(parent: &impl IsA<gtk4::Widget>) -> Vec<gtk4::Widget> {
+    let mut all = Vec::new();
     let mut child = parent.first_child();
     while let Some(widget) = child {
         child = widget.next_sibling();
-        if let Ok(row) = widget.downcast::<T>() {
-            rows.push(row);
-        }
+        all.push(widget);
     }
-    rows
+    all
+}
+
+fn drawer_actions(row: &ExpanderRow) -> Vec<ActionRow> {
+    children(&row.details())
+        .into_iter()
+        .filter_map(|widget| widget.downcast::<ActionRow>().ok())
+        .collect()
+}
+
+fn titles(row: &ExpanderRow) -> Vec<Option<String>> {
+    drawer_actions(row)
+        .iter()
+        .map(|action| action.upcast_ref::<Row>().title())
+        .collect()
+}
+
+fn fact_values(parent: &impl IsA<gtk4::Widget>) -> Vec<(Option<String>, Option<String>)> {
+    children(parent)
+        .into_iter()
+        .filter_map(|widget| widget.downcast::<Row>().ok())
+        .map(|row| (row.title(), row.value()))
+        .collect()
+}
+
+fn printer_widget(popover: &PrintingPopover, id: &str) -> gtk4::Widget {
+    popover
+        .imp()
+        .printer_held
+        .borrow()
+        .iter()
+        .find(|((held, _), _)| held == id)
+        .map(|(_, widget)| widget.clone())
+        .expect("a held printer")
 }
 
 #[test]
@@ -58,20 +81,37 @@ fn printing_popover_states() {
     let popover = PrintingPopover::new();
     let imp = popover.imp();
 
-    assert!(
-        !imp.jobs.get_visible(),
-        "no jobs is no section at all; the header already says so"
-    );
-    assert_eq!(imp.hero.title().as_deref(), Some("Printing"));
-    assert_eq!(imp.hero.subtitle().as_deref(), Some("No print jobs"));
+    assert!(!imp.jobs.get_visible(), "no jobs is no section at all");
+    assert!(!imp.footer.get_visible(), "no footer until one is named");
+
+    popover.set_footer(Some("Printer settings"));
+    assert!(imp.footer.get_visible());
+    let opened = Rc::new(RefCell::new(0));
+    popover.connect_footer_activated({
+        let opened = Rc::clone(&opened);
+        move |_| *opened.borrow_mut() += 1
+    });
+    imp.footer.emit_by_name::<()>("activated", &[]);
+    assert_eq!(*opened.borrow(), 1);
+    popover.set_footer(None);
+    assert!(!imp.footer.get_visible());
 
     popover.set_jobs(&[job("1", Some((3, 12)))]);
     assert!(imp.jobs.get_visible());
-    assert_eq!(imp.hero.subtitle().as_deref(), Some("1 print job"));
-    let holder = job_holder(&popover, "1");
-    let row = holder.head::<LegacyRow>().expect("a job row");
+    assert_eq!(
+        imp.jobs.count().as_deref(),
+        Some("1"),
+        "the job count is the section's count"
+    );
+    let row = job_row(&popover, "1");
+    assert_eq!(row.title().as_deref(), Some("specs-004-panel.pdf"));
     assert!(row.subtitle().is_none(), "a job row is one line");
-    assert!(row.activatable(), "a job opens its card from the whole row");
+    assert!(row.busy(), "a job in flight shows the spinner");
+    assert!(row.icon_name().is_none(), "a job row carries no icon");
+    assert!(
+        imp.shell.icon_name().is_none(),
+        "the popover header carries no icon"
+    );
 
     let renders_after_first = imp.renders.get();
     popover.set_jobs(&[job("1", Some((3, 12)))]);
@@ -81,30 +121,43 @@ fn printing_popover_states() {
         "an unchanged job list must never re-enter render_jobs at all"
     );
     assert_eq!(
-        job_holder(&popover, "1"),
-        holder,
+        job_row(&popover, "1"),
+        row,
         "an unchanged job list reuses its row rather than rebuilding it"
     );
 
-    row.emit_clicked();
-    assert!(holder.expanded(), "the row opens the job's card");
-    let [pause, resume, cancel] =
-        <[LegacyRow; 3]>::try_from(actions(&holder)).expect("three actions");
-    assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
-    let facts = holder
-        .details::<gtk4::Box>()
-        .and_then(|panel| panel.first_child())
-        .and_downcast::<FactList>()
-        .expect("the facts lead the card");
-    let [printed_on, status] = <[crate::Row; 2]>::try_from(rows_in(&facts)).expect("two facts");
-    assert_eq!(printed_on.value().as_deref(), Some("HP LaserJet 400"));
+    let drawer = children(&row.details());
+    assert_eq!(drawer.len(), 4, "facts, Pause, Resume, Cancel");
+    let facts = drawer[0]
+        .clone()
+        .downcast::<FactList>()
+        .expect("the facts lead the drawer");
     assert_eq!(
-        status.value().as_deref(),
-        Some("Page 3 of 12"),
+        fact_values(&facts),
+        [
+            (
+                Some("Printer".to_owned()),
+                Some("HP LaserJet 400".to_owned())
+            ),
+            (Some("Status".to_owned()), Some("Page 3 of 12".to_owned())),
+        ],
         "progress replaces the status word rather than sitting beside it"
     );
-    assert!(
-        cancel.has_css_class("row--destructive"),
+    assert_eq!(
+        titles(&row),
+        [
+            Some("Pause".to_owned()),
+            Some("Resume".to_owned()),
+            Some("Cancel".to_owned())
+        ],
+        "info first, then Pause and Resume, then the destructive Cancel last"
+    );
+    let [pause, resume, cancel] =
+        <[ActionRow; 3]>::try_from(drawer_actions(&row)).expect("three actions");
+    assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
+    assert_eq!(
+        cancel.upcast_ref::<Row>().tone(),
+        RowTone::Destructive,
         "cancelling throws the job away, so it reads as destructive"
     );
 
@@ -113,19 +166,20 @@ fn printing_popover_states() {
         let cancelled = Rc::clone(&cancelled);
         move |_, id| cancelled.borrow_mut().push(id.to_owned())
     });
-    cancel.emit_clicked();
+    row.set_open(true);
+    cancel.emit_by_name::<()>("activated", &[]);
     assert_eq!(*cancelled.borrow(), ["1".to_owned()]);
     popover.collapse("1");
     assert!(
-        !holder.expanded(),
-        "an action that succeeded closes the card it was taken from"
+        !row.open(),
+        "an action that succeeded closes the drawer it was taken from"
     );
 
     popover.set_jobs(&[Job {
         pausable: true,
         ..job("2", None)
     }]);
-    let processing = actions(&job_holder(&popover, "2"));
+    let processing = drawer_actions(&job_row(&popover, "2"));
     assert!(processing[0].get_visible(), "a pausable job shows Pause");
     assert!(
         !processing[1].get_visible(),
@@ -136,15 +190,18 @@ fn printing_popover_states() {
         let paused = Rc::clone(&paused);
         move |_, id| paused.borrow_mut().push(id.to_owned())
     });
-    processing[0].emit_clicked();
+    processing[0].emit_by_name::<()>("activated", &[]);
     assert_eq!(*paused.borrow(), ["2".to_owned()]);
 
     popover.set_jobs(&[Job {
         resumable: true,
         cancellable: false,
+        busy: false,
         ..job("3", None)
     }]);
-    let held = actions(&job_holder(&popover, "3"));
+    let held_row = job_row(&popover, "3");
+    assert!(!held_row.busy(), "a held job is not spinning");
+    let held = drawer_actions(&held_row);
     assert!(!held[0].get_visible(), "not pausable while held");
     assert!(held[1].get_visible(), "a resumable job shows Resume");
     assert!(
@@ -156,83 +213,43 @@ fn printing_popover_states() {
         let resumed = Rc::clone(&resumed);
         move |_, id| resumed.borrow_mut().push(id.to_owned())
     });
-    held[1].emit_clicked();
+    held[1].emit_by_name::<()>("activated", &[]);
     assert_eq!(*resumed.borrow(), ["3".to_owned()]);
 
-    popover.set_jobs(&[Job {
-        cancellable: false,
-        ..job("4", None)
-    }]);
-    let stuck = job_holder(&popover, "4");
-    let stuck_row = stuck.head::<LegacyRow>().expect("a job row");
-    assert!(
-        stuck_row.activatable(),
-        "a job with nothing to do still opens the card that says where and how it is"
-    );
-    assert!(actions(&stuck)[..3].iter().all(|row| !row.get_visible()));
-
-    popover.set_jobs(&[
-        Job {
-            pausable: true,
-            ..job("1", Some((3, 12)))
-        },
-        Job { ..job("2", None) },
-        Job {
-            resumable: true,
-            cancellable: false,
-            ..job("3", None)
-        },
-    ]);
-    assert_eq!(
-        imp.hero.subtitle().as_deref(),
-        Some("3 print jobs"),
-        "the summary counts every job without claiming they are all active"
-    );
+    popover.set_jobs(&[job("1", None), job("2", None), job("3", None)]);
+    assert_eq!(imp.jobs.count().as_deref(), Some("3"));
 
     popover.set_jobs(&[]);
     assert!(!imp.jobs.get_visible());
     assert!(imp.job_rows.first_child().is_none());
-    assert_eq!(imp.hero.subtitle().as_deref(), Some("No print jobs"));
 
     let printer_renders_before = imp.printer_renders.get();
     let kitchen = Printer {
         id: "kitchen".into(),
         name: "Kitchen".into(),
-        status: "Out of paper".into(),
-        warning: true,
-        network: true,
+        problem: "Out of paper".into(),
+        network: false,
         facts: vec![Fact::new("Location", "Ground floor")],
     };
     popover.set_printers(std::slice::from_ref(&kitchen));
     assert!(imp.printers.get_visible());
     assert_eq!(imp.printer_renders.get(), printer_renders_before + 1);
-    let printer = imp
-        .printer_held
-        .borrow()
-        .first()
-        .map(|(_, holder)| holder.clone())
-        .expect("a printer");
-    let printer_row = printer.head::<LegacyRow>().expect("a printer row");
+    let printer = printer_widget(&popover, "kitchen")
+        .downcast::<ExpanderRow>()
+        .expect("a printer with facts opens a drawer");
     assert_eq!(
-        printer_row.subtitle().as_deref(),
+        printer.subtitle().as_deref(),
         Some("Out of paper"),
         "a printer's problem is said on its row"
     );
-    assert!(
-        printer_row.has_css_class("row--warning"),
-        "in the warning colour"
-    );
-    let card = printer.details::<FactList>().expect("a card of facts");
-    assert_eq!(
-        rows_in::<crate::Row>(&card).len(),
-        1,
-        "the card lists the location and does not repeat the problem"
-    );
-    printer_row.emit_clicked();
-    assert!(
-        printer.expanded(),
-        "a printer with a location opens its card"
-    );
+    assert_eq!(printer.tone(), RowTone::Warning);
+    assert_eq!(printer.icon_name().as_deref(), Some("printer-symbolic"));
+    let card = printer
+        .details()
+        .first_child()
+        .and_downcast::<FactList>()
+        .expect("a list of facts");
+    assert_eq!(fact_values(&card).len(), 1);
 
     let printer_renders_after = imp.printer_renders.get();
     popover.set_printers(std::slice::from_ref(&kitchen));
@@ -243,19 +260,44 @@ fn printing_popover_states() {
     );
 
     popover.set_printers(&[Printer {
+        network: true,
+        ..kitchen.clone()
+    }]);
+    assert_eq!(
+        printer.icon_name().as_deref(),
+        Some("printer-network-symbolic"),
+        "a network printer wears the network glyph"
+    );
+
+    popover.set_printers(&[Printer {
         facts: Vec::new(),
-        warning: false,
-        status: String::new(),
+        problem: String::new(),
         ..kitchen
     }]);
+    let plain = printer_widget(&popover, "kitchen")
+        .downcast::<Row>()
+        .expect("a printer with nothing to list is a plain row");
     assert!(
-        printer_row.subtitle().is_none(),
+        plain.subtitle().is_none() && plain.tone() == RowTone::Normal,
         "no problem, no second line"
     );
-    assert!(
-        !printer.expanded() && !printer_row.activatable(),
-        "a printer with nothing to show has no card, and its row does nothing"
+    assert_eq!(
+        imp.printer_rows.observe_children().n_items(),
+        1,
+        "the drawer row was replaced, not kept beside the plain one"
     );
+
+    popover.set_printers(&[Printer {
+        id: "kitchen".into(),
+        name: "Kitchen".into(),
+        problem: String::new(),
+        network: false,
+        facts: vec![Fact::new("Location", "Ground floor")],
+    }]);
+    printer_widget(&popover, "kitchen")
+        .downcast::<ExpanderRow>()
+        .expect("facts arriving turn the plain row back into a drawer");
+    assert_eq!(imp.printer_rows.observe_children().n_items(), 1);
 
     popover.set_printers(&[]);
     assert!(!imp.printers.get_visible());

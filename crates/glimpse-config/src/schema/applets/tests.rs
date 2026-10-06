@@ -1,6 +1,6 @@
 use super::{
     BatteryIndicatorStyle, COMMON, Chip, Common, Kind, NotificationIndicatorStyle, Printing,
-    Privacy,
+    PrintingShow, Privacy,
 };
 
 #[test]
@@ -463,6 +463,21 @@ fn printing_defaults_and_refuses_an_unknown_key() {
         panic!("the table names the printing applet");
     };
     assert_eq!(settings.jobs, 3);
+    assert_eq!(settings.show, PrintingShow::Always);
+
+    for (value, show) in [
+        ("always", PrintingShow::Always),
+        ("jobs", PrintingShow::Jobs),
+    ] {
+        let document = format!("[applets.printing]\nshow = \"{value}\"\n");
+        let configured: crate::Config = toml::from_str(&document).expect("show parses");
+        let Kind::Printing(settings) = &configured.applets["printing"].kind else {
+            panic!("the table names the printing applet");
+        };
+        assert_eq!(settings.show, show);
+    }
+    toml::from_str::<crate::Config>("[applets.printing]\nshow = \"never\"\n")
+        .expect_err("show names one of two values");
 
     toml::from_str::<crate::Config>("[applets.printing]\nbogus = 1\n")
         .expect_err("a struct variant refuses keys that are not its own");

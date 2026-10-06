@@ -162,6 +162,7 @@ fn parse_printers(attributes: &IppAttributes) -> Vec<Printer> {
             Printer {
                 name,
                 make_model,
+                device_uri: cap(&str_attr(group, "device-uri").unwrap_or_default()),
                 state,
                 state_reasons,
                 state_message: cap(&str_attr(group, "printer-state-message").unwrap_or_default()),
