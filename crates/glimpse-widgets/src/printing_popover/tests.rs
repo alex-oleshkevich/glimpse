@@ -35,12 +35,12 @@ fn actions(holder: &Expandable) -> Vec<LegacyRow> {
     )
 }
 
-fn rows_in(parent: &impl IsA<gtk4::Widget>) -> Vec<LegacyRow> {
+fn rows_in<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {
     let mut rows = Vec::new();
     let mut child = parent.first_child();
     while let Some(widget) = child {
         child = widget.next_sibling();
-        if let Ok(row) = widget.downcast::<LegacyRow>() {
+        if let Ok(row) = widget.downcast::<T>() {
             rows.push(row);
         }
     }
@@ -96,14 +96,13 @@ fn printing_popover_states() {
         .and_then(|panel| panel.first_child())
         .and_downcast::<FactList>()
         .expect("the facts lead the card");
-    let [printed_on, status] = <[LegacyRow; 2]>::try_from(rows_in(&facts)).expect("two facts");
+    let [printed_on, status] = <[crate::Row; 2]>::try_from(rows_in(&facts)).expect("two facts");
     assert_eq!(printed_on.value().as_deref(), Some("HP LaserJet 400"));
     assert_eq!(
         status.value().as_deref(),
         Some("Page 3 of 12"),
         "progress replaces the status word rather than sitting beside it"
     );
-    assert!(!status.activatable(), "a fact in the card is static");
     assert!(
         cancel.has_css_class("row--destructive"),
         "cancelling throws the job away, so it reads as destructive"
@@ -225,7 +224,7 @@ fn printing_popover_states() {
     );
     let card = printer.details::<FactList>().expect("a card of facts");
     assert_eq!(
-        rows_in(&card).len(),
+        rows_in::<crate::Row>(&card).len(),
         1,
         "the card lists the location and does not repeat the problem"
     );

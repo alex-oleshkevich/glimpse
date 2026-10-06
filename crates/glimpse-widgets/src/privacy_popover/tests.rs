@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::*;
-use crate::LegacyRow;
+use crate::Row;
 
 fn usage(id: &str, title: &str) -> Usage {
     Usage {
@@ -53,7 +53,7 @@ fn privacy_popover_states() {
         item.details()
             .first_child()
             .and_then(|facts| facts.first_child())
-            .and_downcast::<LegacyRow>()
+            .and_downcast::<Row>()
             .expect("a status line")
     };
     assert_eq!(

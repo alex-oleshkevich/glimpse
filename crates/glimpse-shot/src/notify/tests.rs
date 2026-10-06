@@ -133,7 +133,7 @@ impl Fixture {
     }
 
     async fn answering_after(delay: Duration) -> Self {
-        let bus = PrivateBus::isolated();
+        let bus = PrivateBus::start();
         let (tx, incoming) = watch::channel(None);
         let server = bus.connection().await;
         server
@@ -496,7 +496,7 @@ async fn a_close_for_another_notification_does_not_end_the_duty() {
 
 #[tokio::test]
 async fn a_missing_notification_server_ends_the_duty() {
-    let bus = PrivateBus::isolated();
+    let bus = PrivateBus::start();
     let client = bus.connection().await;
     let notifier = BusNotifier::on(client, Arc::new(Recording::default()));
     notifier.notify(saved("/tmp/shot.png")).expect("started");

@@ -250,7 +250,7 @@ impl Started {
     async fn with_directory(override_directory: Option<PathBuf>) -> Self {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let fake = Arc::new(Fake::new());
-        let bus = PrivateBus::isolated();
+        let bus = PrivateBus::start();
         let server = bus.connection().await;
         let template = FileTemplate::try_from("shot.png".to_owned()).expect("template");
         let screenshot = ScreenshotConfig {

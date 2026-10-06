@@ -12,24 +12,11 @@ use zbus::Connection;
 pub struct PrivateBus {
     child: Child,
     address: String,
-    scratch: Option<PathBuf>,
+    scratch: PathBuf,
 }
 
 impl PrivateBus {
     pub fn start() -> Self {
-        let mut child = Command::new("dbus-daemon")
-            .args(["--session", "--nofork", "--print-address=1"])
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("dbus-daemon starts");
-        Self {
-            address: printed_address(&mut child),
-            child,
-            scratch: None,
-        }
-    }
-
-    pub fn isolated() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
         let scratch =
@@ -65,7 +52,7 @@ impl PrivateBus {
         Self {
             address: printed_address(&mut child),
             child,
-            scratch: Some(scratch),
+            scratch,
         }
     }
 
@@ -87,9 +74,7 @@ impl PrivateBus {
 impl Drop for PrivateBus {
     fn drop(&mut self) {
         self.kill();
-        if let Some(scratch) = self.scratch.take() {
-            let _ = std::fs::remove_dir_all(scratch);
-        }
+        let _ = std::fs::remove_dir_all(&self.scratch);
     }
 }
 
