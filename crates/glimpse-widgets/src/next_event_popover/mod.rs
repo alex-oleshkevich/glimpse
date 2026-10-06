@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Event, Fact};
+use crate::{Event, Fact, Row};
 
 glib::wrapper! {
     pub struct NextEventPopover(ObjectSubclass<imp::NextEventPopover>)
@@ -43,8 +43,9 @@ impl NextEventPopover {
     pub fn set_join(&self, join: Option<(&str, &str, &str)>) {
         let imp = self.imp();
         imp.join_url.replace(join.map(|(_, _, url)| url.to_owned()));
-        imp.join.set_title(join.map(|(title, _, _)| title));
-        imp.join.set_subtitle(join.map(|(_, subtitle, _)| subtitle));
+        let row = imp.join.upcast_ref::<Row>();
+        row.set_title(join.map(|(title, _, _)| title));
+        row.set_subtitle(join.map(|(_, subtitle, _)| subtitle));
         imp.join.set_visible(join.is_some());
     }
 
@@ -52,10 +53,9 @@ impl NextEventPopover {
         let imp = self.imp();
         imp.open_event_url
             .replace(open_event.map(|(_, _, url)| url.to_owned()));
-        imp.open_event
-            .set_title(open_event.map(|(title, _, _)| title));
-        imp.open_event
-            .set_subtitle(open_event.map(|(_, subtitle, _)| subtitle));
+        let row = imp.open_event.upcast_ref::<Row>();
+        row.set_title(open_event.map(|(title, _, _)| title));
+        row.set_subtitle(open_event.map(|(_, subtitle, _)| subtitle));
         imp.open_event.set_visible(open_event.is_some());
     }
 
@@ -88,7 +88,7 @@ impl NextEventPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        crate::set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(

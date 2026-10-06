@@ -4,20 +4,19 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use super::{Event, more_row};
-use crate::{Expandable, LegacyRow};
+use crate::ActionRow;
 
 #[derive(Debug)]
 pub struct EventList {
     pub events: RefCell<Vec<Event>>,
-    pub holders: RefCell<Vec<(String, Expandable)>>,
+    pub holders: RefCell<Vec<((String, bool), gtk4::Widget)>>,
     pub cards: RefCell<HashMap<String, Event>>,
-    pub earlier: LegacyRow,
+    pub earlier: ActionRow,
     pub rows: gtk4::Box,
-    pub more: LegacyRow,
+    pub more: ActionRow,
     pub max_rows: Cell<u32>,
     pub show_earlier: Cell<bool>,
     pub show_all: Cell<bool>,
-    pub activatable: Cell<bool>,
 }
 
 impl Default for EventList {
@@ -32,7 +31,6 @@ impl Default for EventList {
             max_rows: Cell::default(),
             show_earlier: Cell::default(),
             show_all: Cell::default(),
-            activatable: Cell::default(),
         }
     }
 }
@@ -54,9 +52,6 @@ impl ObjectImpl for EventList {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
-                glib::subclass::Signal::builder("activated")
-                    .param_types([u32::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("link-activated")
                     .param_types([String::static_type()])
                     .build(),
@@ -74,7 +69,7 @@ impl ObjectImpl for EventList {
         self.earlier.set_parent(&*list);
         self.rows.set_parent(&*list);
         self.more.set_parent(&*list);
-        self.earlier.connect_clicked(glib::clone!(
+        self.earlier.connect_activated(glib::clone!(
             #[weak]
             list,
             move |_| {
@@ -82,7 +77,7 @@ impl ObjectImpl for EventList {
                 list.render();
             }
         ));
-        self.more.connect_clicked(glib::clone!(
+        self.more.connect_activated(glib::clone!(
             #[weak]
             list,
             move |_| {
@@ -90,15 +85,6 @@ impl ObjectImpl for EventList {
                 list.render();
             }
         ));
-
-        list.set_has_tooltip(true);
-        list.connect_query_tooltip(|list, _x, y, _keyboard, tooltip| match list.summary_at(y) {
-            Some(summary) => {
-                tooltip.set_text(Some(&summary));
-                true
-            }
-            None => false,
-        });
     }
 
     fn dispose(&self) {

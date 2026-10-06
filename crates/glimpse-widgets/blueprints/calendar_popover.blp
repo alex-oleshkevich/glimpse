@@ -39,7 +39,8 @@ template $CalendarPopover: Gtk.Widget {
           wrap: true;
 
           styles [
-            "calendar-popover__truncated",
+            "caption",
+            "dim-label",
           ]
         }
       }
@@ -56,12 +57,8 @@ template $CalendarPopover: Gtk.Widget {
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
-
-      styles [
-        "calendar-popover__footer",
-      ]
     }
   }
 }

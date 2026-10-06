@@ -12,7 +12,7 @@ pub(super) fn check() {
 
     popover.set_footer(None);
     assert!(
-        !child_named::<LegacyRow>(&popover, "calendar-popover__footer").is_visible(),
+        !popover.imp().footer.is_visible(),
         "a footer with no label is a row that would do nothing when clicked"
     );
     assert!(
@@ -21,7 +21,7 @@ pub(super) fn check() {
     );
 
     popover.set_footer(Some("Open calendar"));
-    assert!(child_named::<LegacyRow>(&popover, "calendar-popover__footer").is_visible());
+    assert!(popover.imp().footer.is_visible());
     assert!(footer().is_visible());
 
     popover.set_zones(&[]);
@@ -44,7 +44,12 @@ pub(super) fn check() {
         "four events and a row counting the rest; nothing springs open on its own"
     );
 
-    popover.imp().events.imp().more.emit_clicked();
+    popover
+        .imp()
+        .events
+        .imp()
+        .more
+        .emit_by_name::<()>("activated", &[]);
     assert_eq!(
         shown(),
         9,
@@ -134,7 +139,7 @@ pub(super) fn check() {
         "https://calendar.example/event/abc",
     )));
     assert!(next.imp().open_event.get_visible());
-    next.imp().open_event.emit_by_name::<()>("clicked", &[]);
+    next.imp().open_event.emit_by_name::<()>("activated", &[]);
     assert_eq!(*opened.borrow(), ["https://calendar.example/event/abc"]);
     next.set_open_event(None);
     assert!(!next.imp().open_event.get_visible());

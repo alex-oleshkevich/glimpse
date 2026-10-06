@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Calendar, EventList, Hero, LegacyRow, PopoverShell, Section, WorldClock};
+use crate::{ActionRow, Calendar, EventList, Hero, PopoverShell, Section, WorldClock};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/calendar_popover.ui")]
@@ -27,7 +27,7 @@ pub struct CalendarPopover {
     #[template_child]
     pub clocks: TemplateChild<WorldClock>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -93,7 +93,7 @@ impl ObjectImpl for CalendarPopover {
             move |_, url| popover.emit_by_name::<()>("link-activated", &[&url])
         ));
 
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

@@ -65,8 +65,6 @@ fn main() {
             "blueprints/calendar_popover.blp",
             "resources/widgets/calendar_popover.ui",
         ),
-        ("blueprints/clock_row.blp", "resources/widgets/clock_row.ui"),
-        ("blueprints/event_row.blp", "resources/widgets/event_row.ui"),
         (
             "blueprints/forecast_day.blp",
             "resources/widgets/forecast_day.ui",

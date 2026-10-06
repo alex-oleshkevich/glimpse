@@ -1290,15 +1290,25 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
             child,
             ElementKind::Image | ElementKind::Label | ElementKind::Button | ElementKind::Switch
         ),
-        ElementKind::ActionRow | ElementKind::MeterRow | ElementKind::End => matches!(
+        ElementKind::ActionRow => matches!(
+            child,
+            ElementKind::Image | ElementKind::Readout | ElementKind::Spinner | ElementKind::Start
+        ),
+        ElementKind::MeterRow | ElementKind::End => matches!(
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner
         ),
-        ElementKind::ExpanderRow => child == ElementKind::End || is_drawer_child(child),
+        ElementKind::ExpanderRow => {
+            matches!(child, ElementKind::End | ElementKind::Start) || is_drawer_child(child)
+        }
         ElementKind::SliderRow => child == ElementKind::Start,
         ElementKind::Start => matches!(
             child,
-            ElementKind::Image | ElementKind::Button | ElementKind::Readout | ElementKind::Spinner
+            ElementKind::Image
+                | ElementKind::Button
+                | ElementKind::Readout
+                | ElementKind::Spinner
+                | ElementKind::Dots
         ),
         ElementKind::Footer => matches!(
             child,
@@ -1863,21 +1873,24 @@ fn check_items(props: &Map<String, Value>) -> Result<(), Violation> {
 fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> {
     for (id, node) in nodes {
         let count = node.children.len();
+        let of = |kind: ElementKind| {
+            node.children
+                .iter()
+                .filter_map(|child| nodes.get(child))
+                .filter(|child| child.element.kind() == kind)
+                .count()
+        };
         let fits = match node.element.kind() {
             ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
-            ElementKind::ActionRow
-            | ElementKind::MeterRow
+            ElementKind::ActionRow => {
+                let starts = of(ElementKind::Start);
+                starts <= 1 && count - starts <= 1
+            }
+            ElementKind::MeterRow
             | ElementKind::End
             | ElementKind::Start
             | ElementKind::SliderRow => count <= 1,
-            ElementKind::ExpanderRow => {
-                node.children
-                    .iter()
-                    .filter_map(|child| nodes.get(child))
-                    .filter(|child| child.element.kind() == ElementKind::End)
-                    .count()
-                    <= 1
-            }
+            ElementKind::ExpanderRow => of(ElementKind::End) <= 1 && of(ElementKind::Start) <= 1,
             ElementKind::Addon | ElementKind::Container => count <= 1,
             ElementKind::Popover => {
                 node.children

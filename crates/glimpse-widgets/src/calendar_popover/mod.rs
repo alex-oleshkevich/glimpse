@@ -101,7 +101,7 @@ impl CalendarPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        crate::set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_day_selected<F: Fn(&Self, Ymd) + 'static>(
