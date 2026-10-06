@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read -ra elevate <<< "${GLIMPSE_ELEVATE:-}"
+if [[ -n "${GLIMPSE_SUDO:-}" ]]; then
+    read -ra elevate <<< "$GLIMPSE_SUDO"
+elif [[ "$(id -u)" == 0 ]]; then
+    elevate=()
+else
+    elevate=(sudo)
+fi
 
 if ! pacman -Qq glimpse-desktop-bin >/dev/null 2>&1; then
     echo "glimpse-desktop-bin is not installed"

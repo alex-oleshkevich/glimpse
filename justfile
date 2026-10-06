@@ -7,10 +7,6 @@ set positional-arguments
 # Single source of truth for every script that walks the shipped binaries, passed to them as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it.
-# How a recipe that writes outside the tree becomes root. `sudo` because these are run from a
-# terminal that has one; set GLIMPSE_SUDO=pkexec from a launcher that does not.
-elevate := if env("GLIMPSE_SUDO", "") != "" { env("GLIMPSE_SUDO", "") } else { if `id -u` == "0" { "" } else { "sudo" } }
-
 binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot"
 
 [doc("list recipes")]
@@ -88,62 +84,11 @@ test-crate CRATE:
 
 [doc("all tests including those needing a compositor; each ignored test runs in its own process")]
 test-compositor:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
-        echo "test-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would return early and pass without running" >&2
-        exit 1
-    fi
-    cargo test --workspace
-    failed=()
-    crates=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name')
-    for crate in $crates; do
-        listing=$(cargo test -p "$crate" -- --list --ignored)
-        names=$(printf '%s\n' "$listing" | sed -n 's/: test$//p')
-        [ -z "$names" ] && continue
-        while IFS= read -r name; do
-            [ -z "$name" ] && continue
-            echo "==> $crate :: $name"
-            if ! cargo test -p "$crate" "$name" -- --ignored --exact; then
-                failed+=("$crate :: $name")
-            fi
-        done <<< "$names"
-    done
-    if [ "${#failed[@]}" -gt 0 ]; then
-        echo "test-compositor: failed ignored tests:" >&2
-        printf '  %s\n' "${failed[@]}" >&2
-        exit 1
-    fi
+    scripts/test-compositor.sh
 
 [doc("one crate's tests including those needing a compositor; each ignored test runs in its own process; FILTER runs only the matching ignored tests")]
 test-crate-compositor CRATE FILTER="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
-        echo "test-crate-compositor: neither WAYLAND_DISPLAY nor DISPLAY is set; every GTK test would return early and pass without running" >&2
-        exit 1
-    fi
-    if [ -z "{{ FILTER }}" ]; then
-        cargo test -p {{ CRATE }}
-    fi
-    listing=$(cargo test -p {{ CRATE }} -- --list --ignored)
-    names=$(printf '%s\n' "$listing" | sed -n 's/: test$//p')
-    if [ -n "{{ FILTER }}" ]; then
-        names=$(printf '%s\n' "$names" | grep -F -- "{{ FILTER }}") || true
-    fi
-    failed=()
-    while IFS= read -r name; do
-        [ -z "$name" ] && continue
-        echo "==> {{ CRATE }} :: $name"
-        if ! cargo test -p {{ CRATE }} "$name" -- --ignored --exact; then
-            failed+=("$name")
-        fi
-    done <<< "$names"
-    if [ "${#failed[@]}" -gt 0 ]; then
-        echo "test-crate-compositor: failed ignored tests:" >&2
-        printf '  %s\n' "${failed[@]}" >&2
-        exit 1
-    fi
+    scripts/test-compositor.sh "$@"
 
 [doc("one test by its full path, ignored or not; a GTK test only proves anything run alone")]
 test-one CRATE TEST:
@@ -154,11 +99,12 @@ verify: fmt-check check lint test check-strings
 
 [doc("run the applet SDK tests")]
 sdk-test:
-    cd sdk/applet && timeout 300 npm ci && timeout 300 npm run check && timeout 300 node --test
+    scripts/sdk-test.sh
 
 [doc("publish glimpse-sdk to npm; extra arguments go to npm publish, e.g. --dry-run")]
+[working-directory("sdk/applet")]
 sdk-publish *ARGS: sdk-test
-    cd sdk/applet && npm publish "$@"
+    npm publish "$@"
 
 [doc("search crates.io before writing something by hand")]
 search QUERY:
@@ -216,11 +162,11 @@ ctl *ARGS:
 
 [doc("network test safety net: baseline | restore | arm [s] | disarm | status")]
 net-guard *ARGS:
-    scripts/net-guard.sh {{ ARGS }}
+    scripts/net-guard.sh "$@"
 
 [doc("click a point on a niri output with ydotool")]
 click *ARGS:
-    python3 scripts/click.py {{ ARGS }}
+    python3 scripts/click.py "$@"
 
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:
@@ -258,9 +204,7 @@ build-release-binaries:
 
 # ---------------------------------------------------------------- i18n
 
-# Read once here rather than in each recipe: three copies of the same parse is three
-# places for a comment or a missing trailing newline to be handled differently.
-languages := `grep -vE '^[[:space:]]*(#|$)' po/LINGUAS | tr '\n' ' '`
+languages := replace(trim(read("po/LINGUAS")), "\n", " ")
 
 [doc("regenerate po/glimpse.pot from every translation marker in the tree")]
 extract-strings:
@@ -282,7 +226,7 @@ check-strings:
 
 [doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]
 release-verify TAG:
-    scripts/release-verify.sh "$1"
+    scripts/release-verify.sh "$@"
 
 [doc("build a release tarball (glimpse-<version>-<arch>.tar.zst) under dist/ — builds its own binaries")]
 package-binary VERSION="": build-translations
@@ -306,8 +250,7 @@ package-aur: package-binary
 
 [doc("render dist/PKGBUILD for the AUR: VERSION and the released tarball's b2sum")]
 release-pkgbuild VERSION B2SUM:
-    mkdir -p dist
-    scripts/render-pkgbuild.sh --release {{ quote(VERSION) }} {{ quote(B2SUM) }} > dist/PKGBUILD
+    scripts/release-pkgbuild.sh "$@"
 
 # ---------------------------------------------------------------- clean
 
@@ -331,8 +274,8 @@ uninstall:
 
 [doc("build the Arch package and install it with pacman (elevate with $GLIMPSE_SUDO, default sudo)")]
 install-aur: package-aur
-    GLIMPSE_ELEVATE="{{ elevate }}" scripts/install-aur.sh
+    scripts/install-aur.sh
 
 [doc("remove the installed Arch package (elevate with $GLIMPSE_SUDO, default sudo)")]
 uninstall-aur:
-    GLIMPSE_ELEVATE="{{ elevate }}" scripts/uninstall-aur.sh
+    scripts/uninstall-aur.sh

@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read -ra elevate <<< "${GLIMPSE_ELEVATE:-}"
+if [[ -n "${GLIMPSE_SUDO:-}" ]]; then
+    read -ra elevate <<< "$GLIMPSE_SUDO"
+elif [[ "$(id -u)" == 0 ]]; then
+    elevate=()
+else
+    elevate=(sudo)
+fi
 
 version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
 pkg="$PWD/dist/glimpse-desktop-bin-${version}-1-x86_64.pkg.tar.zst"
