@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 19:33+0200\n"
+"POT-Creation-Date: 2026-10-06 19:54+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -367,7 +367,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:384
+#: crates/glimpse-widgets/src/lib.rs:394
 msgid "{percent}%"
 msgstr ""
 
@@ -1406,6 +1406,14 @@ msgid "Tentative"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:258
+msgid "Meeting"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:261
+msgid "Link"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
 msgid "Conflicts"
 msgstr ""
 
@@ -2518,7 +2526,7 @@ msgstr ""
 msgid "Details"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:48
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:50
 msgid "Coming up"
 msgstr ""
 

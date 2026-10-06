@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Event, Fact, Row};
+use crate::{Event, Fact, Row, clear_children, fact_row};
 
 glib::wrapper! {
     pub struct NextEventPopover(ObjectSubclass<imp::NextEventPopover>)
@@ -40,28 +40,32 @@ impl NextEventPopover {
         imp.upcoming.set_visible(!events.is_empty());
     }
 
-    pub fn set_join(&self, join: Option<(&str, &str, &str)>) {
+    pub fn set_join(&self, join: Option<(&str, &str)>) {
         let imp = self.imp();
-        imp.join_url.replace(join.map(|(_, _, url)| url.to_owned()));
-        let row = imp.join.upcast_ref::<Row>();
-        row.set_title(join.map(|(title, _, _)| title));
-        row.set_subtitle(join.map(|(_, subtitle, _)| subtitle));
+        imp.join_url.replace(join.map(|(_, url)| url.to_owned()));
+        imp.join
+            .upcast_ref::<Row>()
+            .set_title(join.map(|(title, _)| title));
         imp.join.set_visible(join.is_some());
     }
 
-    pub fn set_open_event(&self, open_event: Option<(&str, &str, &str)>) {
+    pub fn set_open_event(&self, open_event: Option<(&str, &str)>) {
         let imp = self.imp();
         imp.open_event_url
-            .replace(open_event.map(|(_, _, url)| url.to_owned()));
-        let row = imp.open_event.upcast_ref::<Row>();
-        row.set_title(open_event.map(|(title, _, _)| title));
-        row.set_subtitle(open_event.map(|(_, subtitle, _)| subtitle));
+            .replace(open_event.map(|(_, url)| url.to_owned()));
+        imp.open_event
+            .upcast_ref::<Row>()
+            .set_title(open_event.map(|(title, _)| title));
         imp.open_event.set_visible(open_event.is_some());
     }
 
     pub fn set_facts(&self, facts: &[Fact]) {
         let imp = self.imp();
-        imp.facts.set_facts(facts);
+        clear_children(&imp.facts);
+        for fact in facts {
+            imp.facts.append(&fact_row(fact));
+        }
+
         imp.details.set_visible(!facts.is_empty());
     }
 

@@ -254,6 +254,12 @@ pub fn facts(event: &Occasion, conflicts: &[String]) -> Vec<Fact> {
     if !event.description.is_empty() {
         facts.push(Fact::new(gettext("Description"), event.description.clone()));
     }
+    if let Some(join) = agenda::join(event) {
+        facts.push(Fact::new(gettext("Meeting"), join.address));
+    }
+    if let Some(open) = agenda::open_event(event) {
+        facts.push(Fact::new(gettext("Link"), open.address));
+    }
     if !conflicts.is_empty() {
         facts.push(Fact::warning(gettext("Conflicts"), conflicts.join(", ")));
     }

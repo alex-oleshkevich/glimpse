@@ -339,6 +339,16 @@ pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
     button.set_tooltip_text(Some(tooltip.as_str()));
 }
 
+pub(crate) fn fact_row(fact: &Fact) -> Row {
+    let row = Row::new();
+    row.set_title(Some(fact.label.as_str()));
+    row.set_value(Some(fact.value.as_str()));
+    if fact.warning {
+        row.set_tone(RowTone::Warning);
+    }
+    row
+}
+
 pub(crate) fn set_action_label(row: &ActionRow, label: Option<&str>) {
     use gtk4::prelude::*;
 

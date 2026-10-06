@@ -408,7 +408,7 @@ fn join_is_labelled_from_the_host_and_absent_when_there_is_no_url() {
     meeting.meeting_url = Some("https://meet.google.com/aaa-bbbb-ccc".to_owned());
     let shown = agenda::join(&meeting).expect("a meet url");
     assert_eq!(shown.title, "Join Google Meet");
-    assert_eq!(shown.subtitle, "meet.google.com/aaa-bbbb-ccc");
+    assert_eq!(shown.address, "meet.google.com/aaa-bbbb-ccc");
     assert_eq!(shown.url, "https://meet.google.com/aaa-bbbb-ccc");
 
     meeting.meeting_url = Some("https://zoom.us/j/123".to_owned());
@@ -426,10 +426,10 @@ fn join_is_labelled_from_the_host_and_absent_when_there_is_no_url() {
     meeting.meeting_url = Some("https://user:pass@zoom.us/j/123".to_owned());
     let shown = agenda::join(&meeting).expect("userinfo");
     assert_eq!(shown.title, "Join Zoom");
-    assert_eq!(shown.subtitle, "zoom.us/j/123");
+    assert_eq!(shown.address, "zoom.us/j/123");
     assert!(
-        !shown.subtitle.contains("pass"),
-        "a password in the URL is not a subtitle"
+        !shown.address.contains("pass"),
+        "a password in the URL is not shown"
     );
 
     meeting.meeting_url = Some("https://acme.webex.com/meet/sam".to_owned());
@@ -463,7 +463,7 @@ fn open_event_reads_the_events_own_url_and_is_absent_without_one() {
     let shown = agenda::open_event(&meeting).expect("an event url");
     assert_eq!(shown.title, "Open event");
     assert_eq!(shown.url, "https://calendar.example/event/abc123");
-    assert_eq!(shown.subtitle, "https://calendar.example/event/abc123");
+    assert_eq!(shown.address, "https://calendar.example/event/abc123");
 }
 
 #[test]
@@ -511,6 +511,28 @@ fn facts_hold_only_what_the_heading_does_not_already_say() {
             .iter()
             .any(|fact| fact.label == "Guests"),
         "a solo attendee is not a guest list"
+    );
+
+    meeting.meeting_url = Some("https://meet.google.com/aaa-bbbb-ccc".to_owned());
+    meeting.event_url = Some("https://calendar.example/event/abc".to_owned());
+    let links: Vec<(String, String)> = facts(&meeting, &[])
+        .into_iter()
+        .filter(|fact| fact.label == "Meeting" || fact.label == "Link")
+        .map(|fact| (fact.label, fact.value))
+        .collect();
+    assert_eq!(
+        links,
+        vec![
+            (
+                "Meeting".to_owned(),
+                "meet.google.com/aaa-bbbb-ccc".to_owned()
+            ),
+            (
+                "Link".to_owned(),
+                "https://calendar.example/event/abc".to_owned()
+            ),
+        ],
+        "the addresses the action rows no longer carry stay in the details"
     );
 
     let clash = facts(&meeting, &["Retro".to_owned()]);

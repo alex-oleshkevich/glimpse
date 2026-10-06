@@ -3,7 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
-    Day, ExpanderRow, Fact, FactList, Hour, Notice, RowTone, Section, Severity, replace_children,
+    Day, ExpanderRow, Fact, Hour, Notice, RowTone, Section, Severity, fact_row, replace_children,
     set_action_label,
 };
 
@@ -203,11 +203,10 @@ fn build(page: &Page) -> gtk4::Widget {
         card.append(&label);
     }
 
-    if !page.facts.is_empty() {
-        let facts = FactList::new();
-        facts.set_facts(&page.facts);
-        card.append(&facts);
+    for fact in &page.facts {
+        card.append(&fact_row(fact));
     }
+
     card.upcast()
 }
 

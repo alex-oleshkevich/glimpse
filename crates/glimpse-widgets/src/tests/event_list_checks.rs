@@ -93,7 +93,9 @@ pub(super) fn check() {
         move |_, url| links.borrow_mut().push(url)
     });
     assert!(
-        card.first_child().and_downcast::<FactList>().is_some(),
+        card.first_child()
+            .and_downcast::<Row>()
+            .is_some_and(|row| row.title().as_deref() == Some("Calendar")),
         "the facts lead the drawer, before its links"
     );
     children_of::<ActionRow>(&card)

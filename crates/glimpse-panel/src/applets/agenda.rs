@@ -134,7 +134,7 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
 
 pub struct Join {
     pub title: String,
-    pub subtitle: String,
+    pub address: String,
     pub url: String,
 }
 
@@ -143,7 +143,7 @@ pub fn join(event: &Occasion) -> Option<Join> {
     let meeting = glimpse_services::meeting(url)?;
     Some(Join {
         title: join_title(meeting.provider),
-        subtitle: glimpse_utils::clean(&meeting.location, JOIN),
+        address: glimpse_utils::clean(&meeting.location, JOIN),
         url: url.to_owned(),
     })
 }
@@ -160,7 +160,7 @@ fn join_title(provider: MeetingProvider) -> String {
 
 pub struct Open {
     pub title: String,
-    pub subtitle: String,
+    pub address: String,
     pub url: String,
 }
 
@@ -168,7 +168,7 @@ pub fn open_event(event: &Occasion) -> Option<Open> {
     let url = event.event_url.as_deref()?;
     Some(Open {
         title: gettext("Open event"),
-        subtitle: glimpse_utils::clean(url, JOIN),
+        address: glimpse_utils::clean(url, JOIN),
         url: url.to_owned(),
     })
 }

@@ -163,20 +163,15 @@ impl NextEvent {
 
         shown.set_heading(&title, Some(subtitle.as_str()));
         shown.set_countdown(countdown.as_ref().map(render::Countdown::readout));
-        shown.set_join(join.as_ref().map(|join| {
-            (
-                join.title.as_str(),
-                join.subtitle.as_str(),
-                join.url.as_str(),
-            )
-        }));
-        shown.set_open_event(open_event.as_ref().map(|open| {
-            (
-                open.title.as_str(),
-                open.subtitle.as_str(),
-                open.url.as_str(),
-            )
-        }));
+        shown.set_join(
+            join.as_ref()
+                .map(|join| (join.title.as_str(), join.url.as_str())),
+        );
+        shown.set_open_event(
+            open_event
+                .as_ref()
+                .map(|open| (open.title.as_str(), open.url.as_str())),
+        );
         shown.set_facts(&render::facts(
             event,
             &render::conflicts(&self.events, self.chosen),

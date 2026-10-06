@@ -121,7 +121,6 @@ pub(super) fn check() {
 
     next.set_join(Some((
         "Join Google Meet",
-        "meet.google.com/aaa-bbbb-ccc",
         "https://meet.google.com/aaa-bbbb-ccc",
     )));
     assert!(next.imp().join.get_visible());
@@ -133,11 +132,7 @@ pub(super) fn check() {
         let opened = Rc::clone(&opened);
         move |_, url| opened.borrow_mut().push(url)
     });
-    next.set_open_event(Some((
-        "Open event",
-        "https://calendar.example/event/abc",
-        "https://calendar.example/event/abc",
-    )));
+    next.set_open_event(Some(("Open event", "https://calendar.example/event/abc")));
     assert!(next.imp().open_event.get_visible());
     next.imp().open_event.emit_by_name::<()>("activated", &[]);
     assert_eq!(*opened.borrow(), ["https://calendar.example/event/abc"]);
