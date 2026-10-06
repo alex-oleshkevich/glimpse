@@ -17,13 +17,14 @@ use glimpse_services::{
     Placement, SessionActionsHandle, Tree, Zone,
 };
 use glimpse_widgets::{IndicatorSpec, LegacyRow, PopoverShell};
-use gtk4::{gio, prelude::*};
+use gtk4::{gio, glib, prelude::*};
 
 use crate::{
     app::AppInput,
     applet::{
         Applet, Ctx, Input, Pointer, Report,
-        popover::{PopoverHandle, Seat, run},
+        footer::Footer,
+        popover::{PopoverHandle, Seat},
         spawn_command, spawn_reported, wording,
     },
     components::panel,
@@ -82,7 +83,8 @@ pub struct Exec {
     icons: HashMap<String, gio::Icon>,
     seq: Rc<RefCell<HashMap<dom::Key, u64>>>,
     dom: Option<dom::Dom>,
-    settings: Option<(String, Vec<String>)>,
+    footer: Footer,
+    footer_row: glib::WeakRef<LegacyRow>,
 }
 
 impl Exec {
@@ -123,7 +125,8 @@ impl Exec {
             icons: HashMap::new(),
             seq: Rc::new(RefCell::new(HashMap::new())),
             dom: None,
-            settings: None,
+            footer: Footer::default(),
+            footer_row: glib::WeakRef::new(),
         }
     }
 
@@ -264,10 +267,10 @@ impl Applet for Exec {
     }
 
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        self.settings = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
+        if let Some(row) = self.footer_row.upgrade() {
+            dress_footer(&row, &self.footer);
+        }
     }
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
@@ -304,16 +307,21 @@ impl Applet for Exec {
         let mut dom = dom::Dom::new(&shell, self.slot, dispatch, seat.opener(), self.seq.clone());
         dom.reconcile(&self.tree, self.generation);
         self.dom = Some(dom);
-        if let Some((label, command)) = &self.settings {
-            let row = LegacyRow::new();
-            row.set_property("title", Some(label.as_str()));
-            row.set_property("activatable", true);
-            let command = command.clone();
-            row.connect_clicked(move |_| run(&command));
-            shell.append_to_footer(&row);
-        }
+        let row = LegacyRow::new();
+        row.set_property("activatable", true);
+        let footer = self.footer.clone();
+        row.connect_clicked(move |_| footer.run());
+        dress_footer(&row, &self.footer);
+        shell.append_to_footer(&row);
+        self.footer_row.set(Some(&row));
         Some(Box::new(shell))
     }
+}
+
+fn dress_footer(row: &LegacyRow, footer: &Footer) {
+    let label = footer.label();
+    row.set_property("title", label.as_deref());
+    row.set_visible(label.is_some());
 }
 
 #[cfg(test)]

@@ -8,7 +8,8 @@ use glimpse_services::{CompositorHandle, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{IndicatorSpec, WorkspaceNamePopover};
 use gtk4::glib;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command,
     wording,
@@ -27,7 +28,7 @@ pub struct WorkspaceName {
     current: Rc<RefCell<Option<WorkspaceInfo>>>,
     pending: Pending,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<WorkspaceNamePopover>,
 }
@@ -39,10 +40,7 @@ impl Applet for WorkspaceName {
         };
         self.output = ctx.output().map(str::to_owned);
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -117,10 +115,8 @@ impl Applet for WorkspaceName {
             move |_| opener.close_popover()
         });
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -142,7 +138,7 @@ impl WorkspaceName {
             current: Rc::default(),
             pending: Rc::default(),
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -170,7 +166,7 @@ impl WorkspaceName {
     }
 
     fn dress(&self, shown: &WorkspaceNamePopover) {
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         let current = self.current.borrow();
         let Some(workspace) = current.as_ref() else {
             shown.set_workspace("");

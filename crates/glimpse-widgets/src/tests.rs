@@ -135,6 +135,7 @@ fn widgets() {
     power_popover_checks::check();
     held_display_readout_check();
     toggle_disabled_accessibility_check();
+    footer_checks::check();
 }
 
 fn held_display_readout_check() {
@@ -394,6 +395,7 @@ mod expandable_checks;
 mod expander_row_checks;
 mod fact_list_checks;
 mod fader_checks;
+mod footer_checks;
 mod forecast_checks;
 mod hero_checks;
 mod idle_popover_checks;

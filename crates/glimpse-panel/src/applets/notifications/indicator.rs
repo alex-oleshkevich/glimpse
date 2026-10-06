@@ -18,7 +18,8 @@ use gtk4::gio::prelude::AppLaunchContextExt;
 use gtk4::prelude::{Cast, WidgetExt};
 use gtk4::{gdk, gio, glib};
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 use super::render;
@@ -29,7 +30,7 @@ pub struct Notifications {
     dnd: Rc<Cell<bool>>,
     trouble: Option<String>,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     indicator_style: NotificationIndicatorStyle,
     held: Rc<RefCell<Vec<NotificationRecord>>>,
     icons: HashMap<String, gio::Icon>,
@@ -49,10 +50,7 @@ impl Applet for Notifications {
         };
         self.indicator_style = settings.indicator_style;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         ctx.interval(MINUTE);
         self.refresh();
     }
@@ -125,10 +123,8 @@ impl Applet for Notifications {
                 opener.wake();
             }
         });
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -143,7 +139,7 @@ impl Notifications {
             dnd: Rc::new(Cell::new(false)),
             trouble: None,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             indicator_style: NotificationIndicatorStyle::default(),
             held: Rc::new(RefCell::new(Vec::new())),
             icons: HashMap::new(),
@@ -218,7 +214,7 @@ impl Notifications {
         shown.set_dnd(self.dnd.get());
         shown.set_trouble(self.trouble.as_deref());
         shown.set_clear_label(Some(&gettext("Clear all")));
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         shown.set_groups(&self.filled(records));
     }
 

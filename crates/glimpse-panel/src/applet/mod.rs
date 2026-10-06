@@ -1,4 +1,5 @@
 pub mod catcher;
+pub mod footer;
 pub mod popover;
 pub mod runtime;
 

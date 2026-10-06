@@ -13,7 +13,8 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
 };
@@ -29,7 +30,7 @@ pub struct Audio {
     audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<AudioPopover>,
@@ -45,10 +46,7 @@ impl Applet for Audio {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -217,10 +215,8 @@ impl Applet for Audio {
             }
         });
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.expanded.set(false);
         self.shown.set(Some(&shown));
@@ -493,7 +489,7 @@ impl Audio {
             audio,
             notifications,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             expanded: Rc::new(Cell::new(false)),
             shown: glib::WeakRef::new(),
@@ -549,7 +545,7 @@ impl Audio {
             .filter_map(|app| details(&self.state, &app.id))
             .collect();
         shown.set_details(&details);
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

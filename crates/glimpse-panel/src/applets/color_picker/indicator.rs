@@ -10,7 +10,8 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::render;
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Button, Ctx, Input, Opener, Pointer, Report, spawn_reported};
 
 const PICKING: &str = "color-picker--picking";
@@ -20,7 +21,7 @@ pub struct ColorPicker {
     notifications: NotificationsProviderHandle,
     state: ColorPickerState,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     shown: glib::WeakRef<ColorPickerPopover>,
     spec: Vec<IndicatorSpec>,
     format: Rc<Cell<ColorFormat>>,
@@ -37,7 +38,7 @@ impl ColorPicker {
             service,
             notifications,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             swatch: Swatch::default(),
@@ -75,7 +76,7 @@ impl ColorPicker {
         let title = latest.map(|color| format.render(color));
         shown.set_latest(title.as_deref().zip(latest.map(rgba)));
         shown.set_shades(&render::shades(&self.state.colors, format));
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn report(&self, summary: String) -> Report {
@@ -129,10 +130,7 @@ impl Applet for ColorPicker {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -193,10 +191,8 @@ impl Applet for ColorPicker {
                 }
             }
         });
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.dress(&shown);

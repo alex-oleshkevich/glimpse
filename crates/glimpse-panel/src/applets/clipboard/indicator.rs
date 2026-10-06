@@ -25,7 +25,8 @@ use super::render;
 const THUMBNAIL: i32 = 320;
 const EXCERPT_LINES: usize = 6;
 const EXCERPT_CHARS: usize = 200;
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, wording};
 
 pub struct Clipboard {
@@ -35,7 +36,7 @@ pub struct Clipboard {
     state: ClipboardState,
     settings: ClipboardAppletConfig,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     shown: glib::WeakRef<ClipboardPopover>,
     spec: Vec<IndicatorSpec>,
     /// Decoded thumbnails, keyed by entry id. Decoding is the expensive half and an entry's bytes
@@ -60,7 +61,7 @@ impl Clipboard {
             notifications,
             settings: ClipboardAppletConfig::default(),
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             images: HashMap::new(),
@@ -310,7 +311,7 @@ impl Clipboard {
             0 => None,
             _ => Some(clear.as_str()),
         });
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 }
 
@@ -540,10 +541,7 @@ impl Applet for Clipboard {
         };
         self.settings = settings.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh(&ctx.opener());
     }
 
@@ -714,10 +712,8 @@ impl Applet for Clipboard {
                 opener.wake();
             }
         });
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh(&opener);

@@ -10,8 +10,8 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::launch`, which spawns an argv with no shell; `popover::run` is the `settings-command`
-  every footer row offers, launched and logged on failure
+  `popover::launch`, which spawns an argv with no shell; `footer::Footer` holds the `settings-command`
+  every footer row offers and reads it at activation, launched and logged on failure
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
   and next-event applets both need to say about a calendar entry
 

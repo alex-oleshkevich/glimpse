@@ -12,7 +12,8 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure};
 
 use super::render;
@@ -25,7 +26,7 @@ pub struct Printing {
     spec: Vec<IndicatorSpec>,
     jobs: usize,
     show: PrintingShow,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     pending: Rc<RefCell<HashSet<u32>>>,
     shown: glib::WeakRef<PrintingPopover>,
 }
@@ -42,10 +43,7 @@ impl Applet for Printing {
         self.jobs = cfg.jobs;
         self.show = cfg.show;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -151,10 +149,8 @@ impl Applet for Printing {
             }
         });
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -223,7 +219,7 @@ impl Printing {
             spec: Vec::new(),
             jobs: 8,
             show: PrintingShow::default(),
-            footer: None,
+            footer: Footer::default(),
             pending: Rc::new(RefCell::new(HashSet::new())),
             shown: glib::WeakRef::new(),
         }
@@ -237,7 +233,7 @@ impl Printing {
     }
 
     fn dress(&self, shown: &PrintingPopover) {
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         let pending = self.pending.borrow();
         shown.set_jobs(&render::jobs(&self.state, self.jobs, &pending));
         shown.set_printers(&render::printers(&self.state));

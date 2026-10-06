@@ -17,9 +17,9 @@ pub(super) fn check() {
     assert!(network.imp().shell.subtitle().is_none());
     network.set_footer(Some("Network settings"));
     assert_eq!(
-        network.imp().shell.body().last_child(),
-        Some(network.imp().footer.get().upcast()),
-        "settings is the last body action"
+        network.imp().footer.parent(),
+        Some(network.imp().shell.imp().footer_box.get().upcast()),
+        "settings sits in the pinned footer"
     );
     let hidden_requests = Rc::new(Cell::new(0));
     network.connect_hidden_network({

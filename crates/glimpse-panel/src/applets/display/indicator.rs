@@ -21,6 +21,7 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
+use crate::applet::footer::Footer;
 use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{
     Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, wording,
@@ -49,7 +50,7 @@ pub struct Display {
     notifications: NotificationsProviderHandle,
     settings: DisplayAppletConfig,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<DisplayPopover>,
     pinned: RefCell<Option<String>>,
@@ -64,10 +65,7 @@ impl Applet for Display {
         };
         self.settings = *settings;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -233,10 +231,8 @@ impl Applet for Display {
             }
         });
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| crate::applet::popover::run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -469,7 +465,7 @@ impl Display {
             notifications,
             settings: DisplayAppletConfig::default(),
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
             pinned: RefCell::new(None),
@@ -526,7 +522,7 @@ impl Display {
         let displays: Vec<WidgetDisplay> = self.outputs.iter().map(to_widget_display).collect();
         shown.set_displays(&displays);
 
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {
