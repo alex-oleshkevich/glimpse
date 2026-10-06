@@ -7,13 +7,13 @@ pub(super) fn check() {
         let powered = Rc::clone(&powered);
         move |_, on| powered.borrow_mut().push(on)
     });
-    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
+    popover.set_adapter("Bluetooth", true, true);
     assert!(popover.imp().power.is_active());
     assert!(popover.imp().shell.subtitle().is_none());
     assert!(powered.borrow().is_empty());
     popover.imp().power.set_active(false);
     assert_eq!(*powered.borrow(), [false]);
-    popover.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
+    popover.set_adapter("Bluetooth", true, true);
     assert_eq!(*powered.borrow(), [false]);
     assert!(!popover.imp().devices.get_visible());
 
@@ -134,15 +134,15 @@ pub(super) fn check() {
     let a = device("a");
     let lines = children_of::<Row>(&row("a").details());
     assert_eq!(lines.len(), 3);
-    assert!(lines[0].is::<ActionRow>());
-    assert!(lines[1].is::<ToggleRow>());
+    assert!(lines[0].is::<ToggleRow>());
+    assert!(lines[1].is::<ActionRow>());
     assert!(lines[2].is::<ActionRow>());
-    assert_eq!(lines[0].title().as_deref(), Some("Disconnect"));
+    assert_eq!(lines[1].title().as_deref(), Some("Disconnect"));
     assert_eq!(lines[2].tone(), RowTone::Destructive);
     assert_eq!(
         row("a").details().first_child(),
-        Some(a.imp().primary.get().upcast()),
-        "the connection action leads the drawer"
+        Some(a.imp().facts.get().upcast()),
+        "the facts lead the drawer"
     );
     a.imp().trust.emit_by_name::<()>("activate", &[]);
     a.imp().trust.emit_by_name::<()>("activate", &[]);
@@ -264,12 +264,11 @@ pub(super) fn check() {
 
     let width = |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
     let probe = BluetoothPopover::new();
-    probe.set_adapter("Bluetooth", "bluetooth-symbolic", true, true);
+    probe.set_adapter("Bluetooth", true, true);
     probe.set_entries(&[entry("a", BluetoothPlace::Connected)]);
     let floor = width(&probe);
     probe.set_adapter(
         "Connected to Bose QuietComfort Ultra and 2 others",
-        "bluetooth-active-symbolic",
         true,
         true,
     );

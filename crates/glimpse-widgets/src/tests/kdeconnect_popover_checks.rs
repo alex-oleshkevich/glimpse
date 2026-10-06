@@ -36,22 +36,14 @@ fn kdeconnect_popover_widgets() {
     };
     popover.set_devices(&[phone.clone(), away.clone()]);
     assert!(imp.devices.get_visible());
-    let holders = children_of::<Expandable>(&*imp.devices_rows);
+    let holders = children_of::<ExpanderRow>(&*imp.devices_rows);
     assert_eq!(holders.len(), 2);
-    let head = holders[0].head::<LegacyRow>().expect("a row head");
-    assert_eq!(head.title().as_deref(), Some("Pixel 10 Pro"));
-    assert_eq!(head.subtitle(), None, "one line");
-    assert_eq!(head.value().as_deref(), Some("76%"));
-    assert_eq!(
-        holders[1]
-            .head::<LegacyRow>()
-            .and_then(|row| row.value())
-            .as_deref(),
-        Some("Not connected")
-    );
+    assert_eq!(holders[0].title().as_deref(), Some("Pixel 10 Pro"));
+    assert_eq!(holders[0].subtitle(), None, "one line");
+    assert_eq!(holders[0].value().as_deref(), Some("76%"));
+    assert_eq!(holders[1].value().as_deref(), Some("Not connected"));
 
-    let details = holders[0].details::<gtk4::Box>().expect("details");
-    let rows = children_of::<LegacyRow>(&details);
+    let rows = children_of::<ActionRow>(&holders[0].details());
     assert_eq!(rows.len(), 2);
 
     let fired = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
@@ -59,38 +51,36 @@ fn kdeconnect_popover_widgets() {
         let fired = Rc::clone(&fired);
         move |_, id, key| fired.borrow_mut().push((id.to_owned(), key.to_owned()))
     });
-    rows[0].emit_clicked();
+    rows[0].emit_by_name::<()>("activated", &[]);
     assert_eq!(
         fired.borrow().as_slice(),
         [("b98d".to_owned(), "ring".to_owned())]
     );
 
-    holders[0].set_expanded(true);
+    holders[0].set_open(true);
     let mut charging = phone.clone();
     charging.value = "77%, charging".to_owned();
     popover.set_devices(&[charging, away.clone()]);
-    let again = children_of::<Expandable>(&*imp.devices_rows);
+    let again = children_of::<ExpanderRow>(&*imp.devices_rows);
     assert_eq!(
         again[0], holders[0],
         "a device keeps its row across an update"
     );
     assert!(
-        again[0].expanded(),
+        again[0].open(),
         "an open card stays open when only the reading moves"
     );
     assert_eq!(
-        again[0]
-            .details::<gtk4::Box>()
-            .map(|details| children_of::<LegacyRow>(&details)),
-        Some(rows.clone()),
+        children_of::<ActionRow>(&again[0].details()),
+        rows,
         "unchanged actions keep their rows, so the pointer's row is not swapped out"
     );
 
     popover.collapse("b98d");
-    assert!(!again[0].expanded(), "collapse closes the card it names");
+    assert!(!again[0].open(), "collapse closes the card it names");
 
     popover.set_devices(&[away.clone(), phone.clone()]);
-    let reordered = children_of::<Expandable>(&*imp.devices_rows);
+    let reordered = children_of::<ExpanderRow>(&*imp.devices_rows);
     assert_eq!(
         reordered[1], holders[0],
         "rows are keyed by id, not position"
@@ -107,26 +97,27 @@ fn kdeconnect_popover_widgets() {
         Some("3 more"),
     );
     assert!(imp.nearby.get_visible());
-    assert!(!imp.nearby_drawer.reveals_child(), "nearby starts closed");
-    imp.nearby_toggle.emit_clicked();
+    assert!(!popover.nearby_open(), "nearby starts closed");
+    popover.set_nearby_open(true);
     assert!(popover.nearby_open());
-    assert!(imp.nearby_drawer.reveals_child());
     assert!(imp.nearby_more.get_visible());
-    assert!(imp.nearby_toggle.has_css_class("open"));
-    let splits = children_of::<SplitRow>(&*imp.nearby_rows);
-    assert!(splits[1].row().busy(), "a requested pairing spins");
+    let splits = children_of::<ActionRow>(&*imp.nearby_rows);
+    assert!(
+        splits[1].upcast_ref::<Row>().busy(),
+        "a requested pairing spins"
+    );
 
     let paired = Rc::new(RefCell::new(Vec::<String>::new()));
     popover.connect_pair({
         let paired = Rc::clone(&paired);
         move |_, id| paired.borrow_mut().push(id.to_owned())
     });
-    splits[0].row().emit_clicked();
+    splits[0].emit_by_name::<()>("activated", &[]);
     assert!(
-        splits[0].row().busy(),
+        splits[0].upcast_ref::<Row>().busy(),
         "the row spins the moment it is pressed"
     );
-    splits[0].row().emit_clicked();
+    splits[0].emit_by_name::<()>("activated", &[]);
     assert_eq!(
         paired.borrow().as_slice(),
         ["desk".to_owned()],
@@ -137,16 +128,12 @@ fn kdeconnect_popover_widgets() {
         Some("3 more"),
     );
     assert!(
-        !splits[0].row().busy(),
+        !splits[0].upcast_ref::<Row>().busy(),
         "an unchanged state still clears the guess, so a refused request never spins forever"
     );
 
-    imp.nearby_toggle.emit_clicked();
+    popover.set_nearby_open(false);
     assert!(!popover.nearby_open());
-    assert!(
-        !imp.nearby_drawer.reveals_child(),
-        "the header closes what it opened"
-    );
 
     popover.set_nearby(&[], None);
     assert!(
@@ -154,16 +141,12 @@ fn kdeconnect_popover_widgets() {
         "no header until something is found"
     );
 
-    let summary = || imp.hero.subtitle().map(|text| text.to_string());
-    popover.set_summary("1 connected");
-    assert_eq!(summary().as_deref(), Some("1 connected"));
-
     popover.set_footer(Some("KDE Connect settings"));
     let footer = Rc::new(Cell::new(false));
     popover.connect_footer_activated({
         let footer = Rc::clone(&footer);
         move |_| footer.set(true)
     });
-    imp.footer.emit_clicked();
+    imp.footer.emit_by_name::<()>("activated", &[]);
     assert!(footer.get());
 }

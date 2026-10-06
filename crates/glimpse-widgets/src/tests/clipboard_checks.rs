@@ -27,12 +27,7 @@ fn clipboard_widgets() {
     clipboard.set_pinned(&[clip(1, true)]);
     clipboard.set_recent(&[clip(2, false), clip(3, false)]);
 
-    let rows = |list: &ClipboardList| children_of::<Expandable>(list);
-    let head = |holder: &Expandable| {
-        holder
-            .head::<SplitRow>()
-            .expect("a clip leads with its row")
-    };
+    let rows = |list: &ClipboardList| children_of::<ExpanderRow>(list);
     assert_eq!(rows(&clipboard.imp().recent).len(), 2);
     assert!(
         clipboard.imp().pinned_section.get_visible(),
@@ -47,7 +42,7 @@ fn clipboard_widgets() {
             .any(|widget| widget.has_css_class("receded"))
     };
     let opened = rows(&clipboard.imp().recent)[0].clone();
-    head(&opened).emit_by_name::<()>("details", &[]);
+    opened.set_open(true);
     assert!(
         dimmed(clipboard.imp().hero.upcast_ref()),
         "the hero is read against the open panel and must recede with everything else"
@@ -57,7 +52,7 @@ fn clipboard_widgets() {
         "a footer row that stays lit still looks pressable while a card asks a question"
     );
     assert!(
-        opened.has_css_class("open") && !dimmed(opened.upcast_ref()),
+        opened.open() && !dimmed(opened.upcast_ref()),
         "the row that was opened is the one thing that must not recede"
     );
     assert!(
@@ -70,24 +65,26 @@ fn clipboard_widgets() {
         "opening a detail must not resize the card under the pointer that opened it"
     );
 
-    head(&opened).emit_by_name::<()>("details", &[]);
+    opened.set_open(false);
     assert!(!dimmed(clipboard.imp().hero.upcast_ref()));
 
     // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
-    head(&opened).emit_by_name::<()>("details", &[]);
-    let before = opened.details::<gtk4::Box>().expect("an open panel");
+    opened.set_open(true);
+    let pin = |row: &ExpanderRow| {
+        all_named(&row.details(), "clipboard-list__pin")
+            .pop()
+            .and_downcast::<ActionRow>()
+            .expect("a pin row")
+    };
+    let before = pin(&opened);
     clipboard.set_recent(&[clip(2, true), clip(3, false)]);
     assert_eq!(
-        opened.details::<gtk4::Box>().as_ref(),
-        Some(&before),
+        pin(&opened),
+        before,
         "a republish must leave the open panel's buttons alone, even one that changes them"
     );
     assert_eq!(
-        before
-            .first_child()
-            .and_downcast::<LegacyRow>()
-            .and_then(|pin| pin.title())
-            .as_deref(),
+        before.upcast_ref::<Row>().title().as_deref(),
         Some("Unpin"),
         "and the pin row's wording follows the entry"
     );
@@ -97,7 +94,7 @@ fn clipboard_widgets() {
         let cleared = Rc::clone(&cleared);
         move |_| cleared.set(true)
     });
-    clipboard.imp().clear.emit_by_name::<()>("clicked", &[]);
+    clipboard.imp().clear.emit_by_name::<()>("activated", &[]);
     assert!(cleared.get());
 
     let restored = Rc::new(Cell::new(None));
@@ -105,7 +102,9 @@ fn clipboard_widgets() {
         let restored = Rc::clone(&restored);
         move |_, id| restored.set(Some(id))
     });
-    head(&rows(&clipboard.imp().recent)[1]).emit_by_name::<()>("activated", &[]);
+    let second = rows(&clipboard.imp().recent)[1].clone();
+    second.set_open(true);
+    children_of::<ActionRow>(&second.details())[0].emit_by_name::<()>("activated", &[]);
     assert_eq!(
         restored.get(),
         Some(3),
@@ -159,23 +158,26 @@ fn clipboard_widgets() {
             ..Default::default()
         },
     ]);
-    let cells = rows(&clipboard.imp().recent);
-    let color = head(&cells[0]);
-    assert!(
-        color.row().lead().and_downcast::<Swatch>().is_some(),
-        "a color leads with its own swatch"
-    );
-    color.emit_by_name::<()>("details", &[]);
-    let card = cells[0].details::<gtk4::Box>().expect("a color card");
+    let cells = children_of::<gtk4::Widget>(&*clipboard.imp().recent);
+    let color = cells[0]
+        .clone()
+        .downcast::<ExpanderRow>()
+        .expect("a color row");
+    assert_eq!(color.icon_name(), None, "a color is marked by its swatch");
+    color.set_open(true);
+    let card = color.details();
     assert!(card.first_child().and_downcast::<Swatch>().is_some());
-    children_of::<LegacyRow>(&card)
+    children_of::<ActionRow>(&card)
         .into_iter()
-        .find(|row| row.title().as_deref() == Some("Copy as RGB"))
+        .find(|row| row.upcast_ref::<Row>().title().as_deref() == Some("Copy as RGB"))
         .expect("the type's own action")
-        .emit_by_name::<()>("clicked", &[]);
+        .emit_by_name::<()>("activated", &[]);
     assert_eq!(*acted.borrow(), [(10, "rgb".to_owned())]);
 
-    let tile = cells[1]
+    let image = cells[1]
+        .downcast_ref::<Expandable>()
+        .expect("an image card");
+    let tile = image
         .head::<gtk4::Overlay>()
         .expect("an image is a tile, not a row");
     tile.child()
@@ -187,16 +189,19 @@ fn clipboard_widgets() {
         Some(11),
         "a click on the image copies it back"
     );
-    assert!(!cells[1].expanded(), "and does not open the card");
+    assert!(!image.expanded(), "and does not open the card");
     let badge = children_of::<gtk4::Button>(&tile)
         .into_iter()
         .find(|button| button.has_css_class("clip-tile__badge"))
         .expect("a badge");
     badge.emit_by_name::<()>("clicked", &[]);
-    assert!(cells[1].expanded(), "the badge opens the card");
+    assert!(image.expanded(), "the badge opens the card");
 
     let before = width(&clipboard);
-    head(&cells[2]).emit_by_name::<()>("details", &[]);
+    cells[2]
+        .downcast_ref::<ExpanderRow>()
+        .expect("a text row")
+        .set_open(true);
     assert_eq!(
         width(&clipboard),
         before,
@@ -214,7 +219,7 @@ fn clipboard_widgets() {
         clipboard.imp().recent_section.get_visible(),
         "entries still behind the overflow row keep the section up"
     );
-    clipboard.imp().more.emit_by_name::<()>("clicked", &[]);
+    clipboard.imp().more.emit_by_name::<()>("activated", &[]);
     assert_eq!(more.get(), 1);
 
     let searched = Rc::new(RefCell::new(String::new()));

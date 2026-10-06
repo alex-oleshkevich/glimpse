@@ -24,7 +24,6 @@ template $KdeconnectPopover: Gtk.Widget {
 
       $Section devices {
         visible: false;
-        title: _("Devices");
 
         Gtk.Box devices_rows {
           orientation: vertical;
@@ -34,45 +33,23 @@ template $KdeconnectPopover: Gtk.Widget {
       $Section nearby {
         visible: false;
 
-        Gtk.Box {
-          orientation: vertical;
+        $ExpanderRow nearby_toggle {
+          title: _("Nearby devices");
 
-          $LegacyRow nearby_toggle {
-            title: _("Nearby devices");
-
-            [trail]
-            Gtk.Image {
-              icon-name: "go-next-symbolic";
-              accessible-role: presentation;
-
-              styles [
-                "drawer-chevron",
-              ]
-            }
+          Gtk.Box nearby_rows {
+            orientation: vertical;
           }
 
-          Gtk.Revealer nearby_drawer {
-            transition-type: slide_down;
-
-            child: Gtk.Box {
-              orientation: vertical;
-
-              Gtk.Box nearby_rows {
-                orientation: vertical;
-              }
-
-              $LegacyRow nearby_more {
-                visible: false;
-                activatable: false;
-              }
-            };
+          $ActionRow nearby_more {
+            visible: false;
+            icon-name: "view-more-symbolic";
           }
         }
       }
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

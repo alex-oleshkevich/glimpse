@@ -206,18 +206,6 @@ pub fn chip(state: &KdeconnectState, config: &KdeconnectAppletConfig) -> Option<
     })
 }
 
-pub fn summary(state: &KdeconnectState) -> String {
-    let connected = paired(state).filter(|device| device.reachable).count();
-    if connected > 0 {
-        return ngettext("{count} connected", "{count} connected", connected as u32)
-            .replace("{count}", &connected.to_string());
-    }
-    match paired(state).next() {
-        Some(_) => gettext("Not connected"),
-        None => gettext("No paired devices"),
-    }
-}
-
 pub fn any_paired(state: &KdeconnectState) -> bool {
     paired(state).next().is_some()
 }

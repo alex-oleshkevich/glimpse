@@ -1,11 +1,11 @@
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::sync::OnceLock;
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Hero, LegacyRow, PopoverShell, Section, SplitRow};
+use crate::{ActionRow, ExpanderRow, Hero, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Action {
@@ -44,20 +44,17 @@ pub struct KdeconnectPopover {
     #[template_child]
     pub nearby: TemplateChild<Section>,
     #[template_child]
-    pub nearby_toggle: TemplateChild<LegacyRow>,
-    #[template_child]
-    pub nearby_drawer: TemplateChild<gtk4::Revealer>,
+    pub nearby_toggle: TemplateChild<ExpanderRow>,
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub nearby_more: TemplateChild<LegacyRow>,
+    pub nearby_more: TemplateChild<ActionRow>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
-    pub devices_held: RefCell<Vec<(String, Expandable)>>,
+    pub devices_held: RefCell<Vec<(String, ExpanderRow)>>,
     pub devices_data: RefCell<Vec<Device>>,
-    pub nearby_held: RefCell<Vec<(String, SplitRow)>>,
-    pub nearby_open: Cell<bool>,
+    pub nearby_held: RefCell<Vec<(String, ActionRow)>>,
 }
 
 #[glib::object_subclass]
@@ -67,6 +64,8 @@ impl ObjectSubclass for KdeconnectPopover {
     type ParentType = gtk4::Widget;
 
     fn class_init(klass: &mut Self::Class) {
+        ActionRow::static_type();
+        ExpanderRow::static_type();
         klass.bind_template();
         klass.set_accessible_role(AccessibleRole::Group);
     }
@@ -96,12 +95,7 @@ impl ObjectImpl for KdeconnectPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.nearby_toggle.connect_clicked(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.set_nearby_open(!popover.imp().nearby_open.get())
-        ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])

@@ -60,12 +60,9 @@ pub fn cap(name: &str) -> String {
 pub fn hero(state: &BluetoothState) -> Hero {
     let adapter = state.adapter.as_ref();
     let power = adapter.map_or(Power::Off, |adapter| adapter.power);
-    let connected = state.connected().count();
-    let searching = state.scanning();
 
     Hero {
         title: gettext("Bluetooth"),
-        icon: glimpse_services::icon_for(power, searching, connected > 0).to_owned(),
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
         controls: powered(state),
@@ -210,7 +207,6 @@ fn digits(passkey: u32) -> String {
 
 pub struct Hero {
     pub title: String,
-    pub icon: String,
     pub controls: bool,
     pub on: bool,
     pub settable: bool,

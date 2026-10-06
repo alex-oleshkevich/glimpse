@@ -4,14 +4,14 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::Shade;
-use crate::{Expandable, LegacyRow};
+use crate::{ActionRow, ExpanderRow, Row};
 
 #[derive(Debug, Default)]
 pub struct ColorList {
     pub shades: RefCell<Vec<Shade>>,
-    pub holders: RefCell<Vec<(u64, Expandable)>>,
+    pub holders: RefCell<Vec<(u64, ExpanderRow)>>,
     pub rows: gtk4::Box,
-    pub more: LegacyRow,
+    pub more: ActionRow,
     pub show_all: Cell<bool>,
 }
 
@@ -51,10 +51,12 @@ impl ObjectImpl for ColorList {
         }
         self.rows.set_orientation(gtk4::Orientation::Vertical);
         self.rows.set_parent(&*list);
-        self.more.set_lead_icon(Some("view-more-symbolic"));
+        self.more
+            .upcast_ref::<Row>()
+            .set_icon_name(Some("view-more-symbolic"));
         self.more.set_visible(false);
         self.more.set_parent(&*list);
-        self.more.connect_clicked(glib::clone!(
+        self.more.connect_activated(glib::clone!(
             #[weak]
             list,
             move |_| {

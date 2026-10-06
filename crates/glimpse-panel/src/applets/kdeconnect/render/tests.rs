@@ -282,22 +282,6 @@ fn nearby_is_every_unpaired_device_capped_with_a_count() {
 }
 
 #[test]
-fn the_summary_counts_connected_devices() {
-    assert_eq!(summary(&state(vec![])), "No paired devices");
-    assert_eq!(
-        summary(&state(vec![device("8", false, PairState::Paired)])),
-        "Not connected"
-    );
-    assert_eq!(
-        summary(&state(vec![
-            device("8", true, PairState::Paired),
-            device("10", true, PairState::Paired),
-        ])),
-        "2 connected"
-    );
-}
-
-#[test]
 fn only_known_keys_map_to_a_service_action() {
     assert_eq!(action(RING), Some(KdeconnectAction::Ring));
     assert_eq!(action(UNPAIR), Some(KdeconnectAction::Unpair));

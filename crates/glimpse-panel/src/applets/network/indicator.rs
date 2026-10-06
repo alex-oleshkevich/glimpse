@@ -214,7 +214,6 @@ impl Network {
         let radio = self.state.wifi;
         shown.set_radio(
             &gettext("Wi-Fi"),
-            self.state.icon_name().unwrap_or(IDLE),
             radio.is_some_and(|one| one.enabled),
             radio.is_some_and(|one| !one.blocked()),
         );

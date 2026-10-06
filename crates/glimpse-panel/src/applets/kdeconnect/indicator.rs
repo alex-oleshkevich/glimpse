@@ -248,7 +248,6 @@ impl Kdeconnect {
 
     fn dress(&self, shown: &KdeconnectPopover) {
         let state = self.state.borrow();
-        shown.set_summary(&render::summary(&state));
         shown.set_devices(&render::devices(&state));
         let (nearby, more) = render::nearby(&state);
         shown.set_nearby(&nearby, more.as_deref());

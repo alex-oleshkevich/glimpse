@@ -28,10 +28,9 @@ impl NetworkPopover {
         glib::Object::new()
     }
 
-    pub fn set_radio(&self, title: &str, icon: &str, on: bool, settable: bool) {
+    pub fn set_radio(&self, title: &str, on: bool, settable: bool) {
         let imp = self.imp();
         imp.shell.set_title(none_if_empty(title));
-        imp.shell.set_icon_name(none_if_empty(icon));
         imp.radio_settable.set(settable);
 
         imp.quiet.set(true);

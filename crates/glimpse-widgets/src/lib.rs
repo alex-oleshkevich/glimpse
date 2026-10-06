@@ -328,8 +328,6 @@ pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
     button.set_tooltip_text(Some(tooltip.as_str()));
 }
 
-pub(crate) const DESTRUCTIVE: &str = "row--destructive";
-
 pub(crate) fn set_action_label(row: &ActionRow, label: Option<&str>) {
     use gtk4::prelude::*;
 

@@ -1,19 +1,23 @@
 using Gtk 4.0;
 
-template $PlayerRow: $LegacyRow {
+template $PlayerRow: Gtk.Widget {
+  layout-manager: BinLayout {};
+
   styles [
     "player-row",
   ]
 
-  [trail]
-  Gtk.Button toggle {
-    icon-name: "media-playback-start-symbolic";
-    has-frame: false;
-    valign: center;
-    tooltip-text: _("Play");
+  $ActionRow row {
+    [end]
+    Gtk.Button toggle {
+      icon-name: "media-playback-start-symbolic";
+      has-frame: false;
+      valign: center;
+      tooltip-text: _("Play");
 
-    styles [
-      "player-row__toggle",
-    ]
+      styles [
+        "player-row__toggle",
+      ]
+    }
   }
 }

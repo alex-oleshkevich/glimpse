@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Clip, ClipActions, Severity, none_if_empty};
+use crate::{Clip, ClipActions, Severity, set_action_label};
 
 glib::wrapper! {
     pub struct ClipboardPopover(ObjectSubclass<imp::ClipboardPopover>)
@@ -53,7 +53,7 @@ impl ClipboardPopover {
     }
 
     pub fn set_overflow(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().more, label);
+        set_action_label(&self.imp().more, label);
         let imp = self.imp();
         if label.is_some() && !imp.recent_section.get_visible() {
             imp.recent_section.set_visible(true);
@@ -68,15 +68,11 @@ impl ClipboardPopover {
     }
 
     pub fn set_clear_label(&self, label: Option<&str>) {
-        let row = &self.imp().clear;
-        row.set_title(label);
-        row.set_visible(label.is_some());
+        set_action_label(&self.imp().clear, label);
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        let row = &self.imp().footer;
-        row.set_title(none_if_empty(label.unwrap_or_default()));
-        row.set_visible(label.is_some());
+        set_action_label(&self.imp().footer, label);
     }
 
     pub fn connect_restored<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {

@@ -1,10 +1,10 @@
 mod imp;
 
-use gettextrs::ngettext;
+use gettextrs::{gettext, ngettext};
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Expandable, LegacyRow, SplitRow, Swatch, none_if_empty};
+use crate::{ActionRow, ExpanderRow, Row, Swatch, clear_children, none_if_empty};
 
 const FOLDED_ROWS: usize = 8;
 
@@ -66,7 +66,7 @@ impl ColorList {
         let hidden = shades.len() - shown;
         imp.more.set_visible(hidden > 0);
         if hidden > 0 {
-            imp.more.set_title(Some(
+            imp.more.upcast_ref::<Row>().set_title(Some(
                 ngettext("{count} more color", "{count} more colors", hidden as u32)
                     .replace("{count}", &hidden.to_string())
                     .as_str(),
@@ -74,38 +74,30 @@ impl ColorList {
         }
     }
 
-    fn build(&self, id: u64) -> Expandable {
-        let split = SplitRow::new();
-        split.set_property("detail-icon", "pan-end-symbolic");
-        split.connect_activated(glib::clone!(
+    fn build(&self, id: u64) -> ExpanderRow {
+        let row = ExpanderRow::new();
+        row.connect_toggled(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_| list.emit_by_name::<()>("activated", &[&id])
-        ));
-        split.connect_details(glib::clone!(
-            #[weak(rename_to = list)]
-            self,
-            move |_| list.fill(id)
-        ));
-        Expandable::new(&split)
-    }
-
-    fn apply(&self, holder: &Expandable, shade: &Shade) {
-        if let Some(split) = holder.head::<SplitRow>() {
-            let row = split.row();
-            row.set_title(none_if_empty(&shade.title));
-            match row.lead().and_downcast::<Swatch>() {
-                Some(swatch) => swatch.set_color(Some(&shade.color)),
-                None => {
-                    let swatch = Swatch::default();
-                    swatch.set_valign(gtk4::Align::Center);
-                    swatch.set_color(Some(&shade.color));
-                    row.set_lead(&swatch);
+            move |_, open| {
+                if open {
+                    list.fill(id);
                 }
             }
-        }
-        if holder.details::<gtk4::Widget>().is_some() {
-            holder.set_details(Some(&self.panel(shade)));
+        ));
+        row
+    }
+
+    fn apply(&self, row: &ExpanderRow, shade: &Shade) {
+        row.set_title(none_if_empty(&shade.title));
+        let swatch = Swatch::default();
+        swatch.set_valign(gtk4::Align::Center);
+        swatch.set_color(Some(&shade.color));
+        row.set_end(&swatch);
+        let details = row.details();
+        if details.first_child().is_some() {
+            clear_children(&details);
+            self.drawer(&details, shade);
         }
     }
 
@@ -125,33 +117,43 @@ impl ColorList {
             .iter()
             .find(|shade| shade.id == id)
             .cloned();
-        if let (Some(holder), Some(shade)) = (holder, shade)
-            && holder.details::<gtk4::Widget>().is_none()
-        {
-            holder.set_details(Some(&self.panel(&shade)));
+        if let (Some(holder), Some(shade)) = (holder, shade) {
+            let details = holder.details();
+            if details.first_child().is_none() {
+                self.drawer(&details, &shade);
+            }
         }
     }
 
-    fn panel(&self, shade: &Shade) -> gtk4::Box {
-        let panel = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    fn drawer(&self, panel: &gtk4::Box, shade: &Shade) {
+        let id = shade.id;
         let strip = Swatch::default();
         strip.set_color(Some(&shade.color));
         strip.add_css_class("color-card__swatch");
         panel.append(&strip);
         for notation in &shade.notations {
-            let row = LegacyRow::new();
+            let row = ActionRow::new();
             row.add_css_class("color-notation");
-            row.set_title(Some(notation.value.as_str()));
-            row.set_value(Some(notation.label.as_str()));
-            let (id, key) = (shade.id, notation.key.clone());
-            row.connect_clicked(glib::clone!(
+            let base: &Row = row.upcast_ref();
+            base.set_title(Some(notation.value.as_str()));
+            base.set_value(Some(notation.label.as_str()));
+            let key = notation.key.clone();
+            row.connect_activated(glib::clone!(
                 #[weak(rename_to = list)]
                 self,
                 move |_| list.emit_by_name::<()>("copied", &[&id, &key])
             ));
             panel.append(&row);
         }
-        panel
+        let copy = ActionRow::new();
+        copy.upcast_ref::<Row>()
+            .set_title(Some(gettext("Copy").as_str()));
+        copy.connect_activated(glib::clone!(
+            #[weak(rename_to = list)]
+            self,
+            move |_| list.emit_by_name::<()>("activated", &[&id])
+        ));
+        panel.append(&copy);
     }
 
     pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {

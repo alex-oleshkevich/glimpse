@@ -36,7 +36,11 @@ impl MprisPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_footer_row(&self.imp().footer, label);
+        let footer = &self.imp().footer;
+        footer.upcast_ref::<crate::Row>().set_title(label);
+        if footer.get_visible() != label.is_some() {
+            footer.set_visible(label.is_some());
+        }
     }
 
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
