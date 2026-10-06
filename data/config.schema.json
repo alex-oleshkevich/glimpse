@@ -1159,7 +1159,7 @@
           "required": []
         },
         "removable": {
-          "description": "Removable drives and their volumes, with mount, unmount and eject in its popover.",
+          "description": "Removable drives, one row each, with open and eject in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1188,7 +1188,7 @@
               ]
             },
             "volumes": {
-              "description": "How many volume rows the popover lists before the rest go behind a drawer.",
+              "description": "How many devices (drives, not their volumes) the popover lists before the rest go behind a\ndrawer.",
               "type": "integer",
               "format": "uint",
               "default": 6,
@@ -2614,7 +2614,7 @@
             ]
           },
           {
-            "description": "Removable drives and their volumes, with mount, unmount and eject in its popover.",
+            "description": "Removable drives, one row each, with open and eject in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -2643,7 +2643,7 @@
                 ]
               },
               "volumes": {
-                "description": "How many volume rows the popover lists before the rest go behind a drawer.",
+                "description": "How many devices (drives, not their volumes) the popover lists before the rest go behind a\ndrawer.",
                 "type": "integer",
                 "format": "uint",
                 "default": 6,

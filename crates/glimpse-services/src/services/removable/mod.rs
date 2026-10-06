@@ -170,6 +170,7 @@ pub enum Command {
     Unmount { id: VolumeId, reply: Reply },
     Eject { id: DriveId, reply: Reply },
     PowerOff { id: DriveId, reply: Reply },
+    Remove { id: DriveId, reply: Reply },
 }
 
 pub enum Event {
@@ -258,6 +259,10 @@ impl RemovableHandle {
 
     pub async fn power_off(&self, id: DriveId) -> Result<(), RemovableError> {
         self.call(|reply| Command::PowerOff { id, reply }).await
+    }
+
+    pub async fn remove(&self, id: DriveId) -> Result<(), RemovableError> {
+        self.call(|reply| Command::Remove { id, reply }).await
     }
 
     async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), RemovableError> {
@@ -460,16 +465,25 @@ impl Removable {
             }
             Command::Eject { id, reply } => {
                 let path = id.as_str().to_owned();
-                let mounted = self.mounted_on(&path);
+                let (mounted, locks) = (self.mounted_on(&path), self.unlocked_on(&path));
                 self.spawned_drive(ctx, id, Busy::Ejecting, Action::Eject, reply, async move {
-                    for volume in mounted {
-                        if let Err(error) = call::unmount(&connection, &volume).await
-                            && classify(Action::Unmount, &error).is_err()
-                        {
-                            return Err(error);
-                        }
-                    }
-                    call::eject(&connection, &path).await
+                    remove(mounted, locks, Finish::Eject, |step| {
+                        step.run(&connection, &path)
+                    })
+                    .await
+                });
+            }
+            Command::Remove { id, reply } => {
+                let path = id.as_str().to_owned();
+                let (mounted, locks) = (self.mounted_on(&path), self.unlocked_on(&path));
+                let finish = self.finish_for(&path);
+                let (busy, action) = match finish {
+                    Finish::Eject => (Busy::Ejecting, Action::Eject),
+                    Finish::PowerOff => (Busy::PoweringOff, Action::PowerOff),
+                    Finish::Nothing => (Busy::Unmounting, Action::Unmount),
+                };
+                self.spawned_drive(ctx, id, busy, action, reply, async move {
+                    remove(mounted, locks, finish, |step| step.run(&connection, &path)).await
                 });
             }
             Command::PowerOff { id, reply } => {
@@ -502,7 +516,13 @@ impl Removable {
             .into()));
             return;
         };
-        if record.busy.is_some() {
+        let drive_busy = record
+            .block
+            .as_ref()
+            .and_then(|block| block.drive.as_deref())
+            .and_then(|drive| self.drives.get(drive))
+            .is_some_and(|drive| drive.busy.is_some());
+        if record.busy.is_some() || drive_busy {
             let _ = reply.send(Err(CommandError::Unavailable(
                 "that volume is already busy".to_owned(),
             )
@@ -542,7 +562,11 @@ impl Removable {
             .into()));
             return;
         };
-        if record.busy.is_some() {
+        let volume_busy = self.blocks.values().any(|block| {
+            block.busy.is_some()
+                && block.block.as_ref().and_then(|b| b.drive.as_deref()) == Some(id.as_str())
+        });
+        if record.busy.is_some() || volume_busy {
             let _ = reply.send(Err(CommandError::Unavailable(
                 "that drive is already busy".to_owned(),
             )
@@ -564,6 +588,20 @@ impl Removable {
                 .await;
             let _ = reply.send(outcome.map_err(RemovableError::Failed));
         });
+    }
+
+    fn finish_for(&self, drive: &str) -> Finish {
+        let properties = self
+            .drives
+            .get(drive)
+            .and_then(|record| record.drive.as_ref());
+        if properties.and_then(|drive| drive.ejectable) == Some(true) {
+            Finish::Eject
+        } else if properties.and_then(|drive| drive.can_power_off) == Some(true) {
+            Finish::PowerOff
+        } else {
+            Finish::Nothing
+        }
     }
 
     fn any_mounted(&self) -> bool {
@@ -588,6 +626,18 @@ impl Removable {
                         .is_some_and(|points| !points.is_empty())
             })
             .map(|(path, _)| path.clone())
+            .collect()
+    }
+
+    fn unlocked_on(&self, drive: &str) -> Vec<String> {
+        self.blocks
+            .values()
+            .filter_map(|record| {
+                let block = record.block.as_ref()?;
+                (block.drive.as_deref() == Some(drive))
+                    .then(|| block.crypto_backing_device.clone())
+                    .flatten()
+            })
             .collect()
     }
 
@@ -758,9 +808,63 @@ fn reject(command: Command, reason: &str) {
         Command::Mount { reply, .. }
         | Command::Unmount { reply, .. }
         | Command::Eject { reply, .. }
-        | Command::PowerOff { reply, .. } => {
+        | Command::PowerOff { reply, .. }
+        | Command::Remove { reply, .. } => {
             let _ = reply.send(refused);
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Finish {
+    Eject,
+    PowerOff,
+    Nothing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Step {
+    Unmount(String),
+    Lock(String),
+    Eject,
+    PowerOff,
+}
+
+impl Step {
+    async fn run(self, connection: &zbus::Connection, drive: &str) -> zbus::Result<()> {
+        match self {
+            Self::Unmount(volume) => call::unmount(connection, &volume).await,
+            Self::Lock(backing) => call::lock(connection, &backing).await,
+            Self::Eject => call::eject(connection, drive).await,
+            Self::PowerOff => call::power_off(connection, drive).await,
+        }
+    }
+}
+
+async fn remove<F, Fut>(
+    volumes: Vec<String>,
+    locks: Vec<String>,
+    finish: Finish,
+    mut step: F,
+) -> zbus::Result<()>
+where
+    F: FnMut(Step) -> Fut,
+    Fut: Future<Output = zbus::Result<()>>,
+{
+    for volume in volumes {
+        if let Err(error) = step(Step::Unmount(volume)).await
+            && classify(Action::Unmount, &error).is_err()
+        {
+            return Err(error);
+        }
+    }
+    for backing in locks {
+        step(Step::Lock(backing)).await?;
+    }
+    match finish {
+        Finish::Eject => step(Step::Eject).await,
+        Finish::PowerOff => step(Step::PowerOff).await,
+        Finish::Nothing => Ok(()),
     }
 }
 

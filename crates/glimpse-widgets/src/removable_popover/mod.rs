@@ -5,11 +5,9 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{reconcile, set_action_label};
 
-use device::{Entry, Primary, Release};
-
 pub(crate) use device::RemovableDevice;
 
-pub use imp::{Drive, Volume};
+pub use imp::{Drive, Space, Volume};
 
 glib::wrapper! {
     pub struct RemovablePopover(ObjectSubclass<imp::RemovablePopover>)
@@ -78,14 +76,6 @@ impl RemovablePopover {
         )
     }
 
-    pub fn connect_unmount<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "unmount",
-            false,
-            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
-        )
-    }
-
     pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "footer-activated",
@@ -97,112 +87,53 @@ impl RemovablePopover {
     fn render_devices(&self) {
         let imp = self.imp();
         let (drives, rest) = imp.devices_data.borrow().clone();
-        let entries = flatten_devices(&drives);
-        let more = flatten_devices(&rest);
-        let any = !entries.is_empty() || !more.is_empty();
+        let any = !drives.is_empty() || !rest.is_empty();
         if imp.devices.get_visible() != any {
             imp.devices.set_visible(any);
         }
         reconcile::by_key(
             &*imp.devices_rows,
             &mut imp.devices_held.borrow_mut(),
-            &entries,
-            |entry| entry.id.clone(),
-            |entry| self.build_device(entry),
-            |device, entry| device.set_entry(entry),
+            &drives,
+            |drive| drive.id.clone(),
+            |drive| self.build_device(drive),
+            |device, drive| device.set_entry(drive),
         );
         reconcile::by_key(
             &*imp.more_rows,
             &mut imp.more_held.borrow_mut(),
-            &more,
-            |entry| entry.id.clone(),
-            |entry| self.build_device(entry),
-            |device, entry| device.set_entry(entry),
+            &rest,
+            |drive| drive.id.clone(),
+            |drive| self.build_device(drive),
+            |device, drive| device.set_entry(drive),
         );
     }
 
-    fn build_device(&self, entry: &Entry) -> RemovableDevice {
+    fn build_device(&self, _drive: &Drive) -> RemovableDevice {
         let device: RemovableDevice = glib::Object::new();
-        let key = entry.id.clone();
+        device.set_owner(self);
         device.imp().primary.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |_| popover.emit_by_name::<()>("activated", &[&key])
+            #[weak]
+            device,
+            move |_| {
+                let target = device.imp().open.borrow().clone();
+                if let Some(id) = target {
+                    popover.emit_by_name::<()>("activated", &[&id]);
+                }
+            }
         ));
         device.imp().release.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             #[weak]
             device,
-            move |_| match device.imp().release_action.borrow().clone() {
-                Some(Release::Eject(id)) => popover.emit_by_name::<()>("eject", &[&id]),
-                Some(Release::Unmount(id)) => popover.emit_by_name::<()>("unmount", &[&id]),
-                None => {}
+            move |_| {
+                let id = device.imp().drive.borrow().clone();
+                popover.emit_by_name::<()>("eject", &[&id]);
             }
         ));
         device
     }
-}
-
-fn release(drive: &Drive, volume: Option<&Volume>) -> Option<Release> {
-    if drive.ejectable {
-        return Some(Release::Eject(drive.id.clone()));
-    }
-    volume
-        .filter(|volume| volume.mounted)
-        .map(|volume| Release::Unmount(volume.id.clone()))
-}
-
-fn drive_entry(drive: &Drive) -> Entry {
-    Entry {
-        id: drive.id.clone(),
-        title: drive.title.clone(),
-        icon: drive.icon.clone(),
-        busy: drive.busy,
-        inactive: drive.dimmed,
-        problem: String::new(),
-        space: None,
-        facts: drive.facts.clone(),
-        primary: None,
-        release: release(drive, None).filter(|_| !drive.busy && !drive.dimmed),
-    }
-}
-
-fn volume_entry(id: String, drive: &Drive, volume: &Volume) -> Entry {
-    let busy = drive.busy || volume.busy;
-    Entry {
-        id,
-        title: volume.title.clone(),
-        icon: volume.icon.clone(),
-        busy,
-        inactive: !volume.mounted,
-        problem: volume.problem.clone(),
-        space: volume
-            .fraction
-            .filter(|_| volume.mounted)
-            .map(|fraction| (fraction, volume.space.clone())),
-        facts: volume.facts.clone(),
-        primary: Some(if volume.mounted {
-            Primary::Open
-        } else {
-            Primary::Mount
-        })
-        .filter(|_| !busy),
-        release: release(drive, Some(volume)).filter(|_| !busy),
-    }
-}
-
-fn flatten_devices(drives: &[Drive]) -> Vec<Entry> {
-    let mut entries = Vec::new();
-    for drive in drives {
-        match drive.volumes.as_slice() {
-            [] => entries.push(drive_entry(drive)),
-            volumes => {
-                entries.extend(volumes.iter().map(|volume| {
-                    volume_entry(format!("{}/{}", drive.id, volume.id), drive, volume)
-                }))
-            }
-        }
-    }
-    entries
 }

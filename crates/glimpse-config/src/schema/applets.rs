@@ -104,7 +104,7 @@ pub enum Kind {
     Printing(Printing),
     /// Shows when the microphone, camera or screen is in use.
     Privacy(Privacy),
-    /// Removable drives and their volumes, with mount, unmount and eject in its popover.
+    /// Removable drives, one row each, with open and eject in its popover.
     Removable(Removable),
     /// Measures on-screen pixel distances. A left click opens the lens to measure from the
     /// screen. Needs `glimpse-ruler`.
@@ -505,7 +505,8 @@ impl Default for Places {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Removable {
-    /// How many volume rows the popover lists before the rest go behind a drawer.
+    /// How many devices (drives, not their volumes) the popover lists before the rest go behind a
+    /// drawer.
     pub volumes: usize,
 }
 

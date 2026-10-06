@@ -26,32 +26,25 @@ fn removable_popover_widgets() {
         "the header carries no icon"
     );
 
-    let photos = |mounted: bool| RemovableVolume {
-        id: "photos".to_owned(),
-        title: "Cruzer \u{b7} Photos".to_owned(),
+    let kingston = |main_mounted: bool, extra_mounted: bool, busy: bool| RemovableDrive {
+        id: "kingston".to_owned(),
+        title: "Kingston DataTraveler".to_owned(),
         icon: "drive-multidisk-symbolic".to_owned(),
-        fraction: mounted.then_some(0.625),
-        space: "24 GB free of 64 GB".to_owned(),
-        mounted,
-        facts: vec![Fact::new("Filesystem", "exfat")],
-        ..Default::default()
-    };
-    let cruzer = |photos: RemovableVolume, backup_busy: bool| RemovableDrive {
-        id: "cruzer".to_owned(),
-        title: "SanDisk Cruzer".to_owned(),
-        ejectable: true,
-        facts: vec![Fact::new("Size", "128 GB")],
-        volumes: vec![
-            photos,
-            RemovableVolume {
-                id: "backup".to_owned(),
-                title: "Cruzer \u{b7} Backup".to_owned(),
-                icon: "drive-multidisk-symbolic".to_owned(),
-                busy: backup_busy,
-                facts: vec![Fact::new("Status", "Not mounted")],
-                ..Default::default()
-            },
-        ],
+        busy,
+        mounted: main_mounted,
+        space: main_mounted.then(|| RemovableSpace {
+            title: "Ventoy".to_owned(),
+            fraction: 0.29,
+            text: "41.2 GB free".to_owned(),
+        }),
+        volumes: vec![RemovableVolume {
+            id: "efi".to_owned(),
+            title: "VTOYEFI".to_owned(),
+            size: "32 MB".to_owned(),
+            mounted: extra_mounted,
+        }],
+        open: Some("ventoy".to_owned()),
+        removable: true,
         ..Default::default()
     };
     let show =
@@ -74,6 +67,7 @@ fn removable_popover_widgets() {
         }
         shown
     };
+    let extras = |device: &RemovableDevice| children_of::<ActionRow>(&*device.imp().extras);
 
     let activated = Rc::new(RefCell::new(Vec::<String>::new()));
     popover.connect_activated({
@@ -85,36 +79,35 @@ fn removable_popover_widgets() {
         let ejected = Rc::clone(&ejected);
         move |_, id| ejected.borrow_mut().push(id.to_owned())
     });
-    let unmounted = Rc::new(RefCell::new(Vec::<String>::new()));
-    popover.connect_unmount({
-        let unmounted = Rc::clone(&unmounted);
-        move |_, id| unmounted.borrow_mut().push(id.to_owned())
-    });
 
-    show(&popover, &[cruzer(photos(true), false)]);
+    show(&popover, &[kingston(true, true, false)]);
     assert!(imp.devices.get_visible());
     let cells = devices();
-    assert_eq!(
-        cells.len(),
-        2,
-        "a flat list: one row per volume, no drive header"
-    );
+    assert_eq!(cells.len(), 1, "one row per device, never one per volume");
     let first = cells[0].imp();
-    assert_eq!(first.row.title().as_deref(), Some("Cruzer \u{b7} Photos"));
+    assert_eq!(first.row.title().as_deref(), Some("Kingston DataTraveler"));
     assert_eq!(
         first.row.icon_name().as_deref(),
         Some("drive-multidisk-symbolic")
     );
-    assert!(!first.row.inactive(), "a mounted volume is not dimmed");
+    assert!(!first.row.inactive(), "nothing is dimmed");
+    assert!(
+        first.mounted.get_visible(),
+        "a mounted main volume wears the check"
+    );
     assert_eq!(
         drawer(&cells[0]),
-        ["MeterRow", "FactList", "ActionRow", "ActionRow"],
-        "capacity, facts, the primary action, then the release last"
+        ["MeterRow", "GtkBox", "ActionRow", "ActionRow"],
+        "space, the extra volumes, Open, then Eject last"
     );
-    assert!((first.space.level() - 0.625).abs() < f64::EPSILON);
+    assert_eq!(
+        first.space.upcast_ref::<Row>().title().as_deref(),
+        Some("Ventoy")
+    );
+    assert!((first.space.level() - 0.29).abs() < f64::EPSILON);
     assert_eq!(
         first.space.upcast_ref::<Row>().value().as_deref(),
-        Some("24 GB free of 64 GB")
+        Some("41.2 GB free")
     );
     assert_eq!(first.space.upcast_ref::<Row>().tone(), RowTone::Normal);
     assert_eq!(
@@ -135,153 +128,119 @@ fn removable_popover_widgets() {
         "the destructive action is the last child of the drawer"
     );
 
+    let rows = extras(&cells[0]);
+    assert_eq!(rows.len(), 1);
+    let efi: &Row = rows[0].upcast_ref();
+    assert_eq!(efi.title().as_deref(), Some("VTOYEFI"));
+    assert_eq!(efi.value().as_deref(), Some("32 MB"));
+    let efi_value = child_named::<gtk4::Label>(efi, "row__value");
+    assert!(
+        efi_value.get_visible(),
+        "the size stays visible beside the check"
+    );
+    assert!(
+        efi.imp().end().get_visible() && efi.imp().end().first_child().is_some(),
+        "a mounted extra volume wears the check"
+    );
+
     first.row.set_open(true);
     first.primary.emit_by_name::<()>("activated", &[]);
-    assert_eq!(activated.borrow().as_slice(), ["cruzer/photos"]);
+    assert_eq!(activated.borrow().as_slice(), ["ventoy"]);
+    rows[0].emit_by_name::<()>("activated", &[]);
+    assert_eq!(activated.borrow().last().map(String::as_str), Some("efi"));
     first.release.emit_by_name::<()>("activated", &[]);
-    assert_eq!(ejected.borrow().as_slice(), ["cruzer"]);
-    assert!(unmounted.borrow().is_empty());
+    assert_eq!(ejected.borrow().as_slice(), ["kingston"]);
 
-    let idle = cells[1].imp();
-    assert!(idle.row.inactive(), "an unmounted volume is dimmed");
-    assert!(idle.row.get_sensitive(), "a dimmed head stays openable");
+    show(&popover, &[kingston(false, false, false)]);
+    let idle = &devices()[0];
+    assert_eq!(idle, &cells[0], "an update keeps the same row");
     assert!(
-        idle.row.imp().head.is_sensitive(),
-        "the head itself takes the press that opens the drawer"
+        !idle.imp().mounted.get_visible(),
+        "unmounted wears no check"
+    );
+    assert!(
+        idle.imp().row.get_sensitive(),
+        "an unmounted head stays openable"
     );
     assert_eq!(
-        drawer(&cells[1]),
-        ["FactList", "ActionRow", "ActionRow"],
-        "no capacity meter without a mount"
+        drawer(idle),
+        ["GtkBox", "ActionRow", "ActionRow"],
+        "no meter without a mounted main volume"
     );
-    assert_eq!(
-        idle.primary.upcast_ref::<Row>().title().as_deref(),
-        Some("Mount")
-    );
-    assert_eq!(
-        idle.release.upcast_ref::<Row>().title().as_deref(),
-        Some("Eject")
-    );
-    idle.primary.emit_by_name::<()>("activated", &[]);
-    assert_eq!(
-        activated.borrow().last().map(String::as_str),
-        Some("cruzer/backup")
+    let rows = extras(idle);
+    assert!(
+        rows[0]
+            .upcast_ref::<Row>()
+            .imp()
+            .end()
+            .first_child()
+            .is_none(),
+        "an unmounted extra volume wears no check"
     );
 
-    let held = cells[0].clone();
-    let mut grown = photos(true);
-    grown.fraction = Some(0.75);
-    show(&popover, &[cruzer(grown, true)]);
-    let after = devices();
-    assert_eq!(after[0], held, "an unrelated update keeps the same row");
-    assert!((after[0].imp().space.level() - 0.75).abs() < f64::EPSILON);
-    assert!(after[1].imp().row.busy(), "work in flight spins");
+    show(&popover, &[kingston(true, true, true)]);
+    let busy = &devices()[0];
+    assert!(busy.imp().row.busy(), "work in flight spins the head");
+    for row in [&busy.imp().primary, &busy.imp().release] {
+        assert!(
+            row.get_visible() && !row.get_sensitive(),
+            "Open and Eject stay in place and take no second press"
+        );
+    }
+    let rows = extras(busy);
     assert!(
-        !after[1].imp().primary.get_visible(),
-        "a busy volume offers no Open or Mount"
+        rows[0].get_visible() && !rows[0].get_sensitive(),
+        "an extra volume stays in place and takes no press while busy"
     );
     assert!(
-        !after[1].imp().release.get_visible(),
-        "a busy volume offers no release"
-    );
-    assert!(
-        after[1].imp().row.subtitle().is_none(),
+        busy.imp().row.subtitle().is_none(),
         "busy is a spinner, never wording"
     );
 
-    show(
-        &popover,
-        &[RemovableDrive {
-            id: "stick".to_owned(),
-            title: "KINGSTON".to_owned(),
-            ejectable: false,
-            volumes: vec![RemovableVolume {
-                id: "vol".to_owned(),
-                title: "KINGSTON".to_owned(),
-                icon: "media-flash-symbolic".to_owned(),
-                mounted: true,
-                fraction: Some(1.0),
-                space: "0 B free of 16 GB".to_owned(),
-                problem: "No space left".to_owned(),
-                facts: vec![Fact::new("Filesystem", "fat32")],
-                ..Default::default()
-            }],
-            ..Default::default()
-        }],
-    );
-    let single = &devices()[0];
-    let warned = single.imp();
-    assert_eq!(warned.row.tone(), RowTone::Warning);
-    assert_eq!(warned.row.subtitle().as_deref(), Some("No space left"));
+    let mut refused = kingston(true, false, false);
+    refused.problem = "In use by an app".to_owned();
+    show(&popover, &[refused.clone()]);
+    let warned = devices()[0].clone();
+    assert_eq!(warned.imp().row.tone(), RowTone::Warning);
     assert_eq!(
-        warned.space.upcast_ref::<Row>().tone(),
+        warned.imp().row.subtitle().as_deref(),
+        Some("In use by an app")
+    );
+    assert_eq!(
+        warned.imp().space.upcast_ref::<Row>().tone(),
         RowTone::Warning,
-        "a problem tints the capacity meter"
+        "a problem tints the space meter"
     );
+    let mut full = kingston(true, false, false);
+    full.space.as_mut().expect("space").fraction = 1.0;
+    show(&popover, &[full]);
     assert_eq!(
-        warned.release.upcast_ref::<Row>().title().as_deref(),
-        Some("Unmount"),
-        "a mounted volume of a drive that cannot eject unmounts"
+        devices()[0].imp().space.upcast_ref::<Row>().tone(),
+        RowTone::Warning,
+        "a full volume tints the space meter"
     );
-    warned.release.emit_by_name::<()>("activated", &[]);
-    assert_eq!(unmounted.borrow().as_slice(), ["vol"]);
 
     let value_color = |row: &Row| row.imp().value.color();
-    let fact = children_of::<Row>(&*warned.facts)
-        .into_iter()
-        .next()
-        .expect("a fact row");
-    let head_value = warned.row.imp().head.upcast_ref::<Row>().clone();
-    head_value.set_value(Some("x"));
+    let lone_extra = |popover: &RemovablePopover| {
+        let device = popover.imp().devices_held.borrow()[0].1.clone();
+        extras(&device)[0].upcast_ref::<Row>().clone()
+    };
+    show(&popover, &[refused]);
+    let tinted = lone_extra(&popover);
     let plain = RemovablePopover::new();
-    show(
-        &plain,
-        &[RemovableDrive {
-            id: "ok".to_owned(),
-            title: "OK".to_owned(),
-            volumes: vec![RemovableVolume {
-                id: "v".to_owned(),
-                title: "OK".to_owned(),
-                mounted: true,
-                facts: vec![Fact::new("Filesystem", "fat32")],
-                ..Default::default()
-            }],
-            ..Default::default()
-        }],
-    );
-    let plain_fact = children_of::<Row>(&*plain.imp().devices_held.borrow()[0].1.imp().facts)
-        .into_iter()
-        .next()
-        .expect("a fact row");
+    show(&plain, &[kingston(true, false, false)]);
+    let calm = lone_extra(&plain);
     assert_eq!(
-        value_color(&fact),
-        value_color(&plain_fact),
-        "a fact inside a warning drawer is not tinted by the head's tone"
+        value_color(&tinted),
+        value_color(&calm),
+        "a value inside a warning drawer is not tinted by the head's tone"
     );
+    let head_value = warned.imp().row.imp().head.upcast_ref::<Row>().clone();
+    head_value.set_value(Some("x"));
     assert_ne!(
         value_color(&head_value),
-        value_color(&plain_fact),
+        value_color(&calm),
         "the head's own value is tinted"
-    );
-
-    show(
-        &popover,
-        &[RemovableDrive {
-            id: "dvd".to_owned(),
-            title: "DVD-RW".to_owned(),
-            icon: "drive-optical-symbolic".to_owned(),
-            ejectable: true,
-            dimmed: true,
-            facts: vec![Fact::new("Status", "No media")],
-            ..Default::default()
-        }],
-    );
-    let empty = &devices()[0];
-    assert!(empty.imp().row.inactive());
-    assert_eq!(
-        drawer(empty),
-        ["FactList"],
-        "a drive without media shows its status and offers no release"
     );
 
     show(
@@ -297,15 +256,17 @@ fn removable_popover_widgets() {
         "a row with an empty drawer does not open"
     );
 
+    show(&popover, &[]);
+    assert!(
+        !imp.devices.get_visible(),
+        "no device, no section: an empty reader is never listed"
+    );
+
     let width = |popover: &RemovablePopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
     let drive = |id: &str, label: &str| RemovableDrive {
         id: id.to_owned(),
         title: label.to_owned(),
-        volumes: vec![RemovableVolume {
-            id: "v".to_owned(),
-            title: label.to_owned(),
-            ..Default::default()
-        }],
+        open: Some("v".to_owned()),
         ..Default::default()
     };
     show(&popover, &[drive("d", "Backup")]);
@@ -316,7 +277,7 @@ fn removable_popover_widgets() {
     assert_eq!(
         width(&popover),
         floor,
-        "a 400-character volume label must not widen the card"
+        "a 400-character device name must not widen the card"
     );
 
     let more = Rc::new(Cell::new(0));
@@ -328,11 +289,7 @@ fn removable_popover_widgets() {
     let spare = |id: &str| RemovableDrive {
         id: id.to_owned(),
         title: id.to_owned(),
-        volumes: vec![RemovableVolume {
-            id: "v".to_owned(),
-            title: id.to_owned(),
-            ..Default::default()
-        }],
+        open: Some("v".to_owned()),
         ..Default::default()
     };
     popover.set_devices(&[spare("a")], &[spare("b"), spare("c")]);
@@ -369,7 +326,7 @@ fn removable_popover_widgets() {
     promoted.imp().primary.emit_by_name::<()>("activated", &[]);
     assert_eq!(
         moved.borrow().as_slice(),
-        ["b/v"],
+        ["v"],
         "a promoted row reports its own key"
     );
     popover.set_devices(&[spare("a")], &[spare("c"), spare("b")]);
@@ -381,7 +338,7 @@ fn removable_popover_widgets() {
     );
     let demoted = children_of::<RemovableDevice>(&*imp.more_rows)[1].clone();
     demoted.imp().primary.emit_by_name::<()>("activated", &[]);
-    assert_eq!(moved.borrow().last().map(String::as_str), Some("b/v"));
+    assert_eq!(moved.borrow().last().map(String::as_str), Some("v"));
     popover.set_overflow(None, true);
     assert!(!imp.devices_more.get_visible());
 

@@ -370,6 +370,7 @@ fn alias_warnings(document: &str, zones: &[&str], expected: &Kind) -> String {
         .without_time()
         .finish();
     tracing::subscriber::with_default(subscriber, || {
+        tracing::callsite::rebuild_interest_cache();
         let config: crate::Config = toml::from_str(document).expect("applets load");
         assert!(crate::unknown_applets(&config).is_empty());
         for _ in 0..3 {

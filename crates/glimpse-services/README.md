@@ -153,8 +153,10 @@ every secret and glimpse stores none** — a password typed before a join travel
 lock. **A PA name is never capped, only displayed.**
 
 **removable** — mirrors UDisks2 into one drive-grouped state, enumerated once and never polled.
-**`eject` unmounts this drive's mounted volumes first**, since `Drive.Eject` refuses with
-`DeviceBusy` otherwise. **Capacity is a `statvfs` sample** — `Filesystem.Size` is 0 for vfat/exfat.
+**`remove` and `eject` unmount this drive's mounted volumes and lock its unlocked ones first**,
+since `Drive.Eject` refuses with `DeviceBusy` otherwise; `remove` then ejects when the drive is
+ejectable, else powers off when it can, else stops, and a refused unmount or lock stops it before
+either. A drive command is refused while one of its volumes is busy, and the reverse. **Capacity is a `statvfs` sample** — `Filesystem.Size` is 0 for vfat/exfat.
 
 **kdeconnect** — mirrors `kdeconnectd` into a device list; each action is offered only while its
 plugin is loaded. **It never starts the daemon**: the owner is read with `GetNameOwner`, since every

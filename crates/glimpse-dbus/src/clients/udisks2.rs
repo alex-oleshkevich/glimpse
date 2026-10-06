@@ -29,6 +29,14 @@ pub trait Drive {
     fn power_off(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
 }
 
+#[zbus::proxy(
+    interface = "org.freedesktop.UDisks2.Encrypted",
+    default_service = "org.freedesktop.UDisks2"
+)]
+pub trait Encrypted {
+    fn lock(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
+}
+
 use super::{Properties, flag, number, text};
 
 const NAME: usize = 64;

@@ -192,12 +192,13 @@ content cannot change under its id — each render only rewrites the pin row's w
 `PlacesPopover`'s four independent `$Section`s each hide when they have nothing, with no exception
 and no placeholder. In `KdeconnectPopover`, **a card's rows are rebuilt only when its actions
 change**, so the row under the pointer of an open card is never swapped out, and a nearby row spins
-the moment it is pressed and ignores a second press while it does. In `RemovablePopover`, **every volume is one `ExpanderRow` in a flat list, keyed by id**, whose
-head opens the drawer even when idle (`inactive` dims it, nothing more). A drawer reads capacity
-`MeterRow`, facts, Open or Mount, then the destructive Eject (Unmount when the drive cannot eject)
-last. The device icon is the only icon in the popover, and busy is the row's spinner. The applet
-supplies the final "Drive · Volume" title. Overflow is an `ExpanderRow` "N more" whose drawer holds the
-same row widget, with the applet owning its open state and the `quiet` flag muting the echo.
+the moment it is pressed and ignores a second press while it does. In `RemovablePopover`, **every device is one `ExpanderRow` in a flat list, keyed by id**, whose
+head opens the drawer even when unmounted and carries the accent check while its main volume is
+mounted. A drawer reads the space `MeterRow`, one `ActionRow` per extra volume (its size beside the
+check, since a `Row`'s `[end]` slot no longer hides the value), Open, then the destructive Eject
+last; while busy they stay in place and insensitive. The device icon is the only icon in the
+popover, and busy is the head's spinner. Overflow is an `ExpanderRow` "N more" whose drawer holds
+the same row widget, with the applet owning its open state and the `quiet` flag muting the echo.
 
 ## PrintingPopover, PrivacyPopover, Swatch, ColorList, ColorPickerPopover and WorkspaceNamePopover
 
