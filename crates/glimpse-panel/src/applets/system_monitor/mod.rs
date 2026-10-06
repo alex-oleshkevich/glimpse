@@ -5,7 +5,8 @@ use glimpse_services::{SystemMonitorHandle, SystemMonitorState};
 use glimpse_widgets::{IndicatorSpec, SystemMonitorPopover};
 use gtk4::glib;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input};
 
 pub struct SystemMonitor {
@@ -16,7 +17,7 @@ pub struct SystemMonitor {
     warn_percent: u8,
     critical_percent: u8,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<SystemMonitorPopover>,
 }
@@ -31,10 +32,7 @@ impl Applet for SystemMonitor {
         self.warn_percent = cfg.warn_percent;
         self.critical_percent = cfg.critical_percent;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -55,10 +53,8 @@ impl Applet for SystemMonitor {
     fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = SystemMonitorPopover::new();
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -77,7 +73,7 @@ impl SystemMonitor {
             warn_percent: 85,
             critical_percent: 95,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -115,6 +111,6 @@ impl SystemMonitor {
             self.warn_percent,
             self.critical_percent,
         ));
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 }

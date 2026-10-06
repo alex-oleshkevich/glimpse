@@ -9,7 +9,8 @@ use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
 
 use super::popover;
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 use crate::applets::agenda::{self, Occasion};
 
@@ -22,7 +23,7 @@ pub struct Clock {
     settings: ClockConfig,
     twelve: bool,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     zone: Option<Tz>,
     events: Vec<Occasion>,
     truncated_from: Option<DateTime<Utc>>,
@@ -38,10 +39,7 @@ impl Applet for Clock {
         self.settings = clock.clone();
         self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.zone = clock
             .timezone
             .as_deref()
@@ -123,10 +121,8 @@ impl Applet for Clock {
         let opener = seat.opener();
         shown.connect_month_shown(move |_, _, _| opener.wake());
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
         shown.connect_link_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
@@ -143,7 +139,7 @@ impl Clock {
             settings: ClockConfig::default(),
             twelve: false,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             zone: None,
             events: agenda::occasions(&events.events),
             truncated_from: events.truncated_from,
@@ -156,7 +152,7 @@ impl Clock {
         shown.set_zones(&popover::zones(&self.settings.timezones));
         shown.set_twelve_hour(self.twelve);
         shown.set_markers(&popover::markers(&self.events, self.settings.hide_all_day));
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         self.paint(shown);
     }
 

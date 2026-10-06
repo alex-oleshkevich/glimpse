@@ -8,7 +8,8 @@ use glimpse_services::CalendarHandle;
 use glimpse_widgets::{IndicatorSpec, NextEventPopover};
 use gtk4::{gio, glib, prelude::*};
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, Opener};
 use crate::applets::agenda::{self, Occasion};
 
@@ -20,7 +21,7 @@ pub struct NextEvent {
     events: Vec<Occasion>,
     twelve: bool,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     chosen: Option<usize>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<NextEventPopover>,
@@ -35,10 +36,7 @@ impl Applet for NextEvent {
         self.settings = settings.clone();
         self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
 
         ctx.interval(MINUTE);
         self.refresh(&ctx.opener());
@@ -62,10 +60,8 @@ impl Applet for NextEvent {
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = NextEventPopover::new();
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
         shown.connect_join_activated(|_, url| agenda::open_http(url));
         shown.connect_open_event_activated(|_, url| agenda::open_http(url));
 
@@ -84,7 +80,7 @@ impl NextEvent {
             events: agenda::occasions(&events.events),
             twelve: false,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             chosen: None,
             spec: Vec::new(),
             shown: glib::WeakRef::default(),
@@ -150,7 +146,7 @@ impl NextEvent {
             return;
         };
         let clock = self.clock();
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         shown.set_upcoming(&render::upcoming(
             now,
             &self.events,

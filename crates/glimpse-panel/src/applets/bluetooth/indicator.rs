@@ -12,7 +12,8 @@ use gtk4::glib;
 use gtk4::prelude::*;
 use render::Asked;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
 
 use super::render;
@@ -22,7 +23,7 @@ pub struct Bluetooth {
     bluetooth: BluetoothHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     devices: usize,
     nearby: usize,
@@ -45,10 +46,7 @@ impl Applet for Bluetooth {
         self.devices = cfg.devices;
         self.nearby = cfg.nearby;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -264,10 +262,8 @@ impl Applet for Bluetooth {
             }
         });
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.expanded.set((false, false));
         self.nearby_toggled.set(false);
@@ -355,7 +351,7 @@ impl Bluetooth {
             bluetooth,
             notifications,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             devices: 6,
             nearby: 8,
@@ -389,7 +385,7 @@ impl Bluetooth {
         let hero = render::hero(&self.state);
         shown.set_adapter(&hero.title, &hero.icon, hero.on, hero.settable);
         shown.set_controls_sensitive(hero.controls);
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         shown.set_prompt(render::prompt(&self.state).as_ref());
 
         let listing = render::entries(

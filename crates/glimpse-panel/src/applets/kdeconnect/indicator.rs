@@ -10,7 +10,8 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
 use super::render;
@@ -23,7 +24,7 @@ pub struct Kdeconnect {
     state: Rc<RefCell<KdeconnectState>>,
     config: KdeconnectAppletConfig,
     tooltip_format: Option<String>,
-    footer: (String, Vec<String>),
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<KdeconnectPopover>,
     opener: Option<Opener>,
@@ -47,11 +48,13 @@ impl Applet for Kdeconnect {
         };
         self.config = cfg.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()))
-            .unwrap_or_else(default_footer);
+        self.footer.set(Some(
+            config
+                .common
+                .settings()
+                .map(|(label, command)| (label.to_owned(), command.to_vec()))
+                .unwrap_or_else(default_footer),
+        ));
         self.refresh();
     }
 
@@ -145,8 +148,8 @@ impl Applet for Kdeconnect {
             }
         });
 
-        let command = self.footer.1.clone();
-        shown.connect_footer_activated(move |_| run(&command));
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.opener = Some(seat.opener());
         self.shown.set(Some(&shown));
@@ -223,7 +226,7 @@ impl Kdeconnect {
             state: Rc::new(RefCell::new(state)),
             config: KdeconnectAppletConfig::default(),
             tooltip_format: None,
-            footer: default_footer(),
+            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
             opener: None,
@@ -249,7 +252,7 @@ impl Kdeconnect {
         shown.set_devices(&render::devices(&state));
         let (nearby, more) = render::nearby(&state);
         shown.set_nearby(&nearby, more.as_deref());
-        shown.set_footer(Some(self.footer.0.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

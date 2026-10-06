@@ -4,7 +4,8 @@ use glimpse_services::{KeyboardLayouts, LayoutRef};
 use glimpse_widgets::{IndicatorSpec, KeyboardPopover};
 use gtk4::glib;
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Direction, Input, Pointer, spawn_command};
 
 use super::render;
@@ -13,7 +14,7 @@ pub struct Keyboard {
     layouts: Option<KeyboardLayouts>,
     keyboard: KeyboardHandle,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<KeyboardPopover>,
 }
@@ -24,10 +25,7 @@ impl Applet for Keyboard {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
         self.refresh();
     }
 
@@ -66,10 +64,8 @@ impl Applet for Keyboard {
                 keyboard.switch(LayoutRef::Index { index }).await
             });
         });
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
         self.shown.set(Some(&shown));
         self.refresh();
         Some(Box::new(shown))
@@ -82,7 +78,7 @@ impl Keyboard {
             layouts: Some(keyboard.snapshot()),
             keyboard,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -122,7 +118,7 @@ impl Keyboard {
     }
 
     fn dress(&self, shown: &KeyboardPopover) {
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
         match self.layouts.as_ref() {
             Some(layouts) => shown.set_layouts(&render::rows(layouts)),
             None => shown.set_layouts(&[]),

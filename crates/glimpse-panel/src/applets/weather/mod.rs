@@ -10,7 +10,8 @@ use glimpse_dbus::weather::{WeatherProviderHandle, WeatherProviderState};
 use glimpse_widgets::{IndicatorSpec, Severity, WeatherPopover};
 use gtk4::{gio, glib, prelude::*};
 
-use crate::applet::popover::{PopoverHandle, Seat, run};
+use crate::applet::footer::Footer;
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 const MINUTE: Duration = Duration::from_secs(60);
@@ -23,7 +24,7 @@ pub struct Weather {
     place: Option<PlaceWeather>,
     twelve: bool,
     tooltip_format: Option<String>,
-    footer: Option<(String, Vec<String>)>,
+    footer: Footer,
     icon: Option<(String, gio::Icon)>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<WeatherPopover>,
@@ -47,10 +48,7 @@ impl Applet for Weather {
         self.settings = settings.clone();
         self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer = config
-            .common
-            .settings()
-            .map(|(label, command)| (label.to_owned(), command.to_vec()));
+        self.footer.configure(&config.common);
 
         ctx.interval(MINUTE);
         self.renew();
@@ -83,10 +81,8 @@ impl Applet for Weather {
     fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = WeatherPopover::new();
 
-        if let Some((_, command)) = &self.footer {
-            let command = command.clone();
-            shown.connect_footer_activated(move |_| run(&command));
-        }
+        let footer = self.footer.clone();
+        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh();
@@ -104,7 +100,7 @@ impl Weather {
             place: None,
             twelve: false,
             tooltip_format: None,
-            footer: None,
+            footer: Footer::default(),
             icon: None,
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
@@ -236,7 +232,7 @@ impl Weather {
     }
 
     fn dress(&self, shown: &WeatherPopover) {
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
+        shown.set_footer(self.footer.label().as_deref());
 
         let Some(place) = self.place.as_ref() else {
             shown.set_heading(

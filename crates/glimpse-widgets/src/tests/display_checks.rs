@@ -827,7 +827,9 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && display_popover
                 .imp()
-                .footer
+                .shell
+                .imp()
+                .footer_box
                 .has_css_class(crate::drawer::RECEDED)
             && display_popover
                 .imp()
@@ -847,7 +849,9 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && !display_popover
                 .imp()
-                .footer
+                .shell
+                .imp()
+                .footer_box
                 .has_css_class(crate::drawer::RECEDED)
             && !display_popover
                 .imp()
