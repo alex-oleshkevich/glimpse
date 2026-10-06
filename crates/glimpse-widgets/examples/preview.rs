@@ -839,11 +839,7 @@ mod fixtures {
             key: glimpse_widgets::alert_page(0),
             title: "Thunderstorm warning until 21:00".to_owned(),
             description: Some("Hail and gusts to 25 m/s are possible.".to_owned()),
-            facts: vec![
-                Fact::new("Issued", "14:05"),
-                Fact::new("Expires", "21:00"),
-                Fact::new("Source", "LHMT"),
-            ],
+            facts: Vec::new(),
         });
 
         popover.set_pages(&pages);

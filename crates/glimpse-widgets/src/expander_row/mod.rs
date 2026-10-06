@@ -40,6 +40,14 @@ impl ExpanderRow {
         self.imp().head.upcast_ref::<crate::Row>().clear_end();
     }
 
+    pub(crate) fn set_openable(&self, openable: bool) {
+        self.imp().expandable.set_openable(openable);
+        self.imp()
+            .head
+            .upcast_ref::<crate::Row>()
+            .set_chevron(openable);
+    }
+
     pub fn details(&self) -> gtk4::Box {
         self.imp().details.get()
     }

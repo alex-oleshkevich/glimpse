@@ -372,24 +372,18 @@ pub fn pages(place: &PlaceWeather, units: UnitSystem, cap: u8, twelve: bool) -> 
             }),
     );
 
-    pages.extend(place.alerts.iter().enumerate().map(|(index, alert)| {
-        let mut facts = Vec::new();
-        if let Some(starts) = alert.starts_at {
-            facts.push(fact(gettext("Issued"), clock_at(starts, offset, twelve)));
-        }
-        if let Some(expires) = alert.expires_at {
-            facts.push(fact(gettext("Expires"), clock_at(expires, offset, twelve)));
-        }
-        if let Some(source) = &alert.source {
-            facts.push(fact(gettext("Source"), source.clone()));
-        }
-        WeatherPage {
-            key: alert_page(index),
-            title: alert.headline.clone(),
-            description: alert.description.clone(),
-            facts,
-        }
-    }));
+    pages.extend(
+        place
+            .alerts
+            .iter()
+            .enumerate()
+            .map(|(index, alert)| WeatherPage {
+                key: alert_page(index),
+                title: alert.headline.clone(),
+                description: alert.description.clone(),
+                facts: Vec::new(),
+            }),
+    );
 
     pages
 }

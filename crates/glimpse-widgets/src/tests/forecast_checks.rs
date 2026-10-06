@@ -1,22 +1,12 @@
 use super::*;
 
 pub(super) fn check() {
-    let subclassed = ForecastDay::new();
-    let inherited: &LegacyRow = subclassed.upcast_ref();
-    inherited.set_lead_icon(Some("weather-clear-symbolic"));
-    assert_eq!(
-        child_named::<gtk4::Image>(&subclassed, "row__icon")
-            .icon_name()
-            .as_deref(),
-        Some("weather-clear-symbolic"),
-        "a LegacyRow subclass fills the lead through `lead-icon`; `icon-name` on a Gtk.Button is \
-             the parent's own property and would replace the row's child instead"
-    );
+    let day = ForecastDay::new();
     assert!(
-        child_named::<crate::RangeBar>(&subclassed, "range-bar")
+        child_named::<crate::RangeBar>(&day, "range-bar")
             .parent()
             .is_some(),
-        "and its template children land in the trail the parent declared"
+        "the day's range sits in the box an ExpanderRow carries in its end slot"
     );
 
     let strip = ForecastStrip::new();
@@ -102,12 +92,11 @@ pub(super) fn check() {
         None,
         "only the day given a reading marks one"
     );
-    let chances = all_named(&forecast, "forecast__precipitation");
     let chance = |index: usize| {
-        chances[index]
-            .clone()
-            .downcast::<gtk4::Label>()
-            .expect("label")
+        forecast.imp().holders.borrow()[index]
+            .1
+            .imp()
+            .precipitation
             .get_visible()
     };
     assert!(chance(0));
@@ -117,19 +106,15 @@ pub(super) fn check() {
     );
 
     assert!(
-        children_of::<LegacyRow>(&forecast).is_empty(),
-        "a day is parented with the panel that unfolds under it, not directly"
+        children_of::<ForecastDay>(&forecast).is_empty(),
+        "a day is the end of its own ExpanderRow, so it opens with the shell accordion"
     );
-    let second = forecast.imp().holders.borrow()[1].clone();
-    let second_day = second.head::<ForecastDay>().expect("a day row");
-    second_day.emit_clicked();
-    assert!(!second.expanded(), "a day with no detail does not open");
+    let second = forecast.imp().holders.borrow()[1].0.clone();
     forecast.set_details(&[None, Some(gtk4::Label::new(None).upcast())]);
-    second_day.emit_clicked();
-    assert!(
-        second.expanded(),
-        "a day with a detail opens under its own row"
-    );
+    second.imp().head.emit_by_name::<()>("activated", &[]);
+    assert!(second.open(), "a day with a detail opens under its own row");
+    forecast.set_details(&[None, None]);
+    assert!(!second.open(), "a day whose detail went away closes");
 
     let ends = |class: &str| {
         all_named(&forecast, class)

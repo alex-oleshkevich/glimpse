@@ -398,7 +398,10 @@ fn an_alert_becomes_a_notice_that_leads_to_its_own_page() {
         page.description.as_deref(),
         Some("Hail and gusts to 25 m/s.")
     );
-    assert_eq!(labels(&page.facts), ["Issued", "Expires", "Source"]);
+    assert!(
+        page.facts.is_empty(),
+        "an alert drawer is its description alone"
+    );
 }
 
 #[test]

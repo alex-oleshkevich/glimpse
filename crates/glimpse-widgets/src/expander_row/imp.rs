@@ -244,7 +244,7 @@ impl ObjectImpl for ExpanderRow {
                 .bidirectional()
                 .build();
         }
-        self.head.upcast_ref::<Row>().show_chevron();
+        self.head.upcast_ref::<Row>().set_chevron(true);
         self.head
             .update_state(&[accessible::State::Expanded(Some(false))]);
         self.expandable.connect_expanded_notify(glib::clone!(

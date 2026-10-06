@@ -33,9 +33,9 @@ impl Row {
         self.imp().sync_accessible();
     }
 
-    pub(crate) fn show_chevron(&self) {
-        if !self.imp().chevron.get_visible() {
-            self.imp().chevron.set_visible(true);
+    pub(crate) fn set_chevron(&self, visible: bool) {
+        if self.imp().chevron.get_visible() != visible {
+            self.imp().chevron.set_visible(visible);
         }
     }
 }

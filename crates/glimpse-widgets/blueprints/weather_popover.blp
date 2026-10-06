@@ -43,22 +43,24 @@ template $WeatherPopover: Gtk.Widget {
         orientation: horizontal;
       }
 
-      $Notice nowcast {
-        visible: false;
-      }
-
-      Gtk.Box alerts {
+      Gtk.Box {
         orientation: vertical;
-        visible: false;
+        spacing: 6;
 
-        styles [
-          "weather-popover__alerts",
-        ]
+        $Notice nowcast {
+          visible: false;
+        }
+
+        Gtk.Box alerts {
+          orientation: vertical;
+          spacing: 6;
+          visible: false;
+        }
       }
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

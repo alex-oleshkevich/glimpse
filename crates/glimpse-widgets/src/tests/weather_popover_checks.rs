@@ -11,14 +11,12 @@ pub(super) fn check() {
             .holders
             .borrow()
             .get(index)
-            .and_then(|holder| holder.last_child())
+            .map(|(row, _)| row.details())
+            .and_then(|details| details.ancestor(gtk4::Revealer::static_type()))
             .and_downcast::<gtk4::Revealer>()
     };
-    let alert_notices = |weather: &WeatherPopover| -> Vec<Notice> {
-        children_of::<Expandable>(&weather.imp().alerts.get())
-            .iter()
-            .filter_map(Expandable::head::<Notice>)
-            .collect()
+    let alert_rows = |weather: &WeatherPopover| -> Vec<ExpanderRow> {
+        children_of::<ExpanderRow>(&weather.imp().alerts.get())
     };
     let opened = |weather: &WeatherPopover| -> Option<String> {
         let imp = weather.imp();
@@ -28,14 +26,14 @@ pub(super) fn check() {
             .holders
             .borrow()
             .iter()
-            .position(Expandable::expanded)
+            .position(|(row, _)| row.open())
         {
             return Some(day_page(day as u32));
         }
         imp.notices
             .borrow()
             .iter()
-            .position(Expandable::expanded)
+            .position(ExpanderRow::open)
             .map(alert_page)
     };
     let press = |weather: &WeatherPopover, key: &str| {
@@ -45,18 +43,19 @@ pub(super) fn check() {
             .and_then(|at| at.parse::<usize>().ok())
         {
             imp.days.imp().holders.borrow()[day]
-                .head::<ForecastDay>()
-                .expect("a day row")
-                .emit_clicked();
+                .0
+                .imp()
+                .head
+                .emit_by_name::<()>("activated", &[]);
         }
         if let Some(alert) = key
             .strip_prefix("alert")
             .and_then(|at| at.parse::<usize>().ok())
         {
             imp.notices.borrow()[alert]
-                .head::<Notice>()
-                .expect("a notice")
-                .emit_by_name::<()>("clicked", &[]);
+                .imp()
+                .head
+                .emit_by_name::<()>("activated", &[]);
         }
     };
     let dimmed = |widget: &gtk4::Widget| {
@@ -97,12 +96,6 @@ pub(super) fn check() {
     assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
 
     assert_eq!(opened(&weather), None);
-    press(&weather, "day0");
-    assert_eq!(
-        opened(&weather),
-        None,
-        "a detail nothing built cannot be opened"
-    );
 
     weather.set_days(&[
         Day {
@@ -174,7 +167,7 @@ pub(super) fn check() {
         page: page.map(str::to_owned),
     };
 
-    assert!(alert_notices(&weather).is_empty());
+    assert!(alert_rows(&weather).is_empty());
     assert!(
         !weather.imp().alerts.get_visible(),
         "an empty alert box would still cost the space between it and the nowcast"
@@ -185,18 +178,27 @@ pub(super) fn check() {
         advisory("Wind advisory", None, Severity::Warning),
     ]);
 
-    let raised = alert_notices(&weather);
+    let raised = alert_rows(&weather);
     assert_eq!(raised.len(), 2);
-    assert!(raised[0].has_css_class("notice--error"));
+    assert_eq!(
+        (raised[0].tone(), raised[1].tone()),
+        (RowTone::Error, RowTone::Warning)
+    );
     assert!(
-        raised[0].can_target() && !raised[1].can_target(),
-        "a notice with a page leads somewhere and one without it only states something"
+        raised[0].tint() && raised[0].title_lines() == 2 && raised[0].subtitle().is_none(),
+        "an alert is a tinted headline; its source is a fact in the drawer"
     );
 
-    raised[0].emit_by_name::<()>("clicked", &[]);
+    press(&weather, "alert1");
+    assert_eq!(
+        opened(&weather),
+        None,
+        "an alert with nothing to read has no drawer"
+    );
+    press(&weather, "alert0");
     assert_eq!(opened(&weather).as_deref(), Some("alert0"));
 
-    raised[0].emit_by_name::<()>("clicked", &[]);
+    press(&weather, "alert0");
     assert_eq!(
         opened(&weather),
         None,
@@ -219,12 +221,12 @@ pub(super) fn check() {
 
     weather.set_alerts(&[advisory("Wind advisory", None, Severity::Warning)]);
     assert_eq!(
-        alert_notices(&weather).len(),
+        alert_rows(&weather).len(),
         1,
         "a cleared alert is unparented rather than left behind empty"
     );
     weather.set_alerts(&[]);
-    assert!(alert_notices(&weather).is_empty());
+    assert!(alert_rows(&weather).is_empty());
     assert!(!weather.imp().alerts.get_visible());
 
     weather.set_nowcast(None);

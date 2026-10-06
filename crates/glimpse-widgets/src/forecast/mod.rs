@@ -7,7 +7,7 @@ pub use hour::ForecastHour;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Expandable;
+use crate::{ExpanderRow, replace_children};
 
 pub(crate) const DEFAULT_UNIT: &str = "°";
 
@@ -140,8 +140,10 @@ impl ForecastList {
     }
 
     pub fn set_details(&self, details: &[Option<gtk4::Widget>]) {
-        for (index, holder) in self.imp().holders.borrow().iter().enumerate() {
-            holder.set_details(details.get(index).and_then(Option::as_ref));
+        for (index, (row, _)) in self.imp().holders.borrow().iter().enumerate() {
+            let detail = details.get(index).and_then(Option::as_ref);
+            row.set_openable(detail.is_some());
+            replace_children(&row.details(), detail);
         }
     }
 
@@ -154,16 +156,15 @@ impl ForecastList {
 
         for (index, day) in days.iter().enumerate() {
             if holders.len() == index {
-                let holder = Expandable::new(&ForecastDay::new());
-                holder.insert_after(self, holders.last());
-                holders.push(holder);
+                let row = ExpanderRow::new();
+                let forecast = ForecastDay::new();
+                row.set_end(&forecast);
+                row.insert_after(self, holders.last().map(|(last, _)| last));
+                holders.push((row, forecast));
             }
-            let Some(row) = holders[index].head::<ForecastDay>() else {
-                continue;
-            };
-            let item: &crate::LegacyRow = row.upcast_ref();
+            let (item, row) = &holders[index];
             item.set_title(Some(day.label.as_str()));
-            item.set_lead_icon(Some(day.icon_name.as_str()));
+            item.set_icon_name(Some(day.icon_name.as_str()));
             row.set_precipitation(
                 day.precipitation
                     .filter(|chance| *chance > 0)
@@ -176,8 +177,8 @@ impl ForecastList {
             row.bar().set_range(day.low, day.high);
             row.bar().set_now(day.now);
         }
-        for holder in holders.split_off(days.len()) {
-            holder.unparent();
+        for (row, _) in holders.split_off(days.len()) {
+            row.unparent();
         }
     }
 }

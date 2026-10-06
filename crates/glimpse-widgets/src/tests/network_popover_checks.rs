@@ -90,8 +90,8 @@ pub(super) fn check() {
         let imp = row.imp();
         let mut rows = Vec::new();
         for row in [
-            imp.connection.upcast_ref::<Row>(),
             imp.autoconnect.upcast_ref::<Row>(),
+            imp.connection.upcast_ref::<Row>(),
             imp.forget.upcast_ref::<Row>(),
         ] {
             if row.get_visible() {
@@ -202,7 +202,7 @@ pub(super) fn check() {
         joined.borrow().is_empty(),
         "opening a drawer sends no join command"
     );
-    opened[0]
+    opened[1]
         .clone()
         .downcast::<ActionRow>()
         .expect("an action")
@@ -224,7 +224,7 @@ pub(super) fn check() {
                 .push((id.to_owned(), action.to_owned(), on))
         }
     });
-    let setting = opened[1].clone().downcast::<ToggleRow>().expect("a toggle");
+    let setting = opened[0].clone().downcast::<ToggleRow>().expect("a toggle");
     setting.emit_by_name::<()>("activate", &[]);
     setting.emit_by_name::<()>("activate", &[]);
     assert_eq!(
@@ -326,7 +326,7 @@ pub(super) fn check() {
     network.set_entries(&entries);
     network.set_details(&[card("/ap/1")]);
     assert!(!status.has_css_class("accent"));
-    assert_eq!(net_rows("/ap/1")[0].title().as_deref(), Some("Connect"));
+    assert_eq!(net_rows("/ap/1")[1].title().as_deref(), Some("Connect"));
 
     let devices = [
         NetworkEntry {

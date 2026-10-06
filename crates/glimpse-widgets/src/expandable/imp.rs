@@ -13,6 +13,7 @@ pub type Toggle = (gtk4::Widget, glib::SignalHandlerId);
 pub struct Expandable {
     pub head: RefCell<Option<(gtk4::Widget, Option<Toggle>)>>,
     pub drawer: gtk4::Revealer,
+    pub inert: std::cell::Cell<bool>,
 
     #[property(name = "expanded", get = Self::expanded, set = Self::set_expanded, explicit_notify)]
     expanded: PhantomData<bool>,
@@ -23,6 +24,7 @@ impl Default for Expandable {
         Self {
             head: RefCell::default(),
             drawer: gtk4::Revealer::new(),
+            inert: std::cell::Cell::new(false),
             expanded: PhantomData,
         }
     }
@@ -34,7 +36,9 @@ impl Expandable {
     }
 
     fn set_expanded(&self, expanded: bool) {
-        if self.drawer.reveals_child() == expanded || expanded && self.drawer.child().is_none() {
+        if self.drawer.reveals_child() == expanded
+            || expanded && (self.drawer.child().is_none() || self.inert.get())
+        {
             return;
         }
         let obj = self.obj();

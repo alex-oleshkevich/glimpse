@@ -99,6 +99,13 @@ impl Expandable {
         }
     }
 
+    pub(crate) fn set_openable(&self, openable: bool) {
+        self.imp().inert.set(!openable);
+        if !openable {
+            self.set_expanded(false);
+        }
+    }
+
     pub fn details<T: IsA<gtk4::Widget>>(&self) -> Option<T> {
         self.imp().drawer.child().and_downcast()
     }
