@@ -58,7 +58,10 @@ pub(super) fn check() {
         let toggled = Rc::clone(&toggled);
         move |_, key| toggled.borrow_mut().push(key)
     });
-    player_rows[1].imp().row.emit_by_name::<()>("activated", &[]);
+    player_rows[1]
+        .imp()
+        .row
+        .emit_by_name::<()>("activated", &[]);
     toggle.emit_clicked();
     assert_eq!(*promoted.borrow(), ["vlc".to_owned()]);
     assert_eq!(
