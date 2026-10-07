@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use crate::{set_css_class, set_text};
 
-const NOW: &str = "forecast__now";
+const NOW: &str = "heading";
 
 mod imp {
     use super::*;
@@ -70,6 +70,7 @@ mod imp {
 
         fn set_now(&self, now: bool) {
             set_css_class(&*self.time, NOW, now);
+            set_css_class(&*self.time, "caption", !now);
         }
     }
 
