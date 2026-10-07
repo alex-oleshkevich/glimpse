@@ -29,11 +29,11 @@ fn a_cancel_is_no_measurements_and_no_error() {
 
 #[test]
 fn a_failure_carries_what_the_ruler_said() {
-    let stderr = b"glimpse-ruler: cannot capture the screen: no screencopy\n";
+    let stderr = b"glimpse-lens: cannot capture the screen: no screencopy\n";
 
     assert_eq!(
         answer(Some(1), b"", stderr),
-        Err("glimpse-ruler: cannot capture the screen: no screencopy".to_owned())
+        Err("glimpse-lens: cannot capture the screen: no screencopy".to_owned())
     );
     assert_eq!(answer(None, b"", b""), Err("the ruler failed".to_owned()));
 }
@@ -48,4 +48,17 @@ fn one_bad_line_fails_the_whole_batch() {
     let stdout = format!("{}\nnot json\n", line(1.0));
 
     assert!(answer(Some(0), stdout.as_bytes(), b"").is_err());
+}
+
+#[tokio::test]
+async fn a_missing_lens_says_it_cannot_run() {
+    let error = ProcessRunner::new("/nonexistent/glimpse-lens")
+        .measure()
+        .await
+        .unwrap_err();
+
+    assert!(
+        error.starts_with("cannot run /nonexistent/glimpse-lens"),
+        "{error}"
+    );
 }

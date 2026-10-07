@@ -2,8 +2,9 @@ use palette::{FromColor, Hsl, Hsv, Oklch, Srgb};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// The screen color picker. `glimpse-picker` reads it for the lens and the notation it prints;
-/// the panel reads it for the palette, which lives in the panel process and in memory only.
+/// The screen color picker. The panel's color picker reads it for the notation it copies and for
+/// the palette, which lives in the panel process and in memory only. The lens is configured by
+/// its own flags.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ColorPicker {
@@ -13,12 +14,6 @@ pub struct ColorPicker {
     /// How many colors the palette keeps, newest first. A pick beyond it drops the oldest.
     /// Clamped to 1..=64.
     pub limit: usize,
-    /// The lens's radius in logical pixels. Clamped to 40..=400.
-    pub lens_radius: u32,
-    /// How far the scroll wheel zooms the lens in, as a magnification: `30` shows one screen
-    /// pixel thirty logical pixels wide. The lens opens at x8, or at this if it is lower.
-    /// Clamped to 2..=64.
-    pub max_zoom: u32,
 }
 
 impl Default for ColorPicker {
@@ -26,8 +21,6 @@ impl Default for ColorPicker {
         Self {
             format: ColorFormat::Hex,
             limit: 8,
-            lens_radius: 106,
-            max_zoom: 30,
         }
     }
 }

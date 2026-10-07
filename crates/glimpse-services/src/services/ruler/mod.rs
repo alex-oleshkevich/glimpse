@@ -15,13 +15,12 @@ use crate::{
 
 use history::History;
 pub use history::Measurement;
-pub use runner::{Measured, ProcessRunner, Request as MeasureRequest, Runner};
+pub use runner::{Measured, ProcessRunner, Runner};
 
 const TEXT: &str = "text/plain;charset=utf-8";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
-    request: MeasureRequest,
     limit: usize,
 }
 
@@ -29,10 +28,6 @@ impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         let ruler = &document.ruler;
         Self {
-            request: MeasureRequest {
-                lens_radius: ruler.lens_radius.clamp(40, 400),
-                max_zoom: ruler.max_zoom.clamp(2, 64),
-            },
             limit: ruler.history_limit,
         }
     }
@@ -107,7 +102,6 @@ pub struct Ruler {
     selection: Arc<dyn Selection>,
     runner: Arc<dyn Runner>,
     history: History,
-    config: Config,
     pending: Option<(SourceGuard, oneshot::Sender<Result<(), CommandError>>)>,
 }
 
@@ -143,7 +137,6 @@ impl Service for Ruler {
             selection: dependencies.selection,
             runner: dependencies.runner,
             history: History::new(config.limit),
-            config,
             pending: None,
         })
     }
@@ -158,11 +151,8 @@ impl Service for Ruler {
                     return;
                 }
                 let runner = Arc::clone(&self.runner);
-                let request = self.config.request;
                 let guard =
-                    ctx.spawn(
-                        move |_ctx| async move { Event::Measured(runner.measure(request).await) },
-                    );
+                    ctx.spawn(move |_ctx| async move { Event::Measured(runner.measure().await) });
                 self.pending = Some((guard, reply));
             }
             Input::Command(Command::Copy { id, reply }) => {

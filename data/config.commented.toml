@@ -107,13 +107,9 @@
 [color-picker]
 # format = "hex"
 # limit = 8
-# lens-radius = 106
-# max-zoom = 30
 
 [ruler]
 # history-limit = 8
-# lens-radius = 106
-# max-zoom = 30
 
 [screenshot]
 # filename = "Screenshot from %Y-%m-%d %H-%M-%S.png"

@@ -1,7 +1,7 @@
 # glimpse-wayland
 
-Screen capture and the data-control clipboard, for the binaries that bind `wl_` objects: the picker,
-the ruler, the panel and the screenshot tool. A leaf library — `glimpse-services` never depends on
+Screen capture and the data-control clipboard, for the binaries that bind `wl_` objects: the panel
+and the screenshot tool. A leaf library — `glimpse-services` never depends on
 it, because no service crate may bind a Wayland object.
 
 ## Contents

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-07 15:38+0200\n"
+"POT-Creation-Date: 2026-10-07 21:38+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -134,8 +134,8 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:184
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:197
 #: crates/glimpse-shot/src/gui/result.rs:973
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:129
-#: crates/glimpse-widgets/blueprints/network_popover.blp:164
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:99
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:149
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:199
@@ -343,7 +343,7 @@ msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:239
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:258
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:14
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:12
 msgid "Sound"
 msgstr ""
 
@@ -363,13 +363,13 @@ msgid "That was not a valid value."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:312
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:27
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:24
 #: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
 msgid "Output"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:313
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:53
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
 msgid "Input"
 msgstr ""
 
@@ -402,7 +402,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:378
+#: crates/glimpse-widgets/src/lib.rs:376
 msgid "{percent}%"
 msgstr ""
 
@@ -445,7 +445,7 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:298
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:323
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:65
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:15
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
 msgid "Bluetooth"
 msgstr ""
 
@@ -511,7 +511,7 @@ msgid "Is this the code shown on the device?"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:162
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:134
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
 msgid "Confirm"
 msgstr ""
 
@@ -593,7 +593,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/network/indicator.rs:284
 #: crates/glimpse-panel/src/applets/network/indicator.rs:303
 #: crates/glimpse-panel/src/applets/network/render.rs:250
-#: crates/glimpse-widgets/blueprints/network_popover.blp:168
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
 #: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
 #: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
 msgid "Connect"
@@ -820,7 +820,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:513
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:14
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
 msgid "Clipboard"
 msgstr ""
 
@@ -910,7 +910,7 @@ msgid "Yesterday"
 msgstr "Вчера"
 
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:85
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:14
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
 msgid "Color picker"
 msgstr ""
 
@@ -939,7 +939,7 @@ msgid "Could not copy that color"
 msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/color_picker/render.rs:33
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:36
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
 msgid "Pick a color"
 msgstr ""
 
@@ -1017,26 +1017,37 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1157
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:407
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1159
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:478
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1162
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:412
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1164
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:483
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:104
-#: crates/glimpse-panel/src/applets/exec/mod.rs:141
+#: crates/glimpse-panel/src/applets/exec/mod.rs:99
+#: crates/glimpse-panel/src/applets/exec/mod.rs:134
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:202
+#: crates/glimpse-panel/src/applets/exec/mod.rs:212
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "The file did not open."
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:231
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:243
+#: crates/glimpse-panel/src/applets/exec/mod.rs:255
+msgid "The application did not start."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:290
 msgid "External applet is not running."
 msgstr ""
 
@@ -1150,7 +1161,7 @@ msgid "KDE Connect settings"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:14
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
 msgid "KDE Connect"
 msgstr ""
 
@@ -1278,8 +1289,8 @@ msgid "Network"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:216
-#: crates/glimpse-widgets/blueprints/network_popover.blp:15
-#: crates/glimpse-widgets/blueprints/network_popover.blp:53
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
 msgid "Wi-Fi"
 msgstr ""
 
@@ -1849,7 +1860,7 @@ msgstr "{count} рабочий стол"
 #: crates/glimpse-panel/src/applets/printing/render.rs:106
 #: crates/glimpse-panel/src/applets/printing/render.rs:139
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:254
-#: crates/glimpse-widgets/blueprints/printing_popover.blp:11
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:12
 msgid "Printing"
 msgstr ""
 
@@ -1959,7 +1970,7 @@ msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/removable/indicator.rs:162
 #: crates/glimpse-panel/src/applets/removable/render.rs:31
-#: crates/glimpse-widgets/blueprints/removable_popover.blp:11
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
 msgid "Removable"
 msgstr ""
 
@@ -2387,7 +2398,7 @@ msgid "Day length"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:218
-#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
@@ -2424,17 +2435,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/config_alert.rs:113
 msgid "Glimpse configuration has errors"
-msgstr ""
-
-#: crates/glimpse-ruler/src/session.rs:289
-msgid "total {length}px, {count} segment"
-msgid_plural "total {length}px, {count} segments"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-
-#: crates/glimpse-ruler/src/session.rs:302
-msgid "segment {length}px · {angle}°"
 msgstr ""
 
 #: crates/glimpse-shot/src/errors.rs:52
@@ -2604,21 +2604,21 @@ msgstr ""
 #: crates/glimpse-shot/src/portal.rs:128
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:622
+#: crates/glimpse-shot/src/portal/tests.rs:619
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 #, fuzzy
 #| msgid "Notifications"
 msgid "An application"
 msgstr "Уведомления"
 
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:79
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
 #, fuzzy
 #| msgid "Notifications"
 msgid "Applications"
 msgstr "Уведомления"
 
-#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:54
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:37
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
 msgid "Nearby devices"
 msgstr ""
 
@@ -2637,27 +2637,27 @@ msgstr "Назад"
 msgid "Next"
 msgstr "Вперёд"
 
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:37
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
 msgid "Some events on this day aren't shown."
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/calendar_popover.blp:49
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
 msgid "World clock"
 msgstr "Мировые часы"
 
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:32
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:29
 msgid "Search clipboard"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:40
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:37
 msgid "Pinned"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:47
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
 msgid "Recent"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:42
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
 msgid "Palette"
 msgstr ""
 
@@ -2727,32 +2727,32 @@ msgstr ""
 msgid "Other players"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:35
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
 msgid "Ethernet"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:44
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
 msgid "VPN"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:65
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
 msgid "Other networks"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:84
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
 msgid "Looking for networks…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/network_popover.blp:98
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
 msgid "Connect to a hidden network…"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:41
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr "Подробности"
 
-#: crates/glimpse-widgets/blueprints/next_event_popover.blp:50
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
 msgid "Coming up"
 msgstr "Далее"
 
@@ -2761,15 +2761,15 @@ msgstr "Далее"
 msgid "Dismiss"
 msgstr "Закрыть"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:29
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
 msgid "Notifications are unavailable"
 msgstr "Уведомления недоступны"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:39
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:36
 msgid "Nothing new"
 msgstr "Ничего нового"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:37
 msgid "You are all caught up."
 msgstr "Всё просмотрено."
 
@@ -2802,7 +2802,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:320
+#: crates/glimpse-widgets/src/lib.rs:318
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -2818,11 +2818,11 @@ msgstr ""
 msgid "Devices"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/printing_popover.blp:23
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:24
 msgid "Print jobs"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/printing_popover.blp:32
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:33
 msgid "Printers"
 msgstr ""
 
@@ -3651,7 +3651,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:319
+#: crates/glimpse-widgets/src/lib.rs:317
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:134
 msgid "Pause"
 msgstr "Пауза"
@@ -3694,7 +3694,7 @@ msgstr[0] "{count} уведомление"
 msgstr[1] "{count} уведомления"
 msgstr[2] "{count} уведомлений"
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:92
 msgid "Show notification popups while this is on"
 msgstr ""
 

@@ -313,7 +313,7 @@
           "required": []
         },
         "color-picker": {
-          "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs `glimpse-picker`.",
+          "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs a screenshot portal that answers\n`PickColor`; on glimpse that is `glimpse-shot` with `glimpse-lens`.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1202,7 +1202,7 @@
           "required": []
         },
         "ruler": {
-          "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-ruler`.",
+          "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-lens`.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1781,7 +1781,7 @@
             ]
           },
           {
-            "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs `glimpse-picker`.",
+            "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs a screenshot portal that answers\n`PickColor`; on glimpse that is `glimpse-shot` with `glimpse-lens`.",
             "type": "object",
             "properties": {
               "extends": {
@@ -2662,7 +2662,7 @@
             ]
           },
           {
-            "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-ruler`.",
+            "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-lens`.",
             "type": "object",
             "properties": {
               "extends": {
@@ -3182,9 +3182,7 @@
       "$ref": "#/$defs/ColorPicker",
       "default": {
         "format": "hex",
-        "lens-radius": 106,
-        "limit": 8,
-        "max-zoom": 30
+        "limit": 8
       }
     },
     "geolocation": {
@@ -3403,9 +3401,7 @@
     "ruler": {
       "$ref": "#/$defs/Ruler",
       "default": {
-        "history-limit": 8,
-        "lens-radius": 106,
-        "max-zoom": 30
+        "history-limit": 8
       }
     },
     "screenshot": {
@@ -3753,7 +3749,7 @@
       ]
     },
     "ColorPicker": {
-      "description": "The screen color picker. `glimpse-picker` reads it for the lens and the notation it prints;\nthe panel reads it for the palette, which lives in the panel process and in memory only.",
+      "description": "The screen color picker. The panel's color picker reads it for the notation it copies and for\nthe palette, which lives in the panel process and in memory only. The lens is configured by\nits own flags.",
       "type": "object",
       "properties": {
         "format": {
@@ -3761,25 +3757,11 @@
           "$ref": "#/$defs/ColorFormat",
           "default": "hex"
         },
-        "lens-radius": {
-          "description": "The lens's radius in logical pixels. Clamped to 40..=400.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 106,
-          "minimum": 0
-        },
         "limit": {
           "description": "How many colors the palette keeps, newest first. A pick beyond it drops the oldest.\nClamped to 1..=64.",
           "type": "integer",
           "format": "uint",
           "default": 8,
-          "minimum": 0
-        },
-        "max-zoom": {
-          "description": "How far the scroll wheel zooms the lens in, as a magnification: `30` shows one screen\npixel thirty logical pixels wide. The lens opens at x8, or at this if it is lower.\nClamped to 2..=64.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 30,
           "minimum": 0
         }
       },
@@ -4790,7 +4772,7 @@
       "additionalProperties": false
     },
     "Ruler": {
-      "description": "The screen ruler. `glimpse-ruler` reads the lens keys; the panel's ruler service keeps the\nhistory.",
+      "description": "The screen ruler. The panel's ruler service keeps the history; the lens is configured by its\nown flags.",
       "type": "object",
       "properties": {
         "history-limit": {
@@ -4798,20 +4780,6 @@
           "type": "integer",
           "format": "uint",
           "default": 8,
-          "minimum": 0
-        },
-        "lens-radius": {
-          "description": "The lens's radius in logical pixels. Clamped to 40..=400.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 106,
-          "minimum": 0
-        },
-        "max-zoom": {
-          "description": "How far the scroll wheel zooms the lens in, as a magnification. Clamped to 2..=64.",
-          "type": "integer",
-          "format": "uint32",
-          "default": 30,
           "minimum": 0
         }
       },

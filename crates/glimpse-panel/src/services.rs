@@ -17,7 +17,7 @@ use glimpse_services::{
     CompositorHandle, DdcBacklight, DesktopCatalog, Exec, ExecDependencies, ExecHandle, Heartbeat,
     HeartbeatHandle, Kdeconnect, KdeconnectHandle, Keyboard, KeyboardDependencies, KeyboardHandle,
     Mpris, MprisHandle, Network, NetworkDependencies, NetworkHandle, Places, PlacesHandle,
-    Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle, ProcessPicker,
+    PortalPicker, Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle,
     ProcessRulerRunner, Removable, RemovableHandle, Ruler, RulerDependencies, RulerHandle, Running,
     Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
     SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
@@ -155,18 +155,16 @@ impl PanelServices {
         let clipboard_served = buses.session_bus().ok().map(|connection| {
             crate::clipboard_provider::Served::start(connection.clone(), clipboard.clone())
         });
-        let program =
-            std::env::var("GLIMPSE_PICKER_BIN").unwrap_or_else(|_| "glimpse-picker".to_owned());
         let (color_picker_service, color_picker) = Running::<ColorPicker>::spawn(
             document,
             buses.clone(),
             ColorPickerDependencies {
                 selection: Arc::clone(&selection),
-                picker: Arc::new(ProcessPicker::new(program)),
+                picker: Arc::new(PortalPicker::new(buses.clone())),
             },
         );
         let ruler_program =
-            std::env::var("GLIMPSE_RULER_BIN").unwrap_or_else(|_| "glimpse-ruler".to_owned());
+            std::env::var("GLIMPSE_LENS_BIN").unwrap_or_else(|_| "glimpse-lens".to_owned());
         let (ruler_service, ruler) = Running::<Ruler>::spawn(
             document,
             buses.clone(),
