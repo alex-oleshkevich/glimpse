@@ -357,6 +357,20 @@ pub(super) fn check() {
         Some("42"),
         "AC-2: the hero readout carries the percentage"
     );
+    brightness.imp().primary.set_value(90.0);
+    brightness.set_sources(&[level("built-in", "Built-in", 42.0)]);
+    assert_eq!(
+        brightness.imp().primary.value(),
+        90.0,
+        "an unchanged snapshot leaves the dragged rail alone"
+    );
+    brightness.forget();
+    brightness.set_sources(&[level("built-in", "Built-in", 42.0)]);
+    assert_eq!(
+        brightness.imp().primary.value(),
+        42.0,
+        "after a failed command the same snapshot puts the rail back"
+    );
     assert_eq!(brightness.imp().readout.unit().as_deref(), Some("%"));
     assert!(
         brightness
