@@ -8,11 +8,8 @@ template $ClipboardPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "edit-paste-symbolic";
-      title: _("Clipboard");
-    }
+    icon-name: "edit-paste-symbolic";
+    title: _("Clipboard");
 
     Gtk.Box column {
       orientation: vertical;
@@ -60,13 +57,11 @@ template $ClipboardPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow clear {
       visible: false;
       icon-name: "edit-clear-all-symbolic";
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

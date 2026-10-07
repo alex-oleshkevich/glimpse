@@ -236,7 +236,7 @@ fn the_declared_vocabulary_is_the_documented_size() {
 
 #[test]
 fn notification_width_and_popup_frame_match_the_measured_surface() {
-    assert!(BUILTIN.contains(".notifications-popover {\n    --applet-popover-width: 40rem;\n}"));
+    assert!(BUILTIN.contains("--applet-popover-width-wide: 40rem;"));
     assert!(BUILTIN.contains(".notification {\n    min-width: 40rem;\n"));
     assert_eq!(BUILTIN.matches("min-width: 40rem;").count(), 1);
     assert!(!BUILTIN.contains("min-width: 42rem;"));

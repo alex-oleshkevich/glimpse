@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn check() {
     let audio = AudioPopover::new();
-    assert_eq!(audio.imp().hero.title().as_deref(), Some("Sound"));
+    assert_eq!(audio.imp().shell.title().as_deref(), Some("Sound"));
     assert!(
         !audio.imp().output.has_css_class("accent") && !audio.imp().input.has_css_class("accent"),
         "neither slider is accented; both take the default track the brightness slider uses"
@@ -10,12 +10,20 @@ pub(super) fn check() {
 
     audio.set_heading("audio-volume-muted-symbolic", Some("Speakers"), true);
     assert!(
-        audio.imp().hero.subtitle().as_deref() == Some("Speakers")
-            && audio.imp().hero.has_css_class("audio-popover__hero--muted"),
+        audio.imp().shell.subtitle().as_deref() == Some("Speakers")
+            && audio
+                .imp()
+                .shell
+                .has_css_class("audio-popover__header--muted"),
         "the header follows the output: its device, and the warning colour while muted"
     );
     audio.set_heading("audio-volume-high-symbolic", Some("Speakers"), false);
-    assert!(!audio.imp().hero.has_css_class("audio-popover__hero--muted"));
+    assert!(
+        !audio
+            .imp()
+            .shell
+            .has_css_class("audio-popover__header--muted")
+    );
 
     audio.set_footer(Some("Sound settings"));
     assert!(audio.imp().footer.get_visible());
@@ -227,7 +235,7 @@ pub(super) fn check() {
     assert!(
         dimmed(app_head("app-b").upcast_ref())
             && dimmed(audio.imp().output.upcast_ref())
-            && dimmed(audio.imp().hero.upcast_ref())
+            && dimmed(audio.imp().shell.imp().header.upcast_ref())
             && !dimmed(app_head("app-a").upcast_ref()),
         "everything the card is read against recedes while it is open"
     );

@@ -8,14 +8,11 @@ template $NextEventPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "appointment-soon-symbolic";
+    icon-name: "appointment-soon-symbolic";
 
-      [slot]
-      $Readout countdown {
-        visible: false;
-      }
+    [addon]
+    $Readout countdown {
+      visible: false;
     }
 
     Gtk.Box {
@@ -53,7 +50,6 @@ template $NextEventPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

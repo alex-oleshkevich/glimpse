@@ -376,10 +376,6 @@ popover separator {
     margin: 0.28rem 0.55rem;
 }
 
-.popover-shell__hero {
-    padding: 0.55rem 0.8rem;
-}
-
 .popover-shell__header {
     padding: var(--popover-shell-header-padding);
 }
@@ -709,18 +705,9 @@ listrow.row--destructive progressbar.meter-row__bar progress {
     color: var(--gl-dim);
 }
 
-.bluetooth-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .bluetooth-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
-}
-
-.clipboard-popover,
-.color-picker-popover {
-    --applet-popover-padding: 1.1rem;
 }
 
 .clipboard-popover .hero__title,
@@ -773,10 +760,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
     transform: rotate(90deg);
 }
 
-.ruler-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .clip-card__swatch,
 .color-card__swatch {
     min-height: 2.5rem;
@@ -790,10 +773,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
     color: var(--gl-muted);
 }
 
-.network-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .network-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
@@ -804,10 +783,11 @@ expandable.open > .clip-tile .clip-tile__badge image {
 }
 
 expandable {
-    border: 1px solid transparent;
+    border: none;
     border-radius: 0.9rem;
+    box-shadow: inset 0 0 0 1px transparent;
     transition: background-color var(--gl-duration) var(--gl-ease),
-        border-color var(--gl-duration) var(--gl-ease),
+        box-shadow var(--gl-duration) var(--gl-ease),
         opacity var(--gl-duration) var(--gl-ease);
 }
 
@@ -817,9 +797,8 @@ expandable {
 
 expandable.card {
     background-color: var(--gl-notification);
-    border-color: var(--gl-border);
     border-radius: 0.9rem;
-    box-shadow: none;
+    box-shadow: inset 0 0 0 1px var(--gl-border, currentColor);
 }
 
 listrow.row--open .row__chevron {
@@ -1018,10 +997,6 @@ expandable > revealer listrow {
 
 .notice--error .notice__icon {
     color: var(--gl-danger-text);
-}
-
-.notifications-popover {
-    --applet-popover-width: 40rem;
 }
 
 .notification {
@@ -1496,20 +1471,12 @@ window.notification-popup {
     transition: background-color var(--gl-duration) var(--gl-ease);
 }
 
-.audio-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .audio-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
 }
 
-.display-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
-.audio-popover__hero--muted .hero__icon {
+.audio-popover__header--muted .hero__icon {
     color: var(--gl-warning-text);
 }
 

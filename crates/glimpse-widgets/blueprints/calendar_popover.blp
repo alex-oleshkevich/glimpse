@@ -8,10 +8,7 @@ template $CalendarPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "x-office-calendar-symbolic";
-    }
+    icon-name: "x-office-calendar-symbolic";
 
     Gtk.Box {
       orientation: vertical;
@@ -56,7 +53,6 @@ template $CalendarPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

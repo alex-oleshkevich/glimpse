@@ -358,7 +358,8 @@ impl Applet for Exec {
         let footer = self.footer.clone();
         row.connect_activated(move |_| footer.run());
         dress_footer(&row, &self.footer);
-        shell.append_to_footer(&row);
+        shell.body().append(&row);
+        shell.body().set_visible(true);
         self.footer_row.set(Some(&row));
         Some(Box::new(shell))
     }

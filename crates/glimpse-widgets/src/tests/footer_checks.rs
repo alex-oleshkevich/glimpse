@@ -1,20 +1,27 @@
 use super::*;
 
-macro_rules! pinned {
+macro_rules! last_in_body {
     ($($popover:ident),+ $(,)?) => {$({
         let popover = $popover::new();
         let imp = popover.imp();
         assert_eq!(
-            imp.footer.parent().as_ref(),
-            Some(imp.shell.imp().footer_box.upcast_ref::<gtk4::Widget>()),
-            "{} keeps its footer row in the shell's pinned footer, not the scrolling body",
+            imp.shell.body().last_child().as_ref(),
+            Some(imp.footer.upcast_ref::<gtk4::Widget>()),
+            "{} keeps its footer row last in the shell's body",
             stringify!($popover),
         );
     })+};
 }
 
 pub fn check() {
-    pinned!(
+    last_in_body!(
+        AudioPopover,
+        KdeconnectPopover,
+        NextEventPopover,
+        ColorPickerPopover,
+        ClipboardPopover,
+        WeatherPopover,
+        CalendarPopover,
         BluetoothPopover,
         DisplayPopover,
         IdlePopover,
@@ -24,6 +31,7 @@ pub fn check() {
         PlacesPopover,
         PowerPopover,
         PrintingPopover,
+        RemovablePopover,
         RulerPopover,
         SessionPopover,
         SystemMonitorPopover,

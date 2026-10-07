@@ -8,6 +8,7 @@ template $PrintingPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
+    icon-name: "printer-symbolic";
     title: _("Printing");
 
     Gtk.Box column {
@@ -37,7 +38,6 @@ template $PrintingPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

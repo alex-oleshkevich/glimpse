@@ -186,6 +186,77 @@ fn reorder_keeps_widget_identity() {
 
 #[test]
 #[ignore = "needs a display"]
+fn settings_row_stays_last_after_body_renders() {
+    init();
+    let first = tree(vec![node(2, "row", json!({"title":"A"}), vec![])]);
+    let (shell, mut dom, _) = setup(&first);
+    let settings = ActionRow::new();
+    settings.set_property("title", Some("Settings"));
+    shell.body().append(&settings);
+    assert_eq!(
+        shell.body().last_child().as_ref(),
+        Some(settings.upcast_ref())
+    );
+
+    let next = first
+        .apply(vec![
+            Op::Insert {
+                parent: 1,
+                node: node(3, "row", json!({"title":"B"}), vec![]),
+                before: None,
+            },
+            Op::Insert {
+                parent: 1,
+                node: node(4, "row", json!({"title":"C"}), vec![]),
+                before: Some(2),
+            },
+            Op::Move {
+                parent: 1,
+                id: 3,
+                before: Some(4),
+            },
+        ])
+        .expect("body changes");
+    assert!(dom.reconcile(&next, 1));
+    assert_eq!(
+        shell.body().last_child().as_ref(),
+        Some(settings.upcast_ref())
+    );
+    assert_eq!(
+        settings.prev_sibling(),
+        Some(widget(&dom, 1, 2, ElementKind::Row))
+    );
+    assert_eq!(
+        shell.body().observe_children().n_items(),
+        4,
+        "all three body rows precede settings"
+    );
+
+    assert!(dom.reconcile(&next, 2));
+    assert_eq!(
+        shell.body().last_child().as_ref(),
+        Some(settings.upcast_ref())
+    );
+    assert_eq!(shell.body().observe_children().n_items(), 4);
+    assert_eq!(
+        settings.prev_sibling(),
+        Some(widget(&dom, 2, 2, ElementKind::Row))
+    );
+
+    assert!(dom.reconcile(&Tree::default(), 2));
+    assert_eq!(
+        shell.body().first_child().as_ref(),
+        Some(settings.upcast_ref())
+    );
+    assert_eq!(
+        shell.body().last_child().as_ref(),
+        Some(settings.upcast_ref())
+    );
+    assert!(shell.body().get_visible());
+}
+
+#[test]
+#[ignore = "needs a display"]
 fn set_dresses_only_touched_widget() {
     init();
     let first = tree(vec![

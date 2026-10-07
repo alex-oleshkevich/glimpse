@@ -17,20 +17,6 @@ template $PopoverShell: Gtk.Widget {
         ]
       }
 
-      Gtk.Box hero_box {
-        orientation: vertical;
-        visible: false;
-
-        styles [
-          "popover-shell__hero",
-        ]
-      }
-
-      Gtk.Separator hero_rule {
-        orientation: horizontal;
-        visible: false;
-      }
-
       Gtk.ScrolledWindow scroller {
         visible: bind body.visible;
         hscrollbar-policy: never;
@@ -45,21 +31,6 @@ template $PopoverShell: Gtk.Widget {
             "popover-body",
           ]
         }
-      }
-
-      Gtk.Separator footer_rule {
-        orientation: horizontal;
-        visible: false;
-      }
-
-      Gtk.Box footer_box {
-        orientation: horizontal;
-        spacing: 6;
-        visible: false;
-
-        styles [
-          "popover-shell__footer",
-        ]
       }
     }
   }

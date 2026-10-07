@@ -2,15 +2,13 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ClipboardList, Hero, Notice, PopoverShell, Section};
+use crate::{ActionRow, ClipboardList, Notice, PopoverShell, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/clipboard_popover.ui")]
 pub struct ClipboardPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub trouble: TemplateChild<Notice>,
     #[template_child]
@@ -41,7 +39,6 @@ impl ObjectSubclass for ClipboardPopover {
         // A Rust GType registers lazily, so a `$Name` nothing has instantiated is an unknown class
         // to the template builder.
         PopoverShell::static_type();
-        Hero::static_type();
         Notice::static_type();
         Section::static_type();
         ClipboardList::static_type();

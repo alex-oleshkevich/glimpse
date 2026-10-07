@@ -3,15 +3,13 @@ use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, CompositeTemplate, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ColorList, Hero, PopoverShell, Section, Swatch};
+use crate::{ActionRow, ColorList, PopoverShell, Section, Swatch};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/color_picker_popover.ui")]
 pub struct ColorPickerPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub latest: TemplateChild<Swatch>,
     #[template_child]
@@ -33,7 +31,6 @@ impl ObjectSubclass for ColorPickerPopover {
 
     fn class_init(klass: &mut Self::Class) {
         PopoverShell::static_type();
-        Hero::static_type();
         Section::static_type();
         ColorList::static_type();
         Swatch::static_type();
@@ -67,7 +64,7 @@ impl ObjectImpl for ColorPickerPopover {
 
     fn constructed(&self) {
         self.parent_constructed();
-        self.resting.replace(self.hero.title());
+        self.resting.replace(self.shell.title());
         let obj = self.obj();
         self.palette.connect_activated(glib::clone!(
             #[weak]

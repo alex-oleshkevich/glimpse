@@ -91,8 +91,9 @@ blurred card is translucent and would show a strip through its own bottom.
 
 ## Popovers
 
-Framed applet popovers use `PopoverShell`: optional hero, one content child, optional footer (a `[footer]` child; any other child scrolls with the body), a
-separator between each pair, and every separator paints transparent. **A row in a list is one line;
+Framed applet popovers use `PopoverShell`: `icon-name`, `title` and `subtitle` describe the header,
+`[addon]` fills its trailing slot, and plain children scroll in the body with the settings link last.
+The shell owns the surface and its regular or wide size. **A row in a list is one line;
 its second line is only ever a problem**, in `.row--warning` amber, so rows of a kind keep one height.
 **Facts precede actions in every drawer.**
 Cards have at most one destructive action, so Forget outranks Disconnect.

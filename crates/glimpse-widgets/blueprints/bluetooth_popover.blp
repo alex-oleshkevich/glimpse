@@ -8,6 +8,7 @@ template $BluetoothPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
+    icon-name: "bluetooth-symbolic";
 
     [addon]
     Gtk.Switch power {
@@ -138,7 +139,6 @@ template $BluetoothPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

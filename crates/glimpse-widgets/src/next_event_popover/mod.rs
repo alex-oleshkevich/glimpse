@@ -23,8 +23,8 @@ impl NextEventPopover {
 
     pub fn set_heading(&self, title: &str, subtitle: Option<&str>) {
         let imp = self.imp();
-        imp.hero.set_title(Some(title));
-        imp.hero.set_subtitle(subtitle);
+        imp.shell.set_title(Some(title));
+        imp.shell.set_subtitle(subtitle);
     }
 
     pub fn set_countdown(&self, countdown: Option<(&str, &str)>) {

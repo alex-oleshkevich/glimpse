@@ -119,7 +119,6 @@ fn widgets() {
     popover_shell_title_setter_short_circuits_check();
     applet_popover_size_sets_the_wide_class_and_short_circuits_check();
     container_paint_and_width_check();
-    header_only_shell_hides_the_footer_rule_check();
     row_checks::checks();
     expander_row_checks::check();
     slider_row_checks::check();
@@ -128,6 +127,7 @@ fn widgets() {
     held_display_readout_check();
     toggle_disabled_accessibility_check();
     footer_checks::check();
+    expander_row_checks::geometry();
 }
 
 fn held_display_readout_check() {
@@ -204,8 +204,9 @@ fn widget_demo_popover_shows_the_header_check() {
     assert_eq!(shell.size(), PopoverSize::Wide);
     switch.set_active(false);
     assert_eq!(shell.size(), PopoverSize::Regular);
-    shell.clear_content();
-    assert!(!child_named::<gtk4::Box>(&shell, "popover-shell__content").get_visible());
+    clear_children(&shell.body());
+    assert!(shell.body().first_child().is_none());
+    assert!(!shell.imp().scroller.get_visible());
     assert!(header.get_visible());
 }
 
@@ -246,14 +247,6 @@ fn container_paint_and_width_check() {
     container.set_width(99999);
     assert_eq!(container.width(), 1024);
     assert_eq!(container.size_request(), (1024, -1));
-}
-
-fn header_only_shell_hides_the_footer_rule_check() {
-    let shell = PopoverShell::new();
-    shell.set_title(Some("Only"));
-    shell.append_to_footer(&gtk4::Label::new(Some("foot")));
-    assert!(shell.imp().header.get_visible());
-    assert!(!shell.imp().footer_rule.get_visible());
 }
 
 fn popover_shell_title_setter_short_circuits_check() {

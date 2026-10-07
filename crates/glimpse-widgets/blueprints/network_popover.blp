@@ -8,6 +8,7 @@ template $NetworkPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
+    icon-name: "network-wireless-symbolic";
 
     [addon]
     Gtk.Switch wifi {
@@ -176,7 +177,6 @@ template $NetworkPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

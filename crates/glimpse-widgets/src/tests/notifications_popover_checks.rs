@@ -23,10 +23,16 @@ pub(super) fn check() {
     );
     let empty_width = popover.measure(gtk4::Orientation::Horizontal, -1).0;
 
+    assert_eq!(popover_imp.shell.size(), PopoverSize::Wide);
+    let scroller = &popover_imp.shell.imp().scroller;
     assert!(
-        popover_imp.scroller.propagates_natural_height()
-            && popover_imp.scroller.hscrollbar_policy() == gtk4::PolicyType::Never,
+        scroller.propagates_natural_height()
+            && scroller.hscrollbar_policy() == gtk4::PolicyType::Never,
         "a long notification feed scrolls vertically without changing the popover width"
+    );
+    assert_eq!(
+        popover_imp.column.parent().as_ref(),
+        Some(popover_imp.shell.body().upcast_ref())
     );
 
     popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);

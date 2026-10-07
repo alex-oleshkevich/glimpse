@@ -8,11 +8,8 @@ template $WorkspacesPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      title: _("Workspaces");
-      icon-name: "view-grid-symbolic";
-    }
+    title: _("Workspaces");
+    icon-name: "view-grid-symbolic";
 
     $WorkspaceList list {
       hexpand: true;

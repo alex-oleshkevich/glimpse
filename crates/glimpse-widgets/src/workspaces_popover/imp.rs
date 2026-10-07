@@ -4,15 +4,13 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, WorkspaceList};
+use crate::{PopoverShell, WorkspaceList};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/workspaces_popover.ui")]
 pub struct WorkspacesPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub list: TemplateChild<WorkspaceList>,
     pub rows: std::cell::RefCell<Vec<(u64, crate::ActionRow)>>,

@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, ExpanderRow, Hero, PopoverShell, Section, SliderRow, ToggleRow};
+use crate::{ActionRow, ExpanderRow, PopoverShell, Section, SliderRow, ToggleRow};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -40,8 +40,6 @@ pub struct Details {
 pub struct AudioPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub output: TemplateChild<SliderRow>,
     #[template_child]

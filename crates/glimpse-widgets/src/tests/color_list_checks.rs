@@ -113,9 +113,9 @@ pub(super) fn check() {
         "an empty palette is not a section with a placeholder in it"
     );
     assert_eq!(
-        picker.imp().hero.subtitle().as_deref(),
+        picker.imp().shell.subtitle().as_deref(),
         Some("Nothing picked yet"),
-        "the hero says there is nothing yet"
+        "the header says there is nothing yet"
     );
     let pick_requested = Rc::new(Cell::new(0));
     picker.connect_pick_requested({
@@ -126,14 +126,14 @@ pub(super) fn check() {
     assert_eq!(pick_requested.get(), 1);
     picker.set_latest(None);
     assert!(!picker.imp().latest.get_visible());
-    let resting = picker.imp().hero.title();
+    let resting = picker.imp().shell.title();
     picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
     assert!(picker.imp().latest.get_visible());
-    assert_eq!(picker.imp().hero.title().as_deref(), Some("#070000"));
+    assert_eq!(picker.imp().shell.title().as_deref(), Some("#070000"));
     picker.set_latest(None);
-    assert_eq!(picker.imp().hero.title(), resting);
+    assert_eq!(picker.imp().shell.title(), resting);
     picker.set_latest(Some(("#070000", rgba([7, 0, 0]))));
     picker.set_shades(&[shade(7, "#070000")]);
     assert!(picker.imp().palette_section.get_visible());
-    assert_eq!(picker.imp().hero.subtitle(), None);
+    assert_eq!(picker.imp().shell.subtitle(), None);
 }

@@ -44,8 +44,8 @@ fn clipboard_widgets() {
     let opened = rows(&clipboard.imp().recent)[0].clone();
     opened.set_open(true);
     assert!(
-        dimmed(clipboard.imp().hero.upcast_ref()),
-        "the hero is read against the open panel and must recede with everything else"
+        dimmed(clipboard.imp().shell.imp().header.upcast_ref()),
+        "the header is read against the open panel and must recede with everything else"
     );
     assert!(
         dimmed(clipboard.imp().clear.upcast_ref()) && dimmed(clipboard.imp().footer.upcast_ref()),
@@ -66,7 +66,7 @@ fn clipboard_widgets() {
     );
 
     opened.set_open(false);
-    assert!(!dimmed(clipboard.imp().hero.upcast_ref()));
+    assert!(!dimmed(clipboard.imp().shell.imp().header.upcast_ref()));
 
     // A press lands on the panel's own rows, so rebuilding them under a gesture swallows it.
     opened.set_open(true);

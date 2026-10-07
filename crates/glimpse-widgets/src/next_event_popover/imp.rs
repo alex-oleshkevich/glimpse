@@ -5,15 +5,13 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, EventList, Hero, PopoverShell, Readout, Section};
+use crate::{ActionRow, EventList, PopoverShell, Readout, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/next_event_popover.ui")]
 pub struct NextEventPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub countdown: TemplateChild<Readout>,
     #[template_child]
