@@ -194,9 +194,11 @@ A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unc
 PATH entries under the home directory receive no implicit grant. The host passes the applet's
 persistent state directory as `state` in `hello`. Stopping a child kills its
 process group and adopted scope; MemoryMax applies only when scope adoption succeeds.
-**A user press or activation arms a one-use, two-second gate** for copy
-and URI requests; close-popover needs the gate without spending it, and notifications bypass
-it at one per second. Lines past the rate cap are read later, never fatal; invalid JSON, oversized
+**A user press or activation arms a one-use, two-second gate** for copy,
+URI, launch and close-window requests; close-popover needs the gate without spending it, and notifications bypass
+it at one per second. MPRIS and compositor state reaches only an applet whose sandbox grants
+it, as one whole snapshot per change; their other commands skip the gate at ten a second. Launch starts only an id the sandbox
+lists. A file URI carries the applet's writable paths, and the panel refuses a file under them, an executable one, or a launcher type. Lines past the rate cap are read later, never fatal; invalid JSON, oversized
 lines, invalid trees, more than five `Hello`s in ten seconds and a full stdin queue stop only the
 offending child. Child stderr goes to the log, capped and rate-limited.
 

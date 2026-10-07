@@ -57,7 +57,7 @@ fn require_abi(version: i64) -> Result<(), String> {
     }
 }
 
-fn expanded(path: &str) -> Result<PathBuf, String> {
+pub(super) fn expanded(path: &str) -> Result<PathBuf, String> {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         dirs::home_dir()
             .map(|home| home.join(rest))

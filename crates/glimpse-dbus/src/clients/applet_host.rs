@@ -26,6 +26,7 @@ pub trait AppletHost {
         output: &str,
         zone: &str,
         options: &str,
+        grants: &str,
         to_applet: zbus::zvariant::Fd<'_>,
         from_applet: zbus::zvariant::Fd<'_>,
     ) -> zbus::Result<String>;

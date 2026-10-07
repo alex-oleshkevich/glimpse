@@ -509,6 +509,9 @@
               "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
               "$ref": "#/$defs/Sandbox",
               "default": {
+                "compositor": false,
+                "launch": [],
+                "mpris": false,
                 "network": false,
                 "read": [],
                 "unconfined": false,
@@ -1980,6 +1983,9 @@
                 "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
                 "$ref": "#/$defs/Sandbox",
                 "default": {
+                  "compositor": false,
+                  "launch": [],
+                  "mpris": false,
                   "network": false,
                   "read": [],
                   "unconfined": false,
@@ -3105,6 +3111,9 @@
               "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
               "$ref": "#/$defs/Sandbox",
               "default": {
+                "compositor": false,
+                "launch": [],
+                "mpris": false,
                 "network": false,
                 "read": [],
                 "unconfined": false,
@@ -4812,6 +4821,24 @@
       "description": "The confinement an exec applet runs under. Everything not granted here is denied.",
       "type": "object",
       "properties": {
+        "compositor": {
+          "description": "Whether the applet sees workspaces, windows and outputs, and may focus, move, rename and\nclose them.",
+          "type": "boolean",
+          "default": false
+        },
+        "launch": {
+          "description": "Desktop-file ids the applet may start after a click, e.g. `org.gnome.Nautilus`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "mpris": {
+          "description": "Whether the applet sees media players and may control them.",
+          "type": "boolean",
+          "default": false
+        },
         "network": {
           "description": "Whether the applet may reach the network: TCP, UDP and the system resolver.",
           "type": "boolean",

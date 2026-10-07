@@ -1,3 +1,4 @@
+mod bridge;
 mod catalog;
 mod sandbox;
 mod scope;
@@ -19,6 +20,8 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
 use crate::selection::{Offer as SelectionOffer, Selection};
+use crate::services::compositor::{CompositorHandle, CompositorState};
+use crate::services::mpris::{MprisHandle, MprisPlayers};
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, ServiceError, Sub};
 
 pub use sandbox::{exec_confine, exec_sandbox, exec_state_dir};
@@ -37,9 +40,9 @@ pub use tree::{
     SparklineProps, SpinnerProps, StackProps, SwitchProps, ToggleButtonProps, ToggleControl,
     ToggleRowProps, Tone, Transition, Tree, Violation,
 };
+use wire::CompositorCall;
 pub use wire::{
-    Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, Urgency,
-    WireNode, Zone,
+    Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, Urgency, WireNode, Zone,
 };
 
 const MAX_UPDATES_PER_SECOND: u32 = 120;
@@ -48,6 +51,8 @@ const OFFER_TTL: Duration = Duration::from_secs(5);
 const GESTURE: Duration = Duration::from_secs(2);
 const TEXT: &str = "text/plain;charset=utf-8";
 const URI_CAP: usize = 2048;
+const CALLS_PER_SECOND: u32 = 10;
+const NAME_CAP: usize = 256;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecState {
@@ -78,6 +83,8 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BarRequest {
     OpenUri(String),
+    OpenFile { uri: String, writable: Vec<PathBuf> },
+    Launch(String),
     ClosePopover,
 }
 
@@ -105,6 +112,8 @@ pub struct Dependencies {
     pub catalog: Arc<dyn Catalog>,
     pub selection: Arc<dyn Selection>,
     pub notifications: NotificationsProviderHandle,
+    pub mpris: MprisHandle,
+    pub compositor: CompositorHandle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +132,7 @@ pub struct Offer {
     pub position: Option<Edge>,
     pub entry: Entry,
     pub options: Map<String, Value>,
+    pub sandbox: glimpse_config::AppletSandbox,
     pub pipes: Pipes,
 }
 
@@ -137,6 +147,8 @@ pub enum SubKey {
     Backoff { slot: u64, spawn: u64 },
     Offer { applet: String, offered_at: Instant },
     Retry,
+    Mpris,
+    Compositor,
 }
 
 pub enum Event {
@@ -181,6 +193,8 @@ pub enum Event {
         offered_at: Instant,
     },
     Retry,
+    Mpris(MprisPlayers),
+    Compositor(CompositorState),
     RetryReady {
         slot: u64,
         spawn: u64,
@@ -215,7 +229,7 @@ pub enum Command {
     },
     Offer {
         applet: String,
-        offer: Offer,
+        offer: Box<Offer>,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
     OfferOptions {
@@ -290,7 +304,7 @@ impl ExecHandle {
     ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
         answered(self.submit(|reply| Command::Offer {
             applet: applet.to_owned(),
-            offer,
+            offer: Box::new(offer),
             reply,
         }))
     }
@@ -379,6 +393,7 @@ struct Slot {
     popover_open: bool,
     last_gesture: Option<Instant>,
     last_notify: Option<Instant>,
+    calls: (Instant, u32),
     warned_gate: bool,
     last_failed_reason: Option<String>,
     serial: u64,
@@ -398,6 +413,8 @@ pub struct Exec {
     next_spawn: u64,
     next_generation: u64,
     scope_warned: Arc<AtomicBool>,
+    mpris: Option<Value>,
+    compositor: Option<Value>,
 }
 
 impl Exec {
@@ -430,7 +447,7 @@ impl Exec {
             },
             placement,
             applet_id,
-            sandbox: glimpse_config::AppletSandbox::default(),
+            sandbox: offer.sandbox,
             state,
             entry: Some(offer.entry),
             catalog_refused: false,
@@ -443,6 +460,7 @@ impl Exec {
             popover_open: false,
             last_gesture: None,
             last_notify: None,
+            calls: (Instant::now(), 0),
             warned_gate: false,
             last_failed_reason: None,
             serial: 0,
@@ -578,6 +596,57 @@ impl Exec {
             }
             return;
         }
+        let oversized = match &request {
+            FromApplet::Mpris { player, .. } => player.len() > NAME_CAP,
+            FromApplet::Compositor {
+                call:
+                    CompositorCall::RenameWorkspace {
+                        name: Some(name), ..
+                    },
+            } => name.len() > NAME_CAP,
+            _ => false,
+        };
+        if oversized {
+            tracing::warn!(applet = %slot.public.applet, "applet sent an oversized service argument");
+            return;
+        }
+        let grant = match &request {
+            FromApplet::Mpris { .. } => Some(slot.sandbox.mpris),
+            FromApplet::Compositor { .. } => Some(slot.sandbox.compositor),
+            _ => None,
+        };
+        if grant == Some(false) {
+            tracing::warn!(applet = %slot.public.applet, "applet called a service it was not granted");
+            return;
+        }
+        let gated = !matches!(
+            request,
+            FromApplet::Mpris { .. }
+                | FromApplet::Compositor {
+                    call: CompositorCall::FocusWorkspace { .. }
+                        | CompositorCall::FocusWindow { .. }
+                        | CompositorCall::MoveWindow { .. }
+                        | CompositorCall::RenameWorkspace { .. },
+                }
+        );
+        if !gated {
+            if slot.calls.0.elapsed() >= Duration::from_secs(1) {
+                slot.calls = (Instant::now(), 0);
+            }
+            if slot.calls.1 >= CALLS_PER_SECOND {
+                tracing::warn!(applet = %slot.public.applet, "service call rate exceeded");
+                return;
+            }
+            slot.calls.1 += 1;
+            self.call(request, ctx);
+            return;
+        }
+        if let FromApplet::Launch { id } = &request
+            && !may_launch(&slot.sandbox, id)
+        {
+            tracing::warn!(applet = %slot.public.applet, "applet asked to launch an id it was not granted");
+            return;
+        }
         if let FromApplet::OpenUri { uri } = &request
             && !allowed_uri(uri)
         {
@@ -606,9 +675,71 @@ impl Exec {
                     }
                 }
             }
+            FromApplet::OpenUri { uri } if is_file(&uri) => {
+                let writable = slot
+                    .state
+                    .iter()
+                    .cloned()
+                    .chain(
+                        slot.sandbox
+                            .write
+                            .iter()
+                            .filter_map(|path| sandbox::expanded(path).ok()),
+                    )
+                    .collect();
+                slot.push_request(BarRequest::OpenFile { uri, writable });
+            }
             FromApplet::OpenUri { uri } => slot.push_request(BarRequest::OpenUri(uri)),
+            FromApplet::Launch { id } => slot.push_request(BarRequest::Launch(id)),
+            FromApplet::Compositor { .. } => self.call(request, ctx),
             FromApplet::ClosePopover => slot.push_request(BarRequest::ClosePopover),
             _ => {}
+        }
+    }
+}
+
+impl Exec {
+    fn call(&self, request: FromApplet, ctx: &Ctx<Self>) {
+        let mpris = self.dependencies.mpris.clone();
+        let compositor = self.dependencies.compositor.clone();
+        ctx.spawn_detached(move |_ctx| async move {
+            let result = match request {
+                FromApplet::Mpris { player, call } => bridge::mpris_call(mpris, player, call).await,
+                FromApplet::Compositor { call } => bridge::compositor_call(compositor, call).await,
+                _ => Ok(()),
+            };
+            if let Err(error) = result {
+                tracing::warn!(%error, "applet service call failed");
+            }
+        });
+    }
+
+    fn share(&mut self, name: &str, value: Value) {
+        let slot_value = match name {
+            "mpris" => &mut self.mpris,
+            _ => &mut self.compositor,
+        };
+        if slot_value.as_ref() == Some(&value) {
+            return;
+        }
+        *slot_value = Some(value.clone());
+        for slot in self.slots.values_mut() {
+            if Self::granted(slot, name) && matches!(slot.public.status, Status::Running) {
+                Self::send(
+                    slot,
+                    Outgoing::Service {
+                        name: name.to_owned(),
+                        value: value.clone(),
+                    },
+                );
+            }
+        }
+    }
+
+    fn granted(slot: &Slot, name: &str) -> bool {
+        match name {
+            "mpris" => slot.sandbox.mpris,
+            _ => slot.sandbox.compositor,
         }
     }
 }
@@ -623,10 +754,21 @@ impl Slot {
     }
 }
 
+fn is_file(uri: &str) -> bool {
+    uri.split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+}
+
+fn may_launch(sandbox: &glimpse_config::AppletSandbox, id: &str) -> bool {
+    let bare = |id: &str| id.strip_suffix(".desktop").unwrap_or(id).to_owned();
+    let id = bare(id);
+    !id.is_empty() && sandbox.launch.iter().any(|allowed| bare(allowed) == id)
+}
+
 fn allowed_uri(uri: &str) -> bool {
     uri.len() <= URI_CAP
         && uri.split_once(':').is_some_and(|(scheme, _)| {
-            ["http", "https", "mailto"]
+            ["http", "https", "mailto", "file"]
                 .iter()
                 .any(|allowed| scheme.eq_ignore_ascii_case(allowed))
         })
@@ -747,6 +889,27 @@ impl Service for Exec {
                 },
             ));
         }
+        let running = |grant: fn(&Slot) -> bool| {
+            self.slots.values().any(|slot| {
+                grant(slot) && matches!(slot.public.status, Status::Starting | Status::Running)
+            })
+        };
+        if running(|slot| slot.sandbox.mpris) {
+            subs.push(Sub::watch(
+                SubKey::Mpris,
+                self.dependencies.mpris.subscribe(),
+                Event::Mpris,
+                Event::Mpris(MprisPlayers::default()),
+            ));
+        }
+        if running(|slot| slot.sandbox.compositor) {
+            subs.push(Sub::watch(
+                SubKey::Compositor,
+                self.dependencies.compositor.subscribe(),
+                Event::Compositor,
+                Event::Compositor(CompositorState::default()),
+            ));
+        }
         if self.slots.values().any(|slot| {
             slot.origin == Origin::Spawned
                 && matches!(slot.public.status, Status::Failed(_) | Status::Running)
@@ -773,6 +936,8 @@ impl Service for Exec {
             next_spawn: 0,
             next_generation: 0,
             scope_warned: Arc::new(AtomicBool::new(false)),
+            mpris: None,
+            compositor: None,
         })
     }
 
@@ -860,6 +1025,7 @@ impl Service for Exec {
                         popover_open: false,
                         last_gesture: None,
                         last_notify: None,
+                        calls: (Instant::now(), 0),
                         warned_gate: false,
                         last_failed_reason,
                         serial: 0,
@@ -876,6 +1042,7 @@ impl Service for Exec {
                 offer,
                 reply,
             }) => {
+                let offer = *offer;
                 let id = self.desktop_id(&applet);
                 let result = if self.offers.contains_key(&id) || self.taken.contains_key(&id) {
                     tracing::info!(applet = %id, "offer refused, already attached");
@@ -911,6 +1078,7 @@ impl Service for Exec {
                         slot.pipes = Some(Arc::new(tokio::sync::Mutex::new(Some(offer.pipes))));
                         slot.entry = Some(offer.entry.clone());
                         slot.options = offer.options;
+                        slot.sandbox = offer.sandbox;
                         slot.public.title = offer.entry.name;
                         slot.public.icon = offer.entry.icon;
                         slot.public.status = Status::Starting;
@@ -1082,6 +1250,20 @@ impl Service for Exec {
                     if state.popover_open {
                         Self::send(state, Outgoing::Popover { open: true });
                     }
+                    for (name, value) in [("mpris", &self.mpris), ("compositor", &self.compositor)]
+                    {
+                        if let Some(value) = value
+                            && Self::granted(state, name)
+                        {
+                            Self::send(
+                                state,
+                                Outgoing::Service {
+                                    name: name.to_owned(),
+                                    value: value.clone(),
+                                },
+                            );
+                        }
+                    }
                 }
             }
             Input::Event(Event::Tree { slot, spawn, tree }) => {
@@ -1213,6 +1395,12 @@ impl Service for Exec {
                         });
                     }
                 }
+            }
+            Input::Event(Event::Mpris(players)) => {
+                self.share("mpris", bridge::mpris_value(&players));
+            }
+            Input::Event(Event::Compositor(state)) => {
+                self.share("compositor", bridge::compositor_value(&state));
             }
             Input::Event(Event::RetryReady {
                 slot,

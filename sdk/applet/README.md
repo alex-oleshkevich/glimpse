@@ -43,11 +43,15 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
 - Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopoverOpen`,
   `useAppletName` and `useStateDir`. `useStateDir` returns the applet's private, persistent
   directory.
-- Host requests: `notify`, `copy`, `openUri` and `closePopover`.
+- Host requests: `notify`, `copy`, `openUri`, `launch` and `closePopover`.
+- Services, each behind its own grant: `useMpris` with `mpris.*`, `useCompositor` with
+  `compositor.*`. `positionNow` advances a playing track's position.
 
 The applet runs in a sandbox. Beyond its state directory, it reaches only the paths the user
 grants under `[applets."<id>"] sandbox` in the glimpse config, and it has no network unless
-`network = true`.
+`network = true`. It sees media players only with `mpris = true` and workspaces and windows
+only with `compositor = true`, and `launch` starts only the desktop ids listed in
+`launch = [...]`.
 
 The wire format is specified in [PROTOCOL.md](PROTOCOL.md).
 

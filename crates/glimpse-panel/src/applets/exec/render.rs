@@ -181,5 +181,52 @@ pub fn pointer(pointer: Pointer) -> Option<(&'static str, Vec<Value>, bool)> {
     }
 }
 
+const LAUNCHERS: [&str; 11] = [
+    "application/x-desktop",
+    "application/x-executable",
+    "application/x-sharedlib",
+    "application/x-shellscript",
+    "application/x-ms-dos-executable",
+    "application/x-msdownload",
+    "application/x-msi",
+    "application/x-ms-shortcut",
+    "application/x-java-archive",
+    "application/vnd.appimage",
+    "application/x-flatpakref",
+];
+
+pub fn openable(
+    path: &std::path::Path,
+    writable: &[std::path::PathBuf],
+) -> Result<std::path::PathBuf, &'static str> {
+    use std::os::unix::fs::PermissionsExt;
+    let path = std::fs::canonicalize(path).map_err(|_| "missing")?;
+    if writable
+        .iter()
+        .filter_map(|root| std::fs::canonicalize(root).ok())
+        .any(|root| path.starts_with(root))
+    {
+        return Err("written by the applet");
+    }
+    let metadata = std::fs::metadata(&path).map_err(|_| "missing")?;
+    if metadata.is_dir() {
+        return Ok(path);
+    }
+    if !metadata.is_file() {
+        return Err("not a regular file");
+    }
+    if metadata.permissions().mode() & 0o111 != 0 {
+        return Err("executable");
+    }
+    let (content_type, _) = gio::content_type_guess(Some(&path), None);
+    if LAUNCHERS
+        .iter()
+        .any(|launcher| gio::content_type_is_a(&content_type, launcher))
+    {
+        return Err("launches programs");
+    }
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests;

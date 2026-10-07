@@ -19,6 +19,7 @@ export type Rendered = {
   click(id: number): Promise<void>;
   setOptions(options: Record<string, unknown>): Promise<void>;
   setPopoverOpen(open: boolean): Promise<void>;
+  setService(name: string, value: unknown): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -206,6 +207,7 @@ export async function render(
     },
     setOptions: (options) => send({ t: "options", options }),
     setPopoverOpen: (open) => send({ t: "popover", open }),
+    setService: (name, value) => send({ t: "service", name, value }),
     async close() {
       try {
         if (unmount) {

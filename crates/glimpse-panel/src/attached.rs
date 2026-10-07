@@ -250,6 +250,7 @@ impl AppletHost {
         output: &str,
         zone: &str,
         options: &str,
+        grants: &str,
         to_applet: Fd<'_>,
         from_applet: Fd<'_>,
         #[zbus(header)] header: zbus::message::Header<'_>,
@@ -261,6 +262,9 @@ impl AppletHost {
             .unwrap_or("");
         let result: zbus::fdo::Result<String> = async {
             check_options_size(options)?;
+            check_options_size(grants)?;
+            let grants: glimpse_config::AppletSandbox = serde_json::from_str(grants)
+                .map_err(|error| zbus::fdo::Error::InvalidArgs(error.to_string()))?;
             let layout = self.registry.lock().map_err(poisoned)?.layout.clone();
             let desktop_file = desktop_file.to_owned();
             let output = output.to_owned();
@@ -299,6 +303,7 @@ impl AppletHost {
                 position,
                 entry: valid.entry.clone(),
                 options: valid.options.clone(),
+                sandbox: grants,
                 pipes,
             };
             if let Err(error) = self.exec.offer(&id, offer).await {

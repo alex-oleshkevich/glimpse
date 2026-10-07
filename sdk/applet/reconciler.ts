@@ -69,6 +69,7 @@ type HostMessage =
   | { t: "options"; options?: Props }
   | { t: "placement"; placement?: Placement }
   | { t: "popover"; open?: boolean }
+  | { t: "service"; name?: string; value?: unknown }
   | {
     t: "event";
     id?: number;
@@ -103,6 +104,7 @@ export const placementStore = createStore<Placement | null>(null);
 export const nameStore = createStore("");
 export const stateStore = createStore("");
 export const openStore = createStore(false);
+export const servicesStore = createStore<Record<string, unknown>>({});
 
 class ProtocolLimitError extends Error {
   override name = "ProtocolLimitError";
@@ -615,6 +617,12 @@ function apply(message: HostMessage): void {
     openStore.set(message.open === true);
     return;
   }
+  if (message.t === "service") {
+    if (typeof message.name === "string") {
+      servicesStore.set({ ...servicesStore.get(), [message.name]: message.value });
+    }
+    return;
+  }
   if (message.t === "event") dispatchEvent(message);
 }
 
@@ -659,6 +667,7 @@ export async function session(
           nameStore.set(typeof message.name === "string" ? message.name : "");
           stateStore.set(typeof message.state === "string" ? message.state : "");
           openStore.set(false);
+          servicesStore.set({});
           await mountFresh(element);
           continue;
         }

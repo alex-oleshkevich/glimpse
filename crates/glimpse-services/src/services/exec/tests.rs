@@ -168,6 +168,18 @@ fn running_with(
         catalog,
         selection: Arc::new(selection.clone()),
         notifications: NotificationsProvider::unavailable("no bus in tests").handle(),
+        mpris: ServiceRuntime::<crate::services::mpris::Mpris>::new(
+            crate::services::mpris::Config::from(&glimpse_config::Config::default()),
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        )
+        .1,
+        compositor: ServiceRuntime::<crate::services::compositor::Compositor>::new(
+            crate::NoConfig,
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        )
+        .1,
     };
     let task = tokio::spawn(async move {
         let _state_dir = state_dir;
@@ -267,6 +279,7 @@ async fn offer_and_attach(
                 position: None,
                 entry: attached_entry(),
                 options,
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )

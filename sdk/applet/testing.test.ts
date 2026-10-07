@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import test from "node:test";
 import { createElement, useEffect, useState } from "react";
-import { closePopover, copy, notify, openUri, useOptions, usePlacement, usePopoverOpen, useStateDir } from "./index.ts";
+import { closePopover, compositor, copy, launch, mpris, notify, openUri, positionNow, useCompositor, useMpris, useOptions, usePlacement, usePopoverOpen, useStateDir } from "./index.ts";
 import { render } from "./testing.ts";
 
 test("testing host renders, dispatches, updates, and closes", async () => {
@@ -51,6 +51,50 @@ test("testing host renders, dispatches, updates, and closes", async () => {
   assert.deepEqual(view.requests().at(-1), { t: "copy", text: "button" });
   await view.close();
   await assert.rejects(view.click(row.id), /closed/);
+});
+
+test("services reach hooks and commands reach the host", async () => {
+  function App() {
+    const players = useMpris();
+    const desktop = useCompositor();
+    const player = players?.[0];
+    return createElement("popover", null,
+      createElement("actionrow", {
+        title: player?.title ?? "none",
+        onActivate: () => {
+          if (player) mpris.control(player.id, "next");
+          compositor.focusWorkspace({ index: 2 });
+          compositor.closeWindow(9);
+          launch("org.gnome.Nautilus");
+        },
+      }),
+      createElement("row", { title: desktop ? `${desktop.workspaces.length}` : "none" }),
+    );
+  }
+
+  const view = await render(createElement(App));
+  const children = () => (view.tree() as { children: Array<{ children: Array<{ id: number; props: Record<string, unknown> }> }> }).children[0].children;
+  assert.equal(children()[0].props.title, "none");
+  assert.equal(children()[1].props.title, "none");
+  const player = {
+    id: "spotify", identity: "Spotify", desktopEntry: null, playback: "playing", current: true,
+    title: "Song", artist: null, album: null, lengthUs: 10_000_000, positionUs: 1_000_000,
+    positionAt: 1_000, rate: 1, can: { play: true, pause: true, previous: true, next: true, seek: true },
+  } as const;
+  await view.setService("mpris", { players: [player] });
+  await view.setService("compositor", { name: "niri", workspaces: [{ id: 1 }, { id: 2 }], windows: [], outputs: [] });
+  assert.equal(children()[0].props.title, "Song");
+  assert.equal(children()[1].props.title, "2");
+  await view.click(children()[0].id);
+  assert.deepEqual(view.requests(), [
+    { t: "mpris", player: "spotify", op: "control", action: "next" },
+    { t: "compositor", op: "focus-workspace", target: { index: 2 } },
+    { t: "compositor", op: "close-window", id: 9 },
+    { t: "launch", id: "org.gnome.Nautilus" },
+  ]);
+  assert.equal(positionNow(player, 2_000), 2_000_000);
+  assert.equal(positionNow(player, 60_000), 10_000_000);
+  await view.close();
 });
 
 test("testing host applies set, move, and remove commits", async () => {

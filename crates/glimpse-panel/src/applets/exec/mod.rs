@@ -180,6 +180,42 @@ impl Exec {
     fn request(&self, request: &BarRequest, opener: &crate::applet::Opener) {
         match request {
             BarRequest::ClosePopover => opener.close_popover(),
+            BarRequest::OpenFile { uri, writable } => {
+                let file = gio::File::for_uri(uri);
+                let writable = writable.clone();
+                let report = self.report();
+                relm4::spawn_local(async move {
+                    let Some(path) = file.path() else {
+                        return;
+                    };
+                    let checked = gio::spawn_blocking(move || render::openable(&path, &writable))
+                        .await
+                        .unwrap_or(Err("unreadable"));
+                    let path = match checked {
+                        Ok(path) => path,
+                        Err(reason) => {
+                            tracing::warn!(reason, "applet file not opened");
+                            return;
+                        }
+                    };
+                    let context =
+                        gtk4::gdk::Display::default().map(|display| display.app_launch_context());
+                    if let Err(error) = gio::AppInfo::launch_default_for_uri_future(
+                        &gio::File::for_path(path).uri(),
+                        context.as_ref(),
+                    )
+                    .await
+                    {
+                        crate::applet::report_failure(
+                            "exec.open_file",
+                            report,
+                            Some(gettext("The file did not open.")),
+                            error,
+                        )
+                        .await;
+                    }
+                });
+            }
             BarRequest::OpenUri(uri) => {
                 let uri = uri.clone();
                 let report = self.report();
@@ -193,6 +229,30 @@ impl Exec {
                             "exec.open_uri",
                             report,
                             Some(gettext("The link did not open.")),
+                            error,
+                        )
+                        .await;
+                    }
+                });
+            }
+            BarRequest::Launch(id) => {
+                let id = if id.ends_with(".desktop") {
+                    id.clone()
+                } else {
+                    format!("{id}.desktop")
+                };
+                let report = self.report();
+                relm4::spawn_local(async move {
+                    let context =
+                        gtk4::gdk::Display::default().map(|display| display.app_launch_context());
+                    let launched = gio_unix::DesktopAppInfo::new(&id)
+                        .ok_or_else(|| glib::Error::new(gio::IOErrorEnum::NotFound, &id))
+                        .and_then(|app| app.launch(&[], context.as_ref()));
+                    if let Err(error) = launched {
+                        crate::applet::report_failure(
+                            "exec.launch",
+                            report,
+                            Some(gettext("The application did not start.")),
                             error,
                         )
                         .await;

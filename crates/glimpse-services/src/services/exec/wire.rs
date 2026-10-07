@@ -27,9 +27,86 @@ pub enum FromApplet {
     OpenUri {
         uri: String,
     },
+    Launch {
+        id: String,
+    },
+    Mpris {
+        player: String,
+        #[serde(flatten)]
+        call: MprisCall,
+    },
+    Compositor {
+        #[serde(flatten)]
+        call: CompositorCall,
+    },
     ClosePopover,
     #[serde(other)]
     Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "op", rename_all = "kebab-case")]
+pub enum MprisCall {
+    Control { action: MprisAction },
+    Seek { offset: i64 },
+    SetPosition { position: i64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MprisAction {
+    Play,
+    Pause,
+    PlayPause,
+    Stop,
+    Previous,
+    Next,
+    Raise,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "op", rename_all = "kebab-case")]
+pub enum CompositorCall {
+    FocusWorkspace {
+        target: WorkspaceTarget,
+    },
+    FocusWindow {
+        target: WindowTarget,
+    },
+    MoveWindow {
+        window: u64,
+        target: WorkspaceTarget,
+    },
+    RenameWorkspace {
+        id: u64,
+        name: Option<String>,
+    },
+    CloseWindow {
+        id: u64,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum WorkspaceTarget {
+    Id { id: u64 },
+    Index { index: u8 },
+    Name { name: String },
+    Step(Step),
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum WindowTarget {
+    Id { id: u64 },
+    Step(Step),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Step {
+    Next,
+    Prev,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -101,6 +178,10 @@ pub enum Outgoing {
     },
     Popover {
         open: bool,
+    },
+    Service {
+        name: String,
+        value: Value,
     },
 }
 
