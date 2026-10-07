@@ -30,23 +30,12 @@ pub struct Catcher {
     state: Cell<State>,
     center: Cell<i32>,
     dismissed: RefCell<Option<Box<dyn Fn()>>>,
+    shields: RefCell<Vec<gtk4::Window>>,
 }
 
 impl Catcher {
     pub fn new(monitor: Option<&gtk4::gdk::Monitor>, side: Position) -> Rc<Self> {
-        let window = gtk4::Window::new();
-        window.init_layer_shell();
-        window.set_namespace(Some("glimpse-popover"));
-        window.set_layer(Layer::Top);
-        window.set_keyboard_mode(KeyboardMode::None);
-        window.set_exclusive_zone(0);
-        window.add_css_class("popover-catcher");
-        for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
-            window.set_anchor(edge, true);
-        }
-        if let Some(monitor) = monitor {
-            window.set_monitor(Some(monitor));
-        }
+        let window = surface(monitor, 0);
 
         let slot = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         slot.set_opacity(0.0);
@@ -94,6 +83,7 @@ impl Catcher {
             state: Cell::default(),
             center: Cell::default(),
             dismissed: RefCell::default(),
+            shields: RefCell::default(),
         });
 
         catcher.arrow.set_draw_func({
@@ -163,6 +153,7 @@ impl Catcher {
             return;
         }
         self.body.append(child.as_ref());
+        self.shield();
         self.state.set(State::Opening);
         self.slot.set_opacity(0.0);
         self.window.present();
@@ -242,10 +233,11 @@ impl Catcher {
 
     pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position, blur: bool) {
         self.blur.set_enabled(blur);
-        if self.window.monitor().as_ref() != Some(monitor) {
+        let moved = self.window.monitor().as_ref() != Some(monitor);
+        if moved {
             self.window.set_monitor(Some(monitor));
         }
-        if side != self.side.get() {
+        if moved || side != self.side.get() {
             self.finish_close();
         }
         self.layout(side);
@@ -328,6 +320,38 @@ impl Catcher {
         }
     }
 
+    fn shield(self: &Rc<Self>) {
+        let Some(own) = self.window.monitor() else {
+            return;
+        };
+        let shields = own
+            .display()
+            .monitors()
+            .iter::<gtk4::gdk::Monitor>()
+            .flatten()
+            .filter(|monitor| *monitor != own)
+            .map(|monitor| {
+                let window = surface(Some(&monitor), -1);
+                let canvas = gtk4::DrawingArea::new();
+                canvas.set_draw_func(|_, _, _, _| {});
+                window.set_child(Some(&canvas));
+                let press = gtk4::GestureClick::new();
+                press.connect_pressed({
+                    let catcher = Rc::downgrade(self);
+                    move |_, _, _, _| {
+                        if let Some(catcher) = catcher.upgrade() {
+                            catcher.close();
+                        }
+                    }
+                });
+                window.add_controller(press);
+                window.present();
+                window
+            })
+            .collect();
+        self.shields.replace(shields);
+    }
+
     fn finish_close(&self) {
         self.release();
         self.window.set_visible(false);
@@ -337,12 +361,41 @@ impl Catcher {
         if let Some(child) = self.body.first_child() {
             self.body.remove(&child);
         }
+        for shield in self.shields.take() {
+            shield.destroy();
+        }
         self.slot.set_opacity(0.0);
         self.state.set(State::Closed);
         if let Some(dismissed) = self.dismissed.take() {
             dismissed();
         }
     }
+}
+
+impl Drop for Catcher {
+    fn drop(&mut self) {
+        for shield in self.shields.take() {
+            shield.destroy();
+        }
+        self.window.destroy();
+    }
+}
+
+fn surface(monitor: Option<&gtk4::gdk::Monitor>, zone: i32) -> gtk4::Window {
+    let window = gtk4::Window::new();
+    window.init_layer_shell();
+    window.set_namespace(Some("glimpse-popover"));
+    window.set_layer(Layer::Top);
+    window.set_keyboard_mode(KeyboardMode::None);
+    window.set_exclusive_zone(zone);
+    window.add_css_class("popover-catcher");
+    for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
+        window.set_anchor(edge, true);
+    }
+    if let Some(monitor) = monitor {
+        window.set_monitor(Some(monitor));
+    }
+    window
 }
 
 fn placement(center: i32, extent: i32, room: i32, arrow: i32) -> (i32, i32) {
