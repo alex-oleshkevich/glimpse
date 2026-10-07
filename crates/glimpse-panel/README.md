@@ -81,11 +81,13 @@ open popover alone, so a question arriving inside the fade is still shown.
 **A `Gtk.Popover` on a layer surface cannot be dismissed by a click elsewhere** — that dismissal is
 `xdg_popup.grab`, and `autohide(true)` with `KeyboardMode::OnDemand` (how GTK asks for the grab)
 leaves `focused-window` at `None` for as long as the popover is open. `applet/catcher.rs` instead
-holds a second layer surface over the whole output, mapped only while a popover is up, buying
-outside-click dismissal at the cost of hand-rolled placement and a drawn arrow. One catcher per
-panel means **one popover at a time is structural**, and `KeyboardMode::None` means `Escape`
-dismisses nothing. **Blur is a region, not the surface** — `[appearance] blur` hands
-`glimpse_widgets::blur` the body and arrow, never the catcher's own window.
+holds a second layer surface over the whole output, and a bare one over every other output, mapped
+only while a popover is up, buying outside-click dismissal at the cost of hand-rolled placement and
+a drawn arrow. **A layer surface that paints nothing is never mapped and takes no click**, so each
+bare surface holds an empty `DrawingArea`. One catcher per panel means **one popover at a time is
+structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. **Blur is a region, not
+the surface** — `[appearance] blur` hands `glimpse_widgets::blur` the body and arrow, never the
+catcher's own window.
 
 `Applet::anchor` names a widget in the view; `placement()` keeps the arrow centred on the pressed
 item and the body on the output with a gutter that yields when the arrow needs the room instead.
@@ -93,8 +95,8 @@ item and the body on the output with a gutter that yields when the arrow needs t
 compositor configures it: `open` waits on a tick callback for a real allocation, and that callback
 stays, re-settling whenever the body's measurement changes. **The catcher takes
 `set_exclusive_zone(0)`** and lets the compositor place it — margining by `config.size` would
-assume `set_thickness` is a minimum. **A position change closes an open popover**, since the anchor
-is one axis's coordinate and reusing it across orientations is arbitrary.
+assume `set_thickness` is a minimum. **A position or monitor change closes an open popover**, since the
+anchor is one axis's coordinate and reusing it across orientations is arbitrary.
 
 **The animation is `AdwTimedAnimation`, not a CSS transition** — a `transition: opacity` on the
 same node did not animate, and an unmapped widget or `gtk-enable-animations: false` skips to the

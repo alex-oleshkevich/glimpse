@@ -352,6 +352,12 @@ impl Catcher {
         self.shields.replace(shields);
     }
 
+    fn unshield(&self) {
+        for shield in self.shields.take() {
+            shield.destroy();
+        }
+    }
+
     fn finish_close(&self) {
         self.release();
         self.window.set_visible(false);
@@ -361,9 +367,7 @@ impl Catcher {
         if let Some(child) = self.body.first_child() {
             self.body.remove(&child);
         }
-        for shield in self.shields.take() {
-            shield.destroy();
-        }
+        self.unshield();
         self.slot.set_opacity(0.0);
         self.state.set(State::Closed);
         if let Some(dismissed) = self.dismissed.take() {
@@ -374,9 +378,7 @@ impl Catcher {
 
 impl Drop for Catcher {
     fn drop(&mut self) {
-        for shield in self.shields.take() {
-            shield.destroy();
-        }
+        self.unshield();
         self.window.destroy();
     }
 }
