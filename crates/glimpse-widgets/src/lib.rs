@@ -301,14 +301,6 @@ pub(crate) fn fade_out(
     }
 }
 
-pub(crate) fn set_footer_row(row: &crate::LegacyRow, label: Option<&str>) {
-    use gtk4::prelude::*;
-
-    row.set_visible(label.is_some());
-    row.set_title(label);
-    row.set_activatable(label.is_some());
-}
-
 pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     set_text_capped(label, value, TEXT_MAX_CHARS);
 }

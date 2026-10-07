@@ -29,30 +29,18 @@ template $AudioPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Fader output {
-            styles [
-              "audio-popover__level",
-            ]
-          }
-
-          $Expandable output_device {
-            $LegacyRow output_current {
-              [trail]
-              Gtk.Image {
-                icon-name: "go-next-symbolic";
-                accessible-role: presentation;
-
-                styles [
-                  "drawer-chevron",
-                ]
-              }
+          $SliderRow output {
+            [start]
+            Gtk.Button output_mute {
+              valign: center;
 
               styles [
-                "audio-popover__device",
+                "flat",
               ]
             }
+          }
 
-            [details]
+          $ExpanderRow output_device {
             Gtk.Box output_rows {
               orientation: vertical;
             }
@@ -67,30 +55,18 @@ template $AudioPopover: Gtk.Widget {
         Gtk.Box {
           orientation: vertical;
 
-          $Fader input {
-            styles [
-              "audio-popover__level",
-            ]
-          }
-
-          $Expandable input_device {
-            $LegacyRow input_current {
-              [trail]
-              Gtk.Image {
-                icon-name: "go-next-symbolic";
-                accessible-role: presentation;
-
-                styles [
-                  "drawer-chevron",
-                ]
-              }
+          $SliderRow input {
+            [start]
+            Gtk.Button input_mute {
+              valign: center;
 
               styles [
-                "audio-popover__device",
+                "flat",
               ]
             }
+          }
 
-            [details]
+          $ExpanderRow input_device {
             Gtk.Box input_rows {
               orientation: vertical;
             }
@@ -109,17 +85,16 @@ template $AudioPopover: Gtk.Widget {
             orientation: vertical;
           }
 
-          $LegacyRow more_apps {
+          $ActionRow more_apps {
             visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+            icon-name: "view-more-symbolic";
           }
         }
       }
     }
 
     [footer]
-    $LegacyRow footer {
+    $ActionRow footer {
       visible: false;
     }
   }

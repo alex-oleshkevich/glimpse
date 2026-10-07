@@ -6,7 +6,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Expandable, Fader, Hero, LegacyRow, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, Hero, PopoverShell, Section, SliderRow, ToggleRow};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Entry {
@@ -43,23 +43,23 @@ pub struct AudioPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
-    pub output: TemplateChild<Fader>,
+    pub output: TemplateChild<SliderRow>,
+    #[template_child]
+    pub output_mute: TemplateChild<gtk4::Button>,
     #[template_child]
     pub outputs: TemplateChild<Section>,
     #[template_child]
-    pub output_device: TemplateChild<Expandable>,
-    #[template_child]
-    pub output_current: TemplateChild<LegacyRow>,
+    pub output_device: TemplateChild<ExpanderRow>,
     #[template_child]
     pub output_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub input: TemplateChild<Fader>,
+    pub input: TemplateChild<SliderRow>,
+    #[template_child]
+    pub input_mute: TemplateChild<gtk4::Button>,
     #[template_child]
     pub inputs: TemplateChild<Section>,
     #[template_child]
-    pub input_device: TemplateChild<Expandable>,
-    #[template_child]
-    pub input_current: TemplateChild<LegacyRow>,
+    pub input_device: TemplateChild<ExpanderRow>,
     #[template_child]
     pub input_rows: TemplateChild<gtk4::Box>,
     #[template_child]
@@ -67,19 +67,19 @@ pub struct AudioPopover {
     #[template_child]
     pub app_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub more_apps: TemplateChild<LegacyRow>,
+    pub more_apps: TemplateChild<ActionRow>,
     #[template_child]
-    pub footer: TemplateChild<LegacyRow>,
+    pub footer: TemplateChild<ActionRow>,
 
     pub outputs_list: RefCell<Vec<Entry>>,
     pub inputs_list: RefCell<Vec<Entry>>,
     pub apps_list: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
-    pub output_held: RefCell<Vec<(String, LegacyRow)>>,
-    pub input_held: RefCell<Vec<(String, LegacyRow)>>,
-    pub app_held: RefCell<Vec<(String, Expandable)>>,
+    pub output_held: RefCell<Vec<(String, ToggleRow)>>,
+    pub input_held: RefCell<Vec<(String, ToggleRow)>>,
+    pub app_held: RefCell<Vec<(String, ExpanderRow)>>,
     pub blocks: RefCell<HashMap<String, Vec<(String, gtk4::Box)>>>,
-    pub block_devices: RefCell<HashMap<String, Vec<(String, LegacyRow)>>>,
+    pub block_devices: RefCell<HashMap<String, Vec<(String, ToggleRow)>>>,
 }
 
 #[glib::object_subclass]
@@ -147,6 +147,8 @@ impl ObjectImpl for AudioPopover {
     fn constructed(&self) {
         self.parent_constructed();
         let popover = self.obj();
+        self.output.set_range(0.0, 100.0);
+        self.input.set_range(0.0, 100.0);
 
         self.output.connect_changed(glib::clone!(
             #[weak]
@@ -162,10 +164,11 @@ impl ObjectImpl for AudioPopover {
                 popover.emit_by_name::<()>("level-moved", &[&"output".to_owned(), &value])
             }
         ));
-        self.output.connect_toggled(glib::clone!(
+        self.output_mute.connect_clicked(glib::clone!(
             #[weak]
             popover,
-            move |_, muted| {
+            move |_| {
+                let muted = !popover.imp().output.inactive();
                 popover.emit_by_name::<()>("level-toggled", &[&"output".to_owned(), &muted])
             }
         ));
@@ -176,20 +179,21 @@ impl ObjectImpl for AudioPopover {
                 popover.emit_by_name::<()>("level-changed", &[&"input".to_owned(), &value])
             }
         ));
-        self.input.connect_toggled(glib::clone!(
+        self.input_mute.connect_clicked(glib::clone!(
             #[weak]
             popover,
-            move |_, muted| {
+            move |_| {
+                let muted = !popover.imp().input.inactive();
                 popover.emit_by_name::<()>("level-toggled", &[&"input".to_owned(), &muted])
             }
         ));
 
-        self.more_apps.connect_clicked(glib::clone!(
+        self.more_apps.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"apps".to_owned()])
         ));
-        self.footer.connect_clicked(glib::clone!(
+        self.footer.connect_activated(glib::clone!(
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
