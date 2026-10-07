@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import test from "node:test";
 import { createElement, useEffect, useState } from "react";
-import { closePopover, copy, notify, openUri, sessionAction, useOptions, usePlacement, usePopoverOpen, useStateDir } from "./index.ts";
+import { closePopover, copy, notify, openUri, useOptions, usePlacement, usePopoverOpen, useStateDir } from "./index.ts";
 import { render } from "./testing.ts";
 
 test("testing host renders, dispatches, updates, and closes", async () => {
@@ -12,14 +12,13 @@ test("testing host renders, dispatches, updates, and closes", async () => {
     const options = useOptions<{ title?: string }>();
     const open = usePopoverOpen();
     return createElement("popover", null,
-      createElement("row", {
+      createElement("actionrow", {
         title: clicked ? "Clicked" : options.title,
         onActivate: () => {
           setClicked(true);
           copy("copied");
           notify({ summary: "done" });
           openUri("https://example.com");
-          sessionAction("lock");
           closePopover();
         },
       }),
@@ -41,7 +40,6 @@ test("testing host renders, dispatches, updates, and closes", async () => {
     { t: "copy", text: "copied" },
     { t: "notify", summary: "done" },
     { t: "open-uri", uri: "https://example.com" },
-    { t: "session", action: "lock" },
     { t: "close-popover" },
   ]);
   await view.setOptions({ title: "Changed" });

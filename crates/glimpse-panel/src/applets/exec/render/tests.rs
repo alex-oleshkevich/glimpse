@@ -27,22 +27,6 @@ fn a_continuous_scale_gets_a_usable_gtk_step() {
 }
 
 #[test]
-fn session_requests_map_to_dialog_or_direct_action() {
-    let state = SessionActionsState::default();
-    assert!(matches!(
-        session_input(&BarRequest::Session(SessionVerb::Reboot), &state),
-        Some(AppInput::SessionConfirm(SessionDialog {
-            action: SessionAction::Reboot,
-            ..
-        }))
-    ));
-    assert!(matches!(
-        session_input(&BarRequest::Session(SessionVerb::Lock), &state),
-        Some(AppInput::SessionRun(SessionAction::Lock))
-    ));
-}
-
-#[test]
 fn requests_survive_an_unchanged_tree() {
     let tree = Arc::new(Tree::default());
     let mut serial = 0;

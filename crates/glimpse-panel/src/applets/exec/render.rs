@@ -1,10 +1,7 @@
-use crate::app::{AppInput, SessionDialog};
 use crate::applet::{Button, Direction, Pointer};
 use glimpse_services::{
-    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps,
-    SessionVerb, Tree,
+    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps, Tree,
 };
-use glimpse_services::{SessionAction, SessionActionsState};
 use glimpse_widgets::{IndicatorSpec, Severity};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio};
@@ -141,35 +138,6 @@ pub fn ellipsize(value: Option<Ellipsize>) -> gtk4::pango::EllipsizeMode {
         Ellipsize::Middle => gtk4::pango::EllipsizeMode::Middle,
         Ellipsize::End => gtk4::pango::EllipsizeMode::End,
     }
-}
-
-pub fn action(request: &BarRequest) -> Option<SessionAction> {
-    let BarRequest::Session(verb) = request else {
-        return None;
-    };
-    Some(match verb {
-        SessionVerb::Lock => SessionAction::Lock,
-        SessionVerb::Suspend => SessionAction::Suspend,
-        SessionVerb::Hibernate => SessionAction::Hibernate,
-        SessionVerb::LogOut => SessionAction::LogOut,
-        SessionVerb::Reboot => SessionAction::Reboot,
-        SessionVerb::PowerOff => SessionAction::PowerOff,
-    })
-}
-
-pub fn session_input(request: &BarRequest, state: &SessionActionsState) -> Option<AppInput> {
-    let action = action(request)?;
-    Some(
-        match crate::applets::session::render::confirm(state, action.clone()) {
-            Some((title, body, accept)) => AppInput::SessionConfirm(SessionDialog {
-                title,
-                body,
-                accept,
-                action,
-            }),
-            None => AppInput::SessionRun(action),
-        },
-    )
 }
 
 pub fn requests_before_tree_check(

@@ -198,7 +198,7 @@ export async function render(
     click(id) {
       if (closed) return Promise.reject(new Error("rendered session is closed"));
       const node = nodes.get(id);
-      const handler = node?.type === "row" ? "onActivate" : node?.type === "button" ? "onClick" : undefined;
+      const handler = node?.type === "actionrow" ? "onActivate" : node?.type === "button" ? "onClick" : undefined;
       if (!node || !handler || node.props[handler] !== true) {
         return Promise.reject(new Error(`node ${id} has no ${handler ?? "click"} handler`));
       }

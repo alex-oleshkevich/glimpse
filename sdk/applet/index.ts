@@ -101,53 +101,11 @@ export const Container = "container" as unknown as FC<{
   children?: Node;
 }>;
 
-export const Hero = "hero" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  className?: ClassName;
-  children?: Node;
-}>;
-
 export const Section = "section" as unknown as FC<{
   title?: string;
   count?: string;
   className?: ClassName;
   children?: Node;
-}>;
-
-export const Row = "row" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  value?: string;
-  selected?: boolean;
-  busy?: boolean;
-  chevron?: boolean;
-  className?: ClassName;
-  onActivate?: () => void;
-  children?: Node;
-}>;
-
-export const SwitchRow = "switchrow" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  active?: boolean;
-  busy?: boolean;
-  className?: ClassName;
-  onToggle?: (active: boolean) => void;
-}>;
-
-export const Fader = "fader" as unknown as FC<{
-  icon?: string;
-  value?: number;
-  maximum?: number;
-  floor?: number;
-  muted?: boolean;
-  className?: ClassName;
-  onChange?: (value: number) => void;
-  onMute?: () => void;
 }>;
 
 export type RowTone = "warning" | "error" | "destructive";
@@ -164,6 +122,9 @@ type RowProps = {
   busy?: boolean;
 };
 
+export const Row = "row" as unknown as FC<
+  Omit<RowProps, "busy"> & { children?: Node }
+>;
 export const ActionRow = "actionrow" as unknown as FC<
   RowProps & { onActivate?: () => void; children?: Node }
 >;
@@ -288,15 +249,6 @@ export const Stack = "stack" as unknown as FC<{
   children?: Node;
 }>;
 
-export const Expander = "expander" as unknown as FC<{
-  title?: string;
-  subtitle?: string;
-  expanded?: boolean;
-  className?: ClassName;
-  onToggle?: (expanded: boolean) => void;
-  children?: Node;
-}>;
-
 export const RangeBar = "rangebar" as unknown as FC<{
   min?: number;
   max?: number;
@@ -336,11 +288,6 @@ export const Placeholder = "placeholder" as unknown as FC<{
   title?: string;
   description?: string;
   className?: ClassName;
-}>;
-
-export const Footer = "footer" as unknown as FC<{
-  className?: ClassName;
-  children?: Node;
 }>;
 
 export const Box = "box" as unknown as FC<{
@@ -401,13 +348,6 @@ export const Scale = "scale" as unknown as FC<{
 
 export const Spinner = "spinner" as unknown as FC<{
   className?: ClassName;
-}>;
-
-export const Progress = "progress" as unknown as FC<{
-  text?: string;
-  fraction?: number;
-  className?: ClassName;
-  children?: Node;
 }>;
 
 export const Separator = "separator" as unknown as FC<{
@@ -493,20 +433,6 @@ export function copy(text: string): void {
 export function openUri(uri: string): void {
   send({ t: "open-uri", uri });
 }
-
-export type SessionAction =
-  | "lock"
-  | "suspend"
-  | "hibernate"
-  | "log-out"
-  | "reboot"
-  | "power-off";
-
-export function sessionAction(action: SessionAction): void {
-  send({ t: "session", action });
-}
-
-export { sessionAction as session };
 
 export function closePopover(): void {
   send({ t: "close-popover" });

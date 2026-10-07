@@ -77,7 +77,7 @@ type HostMessage =
     seq?: number | null;
   };
 
-const TEXT = new Set(["label", "indicator", "button", "progress"]);
+const TEXT = new Set(["label", "indicator", "button"]);
 const SKIP = new Set(["children", "key", "ref"]);
 const encoder = new TextEncoder();
 
@@ -468,14 +468,11 @@ function makeHost(session: Session): object {
 
 const CONTROLLED: Record<string, [string, string]> = {
   entry: ["onChange", "value"],
-  fader: ["onChange", "value"],
   scale: ["onChange", "value"],
   switch: ["onToggle", "active"],
-  switchrow: ["onToggle", "active"],
   togglerow: ["onToggle", "active"],
   togglebutton: ["onToggle", "active"],
   checkbutton: ["onToggle", "active"],
-  expander: ["onToggle", "expanded"],
   expanderrow: ["onToggle", "open"],
   sliderrow: ["onChange", "value"],
   dropdown: ["onSelect", "selected"],

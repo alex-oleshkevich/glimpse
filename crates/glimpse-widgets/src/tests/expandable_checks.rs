@@ -4,15 +4,15 @@ pub(super) fn check() {
     let built = gtk4::Builder::from_string(
         r#"<interface>
                  <object class="Expandable" id="expandable">
-                   <child><object class="LegacyRow" id="head"/></child>
+                   <child><object class="GtkButton" id="head"/></child>
                    <child type="details"><object class="GtkLabel" id="details"/></child>
                  </object>
                </interface>"#,
     );
     let expandable: Expandable = built.object("expandable").expect("an Expandable");
     assert_eq!(
-        expandable.head::<LegacyRow>(),
-        built.object::<LegacyRow>("head"),
+        expandable.head::<gtk4::Button>(),
+        built.object::<gtk4::Button>("head"),
         "an unnamed child is the row that opens it"
     );
     assert_eq!(
@@ -46,7 +46,7 @@ pub(super) fn check() {
         !expandable.has_css_class("card") && !expandable.has_css_class("open"),
         "an unmapped drawer closes at once, so the card goes with it"
     );
-    let head: LegacyRow = built.object("head").expect("a head row");
+    let head: gtk4::Button = built.object("head").expect("a head button");
     head.emit_by_name::<()>("clicked", &[]);
     assert!(expandable.expanded(), "a plain row opens its own details");
     head.emit_by_name::<()>("clicked", &[]);

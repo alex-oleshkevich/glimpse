@@ -341,17 +341,13 @@ pub fn build(
         }
         AppletKind::Exec(_) => {
             let exec = exec.clone();
-            let session_actions = session_actions.clone();
             let notifications = notifications.clone();
-            let dialog = dialog.cloned()?;
             Some(Box::new(move |ctx| {
                 ctx.watch(exec.subscribe());
                 Box::new(exec::Exec::start(
                     ctx.name(),
                     exec,
-                    session_actions,
                     notifications,
-                    dialog,
                     placement,
                 ))
             }))

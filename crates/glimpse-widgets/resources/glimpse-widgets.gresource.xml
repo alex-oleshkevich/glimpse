@@ -15,7 +15,6 @@
         <file>widgets/calendar_popover.ui</file>
         <file>widgets/forecast_day.ui</file>
         <file>widgets/forecast_hour.ui</file>
-        <file>widgets/fader.ui</file>
         <file>widgets/hero.ui</file>
         <file>widgets/tooltip_card.ui</file>
         <file>widgets/workspaces_popover.ui</file>
@@ -50,7 +49,6 @@
         <file>widgets/clipboard_popover.ui</file>
         <file>widgets/container.ui</file>
         <file>widgets/action_row.ui</file>
-    <file>widgets/legacy_row.ui</file>
     <file>widgets/meter_row.ui</file>
     <file>widgets/row.ui</file>
     <file>widgets/expander_row.ui</file>
@@ -60,9 +58,7 @@
         <file>widgets/section.ui</file>
         <file>widgets/session_popover.ui</file>
         <file>widgets/session_sheet.ui</file>
-        <file>widgets/split_row.ui</file>
         <file>widgets/status_island.ui</file>
-        <file>widgets/switch_row.ui</file>
         <file>widgets/system_monitor_popover.ui</file>
         <file>widgets/track_card.ui</file>
         <file>widgets/transport.ui</file>

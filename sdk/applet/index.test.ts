@@ -30,11 +30,9 @@ import {
   Entry,
   End,
   Start,
-  Expander,
   ExpanderRow,
   FactList,
   Fragment,
-  Hero,
   Image,
   Indicator,
   Label,
@@ -53,7 +51,6 @@ import {
   Section,
   SliderRow,
   Stack,
-  session as hostSession,
   useOptions,
   useStateDir,
   ToggleButton,
@@ -131,17 +128,12 @@ function HelloApp() {
     ),
     createElement(
       Popover,
-      null,
-      createElement(Hero, {
-        icon: "view-list-symbolic",
-        title: "Todos",
-        subtitle: "2 open",
-      }),
+      { icon: "view-list-symbolic", title: "Todos", subtitle: "2 open" },
       createElement(
         Section,
         { title: "Open", count: "2" },
         createElement(Row, { title: "Buy milk" }),
-        createElement(Row, { title: "Ship applets", onActivate: () => {} }),
+        createElement(ActionRow, { title: "Ship applets", onActivate: () => {} }),
       ),
     ),
   );
@@ -468,7 +460,6 @@ test("applet sdk", async (t) => {
         createElement(RangeBar, { min: 0, max: 10, low: 2, high: 4 }),
         createElement(Revealer, { revealed: true }, createElement(Label, { text: "r" })),
         createElement(Stack, { visible: 1 }, createElement(Label, { text: "0" })),
-        createElement(Expander, { title: "e", onToggle: () => {} }, createElement(Label, { text: "b" })),
       ),
       [hostLine()],
     );
@@ -476,12 +467,11 @@ test("applet sdk", async (t) => {
     const types = nodes.map((node: { type: string }) => node.type).join(",");
     assert(
       types ===
-        "factlist,choicelist,readout,notice,calendar,dots,dropdown,togglebutton,checkbutton,rangebar,revealer,stack,expander",
+        "factlist,choicelist,readout,notice,calendar,dots,dropdown,togglebutton,checkbutton,rangebar,revealer,stack",
       types,
     );
     assert(nodes[1].props.onSelect === true, JSON.stringify(nodes[1].props));
     assert(nodes[4].props.onMonth === true && nodes[4].props.events[0].colors[0] === "error", JSON.stringify(nodes[4].props));
-    assert(nodes[12].children.length === 1 && nodes[12].props.onToggle === true, JSON.stringify(nodes[12]));
   });
 
   await t.test("row family props and children reach the wire", async () => {
@@ -520,6 +510,11 @@ test("applet sdk", async (t) => {
           min: 0, max: 1, step: 0.1, tone: "error", inactive: true,
           tooltip: "Volume", onMove: () => {}, onChange: () => {},
         }, createElement(Start, null, createElement(Button, { icon: "audio-volume-muted-symbolic", tooltip: "Unmute", className: "flat", onClick: () => {} }))),
+        createElement(Row, {
+          icon: "dialog-warning-symbolic", title: "Disk", subtitle: "Root",
+          value: "91%", tone: "warning", inactive: true,
+          tooltip: "Disk usage", typography: "numeric",
+        }, createElement(Readout, { value: "91", unit: "%" })),
       ),
       [hostLine()],
     );
@@ -530,10 +525,11 @@ test("applet sdk", async (t) => {
       { icon: "battery-symbolic", title: "Meter", subtitle: "Charge", value: "50%", tone: "destructive", inactive: true, tooltip: "Battery charge", typography: "numeric", busy: true, level: 0.5 },
       { icon: "folder-symbolic", title: "Details", subtitle: "More", value: "2", tone: "warning", inactive: true, tooltip: "Show details", typography: "numeric", busy: true, open: true, tint: true, titleLines: 3, onToggle: true },
       { title: "Volume", subtitle: "Muted", value: 0.5, min: 0, max: 1, step: 0.1, tone: "error", inactive: true, tooltip: "Volume", onMove: true, onChange: true },
+      { icon: "dialog-warning-symbolic", title: "Disk", subtitle: "Root", value: "91%", tone: "warning", inactive: true, tooltip: "Disk usage", typography: "numeric" },
     ];
     assert(
       nodes.map((node: { type: string }) => node.type).join(",") ===
-        "actionrow,togglerow,meterrow,expanderrow,sliderrow",
+        "actionrow,togglerow,meterrow,expanderrow,sliderrow,row",
       JSON.stringify(nodes),
     );
     for (let index = 0; index < nodes.length; index++) {
@@ -549,6 +545,7 @@ test("applet sdk", async (t) => {
     assert(nodes[3].children[1].type === "actionrow", JSON.stringify(nodes[3]));
     assert(nodes[4].children[0].type === "start", JSON.stringify(nodes[4]));
     assert(nodes[4].children[0].children[0].props.onClick === true, JSON.stringify(nodes[4]));
+    assert(nodes[5].children[0].type === "readout", JSON.stringify(nodes[5]));
   });
 
   await t.test("series props take 366 items and no more", async () => {
@@ -635,18 +632,6 @@ test("applet sdk", async (t) => {
     notify({ summary: "Saved" });
     copy("buy milk");
     openUri("https://example.com/todos");
-    for (
-      const action of [
-        "lock",
-        "suspend",
-        "hibernate",
-        "log-out",
-        "reboot",
-        "power-off",
-      ] as const
-    ) {
-      hostSession(action);
-    }
     closePopover();
     assertMessages(lines, fixture("requests.ndjson"));
   });

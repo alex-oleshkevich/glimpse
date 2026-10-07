@@ -29,17 +29,16 @@ pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
 pub use tree::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
     CalendarProps, CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, ContainerProps,
-    DotsProps, DropDownProps, Element, ElementKind, Ellipsize, EndProps, EntryProps, ExpanderProps,
-    ExpanderRowProps, FactItem, FactListProps, FaderProps, FooterProps, HeroProps, ImageProps,
-    IndicatorProps, LabelProps, MAX_CHILDREN_PER_PARENT, MAX_NODES, MeterRowProps, Node,
-    NoticeProps, Paint, PlaceholderProps, PopoverProps, PopoverSize, ProgressProps, ROOT,
-    RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
-    SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
-    StackProps, SwitchProps, SwitchRowProps, ToggleButtonProps, ToggleControl, ToggleRowProps,
-    Tone, Transition, Tree, Violation,
+    DotsProps, DropDownProps, Element, ElementKind, Ellipsize, EndProps, EntryProps,
+    ExpanderRowProps, FactItem, FactListProps, ImageProps, IndicatorProps, LabelProps,
+    MAX_CHILDREN_PER_PARENT, MAX_NODES, MeterRowProps, Node, NoticeProps, Paint, PlaceholderProps,
+    PopoverProps, PopoverSize, ROOT, RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone,
+    RowTypography, ScaleProps, SectionProps, SeparatorProps, Severity, SliderRowProps,
+    SparklineProps, SpinnerProps, StackProps, SwitchProps, ToggleButtonProps, ToggleControl,
+    ToggleRowProps, Tone, Transition, Tree, Violation,
 };
 pub use wire::{
-    Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, SessionVerb, Urgency,
+    Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, Urgency,
     WireNode, Zone,
 };
 
@@ -79,7 +78,6 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BarRequest {
     OpenUri(String),
-    Session(SessionVerb),
     ClosePopover,
 }
 
@@ -609,7 +607,6 @@ impl Exec {
                 }
             }
             FromApplet::OpenUri { uri } => slot.push_request(BarRequest::OpenUri(uri)),
-            FromApplet::Session { action } => slot.push_request(BarRequest::Session(action)),
             FromApplet::ClosePopover => slot.push_request(BarRequest::ClosePopover),
             _ => {}
         }

@@ -21,7 +21,6 @@ const ENTRY_CAP: usize = 4096;
 pub const MAX_ITEMS: usize = 64;
 pub const MAX_SERIES: usize = 366;
 const SERIES_KEYS: [&str; 2] = ["values", "tooltips"];
-pub const MAX_SLOT_CHILDREN: usize = 4;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
@@ -41,13 +40,9 @@ pub struct Node {
 pub enum ElementKind {
     Root,
     Popover,
-    Footer,
     Indicator,
-    Hero,
     Section,
     Row,
-    SwitchRow,
-    Fader,
     ActionRow,
     ToggleRow,
     MeterRow,
@@ -68,7 +63,6 @@ pub enum ElementKind {
     CheckButton,
     Revealer,
     Stack,
-    Expander,
     RangeBar,
     Bars,
     Sparkline,
@@ -79,7 +73,6 @@ pub enum ElementKind {
     Switch,
     Scale,
     Spinner,
-    Progress,
     Separator,
     Addon,
     Container,
@@ -180,13 +173,9 @@ pub enum Ellipsize {
 pub enum Element {
     Root,
     Popover(PopoverProps),
-    Footer(FooterProps),
     Indicator(IndicatorProps),
-    Hero(HeroProps),
     Section(SectionProps),
     Row(RowProps),
-    SwitchRow(SwitchRowProps),
-    Fader(FaderProps),
     ActionRow(ActionRowProps),
     ToggleRow(ToggleRowProps),
     MeterRow(MeterRowProps),
@@ -207,7 +196,6 @@ pub enum Element {
     CheckButton(CheckButtonProps),
     Revealer(RevealerProps),
     Stack(StackProps),
-    Expander(ExpanderProps),
     RangeBar(RangeBarProps),
     Bars(BarsProps),
     Sparkline(SparklineProps),
@@ -218,7 +206,6 @@ pub enum Element {
     Switch(SwitchProps),
     Scale(ScaleProps),
     Spinner(SpinnerProps),
-    Progress(ProgressProps),
     Separator(SeparatorProps),
     Addon(AddonProps),
     Container(ContainerProps),
@@ -251,12 +238,6 @@ pub struct ContainerProps {
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct FooterProps {
-    pub class_name: Option<ClassName>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct IndicatorProps {
     pub icon: Option<String>,
     pub text: Option<String>,
@@ -274,15 +255,6 @@ pub struct IndicatorProps {
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct HeroProps {
-    pub icon: Option<String>,
-    pub title: Option<String>,
-    pub subtitle: Option<String>,
-    pub class_name: Option<ClassName>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SectionProps {
     pub title: Option<String>,
     pub count: Option<String>,
@@ -296,39 +268,10 @@ pub struct RowProps {
     pub title: Option<String>,
     pub subtitle: Option<String>,
     pub value: Option<String>,
-    pub selected: Option<bool>,
-    pub busy: bool,
-    pub chevron: bool,
-    pub class_name: Option<ClassName>,
-    pub on_activate: bool,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct SwitchRowProps {
-    pub icon: Option<String>,
-    pub title: Option<String>,
-    pub subtitle: Option<String>,
-    pub active: bool,
-    pub busy: bool,
-    pub class_name: Option<ClassName>,
-    pub on_toggle: bool,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct FaderProps {
-    pub icon: Option<String>,
-    #[serde(default, deserialize_with = "de_finite_f64")]
-    pub value: f64,
-    #[serde(default = "hundred", deserialize_with = "de_finite_f64")]
-    pub maximum: f64,
-    #[serde(default, deserialize_with = "de_finite_f64")]
-    pub floor: f64,
-    pub muted: bool,
-    pub class_name: Option<ClassName>,
-    pub on_change: bool,
-    pub on_mute: bool,
+    pub tone: RowTone,
+    pub inactive: bool,
+    pub tooltip: Option<String>,
+    pub typography: RowTypography,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -607,15 +550,6 @@ pub struct SpinnerProps {
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct ProgressProps {
-    #[serde(default, deserialize_with = "de_finite_f64")]
-    pub fraction: f64,
-    pub text: Option<String>,
-    pub class_name: Option<ClassName>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct SeparatorProps {
     pub orientation: Orientation,
     pub class_name: Option<ClassName>,
@@ -754,16 +688,6 @@ pub struct RevealerProps {
 pub struct StackProps {
     pub visible: u32,
     pub class_name: Option<ClassName>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct ExpanderProps {
-    pub title: Option<String>,
-    pub subtitle: Option<String>,
-    pub expanded: bool,
-    pub class_name: Option<ClassName>,
-    pub on_toggle: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -1102,13 +1026,9 @@ impl Element {
         match self {
             Self::Root => ElementKind::Root,
             Self::Popover(_) => ElementKind::Popover,
-            Self::Footer(_) => ElementKind::Footer,
             Self::Indicator(_) => ElementKind::Indicator,
-            Self::Hero(_) => ElementKind::Hero,
             Self::Section(_) => ElementKind::Section,
             Self::Row(_) => ElementKind::Row,
-            Self::SwitchRow(_) => ElementKind::SwitchRow,
-            Self::Fader(_) => ElementKind::Fader,
             Self::ActionRow(_) => ElementKind::ActionRow,
             Self::ToggleRow(_) => ElementKind::ToggleRow,
             Self::MeterRow(_) => ElementKind::MeterRow,
@@ -1129,7 +1049,6 @@ impl Element {
             Self::CheckButton(_) => ElementKind::CheckButton,
             Self::Revealer(_) => ElementKind::Revealer,
             Self::Stack(_) => ElementKind::Stack,
-            Self::Expander(_) => ElementKind::Expander,
             Self::RangeBar(_) => ElementKind::RangeBar,
             Self::Bars(_) => ElementKind::Bars,
             Self::Sparkline(_) => ElementKind::Sparkline,
@@ -1140,7 +1059,6 @@ impl Element {
             Self::Switch(_) => ElementKind::Switch,
             Self::Scale(_) => ElementKind::Scale,
             Self::Spinner(_) => ElementKind::Spinner,
-            Self::Progress(_) => ElementKind::Progress,
             Self::Separator(_) => ElementKind::Separator,
             Self::Addon(_) => ElementKind::Addon,
             Self::Container(_) => ElementKind::Container,
@@ -1154,13 +1072,9 @@ impl ElementKind {
         match self {
             Self::Root => "root",
             Self::Popover => "popover",
-            Self::Footer => "footer",
             Self::Indicator => "indicator",
-            Self::Hero => "hero",
             Self::Section => "section",
             Self::Row => "row",
-            Self::SwitchRow => "switchrow",
-            Self::Fader => "fader",
             Self::ActionRow => "actionrow",
             Self::ToggleRow => "togglerow",
             Self::MeterRow => "meterrow",
@@ -1181,7 +1095,6 @@ impl ElementKind {
             Self::CheckButton => "checkbutton",
             Self::Revealer => "revealer",
             Self::Stack => "stack",
-            Self::Expander => "expander",
             Self::RangeBar => "rangebar",
             Self::Bars => "bars",
             Self::Sparkline => "sparkline",
@@ -1192,7 +1105,6 @@ impl ElementKind {
             Self::Switch => "switch",
             Self::Scale => "scale",
             Self::Spinner => "spinner",
-            Self::Progress => "progress",
             Self::Separator => "separator",
             Self::Addon => "addon",
             Self::Container => "container",
@@ -1210,13 +1122,9 @@ impl fmt::Display for ElementKind {
 fn kind_of(name: &str) -> Option<ElementKind> {
     Some(match name {
         "popover" => ElementKind::Popover,
-        "footer" => ElementKind::Footer,
         "indicator" => ElementKind::Indicator,
-        "hero" => ElementKind::Hero,
         "section" => ElementKind::Section,
         "row" => ElementKind::Row,
-        "switchrow" => ElementKind::SwitchRow,
-        "fader" => ElementKind::Fader,
         "actionrow" => ElementKind::ActionRow,
         "togglerow" => ElementKind::ToggleRow,
         "meterrow" => ElementKind::MeterRow,
@@ -1237,7 +1145,6 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "checkbutton" => ElementKind::CheckButton,
         "revealer" => ElementKind::Revealer,
         "stack" => ElementKind::Stack,
-        "expander" => ElementKind::Expander,
         "rangebar" => ElementKind::RangeBar,
         "bars" => ElementKind::Bars,
         "sparkline" => ElementKind::Sparkline,
@@ -1248,7 +1155,6 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "switch" => ElementKind::Switch,
         "scale" => ElementKind::Scale,
         "spinner" => ElementKind::Spinner,
-        "progress" => ElementKind::Progress,
         "separator" => ElementKind::Separator,
         "addon" => ElementKind::Addon,
         "container" => ElementKind::Container,
@@ -1266,12 +1172,7 @@ fn admit(parent: ElementKind, child: ElementKind) -> Result<(), Violation> {
 fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
     match parent {
         ElementKind::Root => matches!(child, ElementKind::Indicator | ElementKind::Popover),
-        ElementKind::Popover => {
-            matches!(
-                child,
-                ElementKind::Hero | ElementKind::Footer | ElementKind::Addon
-            ) || is_body(child)
-        }
+        ElementKind::Popover => child == ElementKind::Addon || is_body(child),
         ElementKind::Addon => matches!(
             child,
             ElementKind::Readout | ElementKind::Switch | ElementKind::Container
@@ -1280,21 +1181,12 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
         ElementKind::Container
         | ElementKind::Section
         | ElementKind::Revealer
-        | ElementKind::Stack
-        | ElementKind::Expander => is_body(child) && child != ElementKind::Section,
-        ElementKind::Hero => matches!(
-            child,
-            ElementKind::Readout | ElementKind::Switch | ElementKind::Label | ElementKind::Button
-        ),
-        ElementKind::Row => matches!(
-            child,
-            ElementKind::Image | ElementKind::Label | ElementKind::Button | ElementKind::Switch
-        ),
+        | ElementKind::Stack => is_body(child) && child != ElementKind::Section,
         ElementKind::ActionRow => matches!(
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner | ElementKind::Start
         ),
-        ElementKind::MeterRow | ElementKind::End => matches!(
+        ElementKind::Row | ElementKind::MeterRow | ElementKind::End => matches!(
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner
         ),
@@ -1310,10 +1202,6 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
                 | ElementKind::Spinner
                 | ElementKind::Dots
         ),
-        ElementKind::Footer => matches!(
-            child,
-            ElementKind::Button | ElementKind::Row | ElementKind::Label | ElementKind::Box
-        ),
         _ => false,
     }
 }
@@ -1323,8 +1211,6 @@ fn is_body(kind: ElementKind) -> bool {
         kind,
         ElementKind::Section
             | ElementKind::Row
-            | ElementKind::SwitchRow
-            | ElementKind::Fader
             | ElementKind::ActionRow
             | ElementKind::ToggleRow
             | ElementKind::MeterRow
@@ -1343,7 +1229,6 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::CheckButton
             | ElementKind::Revealer
             | ElementKind::Stack
-            | ElementKind::Expander
             | ElementKind::RangeBar
             | ElementKind::Bars
             | ElementKind::Sparkline
@@ -1354,7 +1239,6 @@ fn is_body(kind: ElementKind) -> bool {
             | ElementKind::Switch
             | ElementKind::Scale
             | ElementKind::Spinner
-            | ElementKind::Progress
             | ElementKind::Separator
             | ElementKind::Container
             | ElementKind::Unsupported
@@ -1455,13 +1339,9 @@ fn realize_into(
     match kind {
         ElementKind::Root => Element::Root,
         ElementKind::Popover => Element::Popover(finish_popover(read_props(id, raw, kept))),
-        ElementKind::Footer => Element::Footer(read_props(id, raw, kept)),
         ElementKind::Indicator => Element::Indicator(finish_indicator(read_props(id, raw, kept))),
-        ElementKind::Hero => Element::Hero(finish_hero(read_props(id, raw, kept))),
         ElementKind::Section => Element::Section(finish_section(read_props(id, raw, kept))),
         ElementKind::Row => Element::Row(finish_row(read_props(id, raw, kept))),
-        ElementKind::SwitchRow => Element::SwitchRow(finish_switch_row(read_props(id, raw, kept))),
-        ElementKind::Fader => Element::Fader(finish_fader(read_props(id, raw, kept))),
         ElementKind::ActionRow => Element::ActionRow(finish_action_row(read_props(id, raw, kept))),
         ElementKind::ToggleRow => Element::ToggleRow(finish_toggle_row(read_props(id, raw, kept))),
         ElementKind::MeterRow => Element::MeterRow(finish_meter_row(read_props(id, raw, kept))),
@@ -1492,7 +1372,6 @@ fn realize_into(
         }
         ElementKind::Revealer => Element::Revealer(read_props(id, raw, kept)),
         ElementKind::Stack => Element::Stack(read_props(id, raw, kept)),
-        ElementKind::Expander => Element::Expander(finish_expander(read_props(id, raw, kept))),
         ElementKind::RangeBar => Element::RangeBar(finish_range_bar(read_props(id, raw, kept))),
         ElementKind::Bars => Element::Bars(finish_bars(read_props(id, raw, kept))),
         ElementKind::Sparkline => Element::Sparkline(finish_sparkline(read_props(id, raw, kept))),
@@ -1503,7 +1382,6 @@ fn realize_into(
         ElementKind::Switch => Element::Switch(read_props(id, raw, kept)),
         ElementKind::Scale => Element::Scale(finish_scale(read_props(id, raw, kept))),
         ElementKind::Spinner => Element::Spinner(read_props(id, raw, kept)),
-        ElementKind::Progress => Element::Progress(finish_progress(read_props(id, raw, kept))),
         ElementKind::Separator => Element::Separator(read_props(id, raw, kept)),
         ElementKind::Addon => Element::Addon(read_props(id, raw, kept)),
         ElementKind::Container => Element::Container(finish_container(read_props(id, raw, kept))),
@@ -1561,12 +1439,6 @@ fn finish_heading(
     (icon(icon_name), text(title), text(subtitle))
 }
 
-fn finish_hero(mut props: HeroProps) -> HeroProps {
-    (props.icon, props.title, props.subtitle) =
-        finish_heading(props.icon, props.title, props.subtitle);
-    props
-}
-
 fn finish_popover(mut props: PopoverProps) -> PopoverProps {
     (props.icon, props.title, props.subtitle) =
         finish_heading(props.icon, props.title, props.subtitle);
@@ -1580,25 +1452,13 @@ fn finish_section(mut props: SectionProps) -> SectionProps {
 }
 
 fn finish_row(mut props: RowProps) -> RowProps {
-    props.icon = icon(props.icon);
-    props.title = text(props.title);
-    props.subtitle = text(props.subtitle);
-    props.value = text(props.value);
-    props
-}
-
-fn finish_switch_row(mut props: SwitchRowProps) -> SwitchRowProps {
-    props.icon = icon(props.icon);
-    props.title = text(props.title);
-    props.subtitle = text(props.subtitle);
-    props
-}
-
-fn finish_fader(mut props: FaderProps) -> FaderProps {
-    props.icon = icon(props.icon);
-    props.value = finite_or(props.value, 0.0);
-    props.floor = finite_or(props.floor, 0.0).max(0.0);
-    props.maximum = finite_or(props.maximum, 100.0).max(props.floor);
+    finish_row_text(
+        &mut props.icon,
+        &mut props.title,
+        &mut props.subtitle,
+        &mut props.value,
+        &mut props.tooltip,
+    );
     props
 }
 
@@ -1740,12 +1600,6 @@ fn finish_scale(mut props: ScaleProps) -> ScaleProps {
     props
 }
 
-fn finish_progress(mut props: ProgressProps) -> ProgressProps {
-    props.fraction = finite_or(props.fraction, 0.0).clamp(0.0, 1.0);
-    props.text = text(props.text);
-    props
-}
-
 fn finish_fact_list(mut props: FactListProps) -> FactListProps {
     for fact in &mut props.facts {
         fact.label = clean(&fact.label);
@@ -1797,12 +1651,6 @@ fn finish_toggle_button(mut props: ToggleButtonProps) -> ToggleButtonProps {
 
 fn finish_check_button(mut props: CheckButtonProps) -> CheckButtonProps {
     props.label = text(props.label);
-    props
-}
-
-fn finish_expander(mut props: ExpanderProps) -> ExpanderProps {
-    props.title = text(props.title);
-    props.subtitle = text(props.subtitle);
     props
 }
 
@@ -1881,12 +1729,12 @@ fn check_child_counts(nodes: &HashMap<u32, Arc<Node>>) -> Result<(), Violation> 
                 .count()
         };
         let fits = match node.element.kind() {
-            ElementKind::Hero | ElementKind::Row => count <= MAX_SLOT_CHILDREN,
             ElementKind::ActionRow => {
                 let starts = of(ElementKind::Start);
                 starts <= 1 && count - starts <= 1
             }
-            ElementKind::MeterRow
+            ElementKind::Row
+            | ElementKind::MeterRow
             | ElementKind::End
             | ElementKind::Start
             | ElementKind::SliderRow => count <= 1,
@@ -1969,10 +1817,6 @@ fn hostile(character: char) -> bool {
 
 fn finite_or(value: f64, fallback: f64) -> f64 {
     if value.is_finite() { value } else { fallback }
-}
-
-fn hundred() -> f64 {
-    100.0
 }
 
 fn one() -> f64 {

@@ -83,7 +83,7 @@ fn entry_value_keeps_spaces_and_strips_controls() {
 }
 
 #[test]
-fn a_nan_fader_value_is_dropped() {
+fn a_nan_value_is_dropped() {
     let nan: serde::de::value::F64Deserializer<serde::de::value::Error> =
         f64::NAN.into_deserializer();
     assert!(de_finite_f64(nan).is_err());
@@ -96,30 +96,36 @@ fn a_nan_fader_value_is_dropped() {
             1,
             wire(
                 2,
-                "fader",
-                json!({"value": "NaN", "maximum": 40, "icon": "audio-volume-high-symbolic"}),
+                "scale",
+                json!({"value": "NaN", "max": 40, "step": 2}),
                 Vec::new(),
             ),
             None,
         )])
-        .expect("fader");
-    let fader = fader_of(&tree.node(2).expect("fader").element);
-    assert_eq!(fader.value, 0.0);
-    assert_eq!(fader.maximum, 40.0);
-    assert_eq!(fader.floor, 0.0);
-    assert_eq!(fader.icon.as_deref(), Some("audio-volume-high-symbolic"));
+        .expect("scale");
+    let Element::Scale(scale) = only(&tree, 2) else {
+        panic!("expected a scale")
+    };
+    assert_eq!(
+        (scale.value, scale.min, scale.max, scale.step),
+        (0.0, 0.0, 40.0, 2.0)
+    );
+    assert!(!tree.node(2).expect("scale").raw.contains_key("value"));
 
     let bare = tree
         .apply(vec![insert(
             1,
-            wire(3, "fader", json!({}), Vec::new()),
+            wire(3, "scale", json!({}), Vec::new()),
             None,
         )])
         .expect("defaults");
-    let fader = fader_of(&bare.node(3).expect("fader").element);
-    assert_eq!(fader.value, 0.0);
-    assert_eq!(fader.maximum, 100.0);
-    assert_eq!(fader.floor, 0.0);
+    let Element::Scale(scale) = only(&bare, 3) else {
+        panic!("expected a scale")
+    };
+    assert_eq!(
+        (scale.value, scale.min, scale.max, scale.step),
+        (0.0, 0.0, 1.0, 0.0)
+    );
 }
 
 #[test]
@@ -224,7 +230,6 @@ fn set_keeps_other_arcs_deletes_null_and_drops_wrong_types() {
     let row = row_of(&updated.node(2).expect("row").element);
     assert_eq!(row.title.as_deref(), Some("Oat"));
     assert_eq!(row.subtitle.as_deref(), Some("later"));
-    assert!(!row.busy);
     assert!(!updated.node(2).expect("row").raw.contains_key("busy"));
 
     let cleared = updated

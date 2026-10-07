@@ -19,7 +19,7 @@ fn the_footer_row_follows_the_footer_while_it_is_open() {
     gtk4::init().expect("GTK display");
     glimpse_widgets::register_resources().expect("resources");
     let footer = Footer::default();
-    let row = LegacyRow::new();
+    let row = glimpse_widgets::ActionRow::new();
     dress_footer(&row, &footer);
     assert!(!row.is_visible(), "an unconfigured footer shows no row");
     footer.set(Some(("Settings".to_owned(), vec!["tool".to_owned()])));

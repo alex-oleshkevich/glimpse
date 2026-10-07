@@ -3,10 +3,4 @@
 {"t":"notify","summary":"Saved"}
 {"t":"copy","text":"buy milk"}
 {"t":"open-uri","uri":"https://example.com/todos"}
-{"t":"session","action":"lock"}
-{"t":"session","action":"suspend"}
-{"t":"session","action":"hibernate"}
-{"t":"session","action":"log-out"}
-{"t":"session","action":"reboot"}
-{"t":"session","action":"power-off"}
 {"t":"close-popover"}

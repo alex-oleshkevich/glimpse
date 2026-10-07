@@ -1,9 +1,9 @@
 use serde_json::json;
 
-use super::{Element, Tree, Violation, hosted, insert, leaf, wire};
+use super::{Element, ElementKind, Op, Tree, Violation, hosted, insert, leaf, wire};
 
 #[test]
-fn new_row_parent_table_and_legacy_row() {
+fn row_family_parent_table() {
     for invalid in [
         leaf(2, "start"),
         wire(2, "actionrow", json!({}), vec![leaf(3, "button")]),
@@ -90,20 +90,44 @@ fn new_row_parent_table_and_legacy_row() {
             Element::Dots(_)
         ));
     }
+}
+
+#[test]
+fn static_row_takes_one_end_child_and_drops_handlers() {
     let tree = hosted(&Tree::default())
         .apply(vec![insert(
             1,
             wire(
                 2,
                 "row",
-                json!({"selected": true, "onActivate": true}),
-                vec![],
+                json!({"title": "Disk", "value": "91%", "tone": "warning", "onActivate": true}),
+                vec![leaf(3, "readout")],
             ),
             None,
         )])
-        .expect("legacy row");
+        .expect("row with an end readout");
+    let node = tree.node(2).expect("row");
+    assert!(!node.raw.contains_key("onActivate"));
     assert!(
-        matches!(&tree.node(2).expect("row").element, Element::Row(props) if props.selected == Some(true) && props.on_activate)
+        matches!(&node.element, Element::Row(props) if props.title.as_deref() == Some("Disk") && props.value.as_deref() == Some("91%") && props.tone == super::super::RowTone::Warning)
+    );
+    assert!(matches!(
+        &tree.node(3).expect("readout").element,
+        Element::Readout(_)
+    ));
+    assert_eq!(
+        tree.apply(vec![insert(2, leaf(4, "spinner"), None)])
+            .expect_err("second end child"),
+        Violation::ChildCount { parent: 2 }
+    );
+    assert_eq!(
+        tree.apply(vec![Op::Remove { parent: 2, id: 3 }])
+            .and_then(|tree| tree.apply(vec![insert(2, leaf(4, "button"), None)]))
+            .expect_err("button at the end"),
+        Violation::BadParent {
+            parent: ElementKind::Row,
+            child: ElementKind::Button,
+        }
     );
 }
 
@@ -174,6 +198,7 @@ fn new_row_props_are_bounded_and_normalized() {
 #[test]
 fn row_inactivity_is_boolean_and_defaults_to_false() {
     for tag in [
+        "row",
         "actionrow",
         "togglerow",
         "meterrow",
@@ -193,6 +218,7 @@ fn row_inactivity_is_boolean_and_defaults_to_false() {
                 .apply(vec![insert(1, wire(2, tag, props, vec![]), None)])
                 .expect("row");
             let inactive = match &tree.node(2).expect("row").element {
+                Element::Row(p) => p.inactive,
                 Element::ActionRow(p) => p.inactive,
                 Element::ToggleRow(p) => p.inactive,
                 Element::MeterRow(p) => p.inactive,
@@ -243,6 +269,25 @@ fn expander_card_and_title_line_clamps() {
     assert!(!p.tint);
     assert_eq!(p.title_lines, 1);
     assert!(!p.inactive);
+}
+
+#[test]
+fn removed_tags_parse_as_unsupported() {
+    for tag in [
+        "hero",
+        "footer",
+        "switchrow",
+        "fader",
+        "expander",
+        "progress",
+    ] {
+        let tree = hosted(&Tree::default())
+            .apply(vec![insert(1, leaf(2, tag), None)])
+            .expect("unknown tag");
+        assert!(
+            matches!(&tree.node(2).expect("unsupported").element, Element::Unsupported(name) if name == tag)
+        );
+    }
 }
 
 #[test]

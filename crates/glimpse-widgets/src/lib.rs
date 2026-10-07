@@ -23,7 +23,6 @@ mod event_list;
 mod expandable;
 mod expander_row;
 mod fact_list;
-mod fader;
 mod forecast;
 mod hero;
 mod idle_popover;
@@ -32,7 +31,6 @@ mod indicator_group;
 mod inhibitor_list;
 mod kdeconnect_popover;
 mod keyboard_popover;
-pub(crate) mod legacy_row;
 mod lens;
 mod lock_clock;
 mod lock_stage;
@@ -85,10 +83,8 @@ mod shot_window_list;
 mod slider_row;
 mod source_list;
 mod sparkline;
-mod split_row;
 mod status_island;
 mod swatch;
-mod switch_row;
 mod system_monitor_popover;
 mod theme;
 pub(crate) mod toggle_row;
@@ -134,7 +130,6 @@ pub use event_list::{Event, EventList, Link as EventLink};
 pub use expandable::Expandable;
 pub use expander_row::ExpanderRow;
 pub use fact_list::{Fact, set_facts};
-pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
 pub use hero::Hero;
 pub use idle_popover::IdlePopover;
@@ -146,7 +141,6 @@ pub use kdeconnect_popover::{
     Nearby as KdeconnectNearby,
 };
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
-pub use legacy_row::{LegacyRow, beside};
 pub use lens::{Lens, zoomed};
 pub use lock_clock::LockClock;
 pub use lock_stage::LockStage;
@@ -208,10 +202,8 @@ pub use shot_window_list::{ShotWindowEntry, ShotWindowList};
 pub use slider_row::SliderRow;
 pub use source_list::{Source, SourceList};
 pub use sparkline::{Sparkline, Tick};
-pub use split_row::SplitRow;
 pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
-pub use switch_row::SwitchRow;
 pub use system_monitor_popover::{
     Meter as SystemMonitorMeter, NamedMeter as SystemMonitorNamedMeter,
     Readings as SystemMonitorReadings, SystemMonitorPopover,

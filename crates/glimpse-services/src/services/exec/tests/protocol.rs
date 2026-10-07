@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn requests_require_a_recent_gesture() {
     let (_dir, entry, _output) = script(
-        "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"file:///x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n{\"t\":\"session\",\"action\":\"lock\"}\\n'; done\n",
+        "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"file:///x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n'; done\n",
     );
     let (handle, _sender, cancel, task, selection) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));

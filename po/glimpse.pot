@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-07 13:31+0200\n"
+"POT-Creation-Date: 2026-10-07 15:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -368,7 +368,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:386
+#: crates/glimpse-widgets/src/lib.rs:378
 msgid "{percent}%"
 msgstr ""
 
@@ -563,7 +563,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
 #: crates/glimpse-panel/src/applets/network/render.rs:278
-#: crates/glimpse-widgets/blueprints/network_row.blp:24
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
 msgid "Connect automatically"
 msgstr ""
 
@@ -676,7 +676,7 @@ msgid "Display"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:163
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:165
 msgid "Printer"
 msgstr ""
 
@@ -885,7 +885,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/display/indicator.rs:338
 #: crates/glimpse-panel/src/applets/display/indicator.rs:391
-#: crates/glimpse-widgets/blueprints/display_popover.blp:73
+#: crates/glimpse-widgets/blueprints/display_popover.blp:75
 msgid "Displays"
 msgstr ""
 
@@ -925,13 +925,13 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1437
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:449
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1157
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:407
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1442
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:454
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1162
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:412
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
@@ -953,7 +953,7 @@ msgid "Awake until {time}"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/idle/mod.rs:193
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:141
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
 msgid "Idle"
 msgstr ""
 
@@ -1328,7 +1328,7 @@ msgstr[1] ""
 #: crates/glimpse-panel/src/applets/printing/render.rs:137
 #: crates/glimpse-panel/src/applets/printing/render/tests.rs:254
 #: crates/glimpse-widgets/src/display_list/mod.rs:162
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:164
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:166
 msgid "Status"
 msgstr ""
 
@@ -1349,7 +1349,7 @@ msgid "Band"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:293
-#: crates/glimpse-widgets/blueprints/network_row.blp:33
+#: crates/glimpse-widgets/blueprints/network_row.blp:34
 msgid "Forget this network"
 msgstr ""
 
@@ -1871,7 +1871,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/session/render.rs:62
 #: crates/glimpse-widgets/blueprints/session_popover.blp:17
 #: crates/glimpse-widgets/blueprints/session_sheet.blp:103
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:142
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
 msgid "Suspend"
 msgstr ""
 
@@ -2441,56 +2441,49 @@ msgstr ""
 msgid "Brightness"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/display_popover.blp:55
+#: crates/glimpse-widgets/blueprints/display_popover.blp:57
 #: crates/glimpse-widgets/src/display_list/mod.rs:109
 msgid "Enabled"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/display_popover.blp:82
+#: crates/glimpse-widgets/blueprints/display_popover.blp:84
 msgid "Blank the screens"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/fader.blp:16
-#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:436
-#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
-msgid "Mute"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:16
-#: crates/glimpse-widgets/blueprints/power_popover.blp:70
-#: crates/glimpse-widgets/blueprints/power_popover.blp:77
+#: crates/glimpse-widgets/blueprints/power_popover.blp:72
+#: crates/glimpse-widgets/blueprints/power_popover.blp:79
 msgid "Keep awake"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:28
-#: crates/glimpse-widgets/blueprints/power_popover.blp:81
+#: crates/glimpse-widgets/blueprints/power_popover.blp:83
 #: crates/glimpse-widgets/src/idle_popover/mod.rs:65
 msgid "Keep awake for…"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:32
-#: crates/glimpse-widgets/blueprints/power_popover.blp:85
+#: crates/glimpse-widgets/blueprints/power_popover.blp:87
 msgid "15 minutes"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:37
-#: crates/glimpse-widgets/blueprints/power_popover.blp:90
+#: crates/glimpse-widgets/blueprints/power_popover.blp:92
 msgid "30 minutes"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:42
-#: crates/glimpse-widgets/blueprints/power_popover.blp:95
+#: crates/glimpse-widgets/blueprints/power_popover.blp:97
 msgid "1 hour"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:47
-#: crates/glimpse-widgets/blueprints/power_popover.blp:100
+#: crates/glimpse-widgets/blueprints/power_popover.blp:102
 msgid "2 hours"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:52
-#: crates/glimpse-widgets/blueprints/power_popover.blp:105
+#: crates/glimpse-widgets/blueprints/power_popover.blp:107
 msgid "4 hours"
 msgstr ""
 
@@ -2523,8 +2516,7 @@ msgid "Connect to a hidden network…"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:41
-#: crates/glimpse-widgets/blueprints/split_row.blp:27
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:132
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
 msgid "Details"
 msgstr ""
 
@@ -2578,19 +2570,19 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:328
+#: crates/glimpse-widgets/src/lib.rs:320
 msgid "Play"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/power_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:54
 msgid "History"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/power_popover.blp:64
+#: crates/glimpse-widgets/blueprints/power_popover.blp:66
 msgid "Power mode"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/power_popover.blp:113
+#: crates/glimpse-widgets/blueprints/power_popover.blp:115
 msgid "Devices"
 msgstr ""
 
@@ -3008,7 +3000,7 @@ msgid "Copy and Close"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
-#: crates/glimpse-widgets/src/clipboard_list/mod.rs:267
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
 #: crates/glimpse-widgets/src/color_list/mod.rs:150
 msgid "Copy"
 msgstr ""
@@ -3238,6 +3230,12 @@ msgstr ""
 msgid "Locked by the hardware switch"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:436
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
 msgid ""
 "Storm warning: strong wind gusts up to 90 km/h expected across the region"
@@ -3362,27 +3360,27 @@ msgstr ""
 msgid "Prevents"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:143
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
 msgid "Shutdown"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
 msgid "Lid"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:148
 msgid "Power key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:149
 msgid "Suspend key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:150
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:327
+#: crates/glimpse-widgets/src/lib.rs:319
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:134
 msgid "Pause"
 msgstr ""
@@ -3445,7 +3443,7 @@ msgstr[1] ""
 msgid "Resume"
 msgstr ""
 
-#: crates/glimpse-widgets/src/printing_popover/mod.rs:221
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:225
 msgid "Page {current} of {total}"
 msgstr ""
 

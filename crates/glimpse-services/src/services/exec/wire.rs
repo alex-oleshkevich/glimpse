@@ -27,9 +27,6 @@ pub enum FromApplet {
     OpenUri {
         uri: String,
     },
-    Session {
-        action: SessionVerb,
-    },
     ClosePopover,
     #[serde(other)]
     Unknown,
@@ -78,17 +75,6 @@ pub enum Urgency {
     #[default]
     Normal,
     Critical,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum SessionVerb {
-    Lock,
-    Suspend,
-    Hibernate,
-    LogOut,
-    Reboot,
-    PowerOff,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
