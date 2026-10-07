@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 22:18+0200\n"
+"POT-Creation-Date: 2026-10-07 13:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -156,14 +156,14 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:140
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:289
-#: crates/glimpse-panel/src/applets/display/indicator.rs:328
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:157
 msgid "That is not supported."
 msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:141
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:290
-#: crates/glimpse-panel/src/applets/display/indicator.rs:329
+#: crates/glimpse-panel/src/applets/display/indicator.rs:364
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:158
 msgid "That could not be completed."
 msgstr ""
@@ -171,8 +171,8 @@ msgstr ""
 #: crates/glimpse-panel/src/applet/mod.rs:142
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:291
 #: crates/glimpse-panel/src/applets/color_picker/indicator.rs:102
-#: crates/glimpse-panel/src/applets/display/indicator.rs:330
-#: crates/glimpse-panel/src/applets/display/indicator.rs:340
+#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+#: crates/glimpse-panel/src/applets/display/indicator.rs:375
 #: crates/glimpse-panel/src/applets/network/render.rs:97
 #: crates/glimpse-panel/src/applets/power/mod.rs:350
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:159
@@ -299,7 +299,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:175
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:476
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:165
-#: crates/glimpse-panel/src/applets/display/indicator.rs:319
+#: crates/glimpse-panel/src/applets/display/indicator.rs:354
 #: crates/glimpse-panel/src/applets/network/indicator.rs:495
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:99
 msgid "Could not change that setting"
@@ -329,8 +329,8 @@ msgid "The audio server is unavailable."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:287
-#: crates/glimpse-panel/src/applets/display/indicator.rs:326
-#: crates/glimpse-panel/src/applets/display/indicator.rs:337
+#: crates/glimpse-panel/src/applets/display/indicator.rs:361
+#: crates/glimpse-panel/src/applets/display/indicator.rs:372
 msgid "That was not a valid value."
 msgstr ""
 
@@ -875,47 +875,47 @@ msgstr ""
 msgid "{program} could not be started."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:212
+#: crates/glimpse-panel/src/applets/display/indicator.rs:228
 msgid "Could not change that display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:228
+#: crates/glimpse-panel/src/applets/display/indicator.rs:244
 msgid "Could not blank the screens"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:303
-#: crates/glimpse-panel/src/applets/display/indicator.rs:356
+#: crates/glimpse-panel/src/applets/display/indicator.rs:338
+#: crates/glimpse-panel/src/applets/display/indicator.rs:391
 #: crates/glimpse-widgets/blueprints/display_popover.blp:73
 msgid "Displays"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:305
+#: crates/glimpse-panel/src/applets/display/indicator.rs:340
 msgid "Could not change the brightness"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:317
+#: crates/glimpse-panel/src/applets/display/indicator.rs:352
 #: crates/glimpse-widgets/blueprints/display_popover.blp:50
 msgid "Night light"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:327
+#: crates/glimpse-panel/src/applets/display/indicator.rs:362
 msgid "The brightness service is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:336
+#: crates/glimpse-panel/src/applets/display/indicator.rs:371
 msgid "That was not a valid setting."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:338
+#: crates/glimpse-panel/src/applets/display/indicator.rs:373
 msgid "The night light is not running."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:339
+#: crates/glimpse-panel/src/applets/display/indicator.rs:374
 #: crates/glimpse-panel/src/applets/power/mod.rs:348
 msgid "That took too long."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/display/indicator.rs:360
+#: crates/glimpse-panel/src/applets/display/indicator.rs:395
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:156
 #: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:222
 msgid "The compositor is unavailable."
@@ -3326,27 +3326,27 @@ msgstr ""
 msgid "{x}, {y}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:213
+#: crates/glimpse-widgets/src/display_popover/mod.rs:219
 msgid "Schedule"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:216
+#: crates/glimpse-widgets/src/display_popover/mod.rs:222
 msgid "Temperature"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:265
+#: crates/glimpse-widgets/src/display_popover/mod.rs:271
 msgid "Not reaching any display"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:332
+#: crates/glimpse-widgets/src/display_popover/mod.rs:338
 msgid "Sunset to sunrise"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:334
+#: crates/glimpse-widgets/src/display_popover/mod.rs:340
 msgid "Fixed hours"
 msgstr ""
 
-#: crates/glimpse-widgets/src/display_popover/mod.rs:340
+#: crates/glimpse-widgets/src/display_popover/mod.rs:346
 msgid "{kelvin} K"
 msgstr ""
 
@@ -3471,6 +3471,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/shot_window_list/mod.rs:143
 msgid "captured when picked"
+msgstr ""
+
+#: crates/glimpse-widgets/src/workspace_section/mod.rs:73
+msgid "Focus workspace"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
