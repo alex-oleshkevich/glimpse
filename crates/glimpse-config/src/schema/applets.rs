@@ -149,6 +149,13 @@ pub struct Sandbox {
     pub write: Vec<String>,
     /// Whether the applet may reach the network: TCP, UDP and the system resolver.
     pub network: bool,
+    /// Whether the applet sees media players and may control them.
+    pub mpris: bool,
+    /// Whether the applet sees workspaces, windows and outputs, and may focus, move, rename and
+    /// close them.
+    pub compositor: bool,
+    /// Desktop-file ids the applet may start after a click, e.g. `org.gnome.Nautilus`.
+    pub launch: Vec<String>,
     /// Runs the applet with no confinement at all, for a kernel without Landlock.
     pub unconfined: bool,
 }

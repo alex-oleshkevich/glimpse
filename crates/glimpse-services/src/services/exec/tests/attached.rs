@@ -17,6 +17,7 @@ async fn untaken_offer_expires_and_closes_its_pipes() {
                 position: None,
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )
@@ -64,6 +65,7 @@ async fn reoffer_revives_an_ended_attached_slot() {
                 position: None,
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )
@@ -120,6 +122,7 @@ async fn offer_revives_a_not_configured_slot_left_by_a_rebuild() {
                 position: None,
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )
@@ -166,6 +169,7 @@ async fn attach_takes_offer_for_its_output() {
                 position: None,
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )
@@ -230,6 +234,7 @@ async fn second_offer_for_the_same_id_is_refused() {
                     position: None,
                     entry: attached_entry(),
                     options: Map::new(),
+                    sandbox: glimpse_config::AppletSandbox::default(),
                     pipes,
                 },
             )
@@ -248,7 +253,8 @@ async fn second_offer_for_the_same_id_is_refused() {
         .expect("attach");
     let (pipes, _writer, _reader) = attached_peer();
     assert!(matches!(handle.offer("me.x.A", Offer {
-        output: None, position: None, entry: attached_entry(), options: Map::new(), pipes,
+        output: None, position: None, entry: attached_entry(), options: Map::new(),
+        sandbox: glimpse_config::AppletSandbox::default(), pipes,
     }).await, Err(CommandError::InvalidArgument(reason)) if reason == "me.x.A is already attached"));
     handle.detach(1).await.expect("detach");
     cancel.cancel();
@@ -284,6 +290,7 @@ async fn offer_takes_over_the_slot_on_its_panel_edge() {
                 position: Some(Edge::Bottom),
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )
@@ -335,6 +342,7 @@ async fn offer_takes_over_spawned_slot_and_returns_it() {
                 position: None,
                 entry: attached_entry(),
                 options: Map::new(),
+                sandbox: glimpse_config::AppletSandbox::default(),
                 pipes,
             },
         )

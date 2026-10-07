@@ -130,7 +130,7 @@ fn printing_popover_states() {
     assert_eq!(drawer.len(), 4, "facts, Pause, Resume, Cancel");
     let facts = drawer[0]
         .clone()
-        .downcast::<FactList>()
+        .downcast::<gtk4::Box>()
         .expect("the facts lead the drawer");
     assert_eq!(
         fact_values(&facts),
@@ -247,7 +247,7 @@ fn printing_popover_states() {
     let card = printer
         .details()
         .first_child()
-        .and_downcast::<FactList>()
+        .and_downcast::<gtk4::Box>()
         .expect("a list of facts");
     assert_eq!(fact_values(&card).len(), 1);
 

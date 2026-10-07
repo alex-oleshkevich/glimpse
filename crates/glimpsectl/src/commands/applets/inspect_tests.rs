@@ -13,6 +13,7 @@ fn config_formats_empty_and_granted_placement() {
             write: vec!["/tmp/write".to_owned()],
             network: true,
             unconfined: true,
+            ..AppletSandbox::default()
         },
     };
     assert_eq!(

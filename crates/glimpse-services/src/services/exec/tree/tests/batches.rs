@@ -1,13 +1,13 @@
 use super::*;
 
 #[test]
-fn a_footer_can_be_replaced_insert_first() {
+fn an_addon_can_be_replaced_insert_first() {
     let tree = hosted(&Tree::default())
-        .apply(vec![insert(1, leaf(2, "footer"), None)])
-        .expect("footer");
+        .apply(vec![insert(1, leaf(2, "addon"), None)])
+        .expect("addon");
     let replaced = tree
         .apply(vec![
-            insert(1, leaf(3, "footer"), None),
+            insert(1, leaf(3, "addon"), None),
             Op::Remove { parent: 1, id: 2 },
         ])
         .expect("replace");
@@ -43,7 +43,7 @@ fn move_reorders_remove_drops_subtree_insert_honors_before() {
     assert!(tree.node(9).is_none());
     let row = cleared_row(&tree);
     assert_eq!(row.title, None);
-    assert!(!row.busy);
+    assert!(!tree.node(3).expect("row").raw.contains_key("busy"));
     assert_eq!(tree.node(3).expect("row").seq, None);
     assert_eq!(
         row_of(&tree.node(5).expect("row").element).title.as_deref(),
@@ -60,19 +60,26 @@ fn hello_fixture_builds_the_first_tree() {
         }
     }
     assert_eq!(tree.children(ROOT), &[1, 2]);
-    assert_eq!(tree.children(2), &[3, 4]);
-    assert_eq!(tree.children(4), &[5, 6]);
+    assert_eq!(tree.children(2), &[3]);
+    assert_eq!(tree.children(3), &[4, 5]);
     assert_eq!(
         indicator_of(&tree.node(1).expect("chip").element)
             .text
             .as_deref(),
         Some("2")
     );
-    match &tree.node(3).expect("hero").element {
-        Element::Hero(hero) => assert_eq!(hero.title.as_deref(), Some("Todos")),
-        other => panic!("expected a hero, got {other:?}"),
+    match &tree.node(2).expect("popover").element {
+        Element::Popover(popover) => assert_eq!(popover.title.as_deref(), Some("Todos")),
+        other => panic!("expected a popover, got {other:?}"),
     }
-    assert!(row_of(&tree.node(6).expect("row").element).on_activate);
+    assert_eq!(
+        row_of(&tree.node(4).expect("row").element).title.as_deref(),
+        Some("Buy milk")
+    );
+    match &tree.node(5).expect("actionrow").element {
+        Element::ActionRow(row) => assert!(row.on_activate),
+        other => panic!("expected an actionrow, got {other:?}"),
+    }
 }
 
 #[test]
@@ -131,23 +138,23 @@ fn the_parent_table_rejects_the_combinations_it_names() {
             .apply(vec![insert(2, leaf(3, "section"), None)])
             .is_ok()
     );
-    let footer = tree
+    let button = tree
         .apply(vec![insert(
             1,
-            wire(2, "footer", json!({}), vec![leaf(3, "button")]),
+            wire(2, "box", json!({}), vec![leaf(3, "button")]),
             None,
         )])
-        .expect("footer");
-    match &footer.node(3).expect("button").element {
+        .expect("button");
+    match &button.node(3).expect("button").element {
         Element::Button(button) => assert!(button.sensitive),
         other => panic!("expected a button, got {other:?}"),
     }
     assert_eq!(
-        footer
-            .apply(vec![insert(2, leaf(4, "section"), None)])
-            .expect_err("section in a footer"),
+        tree.apply(vec![insert(1, leaf(2, "addon"), None)])
+            .and_then(|tree| tree.apply(vec![insert(2, leaf(3, "section"), None)]))
+            .expect_err("section in an addon"),
         Violation::BadParent {
-            parent: ElementKind::Footer,
+            parent: ElementKind::Addon,
             child: ElementKind::Section,
         }
     );
@@ -161,11 +168,11 @@ fn the_parent_table_rejects_the_combinations_it_names() {
         }
     );
     assert_eq!(
-        tree.apply(vec![insert(1, leaf(2, "fader"), None)])
+        tree.apply(vec![insert(1, leaf(2, "entry"), None)])
             .and_then(|tree| tree.apply(vec![insert(2, leaf(3, "label"), None)]))
             .expect_err("child of a leaf"),
         Violation::BadParent {
-            parent: ElementKind::Fader,
+            parent: ElementKind::Entry,
             child: ElementKind::Label,
         }
     );

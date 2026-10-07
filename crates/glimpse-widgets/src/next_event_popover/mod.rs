@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Event, Fact, Row, clear_children, fact_row};
+use crate::{Event, Fact, Row};
 
 glib::wrapper! {
     pub struct NextEventPopover(ObjectSubclass<imp::NextEventPopover>)
@@ -61,10 +61,7 @@ impl NextEventPopover {
 
     pub fn set_facts(&self, facts: &[Fact]) {
         let imp = self.imp();
-        clear_children(&imp.facts);
-        for fact in facts {
-            imp.facts.append(&fact_row(fact));
-        }
+        crate::set_facts(&imp.facts, facts);
 
         imp.details.set_visible(!facts.is_empty());
     }

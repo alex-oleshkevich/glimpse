@@ -418,7 +418,7 @@ impl NetworkPopover {
             .cloned();
         let card = row.imp();
         let details = details.unwrap_or_default();
-        card.facts.set_facts(&details.facts);
+        crate::set_facts(&card.facts, &details.facts);
         if card.facts.get_visible() == details.facts.is_empty() {
             card.facts.set_visible(!details.facts.is_empty());
         }

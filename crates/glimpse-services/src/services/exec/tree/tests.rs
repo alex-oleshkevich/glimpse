@@ -5,8 +5,8 @@ use serde::de::IntoDeserializer;
 use serde_json::{Map, Value, json};
 
 use super::{
-    Element, ElementKind, EntryProps, FaderProps, IndicatorProps, LabelProps, ROOT, RowProps,
-    ScaleProps, Severity, Tree, Violation, de_finite_f64,
+    Element, ElementKind, EntryProps, IndicatorProps, LabelProps, ROOT, RowProps, ScaleProps,
+    Severity, Tree, Violation, de_finite_f64,
 };
 
 use crate::services::exec::wire::{FromApplet, Op, WireNode};
@@ -95,13 +95,6 @@ fn label_of(element: &Element) -> &LabelProps {
     match element {
         Element::Label(props) => props,
         other => panic!("expected a label, got {other:?}"),
-    }
-}
-
-fn fader_of(element: &Element) -> &FaderProps {
-    match element {
-        Element::Fader(props) => props,
-        other => panic!("expected a fader, got {other:?}"),
     }
 }
 

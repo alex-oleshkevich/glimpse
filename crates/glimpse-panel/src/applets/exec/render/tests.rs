@@ -27,22 +27,6 @@ fn a_continuous_scale_gets_a_usable_gtk_step() {
 }
 
 #[test]
-fn session_requests_map_to_dialog_or_direct_action() {
-    let state = SessionActionsState::default();
-    assert!(matches!(
-        session_input(&BarRequest::Session(SessionVerb::Reboot), &state),
-        Some(AppInput::SessionConfirm(SessionDialog {
-            action: SessionAction::Reboot,
-            ..
-        }))
-    ));
-    assert!(matches!(
-        session_input(&BarRequest::Session(SessionVerb::Lock), &state),
-        Some(AppInput::SessionRun(SessionAction::Lock))
-    ));
-}
-
-#[test]
 fn requests_survive_an_unchanged_tree() {
     let tree = Arc::new(Tree::default());
     let mut serial = 0;
@@ -107,4 +91,46 @@ fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
     let bad = &indicators(&bad, &mut |name| gio::ThemedIcon::new(name).upcast())[0].1;
     assert!(bad.icon.is_none());
     assert!(bad.dot.is_none());
+}
+
+#[test]
+fn files_the_applet_could_have_written_or_run_stay_closed() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("glimpse-open-file-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("dir");
+    let state = root.join("state");
+    std::fs::create_dir(&state).expect("state");
+    let planted = state.join("notes.txt");
+    std::fs::write(&planted, "hi").expect("planted");
+    let outside = root.as_path().join("notes.txt");
+    std::fs::write(&outside, "hi").expect("outside");
+    let script = root.as_path().join("run.sh");
+    std::fs::write(&script, "#!/bin/sh\n").expect("script");
+    let desktop = root.as_path().join("evil.desktop");
+    std::fs::write(&desktop, "[Desktop Entry]\nExec=sh\n").expect("desktop");
+    let tool = root.as_path().join("tool");
+    std::fs::write(&tool, "x").expect("tool");
+    std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).expect("mode");
+    let link = state.join("escape");
+    std::os::unix::fs::symlink(&outside, &link).expect("link");
+    let writable = vec![state.clone()];
+
+    let canonical = outside.canonicalize().expect("outside");
+    assert_eq!(openable(&outside, &writable), Ok(canonical.clone()));
+    assert!(openable(root.as_path(), &writable).is_ok());
+    assert_eq!(openable(&link, &writable), Ok(canonical));
+    assert_eq!(openable(&planted, &writable), Err("written by the applet"));
+    assert_eq!(
+        openable(&state.join("../state/notes.txt"), &writable),
+        Err("written by the applet")
+    );
+    assert_eq!(openable(&tool, &writable), Err("executable"));
+    assert_eq!(openable(&script, &writable), Err("launches programs"));
+    assert_eq!(openable(&desktop, &writable), Err("launches programs"));
+    assert_eq!(
+        openable(&root.as_path().join("missing"), &writable),
+        Err("missing")
+    );
+    std::fs::remove_dir_all(&root).expect("cleanup");
 }

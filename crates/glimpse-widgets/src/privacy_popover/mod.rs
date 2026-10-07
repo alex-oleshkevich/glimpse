@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ExpanderRow, Fact, FactList, Row, RowTone, none_if_empty, reconcile};
+use crate::{ActionRow, ExpanderRow, Fact, Row, RowTone, none_if_empty, reconcile};
 
 pub use imp::Usage;
 
@@ -101,7 +101,7 @@ impl PrivacyPopover {
         ));
         let item = ExpanderRow::new();
         let details = item.details();
-        details.append(&FactList::new());
+        details.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
         details.append(&stop);
         item.upcast()
     }
@@ -124,12 +124,12 @@ fn apply_usage(widget: &gtk4::Widget, usage: &Usage) {
     item.set_title(title);
     item.set_icon_name(icon);
     let details = item.details();
-    if let Some(facts) = details.first_child().and_downcast::<FactList>() {
+    if let Some(facts) = details.first_child().and_downcast::<gtk4::Box>() {
         let in_use = usage
             .detail
             .as_ref()
             .map(|detail| Fact::new(gettext("In use"), detail.clone()));
-        facts.set_facts(&in_use.into_iter().collect::<Vec<_>>());
+        crate::set_facts(&facts, &in_use.into_iter().collect::<Vec<_>>());
     }
     if let Some(stop) = details.last_child()
         && stop.get_visible() != usage.stoppable

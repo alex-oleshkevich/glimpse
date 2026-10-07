@@ -177,6 +177,7 @@ async fn private_bus_checks_sender_and_delivers_fds() {
             "",
             "",
             "{}",
+            "{}",
             Fd::from(&to_panel),
             Fd::from(&from_panel),
         )
@@ -193,6 +194,7 @@ async fn private_bus_checks_sender_and_delivers_fds() {
             0,
             "",
             "",
+            "{}",
             "{}",
             Fd::from(&duplicate_to_panel),
             Fd::from(&duplicate_from_panel),

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
 use futures_util::{SinkExt, StreamExt};
-use glimpse_config::{ExecAppletConfig, is_desktop_id};
+use glimpse_config::{AppletSandbox, ExecAppletConfig, is_desktop_id};
 use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name, panel_app_id};
 use glimpse_services::{
     DesktopCatalog, EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, ExecEntry, FromApplet, MAX_LINE, Outgoing,
@@ -115,11 +115,24 @@ fn watched(path: &Path, dir: &Path) -> bool {
     })
 }
 
+fn granted(settings: &ExecAppletConfig, source: Option<&Path>) -> AppletSandbox {
+    let mut write = settings.sandbox.write.clone();
+    write.extend(source.map(|source| source.display().to_string()));
+    AppletSandbox {
+        mpris: settings.sandbox.mpris,
+        compositor: settings.sandbox.compositor,
+        launch: settings.sandbox.launch.clone(),
+        write,
+        ..AppletSandbox::default()
+    }
+}
+
 async fn attach(
     proxy: &AppletHostProxy<'_>,
     target: &HostTarget<'_>,
     entry: &ExecEntry,
     settings: &ExecAppletConfig,
+    source: Option<&Path>,
 ) -> Result<Link> {
     let (from_panel, to_applet) = io::pipe()?;
     let (from_applet, to_panel) = io::pipe()?;
@@ -129,6 +142,7 @@ async fn attach(
         target.output,
         target.zone,
         &serde_json::to_string(&settings.options)?,
+        &serde_json::to_string(&granted(settings, source))?,
         Fd::from(&to_applet),
         Fd::from(&from_applet),
     ))
@@ -439,7 +453,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         .build()
         .await?;
     let mut link = tokio::select! {
-        result = attach(&proxy, &host, &entry, &current_settings) => result?,
+        result = attach(&proxy, &host, &entry, &current_settings, directory_target.then_some(dir.as_path())) => result?,
         _ = shutdown.cancelled() => return Ok(()),
     };
     let mut tty = io::stdin().is_terminal();
@@ -516,6 +530,10 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
                                         Err(error) => eprintln!("cannot update options: {error}"),
                                     }
                                 }
+                                let source = directory_target.then_some(dir.as_path());
+                                if granted(&next, source) != granted(&current_settings, source) {
+                                    anyhow::bail!("service, launch or write grants changed; run again to apply them");
+                                }
                                 if next.sandbox != current_settings.sandbox {
                                     changed = true;
                                     restart_reason = Some("sandbox changed, restarting".to_owned());
@@ -547,7 +565,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
                     stop(&mut applet, false).await?;
                     starts.push_back(now);
                     if reattach {
-                        match attach(&proxy, &host, &entry, &current_settings).await {
+                        match attach(&proxy, &host, &entry, &current_settings, directory_target.then_some(dir.as_path())).await {
                             Ok(next) => {
                                 link = next;
                                 eprintln!("re-attached as {}", link.handle);

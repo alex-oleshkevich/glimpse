@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, SplitRow};
+use crate::ActionRow;
 
 const CARD: &str = "card";
 pub const OPENER: &str = "expandable__opener";
@@ -57,26 +57,21 @@ impl Expandable {
         );
         match (
             head.downcast_ref::<ActionRow>(),
-            head.downcast_ref::<SplitRow>(),
             head.downcast_ref::<gtk4::Button>(),
             opener(head),
         ) {
-            (Some(row), _, _, _) => Some((
+            (Some(row), _, _) => Some((
                 row.clone().upcast(),
                 row.connect_activated(move |_| toggle()),
             )),
-            (None, Some(split), _, _) => Some((
-                split.clone().upcast(),
-                split.connect_details(move |_| toggle()),
-            )),
-            (None, None, Some(row), _) => {
+            (None, Some(row), _) => {
                 Some((row.clone().upcast(), row.connect_clicked(move |_| toggle())))
             }
-            (None, None, None, Some(badge)) => Some((
+            (None, None, Some(badge)) => Some((
                 badge.clone().upcast(),
                 badge.connect_clicked(move |_| toggle()),
             )),
-            (None, None, None, None) => None,
+            (None, None, None) => None,
         }
     }
 
@@ -114,13 +109,13 @@ impl Expandable {
         let Some(head) = self.head::<gtk4::Widget>() else {
             return false;
         };
-        let opener = match head.downcast_ref::<SplitRow>() {
-            Some(split) => split.detail().upcast(),
-            None if head.is::<gtk4::Button>() || head.is::<ActionRow>() => head,
-            None => match opener(&head) {
+        let opener = if head.is::<gtk4::Button>() || head.is::<ActionRow>() {
+            head
+        } else {
+            match opener(&head) {
                 Some(badge) => badge.upcast(),
                 None => return false,
-            },
+            }
         };
         target == &opener || target.is_ancestor(&opener)
     }

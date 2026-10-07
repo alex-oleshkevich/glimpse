@@ -12,10 +12,10 @@ use glimpse_services::{
     ToggleControl as ExecControl, Tone, Transition, Tree,
 };
 use glimpse_widgets::{
-    ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, Expandable,
-    ExpanderRow, FactList, Fader, Hero, LegacyRow, MeterRow, Notice, Placeholder, PopoverShell,
-    PopoverSize, RangeBar, Readout, Row as UiRow, RowTone, RowTypography, Section, SliderRow,
-    Sparkline, SwitchRow, ToggleControl, ToggleRow, Ymd, beside, reconcile::by_key,
+    ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, ExpanderRow,
+    MeterRow, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout, Row as UiRow,
+    RowTone, RowTypography, Section, SliderRow, Sparkline, ToggleControl, ToggleRow, Ymd,
+    reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -26,14 +26,11 @@ use crate::applet::Opener;
 pub(super) type Key = (u64, u32, ElementKind);
 type Dispatch = Rc<dyn Fn(UserEvent)>;
 
-const SLOT_SPACING: i32 = 6;
-const PROGRESS_INSET: i32 = 13;
-const PROGRESS_GAP: i32 = 6;
 const DIM_ALPHA: f32 = 0.55;
 const MARKER_LIMIT: usize = 3;
 const OPTION_CHARS: i32 = 32;
 
-macro_rules! dress_row_base {
+macro_rules! dress_static_row {
     ($widget:expr, $props:expr) => {{
         let p = $props;
         $widget.set_property("icon-name", p.icon.as_deref());
@@ -44,6 +41,13 @@ macro_rules! dress_row_base {
         $widget.set_property("inactive", p.inactive);
         $widget.set_property("tooltip", p.tooltip.as_deref());
         $widget.set_property("typography", row_typography(p.typography));
+    }};
+}
+
+macro_rules! dress_row_base {
+    ($widget:expr, $props:expr) => {{
+        let p = $props;
+        dress_static_row!($widget, p);
         $widget.set_property("busy", p.busy);
     }};
 }
@@ -51,7 +55,6 @@ macro_rules! dress_row_base {
 struct Mounted {
     widget: gtk4::Widget,
     inner: Option<gtk4::Box>,
-    trail: Option<gtk4::Box>,
     node: Arc<Node>,
     handlers: Vec<glib::SignalHandlerId>,
 }
@@ -60,11 +63,7 @@ pub struct Dom {
     shell: glib::WeakRef<PopoverShell>,
     closed: Rc<Cell<bool>>,
     popover_class: Option<&'static str>,
-    footer_class: Option<&'static str>,
     body: gtk4::Box,
-    footer_nodes: gtk4::Box,
-    hero_box: gtk4::Box,
-    hero: Option<Key>,
     nodes: HashMap<Key, Mounted>,
     held: HashMap<Key, Vec<(Key, gtk4::Widget)>>,
     seq: Rc<RefCell<HashMap<Key, u64>>>,
@@ -72,7 +71,6 @@ pub struct Dom {
     slot: u64,
     opener: Opener,
     generation: Option<u64>,
-    footer_key: Option<Key>,
     applying: Rc<Cell<bool>>,
 }
 
@@ -84,15 +82,8 @@ impl Dom {
         opener: Opener,
         seq: Rc<RefCell<HashMap<Key, u64>>>,
     ) -> Self {
-        let hero_box = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
-        hero_box.set_visible(false);
-        shell.set_hero(&hero_box);
-
         let body = shell.body();
         body.set_visible(false);
-        let footer_nodes = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        footer_nodes.set_visible(false);
-        shell.append_to_footer(&footer_nodes);
         let closed = Rc::new(Cell::new(false));
         shell.connect_unmap({
             let closed = closed.clone();
@@ -102,11 +93,7 @@ impl Dom {
             shell: shell.downgrade(),
             closed,
             popover_class: None,
-            footer_class: None,
             body,
-            footer_nodes,
-            hero_box,
-            hero: None,
             nodes: HashMap::new(),
             held: HashMap::new(),
             seq,
@@ -114,7 +101,6 @@ impl Dom {
             slot,
             opener,
             generation: None,
-            footer_key: None,
             applying: Rc::new(Cell::new(false)),
         }
     }
@@ -138,11 +124,6 @@ impl Dom {
             .nodes
             .iter()
             .filter_map(|(key, mounted)| match &mounted.node.element {
-                Element::Expander(props) if props.on_toggle => {
-                    let expandable = mounted.widget.downcast_ref::<Expandable>()?;
-                    (expandable.expanded() != props.expanded)
-                        .then_some((*key, expandable.expanded()))
-                }
                 Element::ExpanderRow(props) if props.on_toggle => {
                     let row = mounted.widget.downcast_ref::<ExpanderRow>()?;
                     (row.open() != props.open).then_some((*key, row.open()))
@@ -179,26 +160,6 @@ impl Dom {
             return true;
         };
         let children = tree.children(popover);
-        let hero = render::first_child_of_kind(tree, popover, |element| {
-            matches!(element, Element::Hero(_))
-        });
-        if let Some(id) = hero {
-            if let Some((key, widget)) = self.mount(tree, generation, id, &mut live)
-                && self.hero != Some(key)
-            {
-                if let Some(old) = self.hero.take().and_then(|key| self.nodes.get(&key)) {
-                    self.hero_box.remove(&old.widget);
-                }
-                self.hero_box.append(&widget);
-                self.hero = Some(key);
-            }
-        } else if let Some(key) = self.hero.take()
-            && let Some(old) = self.nodes.get(&key)
-        {
-            self.hero_box.remove(&old.widget);
-        }
-        self.hero_box
-            .set_visible(self.hero_box.first_child().is_some());
         let popover_class = tree
             .node(popover)
             .and_then(|node| element_class(&node.element))
@@ -217,7 +178,7 @@ impl Dom {
         }
         self.mount_addon(&shell, tree, generation, popover, &mut live);
         let root_key = (generation, ROOT, ElementKind::Popover);
-        let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Hero(_) | Element::Footer(_) | Element::Addon(_)))).collect();
+        let body_ids: Vec<_> = children.iter().copied().filter(|id| matches!(tree.node(*id).map(|node| &node.element), Some(element) if !matches!(element, Element::Addon(_)))).collect();
         self.reconcile_children(
             tree,
             generation,
@@ -227,51 +188,13 @@ impl Dom {
             &mut live,
         );
         self.body.set_visible(self.body.first_child().is_some());
-        if let Some(id) = render::first_child_of_kind(tree, popover, |element| {
-            matches!(element, Element::Footer(_))
-        }) {
-            let key = (generation, id, ElementKind::Footer);
-            let footer_class = tree
-                .node(id)
-                .and_then(|node| element_class(&node.element))
-                .map(render::class_name);
-            swap_class(
-                self.footer_nodes.upcast_ref(),
-                &mut self.footer_class,
-                footer_class,
-            );
-            if self.footer_key != Some(key) {
-                while let Some(child) = self.footer_nodes.first_child() {
-                    self.footer_nodes.remove(&child);
-                }
-                self.footer_key = Some(key);
-            }
-            self.reconcile_children(
-                tree,
-                generation,
-                key,
-                &self.footer_nodes.clone(),
-                tree.children(id),
-                &mut live,
-            );
-        } else {
-            while let Some(child) = self.footer_nodes.first_child() {
-                self.footer_nodes.remove(&child);
-            }
-            self.footer_key = None;
-            swap_class(self.footer_nodes.upcast_ref(), &mut self.footer_class, None);
-        }
-        self.footer_nodes
-            .set_visible(self.footer_nodes.first_child().is_some());
         self.opener.typing(
             live.iter()
                 .any(|key| matches!(key.2, ElementKind::Entry | ElementKind::Scale)),
         );
         self.nodes.retain(|key, _| live.contains(key));
-        self.held.retain(|key, _| {
-            key.0 == generation
-                && (live.contains(key) || *key == root_key || Some(*key) == self.footer_key)
-        });
+        self.held
+            .retain(|key, _| key.0 == generation && (live.contains(key) || *key == root_key));
         true
     }
 
@@ -303,21 +226,9 @@ impl Dom {
         while let Some(child) = self.body.first_child() {
             self.body.remove(&child);
         }
-        while let Some(child) = self.footer_nodes.first_child() {
-            self.footer_nodes.remove(&child);
-        }
-        if let Some(key) = self.hero.take()
-            && let Some(old) = self.nodes.get(&key)
-        {
-            self.hero_box.remove(&old.widget);
-        }
         self.body.set_visible(false);
-        self.hero_box.set_visible(false);
-        self.footer_nodes.set_visible(false);
         self.nodes.clear();
         self.held.clear();
-        self.footer_key = None;
-        swap_class(self.footer_nodes.upcast_ref(), &mut self.footer_class, None);
         if let Some(shell) = self.shell.upgrade() {
             swap_class(shell.upcast_ref(), &mut self.popover_class, None);
             shell.set_icon_name(None::<&str>);
@@ -370,13 +281,12 @@ impl Dom {
         let key = (generation, id, node.element.kind());
         live.insert(key);
         if !self.nodes.contains_key(&key) {
-            let (widget, inner, trail, handlers) = self.build(&node, key);
+            let (widget, inner, handlers) = self.build(&node, key);
             self.nodes.insert(
                 key,
                 Mounted {
                     widget,
                     inner,
-                    trail,
                     node: node.clone(),
                     handlers,
                 },
@@ -428,8 +338,10 @@ impl Dom {
                 if let Some(parent) = start.parent() {
                     parent.set_visible(start.first_child().is_some());
                 }
-            } else if matches!(&node.element, Element::ActionRow(_) | Element::MeterRow(_))
-                && let Some(row) = widget.downcast_ref::<UiRow>()
+            } else if matches!(
+                &node.element,
+                Element::Row(_) | Element::ActionRow(_) | Element::MeterRow(_)
+            ) && let Some(row) = widget.downcast_ref::<UiRow>()
             {
                 match inner.first_child() {
                     Some(_) => row.set_end(&inner),
@@ -494,21 +406,10 @@ impl Dom {
         &self,
         node: &Node,
         key: Key,
-    ) -> (
-        gtk4::Widget,
-        Option<gtk4::Box>,
-        Option<gtk4::Box>,
-        Vec<glib::SignalHandlerId>,
-    ) {
+    ) -> (gtk4::Widget, Option<gtk4::Box>, Vec<glib::SignalHandlerId>) {
         let mut handlers = Vec::new();
         let mut inner = None;
-        let mut trail_box = None;
         let widget: gtk4::Widget = match &node.element {
-            Element::Hero(_) => {
-                let slot = gtk4::Box::new(gtk4::Orientation::Horizontal, SLOT_SPACING);
-                inner = Some(slot);
-                Hero::new().upcast()
-            }
             Element::Section(_) => {
                 let section = Section::new();
                 let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
@@ -520,67 +421,6 @@ impl Dom {
                 let box_ = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
                 inner = Some(box_.clone());
                 box_.upcast()
-            }
-            Element::Row(_) => {
-                let row = LegacyRow::new();
-                let slot = gtk4::Box::new(gtk4::Orientation::Horizontal, SLOT_SPACING);
-                slot.set_visible(false);
-                let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
-                chevron.set_accessible_role(gtk4::AccessibleRole::Presentation);
-                chevron.add_css_class("drawer-chevron");
-                chevron.set_visible(false);
-                let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-                trail.append(&chevron);
-                inner = Some(slot.clone());
-                trail_box = Some(trail);
-                let dispatch = self.dispatch.clone();
-                let slot_id = self.slot;
-                handlers.push(row.connect_clicked(move |_| {
-                    emit(&dispatch, slot_id, key, "onActivate", vec![], None, true)
-                }));
-                beside(&row, &slot).upcast()
-            }
-            Element::SwitchRow(_) => {
-                let row = SwitchRow::new();
-                let dispatch = self.dispatch.clone();
-                let seq = self.seq.clone();
-                let slot = self.slot;
-                handlers.push(row.connect_toggled(move |_, active| {
-                    emit(
-                        &dispatch,
-                        slot,
-                        key,
-                        "onToggle",
-                        vec![Value::Bool(active)],
-                        Some(bump(&seq, key)),
-                        false,
-                    )
-                }));
-                row.upcast()
-            }
-            Element::Fader(_) => {
-                let fader = Fader::new();
-                let dispatch = self.dispatch.clone();
-                let seq = self.seq.clone();
-                let slot = self.slot;
-                handlers.push(fader.connect_changed(move |_, value| {
-                    if let Some(value) = Number::from_f64(value) {
-                        emit(
-                            &dispatch,
-                            slot,
-                            key,
-                            "onChange",
-                            vec![Value::Number(value)],
-                            Some(bump(&seq, key)),
-                            false,
-                        );
-                    }
-                }));
-                let dispatch = self.dispatch.clone();
-                handlers.push(fader.connect_toggled(move |_, _| {
-                    emit(&dispatch, slot, key, "onMute", vec![], None, false)
-                }));
-                fader.upcast()
             }
             Element::ActionRow(_) => {
                 let row = ActionRow::new();
@@ -609,6 +449,10 @@ impl Dom {
                     )
                 }));
                 row.upcast()
+            }
+            Element::Row(_) => {
+                inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
+                UiRow::new().upcast()
             }
             Element::MeterRow(_) => {
                 inner = Some(gtk4::Box::new(gtk4::Orientation::Horizontal, 0));
@@ -707,7 +551,7 @@ impl Dom {
                 }));
                 entry.upcast()
             }
-            Element::FactList(_) => FactList::new().upcast(),
+            Element::FactList(_) => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
             Element::ChoiceList(_) => {
                 let list = ChoiceList::new();
                 let dispatch = self.dispatch.clone();
@@ -841,31 +685,6 @@ impl Dom {
                 stack.set_vhomogeneous(false);
                 stack.upcast()
             }
-            Element::Expander(_) => {
-                let expandable = Expandable::new(&LegacyRow::new());
-                let content = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                expandable.set_details(Some(&content));
-                inner = Some(content);
-                let dispatch = self.dispatch.clone();
-                let seq = self.seq.clone();
-                let applying = self.applying.clone();
-                let slot = self.slot;
-                handlers.push(expandable.connect_expanded_notify(move |expandable| {
-                    if applying.get() {
-                        return;
-                    }
-                    emit(
-                        &dispatch,
-                        slot,
-                        key,
-                        "onToggle",
-                        vec![Value::Bool(expandable.expanded())],
-                        Some(bump(&seq, key)),
-                        false,
-                    )
-                }));
-                expandable.upcast()
-            }
             Element::RangeBar(_) => RangeBar::new().upcast(),
             Element::Bars(_) => Bars::new().upcast(),
             Element::Sparkline(_) => Sparkline::new().upcast(),
@@ -927,13 +746,6 @@ impl Dom {
                 scale.upcast()
             }
             Element::Spinner(_) => adw::Spinner::new().upcast(),
-            Element::Progress(_) => {
-                let progress = gtk4::ProgressBar::new();
-                progress.set_margin_start(PROGRESS_INSET);
-                progress.set_margin_end(PROGRESS_INSET);
-                progress.set_margin_bottom(PROGRESS_GAP);
-                progress.upcast()
-            }
             Element::Separator(_) => gtk4::Separator::new(gtk4::Orientation::Horizontal).upcast(),
             Element::Container(_) => {
                 let container = Container::new();
@@ -943,18 +755,15 @@ impl Dom {
                 container.upcast()
             }
             Element::Unsupported(_) => {
-                let row = LegacyRow::new();
-                row.set_property("activatable", false);
-                row.set_sensitive(false);
+                let row = UiRow::new();
+                row.set_inactive(true);
                 row.upcast()
             }
-            Element::Root
-            | Element::Popover(_)
-            | Element::Footer(_)
-            | Element::Indicator(_)
-            | Element::Addon(_) => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
+            Element::Root | Element::Popover(_) | Element::Indicator(_) | Element::Addon(_) => {
+                gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast()
+            }
         };
-        (widget, inner, trail_box, handlers)
+        (widget, inner, handlers)
     }
 
     fn dress(&mut self, key: Key, node: &Arc<Node>, initial: bool) {
@@ -964,15 +773,7 @@ impl Dom {
         if !initial && Arc::ptr_eq(&mounted.node, node) {
             return;
         }
-        let surface = match &node.element {
-            Element::Row(_) => mounted
-                .widget
-                .first_child()
-                .filter(|child| child.is::<LegacyRow>())
-                .unwrap_or_else(|| mounted.widget.clone()),
-            _ => mounted.widget.clone(),
-        };
-        let widget = &surface;
+        let widget = &mounted.widget.clone();
         let old_class = element_class(&mounted.node.element).map(render::class_name);
         let new_class = element_class(&node.element).map(render::class_name);
         if old_class != new_class {
@@ -989,65 +790,12 @@ impl Dom {
             widget.block_signal(handler);
         }
         match &node.element {
-            Element::Hero(p) => {
-                widget.set_property("title", p.title.as_deref());
-                widget.set_property("subtitle", p.subtitle.as_deref());
-                widget.set_property("icon-name", p.icon.as_deref());
-                if let (Some(hero), Some(slot)) = (widget.downcast_ref::<Hero>(), &mounted.inner) {
-                    if node.children.is_empty() {
-                        hero.clear_slot();
-                    } else if slot.parent().is_none() {
-                        hero.set_slot(slot);
-                    }
-                }
-            }
             Element::Section(p) => {
                 widget.set_property("title", p.title.as_deref());
                 widget.set_property("count", p.count.as_deref());
             }
             Element::Row(p) => {
-                widget.set_property("title", p.title.as_deref());
-                widget.set_property("subtitle", p.subtitle.as_deref());
-                widget.set_property("lead-icon", p.icon.as_deref());
-                widget.set_property("value", p.value.as_deref());
-                widget.set_property("selectable", p.selected.is_some());
-                widget.set_property("selected", p.selected.unwrap_or(false));
-                widget.set_property("activatable", p.on_activate);
-                widget.set_property("busy", p.busy);
-                if let (Some(row), Some(trail)) =
-                    (widget.downcast_ref::<LegacyRow>(), &mounted.trail)
-                {
-                    if let Some(chevron) = trail.last_child() {
-                        chevron.set_visible(p.chevron);
-                    }
-                    if p.chevron {
-                        row.set_trail(trail);
-                    } else {
-                        row.clear_trail();
-                    }
-                }
-            }
-            Element::SwitchRow(p) => {
-                widget.set_property("title", p.title.as_deref());
-                widget.set_property("subtitle", p.subtitle.as_deref());
-                widget.set_property("lead-icon", p.icon.as_deref());
-                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
-                {
-                    widget.set_property("active", p.active);
-                }
-                widget.set_property("busy", p.busy);
-            }
-            Element::Fader(p) => {
-                widget.set_property("icon-name", p.icon.as_deref());
-                widget.set_property("maximum", p.maximum);
-                widget.set_property("floor", p.floor);
-                widget.set_property("toggleable", p.on_mute);
-                widget.set_property("muted", p.muted);
-                if !render::keeps_newer_local_value(self.seq.borrow().get(&key).copied(), node.seq)
-                    && widget.property::<f64>("value") != p.value
-                {
-                    widget.set_property("value", p.value);
-                }
+                dress_static_row!(widget, p);
             }
             Element::ActionRow(p) => {
                 dress_row_base!(widget, p);
@@ -1103,7 +851,7 @@ impl Dom {
                 }
             }
             Element::FactList(p) => {
-                if let Some(list) = widget.downcast_ref::<FactList>() {
+                if let Some(list) = widget.downcast_ref::<gtk4::Box>() {
                     let facts: Vec<_> = p
                         .facts
                         .iter()
@@ -1115,7 +863,7 @@ impl Dom {
                             }
                         })
                         .collect();
-                    list.set_facts(&facts);
+                    glimpse_widgets::set_facts(list, &facts);
                 }
             }
             Element::ChoiceList(p) => {
@@ -1269,21 +1017,6 @@ impl Dom {
                 }
             }
             Element::Stack(_) => {}
-            Element::Expander(p) => {
-                if let Some(expandable) = widget.downcast_ref::<Expandable>() {
-                    if let Some(head) = expandable.head::<LegacyRow>() {
-                        head.set_title(p.title.as_deref());
-                        head.set_subtitle(p.subtitle.as_deref());
-                    }
-                    if !render::keeps_newer_local_value(
-                        self.seq.borrow().get(&key).copied(),
-                        node.seq,
-                    ) && expandable.expanded() != p.expanded
-                    {
-                        expandable.set_expanded(p.expanded);
-                    }
-                }
-            }
             Element::Dots(p) => {
                 if let Some(dots) = widget.downcast_ref::<Dots>() {
                     dots.set_colors(&paint_tones(&tone_palette(), &p.colors));
@@ -1410,19 +1143,6 @@ impl Dom {
                     scale.set_sensitive(p.sensitive);
                 }
             }
-            Element::Progress(p) => {
-                if let Some(progress) = widget.downcast_ref::<gtk4::ProgressBar>() {
-                    progress.set_fraction(p.fraction);
-                    progress.set_text(p.text.as_deref());
-                    progress.set_show_text(false);
-                    progress.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-                    if let Some(text) = p.text.as_deref() {
-                        progress.update_property(&[gtk4::accessible::Property::Label(text)]);
-                    } else {
-                        progress.reset_property(gtk4::AccessibleProperty::Label);
-                    }
-                }
-            }
             Element::Separator(p) => {
                 if let Some(separator) = widget.downcast_ref::<gtk4::Separator>() {
                     separator.set_orientation(match p.orientation {
@@ -1442,7 +1162,7 @@ impl Dom {
                         "This applet asked for an element glimpse does not render",
                     )),
                 );
-                widget.set_property("lead-icon", Some("dialog-warning-symbolic"));
+                widget.set_property("icon-name", Some("dialog-warning-symbolic"));
             }
             Element::Container(props) => {
                 if let Some(container) = widget.downcast_ref::<Container>() {
@@ -1456,7 +1176,6 @@ impl Dom {
             }
             Element::Root
             | Element::Popover(_)
-            | Element::Footer(_)
             | Element::Indicator(_)
             | Element::Spinner(_)
             | Element::Addon(_) => {}
@@ -1495,13 +1214,8 @@ fn control(control: ExecControl) -> ToggleControl {
 fn element_class(element: &Element) -> Option<ClassName> {
     match element {
         Element::Popover(p) => p.class_name,
-        Element::Footer(p) => p.class_name,
         Element::Indicator(p) => p.class_name,
-        Element::Hero(p) => p.class_name,
         Element::Section(p) => p.class_name,
-        Element::Row(p) => p.class_name,
-        Element::SwitchRow(p) => p.class_name,
-        Element::Fader(p) => p.class_name,
         Element::Entry(p) => p.class_name,
         Element::Placeholder(p) => p.class_name,
         Element::Box(p) => p.class_name,
@@ -1511,7 +1225,6 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::Switch(p) => p.class_name,
         Element::Scale(p) => p.class_name,
         Element::Spinner(p) => p.class_name,
-        Element::Progress(p) => p.class_name,
         Element::Separator(p) => p.class_name,
         Element::ChoiceList(p) => p.class_name,
         Element::Readout(p) => p.class_name,
@@ -1522,13 +1235,13 @@ fn element_class(element: &Element) -> Option<ClassName> {
         Element::CheckButton(p) => p.class_name,
         Element::Revealer(p) => p.class_name,
         Element::Stack(p) => p.class_name,
-        Element::Expander(p) => p.class_name,
         Element::RangeBar(p) => p.class_name,
         Element::Bars(p) => p.class_name,
         Element::Sparkline(p) => p.class_name,
         Element::Dots(p) => p.class_name,
         Element::Root
         | Element::FactList(_)
+        | Element::Row(_)
         | Element::ActionRow(_)
         | Element::ToggleRow(_)
         | Element::MeterRow(_)

@@ -13,7 +13,8 @@ JSON, does not decode. A message with an unknown `t` is ignored.
 
 The applet speaks first. The host does not send anything until it has read `hello`.
 
-The only version is `1`, carried as `v` on both hellos.
+The only version is `1`, carried as `v` on both hellos. SDK 0.10 removed the `hero`, `footer`,
+`switchrow`, `fader`, `expander` and `progress` elements; each is now an unknown `type`.
 
 Object keys added by a newer peer are ignored. A commit is applied as a whole batch or
 not at all: if any operation in the batch is rejected, the tree does not change. The host
@@ -80,18 +81,17 @@ A subscribed handler fired.
 number onto the next `set` of the same element when the set confirms the edited value.
 A `set` with no `seq` is a deliberate replacement and is stored as sent. The host keeps
 a newer local edit on screen when a later `set` of the element's controlled prop
-(`value`, `active`, `open`, `expanded` or `selected`) carries an older `seq`; the stored
+(`value`, `active`, `open` or `selected`) carries an older `seq`; the stored
 tree still records that set.
 
 | Handler | Elements | `args` |
 | --- | --- | --- |
 | `onPress` | indicator | `[button]` — pointer button code: `1` left, `2` middle, `3` right, otherwise the code as reported |
 | `onScroll` | indicator | `[dx, dy]` — scroll deltas, numbers |
-| `onActivate` | row, actionrow | `[]` |
-| `onToggle` | switchrow, switch, togglerow, expanderrow | `[active]` or `[open]` — boolean. `seq` is a number |
+| `onActivate` | actionrow | `[]` |
+| `onToggle` | switch, togglerow, expanderrow | `[active]` or `[open]` — boolean. `seq` is a number |
 | `onMove` | sliderrow | `[value]` — number during a drag. `seq` is `null` |
-| `onChange` | fader, scale, sliderrow | `[value]` — number. `seq` is a number |
-| `onMute` | fader | `[]` |
+| `onChange` | scale, sliderrow | `[value]` — number. `seq` is a number |
 | `onChange` | entry | `[value]` — string. `seq` is a number |
 | `onSubmit` | entry | `[value]` — string |
 | `onClick` | button | `[]` |
@@ -99,13 +99,14 @@ tree still records that set.
 | `onSelect` | calendar | `[date]` — `YYYY-MM-DD` string |
 | `onMonth` | calendar | `[year, month]` — numbers |
 | `onActivate` | notice | `[]` |
-| `onToggle` | togglebutton, checkbutton, expander | `[active]` or `[expanded]` — boolean. `seq` is a number |
+| `onToggle` | togglebutton, checkbutton | `[active]` — boolean. `seq` is a number |
 
 A handler prop on an element is a boolean. `"onPress": true` subscribes. A missing or
 `false` handler does not.
 
-The controlled props are `togglerow.active`, `expanderrow.open`,
-and `sliderrow.value`, alongside the legacy controlled props.
+The controlled props are `entry.value`, `scale.value`, `switch.active`, `togglebutton.active`,
+`checkbutton.active`, `dropdown.selected`, `choicelist.selected`, `togglerow.active`,
+`expanderrow.open` and `sliderrow.value`.
 `sliderrow.onMove` reports motion without controlling `value`; `onChange` confirms the
 value. An `expanderrow` closed by the panel through the accordion
 or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `set` of
@@ -116,6 +117,43 @@ or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `se
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `open` | boolean | Whether this instance's popover is showing |
+
+### `service`
+
+The whole current value of a granted service, sent after `hello` and on every change. A
+service is granted by `mpris = true` or `compositor = true` in the applet's `sandbox` table;
+an ungranted one is never sent.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `name` | string | `mpris` or `compositor` |
+| `value` | object | Below |
+
+`mpris` is `{players}`. A player:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | Passed back in `mpris` requests |
+| `identity` | string | The player's own name |
+| `desktopEntry` | string or `null` | Its desktop-file id |
+| `playback` | string | `playing`, `paused`, `stopped` |
+| `current` | boolean | The player the panel follows |
+| `title`, `artist`, `album` | string or `null` | Capped at 256 characters |
+| `lengthUs` | number or `null` | Track length in microseconds |
+| `positionUs` | number | Position at `positionAt` |
+| `positionAt` | number | Unix milliseconds; a playing track advances by `rate` from here |
+| `rate` | number | Playback rate |
+| `can` | object | `play`, `pause`, `previous`, `next`, `seek` — booleans |
+
+`compositor` is `{name, workspaces, windows, outputs}`:
+
+| List | Fields |
+| --- | --- |
+| `workspaces` | `id`, `index`, `name`, `output`, `active`, `focused`, `urgent`, `windows` |
+| `windows` | `id`, `title`, `appId`, `workspace`, `focused`, `urgent` |
+| `outputs` | `connector`, `label`, `focused` |
+
+`name` is the compositor's name or `null`. Titles are capped at 256 characters.
 
 ## Applet to host
 
@@ -148,9 +186,10 @@ the node cap and the child cap are checked before the copy replaces the live tre
 | `icon` | string or absent | absent |
 | `urgency` | `low`, `normal`, `critical` | `normal` |
 
-`copy`, `open-uri`, `session` and `close-popover` are honored only within two seconds of
-a press, click, activation or submit. `copy`, `open-uri` and `session` each use up that
-gesture; `close-popover` does not. A scroll is not a gesture.
+`copy`, `open-uri`, `launch`, `close-popover` and the compositor's `close-window` are
+honored only within two seconds of a press, click, activation or submit. All but
+`close-popover` use up that gesture. A scroll is not a gesture. The other `mpris` and
+`compositor` requests need no gesture and are capped at ten a second.
 
 ### `copy`
 
@@ -164,14 +203,43 @@ gesture; `close-popover` does not. A scroll is not a gesture.
 | --- | --- |
 | `uri` | string |
 
-Only `http`, `https` and `mailto` URIs of at most 2,048 bytes are opened; any other is
-dropped.
+Only `http`, `https`, `mailto` and `file` URIs of at most 2,048 bytes are opened; any other
+is dropped. A `file` URI opens the resolved path, and not when it resolves into the applet's state
+directory or a `write` grant, is executable, or is a type that starts a program: a desktop
+entry, a script, a binary, an installer or an archive that runs.
 
-### `session`
+### `launch`
 
 | Field | Type |
 | --- | --- |
-| `action` | `lock`, `suspend`, `hibernate`, `log-out`, `reboot`, `power-off` |
+| `id` | string — a desktop-file id, with or without `.desktop` |
+
+Only an id listed in the applet's `sandbox.launch` is started.
+
+### `mpris`
+
+Needs the `mpris` grant.
+
+| `op` | Fields |
+| --- | --- |
+| `control` | `player`, `action`: `play`, `pause`, `play-pause`, `stop`, `previous`, `next`, `raise` |
+| `seek` | `player`, `offset` — microseconds, negative goes back |
+| `set-position` | `player`, `position` — microseconds |
+
+### `compositor`
+
+Needs the `compositor` grant. A workspace target is `{"id":n}`, `{"index":n}`,
+`{"name":"…"}`, `"next"` or `"prev"`; a window target is `{"id":n}`, `"next"` or `"prev"`.
+
+| `op` | Fields |
+| --- | --- |
+| `focus-workspace` | `target` — a workspace target |
+| `focus-window` | `target` — a window target |
+| `move-window` | `window`, `target` — a workspace target |
+| `rename-workspace` | `id`, `name` — string, or `null` to clear |
+| `close-window` | `id` |
+
+An unknown `op` is an invalid line.
 
 ### `close-popover`
 
@@ -198,7 +266,7 @@ that sibling must already be a child of `parent`.
 | `node` | element, with nested `children` |
 
 `node` is `{id, type, props, children}`. `props` defaults to `{}` and `children` to
-`[]`. The whole subtree is new ids. Text of a `label`, `button` or `progress` is the
+`[]`. The whole subtree is new ids. Text of a `label` or `button` is the
 `text` prop, not a child node. The same is true of an indicator's label.
 
 ### `move`
@@ -243,20 +311,18 @@ rejected if one is presented to the decoder.
 
 ## Parent table
 
-The root holds `indicator` and `popover` elements. The panel shows the first `popover`,
-and in it the first `hero` and the first `footer`.
+The root holds `indicator` and `popover` elements. The panel shows the first `popover`.
 
 | Parent | Children |
 | --- | --- |
 | root | `indicator`, `popover` |
-| `popover` | at most one `addon`, `hero`, `footer`, and any body element |
+| `popover` | at most one `addon`, and any body element |
 | `addon` | at most one of `readout`, `switch`, `container` |
 | `container` | at most one body element except `section` |
 | `section` | body elements except `section` |
-| `revealer`, `expander` | any number of body elements except `section` |
+| `revealer` | any number of body elements except `section` |
 | `stack` | body elements except `section` |
-| `hero` | at most 4 of `readout`, `switch`, `label`, `button`, drawn at its end |
-| `row` | at most 4 of `image`, `label`, `button`, `switch`, drawn at its end |
+| `row` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `actionrow` | at most one of `image`, `readout`, `spinner`, drawn at its end, and at most one `start` |
 | `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `expanderrow` | at most one `end` and one `start`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
@@ -265,15 +331,14 @@ and in it the first `hero` and the first `footer`.
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
 | `box` | body elements |
-| `footer` | `button`, `row`, `label`, `box` |
 | anything else | nothing |
 
-Body elements are `section`, `row`, `switchrow`, `fader`, `actionrow`, `togglerow`,
+Body elements are `section`, `row`, `actionrow`, `togglerow`,
 `meterrow`, `expanderrow`, `sliderrow`, `entry`, `placeholder`, `box`,
 `container`,
-`label`, `image`, `button`, `switch`, `scale`, `spinner`, `progress`, `separator`,
+`label`, `image`, `button`, `switch`, `scale`, `spinner`, `separator`,
 `factlist`, `choicelist`, `readout`, `notice`, `calendar`, `dots`, `dropdown`,
-`togglebutton`, `checkbutton`, `revealer`, `stack`, `expander`, `rangebar`, `bars`,
+`togglebutton`, `checkbutton`, `revealer`, `stack`, `rangebar`, `bars`,
 `sparkline` and `unsupported`.
 
 An array prop with more than 64 items, at any depth, rejects the commit. The `values` and
@@ -288,7 +353,7 @@ pair the table does not list.
 ## Elements
 
 `type` is one of the lowercase names below. Props use camelCase. Every element takes
-`className`, one class from this list, or the key is dropped. `addon`, `container`,
+`className`, one class from this list, or the key is dropped. `addon`, `container`, `row`,
 `actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start` and `sliderrow`
 do not take `className`:
 
@@ -333,8 +398,7 @@ Only under the root. No children.
 
 ### `popover`
 
-Under the root. `icon`, `title` and `subtitle` render the shell's header. `hero` is
-deprecated in favour of these props; a popover with both renders both. The popover body
+Under the root. `icon`, `title` and `subtitle` render the shell's header. The popover body
 scrolls past 60% of the monitor height.
 
 | Prop | Type | Notes |
@@ -365,19 +429,6 @@ A body element. At most one child, any body element except `section`. It does no
 | `color` | paint | The same paint names, applied to the text |
 | `align` | align | `fill`, `start`, `end`, `center`, `baseline`. Applied to the child |
 
-### `hero`
-
-Only under `popover`. Up to 4 end children, see the parent table. `hero` is deprecated in
-favour of the popover `icon`, `title` and `subtitle` props; a popover with both renders
-both.
-
-| Prop | Type |
-| --- | --- |
-| `icon` | string |
-| `title` | string |
-| `subtitle` | string |
-| `className` | class |
-
 ### `section`
 
 A body element. It holds body elements except another `section`.
@@ -390,52 +441,19 @@ A body element. It holds body elements except another `section`.
 
 ### `row`
 
-Up to 4 end children, see the parent table.
-Deprecated: `selected`, `chevron` and end children are removed in 0.10, when this tag becomes
-the static row. Use `actionrow` for activation and `togglerow` for selection.
+A body element. A static row: it fires no events. At most one end child: `image`, `readout`
+or `spinner`.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
-| `icon` | string | |
+| `icon` | string | Themed icon name |
 | `title` | string | |
 | `subtitle` | string | |
 | `value` | string | |
-| `selected` | boolean or absent | Present, either way, means the row can be selected |
-| `busy` | boolean | |
-| `chevron` | boolean | Draws the disclosure chevron at the end |
-| `className` | class | |
-| `onActivate` | boolean | `false` or absent means the row does not activate |
-
-### `switchrow`
-
-A leaf.
-Deprecated; removed in 0.10, use `togglerow`.
-
-| Prop | Type |
-| --- | --- |
-| `icon` | string |
-| `title` | string |
-| `subtitle` | string |
-| `active` | boolean |
-| `busy` | boolean |
-| `className` | class |
-| `onToggle` | boolean |
-
-### `fader`
-
-A leaf. `onMute: false` means the mute control is not shown.
-Deprecated; removed in 0.10, use `sliderrow`.
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `icon` | string | absent |
-| `value` | number | `0` |
-| `maximum` | number | `100`. Raised to `floor` when it would be lower |
-| `floor` | number | `0`. Raised to `0` when negative |
-| `muted` | boolean | `false` |
-| `className` | class | |
-| `onChange` | boolean | |
-| `onMute` | boolean | |
+| `tone` | `warning`, `error`, `destructive` | Absent is normal |
+| `inactive` | boolean | `false`. Fades the row |
+| `tooltip` | string | Plain text |
+| `typography` | `numeric`, `monospace` | Absent is default |
 
 Inactive action, toggle and meter rows are insensitive, leave Tab navigation and fade once.
 Use `subtitle` to explain why a row is inactive. Backend `set` updates still render.
@@ -584,14 +602,6 @@ A leaf.
 | `description` | string |
 | `className` | class |
 
-### `footer`
-
-Only under `popover`. Holds `button`, `row`, `label` and `box`.
-
-| Prop | Type |
-| --- | --- |
-| `className` | class |
-
 ### `box`
 
 A body element. Holds body elements.
@@ -674,16 +684,6 @@ already valid.
 ### `spinner`
 
 A leaf. No props besides `className`.
-
-### `progress`
-
-A leaf, drawn as a slim monochrome meter. `className` `warning` or `error` recolors the fill. The `text` prop is the accessible label and is not drawn.
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `fraction` | number | `0`, clamped to `0`–`1` |
-| `text` | string | absent |
-| `className` | class | |
 
 ### `factlist`
 
@@ -809,21 +809,6 @@ child at `visible` is shown.
 | --- | --- | --- |
 | `visible` | number | `0` |
 | `className` | class | |
-
-### `expander`
-
-Holds any number of body children, including none. The header row toggles it; opening one
-expander in a popover closes the others, and that close is an `onToggle`. `onToggle` sends
-`[expanded]` with a `seq`, and does not fire for a state set by the applet.
-Deprecated; removed in 0.10, use `expanderrow`.
-
-| Prop | Type |
-| --- | --- |
-| `title` | string |
-| `subtitle` | string |
-| `expanded` | boolean |
-| `className` | class |
-| `onToggle` | boolean |
 
 ### `rangebar`
 

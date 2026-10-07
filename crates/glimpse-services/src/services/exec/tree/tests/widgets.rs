@@ -79,11 +79,6 @@ fn widget_elements_decode_and_clean_their_props() {
             ),
             insert(
                 1,
-                wire(12, "expander", json!({"title": "e", "expanded": true}), vec![leaf(13, "label")]),
-                None,
-            ),
-            insert(
-                1,
                 wire(14, "revealer", json!({"revealed": true, "transition": "none"}), vec![leaf(15, "label")]),
                 None,
             ),
@@ -152,10 +147,6 @@ fn widget_elements_decode_and_clean_their_props() {
         (bar.min, bar.max, bar.low, bar.high, bar.now),
         (0.0, 10.0, 8.0, 8.0, Some(10.0))
     );
-    let Element::Expander(expander) = only(&tree, 12) else {
-        panic!("expander")
-    };
-    assert!(expander.expanded);
     let Element::Revealer(revealer) = only(&tree, 14) else {
         panic!("revealer")
     };
@@ -297,33 +288,34 @@ fn array_props_over_sixty_four_items_are_a_violation() {
 }
 
 #[test]
-fn revealer_and_expander_hold_any_number_of_children_and_a_stack_any() {
+fn a_revealer_holds_any_number_of_children_and_a_stack_any() {
     let root = hosted(&Tree::default());
-    for (kind, element) in [
-        ("revealer", ElementKind::Revealer),
-        ("expander", ElementKind::Expander),
-    ] {
-        assert!(
-            root.apply(vec![insert(1, leaf(2, kind), None)]).is_ok(),
-            "empty"
-        );
-        let many = root
-            .apply(vec![insert(
-                1,
-                wire(2, kind, json!({}), vec![leaf(3, "label"), leaf(4, "label")]),
-                None,
-            )])
-            .expect("two");
-        assert!(many.apply(vec![Op::Remove { parent: 2, id: 3 }]).is_ok());
-        assert_eq!(
-            many.apply(vec![insert(2, leaf(5, "section"), None)])
-                .expect_err("section"),
-            Violation::BadParent {
-                parent: element,
-                child: ElementKind::Section,
-            }
-        );
-    }
+    assert!(
+        root.apply(vec![insert(1, leaf(2, "revealer"), None)])
+            .is_ok(),
+        "empty"
+    );
+    let many = root
+        .apply(vec![insert(
+            1,
+            wire(
+                2,
+                "revealer",
+                json!({}),
+                vec![leaf(3, "label"), leaf(4, "label")],
+            ),
+            None,
+        )])
+        .expect("two");
+    assert!(many.apply(vec![Op::Remove { parent: 2, id: 3 }]).is_ok());
+    assert_eq!(
+        many.apply(vec![insert(2, leaf(5, "section"), None)])
+            .expect_err("section"),
+        Violation::BadParent {
+            parent: ElementKind::Revealer,
+            child: ElementKind::Section,
+        }
+    );
     assert!(root.apply(vec![insert(1, leaf(2, "stack"), None)]).is_ok());
     assert!(
         root.apply(vec![insert(
@@ -338,52 +330,6 @@ fn revealer_and_expander_hold_any_number_of_children_and_a_stack_any() {
         )])
         .is_ok()
     );
-}
-
-#[test]
-fn hero_and_row_hold_up_to_four_end_children_of_their_own_kinds() {
-    let root = hosted(&Tree::default());
-    let with = |kind: &str, child: &str, count: u32| {
-        root.apply(vec![insert(
-            1,
-            wire(
-                2,
-                kind,
-                json!({}),
-                (3..3 + count).map(|id| leaf(id, child)).collect(),
-            ),
-            None,
-        )])
-    };
-    assert!(with("hero", "label", 4).is_ok());
-    assert!(with("row", "switch", 4).is_ok());
-    assert_eq!(
-        with("hero", "readout", 5).expect_err("five"),
-        Violation::ChildCount { parent: 2 }
-    );
-    assert_eq!(
-        with("row", "image", 5).expect_err("five"),
-        Violation::ChildCount { parent: 2 }
-    );
-    assert!(with("hero", "label", 0).is_ok());
-    assert_eq!(
-        with("hero", "image", 1).expect_err("image in hero"),
-        Violation::BadParent {
-            parent: ElementKind::Hero,
-            child: ElementKind::Image,
-        }
-    );
-    let row = root
-        .apply(vec![insert(
-            1,
-            wire(2, "row", json!({"chevron": true}), vec![leaf(3, "button")]),
-            None,
-        )])
-        .expect("row");
-    match only(&row, 2) {
-        Element::Row(props) => assert!(props.chevron),
-        other => panic!("expected a row, got {other:?}"),
-    }
 }
 
 #[test]

@@ -40,7 +40,9 @@ template $PowerPopover: Gtk.Widget {
         visible: false;
         title: _("Battery");
 
-        $FactList facts {}
+        Gtk.Box facts {
+          orientation: vertical;
+        }
 
         $ToggleRow charge_limit {
           visible: false;

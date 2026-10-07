@@ -182,6 +182,8 @@ impl PanelServices {
                 catalog: Arc::new(DesktopCatalog),
                 selection,
                 notifications: notifications.handle(),
+                mpris: mpris.clone(),
+                compositor: compositor.clone(),
             },
         );
         let (kdeconnect_service, kdeconnect) =

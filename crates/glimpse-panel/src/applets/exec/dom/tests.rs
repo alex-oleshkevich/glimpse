@@ -100,10 +100,6 @@ fn first_with_class(widget: &gtk4::Widget, class: &str) -> Option<gtk4::Widget> 
     None
 }
 
-fn row_body(widget: &gtk4::Widget) -> LegacyRow {
-    widget.first_child().and_downcast().expect("row")
-}
-
 fn descendant_label(widget: &gtk4::Widget, text: &str) -> Option<gtk4::Label> {
     if let Some(label) = widget.clone().downcast::<gtk4::Label>().ok()
         && label.text() == text
@@ -152,10 +148,6 @@ fn empty_popover_later_shows_row() {
     let first = tree(vec![]);
     let (_shell, mut dom, _) = setup(&first);
     assert!(!dom.body.get_visible());
-    assert!(dom.hero_box.first_child().is_none());
-    assert!(!dom.hero_box.get_visible());
-    assert!(dom.footer_nodes.first_child().is_none());
-    assert!(!dom.footer_nodes.get_visible());
     let next = first
         .apply(vec![Op::Insert {
             parent: 1,
@@ -166,20 +158,6 @@ fn empty_popover_later_shows_row() {
     assert!(dom.reconcile(&next, 1));
     assert!(dom.body.get_visible());
     assert!(widget(&dom, 1, 2, ElementKind::Row).parent().is_some());
-    assert!(dom.hero_box.first_child().is_none());
-    assert!(!dom.hero_box.get_visible());
-    let with_hero = next
-        .apply(vec![Op::Insert {
-            parent: 1,
-            node: node(3, "hero", json!({"title":"Tasks"}), vec![]),
-            before: Some(2),
-        }])
-        .expect("hero");
-    assert!(dom.reconcile(&with_hero, 1));
-    let hero = widget(&dom, 1, 3, ElementKind::Hero);
-    assert_eq!(dom.hero_box.first_child(), Some(hero.clone()));
-    assert!(hero.next_sibling().is_none());
-    assert!(dom.hero_box.get_visible());
 }
 
 #[test]
@@ -216,12 +194,10 @@ fn set_dresses_only_touched_widget() {
     ]);
     let (_shell, mut dom, _) = setup(&first);
     let a = widget(&dom, 1, 2, ElementKind::Row)
-        .first_child()
-        .and_downcast::<LegacyRow>()
+        .downcast::<UiRow>()
         .expect("row");
     let b = widget(&dom, 1, 3, ElementKind::Row)
-        .first_child()
-        .and_downcast::<LegacyRow>()
+        .downcast::<UiRow>()
         .expect("row");
     let notifications = Rc::new(RefCell::new(0));
     let count = notifications.clone();
@@ -235,12 +211,12 @@ fn set_dresses_only_touched_widget() {
         .expect("set");
     assert!(dom.reconcile(&next, 1));
     assert_eq!(
-        widget(&dom, 1, 2, ElementKind::Row).first_child(),
-        Some(a.clone().upcast())
+        widget(&dom, 1, 2, ElementKind::Row),
+        a.clone().upcast::<gtk4::Widget>()
     );
     assert_eq!(
-        widget(&dom, 1, 3, ElementKind::Row).first_child(),
-        Some(b.clone().upcast())
+        widget(&dom, 1, 3, ElementKind::Row),
+        b.clone().upcast::<gtk4::Widget>()
     );
     assert_eq!(*notifications.borrow(), 0);
     assert_eq!(a.property::<Option<String>>("title").as_deref(), Some("C"));
@@ -278,11 +254,11 @@ fn text_button_keeps_its_label_with_icon() {
 #[ignore = "needs a display"]
 fn row_handler_is_connected_once_and_survives_a_set() {
     init();
-    let first = tree(vec![node(2, "row", json!({"title":"Open"}), vec![])]);
+    let first = tree(vec![node(2, "actionrow", json!({"title":"Open"}), vec![])]);
     let (_shell, mut dom, events) = setup(&first);
-    let host = widget(&dom, 1, 2, ElementKind::Row);
-    let row = row_body(&host);
-    row.emit_by_name::<()>("clicked", &[]);
+    let host = widget(&dom, 1, 2, ElementKind::ActionRow);
+    let row = host.clone().downcast::<ActionRow>().expect("row");
+    row.emit_by_name::<()>("activated", &[]);
     assert_eq!(events.borrow().len(), 1);
     let next = first
         .apply(vec![Op::Set {
@@ -292,8 +268,8 @@ fn row_handler_is_connected_once_and_survives_a_set() {
         }])
         .expect("set");
     assert!(dom.reconcile(&next, 1));
-    assert_eq!(widget(&dom, 1, 2, ElementKind::Row), host);
-    row.emit_by_name::<()>("clicked", &[]);
+    assert_eq!(widget(&dom, 1, 2, ElementKind::ActionRow), host);
+    row.emit_by_name::<()>("activated", &[]);
     assert_eq!(events.borrow().len(), 2);
     assert_eq!(events.borrow()[1].name, "onActivate");
 }
@@ -381,12 +357,6 @@ fn hostile_text_and_icon_only_button() {
             vec![],
         ),
         node(
-            3,
-            "progress",
-            json!({"text":"Loading","fraction":0.5}),
-            vec![],
-        ),
-        node(
             4,
             "button",
             json!({"icon":"media-playback-start-symbolic","tooltip":"Play"}),
@@ -404,19 +374,6 @@ fn hostile_text_and_icon_only_button() {
         .downcast::<gtk4::Label>()
         .expect("label");
     assert_eq!(label.ellipsize(), gtk4::pango::EllipsizeMode::None);
-    let progress = widget(&dom, 1, 3, ElementKind::Progress)
-        .downcast::<gtk4::ProgressBar>()
-        .expect("progress");
-    assert_eq!(progress.ellipsize(), gtk4::pango::EllipsizeMode::End);
-    assert!(!progress.shows_text());
-    assert_eq!(progress.text().as_deref(), Some("Loading"));
-    assert!(gtk4::test_accessible_has_property(
-        &progress,
-        gtk4::AccessibleProperty::Label
-    ));
-    assert_eq!(progress.margin_start(), PROGRESS_INSET);
-    assert_eq!(progress.margin_end(), PROGRESS_INSET);
-    assert_eq!(progress.margin_bottom(), PROGRESS_GAP);
     let button = widget(&dom, 1, 4, ElementKind::Button)
         .downcast::<gtk4::Button>()
         .expect("button");
@@ -442,8 +399,9 @@ fn unsupported_row_matches_warning_design() {
     let first = tree(vec![node(2, "canvas", json!({}), vec![])]);
     let (_shell, dom, _) = setup(&first);
     let row = widget(&dom, 1, 2, ElementKind::Unsupported)
-        .downcast::<LegacyRow>()
+        .downcast::<UiRow>()
         .expect("row");
+    assert!(row.property::<bool>("inactive"));
     assert_eq!(
         row.property::<Option<String>>("title"),
         Some(gettext("Unsupported: {name}").replace("{name}", "canvas"))
@@ -455,7 +413,7 @@ fn unsupported_row_matches_warning_design() {
         ))
     );
     assert_eq!(
-        row.property::<Option<String>>("lead-icon").as_deref(),
+        row.property::<Option<String>>("icon-name").as_deref(),
         Some("dialog-warning-symbolic")
     );
 }
@@ -490,17 +448,16 @@ fn dressing_controls_emits_no_events() {
             json!({"value":"A","onChange":true,"onSubmit":true}),
             vec![],
         ),
-        node(5, "row", json!({"title":"Open","onActivate":true}), vec![]),
-        node(6, "button", json!({"text":"Run","onClick":true}), vec![]),
         node(
-            7,
-            "fader",
-            json!({"value":1,"maximum":10,"onChange":true,"onMute":true}),
+            5,
+            "actionrow",
+            json!({"title":"Open","onActivate":true}),
             vec![],
         ),
+        node(6, "button", json!({"text":"Run","onClick":true}), vec![]),
         node(
             8,
-            "switchrow",
+            "togglerow",
             json!({"title":"Mode","onToggle":true}),
             vec![],
         ),
@@ -544,11 +501,9 @@ fn dressing_controls_emits_no_events() {
         .expect("entry");
     entry.emit_by_name::<()>("changed", &[]);
     entry.emit_by_name::<()>("activate", &[]);
-    row_body(&widget(&dom, 1, 5, ElementKind::Row)).emit_by_name::<()>("clicked", &[]);
+    widget(&dom, 1, 5, ElementKind::ActionRow).emit_by_name::<()>("activated", &[]);
     widget(&dom, 1, 6, ElementKind::Button).emit_by_name::<()>("clicked", &[]);
-    widget(&dom, 1, 7, ElementKind::Fader).emit_by_name::<()>("changed", &[&2.0f64]);
-    widget(&dom, 1, 7, ElementKind::Fader).emit_by_name::<()>("toggled", &[&true]);
-    widget(&dom, 1, 8, ElementKind::SwitchRow).emit_by_name::<()>("toggled", &[&true]);
+    widget(&dom, 1, 8, ElementKind::ToggleRow).emit_by_name::<()>("toggled", &[&true]);
     let events = events.borrow();
     assert_eq!(
         events
@@ -562,8 +517,6 @@ fn dressing_controls_emits_no_events() {
             "onSubmit",
             "onActivate",
             "onClick",
-            "onChange",
-            "onMute",
             "onToggle"
         ]
     );
@@ -571,7 +524,7 @@ fn dressing_controls_emits_no_events() {
     assert_eq!(events[2].args, vec![json!("B")]);
     assert_eq!(events[3].args, vec![json!("B")]);
     assert!(events[3].gesture && events[4].gesture && events[5].gesture);
-    assert!(!events[6].gesture && !events[7].gesture && !events[8].gesture);
+    assert!(!events[6].gesture);
 }
 
 #[test]
@@ -680,21 +633,9 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
             vec![label(14), label(15)],
         ),
         node(
-            16,
-            "expander",
-            json!({"title":"E","expanded":true,"onToggle":true}),
-            vec![label(17)],
-        ),
-        node(
             18,
             "rangebar",
             json!({"min":0,"max":10,"low":2,"high":4,"now":3}),
-            vec![],
-        ),
-        node(
-            19,
-            "progress",
-            json!({"fraction":0.5,"className":"warning"}),
             vec![],
         ),
         node(
@@ -764,18 +705,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
         .downcast::<gtk4::Stack>()
         .expect("stack");
     assert_eq!(stack.visible_child_name().as_deref(), Some("1"));
-    let expander = get(&dom, 16, ElementKind::Expander)
-        .downcast::<Expandable>()
-        .expect("expander");
-    assert!(expander.expanded());
-    assert_eq!(
-        expander
-            .head::<LegacyRow>()
-            .expect("head")
-            .property::<Option<String>>("title")
-            .as_deref(),
-        Some("E")
-    );
     let bars = get(&dom, 20, ElementKind::Bars)
         .downcast::<Bars>()
         .expect("bars");
@@ -789,10 +718,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
     assert_eq!(line.values(), vec![Some(1.0), Some(2.0), None, Some(4.0)]);
     assert!(line.fill() && line.show_last());
     assert_eq!(line.label(), "Trend");
-    let meter = get(&dom, 19, ElementKind::Progress)
-        .downcast::<gtk4::ProgressBar>()
-        .expect("meter");
-    assert!(meter.has_css_class("warning"));
 
     let next = first
         .apply(vec![
@@ -803,8 +728,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
             set(10, json!({"active":true})),
             set(11, json!({"revealed":false})),
             set(13, json!({"visible":0})),
-            set(16, json!({"expanded":false})),
-            set(19, json!({"className":"error","fraction":0.25})),
         ])
         .expect("set");
     assert!(dom.reconcile(&next, 1));
@@ -819,9 +742,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
     assert!(!toggle.is_active() && check.is_active());
     assert!(!revealer.reveals_child());
     assert_eq!(stack.visible_child_name().as_deref(), Some("0"));
-    assert!(!expander.expanded());
-    assert!(meter.has_css_class("error") && !meter.has_css_class("warning"));
-    assert_eq!(meter.fraction(), 0.25);
 
     list.emit_by_name::<()>("activated", &[&0u32]);
     notice.emit_by_name::<()>("clicked", &[]);
@@ -830,7 +750,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
     drop_down.set_selected(1);
     toggle.set_active(true);
     check.set_active(false);
-    expander.set_expanded(true);
     let events = events.borrow();
     assert_eq!(
         events
@@ -844,7 +763,6 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
             "onSelect",
             "onSelect",
             "onToggle",
-            "onToggle",
             "onToggle"
         ]
     );
@@ -853,83 +771,37 @@ fn widget_elements_render_update_without_echo_and_emit_user_events() {
     assert_eq!(events[3].args, vec![json!("2026-08-09")]);
     assert_eq!(events[4].args, vec![json!(1)]);
     assert_eq!(events[5].args, vec![json!(true)]);
-    assert_eq!(events[7].args, vec![json!(true)]);
+    assert_eq!(events[6].args, vec![json!(false)]);
 }
 
 #[test]
 #[ignore = "needs a display"]
-fn row_and_hero_end_children_and_chevron() {
-    init();
-    let first = tree(vec![
-        node(
-            2,
-            "row",
-            json!({"title":"R","chevron":true}),
-            vec![node(3, "label", json!({"text":"end"}), vec![])],
-        ),
-        node(
-            4,
-            "hero",
-            json!({"title":"H"}),
-            vec![node(5, "label", json!({"text":"end"}), vec![])],
-        ),
-    ]);
-    let (_shell, mut dom, _) = setup(&first);
-    let host = widget(&dom, 1, 2, ElementKind::Row);
-    let row = row_body(&host);
-    let end = widget(&dom, 1, 3, ElementKind::Label);
-    assert_eq!(
-        row.property::<Option<String>>("title").as_deref(),
-        Some("R")
-    );
-    assert!(row.trail().is_some());
-    assert!(!row.can_target() && !row.can_focus());
-    assert!(!end.is_ancestor(&row));
-    assert!(end.is_ancestor(&host));
-    let hero = widget(&dom, 1, 4, ElementKind::Hero);
-    assert!(widget(&dom, 1, 5, ElementKind::Label).is_ancestor(&hero));
-    let next = first
-        .apply(vec![
-            set(2, json!({"chevron":false})),
-            Op::Remove { parent: 2, id: 3 },
-            Op::Remove { parent: 4, id: 5 },
-        ])
-        .expect("set");
-    assert!(dom.reconcile(&next, 1));
-    assert!(row.trail().is_none());
-    assert!(!end.is_ancestor(&row));
-    assert!(!end.is_ancestor(&host));
-}
-
-#[test]
-#[ignore = "needs a display"]
-fn inert_row_end_switch_toggles() {
+fn static_row_dresses_value_tone_and_end_readout() {
     init();
     let first = tree(vec![node(
         2,
         "row",
-        json!({"title": "Quiet"}),
-        vec![node(3, "switch", json!({"onToggle": true}), vec![])],
+        json!({"title":"T","value":"V","tone":"warning"}),
+        vec![node(3, "readout", json!({"value":"5"}), vec![])],
     )]);
-    let (_shell, dom, events) = setup(&first);
-    let host = widget(&dom, 1, 2, ElementKind::Row);
-    let row = row_body(&host);
-    let switch = widget(&dom, 1, 3, ElementKind::Switch)
-        .downcast::<gtk4::Switch>()
-        .expect("switch");
-    assert!(!row.can_target() && !row.can_focus());
-    assert!(!switch.is_ancestor(&row));
-    assert!(switch.is_ancestor(&host));
-    assert!(switch.can_focus() && switch.can_target());
-    switch.set_active(true);
-    assert_eq!(events.borrow().len(), 1);
-    assert_eq!(events.borrow()[0].name, "onToggle");
-    assert_eq!(events.borrow()[0].args, vec![json!(true)]);
-    assert!(
-        events
-            .borrow()
-            .iter()
-            .all(|event| event.name != "onActivate")
+    let (_shell, dom, _) = setup(&first);
+    let row = widget(&dom, 1, 2, ElementKind::Row)
+        .downcast::<UiRow>()
+        .expect("row");
+    assert_eq!(
+        row.property::<Option<String>>("value").as_deref(),
+        Some("V")
+    );
+    assert_eq!(row.property::<RowTone>("tone"), RowTone::Warning);
+    let end = dom
+        .nodes
+        .get(&(1, 2, ElementKind::Row))
+        .and_then(|m| m.inner.clone())
+        .expect("end slot");
+    assert!(end.is_ancestor(&row));
+    assert_eq!(
+        widget(&dom, 1, 3, ElementKind::Readout).parent().as_ref(),
+        Some(end.upcast_ref())
     );
 }
 
@@ -937,15 +809,12 @@ fn inert_row_end_switch_toggles() {
 #[ignore = "needs a display"]
 fn revealer_with_no_child_stays_empty_until_one_is_inserted() {
     init();
-    let first = tree(vec![
-        node(
-            2,
-            "revealer",
-            json!({"revealed": true, "transition": "none"}),
-            vec![],
-        ),
-        node(4, "expander", json!({"title": "Closed"}), vec![]),
-    ]);
+    let first = tree(vec![node(
+        2,
+        "revealer",
+        json!({"revealed": true, "transition": "none"}),
+        vec![],
+    )]);
     let (_shell, mut dom, _) = setup(&first);
     let revealer = widget(&dom, 1, 2, ElementKind::Revealer)
         .downcast::<gtk4::Revealer>()
@@ -955,10 +824,6 @@ fn revealer_with_no_child_stays_empty_until_one_is_inserted() {
         .and_downcast::<gtk4::Box>()
         .expect("content");
     assert!(content.first_child().is_none());
-    let expander = widget(&dom, 1, 4, ElementKind::Expander)
-        .downcast::<Expandable>()
-        .expect("expander");
-    assert!(!expander.expanded());
     let next = first
         .apply(vec![Op::Insert {
             parent: 2,
@@ -1070,58 +935,6 @@ fn long_option_and_check_label_stay_narrow() {
         tall.measure(gtk4::Orientation::Horizontal, -1).1
     );
     window.close();
-}
-
-#[test]
-#[ignore = "needs a display"]
-fn opening_an_expander_reports_the_sibling_close() {
-    init();
-    let body = |id: u32| node(id, "label", json!({"text": "t"}), vec![]);
-    let first = tree(vec![
-        node(
-            2,
-            "expander",
-            json!({"title": "A", "expanded": true, "onToggle": true}),
-            vec![body(3)],
-        ),
-        node(
-            4,
-            "expander",
-            json!({"title": "B", "expanded": false, "onToggle": true}),
-            vec![body(5)],
-        ),
-    ]);
-    let (_shell, mut dom, events) = setup(&first);
-    assert!(events.borrow().is_empty());
-    let open = widget(&dom, 1, 2, ElementKind::Expander)
-        .downcast::<Expandable>()
-        .expect("open");
-    let shut = widget(&dom, 1, 4, ElementKind::Expander)
-        .downcast::<Expandable>()
-        .expect("shut");
-    assert!(open.expanded() && !shut.expanded());
-    let next = first
-        .apply(vec![set(4, json!({"expanded": true}))])
-        .expect("open the other");
-    assert!(dom.reconcile(&next, 1));
-    assert!(!open.expanded() && shut.expanded());
-    let seen = events.borrow();
-    assert_eq!(seen.len(), 1);
-    assert_eq!(seen[0].id, 2);
-    assert_eq!(seen[0].name, "onToggle");
-    assert_eq!(seen[0].args, vec![json!(false)]);
-    let seq = seen[0].seq.expect("seq");
-    assert!(seq >= 1);
-    drop(seen);
-    let echo = next
-        .apply(vec![Op::Set {
-            id: 2,
-            props: serde_json::from_value(json!({"expanded": true})).expect("props"),
-            seq: Some(seq - 1),
-        }])
-        .expect("echo");
-    assert!(dom.reconcile(&echo, 1));
-    assert!(!open.expanded());
 }
 
 #[test]
@@ -1351,46 +1164,4 @@ fn row_family_keeps_local_values_and_reports_shell_close() {
         .expect("stale open");
     assert!(dom.reconcile(&stale, 1));
     assert!(!open.open());
-}
-
-#[test]
-#[ignore = "needs a display"]
-fn todo_row_keeps_legacy_selection_and_activation() {
-    init();
-    let built = tree(vec![
-        node(
-            2,
-            "hero",
-            json!({"icon":"view-list-symbolic","title":"Tasks"}),
-            vec![],
-        ),
-        node(
-            3,
-            "section",
-            json!({"title":"Tasks","count":"1"}),
-            vec![node(
-                4,
-                "row",
-                json!({"title":"Task","subtitle":"Today","selected":true,"onActivate":true}),
-                vec![],
-            )],
-        ),
-    ]);
-    let (_shell, dom, events) = setup(&built);
-    let host = widget(&dom, 1, 4, ElementKind::Row);
-    let row = row_body(&host);
-    assert_eq!(
-        row.property::<Option<String>>("title").as_deref(),
-        Some("Task")
-    );
-    assert_eq!(
-        row.property::<Option<String>>("subtitle").as_deref(),
-        Some("Today")
-    );
-    assert!(row.property::<bool>("selectable"));
-    assert!(row.property::<bool>("selected"));
-    assert!(row.property::<bool>("activatable"));
-    row.emit_by_name::<()>("clicked", &[]);
-    assert_eq!(events.borrow().len(), 1);
-    assert_eq!(events.borrow()[0].name, "onActivate");
 }

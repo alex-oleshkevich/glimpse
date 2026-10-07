@@ -7,6 +7,7 @@ import {
   placementStore,
   redirectConsole,
   send,
+  servicesStore,
   session,
   stateStore,
   standardIo,
@@ -101,53 +102,11 @@ export const Container = "container" as unknown as FC<{
   children?: Node;
 }>;
 
-export const Hero = "hero" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  className?: ClassName;
-  children?: Node;
-}>;
-
 export const Section = "section" as unknown as FC<{
   title?: string;
   count?: string;
   className?: ClassName;
   children?: Node;
-}>;
-
-export const Row = "row" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  value?: string;
-  selected?: boolean;
-  busy?: boolean;
-  chevron?: boolean;
-  className?: ClassName;
-  onActivate?: () => void;
-  children?: Node;
-}>;
-
-export const SwitchRow = "switchrow" as unknown as FC<{
-  icon?: string;
-  title?: string;
-  subtitle?: string;
-  active?: boolean;
-  busy?: boolean;
-  className?: ClassName;
-  onToggle?: (active: boolean) => void;
-}>;
-
-export const Fader = "fader" as unknown as FC<{
-  icon?: string;
-  value?: number;
-  maximum?: number;
-  floor?: number;
-  muted?: boolean;
-  className?: ClassName;
-  onChange?: (value: number) => void;
-  onMute?: () => void;
 }>;
 
 export type RowTone = "warning" | "error" | "destructive";
@@ -164,6 +123,9 @@ type RowProps = {
   busy?: boolean;
 };
 
+export const Row = "row" as unknown as FC<
+  Omit<RowProps, "busy"> & { children?: Node }
+>;
 export const ActionRow = "actionrow" as unknown as FC<
   RowProps & { onActivate?: () => void; children?: Node }
 >;
@@ -288,15 +250,6 @@ export const Stack = "stack" as unknown as FC<{
   children?: Node;
 }>;
 
-export const Expander = "expander" as unknown as FC<{
-  title?: string;
-  subtitle?: string;
-  expanded?: boolean;
-  className?: ClassName;
-  onToggle?: (expanded: boolean) => void;
-  children?: Node;
-}>;
-
 export const RangeBar = "rangebar" as unknown as FC<{
   min?: number;
   max?: number;
@@ -336,11 +289,6 @@ export const Placeholder = "placeholder" as unknown as FC<{
   title?: string;
   description?: string;
   className?: ClassName;
-}>;
-
-export const Footer = "footer" as unknown as FC<{
-  className?: ClassName;
-  children?: Node;
 }>;
 
 export const Box = "box" as unknown as FC<{
@@ -401,13 +349,6 @@ export const Scale = "scale" as unknown as FC<{
 
 export const Spinner = "spinner" as unknown as FC<{
   className?: ClassName;
-}>;
-
-export const Progress = "progress" as unknown as FC<{
-  text?: string;
-  fraction?: number;
-  className?: ClassName;
-  children?: Node;
 }>;
 
 export const Separator = "separator" as unknown as FC<{
@@ -494,19 +435,140 @@ export function openUri(uri: string): void {
   send({ t: "open-uri", uri });
 }
 
-export type SessionAction =
-  | "lock"
-  | "suspend"
-  | "hibernate"
-  | "log-out"
-  | "reboot"
-  | "power-off";
+export type Player = {
+  id: string;
+  identity: string;
+  desktopEntry: string | null;
+  playback: "playing" | "paused" | "stopped";
+  current: boolean;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  lengthUs: number | null;
+  positionUs: number;
+  positionAt: number;
+  rate: number;
+  can: {
+    play: boolean;
+    pause: boolean;
+    previous: boolean;
+    next: boolean;
+    seek: boolean;
+  };
+};
 
-export function sessionAction(action: SessionAction): void {
-  send({ t: "session", action });
+export type Workspace = {
+  id: number;
+  index: number | null;
+  name: string | null;
+  output: string | null;
+  active: boolean;
+  focused: boolean;
+  urgent: boolean;
+  windows: number;
+};
+
+export type Window = {
+  id: number;
+  title: string | null;
+  appId: string | null;
+  workspace: number | null;
+  focused: boolean;
+  urgent: boolean;
+};
+
+export type Output = {
+  connector: string;
+  label: string | null;
+  focused: boolean;
+};
+
+export type CompositorSnapshot = {
+  name: string | null;
+  workspaces: Workspace[];
+  windows: Window[];
+  outputs: Output[];
+};
+
+export type PlayerAction =
+  | "play"
+  | "pause"
+  | "play-pause"
+  | "stop"
+  | "previous"
+  | "next"
+  | "raise";
+
+export type Step = "next" | "prev";
+
+export type WorkspaceTarget =
+  | { id: number }
+  | { index: number }
+  | { name: string }
+  | Step;
+
+export type WindowTarget = { id: number } | Step;
+
+function useService<T>(name: string): T | null {
+  return react.useSyncExternalStore(
+    servicesStore.subscribe,
+    () => (servicesStore.get()[name] as T | undefined) ?? null,
+  );
 }
 
-export { sessionAction as session };
+export function useMpris(): Player[] | null {
+  return useService<{ players: Player[] }>("mpris")?.players ?? null;
+}
+
+export function useCompositor(): CompositorSnapshot | null {
+  return useService<CompositorSnapshot>("compositor");
+}
+
+export function positionNow(player: Player, now: number = Date.now()): number {
+  if (player.playback !== "playing") return player.positionUs;
+  const position = player.positionUs +
+    (now - player.positionAt) * 1000 * player.rate;
+  return player.lengthUs ? Math.min(position, player.lengthUs) : position;
+}
+
+export const mpris = {
+  control(player: string, action: PlayerAction): void {
+    send({ t: "mpris", player, op: "control", action });
+  },
+  seek(player: string, offsetUs: number): void {
+    send({ t: "mpris", player, op: "seek", offset: Math.round(offsetUs) });
+  },
+  setPosition(player: string, positionUs: number): void {
+    send({
+      t: "mpris",
+      player,
+      op: "set-position",
+      position: Math.round(positionUs),
+    });
+  },
+};
+
+export const compositor = {
+  focusWorkspace(target: WorkspaceTarget): void {
+    send({ t: "compositor", op: "focus-workspace", target });
+  },
+  focusWindow(target: WindowTarget): void {
+    send({ t: "compositor", op: "focus-window", target });
+  },
+  moveWindow(window: number, target: WorkspaceTarget): void {
+    send({ t: "compositor", op: "move-window", window, target });
+  },
+  renameWorkspace(id: number, name: string | null): void {
+    send({ t: "compositor", op: "rename-workspace", id, name });
+  },
+  closeWindow(id: number): void {
+    send({ t: "compositor", op: "close-window", id });
+  },
+};
+
+export function launch(id: string): void {
+  send({ t: "launch", id });
+}
 
 export function closePopover(): void {
   send({ t: "close-popover" });

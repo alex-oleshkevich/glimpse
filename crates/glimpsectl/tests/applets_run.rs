@@ -116,6 +116,7 @@ impl Host {
         output: &str,
         zone: &str,
         options: &str,
+        _grants: &str,
         to_applet: Fd<'_>,
         from_applet: Fd<'_>,
     ) -> zbus::fdo::Result<String> {

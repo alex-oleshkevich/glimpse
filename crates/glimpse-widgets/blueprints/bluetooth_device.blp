@@ -14,7 +14,8 @@ template $BluetoothDevice: Gtk.Widget {
       styles ["accent"]
     }
 
-    $FactList facts {
+    Gtk.Box facts {
+      orientation: vertical;
       visible: false;
     }
 

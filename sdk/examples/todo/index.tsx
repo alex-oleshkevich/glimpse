@@ -4,15 +4,12 @@ import {
   Button,
   copy,
   Entry,
-  Footer,
-  Hero,
   Indicator,
   notify,
   Popover,
-  Row,
   run,
   Section,
-  SwitchRow,
+  ToggleRow,
   useEffect,
   useOptions,
   usePlacement,
@@ -109,20 +106,20 @@ function Todo() {
       >
         {vertical ? null : title}
       </Indicator>
-      <Popover>
-        <Hero
-          icon="view-list-symbolic"
-          title={title}
-          subtitle={`${open.length} open`}
-        />
+      <Popover
+        icon="view-list-symbolic"
+        title={title}
+        subtitle={`${open.length} open`}
+      >
         <Section title={title} count={String(open.length)}>
           {visible.map((item) => (
-            <Row
+            <ToggleRow
               key={item.id}
               title={item.title}
               subtitle={item.due ?? undefined}
-              selected={item.done ? true : undefined}
-              onActivate={() => {
+              control="check"
+              active={item.done}
+              onToggle={() => {
                 setItems(items.map((candidate) =>
                   candidate.id === item.id
                     ? { ...candidate, done: !candidate.done }
@@ -151,23 +148,21 @@ function Todo() {
             setDraft("");
           }}
         />
-        <SwitchRow title="Show done" active={showDone} onToggle={setShowDone} />
-        <Footer>
-          <Button
-            onClick={() => {
-              copy(
-                items.map((
-                  item,
-                ) => (item.due ? `${item.title} ${item.due}` : item.title))
-                  .join(
-                    "\n",
-                  ),
-              );
-            }}
-          >
-            Copy all
-          </Button>
-        </Footer>
+        <ToggleRow title="Show done" active={showDone} onToggle={setShowDone} />
+        <Button
+          onClick={() => {
+            copy(
+              items.map((
+                item,
+              ) => (item.due ? `${item.title} ${item.due}` : item.title))
+                .join(
+                  "\n",
+                ),
+            );
+          }}
+        >
+          Copy all
+        </Button>
       </Popover>
     </>
   );

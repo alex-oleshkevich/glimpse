@@ -69,6 +69,7 @@ type HostMessage =
   | { t: "options"; options?: Props }
   | { t: "placement"; placement?: Placement }
   | { t: "popover"; open?: boolean }
+  | { t: "service"; name?: string; value?: unknown }
   | {
     t: "event";
     id?: number;
@@ -77,7 +78,7 @@ type HostMessage =
     seq?: number | null;
   };
 
-const TEXT = new Set(["label", "indicator", "button", "progress"]);
+const TEXT = new Set(["label", "indicator", "button"]);
 const SKIP = new Set(["children", "key", "ref"]);
 const encoder = new TextEncoder();
 
@@ -103,6 +104,7 @@ export const placementStore = createStore<Placement | null>(null);
 export const nameStore = createStore("");
 export const stateStore = createStore("");
 export const openStore = createStore(false);
+export const servicesStore = createStore<Record<string, unknown>>({});
 
 class ProtocolLimitError extends Error {
   override name = "ProtocolLimitError";
@@ -468,14 +470,11 @@ function makeHost(session: Session): object {
 
 const CONTROLLED: Record<string, [string, string]> = {
   entry: ["onChange", "value"],
-  fader: ["onChange", "value"],
   scale: ["onChange", "value"],
   switch: ["onToggle", "active"],
-  switchrow: ["onToggle", "active"],
   togglerow: ["onToggle", "active"],
   togglebutton: ["onToggle", "active"],
   checkbutton: ["onToggle", "active"],
-  expander: ["onToggle", "expanded"],
   expanderrow: ["onToggle", "open"],
   sliderrow: ["onChange", "value"],
   dropdown: ["onSelect", "selected"],
@@ -618,6 +617,12 @@ function apply(message: HostMessage): void {
     openStore.set(message.open === true);
     return;
   }
+  if (message.t === "service") {
+    if (typeof message.name === "string") {
+      servicesStore.set({ ...servicesStore.get(), [message.name]: message.value });
+    }
+    return;
+  }
   if (message.t === "event") dispatchEvent(message);
 }
 
@@ -662,6 +667,7 @@ export async function session(
           nameStore.set(typeof message.name === "string" ? message.name : "");
           stateStore.set(typeof message.state === "string" ? message.state : "");
           openStore.set(false);
+          servicesStore.set({});
           await mountFresh(element);
           continue;
         }

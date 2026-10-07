@@ -14,13 +14,12 @@ use glimpse_config::{Applet as AppletConfig, Position};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     Edge, ExecBarRequest as BarRequest, ExecHandle, ExecUserEvent as UserEvent, Orientation,
-    Placement, SessionActionsHandle, Tree, Zone,
+    Placement, Tree, Zone,
 };
-use glimpse_widgets::{IndicatorSpec, LegacyRow, PopoverShell};
+use glimpse_widgets::{ActionRow, IndicatorSpec, PopoverShell};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::{
-    app::AppInput,
     applet::{
         Applet, Ctx, Input, Pointer, Report,
         footer::Footer,
@@ -69,9 +68,7 @@ pub(crate) fn placement(
 
 pub struct Exec {
     handle: ExecHandle,
-    actions: SessionActionsHandle,
     notifications: NotificationsProviderHandle,
-    dialog: relm4::Sender<AppInput>,
     slot: u64,
     placement: Placement,
     tree: Arc<Tree>,
@@ -84,16 +81,14 @@ pub struct Exec {
     seq: Rc<RefCell<HashMap<dom::Key, u64>>>,
     dom: Option<dom::Dom>,
     footer: Footer,
-    footer_row: glib::WeakRef<LegacyRow>,
+    footer_row: glib::WeakRef<ActionRow>,
 }
 
 impl Exec {
     pub fn start(
         name: &str,
         handle: ExecHandle,
-        actions: SessionActionsHandle,
         notifications: NotificationsProviderHandle,
-        dialog: relm4::Sender<AppInput>,
         placement: Placement,
     ) -> Self {
         let slot = next_slot();
@@ -111,9 +106,7 @@ impl Exec {
         );
         Self {
             handle,
-            actions,
             notifications,
-            dialog,
             slot,
             placement,
             tree: Arc::new(Tree::default()),
@@ -187,6 +180,42 @@ impl Exec {
     fn request(&self, request: &BarRequest, opener: &crate::applet::Opener) {
         match request {
             BarRequest::ClosePopover => opener.close_popover(),
+            BarRequest::OpenFile { uri, writable } => {
+                let file = gio::File::for_uri(uri);
+                let writable = writable.clone();
+                let report = self.report();
+                relm4::spawn_local(async move {
+                    let Some(path) = file.path() else {
+                        return;
+                    };
+                    let checked = gio::spawn_blocking(move || render::openable(&path, &writable))
+                        .await
+                        .unwrap_or(Err("unreadable"));
+                    let path = match checked {
+                        Ok(path) => path,
+                        Err(reason) => {
+                            tracing::warn!(reason, "applet file not opened");
+                            return;
+                        }
+                    };
+                    let context =
+                        gtk4::gdk::Display::default().map(|display| display.app_launch_context());
+                    if let Err(error) = gio::AppInfo::launch_default_for_uri_future(
+                        &gio::File::for_path(path).uri(),
+                        context.as_ref(),
+                    )
+                    .await
+                    {
+                        crate::applet::report_failure(
+                            "exec.open_file",
+                            report,
+                            Some(gettext("The file did not open.")),
+                            error,
+                        )
+                        .await;
+                    }
+                });
+            }
             BarRequest::OpenUri(uri) => {
                 let uri = uri.clone();
                 let report = self.report();
@@ -206,11 +235,29 @@ impl Exec {
                     }
                 });
             }
-            BarRequest::Session(_) => {
-                let state = self.actions.snapshot();
-                if let Some(input) = render::session_input(request, &state) {
-                    let _ = self.dialog.send(input);
-                }
+            BarRequest::Launch(id) => {
+                let id = if id.ends_with(".desktop") {
+                    id.clone()
+                } else {
+                    format!("{id}.desktop")
+                };
+                let report = self.report();
+                relm4::spawn_local(async move {
+                    let context =
+                        gtk4::gdk::Display::default().map(|display| display.app_launch_context());
+                    let launched = gio_unix::DesktopAppInfo::new(&id)
+                        .ok_or_else(|| glib::Error::new(gio::IOErrorEnum::NotFound, &id))
+                        .and_then(|app| app.launch(&[], context.as_ref()));
+                    if let Err(error) = launched {
+                        crate::applet::report_failure(
+                            "exec.launch",
+                            report,
+                            Some(gettext("The application did not start.")),
+                            error,
+                        )
+                        .await;
+                    }
+                });
             }
         }
     }
@@ -307,10 +354,9 @@ impl Applet for Exec {
         let mut dom = dom::Dom::new(&shell, self.slot, dispatch, seat.opener(), self.seq.clone());
         dom.reconcile(&self.tree, self.generation);
         self.dom = Some(dom);
-        let row = LegacyRow::new();
-        row.set_property("activatable", true);
+        let row = ActionRow::new();
         let footer = self.footer.clone();
-        row.connect_clicked(move |_| footer.run());
+        row.connect_activated(move |_| footer.run());
         dress_footer(&row, &self.footer);
         shell.append_to_footer(&row);
         self.footer_row.set(Some(&row));
@@ -318,7 +364,7 @@ impl Applet for Exec {
     }
 }
 
-fn dress_footer(row: &LegacyRow, footer: &Footer) {
+fn dress_footer(row: &ActionRow, footer: &Footer) {
     let label = footer.label();
     row.set_property("title", label.as_deref());
     row.set_visible(label.is_some());

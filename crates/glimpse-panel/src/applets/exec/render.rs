@@ -1,10 +1,7 @@
-use crate::app::{AppInput, SessionDialog};
 use crate::applet::{Button, Direction, Pointer};
 use glimpse_services::{
-    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps,
-    SessionVerb, Tree,
+    Align, ClassName, Element, Ellipsize, ExecBarRequest as BarRequest, IndicatorProps, Tree,
 };
-use glimpse_services::{SessionAction, SessionActionsState};
 use glimpse_widgets::{IndicatorSpec, Severity};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio};
@@ -143,35 +140,6 @@ pub fn ellipsize(value: Option<Ellipsize>) -> gtk4::pango::EllipsizeMode {
     }
 }
 
-pub fn action(request: &BarRequest) -> Option<SessionAction> {
-    let BarRequest::Session(verb) = request else {
-        return None;
-    };
-    Some(match verb {
-        SessionVerb::Lock => SessionAction::Lock,
-        SessionVerb::Suspend => SessionAction::Suspend,
-        SessionVerb::Hibernate => SessionAction::Hibernate,
-        SessionVerb::LogOut => SessionAction::LogOut,
-        SessionVerb::Reboot => SessionAction::Reboot,
-        SessionVerb::PowerOff => SessionAction::PowerOff,
-    })
-}
-
-pub fn session_input(request: &BarRequest, state: &SessionActionsState) -> Option<AppInput> {
-    let action = action(request)?;
-    Some(
-        match crate::applets::session::render::confirm(state, action.clone()) {
-            Some((title, body, accept)) => AppInput::SessionConfirm(SessionDialog {
-                title,
-                body,
-                accept,
-                action,
-            }),
-            None => AppInput::SessionRun(action),
-        },
-    )
-}
-
 pub fn requests_before_tree_check(
     last: &mut u64,
     requests: &[(u64, BarRequest)],
@@ -211,6 +179,53 @@ pub fn pointer(pointer: Pointer) -> Option<(&'static str, Vec<Value>, bool)> {
             Some(("onScroll", vec![Value::from(dx), Value::from(dy)], false))
         }
     }
+}
+
+const LAUNCHERS: [&str; 11] = [
+    "application/x-desktop",
+    "application/x-executable",
+    "application/x-sharedlib",
+    "application/x-shellscript",
+    "application/x-ms-dos-executable",
+    "application/x-msdownload",
+    "application/x-msi",
+    "application/x-ms-shortcut",
+    "application/x-java-archive",
+    "application/vnd.appimage",
+    "application/x-flatpakref",
+];
+
+pub fn openable(
+    path: &std::path::Path,
+    writable: &[std::path::PathBuf],
+) -> Result<std::path::PathBuf, &'static str> {
+    use std::os::unix::fs::PermissionsExt;
+    let path = std::fs::canonicalize(path).map_err(|_| "missing")?;
+    if writable
+        .iter()
+        .filter_map(|root| std::fs::canonicalize(root).ok())
+        .any(|root| path.starts_with(root))
+    {
+        return Err("written by the applet");
+    }
+    let metadata = std::fs::metadata(&path).map_err(|_| "missing")?;
+    if metadata.is_dir() {
+        return Ok(path);
+    }
+    if !metadata.is_file() {
+        return Err("not a regular file");
+    }
+    if metadata.permissions().mode() & 0o111 != 0 {
+        return Err("executable");
+    }
+    let (content_type, _) = gio::content_type_guess(Some(&path), None);
+    if LAUNCHERS
+        .iter()
+        .any(|launcher| gio::content_type_is_a(&content_type, launcher))
+    {
+        return Err("launches programs");
+    }
+    Ok(path)
 }
 
 #[cfg(test)]

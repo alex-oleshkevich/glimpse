@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ExpanderRow, Fact, FactList, Row, RowTone, reconcile};
+use crate::{ActionRow, ExpanderRow, Fact, Row, RowTone, reconcile};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum InhibitorSource {
@@ -110,7 +110,7 @@ impl InhibitorList {
 
         let item = ExpanderRow::new();
         let details = item.details();
-        details.append(&FactList::new());
+        details.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
         details.append(&release);
         item
     }
@@ -123,11 +123,14 @@ fn dress(item: &ExpanderRow, entry: &InhibitorEntry) {
     item.set_icon_name(Some(entry.source.icon_name()));
 
     let details = item.details();
-    if let Some(facts) = details.first_child().and_downcast::<FactList>() {
+    if let Some(facts) = details.first_child().and_downcast::<gtk4::Box>() {
         let reason =
             (!entry.status.is_empty()).then(|| Fact::new(gettext("Reason"), entry.status.clone()));
         let prevents = Fact::new(gettext("Prevents"), targets(&entry.targets));
-        facts.set_facts(&reason.into_iter().chain([prevents]).collect::<Vec<_>>());
+        crate::set_facts(
+            &facts,
+            &reason.into_iter().chain([prevents]).collect::<Vec<_>>(),
+        );
     }
     if let Some(release) = details.last_child()
         && release.get_visible() != entry.can_release

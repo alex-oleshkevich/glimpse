@@ -73,7 +73,6 @@ fn main() {
             "blueprints/forecast_hour.blp",
             "resources/widgets/forecast_hour.ui",
         ),
-        ("blueprints/fader.blp", "resources/widgets/fader.ui"),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         (
             "blueprints/tooltip_card.blp",
@@ -192,10 +191,6 @@ fn main() {
             "blueprints/action_row.blp",
             "resources/widgets/action_row.ui",
         ),
-        (
-            "blueprints/legacy_row.blp",
-            "resources/widgets/legacy_row.ui",
-        ),
         ("blueprints/meter_row.blp", "resources/widgets/meter_row.ui"),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
         (
@@ -220,14 +215,9 @@ fn main() {
             "blueprints/session_sheet.blp",
             "resources/widgets/session_sheet.ui",
         ),
-        ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
         (
             "blueprints/status_island.blp",
             "resources/widgets/status_island.ui",
-        ),
-        (
-            "blueprints/switch_row.blp",
-            "resources/widgets/switch_row.ui",
         ),
         (
             "blueprints/system_monitor_popover.blp",

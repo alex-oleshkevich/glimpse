@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, SplitRow, clear_children, drawer};
+use crate::{Expandable, clear_children, drawer};
 
 const RECEDES: &str = "recedes";
 
@@ -245,7 +245,7 @@ fn frame(widget: &gtk4::Widget) -> bool {
 }
 
 fn holds_frame(widget: &gtk4::Widget) -> bool {
-    !widget.is::<SplitRow>() && children(widget).any(|child| frame(&child) || holds_frame(&child))
+    children(widget).any(|child| frame(&child) || holds_frame(&child))
 }
 
 fn children(widget: &gtk4::Widget) -> impl Iterator<Item = gtk4::Widget> {

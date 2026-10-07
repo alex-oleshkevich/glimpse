@@ -107,7 +107,7 @@ pub(super) fn check() {
     let nested = ExpanderRow::new();
     child_named::<gtk4::Box>(&first, "expander-row__details").append(&nested);
     let second = ExpanderRow::new();
-    let legacy = Expandable::new(&LegacyRow::new());
+    let legacy = Expandable::new(&gtk4::Button::new());
     legacy.set_details(Some(&gtk4::Label::new(Some("legacy detail"))));
     let third = ExpanderRow::new();
     let outside = gtk4::Label::new(Some("outside"));
@@ -175,7 +175,7 @@ pub(super) fn check() {
     assert!(!outside.has_css_class(crate::drawer::RECEDED));
     assert!(!shell.dismiss_from(outside.upcast_ref()));
 
-    let inner = Expandable::new(&LegacyRow::new());
+    let inner = Expandable::new(&gtk4::Button::new());
     inner.set_details(Some(&gtk4::Label::new(Some("nested detail"))));
     legacy.set_details(Some(&inner));
     legacy.set_expanded(true);

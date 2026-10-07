@@ -8,7 +8,7 @@ mod imp {
     use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
     use std::cell::RefCell;
 
-    use crate::{ActionRow, ExpanderRow, FactList, ToggleRow};
+    use crate::{ActionRow, ExpanderRow, ToggleRow};
 
     #[derive(Debug, Default, CompositeTemplate)]
     #[template(resource = "/me/aresa/GlimpseShell/widgets/bluetooth_device.ui")]
@@ -24,7 +24,7 @@ mod imp {
         #[template_child]
         pub forget: TemplateChild<ActionRow>,
         #[template_child]
-        pub facts: TemplateChild<FactList>,
+        pub facts: TemplateChild<gtk4::Box>,
 
         pub primary_action: RefCell<String>,
     }
@@ -39,7 +39,6 @@ mod imp {
             ActionRow::static_type();
             ExpanderRow::static_type();
             ToggleRow::static_type();
-            FactList::static_type();
             klass.bind_template();
             klass.set_accessible_role(gtk4::AccessibleRole::Group);
         }
@@ -127,7 +126,7 @@ impl BluetoothDevice {
             imp.trust.set_active(line.toggle.unwrap_or_default());
         }
         let facts = details.map_or(&[][..], |details| details.facts.as_slice());
-        imp.facts.set_facts(facts);
+        crate::set_facts(&imp.facts, facts);
         if imp.facts.get_visible() == facts.is_empty() {
             imp.facts.set_visible(!facts.is_empty());
         }

@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn requests_require_a_recent_gesture() {
     let (_dir, entry, _output) = script(
-        "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"file:///x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n{\"t\":\"session\",\"action\":\"lock\"}\\n'; done\n",
+        "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"javascript:x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n'; done\n",
     );
     let (handle, _sender, cancel, task, selection) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
@@ -316,10 +316,10 @@ async fn an_unknown_message_and_a_flood_do_not_stop_the_child() {
 }
 
 #[test]
-fn only_web_and_mail_uris_are_allowed() {
+fn only_web_mail_and_file_uris_are_allowed() {
     assert!(allowed_uri("https://example.com"));
     assert!(allowed_uri("MAILTO:me@example.com"));
-    assert!(!allowed_uri("file:///x"));
+    assert!(allowed_uri("file:///home/user/notes.txt"));
     assert!(!allowed_uri("javascript:alert(1)"));
     assert!(!allowed_uri(&format!("https://{}", "a".repeat(2048))));
 }
@@ -392,4 +392,23 @@ async fn stderr_output_cannot_block_hello() {
     handle.detach(9193).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
+}
+
+#[test]
+fn launch_takes_only_granted_ids() {
+    let sandbox = glimpse_config::AppletSandbox {
+        launch: vec![
+            "org.gnome.Nautilus".to_owned(),
+            "Alacritty.desktop".to_owned(),
+        ],
+        ..Default::default()
+    };
+    assert!(may_launch(&sandbox, "org.gnome.Nautilus.desktop"));
+    assert!(may_launch(&sandbox, "Alacritty"));
+    assert!(!may_launch(&sandbox, "me.example.Applet"));
+    assert!(!may_launch(&sandbox, ".desktop"));
+    assert!(!may_launch(
+        &glimpse_config::AppletSandbox::default(),
+        "Alacritty"
+    ));
 }

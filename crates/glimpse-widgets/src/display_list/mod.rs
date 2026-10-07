@@ -4,7 +4,7 @@ use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{ExpanderRow, Fact, FactList, Row, ToggleRow};
+use crate::{ExpanderRow, Fact, Row, ToggleRow};
 
 pub(crate) const ENABLE_REQUESTED: &str = "enable-requested";
 
@@ -102,7 +102,7 @@ impl DisplayList {
 
     fn build(&self, connector: &str) -> ExpanderRow {
         let row = ExpanderRow::new();
-        let facts = FactList::new();
+        let facts = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         let toggle = ToggleRow::new();
         toggle
             .upcast_ref::<Row>()
@@ -124,8 +124,8 @@ fn apply(holder: &ExpanderRow, display: &Display, power: bool, last_enabled: boo
     holder.set_title(Some(title.as_str()));
     holder.set_icon_name(Some(icon_of(display)));
     let body = holder.details();
-    if let Some(facts) = body.first_child().and_downcast::<FactList>() {
-        facts.set_facts(&facts_of(display));
+    if let Some(facts) = body.first_child().and_downcast::<gtk4::Box>() {
+        crate::set_facts(&facts, &facts_of(display));
     }
     let Some(toggle) = body.last_child().and_downcast::<ToggleRow>() else {
         return;

@@ -19,6 +19,7 @@ export type Rendered = {
   click(id: number): Promise<void>;
   setOptions(options: Record<string, unknown>): Promise<void>;
   setPopoverOpen(open: boolean): Promise<void>;
+  setService(name: string, value: unknown): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -198,7 +199,7 @@ export async function render(
     click(id) {
       if (closed) return Promise.reject(new Error("rendered session is closed"));
       const node = nodes.get(id);
-      const handler = node?.type === "row" ? "onActivate" : node?.type === "button" ? "onClick" : undefined;
+      const handler = node?.type === "actionrow" ? "onActivate" : node?.type === "button" ? "onClick" : undefined;
       if (!node || !handler || node.props[handler] !== true) {
         return Promise.reject(new Error(`node ${id} has no ${handler ?? "click"} handler`));
       }
@@ -206,6 +207,7 @@ export async function render(
     },
     setOptions: (options) => send({ t: "options", options }),
     setPopoverOpen: (open) => send({ t: "popover", open }),
+    setService: (name, value) => send({ t: "service", name, value }),
     async close() {
       try {
         if (unmount) {

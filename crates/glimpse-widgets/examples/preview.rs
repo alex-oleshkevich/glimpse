@@ -271,16 +271,14 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Display, DisplayList,
-        DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList,
-        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
-        InhibitorSource, InhibitorTargets, LegacyRow, NightLight, Notification,
-        NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player, PlayerList, PowerChargeLimit,
-        PowerDevice, PowerHistory, PowerHoldNotice, PowerPopover, PrintingJob, PrintingPopover,
-        PrintingPrinter, PrivacyPopover, PrivacyUsage, REBOOT, Repeat, SUSPEND, SessionActionState,
-        SessionSheet, Severity, Shape, Slot, SourceList, SplitRow, StatusIsland,
-        SystemMonitorMeter, SystemMonitorNamedMeter, SystemMonitorPopover, SystemMonitorReadings,
-        Tick, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
-        WorldClock, Ymd, Zone,
+        DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, Focus,
+        Group, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList, InhibitorSource,
+        InhibitorTargets, Notification, NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player,
+        PlayerList, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover, PrivacyUsage,
+        REBOOT, Repeat, SUSPEND, SessionActionState, SessionSheet, Severity, Shape, Slot,
+        SourceList, StatusIsland, SystemMonitorMeter, SystemMonitorNamedMeter,
+        SystemMonitorPopover, SystemMonitorReadings, TransportAction, TrayChip, TrayStrip, Urgency,
+        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -288,17 +286,11 @@ mod fixtures {
     use std::rc::Rc;
     use std::time::Duration;
 
-    const NAV: &str = "nav__";
-    const EXPAND: &str = "expander";
-    const DIM_HOST: &str = "dim-host";
-    const DIMMED: &str = "dimmed";
-    const OPENED: &str = "open";
     const ACTION: &str = "action__";
     const DEMO: &str = "demo__";
     const OPEN: &str = "open-on-map";
     const DIALOG: &str = "dialog__";
     const AFTER: &str = "after__";
-    const BUSY: &str = "busy";
     const ICON: &str = "icon__";
     const OVERLAY: &str = "overlay__";
     const LABEL: &str = "label__";
@@ -335,10 +327,7 @@ mod fixtures {
             "mpris" => mpris(root),
             "source_list_states" => source_list_states(root),
             "display_list_states" => display_list_states(root),
-            "battery" => battery_popover(root),
-            "brightness_popover_full" => brightness_popover_states(root),
             "display_popover_full" => display_popover_states(root),
-            "next_event" => next_event(root),
             "weather_popover" => weather_popover(root),
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
@@ -353,24 +342,24 @@ mod fixtures {
             name if name.starts_with("lock_") => lock::apply(root),
             _ => {}
         }
-        drawer_nav(root);
-        expanders(root);
         actions(root);
         opened_menus(root);
         dialogs(root, builder);
         after(root);
         pager(root);
         charts(root);
-        busy(root);
         expanded(root);
         indicators(root);
         scheme_toggle(root, sheets);
     }
 
     fn session_sheet_states(root: &gtk4::Widget) {
-        fn row_with_icon(rows: &[LegacyRow], icon: &str) -> Option<LegacyRow> {
+        fn row_with_icon(
+            rows: &[glimpse_widgets::ActionRow],
+            icon: &str,
+        ) -> Option<glimpse_widgets::ActionRow> {
             rows.iter()
-                .find(|row| row.lead_icon().as_deref() == Some(icon))
+                .find(|row| row.property::<Option<String>>("icon-name").as_deref() == Some(icon))
                 .cloned()
         }
 
@@ -406,16 +395,16 @@ mod fixtures {
                 },
             );
             sheet.toggle();
-            let rows = collect::<LegacyRow>(sheet.upcast_ref());
+            let rows = collect::<glimpse_widgets::ActionRow>(sheet.upcast_ref());
 
             match case.as_str() {
                 "menu" => {}
                 "reboot" => match row_with_icon(&rows, "system-reboot-symbolic") {
-                    Some(row) => row.emit_clicked(),
+                    Some(row) => row.emit_by_name::<()>("activated", &[]),
                     None => eprintln!("{DEMO}reboot: no row carries system-reboot-symbolic"),
                 },
                 "power_off" => match row_with_icon(&rows, "system-shutdown-symbolic") {
-                    Some(row) => row.emit_clicked(),
+                    Some(row) => row.emit_by_name::<()>("activated", &[]),
                     None => eprintln!("{DEMO}power_off: no row carries system-shutdown-symbolic"),
                 },
                 "suspend_blocked" => sheet.set_action(
@@ -1205,164 +1194,6 @@ mod fixtures {
         }
     }
 
-    fn battery_popover(root: &gtk4::Widget) {
-        let Some(popover) = find::<PowerPopover>(root) else {
-            return;
-        };
-        popover.set_header("battery-level-70-symbolic", Some(76));
-        popover.set_notice(Some(&PowerHoldNotice {
-            title: "Awake until 15:30".to_owned(),
-            subtitle: "Held by Firefox".to_owned(),
-        }));
-        popover.set_remaining(Some(("Remaining", "3 h 10 min")));
-        popover.set_battery(&[
-            Fact::new("Since unplugged", "2 h 40 min"),
-            Fact::new("Power draw", "8.4 W"),
-            Fact::new("Health", "87%"),
-            Fact::new("Energy", "41.2 / 47.5 Wh"),
-            Fact::new("Capacity when new", "54.0 Wh"),
-            Fact::new("Cycles", "312"),
-            Fact::new("Technology", "Lithium-ion"),
-        ]);
-        popover.set_charge_limit(Some(&PowerChargeLimit {
-            enabled: true,
-            title: "Limit charge to 80%".to_owned(),
-        }));
-        popover.set_history(Some(&PowerHistory {
-            values: vec![Some(90.0), Some(70.0), Some(55.0), Some(76.0)],
-            marked: vec![false, true, true, false],
-            ticks: vec![
-                Tick {
-                    at: 0.0,
-                    label: "16:00".to_owned(),
-                },
-                Tick {
-                    at: 0.25,
-                    label: "22:00".to_owned(),
-                },
-                Tick {
-                    at: 0.5,
-                    label: "04:00".to_owned(),
-                },
-                Tick {
-                    at: 0.75,
-                    label: "10:00".to_owned(),
-                },
-                Tick {
-                    at: 1.0,
-                    label: "Now".to_owned(),
-                },
-            ],
-            tooltips: vec![
-                Some("90%".to_owned()),
-                Some("70%".to_owned()),
-                None,
-                Some("76%".to_owned()),
-            ],
-        }));
-        popover.set_profiles(
-            &[
-                Choice {
-                    label: "Power saver".to_owned(),
-                    icon_name: "power-profile-power-saver-symbolic".to_owned(),
-                    ..Default::default()
-                },
-                Choice {
-                    label: "Balanced".to_owned(),
-                    icon_name: "power-profile-balanced-symbolic".to_owned(),
-                    ..Default::default()
-                },
-                Choice {
-                    label: "Performance".to_owned(),
-                    detail: "Unavailable: laptop on lap".to_owned(),
-                    icon_name: "power-profile-performance-symbolic".to_owned(),
-                    warning: true,
-                },
-            ],
-            Some(1),
-        );
-        popover.set_hold_active(true);
-        popover.set_hold_preset(Some(3_600));
-        popover.set_devices(&[
-            PowerDevice {
-                name: "MX Keys S".to_owned(),
-                icon_name: "input-keyboard-symbolic".to_owned(),
-                value: "54%".to_owned(),
-                warning: false,
-            },
-            PowerDevice {
-                name: "WH-1000XM4".to_owned(),
-                icon_name: "audio-headphones-symbolic".to_owned(),
-                value: "80%".to_owned(),
-                warning: false,
-            },
-            PowerDevice {
-                name: "Pixel 8".to_owned(),
-                icon_name: "phone-symbolic".to_owned(),
-                value: "12%".to_owned(),
-                warning: true,
-            },
-        ]);
-        popover.set_footer(Some("Power Settings"));
-    }
-
-    fn brightness_popover_states(root: &gtk4::Widget) {
-        let level = |key: &str, name: &str, value: f64| glimpse_widgets::Source {
-            key: key.to_owned(),
-            name: name.to_owned(),
-            icon: String::new(),
-            value,
-            maximum: 100.0,
-            floor: 0.0,
-        };
-
-        for popover in tagged::<DisplayPopover>(root, "none") {
-            popover.set_sources(&[]);
-        }
-        for popover in tagged::<DisplayPopover>(root, "one") {
-            popover.set_sources(&[level("built-in", "Built-in", 65.0)]);
-        }
-        for popover in tagged::<DisplayPopover>(root, "three") {
-            popover.set_sources(&[
-                level("built-in", "Built-in", 40.0),
-                level("dp-1", "DP-1", 60.0),
-                level("dp-2", "DP-2", 80.0),
-            ]);
-        }
-        for popover in tagged::<DisplayPopover>(root, "unavailable") {
-            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
-            popover.set_night_light(None);
-        }
-        for popover in tagged::<DisplayPopover>(root, "off") {
-            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
-            popover.set_night_light(Some(&NightLight {
-                enabled: false,
-                temperature: 6500,
-                ..Default::default()
-            }));
-        }
-        for popover in tagged::<DisplayPopover>(root, "day") {
-            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
-            popover.set_night_light(Some(&NightLight {
-                enabled: true,
-                temperature: 6500,
-                schedule: "automatic".to_owned(),
-                serving: true,
-                ..Default::default()
-            }));
-        }
-        for popover in tagged::<DisplayPopover>(root, "on") {
-            popover.set_sources(&[level("built-in", "Built-in", 55.0)]);
-            popover.set_night_light(Some(&NightLight {
-                enabled: true,
-                temperature: 4200,
-                schedule: "automatic".to_owned(),
-                serving: true,
-                ..Default::default()
-            }));
-        }
-    }
-
     fn display_popover_states(root: &gtk4::Widget) {
         let mode = DisplayMode {
             width: 1920,
@@ -1877,9 +1708,8 @@ mod fixtures {
 
     mod lock {
         use super::{
-            DEMO, IndicatorSpec, LegacyRow, Media, Notification, NowPlaying, POWER_OFF, REBOOT,
-            SUSPEND, SessionActionState, TransportAction, Urgency, collect, find, tagged,
-            themed_icon,
+            DEMO, IndicatorSpec, Media, Notification, NowPlaying, POWER_OFF, REBOOT, SUSPEND,
+            SessionActionState, TransportAction, Urgency, collect, find, tagged, themed_icon,
         };
         use glimpse_widgets::{
             ChipGroup, LockStage, MessageKind, NotificationCard, NotificationList, PasswordPrompt,
@@ -2121,7 +1951,7 @@ mod fixtures {
                     let state = Rc::clone(state);
                     move |blocked| {
                         state.blocked.set(blocked);
-                        for row in tagged::<LegacyRow>(&root, "session_suspend") {
+                        for row in tagged::<glimpse_widgets::ActionRow>(&root, "session_suspend") {
                             row.set_sensitive(!blocked);
                             row.set_property("subtitle", blocked.then_some(SUSPEND_BLOCKED));
                         }
@@ -2233,11 +2063,14 @@ mod fixtures {
                 eprintln!("session: power button");
             }
             glib::timeout_add_local_once(Duration::from_millis(2500), move || {
-                if let Some(restart) = collect::<LegacyRow>(stage.upcast_ref())
+                if let Some(restart) = collect::<glimpse_widgets::ActionRow>(stage.upcast_ref())
                     .into_iter()
-                    .find(|row| row.lead_icon().as_deref() == Some("system-reboot-symbolic"))
+                    .find(|row| {
+                        row.property::<Option<String>>("icon-name").as_deref()
+                            == Some("system-reboot-symbolic")
+                    })
                 {
-                    restart.emit_clicked();
+                    restart.emit_by_name::<()>("activated", &[]);
                     eprintln!("session: restart");
                 }
             });
@@ -3293,67 +3126,6 @@ mod fixtures {
             })
     }
 
-    fn drawer_nav(root: &gtk4::Widget) {
-        let Some((drawer, stack)) = page_stack(root) else {
-            if collect::<gtk4::Button>(root)
-                .iter()
-                .any(|row| row.css_classes().iter().any(|c| c.starts_with(NAV)))
-            {
-                eprintln!("no Gtk.Revealer holds a Gtk.Stack; every {NAV} row is dead");
-            }
-            return;
-        };
-
-        let rows: Rc<Vec<(gtk4::Widget, String)>> = Rc::new(
-            collect::<gtk4::Widget>(root)
-                .into_iter()
-                .filter(|widget| widget.is::<gtk4::Button>() || widget.is::<SplitRow>())
-                .filter_map(|row| {
-                    let page = row
-                        .css_classes()
-                        .iter()
-                        .find_map(|class| class.as_str().strip_prefix(NAV).map(str::to_owned))?;
-                    if stack.child_by_name(&page).is_none() {
-                        eprintln!("{NAV}{page} names no page in the stack; that row is dead");
-                        return None;
-                    }
-                    Some((row, page))
-                })
-                .collect(),
-        );
-
-        for (index, (row, page)) in rows.iter().enumerate() {
-            let all = Rc::clone(&rows);
-            let page = page.clone();
-            let drawer = drawer.clone();
-            let stack = stack.clone();
-            let show = move || {
-                let showing = drawer.reveals_child()
-                    && stack.visible_child_name().as_deref() == Some(page.as_str());
-                for (other, _) in all.iter() {
-                    set_selected(other, false);
-                }
-                if showing {
-                    drawer.set_reveal_child(false);
-                    return;
-                }
-                stack.set_visible_child_name(&page);
-                set_selected(&all[index].0, true);
-                drawer.set_reveal_child(true);
-            };
-
-            match row.downcast_ref::<SplitRow>() {
-                Some(split) => {
-                    split.connect_details(move |_| show());
-                }
-                None => {
-                    let button = row.downcast_ref::<gtk4::Button>().expect("filtered above");
-                    button.connect_clicked(move |_| show());
-                }
-            }
-        }
-    }
-
     fn actions(root: &gtk4::Widget) {
         for widget in collect::<gtk4::Widget>(root) {
             let Some(name) = widget
@@ -3364,8 +3136,8 @@ mod fixtures {
                 continue;
             };
 
-            if let Some(split) = widget.downcast_ref::<SplitRow>() {
-                split.connect_activated(move |_| eprintln!("action: {name}"));
+            if let Some(row) = widget.downcast_ref::<glimpse_widgets::ActionRow>() {
+                row.connect_activated(move |_| eprintln!("action: {name}"));
             } else if let Some(button) = widget.downcast_ref::<gtk4::Button>() {
                 button.connect_clicked(move |_| eprintln!("action: {name}"));
             } else {
@@ -3373,22 +3145,6 @@ mod fixtures {
                     "{ACTION}{name} sits on a {}, which nothing clicks",
                     widget.type_().name()
                 );
-            }
-        }
-    }
-
-    fn busy(root: &gtk4::Widget) {
-        for widget in collect::<gtk4::Widget>(root) {
-            if !widget.has_css_class(BUSY) {
-                continue;
-            }
-            match widget.downcast_ref::<SplitRow>() {
-                Some(split) => split.row().set_busy(true),
-                None => eprintln!(
-                    ".{BUSY} sits on a {}; a $LegacyRow takes busy and a Gtk.Spinner takes spinning \
-                     straight from the blueprint",
-                    widget.type_().name()
-                ),
             }
         }
     }
@@ -4163,81 +3919,14 @@ mod fixtures {
         }
     }
 
-    fn set_selected(widget: &gtk4::Widget, selected: bool) {
-        if let Some(row) = widget.downcast_ref::<LegacyRow>() {
-            row.set_selected(selected);
-        }
-        if let Some(split) = widget.downcast_ref::<SplitRow>() {
-            split.set_selected(selected);
-        }
-    }
-
-    fn expanders(root: &gtk4::Widget) {
-        for row in collect::<gtk4::Button>(root) {
-            if !row.has_css_class(EXPAND) {
-                continue;
-            }
-            let Some(revealer) = row.next_sibling().and_downcast::<gtk4::Revealer>() else {
-                eprintln!("a .{EXPAND} row has no Gtk.Revealer after it; it expands nothing");
-                continue;
-            };
-            row.connect_clicked(move |row| {
-                revealer.set_reveal_child(!revealer.reveals_child());
-                if let Some(host) = dim_host(row.upcast_ref()) {
-                    recede(&host);
-                }
-            });
-        }
-    }
-
     /// The nearest ancestor that asked for its rows to recede behind an open expander.
     ///
     /// Opt-in, because `.expander` also reveals an audio stream's volume slider, and dimming a
     /// whole popover around a slider would be wrong.
-    fn dim_host(widget: &gtk4::Widget) -> Option<gtk4::Widget> {
-        let mut node = widget.parent();
-        while let Some(current) = node {
-            if current.has_css_class(DIM_HOST) {
-                return Some(current);
-            }
-            node = current.parent();
-        }
-        None
-    }
-
     /// Everything outside an open detail dims, the row that opened it does not.
     ///
     /// Derived from what is revealed rather than remembered, so two expanders open at once leave
     /// both details lit and closing one does not undim the other's neighbours.
-    fn recede(host: &gtk4::Widget) {
-        let open: Vec<gtk4::Revealer> = collect::<gtk4::Revealer>(host)
-            .into_iter()
-            .filter(|revealer| revealer.reveals_child())
-            .collect();
-
-        for widget in collect::<gtk4::Widget>(host) {
-            if !(widget.is::<LegacyRow>() || widget.is::<SplitRow>() || widget.is::<Hero>()) {
-                continue;
-            }
-            let inside = open
-                .iter()
-                .any(|revealer| widget.is_ancestor(revealer.upcast_ref::<gtk4::Widget>()));
-            let opener = widget
-                .next_sibling()
-                .and_downcast::<gtk4::Revealer>()
-                .is_some_and(|revealer| revealer.reveals_child());
-
-            match !open.is_empty() && !inside && !opener {
-                true => widget.add_css_class(DIMMED),
-                false => widget.remove_css_class(DIMMED),
-            }
-            match opener {
-                true => widget.add_css_class(OPENED),
-                false => widget.remove_css_class(OPENED),
-            }
-        }
-    }
-
     /// A `Gtk.MenuButton` carrying `.open-on-map` shows its menu once the board is on screen.
     ///
     /// A blueprint cannot do this: `active: true` is applied by `Builder` before the button is
@@ -4328,40 +4017,6 @@ mod fixtures {
         events.set_events(&today);
     }
 
-    fn next_event(root: &gtk4::Widget) {
-        if let Some(facts) = find::<FactList>(root) {
-            facts.set_facts(&[
-                Fact::new("Calendar", "Work"),
-                Fact::new("Location", "Meeting room Kaunas"),
-                Fact::new("Organizer", "Marta Kazlauskienė"),
-                Fact::new("Guests", "8 · 5 accepted"),
-                Fact::new("Repeats", "Every Wednesday"),
-                Fact::new("Reminder", "10 minutes before"),
-            ]);
-        }
-
-        let Some(events) = find::<EventList>(root) else {
-            return;
-        };
-        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
-        let work = color("#3584e4");
-        let home = color("#2ec27e");
-        let event = |summary: &str, detail: &str, when: &str, color| Event {
-            id: summary.to_owned(),
-            summary: summary.to_owned(),
-            facts: vec![Fact::new("Location", detail)],
-            when: when.to_owned(),
-            color: Some(color),
-            ..Default::default()
-        };
-
-        events.set_events(&[
-            event("Sprint retro", "Meeting room Kaunas", "16:00", work),
-            event("1:1 with Marta", "Google Meet", "17:00", work),
-            event("Pick up the parcel", "Antakalnio g. 18", "18:30", home),
-        ]);
-    }
-
     fn world_clock(clocks: &WorldClock) {
         let zone = |label: &str, timezone: &str, note: &str, icon_name: &str| Zone {
             label: label.to_owned(),
@@ -4423,17 +4078,16 @@ mod fixtures {
 fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ColorList,
-        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, FactList, Fader,
-        ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        InhibitorList, KeyboardPopover, LegacyRow, LockClock, LockStage, Notice, NotificationCard,
-        NotificationChips, NotificationHeader, NotificationImageBody, NotificationList,
-        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
-        PasswordPrompt, Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover,
-        PrivacyPopover, RangeBar, Readout, Scrubber, Section, SessionPopover, SessionSheet,
-        ShotBanner, ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage,
-        ShotToolbar, ShotWindowList, SourceList, SplitRow, StatusIsland, Swatch, SwitchRow,
-        SystemMonitorPopover, TooltipCard, TrackCard, Transport, TrayStrip, WeatherPopover,
-        WorkspaceNamePopover, WorldClock,
+        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, ForecastDay,
+        ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
+        KeyboardPopover, LockClock, LockStage, Notice, NotificationCard, NotificationChips,
+        NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
+        NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt,
+        Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover,
+        RangeBar, Readout, Scrubber, Section, SessionPopover, SessionSheet, ShotBanner,
+        ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar,
+        ShotWindowList, SourceList, StatusIsland, Swatch, SystemMonitorPopover, TooltipCard,
+        TrackCard, Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -4455,7 +4109,6 @@ fn ensure_types() {
         DisplayList::static_type(),
         DisplayPopover::static_type(),
         SourceList::static_type(),
-        FactList::static_type(),
         ForecastDay::static_type(),
         ForecastHour::static_type(),
         ForecastList::static_type(),
@@ -4476,14 +4129,11 @@ fn ensure_types() {
         Transport::static_type(),
         RangeBar::static_type(),
         Readout::static_type(),
-        Fader::static_type(),
         EventList::static_type(),
         Section::static_type(),
         SessionPopover::static_type(),
         WeatherPopover::static_type(),
-        SplitRow::static_type(),
         Expandable::static_type(),
-        SwitchRow::static_type(),
         WorldClock::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),
@@ -4495,7 +4145,6 @@ fn ensure_types() {
         TooltipCard::static_type(),
         KeyboardPopover::static_type(),
         Placeholder::static_type(),
-        LegacyRow::static_type(),
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
