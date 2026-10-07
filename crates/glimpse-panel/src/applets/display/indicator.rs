@@ -102,17 +102,23 @@ impl Applet for Display {
         self.pinned.replace(pinned);
 
         let shown = DisplayPopover::new();
+        let resync = Resync {
+            shown: shown.downgrade(),
+            opener: seat.opener(),
+        };
 
         shown.connect_changed({
             let brightness = self.brightness.clone();
             let notifications = self.notifications.clone();
             let coalescers = Rc::clone(&self.level_coalescers);
+            let resync = resync.clone();
             move |_, key, value| {
                 let value = value.round().max(0.0) as u32;
                 dispatch_level(
                     &coalescers,
                     brightness.clone(),
                     notifications.clone(),
+                    resync.clone(),
                     key.to_owned(),
                     value,
                 );
@@ -122,9 +128,11 @@ impl Applet for Display {
         shown.connect_night_light_toggled({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
+            let resync = resync.clone();
             move |_, on| {
                 let night_light = night_light.clone();
                 let notifications = notifications.clone();
+                let resync = resync.clone();
                 let schedule = match on {
                     true => night_light
                         .snapshot()
@@ -137,6 +145,7 @@ impl Applet for Display {
                 };
                 relm4::spawn_local(async move {
                     if let Err(error) = night_light.set_schedule(&schedule).await {
+                        resync.run();
                         report_night_light_failure(
                             &notifications,
                             "night_light.set_schedule",
@@ -151,12 +160,15 @@ impl Applet for Display {
         shown.connect_night_light_scheduled({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
+            let resync = resync.clone();
             move |_, schedule| {
                 let night_light = night_light.clone();
                 let notifications = notifications.clone();
+                let resync = resync.clone();
                 let schedule = schedule.to_owned();
                 relm4::spawn_local(async move {
                     if let Err(error) = night_light.set_schedule(&schedule).await {
+                        resync.run();
                         report_night_light_failure(
                             &notifications,
                             "night_light.set_schedule",
@@ -172,12 +184,14 @@ impl Applet for Display {
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
             let coalescer = Rc::clone(&self.temperature_coalescer);
+            let resync = resync.clone();
             move |_, value| {
                 let value = value.round().max(0.0) as u32;
                 dispatch_temperature(
                     &coalescer,
                     night_light.clone(),
                     notifications.clone(),
+                    resync.clone(),
                     value,
                 );
             }
@@ -187,12 +201,14 @@ impl Applet for Display {
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
             let coalescer = Rc::clone(&self.temperature_coalescer);
+            let resync = resync.clone();
             move |_, value| {
                 let value = value.round().max(0.0) as u32;
                 dispatch_temperature(
                     &coalescer,
                     night_light.clone(),
                     notifications.clone(),
+                    resync.clone(),
                     value,
                 );
             }
@@ -240,10 +256,26 @@ impl Applet for Display {
     }
 }
 
+#[derive(Clone)]
+struct Resync {
+    shown: glib::WeakRef<DisplayPopover>,
+    opener: Opener,
+}
+
+impl Resync {
+    fn run(&self) {
+        if let Some(shown) = self.shown.upgrade() {
+            shown.forget();
+        }
+        self.opener.wake();
+    }
+}
+
 fn dispatch_level(
     coalescers: &LevelCoalescers,
     brightness: BrightnessHandle,
     notifications: NotificationsProviderHandle,
+    resync: Resync,
     key: String,
     value: u32,
 ) {
@@ -259,6 +291,7 @@ fn dispatch_level(
     relm4::spawn_local(async move {
         loop {
             if let Err(error) = brightness.set_level(key.clone(), value).await {
+                resync.run();
                 report_brightness_failure(&notifications, "brightness.set_level", error).await;
             }
             match coalescer.borrow_mut().completed() {
@@ -273,6 +306,7 @@ fn dispatch_temperature(
     coalescer: &TemperatureCoalescer,
     night_light: NightLightProviderHandle,
     notifications: NotificationsProviderHandle,
+    resync: Resync,
     value: u32,
 ) {
     let coalescer = Rc::clone(coalescer);
@@ -282,6 +316,7 @@ fn dispatch_temperature(
     relm4::spawn_local(async move {
         loop {
             if let Err(error) = night_light.set_temperature(value).await {
+                resync.run();
                 report_night_light_failure(&notifications, "night_light.set_temperature", error)
                     .await;
             }

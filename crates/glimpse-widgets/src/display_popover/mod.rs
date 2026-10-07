@@ -68,6 +68,12 @@ impl DisplayPopover {
         self.render_night_light();
     }
 
+    pub fn forget(&self) {
+        let imp = self.imp();
+        imp.sources.borrow_mut().clear();
+        imp.night_light_state.replace(None);
+    }
+
     pub fn set_displays(&self, displays: &[crate::Display]) {
         let imp = self.imp();
         if imp.entries.borrow().as_slice() == displays {
