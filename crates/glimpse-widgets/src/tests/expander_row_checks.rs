@@ -1,5 +1,86 @@
 use super::*;
 
+pub(super) fn geometry() {
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    let mut groups = Vec::new();
+    for icon in [None, Some("folder-symbolic")] {
+        let expander = ExpanderRow::new();
+        expander
+            .details()
+            .append(&gtk4::Label::new(Some("Details")));
+        let rows = [
+            Row::new(),
+            ActionRow::new().upcast::<Row>(),
+            ToggleRow::new().upcast::<Row>(),
+            expander.imp().head.get().upcast::<Row>(),
+        ];
+        for row in &rows {
+            row.set_title(Some("Title"));
+            row.set_icon_name(icon);
+            row.set_value(Some("42"));
+        }
+        for row in &rows[..3] {
+            column.append(row);
+        }
+        column.append(&expander);
+        groups.push((icon, rows, expander));
+    }
+
+    let window = gtk4::Window::new();
+    window.set_child(Some(&column));
+    window.present();
+    let context = glib::MainContext::default();
+    while context.iteration(false) {}
+    assert!(window.is_realized());
+    let bounds = |widget: &gtk4::Widget| {
+        let bounds = widget.compute_bounds(&column).expect("allocated row child");
+        assert!(bounds.width() > 0.0);
+        bounds
+    };
+
+    for open in [false, true, false] {
+        for (_, _, expander) in &groups {
+            expander.set_open(open);
+            assert_eq!(expander.open(), open);
+        }
+        while context.iteration(false) {}
+        let height = column.measure(gtk4::Orientation::Vertical, 480).1;
+        column.allocate(480, height, -1, None);
+        for (icon, rows, _) in &groups {
+            let reference = rows[0].imp();
+            let title_x = bounds(reference.title.upcast_ref()).x();
+            let content = bounds(reference.content.upcast_ref());
+            let right = content.x() + content.width();
+            let icon_x = icon.map(|_| bounds(reference.icon.upcast_ref()).x());
+            for (name, row) in ["Row", "ActionRow", "ToggleRow", "ExpanderRow head"]
+                .into_iter()
+                .zip(rows)
+            {
+                let title = bounds(row.imp().title.upcast_ref());
+                assert_eq!(
+                    title.x(),
+                    title_x,
+                    "{name} title x with icon {icon:?}, open {open}"
+                );
+                let content = bounds(row.imp().content.upcast_ref());
+                assert_eq!(
+                    content.x() + content.width(),
+                    right,
+                    "{name} content right edge with icon {icon:?}, open {open}"
+                );
+                if let Some(icon_x) = icon_x {
+                    assert_eq!(
+                        bounds(row.imp().icon.upcast_ref()).x(),
+                        icon_x,
+                        "{name} icon x, open {open}"
+                    );
+                }
+            }
+        }
+    }
+    window.close();
+}
+
 pub(super) fn check() {
     let row = ExpanderRow::new();
     let expandable = child_named::<Expandable>(&row, "expander-row__expandable");
