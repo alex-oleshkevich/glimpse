@@ -198,7 +198,7 @@ const LAUNCHERS: [&str; 11] = [
 pub fn openable(
     path: &std::path::Path,
     writable: &[std::path::PathBuf],
-) -> Result<std::path::PathBuf, &'static str> {
+) -> Result<(std::path::PathBuf, String), &'static str> {
     use std::os::unix::fs::PermissionsExt;
     let path = std::fs::canonicalize(path).map_err(|_| "missing")?;
     if writable
@@ -209,8 +209,18 @@ pub fn openable(
         return Err("written by the applet");
     }
     let metadata = std::fs::metadata(&path).map_err(|_| "missing")?;
+    let content_type = gio::File::for_path(&path)
+        .query_info(
+            gio::FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
+            gio::FileQueryInfoFlags::NONE,
+            gio::Cancellable::NONE,
+        )
+        .ok()
+        .and_then(|info| info.content_type())
+        .ok_or("unknown type")?
+        .to_string();
     if metadata.is_dir() {
-        return Ok(path);
+        return Ok((path, content_type));
     }
     if !metadata.is_file() {
         return Err("not a regular file");
@@ -218,14 +228,13 @@ pub fn openable(
     if metadata.permissions().mode() & 0o111 != 0 {
         return Err("executable");
     }
-    let (content_type, _) = gio::content_type_guess(Some(&path), None);
     if LAUNCHERS
         .iter()
         .any(|launcher| gio::content_type_is_a(&content_type, launcher))
     {
         return Err("launches programs");
     }
-    Ok(path)
+    Ok((path, content_type))
 }
 
 #[cfg(test)]

@@ -191,8 +191,8 @@ impl Exec {
                     let checked = gio::spawn_blocking(move || render::openable(&path, &writable))
                         .await
                         .unwrap_or(Err("unreadable"));
-                    let path = match checked {
-                        Ok(path) => path,
+                    let (path, content_type) = match checked {
+                        Ok(checked) => checked,
                         Err(reason) => {
                             tracing::warn!(reason, "applet file not opened");
                             return;
@@ -200,12 +200,12 @@ impl Exec {
                     };
                     let context =
                         gtk4::gdk::Display::default().map(|display| display.app_launch_context());
-                    if let Err(error) = gio::AppInfo::launch_default_for_uri_future(
-                        &gio::File::for_path(path).uri(),
-                        context.as_ref(),
-                    )
-                    .await
-                    {
+                    let launched = gio::AppInfo::default_for_type(&content_type, false)
+                        .ok_or_else(|| {
+                            glib::Error::new(gio::IOErrorEnum::NotSupported, &content_type)
+                        })
+                        .and_then(|app| app.launch(&[gio::File::for_path(path)], context.as_ref()));
+                    if let Err(error) = launched {
                         crate::applet::report_failure(
                             "exec.open_file",
                             report,

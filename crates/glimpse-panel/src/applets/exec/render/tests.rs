@@ -117,9 +117,20 @@ fn files_the_applet_could_have_written_or_run_stay_closed() {
     let writable = vec![state.clone()];
 
     let canonical = outside.canonicalize().expect("outside");
-    assert_eq!(openable(&outside, &writable), Ok(canonical.clone()));
+    assert_eq!(
+        openable(&outside, &writable),
+        Ok((canonical.clone(), "text/plain".to_owned()))
+    );
     assert!(openable(root.as_path(), &writable).is_ok());
-    assert_eq!(openable(&link, &writable), Ok(canonical));
+    assert_eq!(
+        openable(&link, &writable).map(|(path, _)| path),
+        Ok(canonical)
+    );
+    let disguised = root.as_path().join("notes");
+    let mut elf = b"\x7fELF\x02\x01\x01".to_vec();
+    elf.resize(64, 0);
+    std::fs::write(&disguised, elf).expect("disguised");
+    assert_eq!(openable(&disguised, &writable), Err("launches programs"));
     assert_eq!(openable(&planted, &writable), Err("written by the applet"));
     assert_eq!(
         openable(&state.join("../state/notes.txt"), &writable),
