@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-06 19:54+0200\n"
+"POT-Creation-Date: 2026-10-06 22:18+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -369,7 +369,7 @@ msgid "Output"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:313
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:65
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:53
 msgid "Input"
 msgstr ""
 
@@ -394,6 +394,7 @@ msgstr[2] "{count} рабочих столов"
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
 #: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:432
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
 msgid "Muted"
 msgstr ""
@@ -401,7 +402,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:394
+#: crates/glimpse-widgets/src/lib.rs:386
 msgid "{percent}%"
 msgstr ""
 
@@ -2610,7 +2611,7 @@ msgstr ""
 msgid "An application"
 msgstr "Уведомления"
 
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:103
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:79
 #, fuzzy
 #| msgid "Notifications"
 msgid "Applications"
@@ -2675,6 +2676,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/fader.blp:16
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:436
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
 msgid "Mute"
 msgstr ""
@@ -2808,7 +2810,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:336
+#: crates/glimpse-widgets/src/lib.rs:328
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -3502,6 +3504,11 @@ msgstr ""
 msgid "Name this workspace"
 msgstr "{count} рабочий стол"
 
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:435
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
+msgstr ""
+
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
 msgid "OK"
 msgstr ""
@@ -3646,7 +3653,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:335
+#: crates/glimpse-widgets/src/lib.rs:327
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:134
 msgid "Pause"
 msgstr "Пауза"
@@ -3741,10 +3748,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/shot_window_list/mod.rs:143
 msgid "captured when picked"
-msgstr ""
-
-#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
-msgid "Unmute"
 msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87

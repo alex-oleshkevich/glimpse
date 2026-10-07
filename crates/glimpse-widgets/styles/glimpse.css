@@ -1731,26 +1731,13 @@ window.notification-popup {
     --applet-popover-padding: 1.1rem;
 }
 
-.audio-popover__level {
-    margin: 0.3rem 0.65rem 0.5rem 0.65rem;
-}
-
 button.row--warning .row__subtitle,
 button.row--warning .row__value {
     color: var(--gl-warning-text);
 }
 
-.audio-popover__hero--muted .hero__icon,
-.audio-popover__muted {
+.audio-popover__hero--muted .hero__icon {
     color: var(--gl-warning-text);
-}
-
-.audio-popover__block + .audio-popover__block {
-    margin-top: 0.6rem;
-}
-
-.audio-popover__block .section__title {
-    padding: 0.3rem 0 0.3rem 0.05rem;
 }
 
 swatch {
