@@ -53,9 +53,9 @@ impl WeatherPopover {
 
     pub fn set_heading(&self, icon_name: &str, title: &str, subtitle: Option<&str>) {
         let imp = self.imp();
-        imp.hero.set_icon_name(Some(icon_name));
-        imp.hero.set_title(Some(title));
-        imp.hero.set_subtitle(subtitle);
+        imp.shell.set_icon_name(Some(icon_name));
+        imp.shell.set_title(Some(title));
+        imp.shell.set_subtitle(subtitle);
     }
 
     pub fn set_reading(&self, reading: Option<(&str, &str)>) {

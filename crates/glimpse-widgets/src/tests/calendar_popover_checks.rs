@@ -8,21 +8,13 @@ pub(super) fn check() {
         when: "09:00 · 1 h".to_owned(),
         ..Default::default()
     };
-    let footer = || child_named::<gtk4::Box>(&popover, "popover-shell__footer");
-
     popover.set_footer(None);
     assert!(
         !popover.imp().footer.is_visible(),
         "a footer with no label is a row that would do nothing when clicked"
     );
-    assert!(
-        !footer().is_visible(),
-        "an empty footer still costs its own padding and the hairline above it"
-    );
-
     popover.set_footer(Some("Open calendar"));
     assert!(popover.imp().footer.is_visible());
-    assert!(footer().is_visible());
 
     popover.set_zones(&[]);
     assert!(
@@ -92,12 +84,11 @@ pub(super) fn check() {
     assert_eq!(popover.shown_month(), (2027, 2));
 
     let next = NextEventPopover::new();
-    let hero = || next.imp().hero.clone();
 
     next.set_footer(None);
-    assert!(!child_named::<gtk4::Box>(&next, "popover-shell__footer").is_visible());
+    assert!(!next.imp().footer.get_visible());
     next.set_footer(Some("Open calendar"));
-    assert!(child_named::<gtk4::Box>(&next, "popover-shell__footer").is_visible());
+    assert!(next.imp().footer.get_visible());
 
     next.set_countdown(None);
     assert!(
@@ -117,7 +108,7 @@ pub(super) fn check() {
     assert!(next.imp().upcoming.get_visible());
 
     next.set_heading("Design review", Some("14:00–15:00"));
-    assert_eq!(hero().title().as_deref(), Some("Design review"));
+    assert_eq!(next.imp().shell.title().as_deref(), Some("Design review"));
 
     next.set_join(Some((
         "Join Google Meet",

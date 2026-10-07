@@ -1509,7 +1509,7 @@ window.notification-popup {
     --applet-popover-padding: 1.1rem;
 }
 
-.audio-popover__hero--muted .hero__icon {
+.audio-popover__header--muted .hero__icon {
     color: var(--gl-warning-text);
 }
 

@@ -80,7 +80,7 @@ pub(super) fn check() {
         Some("eDP-1"),
         "a display with no name falls back to its connector rather than an empty header"
     );
-    assert_eq!(popover.imp().hero.subtitle(), None);
+    assert_eq!(popover.imp().shell.subtitle(), None);
     assert_eq!(
         holders[0].value().as_deref(),
         Some("1 window"),
@@ -153,12 +153,8 @@ pub(super) fn check() {
     head(&holders[0]).activate();
     assert!(holders[0].open(), "the row opens its own drawer");
     assert!(
-        popover
-            .imp()
-            .hero
-            .parent()
-            .is_some_and(|hero| hero.has_css_class("receded")),
-        "the shell dims everything outside the open card, the hero included"
+        popover.imp().shell.imp().header.has_css_class("receded"),
+        "the shell dims everything outside the open card, the header included"
     );
 
     let windows: Vec<ActionRow> = children_of::<ActionRow>(&window_rows(&holders[0]));

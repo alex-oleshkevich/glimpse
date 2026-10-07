@@ -26,10 +26,10 @@ impl ColorPickerPopover {
         let imp = self.imp();
         match latest {
             Some((title, color)) => {
-                imp.hero.set_title(Some(title));
+                imp.shell.set_title(Some(title));
                 imp.latest.set_color(Some(&color));
             }
-            None => imp.hero.set_title(imp.resting.borrow().as_deref()),
+            None => imp.shell.set_title(imp.resting.borrow().as_deref()),
         }
         imp.latest.set_visible(latest.is_some());
     }
@@ -38,7 +38,7 @@ impl ColorPickerPopover {
         let imp = self.imp();
         imp.palette.set_shades(shades);
         imp.palette_section.set_visible(!shades.is_empty());
-        imp.hero.set_subtitle(
+        imp.shell.set_subtitle(
             shades
                 .is_empty()
                 .then(|| gettext("Nothing picked yet"))

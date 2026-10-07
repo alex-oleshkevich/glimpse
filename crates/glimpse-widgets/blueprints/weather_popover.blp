@@ -8,15 +8,12 @@ template $WeatherPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "weather-clear-symbolic";
+    icon-name: "weather-clear-symbolic";
 
-      [slot]
-      $Readout reading {
-        valign: center;
-        visible: false;
-      }
+    [addon]
+    $Readout reading {
+      valign: center;
+      visible: false;
     }
 
     Gtk.Box {
@@ -59,7 +56,6 @@ template $WeatherPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

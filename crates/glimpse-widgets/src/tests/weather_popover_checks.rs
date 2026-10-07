@@ -76,7 +76,7 @@ pub(super) fn check() {
     weather.set_reading(None);
     assert!(
         !child_named::<Readout>(&weather, "readout").get_visible(),
-        "no reading reserves no space in the hero"
+        "no reading reserves no space in the header"
     );
 
     weather.set_hours(&[]);
@@ -127,7 +127,8 @@ pub(super) fn check() {
         "every day travels with its own panel, so the list's children are holders"
     );
     assert!(
-        dimmed(weather.imp().hero.upcast_ref()) && dimmed(weather.imp().hours.upcast_ref()),
+        dimmed(weather.imp().shell.imp().header.upcast_ref())
+            && dimmed(weather.imp().hours.upcast_ref()),
         "an open detail is read against a quiet card, so everything else recedes"
     );
     press(&weather, "day1");
@@ -155,7 +156,7 @@ pub(super) fn check() {
         "a detail must not stand open on a page that has gone away"
     );
     assert!(
-        !dimmed(weather.imp().hero.upcast_ref()),
+        !dimmed(weather.imp().shell.imp().header.upcast_ref()),
         "and the card it was read against comes back up with it"
     );
 

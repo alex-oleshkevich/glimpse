@@ -8,11 +8,8 @@ template $KdeconnectPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "phone-symbolic";
-      title: _("KDE Connect");
-    }
+    icon-name: "phone-symbolic";
+    title: _("KDE Connect");
 
     Gtk.Box {
       orientation: vertical;
@@ -48,7 +45,6 @@ template $KdeconnectPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

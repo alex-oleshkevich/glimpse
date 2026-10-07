@@ -8,20 +8,17 @@ template $ColorPickerPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "color-select-symbolic";
-      title: _("Color picker");
+    icon-name: "color-select-symbolic";
+    title: _("Color picker");
 
-      [slot]
-      $Swatch latest {
-        visible: false;
-        valign: center;
+    [addon]
+    $Swatch latest {
+      visible: false;
+      valign: center;
 
-        styles [
-          "swatch--hero",
-        ]
-      }
+      styles [
+        "swatch--hero",
+      ]
     }
 
     Gtk.Box column {
@@ -45,7 +42,6 @@ template $ColorPickerPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

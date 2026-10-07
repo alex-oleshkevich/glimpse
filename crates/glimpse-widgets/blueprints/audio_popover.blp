@@ -8,11 +8,8 @@ template $AudioPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "audio-volume-high-symbolic";
-      title: _("Sound");
-    }
+    icon-name: "audio-volume-high-symbolic";
+    title: _("Sound");
 
     Gtk.Box column {
       orientation: vertical;
@@ -93,7 +90,6 @@ template $AudioPopover: Gtk.Widget {
       }
     }
 
-    [footer]
     $ActionRow footer {
       visible: false;
     }

@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, ExpanderRow, Hero, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Action {
@@ -35,8 +35,6 @@ pub struct Nearby {
 pub struct KdeconnectPopover {
     #[template_child]
     pub shell: TemplateChild<PopoverShell>,
-    #[template_child]
-    pub hero: TemplateChild<Hero>,
     #[template_child]
     pub devices: TemplateChild<Section>,
     #[template_child]

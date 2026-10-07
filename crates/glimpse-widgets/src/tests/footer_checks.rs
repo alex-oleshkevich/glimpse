@@ -14,6 +14,28 @@ macro_rules! pinned {
 }
 
 pub fn check() {
+    macro_rules! body {
+        ($($popover:ident),+ $(,)?) => {$({
+            let popover = $popover::new();
+            let imp = popover.imp();
+            assert_eq!(
+                imp.shell.body().last_child().as_ref(),
+                Some(imp.footer.upcast_ref::<gtk4::Widget>()),
+                "{} keeps its footer row last in the body",
+                stringify!($popover),
+            );
+        })+};
+    }
+
+    body!(
+        AudioPopover,
+        KdeconnectPopover,
+        NextEventPopover,
+        ColorPickerPopover,
+        ClipboardPopover,
+        WeatherPopover,
+        CalendarPopover,
+    );
     pinned!(
         BluetoothPopover,
         DisplayPopover,

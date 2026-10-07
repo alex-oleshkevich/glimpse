@@ -10,7 +10,7 @@ use crate::{
 
 pub use imp::{Block, Details, Entry};
 
-const MUTED: &str = "audio-popover__hero--muted";
+const MUTED: &str = "audio-popover__header--muted";
 
 glib::wrapper! {
     pub struct AudioPopover(ObjectSubclass<imp::AudioPopover>)
@@ -69,10 +69,10 @@ impl AudioPopover {
     /// The header follows the output: its glyph, the device it plays on, and the warning colour
     /// while it is muted — the same muted glyph and colour every muted fader and app carries.
     pub fn set_heading(&self, icon: &str, device: Option<&str>, muted: bool) {
-        let hero = &self.imp().hero;
-        hero.set_icon_name(Some(icon));
-        hero.set_subtitle(device);
-        crate::set_css_class(&**hero, MUTED, muted);
+        let shell = &self.imp().shell;
+        shell.set_icon_name(Some(icon));
+        shell.set_subtitle(device);
+        crate::set_css_class(&**shell, MUTED, muted);
     }
 
     pub fn set_details(&self, details: &[Details]) {
