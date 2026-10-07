@@ -36,6 +36,7 @@ depends = [
   "geoclue-2.0",
   "ddcutil",
 ]
+suggests = "glimpse-lens"
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
   ["target/release/glimpse-panel", "usr/bin/", "755"],
@@ -45,8 +46,6 @@ assets = [
   ["target/release/glimpse-notifications", "usr/bin/", "755"],
   ["target/release/glimpse-weather", "usr/bin/", "755"],
   ["target/release/glimpse-idle", "usr/bin/", "755"],
-  ["target/release/glimpse-picker", "usr/bin/", "755"],
-  ["target/release/glimpse-ruler", "usr/bin/", "755"],
   ["target/release/glimpse-shot", "usr/bin/", "755"],
   ["../../data/bin/glimpse-dpms", "usr/bin/", "755"],
   ["../../target/locale/me.aresa.Glimpse.Shot.desktop", "usr/share/applications/", "644"],
@@ -98,8 +97,6 @@ assets = [
   { source = "target/release/glimpse-notifications", dest = "/usr/bin/glimpse-notifications", mode = "755" },
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
-  { source = "target/release/glimpse-picker", dest = "/usr/bin/glimpse-picker", mode = "755" },
-  { source = "target/release/glimpse-ruler", dest = "/usr/bin/glimpse-ruler", mode = "755" },
   { source = "target/release/glimpse-shot", dest = "/usr/bin/glimpse-shot", mode = "755" },
   { source = "data/bin/glimpse-dpms", dest = "/usr/bin/glimpse-dpms", mode = "755" },
   { source = "target/locale/me.aresa.Glimpse.Shot.desktop", dest = "/usr/share/applications/me.aresa.Glimpse.Shot.desktop", mode = "644" },
@@ -141,8 +138,6 @@ assets = [
   { source = "target/release/glimpse-notifications", dest = "/usr/bin/glimpse-notifications", mode = "755" },
   { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "target/release/glimpse-idle", dest = "/usr/bin/glimpse-idle", mode = "755" },
-  { source = "target/release/glimpse-picker", dest = "/usr/bin/glimpse-picker", mode = "755" },
-  { source = "target/release/glimpse-ruler", dest = "/usr/bin/glimpse-ruler", mode = "755" },
   { source = "target/release/glimpse-shot", dest = "/usr/bin/glimpse-shot", mode = "755" },
   { source = "data/bin/glimpse-dpms", dest = "/usr/bin/glimpse-dpms", mode = "755" },
   { source = "target/locale/me.aresa.Glimpse.Shot.desktop", dest = "/usr/share/applications/me.aresa.Glimpse.Shot.desktop", mode = "644" },
@@ -181,6 +176,9 @@ pulseaudio-libs = "*"
 systemd-libs = "*"
 ddcutil = "*"
 pam = "*"
+
+[package.metadata.generate-rpm.suggests]
+glimpse-lens = "*"
 
 # Replaces the table above rather than merging into it. Those are Fedora names; openSUSE's differ for
 # every linked library, which auto-req already requires by soname, so only names that match stay.

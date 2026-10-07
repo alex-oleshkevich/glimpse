@@ -11,21 +11,16 @@ fn an_absent_table_copies_hex_and_keeps_eight() {
 
     assert_eq!(picker.format, super::ColorFormat::Hex);
     assert_eq!(picker.limit, 8);
-    assert_eq!(picker.lens_radius, 106);
-    assert_eq!(picker.max_zoom, 30);
 }
 
 #[test]
 fn every_key_reads_kebab_case() {
-    let picker =
-        load("[color-picker]\nformat = \"oklch\"\nlimit = 3\nlens-radius = 150\nmax-zoom = 12\n")
-            .expect("kebab-case keys")
-            .color_picker;
+    let picker = load("[color-picker]\nformat = \"oklch\"\nlimit = 3\n")
+        .expect("kebab-case keys")
+        .color_picker;
 
     assert_eq!(picker.format, super::ColorFormat::Oklch);
     assert_eq!(picker.limit, 3);
-    assert_eq!(picker.lens_radius, 150);
-    assert_eq!(picker.max_zoom, 12);
 }
 
 #[test]

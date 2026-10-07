@@ -171,7 +171,9 @@ fn headless_command(output: &Path) -> Vec<OsString> {
 
 fn picker_command() -> Vec<OsString> {
     vec![
-        executable("glimpse-picker").into(),
+        executable("glimpse-lens").into(),
+        OsString::from("--tool"),
+        OsString::from("picker"),
         OsString::from("--json"),
     ]
 }

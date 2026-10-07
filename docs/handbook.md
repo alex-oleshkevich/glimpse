@@ -38,7 +38,6 @@ glimpse/
 | `glimpse-wallpaper`     | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`          | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`        | night-light service                                                               |
-| `glimpse-picker`        | color picker CLI: screencopy, lens overlay, prints the picked color               |
 | `glimpsectl`            | CLI and TUI                                                                       |
 | `glimpse-package`       | the suite's `.deb`/`.rpm` manifest; no code                                       |
 

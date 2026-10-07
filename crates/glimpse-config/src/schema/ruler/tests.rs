@@ -10,19 +10,27 @@ fn an_absent_table_uses_the_documented_defaults() {
     let ruler = load("").expect("an absent table is fine").ruler;
 
     assert_eq!(ruler.history_limit, 8);
-    assert_eq!(ruler.lens_radius, 106);
-    assert_eq!(ruler.max_zoom, 30);
 }
 
 #[test]
 fn every_key_reads_kebab_case() {
-    let ruler = load("[ruler]\nhistory-limit = 3\nlens-radius = 150\nmax-zoom = 12\n")
+    let ruler = load("[ruler]\nhistory-limit = 3\n")
         .expect("kebab-case keys")
         .ruler;
 
     assert_eq!(ruler.history_limit, 3);
-    assert_eq!(ruler.lens_radius, 150);
-    assert_eq!(ruler.max_zoom, 12);
+}
+
+#[test]
+fn the_removed_lens_keys_are_refused() {
+    let rendered = load("[ruler]\nlens-radius = 150\n")
+        .expect_err("the lens is configured by its own flags")
+        .to_string();
+
+    assert!(
+        rendered.contains("lens-radius"),
+        "the error must name the removed key, got {rendered}"
+    );
 }
 
 #[test]

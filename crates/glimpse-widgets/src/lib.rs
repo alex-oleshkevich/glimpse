@@ -31,7 +31,6 @@ mod indicator_group;
 mod inhibitor_list;
 mod kdeconnect_popover;
 mod keyboard_popover;
-mod lens;
 mod lock_clock;
 mod lock_stage;
 pub(crate) mod meter_row;
@@ -141,7 +140,6 @@ pub use kdeconnect_popover::{
     Nearby as KdeconnectNearby,
 };
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
-pub use lens::{Lens, zoomed};
 pub use lock_clock::LockClock;
 pub use lock_stage::LockStage;
 pub use meter_row::MeterRow;

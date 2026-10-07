@@ -177,8 +177,9 @@ so it never uses the clipboard or notifications. `parent_window` is ignored.
 from beside this binary, then `PATH`; tokio captures stdout and kills dropped children.
 
 Exit 0 with a result path returns response 0 with a `file://` URI; exit 4 returns 1, and any
-other exit, signal or invalid result returns 2. `PickColor` runs `glimpse-picker --json`:
-RGB bytes become `(red/255, green/255, blue/255)`; exit 4 returns 1, other failures 2.
+other exit, signal or invalid result returns 2. `PickColor` runs `glimpse-lens --tool picker
+--json`, a separate optional install found on `PATH`: RGB bytes become `(red/255, green/255,
+blue/255)`; exit 4 returns 1, other failures, including a missing `glimpse-lens`, 2.
 
 ## Rendering
 

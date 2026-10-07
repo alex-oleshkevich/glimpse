@@ -490,20 +490,16 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
 }
 
 #[test]
-fn the_color_picker_ships_as_a_plain_binary() {
+fn no_package_ships_a_lens_tool() {
     let root = workspace_root();
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-picker").count(), 3);
-    assert_eq!(package.matches("target/release/glimpse-ruler").count(), 3);
-    assert!(!root.join("data/systemd/glimpse-picker.service").exists());
-
-    let manifest =
-        fs::read_to_string(root.join("crates/glimpse-picker/Cargo.toml")).expect("picker manifest");
-    assert!(
-        !manifest.contains("zbus"),
-        "the picker is a command, not a D-Bus provider"
-    );
+    for tool in ["picker", "ruler", "lens"] {
+        let binary = format!("target/release/glimpse-{tool}");
+        assert!(!package.contains(&binary), "a package ships {binary}");
+    }
+    assert!(package.contains("suggests = \"glimpse-lens\""));
+    assert!(package.contains("glimpse-lens = \"*\""));
 }
 
 #[test]
@@ -550,7 +546,7 @@ fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
     );
 
     let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
-    assert!(justfile.contains("glimpse-ruler glimpse-shot"));
+    assert!(justfile.contains("glimpse-idle glimpse-shot"));
     assert!(justfile.contains("GLIMPSE_BINARIES=\"{{ binaries }}\" scripts/package-binary.sh"));
     for script in ["scripts/glimpse-paths.sh", "scripts/package-binary.sh"] {
         let text = fs::read_to_string(root.join(script)).expect(script);

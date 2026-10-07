@@ -123,8 +123,8 @@ before reading an offer, so a disabled clipboard service opens no connection or 
 
 **color-picker** — the service owns the palette and the clipboard copy; the applet holds none of
 it, and failures are reported by notification, never a popover banner. **ruler** — shaped like
-color-picker: right click runs `glimpse-ruler`, refused mid-measurement; the chip is always
-icon-only, since a measurement has no swatch to substitute it with.
+color-picker: right click runs `glimpse-lens --tool ruler`, refused mid-measurement; the chip is
+always icon-only, since a measurement has no swatch to substitute it with.
 
 **places** — a share reads as its folder over `host · PROTOCOL`, parsed out of the GVFS mount name,
 never the raw `smb-share:` string; bookmark and volume labels are capped through `render::cap`,
