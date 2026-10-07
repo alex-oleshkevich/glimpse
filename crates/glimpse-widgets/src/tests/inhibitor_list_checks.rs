@@ -112,7 +112,7 @@ pub(super) fn check() {
         "an external inhibitor cannot be released"
     );
     let card = holder_without_tabs.details();
-    let facts = children_of::<FactList>(&card).remove(0);
+    let facts = children_of::<gtk4::Box>(&card).remove(0);
     let values = children_of::<Row>(&facts)
         .iter()
         .filter_map(Row::value)
@@ -136,7 +136,7 @@ pub(super) fn check() {
     let hostile_row = head(&hostile_holder);
     let hostile_title = child_named::<gtk4::Label>(&hostile_row, "row__title");
     assert_eq!(hostile_title.text().chars().count(), TEXT_MAX_CHARS);
-    let hostile_facts = children_of::<FactList>(&hostile_holder.details()).remove(0);
+    let hostile_facts = children_of::<gtk4::Box>(&hostile_holder.details()).remove(0);
     assert!(children_of::<Row>(&hostile_facts).iter().all(|row| {
         row.value()
             .is_none_or(|value| value.chars().count() <= TEXT_MAX_CHARS)

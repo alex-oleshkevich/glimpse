@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ExpanderRow, Fact, FactList, Row, RowTone, none_if_empty, reconcile};
+use crate::{ActionRow, ExpanderRow, Fact, Row, RowTone, none_if_empty, reconcile};
 
 pub use imp::{Job, Printer};
 
@@ -130,7 +130,7 @@ impl PrintingPopover {
     fn build_job_row(&self, job: &Job) -> ExpanderRow {
         let row = ExpanderRow::new();
         let details = row.details();
-        details.append(&FactList::new());
+        details.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
         details.append(&self.build_action(&job.id, gettext("Pause"), "paused"));
         details.append(&self.build_action(&job.id, gettext("Resume"), "resumed"));
         let cancel = self.build_action(&job.id, gettext("Cancel"), "cancelled");
@@ -156,13 +156,16 @@ fn dress_job(row: &ExpanderRow, job: &Job) {
     row.set_title(none_if_empty(&job.name));
     row.set_busy(job.busy);
     let details = row.details();
-    let Some(facts) = details.first_child().and_downcast::<FactList>() else {
+    let Some(facts) = details.first_child().and_downcast::<gtk4::Box>() else {
         return;
     };
-    facts.set_facts(&[
-        Fact::new(gettext("Printer"), job.printer.clone()),
-        Fact::new(gettext("Status"), job_status(job)),
-    ]);
+    crate::set_facts(
+        &facts,
+        &[
+            Fact::new(gettext("Printer"), job.printer.clone()),
+            Fact::new(gettext("Status"), job_status(job)),
+        ],
+    );
     let shown = [job.pausable, job.resumable, job.cancellable];
     let mut child = facts.next_sibling();
     for visible in shown {
@@ -180,7 +183,8 @@ fn build_printer_row(carded: bool) -> gtk4::Widget {
     match carded {
         true => {
             let row = ExpanderRow::new();
-            row.details().append(&FactList::new());
+            row.details()
+                .append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
             row.upcast()
         }
         false => Row::new().upcast(),
@@ -202,8 +206,8 @@ fn dress_printer(widget: &gtk4::Widget, printer: &Printer) {
         row.set_icon_name(icon);
         row.set_subtitle(problem);
         row.set_tone(tone);
-        if let Some(facts) = row.details().first_child().and_downcast::<FactList>() {
-            facts.set_facts(&printer.facts);
+        if let Some(facts) = row.details().first_child().and_downcast::<gtk4::Box>() {
+            crate::set_facts(&facts, &printer.facts);
         }
     } else if let Some(row) = widget.downcast_ref::<Row>() {
         row.set_title(none_if_empty(&printer.name));

@@ -221,7 +221,7 @@ impl DisplayPopover {
             .into_iter()
             .chain([Fact::new(gettext("Temperature"), kelvin)])
             .collect();
-        imp.night_facts.set_facts(&facts);
+        crate::set_facts(&imp.night_facts, &facts);
     }
 
     fn render_sources(&self) {

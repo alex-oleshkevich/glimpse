@@ -1,6 +1,6 @@
 use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
 
-use crate::{ActionRow, ExpanderRow, FactList, ToggleRow};
+use crate::{ActionRow, ExpanderRow, ToggleRow};
 
 mod imp {
     use super::*;
@@ -15,7 +15,7 @@ mod imp {
         #[template_child]
         pub connection: TemplateChild<ActionRow>,
         #[template_child]
-        pub facts: TemplateChild<FactList>,
+        pub facts: TemplateChild<gtk4::Box>,
         #[template_child]
         pub autoconnect: TemplateChild<ToggleRow>,
         #[template_child]
@@ -31,7 +31,6 @@ mod imp {
         fn class_init(klass: &mut Self::Class) {
             ExpanderRow::static_type();
             ActionRow::static_type();
-            FactList::static_type();
             ToggleRow::static_type();
             klass.bind_template();
             klass.set_accessible_role(gtk4::AccessibleRole::Group);

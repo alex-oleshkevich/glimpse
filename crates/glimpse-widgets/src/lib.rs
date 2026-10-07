@@ -133,7 +133,7 @@ pub use dots::{Dots, SIZE as DOTS_SIZE};
 pub use event_list::{Event, EventList, Link as EventLink};
 pub use expandable::Expandable;
 pub use expander_row::ExpanderRow;
-pub use fact_list::{Fact, FactList};
+pub use fact_list::{Fact, set_facts};
 pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
 pub use hero::Hero;

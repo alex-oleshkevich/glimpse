@@ -38,11 +38,11 @@ pub(super) fn check() {
         built_in: false,
     };
 
-    let detail_of = |row: &ExpanderRow| -> (FactList, ToggleRow) {
+    let detail_of = |row: &ExpanderRow| -> (gtk4::Box, ToggleRow) {
         let body = row.details();
         let facts = body
             .first_child()
-            .and_downcast::<FactList>()
+            .and_downcast::<gtk4::Box>()
             .expect("the facts lead the detail");
         let toggle = facts
             .next_sibling()
@@ -252,10 +252,10 @@ pub(super) fn check() {
     let gate_rows: Vec<ExpanderRow> = children_of(&gate);
     assert_eq!(gate_rows.len(), 2);
 
-    let facts_of = |row: &ExpanderRow| -> FactList {
+    let facts_of = |row: &ExpanderRow| -> gtk4::Box {
         row.details()
             .first_child()
-            .and_downcast::<FactList>()
+            .and_downcast::<gtk4::Box>()
             .expect("a fact list")
     };
 

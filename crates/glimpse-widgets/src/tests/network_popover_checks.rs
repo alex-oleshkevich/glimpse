@@ -170,7 +170,7 @@ pub(super) fn check() {
     assert!(
         details
             .first_child()
-            .is_some_and(|child| child.is::<FactList>()),
+            .is_some_and(|child| child.is::<gtk4::Box>()),
         "the facts lead the drawer"
     );
     let opened = net_rows("/ap/1");

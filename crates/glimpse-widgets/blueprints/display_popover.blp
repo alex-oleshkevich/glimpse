@@ -49,7 +49,9 @@ template $DisplayPopover: Gtk.Widget {
             visible: false;
             title: _("Night light");
 
-            $FactList night_facts {}
+            Gtk.Box night_facts {
+              orientation: vertical;
+            }
 
             $ToggleRow enabled {
               title: _("Enabled");

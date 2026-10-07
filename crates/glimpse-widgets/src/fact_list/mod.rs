@@ -1,6 +1,4 @@
-mod imp;
-
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::prelude::*;
 
 use crate::{Row, RowTone};
 
@@ -28,47 +26,29 @@ impl Fact {
     }
 }
 
-glib::wrapper! {
-    pub struct FactList(ObjectSubclass<imp::FactList>)
-        @extends gtk4::Widget,
-        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
-}
-
-impl Default for FactList {
-    fn default() -> Self {
-        Self::new()
+pub fn set_facts(container: &gtk4::Box, facts: &[Fact]) {
+    let mut rows = Vec::new();
+    let mut child = container.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        if let Ok(row) = widget.downcast::<Row>() {
+            rows.push(row);
+        }
     }
-}
-
-impl FactList {
-    pub fn new() -> Self {
-        glib::Object::new()
+    for (index, fact) in facts.iter().enumerate() {
+        let row = rows.get(index).cloned().unwrap_or_else(|| {
+            let row = Row::new();
+            container.append(&row);
+            row
+        });
+        row.set_title(Some(fact.label.as_str()));
+        row.set_value(Some(fact.value.as_str()));
+        row.set_tone(match fact.warning {
+            true => RowTone::Warning,
+            false => RowTone::Normal,
+        });
     }
-
-    pub fn set_facts(&self, facts: &[Fact]) {
-        let imp = self.imp();
-        if imp.facts.borrow().as_slice() == facts {
-            return;
-        }
-        imp.facts.replace(facts.to_vec());
-
-        let mut rows = imp.rows.borrow_mut();
-        for (index, fact) in facts.iter().enumerate() {
-            if rows.len() == index {
-                let row = Row::new();
-                row.insert_after(self, rows.last());
-                rows.push(row);
-            }
-            rows[index].set_title(Some(fact.label.as_str()));
-            rows[index].set_value(Some(fact.value.as_str()));
-            rows[index].set_tone(if fact.warning {
-                RowTone::Warning
-            } else {
-                RowTone::Normal
-            });
-        }
-        for row in rows.split_off(facts.len()) {
-            row.unparent();
-        }
+    for row in rows.iter().skip(facts.len()) {
+        container.remove(row);
     }
 }

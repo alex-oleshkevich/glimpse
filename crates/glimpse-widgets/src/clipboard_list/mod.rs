@@ -5,9 +5,7 @@ use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 pub use imp::Actions;
 
 use crate::reconcile::by_key;
-use crate::{
-    ActionRow, Expandable, ExpanderRow, Fact, FactList, Row, RowTone, Swatch, none_if_empty,
-};
+use crate::{ActionRow, Expandable, ExpanderRow, Fact, Row, RowTone, Swatch, none_if_empty};
 
 const TILE_HEIGHT: i32 = 200;
 const NARROW: i32 = 1;
@@ -259,8 +257,8 @@ impl ClipboardList {
             card.append(&excerpt);
         }
         if !clip.facts.is_empty() {
-            let facts = FactList::new();
-            facts.set_facts(&clip.facts);
+            let facts = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+            crate::set_facts(&facts, &clip.facts);
             card.append(&facts);
         }
         if restore {

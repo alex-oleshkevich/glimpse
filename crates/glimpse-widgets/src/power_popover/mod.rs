@@ -84,7 +84,7 @@ impl PowerPopover {
 
     pub fn set_battery(&self, facts: &[Fact]) {
         let imp = self.imp();
-        imp.facts.set_facts(facts);
+        crate::set_facts(&imp.facts, facts);
         imp.facts_empty.set(facts.is_empty());
         imp.sync_battery();
     }

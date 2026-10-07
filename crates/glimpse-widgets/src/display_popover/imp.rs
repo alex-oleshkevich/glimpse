@@ -6,8 +6,8 @@ use gtk4::{
 };
 
 use crate::{
-    ActionRow, ChoiceList, Display, DisplayList, ExpanderRow, FactList, PopoverShell, Readout, Row,
-    Section, SliderRow, Source, SourceList, ToggleRow,
+    ActionRow, ChoiceList, Display, DisplayList, ExpanderRow, PopoverShell, Readout, Row, Section,
+    SliderRow, Source, SourceList, ToggleRow,
 };
 
 use super::{
@@ -42,7 +42,7 @@ pub struct DisplayPopover {
     #[template_child]
     pub night_light: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub night_facts: TemplateChild<FactList>,
+    pub night_facts: TemplateChild<gtk4::Box>,
     #[template_child]
     pub enabled: TemplateChild<ToggleRow>,
     #[template_child]
@@ -79,7 +79,6 @@ impl ObjectSubclass for DisplayPopover {
         SliderRow::static_type();
         SourceList::static_type();
         ExpanderRow::static_type();
-        FactList::static_type();
         ToggleRow::static_type();
         ChoiceList::static_type();
         DisplayList::static_type();

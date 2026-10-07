@@ -7,8 +7,8 @@ use gtk4::{
 
 use super::{ChargeLimit, Device, History};
 use crate::{
-    ActionRow, ChoiceList, ExpanderRow, FactList, Notice, PopoverShell, Readout, Row, RowTone,
-    Section, Sparkline, ToggleRow, clear_children, none_if_empty,
+    ActionRow, ChoiceList, ExpanderRow, Notice, PopoverShell, Readout, Row, RowTone, Section,
+    Sparkline, ToggleRow, clear_children, none_if_empty,
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -25,7 +25,7 @@ pub struct PowerPopover {
     #[template_child]
     pub battery: TemplateChild<ExpanderRow>,
     #[template_child]
-    pub facts: TemplateChild<FactList>,
+    pub facts: TemplateChild<gtk4::Box>,
     #[template_child]
     pub charge_limit: TemplateChild<ToggleRow>,
     #[template_child]
@@ -76,7 +76,6 @@ impl ObjectSubclass for PowerPopover {
         Notice::static_type();
         Row::static_type();
         ExpanderRow::static_type();
-        FactList::static_type();
         ToggleRow::static_type();
         Sparkline::static_type();
         Section::static_type();

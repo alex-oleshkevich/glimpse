@@ -13,9 +13,9 @@ use glimpse_services::{
 };
 use glimpse_widgets::{
     ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, Expandable,
-    ExpanderRow, FactList, Fader, Hero, LegacyRow, MeterRow, Notice, Placeholder, PopoverShell,
-    PopoverSize, RangeBar, Readout, Row as UiRow, RowTone, RowTypography, Section, SliderRow,
-    Sparkline, SwitchRow, ToggleControl, ToggleRow, Ymd, beside, reconcile::by_key,
+    ExpanderRow, Fader, Hero, LegacyRow, MeterRow, Notice, Placeholder, PopoverShell, PopoverSize,
+    RangeBar, Readout, Row as UiRow, RowTone, RowTypography, Section, SliderRow, Sparkline,
+    SwitchRow, ToggleControl, ToggleRow, Ymd, beside, reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
 use serde_json::{Number, Value};
@@ -707,7 +707,7 @@ impl Dom {
                 }));
                 entry.upcast()
             }
-            Element::FactList(_) => FactList::new().upcast(),
+            Element::FactList(_) => gtk4::Box::new(gtk4::Orientation::Vertical, 0).upcast(),
             Element::ChoiceList(_) => {
                 let list = ChoiceList::new();
                 let dispatch = self.dispatch.clone();
@@ -1103,7 +1103,7 @@ impl Dom {
                 }
             }
             Element::FactList(p) => {
-                if let Some(list) = widget.downcast_ref::<FactList>() {
+                if let Some(list) = widget.downcast_ref::<gtk4::Box>() {
                     let facts: Vec<_> = p
                         .facts
                         .iter()
@@ -1115,7 +1115,7 @@ impl Dom {
                             }
                         })
                         .collect();
-                    list.set_facts(&facts);
+                    glimpse_widgets::set_facts(list, &facts);
                 }
             }
             Element::ChoiceList(p) => {

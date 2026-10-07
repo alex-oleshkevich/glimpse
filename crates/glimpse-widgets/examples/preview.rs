@@ -271,8 +271,8 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Display, DisplayList,
-        DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, FactList,
-        Focus, Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
+        DisplayLogical, DisplayMode, DisplayPopover, Event, EventList, Expandable, Fact, Focus,
+        Group, Hero, Hour, Indicator, IndicatorSpec, InhibitorEntry, InhibitorList,
         InhibitorSource, InhibitorTargets, LegacyRow, NightLight, Notification,
         NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player, PlayerList, PowerChargeLimit,
         PowerDevice, PowerHistory, PowerHoldNotice, PowerPopover, PrintingJob, PrintingPopover,
@@ -4329,8 +4329,8 @@ mod fixtures {
     }
 
     fn next_event(root: &gtk4::Widget) {
-        if let Some(facts) = find::<FactList>(root) {
-            facts.set_facts(&[
+        if let Some(popover) = find::<glimpse_widgets::NextEventPopover>(root) {
+            popover.set_facts(&[
                 Fact::new("Calendar", "Work"),
                 Fact::new("Location", "Meeting room Kaunas"),
                 Fact::new("Organizer", "Marta Kazlauskienė"),
@@ -4423,9 +4423,9 @@ mod fixtures {
 fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ColorList,
-        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, FactList, Fader,
-        ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        InhibitorList, KeyboardPopover, LegacyRow, LockClock, LockStage, Notice, NotificationCard,
+        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, Fader, ForecastDay,
+        ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
+        KeyboardPopover, LegacyRow, LockClock, LockStage, Notice, NotificationCard,
         NotificationChips, NotificationHeader, NotificationImageBody, NotificationList,
         NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
         PasswordPrompt, Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover,
@@ -4455,7 +4455,6 @@ fn ensure_types() {
         DisplayList::static_type(),
         DisplayPopover::static_type(),
         SourceList::static_type(),
-        FactList::static_type(),
         ForecastDay::static_type(),
         ForecastHour::static_type(),
         ForecastList::static_type(),
