@@ -128,6 +128,7 @@ fn widgets() {
     held_display_readout_check();
     toggle_disabled_accessibility_check();
     footer_checks::check();
+    expander_row_checks::geometry();
 }
 
 fn held_display_readout_check() {
