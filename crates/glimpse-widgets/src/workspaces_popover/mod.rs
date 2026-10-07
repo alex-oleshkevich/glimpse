@@ -4,9 +4,8 @@ use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{LegacyRow, Workspace};
-
-const NO_WINDOWS: &str = "workspace-card__empty";
+use crate::workspace_section::mark_focused;
+use crate::{ActionRow, Row, Workspace};
 
 glib::wrapper! {
     pub struct WorkspacesPopover(ObjectSubclass<imp::WorkspacesPopover>)
@@ -37,14 +36,12 @@ impl WorkspacesPopover {
             .list
             .holders()
             .into_iter()
-            .find(|(_, holder)| holder.expanded());
+            .find(|(_, holder)| holder.open());
         if let Some((id, _)) = open {
             self.fill(id);
         }
     }
 
-    /// The panel is built the first time its workspace is opened: a list of a dozen workspaces
-    /// would otherwise carry a dozen row boxes nothing has asked to see.
     pub(crate) fn fill(&self, id: u64) {
         let imp = self.imp();
         let Some(windows) = imp
@@ -59,11 +56,15 @@ impl WorkspacesPopover {
         let Some((_, holder)) = imp.list.holders().into_iter().find(|(held, _)| *held == id) else {
             return;
         };
-        let rows = holder.details::<gtk4::Box>().unwrap_or_else(|| {
-            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-            holder.set_details(Some(&rows));
-            rows
-        });
+        let details = holder.details();
+        let rows = details
+            .last_child()
+            .and_downcast::<gtk4::Box>()
+            .unwrap_or_else(|| {
+                let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+                details.append(&rows);
+                rows
+            });
         by_key(
             &rows,
             &mut imp.rows.borrow_mut(),
@@ -71,30 +72,28 @@ impl WorkspacesPopover {
             |window| window.id,
             |window| self.row_for(window.id),
             |row, window| {
+                let row = row.upcast_ref::<Row>();
                 row.set_title(Some(window.title.as_str()));
                 row.set_subtitle((!window.app_id.is_empty()).then_some(window.app_id.as_str()));
-                row.set_selectable(true);
-                row.set_selected(window.focused);
+                mark_focused(row, window.focused);
             },
         );
         let placeholder = rows
             .last_child()
-            .and_downcast::<LegacyRow>()
-            .filter(|row| row.has_css_class(NO_WINDOWS))
+            .filter(|row| !row.is::<ActionRow>())
+            .and_downcast::<Row>()
             .unwrap_or_else(|| {
-                let row = LegacyRow::new();
-                row.add_css_class(NO_WINDOWS);
+                let row = Row::new();
                 row.set_title(Some(gettext("No windows").as_str()));
-                row.set_activatable(false);
                 rows.append(&row);
                 row
             });
         placeholder.set_visible(windows.is_empty());
     }
 
-    fn row_for(&self, id: u64) -> LegacyRow {
-        let row = LegacyRow::new();
-        row.connect_clicked(glib::clone!(
+    fn row_for(&self, id: u64) -> ActionRow {
+        let row = ActionRow::new();
+        row.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_| popover.emit_by_name::<()>("window-activated", &[&id])

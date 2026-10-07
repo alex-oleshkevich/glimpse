@@ -1087,10 +1087,6 @@ expandable > revealer .fader {
     opacity: var(--gl-disabled);
 }
 
-.workspace-row--urgent .row__title {
-    color: var(--gl-warning-text);
-}
-
 .notice {
     --gl-notice-radius: 0.7rem;
     padding: 0.6rem 0.8rem;
