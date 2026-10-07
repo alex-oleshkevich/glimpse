@@ -376,10 +376,6 @@ popover separator {
     margin: 0.28rem 0.55rem;
 }
 
-.popover-shell__hero {
-    padding: 0.55rem 0.8rem;
-}
-
 .popover-shell__header {
     padding: var(--popover-shell-header-padding);
 }
@@ -709,18 +705,9 @@ listrow.row--destructive progressbar.meter-row__bar progress {
     color: var(--gl-dim);
 }
 
-.bluetooth-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .bluetooth-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
-}
-
-.clipboard-popover,
-.color-picker-popover {
-    --applet-popover-padding: 1.1rem;
 }
 
 .clipboard-popover .hero__title,
@@ -773,10 +760,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
     transform: rotate(90deg);
 }
 
-.ruler-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .clip-card__swatch,
 .color-card__swatch {
     min-height: 2.5rem;
@@ -788,10 +771,6 @@ expandable.open > .clip-tile .clip-tile__badge image {
     margin: 0.4rem 0.75rem;
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
-}
-
-.network-popover {
-    --applet-popover-padding: 1.1rem;
 }
 
 .network-popover .hero__title {
@@ -1018,10 +997,6 @@ expandable > revealer listrow {
 
 .notice--error .notice__icon {
     color: var(--gl-danger-text);
-}
-
-.notifications-popover {
-    --applet-popover-width: 40rem;
 }
 
 .notification {
@@ -1496,17 +1471,9 @@ window.notification-popup {
     transition: background-color var(--gl-duration) var(--gl-ease);
 }
 
-.audio-popover {
-    --applet-popover-padding: 1.1rem;
-}
-
 .audio-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
-}
-
-.display-popover {
-    --applet-popover-padding: 1.1rem;
 }
 
 .audio-popover__header--muted .hero__icon {

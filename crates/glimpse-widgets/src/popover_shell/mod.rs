@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Expandable, clear_children, drawer};
+use crate::{Expandable, drawer};
 
 const RECEDES: &str = "recedes";
 
@@ -21,32 +21,6 @@ impl Default for PopoverShell {
 impl PopoverShell {
     pub fn new() -> Self {
         glib::Object::new()
-    }
-
-    pub fn set_hero(&self, hero: &impl IsA<gtk4::Widget>) {
-        let imp = self.imp();
-        clear_children(&imp.hero_box);
-        imp.hero_box.append(hero);
-        self.watch(hero);
-        self.settle();
-    }
-
-    pub fn clear_hero(&self) {
-        clear_children(&self.imp().hero_box);
-        self.settle();
-    }
-
-    pub fn set_content(&self, content: &impl IsA<gtk4::Widget>) {
-        let body = &self.imp().body;
-        clear_children(body);
-        body.append(content);
-        self.watch(content);
-        self.settle();
-    }
-
-    pub fn clear_content(&self) {
-        clear_children(&self.imp().body);
-        self.settle();
     }
 
     pub fn body(&self) -> gtk4::Box {
@@ -72,18 +46,6 @@ impl PopoverShell {
             Some(widget) => header.set_slot(widget),
             None => header.clear_slot(),
         }
-        self.settle();
-    }
-
-    pub fn append_to_footer(&self, widget: &impl IsA<gtk4::Widget>) {
-        widget.set_hexpand(true);
-        self.imp().footer_box.append(widget);
-        self.watch(widget);
-        self.settle();
-    }
-
-    pub fn clear_footer(&self) {
-        clear_children(&self.imp().footer_box);
         self.settle();
     }
 
@@ -164,20 +126,8 @@ impl PopoverShell {
         if imp.body.try_get().is_none() {
             return;
         }
-        let hero_slot = shows_anything(&imp.hero_box);
-        show(&*imp.hero_box, hero_slot);
-        let hero_shown = hero_slot || imp.header.get_visible();
-        show(&*imp.hero_rule, hero_slot);
-
         let content_shown = shows_anything(&imp.body);
         show(&*imp.body, content_shown);
-
-        let footer_shown = shows_anything(&imp.footer_box);
-        show(&*imp.footer_box, footer_shown);
-        show(
-            &*imp.footer_rule,
-            footer_shown && (content_shown || !hero_shown),
-        );
         self.apply_cap(None);
     }
 

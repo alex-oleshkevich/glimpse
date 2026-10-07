@@ -17,17 +17,9 @@ pub struct PopoverShell {
     #[template_child]
     pub header: TemplateChild<crate::Hero>,
     #[template_child]
-    pub hero_box: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub hero_rule: TemplateChild<gtk4::Separator>,
-    #[template_child]
     pub scroller: TemplateChild<gtk4::ScrolledWindow>,
     #[template_child]
     pub body: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer_rule: TemplateChild<gtk4::Separator>,
-    #[template_child]
-    pub footer_box: TemplateChild<gtk4::Box>,
     entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
     body_children: RefCell<Option<gtk4::gio::ListModel>>,
 
@@ -217,8 +209,6 @@ impl BuildableImpl for PopoverShell {
         let shell = self.obj();
         match (kind, child.downcast_ref::<gtk4::Widget>()) {
             _ if own_template => self.parent_add_child(builder, child, kind),
-            (Some("hero"), Some(widget)) => shell.set_hero(widget),
-            (Some("footer"), Some(widget)) => shell.append_to_footer(widget),
             (Some("addon"), Some(widget)) => shell.set_addon(Some(widget)),
             (None, Some(widget)) => {
                 shell.imp().body.append(widget);

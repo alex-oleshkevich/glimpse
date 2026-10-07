@@ -223,10 +223,12 @@ impl Dom {
     }
 
     fn clear(&mut self) {
-        while let Some(child) = self.body.first_child() {
-            self.body.remove(&child);
+        for mounted in self.nodes.values() {
+            if mounted.widget.parent().as_ref() == Some(self.body.upcast_ref()) {
+                self.body.remove(&mounted.widget);
+            }
         }
-        self.body.set_visible(false);
+        self.body.set_visible(self.body.first_child().is_some());
         self.nodes.clear();
         self.held.clear();
         if let Some(shell) = self.shell.upgrade() {

@@ -10,35 +10,31 @@ template $NotificationsPopover: Gtk.Widget {
   $PopoverShell shell {
     icon-name: "preferences-system-notifications-symbolic";
     title: _("Notifications");
+    size: wide;
 
-    Gtk.ScrolledWindow scroller {
-      hscrollbar-policy: never;
-      propagate-natural-height: true;
+    Gtk.Box column {
+      orientation: vertical;
 
-      Gtk.Box column {
+      styles [
+        "column",
+      ]
+
+      $Notice trouble {
+        visible: false;
+        severity: error;
+        icon-name: "dialog-error-symbolic";
+        title: _("Notifications are unavailable");
+      }
+
+      Gtk.Box groups {
         orientation: vertical;
+        visible: false;
+      }
 
-        styles [
-          "column",
-        ]
-
-        $Notice trouble {
-          visible: false;
-          severity: error;
-          icon-name: "dialog-error-symbolic";
-          title: _("Notifications are unavailable");
-        }
-
-        Gtk.Box groups {
-          orientation: vertical;
-          visible: false;
-        }
-
-        $Placeholder empty {
-          icon-name: "preferences-system-notifications-symbolic";
-          title: _("Nothing new");
-          description: _("You are all caught up.");
-        }
+      $Placeholder empty {
+        icon-name: "preferences-system-notifications-symbolic";
+        title: _("Nothing new");
+        description: _("You are all caught up.");
       }
     }
 

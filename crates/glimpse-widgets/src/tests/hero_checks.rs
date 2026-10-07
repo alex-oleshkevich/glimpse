@@ -39,69 +39,6 @@ pub(super) fn check() {
         switch.parent().is_none(),
         "a cleared slot unparents its child"
     );
-
-    let shell = PopoverShell::new();
-    let hero_box = child_named::<gtk4::Box>(&shell, "popover-shell__hero");
-    let footer_box = child_named::<gtk4::Box>(&shell, "popover-shell__footer");
-    let rules = separators(shell.upcast_ref());
-    assert_eq!(
-        rules.len(),
-        2,
-        "one hairline above the footer, one below the hero"
-    );
-    assert!(
-        !hero_box.is_visible() && !rules[0].is_visible(),
-        "an absent hero leaves neither space nor a stray hairline"
-    );
-    assert!(!footer_box.is_visible() && !rules[1].is_visible());
-
-    shell.set_hero(&hero);
-    assert!(hero_box.is_visible() && rules[0].is_visible());
-    shell.clear_hero();
-    assert!(
-        !hero_box.is_visible() && !rules[0].is_visible(),
-        "the hairline goes back with the section it belongs to"
-    );
-    assert!(
-        hero.parent().is_none(),
-        "a cleared hero unparents its widget"
-    );
-
-    let plain = gtk4::Label::new(Some("a hero the shell has never heard of"));
-    shell.set_hero(&plain);
-    assert!(
-        hero_box.is_visible(),
-        "any widget is a hero; the shell does not require its own type"
-    );
-
-    let content = gtk4::Label::new(Some("body"));
-    shell.set_content(&content);
-    let replacement = gtk4::Label::new(Some("body again"));
-    shell.set_content(&replacement);
-    assert!(
-        content.parent().is_none(),
-        "content is one child, so a second setter unparents the first"
-    );
-
-    let button = gtk4::Button::new();
-    shell.append_to_footer(&button);
-    assert!(footer_box.is_visible() && rules[1].is_visible());
-    shell.clear_footer();
-    assert!(!footer_box.is_visible() && !rules[1].is_visible());
-    assert!(button.parent().is_none());
-}
-
-fn separators(widget: &gtk4::Widget) -> Vec<gtk4::Separator> {
-    let mut found = Vec::new();
-    let mut child = widget.first_child();
-    while let Some(current) = child {
-        if let Ok(rule) = current.clone().downcast::<gtk4::Separator>() {
-            found.push(rule);
-        }
-        found.extend(separators(&current));
-        child = current.next_sibling();
-    }
-    found
 }
 
 pub(super) fn heights() {
