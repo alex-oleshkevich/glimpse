@@ -18,6 +18,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
+#: crates/glimpse-lens/src/session.rs:289
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-lens/src/session.rs:302
+msgid "segment {length}px · {angle}°"
+msgstr ""
+
 #: crates/glimpse-lock/src/auth.rs:27
 msgid "Wrong password"
 msgstr ""
@@ -2218,16 +2228,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/config_alert.rs:113
 msgid "Glimpse configuration has errors"
-msgstr ""
-
-#: crates/glimpse-ruler/src/session.rs:289
-msgid "total {length}px, {count} segment"
-msgid_plural "total {length}px, {count} segments"
-msgstr[0] ""
-msgstr[1] ""
-
-#: crates/glimpse-ruler/src/session.rs:302
-msgid "segment {length}px · {angle}°"
 msgstr ""
 
 #: crates/glimpse-shot/src/errors.rs:52

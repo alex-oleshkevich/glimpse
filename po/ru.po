@@ -2426,14 +2426,14 @@ msgstr ""
 msgid "Glimpse configuration has errors"
 msgstr ""
 
-#: crates/glimpse-ruler/src/session.rs:289
+#: crates/glimpse-lens/src/session.rs:289
 msgid "total {length}px, {count} segment"
 msgid_plural "total {length}px, {count} segments"
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""
 
-#: crates/glimpse-ruler/src/session.rs:302
+#: crates/glimpse-lens/src/session.rs:302
 msgid "segment {length}px · {angle}°"
 msgstr ""
 
