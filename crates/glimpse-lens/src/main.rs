@@ -14,6 +14,11 @@ use clap::Parser;
 use cli::{Cli, Tool};
 use glimpse_utils::{init_app_tracing, init_translations};
 
+const MIN_RADIUS: u32 = 10;
+const MAX_RADIUS: u32 = 200;
+const MIN_ZOOM: u32 = 1;
+const MAX_ZOOM: u32 = 200;
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     cli.color.write_global();
@@ -33,31 +38,28 @@ fn main() -> ExitCode {
 fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
 
-    let document = glimpse_config::load(cli.config.as_deref())?;
-    init_translations(document.regional.language());
+    init_translations(None);
 
     match cli.tool {
         Some(Tool::Ruler) => {
-            let ruler = &document.ruler;
             let settings = session::Settings {
-                radius: cli.lens_radius.unwrap_or(ruler.lens_radius).clamp(40, 400) as f32,
-                max_zoom: cli.max_zoom.unwrap_or(ruler.max_zoom).clamp(2, 64),
+                radius: cli.radius.clamp(MIN_RADIUS, MAX_RADIUS) as f32,
+                zoom: cli.zoom.clamp(MIN_ZOOM, MAX_ZOOM),
             };
 
-            let segments = measure::measure(&document, settings)?;
+            let segments = measure::measure(settings)?;
             let lines = measure::ndjson(&segments).ok_or(errors::Cancelled)?;
             write!(std::io::stdout(), "{lines}").context("cannot write the measurements")?;
         }
         tool => {
-            let picker = &document.color_picker;
-            let format = cli.format.unwrap_or(picker.format);
+            let format = cli.format.unwrap_or(glimpse_config::ColorFormat::Hex);
             let settings = lens::Settings {
                 format: tool.map(|_| format),
-                radius: cli.lens_radius.unwrap_or(picker.lens_radius).clamp(40, 400) as f32,
-                max_zoom: cli.max_zoom.unwrap_or(picker.max_zoom).clamp(2, 64),
+                radius: cli.radius.clamp(MIN_RADIUS, MAX_RADIUS) as f32,
+                zoom: cli.zoom.clamp(MIN_ZOOM, MAX_ZOOM),
             };
 
-            let result = pick::pick(&document, settings);
+            let result = pick::pick(settings);
             if tool.is_some() {
                 let color = result?;
                 let line = match cli.json {

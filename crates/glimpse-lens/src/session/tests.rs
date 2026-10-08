@@ -23,8 +23,8 @@ fn resizing_steps_in_both_directions_and_clamps_to_the_documented_range() {
     assert!(grown > 100.0);
     let shrunk = resized(100.0, 1.0);
     assert!(shrunk < 100.0);
-    assert_eq!(resized(MIN_RADIUS, 1.0), MIN_RADIUS);
-    assert_eq!(resized(MAX_RADIUS, -1.0), MAX_RADIUS);
+    assert_eq!(resized(MIN_RADIUS as f32, 1.0), MIN_RADIUS as f32);
+    assert_eq!(resized(MAX_RADIUS as f32, -1.0), MAX_RADIUS as f32);
     assert_eq!(resized(100.0, 0.0), 100.0);
 }
 
@@ -202,8 +202,10 @@ fn widgets() {
             pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
             alpha: false,
         },
-        1,
-        106.0,
+        Settings {
+            radius: 106.0,
+            zoom: 1,
+        },
     )]);
     let segment = Segment {
         from: (190, 145),
@@ -219,10 +221,6 @@ fn widgets() {
         chain.clone(),
         Rc::new(Cell::new(1)),
         Rc::new(Cell::new(106.0)),
-        Settings {
-            radius: 106.0,
-            max_zoom: 30,
-        },
         Rc::new(|_| {}),
     );
     let surface = &surfaces[0];
@@ -310,4 +308,23 @@ fn widgets() {
         (250, 187),
     );
     assert!(alpha(&scaled, 160, 130) > 200);
+
+    let zoomed = super::surface(
+        &monitor,
+        Frame {
+            connector: String::new(),
+            width: 400,
+            height: 300,
+            pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
+            alpha: false,
+        },
+        Settings {
+            radius: 12.0,
+            zoom: 175,
+        },
+    );
+    assert_eq!(zoomed.lens.imp().zoom.get(), 175);
+    assert_eq!(zoomed.lens.imp().radius.get(), 12.0);
+    assert_eq!(zoomed.marks.imp().zoom.get(), 175);
+    zoomed.window.destroy();
 }

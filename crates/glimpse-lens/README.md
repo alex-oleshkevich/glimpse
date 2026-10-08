@@ -1,22 +1,22 @@
 # glimpse-lens
 
 `glimpse-lens` magnifies the frozen screen, exits successfully when dismissed, and writes no result.
-It uses `[color-picker]` lens settings by default; `--tool picker` picks a color and `--tool ruler`
-measures chained line segments using their respective configuration tables. `--format` and `--json`
-require `--tool picker`.
+`--tool picker` picks a color and `--tool ruler` measures chained line segments. Options come only
+from flags: `--radius` defaults to 106 logical pixels, clamped to 10–200, and `--zoom` sets opening
+magnification, defaulting to ×5 and clamped to 1–200. `--format` and `--json` require `--tool picker`.
 
 ```
-glimpse-lens [--tool picker|ruler] [--lens-radius PIXELS] [--max-zoom TIMES] [--config PATH]
+glimpse-lens [--tool picker|ruler] [--radius PIXELS] [--zoom TIMES]
 glimpse-lens --tool picker [--format hex|rgb|hsl|hsv|oklch|cmyk] [--json]
-glimpse-lens --tool ruler [--lens-radius PIXELS] [--max-zoom TIMES] [--config PATH]
+glimpse-lens --tool ruler [--radius PIXELS] [--zoom TIMES]
 ```
 
 ## Color picker
 
-Flags fall back to `[color-picker]` in the configuration. `--json` prints one object —
+The picker defaults to hex output. `--json` prints one object —
 `{"format":"hex","value":"#E0563F","red":224,"green":86,"blue":63}` — and plain output is the
 value alone. Exit code 0 means a color was picked; 4 means the lens was cancelled or an output went
-away; 3 means the configuration failed to load; 1 means another failure. Errors go to stderr.
+away; 1 means another failure. Errors go to stderr.
 
 The command owns no clipboard, since a selection dies with the process that set it. Pipe its output
 to `wl-copy`.
@@ -33,11 +33,7 @@ Each confirmed segment produces one JSON line in confirmation order:
 ```
 
 Exit code 0 means at least one segment was measured; 4 means nothing was measured or an output went
-away; 3 means the configuration failed to load; 1 means another failure. Errors go to stderr.
-
-`[ruler]` accepts `history-limit` (default 8, clamped to 1–64 recent measurements in the panel),
-`lens-radius` (default 106, clamped to 40–400 logical pixels), and `max-zoom` (default 30, clamped
-to 2–64 times magnification). The two lens flags override their corresponding config keys.
+away; 1 means another failure. Errors go to stderr.
 
 Segments stay on their own output. The first click anchors a point; each later click confirms a
 segment and becomes the next anchor. Moving to another output drops the pending anchor without
@@ -58,5 +54,5 @@ Picks and measurements read captured buffer coordinates, including fractional sc
 upright, so the tools do not handle output transforms. Capture and the lens widget are shared through
 `glimpse-wayland` and `glimpse-widgets`.
 
-The lens opens at ×8. The scroll wheel zooms from ×1 to `max-zoom`, multiplying or dividing by 1.25
-per notch with at least one step. The pixel grid appears from ×6.
+The scroll wheel zooms from ×1 to ×200, multiplying or dividing by 1.25 per notch with at least one
+step. The pixel grid appears from ×6.

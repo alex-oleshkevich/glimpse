@@ -1,6 +1,6 @@
 use clap::{CommandFactory as _, Parser, ValueEnum, error::ErrorKind};
 use glimpse_config::ColorFormat;
-use glimpse_utils::{ConfigArg, LogArgs};
+use glimpse_utils::LogArgs;
 use shadow_rs::shadow;
 
 shadow!(build);
@@ -25,7 +25,7 @@ pub struct Cli {
     )]
     pub tool: Option<Tool>,
 
-    #[arg(long, value_parser = format, value_name = "FORMAT", help = "Override [color-picker] format; requires --tool picker.")]
+    #[arg(long, value_parser = format, value_name = "FORMAT", help = "Print the picked color in this notation instead of hex; requires --tool picker.")]
     pub format: Option<ColorFormat>,
 
     #[arg(
@@ -36,20 +36,19 @@ pub struct Cli {
 
     #[arg(
         long,
+        default_value_t = 180,
         value_name = "PIXELS",
-        help = "Override the selected tool's configured lens radius in logical pixels."
+        help = "The lens radius in logical pixels."
     )]
-    pub lens_radius: Option<u32>,
+    pub radius: u32,
 
     #[arg(
         long,
+        default_value_t = 3,
         value_name = "TIMES",
-        help = "Override the selected tool's configured maximum magnification."
+        help = "The initial magnification."
     )]
-    pub max_zoom: Option<u32>,
-
-    #[command(flatten)]
-    pub config: ConfigArg,
+    pub zoom: u32,
 
     #[command(flatten)]
     pub log: LogArgs,

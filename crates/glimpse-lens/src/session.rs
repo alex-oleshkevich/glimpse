@@ -9,10 +9,10 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use crate::marks::Marks;
 use glimpse_wayland::capture::Frame;
 
+use crate::{MAX_RADIUS, MAX_ZOOM, MIN_RADIUS};
+
 const PILL_GAP: f64 = 10.0;
 const RADIUS_STEP: f32 = 1.15;
-const MIN_RADIUS: f32 = 40.0;
-const MAX_RADIUS: f32 = 400.0;
 
 fn resized(radius: f32, notches: f64) -> f32 {
     let next = if notches < 0.0 {
@@ -22,13 +22,13 @@ fn resized(radius: f32, notches: f64) -> f32 {
     } else {
         radius
     };
-    next.clamp(MIN_RADIUS, MAX_RADIUS)
+    next.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
     pub radius: f32,
-    pub max_zoom: u32,
+    pub zoom: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,8 +148,10 @@ impl Session {
         done: impl Fn(Outcome) + 'static,
     ) -> Result<Self, String> {
         let display = gdk::Display::default().ok_or_else(|| "the display".to_owned())?;
-        let zoom = Rc::new(Cell::new(1));
-        let radius = Rc::new(Cell::new(settings.radius.clamp(MIN_RADIUS, MAX_RADIUS)));
+        let zoom = Rc::new(Cell::new(settings.zoom));
+        let radius = Rc::new(Cell::new(
+            settings.radius.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32),
+        ));
         let mut surfaces: Vec<Surface> = Vec::new();
         for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {
             let connector = monitor
@@ -162,12 +164,7 @@ impl Session {
                 }
                 return Err(format!("output {connector:?}"));
             };
-            surfaces.push(surface(
-                &monitor,
-                frames.swap_remove(index),
-                zoom.get(),
-                settings.radius,
-            ));
+            surfaces.push(surface(&monitor, frames.swap_remove(index), settings));
         }
 
         if surfaces.is_empty() {
@@ -190,7 +187,6 @@ impl Session {
                 chain.clone(),
                 zoom.clone(),
                 radius.clone(),
-                settings,
                 finish.clone(),
             );
         }
@@ -220,7 +216,7 @@ impl Session {
     }
 }
 
-fn surface(monitor: &gdk::Monitor, frame: Frame, zoom: u32, radius: f32) -> Surface {
+fn surface(monitor: &gdk::Monitor, frame: Frame, settings: Settings) -> Surface {
     let window = gtk4::Window::new();
     window.init_layer_shell();
     window.set_namespace(Some("glimpse-lens"));
@@ -243,8 +239,9 @@ fn surface(monitor: &gdk::Monitor, frame: Frame, zoom: u32, radius: f32) -> Surf
     )
     .upcast();
     let buffer = (frame.width, frame.height);
-    let lens = Lens::new(&texture, buffer, zoom, radius);
-    let marks = Marks::new(buffer, radius);
+    let lens = Lens::new(&texture, buffer, settings.zoom, settings.radius);
+    let marks = Marks::new(buffer, settings.radius);
+    marks.set_zoom(settings.zoom);
     let lines = [(); 3].map(|_| {
         let label = gtk4::Label::new(None);
         label.add_css_class("ruler__value");
@@ -387,7 +384,6 @@ fn connect(
     chain: Shared,
     zoom: Rc<Cell<u32>>,
     radius: Rc<Cell<f32>>,
-    settings: Settings,
     finish: Rc<dyn Fn(Outcome)>,
 ) {
     let surface = &surfaces[index];
@@ -487,7 +483,7 @@ fn connect(
                 }
                 dress(&surfaces[index], index, &chain.borrow(), next, false);
             } else {
-                let next = zoomed(zoom.get(), dy, settings.max_zoom);
+                let next = zoomed(zoom.get(), dy, MAX_ZOOM);
                 zoom.set(next);
                 for surface in surfaces.iter() {
                     surface.lens.set_zoom(next);

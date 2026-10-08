@@ -7,6 +7,8 @@ fn the_default_is_a_plain_magnifier() {
     assert_eq!(cli.tool, None);
     assert!(cli.format.is_none());
     assert!(!cli.json);
+    assert_eq!(cli.radius, 106);
+    assert_eq!(cli.zoom, 5);
     assert!(cli.validate().is_ok());
 }
 
@@ -46,15 +48,22 @@ fn ruler_accepts_lens_overrides_and_unknown_tools_are_rejected() {
         "glimpse-lens",
         "--tool",
         "ruler",
-        "--lens-radius",
+        "--radius",
         "120",
-        "--max-zoom",
+        "--zoom",
         "12",
     ])
     .unwrap();
     assert_eq!(cli.tool, Some(Tool::Ruler));
-    assert_eq!(cli.lens_radius, Some(120));
-    assert_eq!(cli.max_zoom, Some(12));
+    assert_eq!(cli.radius, 120);
+    assert_eq!(cli.zoom, 12);
     assert!(cli.validate().is_ok());
     assert!(Cli::try_parse_from(["glimpse-lens", "--tool", "unknown"]).is_err());
+}
+
+#[test]
+fn configuration_paths_are_rejected() {
+    let error = Cli::try_parse_from(["glimpse-lens", "--config", "/tmp/config.toml"]).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::UnknownArgument);
+    assert_eq!(error.exit_code(), 2);
 }

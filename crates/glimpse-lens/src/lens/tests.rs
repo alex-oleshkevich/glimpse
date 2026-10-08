@@ -1,4 +1,5 @@
 use super::*;
+use gtk4::subclass::prelude::*;
 
 #[test]
 fn the_value_sits_under_the_lens_and_flips_above_it_near_the_bottom_edge() {
@@ -29,8 +30,8 @@ fn scrolling_resizes_the_lens_and_stays_within_bounds() {
     assert_eq!(resized(100.0, -1.0), 112.0);
     assert_eq!(resized(100.0, 1.0), 88.0);
     assert_eq!(resized(100.0, 0.0), 100.0);
-    assert_eq!(resized(RADIUS_MIN, 1.0), RADIUS_MIN);
-    assert_eq!(resized(RADIUS_MAX, -1.0), RADIUS_MAX);
+    assert_eq!(resized(MIN_RADIUS as f32, 1.0), MIN_RADIUS as f32);
+    assert_eq!(resized(MAX_RADIUS as f32, -1.0), MAX_RADIUS as f32);
 }
 
 #[test]
@@ -48,7 +49,7 @@ fn widgets() {
         let settings = Settings {
             format,
             radius: 88.0,
-            max_zoom: 30,
+            zoom: 3,
         };
         let surfaces = Rc::new(vec![surface(
             &monitor,
@@ -59,14 +60,13 @@ fn widgets() {
                 pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
                 alpha: false,
             },
-            1,
             settings,
         )]);
         let outcome = Rc::new(Cell::new(None));
         connect(
             &surfaces,
             0,
-            Rc::new(Cell::new(1)),
+            Rc::new(Cell::new(settings.zoom)),
             Rc::new(Cell::new(settings.radius)),
             settings,
             Rc::new({
@@ -75,6 +75,8 @@ fn widgets() {
             }),
         );
         let surface = &surfaces[0];
+        assert_eq!(surface.lens.imp().zoom.get(), settings.zoom);
+        assert_eq!(surface.lens.imp().radius.get(), settings.radius);
         surface.lens.allocate(400, 300, -1, None);
         surface.lens.point(200.0, 150.0);
         dress(surface, settings, settings.radius);
