@@ -248,6 +248,7 @@ async fn a_slow_write_cannot_overwrite_a_newer_policy_or_its_health() {
     }));
     let (observer, observed) = watch::channel(Ok(None));
     let mut config = glimpse_config::Config::default();
+    config.appearance.auto_dark = AutoDark::System;
     let (mut runtime, handle) = Running::<DesktopMode>::spawn(
         &config,
         Buses::unavailable("test"),
