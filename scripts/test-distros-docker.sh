@@ -63,7 +63,7 @@ case "$distro" in
         ;;
 esac
 
-for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot; do
+for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot; do
     test -x "/usr/bin/$binary"
     "/usr/bin/$binary" --version >/dev/null
     if ldd "/usr/bin/$binary" | grep -q 'not found'; then

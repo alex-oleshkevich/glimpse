@@ -4,5 +4,5 @@ set -euo pipefail
 read -ra binaries <<< "${GLIMPSE_BINARIES:?set by the justfile; run through just}"
 
 args=()
-for b in "${binaries[@]}"; do args+=(-p "$b"); done
+for b in "${binaries[@]}"; do args+=(--bin "$b"); done
 cargo build "$@" "${args[@]}"

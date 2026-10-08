@@ -17,7 +17,7 @@ nix_flags=(--extra-experimental-features 'nix-command flakes')
 build_flags=(--option sandbox false --option system-features 'kvm nixos-test' --option cores 2 --option max-jobs 1)
 output="$(nix "${nix_flags[@]}" build 'path:/src#default' --no-link --print-out-paths "${build_flags[@]}")"
 
-for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-picker glimpse-ruler glimpse-shot; do
+for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot; do
     test -x "$output/bin/$binary"
     "$output/bin/$binary" --version >/dev/null
 done
