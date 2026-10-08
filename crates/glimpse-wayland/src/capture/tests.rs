@@ -34,6 +34,55 @@ fn a_bgrx_buffer_reads_as_red_green_blue() {
 }
 
 #[test]
+fn normal_owned_buffers_keep_their_allocation_and_sample_both_layouts_as_rgb() {
+    for (layout, bytes) in [
+        (Layout::Bgrx, vec![0x3F, 0x56, 0xE0, 0]),
+        (Layout::Rgbx, vec![0xE0, 0x56, 0x3F, 0]),
+    ] {
+        let pointer = bytes.as_ptr();
+        let frame = Frame::captured(
+            String::new(),
+            Raw {
+                layout,
+                ..raw(1, 1, wl_output::Transform::Normal, false)
+            },
+            bytes,
+        );
+
+        assert_eq!(frame.pixels[..].as_ptr(), pointer);
+        assert_eq!(frame.layout, layout);
+        assert_eq!(frame.pixel(0, 0), [0xE0, 0x56, 0x3F]);
+        assert_eq!(frame.pixel(99, 99), [0xE0, 0x56, 0x3F]);
+        assert!(!frame.alpha);
+    }
+}
+
+#[test]
+fn padded_or_incomplete_owned_buffers_keep_the_packed_rgb_fallback() {
+    let mut padded = raw(1, 2, wl_output::Transform::Normal, false);
+    padded.layout = Layout::Bgrx;
+    padded.stride = 8;
+    let frame = Frame::captured(
+        String::new(),
+        padded,
+        vec![3, 2, 1, 0, 99, 99, 99, 99, 6, 5, 4, 0, 99, 99, 99, 99],
+    );
+    assert_eq!(frame.layout, Layout::Rgbx);
+    assert_eq!(frame.pixels.len(), 8);
+    assert_eq!(frame.pixel(0, 0), [1, 2, 3]);
+    assert_eq!(frame.pixel(0, 1), [4, 5, 6]);
+
+    let frame = Frame::captured(
+        String::new(),
+        raw(1, 2, wl_output::Transform::Normal, false),
+        vec![1, 2, 3, 255],
+    );
+    assert_eq!(frame.pixels.len(), 8);
+    assert_eq!(frame.pixel(0, 0), [1, 2, 3]);
+    assert_eq!(frame.pixel(0, 1), [0, 0, 0]);
+}
+
+#[test]
 fn a_normal_buffer_is_read_row_by_row() {
     let frame = Frame::upright(
         String::new(),
@@ -131,7 +180,7 @@ fn every_transform_matches_the_mapping_grim_uses() {
     for transform in transforms {
         for y_invert in [false, true] {
             let raw = raw(3, 2, transform, y_invert);
-            let frame = Frame::upright(String::new(), raw, &numbered(3, 2));
+            let frame = Frame::captured(String::new(), raw, numbered(3, 2));
             for y in 0..frame.height as usize {
                 for x in 0..frame.width as usize {
                     let (u, v) = grim(raw, x, y);

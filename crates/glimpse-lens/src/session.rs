@@ -7,7 +7,7 @@ use gtk4::{gdk, glib, prelude::*};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::marks::Marks;
-use glimpse_wayland::capture::Frame;
+use glimpse_wayland::capture::{Frame, Layout};
 
 use crate::{MAX_RADIUS, MAX_ZOOM, MIN_RADIUS};
 
@@ -233,7 +233,10 @@ fn surface(monitor: &gdk::Monitor, frame: Frame, settings: Settings) -> Surface 
     let texture: gdk::Texture = gdk::MemoryTexture::new(
         frame.width as i32,
         frame.height as i32,
-        gdk::MemoryFormat::R8g8b8x8,
+        match frame.layout {
+            Layout::Rgbx => gdk::MemoryFormat::R8g8b8x8,
+            Layout::Bgrx => gdk::MemoryFormat::B8g8r8x8,
+        },
         &frame.pixels,
         frame.width as usize * 4,
     )

@@ -16,13 +16,13 @@ use crate::{
 
 use palette::Palette;
 pub use palette::PickedColor;
-pub use picker::{Picked, Picker, ProcessPicker, Request as PickRequest};
+pub use picker::{Picked, Picker, PortalPicker};
 
 const TEXT: &str = "text/plain;charset=utf-8";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
-    request: PickRequest,
+    format: ColorFormat,
     limit: usize,
 }
 
@@ -30,11 +30,7 @@ impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         let picker = &document.color_picker;
         Self {
-            request: PickRequest {
-                format: picker.format,
-                lens_radius: picker.lens_radius.clamp(40, 400),
-                max_zoom: picker.max_zoom.clamp(2, 64),
-            },
+            format: picker.format,
             limit: picker.limit,
         }
     }
@@ -133,7 +129,7 @@ impl Service for ColorPicker {
         ColorPickerState {
             colors: Vec::new(),
             picking: false,
-            format: config.request.format,
+            format: config.format,
         }
     }
 
@@ -162,9 +158,8 @@ impl Service for ColorPicker {
                     return;
                 }
                 let picker = Arc::clone(&self.picker);
-                let request = self.config.request;
                 let guard =
-                    ctx.spawn(move |_ctx| async move { Event::Picked(picker.pick(request).await) });
+                    ctx.spawn(move |_ctx| async move { Event::Picked(picker.pick().await) });
                 self.pending = Some((guard, reply));
             }
             Input::Command(Command::Copy { id, format, reply }) => {
@@ -188,7 +183,7 @@ impl ColorPicker {
             return Ok(());
         };
         let color = self.palette.push(rgb);
-        self.offer(self.config.request.format.render(color.rgb))
+        self.offer(self.config.format.render(color.rgb))
     }
 
     fn copy(&self, id: u32, format: ColorFormat) -> Result<(), CommandError> {
@@ -211,7 +206,7 @@ impl ColorPicker {
         self.state.set(ColorPickerState {
             colors: self.palette.colors(),
             picking: self.pending.is_some(),
-            format: self.config.request.format,
+            format: self.config.format,
         });
     }
 }

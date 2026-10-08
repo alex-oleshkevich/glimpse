@@ -77,10 +77,29 @@ pub struct Frame {
     pub width: u32,
     pub height: u32,
     pub pixels: glib::Bytes,
+    pub layout: Layout,
     pub alpha: bool,
 }
 
 impl Frame {
+    fn captured(connector: String, raw: Raw, bytes: Vec<u8>) -> Self {
+        if raw.transform == wl_output::Transform::Normal
+            && !raw.y_invert
+            && raw.width.checked_mul(4) == Some(raw.stride)
+            && bytes.len() == raw.stride as usize * raw.height as usize
+        {
+            return Self {
+                connector,
+                width: raw.width,
+                height: raw.height,
+                pixels: glib::Bytes::from_owned(bytes),
+                layout: raw.layout,
+                alpha: false,
+            };
+        }
+        Self::upright(connector, raw, &bytes)
+    }
+
     pub fn upright(connector: String, raw: Raw, bytes: &[u8]) -> Self {
         use wl_output::Transform as T;
         let (w, h) = (raw.width as usize, raw.height as usize);
@@ -146,6 +165,7 @@ impl Frame {
             width: width as u32,
             height: height as u32,
             pixels: glib::Bytes::from_owned(pixels),
+            layout: Layout::Rgbx,
             alpha: false,
         }
     }
@@ -154,7 +174,10 @@ impl Frame {
         let x = x.min(self.width.saturating_sub(1)) as usize;
         let y = y.min(self.height.saturating_sub(1)) as usize;
         let at = (y * self.width as usize + x) * 4;
-        [self.pixels[at], self.pixels[at + 1], self.pixels[at + 2]]
+        match self.layout {
+            Layout::Bgrx => [self.pixels[at + 2], self.pixels[at + 1], self.pixels[at]],
+            Layout::Rgbx => [self.pixels[at], self.pixels[at + 1], self.pixels[at + 2]],
+        }
     }
 }
 

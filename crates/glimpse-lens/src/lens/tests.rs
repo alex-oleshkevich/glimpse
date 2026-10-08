@@ -57,8 +57,9 @@ fn widgets() {
                 connector: String::new(),
                 width: 400,
                 height: 300,
-                pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
+                pixels: glib::Bytes::from_owned([63, 86, 224, 255].repeat(400 * 300)),
                 alpha: false,
+                layout: Layout::Bgrx,
             },
             settings,
         )]);
@@ -75,6 +76,18 @@ fn widgets() {
             }),
         );
         let surface = &surfaces[0];
+        let texture = surface
+            .lens
+            .imp()
+            .texture
+            .borrow()
+            .clone()
+            .expect("texture");
+        let mut downloader = gdk::TextureDownloader::new(&texture);
+        downloader.set_format(gdk::MemoryFormat::R8g8b8a8);
+        let (pixels, _) = downloader.download_bytes();
+        assert_eq!(&pixels.as_ref()[..4], &[224, 86, 63, 255]);
+        assert_eq!(surface.frame.pixel(0, 0), [224, 86, 63]);
         assert_eq!(surface.lens.imp().zoom.get(), settings.zoom);
         assert_eq!(surface.lens.imp().radius.get(), settings.radius);
         surface.lens.allocate(400, 300, -1, None);
@@ -90,7 +103,10 @@ fn widgets() {
             .expect("key controller");
         for key in [gdk::Key::Return, gdk::Key::KP_Enter, gdk::Key::space] {
             keys.emit_by_name::<bool>("key-pressed", &[&key, &0u32, &gdk::ModifierType::empty()]);
-            assert_eq!(outcome.get(), format.map(|_| Outcome::Picked([0; 3])));
+            assert_eq!(
+                outcome.get(),
+                format.map(|_| Outcome::Picked([224, 86, 63]))
+            );
         }
         keys.emit_by_name::<bool>(
             "key-pressed",

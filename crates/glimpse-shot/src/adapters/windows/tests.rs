@@ -155,6 +155,7 @@ fn a_crop_copies_the_rows_it_covers_and_stays_inside_the_frame() {
         width: 4,
         height: 3,
         pixels: glib::Bytes::from_owned((0u8..12).flat_map(|i| [i, 0, 0, 255]).collect::<Vec<_>>()),
+        layout: Layout::Rgbx,
         alpha: false,
     };
     let reds = |frame: &Frame| frame.pixels.chunks(4).map(|p| p[0]).collect::<Vec<_>>();
@@ -166,4 +167,20 @@ fn a_crop_copies_the_rows_it_covers_and_stays_inside_the_frame() {
     let past = cropped(&frame, buffer(3, 2, 10, 10));
     assert_eq!((past.width, past.height), (1, 1));
     assert_eq!(reds(&past), [11]);
+}
+
+#[test]
+fn a_crop_preserves_bgr_layout_and_color_sampling() {
+    let frame = Frame {
+        connector: "eDP-1".to_owned(),
+        width: 2,
+        height: 1,
+        pixels: glib::Bytes::from_owned(vec![30, 20, 10, 0, 60, 50, 40, 0]),
+        layout: Layout::Bgrx,
+        alpha: false,
+    };
+    let crop = cropped(&frame, buffer(1, 0, 1, 1));
+    assert_eq!(crop.layout, Layout::Bgrx);
+    assert_eq!(crop.pixel(0, 0), [40, 50, 60]);
+    assert!(!crop.alpha);
 }

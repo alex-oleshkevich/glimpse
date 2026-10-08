@@ -105,7 +105,7 @@ pub(super) fn outputs(
             ..raw
         };
         tracing::debug!(connector = name, ?raw, "screencopy buffer");
-        frames.push(Frame::upright(name, raw, &bytes));
+        frames.push(Frame::captured(name, raw, bytes));
     }
     manager.destroy();
     connection.flush().map_err(failed)?;

@@ -276,6 +276,7 @@ fn a_picked_window_replaces_the_screen_and_only_the_scrim_surrounds_it() {
             height: 20,
             pixels: glib::Bytes::from_owned(vec![0xffu8; 40 * 20 * 4]),
             alpha: true,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         },
     });
     let picked = rendered(&mut editor, 400, 300);
@@ -344,6 +345,7 @@ fn document() -> Document {
                 height: 100,
                 pixels: glib::Bytes::from_owned(vec![0u8; 200 * 100 * 4]),
                 alpha: false,
+                layout: glimpse_wayland::capture::Layout::Rgbx,
             },
         },
         crop: None,
@@ -561,6 +563,7 @@ fn a_sheet_is_its_logical_size_and_maps_the_picture_back_to_buffer_pixels() {
             height: 100,
             pixels: glib::Bytes::from_owned(vec![0u8; 200 * 100 * 4]),
             alpha: true,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         },
     };
     let style = Style {

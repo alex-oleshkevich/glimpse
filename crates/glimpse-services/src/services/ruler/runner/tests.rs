@@ -29,11 +29,11 @@ fn a_cancel_is_no_measurements_and_no_error() {
 
 #[test]
 fn a_failure_carries_what_the_ruler_said() {
-    let stderr = b"glimpse-ruler: cannot capture the screen: no screencopy\n";
+    let stderr = b"glimpse-lens: cannot capture the screen: no screencopy\n";
 
     assert_eq!(
         answer(Some(1), b"", stderr),
-        Err("glimpse-ruler: cannot capture the screen: no screencopy".to_owned())
+        Err("glimpse-lens: cannot capture the screen: no screencopy".to_owned())
     );
     assert_eq!(answer(None, b"", b""), Err("the ruler failed".to_owned()));
 }
@@ -48,4 +48,29 @@ fn one_bad_line_fails_the_whole_batch() {
     let stdout = format!("{}\nnot json\n", line(1.0));
 
     assert!(answer(Some(0), stdout.as_bytes(), b"").is_err());
+}
+
+#[tokio::test]
+async fn the_lens_runs_in_ruler_mode_without_legacy_settings() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let program = directory.path().join("lens");
+    std::fs::write(
+        &program,
+        format!(
+            "#!/bin/sh\n[ \"$#\" -eq 2 ] && [ \"$1\" = \"--tool\" ] && [ \"$2\" = \"ruler\" ] || exit 1\nprintf '%s\\n' '{}'\n",
+            line(5.0),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let measurements = ProcessRunner::new(program.to_str().unwrap())
+        .measure()
+        .await
+        .unwrap();
+
+    assert_eq!(measurements.len(), 1);
+    assert_eq!(measurements[0].distance, 5.0);
 }

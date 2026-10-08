@@ -119,6 +119,7 @@ impl Screens for FakeScreens {
             height,
             pixels: glib::Bytes::from_owned(vec![0u8; 16]),
             alpha: false,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         })
     }
 }
@@ -137,6 +138,7 @@ impl Windows for FakeWindows {
             height: 375,
             pixels: glib::Bytes::from_owned(vec![0u8; 16]),
             alpha: false,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         })
     }
 }

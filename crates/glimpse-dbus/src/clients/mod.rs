@@ -47,6 +47,7 @@ pub mod night_light;
 pub mod notifications;
 pub mod portal_settings;
 pub mod power_profiles;
+pub mod screenshot_portal;
 pub mod sensor;
 pub mod status_notifier_item;
 pub mod status_notifier_watcher;

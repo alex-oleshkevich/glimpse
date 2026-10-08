@@ -201,6 +201,7 @@ fn widgets() {
             height: 300,
             pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
             alpha: false,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         },
         Settings {
             radius: 106.0,
@@ -317,6 +318,7 @@ fn widgets() {
             height: 300,
             pixels: glib::Bytes::from_owned(vec![0; 400 * 300 * 4]),
             alpha: false,
+            layout: glimpse_wayland::capture::Layout::Rgbx,
         },
         Settings {
             radius: 12.0,

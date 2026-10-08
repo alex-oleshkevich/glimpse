@@ -9,16 +9,10 @@ use super::history::Measurement;
 const REASON: usize = 240;
 const CANCELLED: i32 = 4;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Request {
-    pub lens_radius: u32,
-    pub max_zoom: u32,
-}
-
 pub type Measured = Pin<Box<dyn Future<Output = Result<Vec<Measurement>, String>> + Send>>;
 
 pub trait Runner: Send + Sync + 'static {
-    fn measure(&self, request: Request) -> Measured;
+    fn measure(&self) -> Measured;
 }
 
 pub struct ProcessRunner {
@@ -62,11 +56,10 @@ impl From<Line> for Measurement {
 }
 
 impl Runner for ProcessRunner {
-    fn measure(&self, request: Request) -> Measured {
+    fn measure(&self) -> Measured {
         let mut command = tokio::process::Command::new(&self.program);
         command
-            .args(["--lens-radius", &request.lens_radius.to_string()])
-            .args(["--max-zoom", &request.max_zoom.to_string()])
+            .args(["--tool", "ruler"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

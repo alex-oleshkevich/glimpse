@@ -16,6 +16,7 @@ fn checkerboard_frame(width: u32, height: u32) -> Frame {
         height,
         pixels: glib::Bytes::from_owned(pixels),
         alpha: false,
+        layout: glimpse_wayland::capture::Layout::Rgbx,
     }
 }
 

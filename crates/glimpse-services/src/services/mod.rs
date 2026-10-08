@@ -72,8 +72,7 @@ pub use clipboard::{
 };
 pub use color_picker::{
     ColorPicker, ColorPickerHandle, ColorPickerState, Config as ColorPickerConfig,
-    Dependencies as ColorPickerDependencies, PickRequest, Picked, PickedColor, Picker,
-    ProcessPicker,
+    Dependencies as ColorPickerDependencies, Picked, PickedColor, Picker, PortalPicker,
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use exec::{
@@ -134,9 +133,9 @@ pub use removable::{
     VolumeId,
 };
 pub use ruler::{
-    Config as RulerConfig, Dependencies as RulerDependencies, MeasureRequest,
-    Measured as RulerMeasured, Measurement as RulerMeasurement,
-    ProcessRunner as ProcessRulerRunner, Ruler, RulerHandle, RulerState, Runner as RulerRunner,
+    Config as RulerConfig, Dependencies as RulerDependencies, Measured as RulerMeasured,
+    Measurement as RulerMeasurement, ProcessRunner as ProcessRulerRunner, Ruler, RulerHandle,
+    RulerState, Runner as RulerRunner,
 };
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{

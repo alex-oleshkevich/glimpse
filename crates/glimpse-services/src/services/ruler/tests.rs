@@ -9,12 +9,12 @@ use crate::selection::FakeSelection;
 
 struct FakeRunner {
     answers: Mutex<Vec<Result<Vec<Measurement>, String>>>,
-    requests: Mutex<Vec<MeasureRequest>>,
+    calls: Mutex<usize>,
 }
 
 impl Runner for FakeRunner {
-    fn measure(&self, request: MeasureRequest) -> Measured {
-        self.requests.lock().unwrap().push(request);
+    fn measure(&self) -> Measured {
+        *self.calls.lock().unwrap() += 1;
         let answer = self.answers.lock().unwrap().remove(0);
         Box::pin(async move { answer })
     }
@@ -66,7 +66,7 @@ async fn harness(answers: Vec<Result<Vec<Measurement>, String>>) -> Harness {
     let selection = FakeSelection::default();
     let runner = Arc::new(FakeRunner {
         answers: Mutex::new(answers),
-        requests: Mutex::new(Vec::new()),
+        calls: Mutex::new(0),
     });
     let service = Ruler::start(
         &ctx,
@@ -128,13 +128,7 @@ async fn a_measurement_lands_in_history_in_confirmation_order_and_is_capped() {
     assert_eq!(state.history.len(), 2);
     assert_eq!(state.history[0].distance, 2.0);
     assert_eq!(state.history[1].distance, 1.0);
-    assert_eq!(
-        harness.runner.requests.lock().unwrap()[0],
-        MeasureRequest {
-            lens_radius: 106,
-            max_zoom: 30,
-        }
-    );
+    assert_eq!(*harness.runner.calls.lock().unwrap(), 1);
 }
 
 #[tokio::test]
@@ -175,7 +169,7 @@ async fn a_second_measure_while_one_is_open_is_refused() {
         second.await.unwrap(),
         Err(CommandError::LimitExceeded(_))
     ));
-    assert_eq!(harness.runner.requests.lock().unwrap().len(), 1);
+    assert_eq!(*harness.runner.calls.lock().unwrap(), 1);
 }
 
 #[tokio::test]

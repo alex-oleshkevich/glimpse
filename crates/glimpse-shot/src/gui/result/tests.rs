@@ -50,6 +50,7 @@ fn document(marks: Vec<(MarkId, Mark)>) -> Document {
                 height: 4,
                 pixels: glib::Bytes::from_owned(vec![0u8; 64]),
                 alpha: true,
+                layout: glimpse_wayland::capture::Layout::Rgbx,
             },
         },
         crop: None,

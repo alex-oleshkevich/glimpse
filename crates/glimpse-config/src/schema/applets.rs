@@ -68,8 +68,6 @@ pub enum Kind {
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
-    /// The latest picked color. A left click opens the lens to pick one from the screen, a right
-    /// click the palette of recent picks in every notation. Needs `glimpse-picker`.
     ColorPicker {},
     /// A chip the user defines, running a program on a click or a scroll.
     Command(Box<Command>),
@@ -106,8 +104,6 @@ pub enum Kind {
     Privacy(Privacy),
     /// Removable drives, one row each, with open and eject in its popover.
     Removable(Removable),
-    /// Measures on-screen pixel distances. A left click opens the lens to measure from the
-    /// screen. Needs `glimpse-ruler`.
     Ruler {},
     /// Log out, suspend, restart and shut down.
     Session {},

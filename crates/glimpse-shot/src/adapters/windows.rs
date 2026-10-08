@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use glimpse_compositors::{Compositor, Rect as WindowRect, Snapshot, Window};
 use glimpse_shot::doc::units::{BufferPx, Rect};
 use glimpse_shot::ports::{Clipboard, Windows};
-use glimpse_wayland::capture::{self, CaptureError, Frame, Toplevel};
+use glimpse_wayland::capture::{self, CaptureError, Frame, Layout, Toplevel};
 use glimpse_wayland::selection::{self, Changes};
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
@@ -151,6 +151,7 @@ pub fn frame_of(texture: &gdk::Texture) -> Frame {
         width: width as u32,
         height: height as u32,
         pixels: glib::Bytes::from_owned(pixels),
+        layout: Layout::Rgbx,
         alpha: true,
     }
 }
@@ -240,6 +241,7 @@ pub fn cropped(frame: &Frame, crop: Rect<BufferPx>) -> Frame {
         width: width as u32,
         height: height as u32,
         pixels: glib::Bytes::from_owned(pixels),
+        layout: frame.layout,
         alpha: frame.alpha,
     }
 }
