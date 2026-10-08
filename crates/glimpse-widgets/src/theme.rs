@@ -143,7 +143,6 @@ impl Styles {
                     [&builtin, &theme, &dark.theme, &dropin, &dark.dropin],
                 );
                 dark.sync(is_dark, false);
-                crate::blur::restyle();
             }
         });
         let styles = Self {
@@ -171,15 +170,11 @@ impl Styles {
         self.dark.theme_path.replace(sheets.theme_dark.clone());
         self.dark.dropin_path.replace(sheets.dropin_dark.clone());
         self.dark.sync(self.style_manager.is_dark(), true);
-        crate::blur::restyle();
     }
 
     pub fn set_variant(&self, variant: &str) {
         let wanted = usable_variant(variant);
         let previous = self.variant.replace(wanted.clone());
-        if previous != wanted {
-            crate::blur::restyle();
-        }
         for window in gtk4::Window::list_toplevels() {
             if !previous.is_empty() && previous != wanted {
                 window.remove_css_class(&previous);

@@ -231,7 +231,7 @@ fn every_block_in_the_builtin_sheet_closes() {
 #[test]
 fn the_declared_vocabulary_is_the_documented_size() {
     let (block, _) = split(BUILTIN);
-    assert_eq!(declared(block).len(), 83);
+    assert_eq!(declared(block).len(), 84);
 }
 
 #[test]

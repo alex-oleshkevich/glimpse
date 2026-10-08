@@ -3,12 +3,14 @@ use std::rc::Rc;
 
 use adw::prelude::AnimationExt;
 use glimpse_config::Position;
-use glimpse_widgets::blur::{Blur, Shape, Tip};
+use glimpse_widgets::Tip;
 use gtk4::glib;
 use gtk4::prelude::*;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 const SIDEWAYS: &str = "applet-popover__arrow--sideways";
+const SHOWN: &str = "shown";
+const SHOWN_OPACITY: f64 = 0.5;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -22,10 +24,9 @@ enum State {
 pub struct Catcher {
     window: gtk4::Window,
     slot: gtk4::Box,
-    arrow: gtk4::DrawingArea,
+    arrow: glimpse_widgets::PopoverArrow,
     body: gtk4::Box,
     fade: adw::TimedAnimation,
-    blur: Blur,
     side: Rc<Cell<Position>>,
     state: Cell<State>,
     center: Cell<i32>,
@@ -38,9 +39,8 @@ impl Catcher {
         let window = surface(monitor, 0);
 
         let slot = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        slot.set_opacity(0.0);
 
-        let arrow = gtk4::DrawingArea::new();
+        let arrow = glimpse_widgets::PopoverArrow::new(tip(side));
         arrow.add_css_class("applet-popover__arrow");
         slot.append(&arrow);
 
@@ -49,51 +49,34 @@ impl Catcher {
         slot.append(&body);
 
         window.set_child(Some(&slot));
+        shade(&window, &body, &arrow, 0.0);
 
         let fade = adw::TimedAnimation::new(
             &slot,
             0.0,
             1.0,
             glimpse_widgets::duration_ms(),
-            adw::PropertyAnimationTarget::new(&slot, "opacity"),
+            adw::CallbackAnimationTarget::new({
+                let window = window.clone();
+                let body = body.clone();
+                let arrow = arrow.clone();
+                move |value| shade(&window, &body, &arrow, value)
+            }),
         );
         fade.set_easing(adw::Easing::EaseOutCubic);
 
         let side = Rc::new(Cell::new(side));
-        let blur = Blur::attach(&window, {
-            let body = body.clone();
-            let arrow = arrow.clone();
-            let side = side.clone();
-            move || {
-                vec![
-                    Shape::Surface(body.clone().upcast()),
-                    Shape::Arrow(arrow.clone().upcast(), tip(side.get())),
-                ]
-            }
-        });
-
         let catcher = Rc::new(Self {
             window: window.clone(),
             slot,
             arrow,
             body,
             fade,
-            blur,
             side: side.clone(),
             state: Cell::default(),
             center: Cell::default(),
             dismissed: RefCell::default(),
             shields: RefCell::default(),
-        });
-
-        catcher.arrow.set_draw_func({
-            let catcher = Rc::downgrade(&catcher);
-            move |area, context, width, height| {
-                let Some(catcher) = catcher.upgrade() else {
-                    return;
-                };
-                point(catcher.side.get(), area, context, width, height);
-            }
         });
 
         catcher.fade.connect_done({
@@ -155,7 +138,7 @@ impl Catcher {
         self.body.append(child.as_ref());
         self.shield();
         self.state.set(State::Opening);
-        self.slot.set_opacity(0.0);
+        shade(&self.window, &self.body, &self.arrow, 0.0);
         self.window.present();
 
         // A layer surface has no size and is not mapped until the compositor configures it, so
@@ -195,7 +178,7 @@ impl Catcher {
         if matches!(self.state.get(), State::Closed | State::Closing) {
             return;
         }
-        let from = self.slot.opacity();
+        let from = self.body.opacity();
         self.state.set(State::Closing);
         self.fade.reset();
         self.fade.set_duration(glimpse_widgets::duration_ms());
@@ -232,7 +215,7 @@ impl Catcher {
     }
 
     pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position, blur: bool) {
-        self.blur.set_enabled(blur);
+        glimpse_widgets::blur::apply(&self.window, blur);
         let moved = self.window.monitor().as_ref() != Some(monitor);
         if moved {
             self.window.set_monitor(Some(monitor));
@@ -282,7 +265,7 @@ impl Catcher {
         self.arrow.set_margin_top(0);
         self.slot.set_margin_start(0);
         self.slot.set_margin_top(0);
-        self.arrow.queue_draw();
+        self.arrow.set_tip(tip(side));
         self.settle();
     }
 
@@ -368,7 +351,7 @@ impl Catcher {
             self.body.remove(&child);
         }
         self.unshield();
-        self.slot.set_opacity(0.0);
+        shade(&self.window, &self.body, &self.arrow, 0.0);
         self.state.set(State::Closed);
         if let Some(dismissed) = self.dismissed.take() {
             dismissed();
@@ -400,6 +383,23 @@ fn surface(monitor: Option<&gtk4::gdk::Monitor>, zone: i32) -> gtk4::Window {
     window
 }
 
+fn shade(
+    window: &gtk4::Window,
+    body: &gtk4::Box,
+    arrow: &glimpse_widgets::PopoverArrow,
+    value: f64,
+) {
+    body.set_opacity(value);
+    arrow.set_fill_opacity(value);
+    let shown = value >= SHOWN_OPACITY;
+    if window.has_css_class(SHOWN) != shown {
+        match shown {
+            true => window.add_css_class(SHOWN),
+            false => window.remove_css_class(SHOWN),
+        }
+    }
+}
+
 fn placement(center: i32, extent: i32, room: i32, arrow: i32) -> (i32, i32) {
     let inset = arrow + arrow / 2;
     let near = arrow.min((center - inset).max(0));
@@ -422,34 +422,6 @@ fn tip(side: Position) -> Tip {
 
 fn horizontal(side: Position) -> bool {
     matches!(side, Position::Top | Position::Bottom)
-}
-
-fn point(
-    side: Position,
-    area: &gtk4::DrawingArea,
-    context: &gtk4::cairo::Context,
-    width: i32,
-    height: i32,
-) {
-    let (w, h) = (f64::from(width), f64::from(height));
-    let tip = match side {
-        Position::Top => [(w / 2.0, 0.0), (w, h), (0.0, h)],
-        Position::Bottom => [(w / 2.0, h), (w, 0.0), (0.0, 0.0)],
-        Position::Left => [(0.0, h / 2.0), (w, 0.0), (w, h)],
-        Position::Right => [(w, h / 2.0), (0.0, 0.0), (0.0, h)],
-    };
-    let color = area.color();
-    context.set_source_rgba(
-        color.red().into(),
-        color.green().into(),
-        color.blue().into(),
-        color.alpha().into(),
-    );
-    context.move_to(tip[0].0, tip[0].1);
-    context.line_to(tip[1].0, tip[1].1);
-    context.line_to(tip[2].0, tip[2].1);
-    context.close_path();
-    let _ = context.fill();
 }
 
 #[cfg(test)]

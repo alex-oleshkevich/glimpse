@@ -260,18 +260,14 @@ minimum, so a CSS floor silently overrides a smaller configured size.
 
 ## Blur
 
-`blur::Blur` asks the compositor to blur what lies behind chosen widgets of one window, through
-`ext-background-effect-v1`. With no protocol the surfaces stay opaque.
-
-**`sync` guards against its own reentrancy**: GTK can invoke `attach`/`detach` nested, and a
-`g_signal_emit` trampoline cannot unwind a Rust panic, so a double `RefCell` borrow is a whole
-process abort. **It borrows GTK's own Wayland connection**, so a protocol error on it kills GTK —
-the effect object exists only while blur is enabled **and** the window is mapped. **A shape is
-blurred only while at least half shown**: a blur cannot fade, so from zero it paints a blurred block
-before the content, and from full it leaves the finished content over a sharp background. **Corner
-radii are read from what GTK drew**, never duplicated from CSS, through the widget's last render
-node. **niri blurs a layer surface in xray mode** — the wallpaper, not the windows between — unless a
-`layer-rule` sets `background-effect { xray false; }`, which is the user's, not installed here.
+`blur::apply(window, enabled)` sets class `blurred` when enabled, GTK is 4.23.3 or newer and the
+compositor advertises blur; below that surfaces stay opaque. **A widget blurs only if a
+`window.blurred` rule gives it `backdrop-filter: blur(var(--gl-blur-radius))`**: GTK sends the region
+itself, so **glimpse never creates an effect object** — a second one is a protocol error on GTK's own
+connection, and the capability probe only reads. **The radius is a switch, not a strength**: GTK
+reports no region below 10px. **An ancestor with `opacity < 1` drops the region**, so a fade sets
+opacity on the blurred widget itself and a blur, which cannot fade, is gated at half shown. **niri blurs a layer surface in xray mode** unless a `layer-rule` sets
+`background-effect { xray false; }`, which is the user's, not installed here.
 
 ## Screenshot
 

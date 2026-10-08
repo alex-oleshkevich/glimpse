@@ -47,6 +47,7 @@
 
     --gl-radius: 0.95rem;
     --gl-blur-opacity: 60%;
+    --gl-blur-radius: 12px;
     --gl-duration: 150ms;
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
@@ -322,6 +323,10 @@
 .applet-popover__arrow--sideways {
     min-width: 0.6rem;
     min-height: 1.2rem;
+}
+
+.applet-popover__arrow-fill {
+    background-color: currentColor;
 }
 
 .applet-popover {
@@ -1593,6 +1598,7 @@ window.blurred {
 
 window.blurred .panel {
     background-color: color-mix(in srgb, var(--gl-panel) var(--gl-blur-opacity), transparent);
+    backdrop-filter: blur(var(--gl-blur-radius));
 }
 
 window.blurred .applet-popover__body {
@@ -1603,9 +1609,18 @@ window.blurred .applet-popover__arrow {
     color: color-mix(in srgb, var(--gl-surface) var(--gl-blur-opacity), transparent);
 }
 
+window.blurred.shown .applet-popover__body,
+window.blurred.shown .applet-popover__arrow-fill {
+    backdrop-filter: blur(var(--gl-blur-radius));
+}
+
 window.blurred .notification,
 window.blurred expandable.card {
     background-color: color-mix(in srgb, var(--gl-notification) var(--gl-blur-opacity), transparent);
+}
+
+window.blurred .notification-popup__entry > .notification {
+    backdrop-filter: blur(var(--gl-blur-radius));
 }
 
 window.blurred .notification-stack__strip {

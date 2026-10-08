@@ -10,7 +10,7 @@ use glimpse_services::{
     KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle,
     RemovableHandle, RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
 };
-use glimpse_widgets::blur::{Blur, Shape};
+use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -31,7 +31,6 @@ pub struct Panel {
     bar: glimpse_widgets::Panel,
     applets: Vec<Slot>,
     catcher: Rc<Catcher>,
-    blur: Blur,
 }
 
 struct Slot {
@@ -244,7 +243,6 @@ impl SimpleComponent for Panel {
             bar: bar.clone(),
             applets: Vec::new(),
             catcher: Catcher::new(Some(&config.monitor), config.position),
-            blur: Blur::attach(&window, move || vec![Shape::Surface(bar.clone().upcast())]),
         };
 
         model.apply(&config);
@@ -293,10 +291,12 @@ impl Panel {
         self.catcher.reconfigure(
             &config.monitor,
             config.position,
-            config.blur.contains(&BlurSurface::Popover),
+            glimpse_config::blurs(&config.blur, BlurSurface::Popover),
         );
-        self.blur
-            .set_enabled(config.blur.contains(&BlurSurface::Panel));
+        blur::apply(
+            &self.window,
+            glimpse_config::blurs(&config.blur, BlurSurface::Panel),
+        );
         self.reconcile_applets(config, orientation);
 
         tracing::debug!(

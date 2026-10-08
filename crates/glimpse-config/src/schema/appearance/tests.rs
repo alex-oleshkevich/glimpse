@@ -1,4 +1,4 @@
-use super::{Appearance, BlurSurface};
+use super::{Appearance, BlurSurface, blurs};
 
 #[test]
 fn blur_names_the_surfaces_it_applies_to() {
@@ -6,6 +6,22 @@ fn blur_names_the_surfaces_it_applies_to() {
         toml::from_str("blur = [\"panel\", \"notification\"]\n").expect("the surfaces parse");
 
     assert_eq!(parsed.blur, [BlurSurface::Panel, BlurSurface::Notification]);
+}
+
+#[test]
+fn blur_all_covers_every_surface_and_a_list_only_what_it_names() {
+    let all: Appearance = toml::from_str("blur = [\"all\"]\n").expect("all parses");
+    let some: Appearance = toml::from_str("blur = [\"panel\"]\n").expect("a list parses");
+
+    for surface in [
+        BlurSurface::Panel,
+        BlurSurface::Popover,
+        BlurSurface::Notification,
+    ] {
+        assert!(blurs(&all.blur, surface));
+        assert_eq!(blurs(&some.blur, surface), surface == BlurSurface::Panel);
+        assert!(!blurs(&[], surface));
+    }
 }
 
 #[test]

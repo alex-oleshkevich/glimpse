@@ -14,6 +14,7 @@ mod clipboard_list;
 mod clipboard_popover;
 mod color_list;
 mod color_picker_popover;
+mod connection;
 mod container;
 mod display_list;
 mod display_popover;
@@ -56,6 +57,7 @@ mod password_prompt;
 mod placeholder;
 mod places_popover;
 mod player_list;
+pub mod popover_arrow;
 mod popover_shell;
 mod power_popover;
 mod printing_popover;
@@ -114,7 +116,6 @@ pub use bluetooth_popover::{
     Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
     Line as BluetoothLine, Place as BluetoothPlace,
 };
-pub use blur::roundtrip;
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
@@ -122,6 +123,7 @@ pub use clipboard_list::{Actions as ClipActions, Clip, ClipAction, ClipboardList
 pub use clipboard_popover::ClipboardPopover;
 pub use color_list::{ColorList, Notation, Shade};
 pub use color_picker_popover::ColorPickerPopover;
+pub use connection::roundtrip;
 pub use container::{Container, Paint as ContainerPaint};
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
 pub use display_popover::{DisplayPopover, NightLight};
@@ -169,6 +171,7 @@ pub use password_prompt::{MessageKind, PasswordPrompt};
 pub use placeholder::Placeholder;
 pub use places_popover::{Entry as PlacesEntry, PlacesPopover, Trash as PlacesTrash};
 pub use player_list::{Player, PlayerList, PlayerRow};
+pub use popover_arrow::{PopoverArrow, Tip};
 pub use popover_shell::PopoverShell;
 pub use power_popover::{
     ChargeLimit as PowerChargeLimit, Device as PowerDevice, History as PowerHistory,

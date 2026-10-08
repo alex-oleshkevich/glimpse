@@ -107,6 +107,7 @@ fn widgets() {
     idle_popover_checks::check();
     session_popover_checks::check();
     swatch_checks::check();
+    popover_arrow_checks::check();
     color_list_checks::check();
     expandable_checks::check();
     popover_shell_checks::check();
@@ -128,6 +129,7 @@ fn widgets() {
     toggle_disabled_accessibility_check();
     footer_checks::check();
     expander_row_checks::geometry();
+    blur_checks::check();
 }
 
 fn held_display_readout_check() {
@@ -367,6 +369,7 @@ fn inhibitor(id: u64, label: &str, can_release: bool) -> InhibitorEntry {
 
 mod audio_popover_checks;
 mod bluetooth_popover_checks;
+mod blur_checks;
 mod calendar_checks;
 mod calendar_popover_checks;
 mod chart_checks;
@@ -401,6 +404,7 @@ mod pairing_dialog_checks;
 mod placeholder_checks;
 mod places_popover_checks;
 mod player_list_checks;
+mod popover_arrow_checks;
 mod popover_shell_checks;
 mod power_popover_checks;
 mod range_bar_checks;

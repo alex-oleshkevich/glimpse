@@ -85,8 +85,8 @@ holds a second layer surface over the whole output, and a bare one over every ot
 only while a popover is up, buying outside-click dismissal at the cost of hand-rolled placement and
 a drawn arrow. **A layer surface that paints nothing is never mapped and takes no click**, so each
 bare surface holds an empty `DrawingArea`. One catcher per panel means **one popover at a time is
-structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. **Blur is a region, not
-the surface** — `[appearance] blur` hands `glimpse_widgets::blur` the body and arrow, never the
+structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. **Blur is the body and the
+arrow, not the surface** — `[appearance] blur` puts `backdrop-filter` on both, never on the
 catcher's own window.
 
 `Applet::anchor` names a widget in the view; `placement()` keeps the arrow centred on the pressed

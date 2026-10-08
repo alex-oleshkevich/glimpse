@@ -19,7 +19,7 @@ use glimpse_services::{
     CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
 use glimpse_widgets::actions::ComponentActions;
-use glimpse_widgets::blur::{Blur, Shape};
+use glimpse_widgets::blur;
 use glimpse_widgets::{
     Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_icon,
     notification_image,
@@ -143,7 +143,6 @@ pub struct App {
     surface_edge: NotificationEdge,
     theme_watch: JoinHandle<()>,
     styles: Styles,
-    blur: Blur,
     input_region_pending: Rc<Cell<bool>>,
     input_region_cards: Rc<RefCell<Vec<NotificationCard>>>,
 }
@@ -203,11 +202,7 @@ impl SimpleComponent for App {
         let widgets = view_output!();
         let styles = Styles::install(scheme);
         let surface_edge = init.config.notifications.edge;
-        let blur = Blur::attach(&window, {
-            let stack = widgets.stack.clone();
-            move || cards(&stack)
-        });
-        blur.set_enabled(blurred(&init.config));
+        blur::apply(&window, blurred(&init.config));
         let model = Self {
             actions,
             root: window.clone(),
@@ -220,7 +215,6 @@ impl SimpleComponent for App {
             surface_edge,
             theme_watch,
             styles,
-            blur,
             input_region_pending: Rc::new(Cell::new(false)),
             input_region_cards: Rc::new(RefCell::new(Vec::new())),
         };
@@ -384,7 +378,7 @@ impl App {
             .set_variant(&self.config.appearance.theme_variant);
         self.styles
             .set_animation_speed(self.config.appearance.animation_speed);
-        self.blur.set_enabled(blurred(&self.config));
+        blur::apply(&self.root, blurred(&self.config));
         let delta = self.state.configure(self.config.notifications.clone());
         self.apply(delta, sender);
         if renamed {
@@ -855,14 +849,7 @@ fn anchors(edge: NotificationEdge) -> &'static [Edge] {
 }
 
 fn blurred(config: &Config) -> bool {
-    config.appearance.blur.contains(&BlurSurface::Notification)
-}
-
-fn cards(stack: &gtk4::Box) -> Vec<Shape> {
-    std::iter::successors(stack.first_child(), |entry| entry.next_sibling())
-        .filter_map(|entry| entry.first_child())
-        .map(Shape::Surface)
-        .collect()
+    glimpse_config::blurs(&config.appearance.blur, BlurSurface::Notification)
 }
 
 fn enclosing_rectangle(bounds: gtk4::graphene::Rect) -> cairo::RectangleInt {

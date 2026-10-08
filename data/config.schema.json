@@ -3463,7 +3463,7 @@
           "minimum": 0.0
         },
         "blur": {
-          "description": "Surfaces that blur whatever lies behind them, where the compositor offers\next-background-effect-v1; elsewhere they stay opaque. The strength of the blur is the\ncompositor's setting, not glimpse's. niri blurs a layer surface in xray mode unless told\notherwise, which shows the wallpaper rather than the windows under a popover or a\nnotification; `layer-rule { match namespace=\"^glimpse-(popover|notifications)$\";\nbackground-effect { xray false; } }` in the niri config changes that.",
+          "description": "Surfaces that blur whatever lies behind them, where the compositor offers\next-background-effect-v1 and GTK is 4.23.3 or newer; elsewhere they stay opaque. The\nstrength of the blur is the compositor's setting, not glimpse's. niri blurs a layer\nsurface in xray mode unless told otherwise, which shows the wallpaper rather than the\nwindows under a popover or a notification; `layer-rule { match\nnamespace=\"^glimpse-(popover|notifications)$\"; background-effect { xray false; } }` in the\nniri config changes that. `all` stands for `panel`, `popover` and `notification`.",
           "type": "array",
           "default": [],
           "items": {
@@ -3596,7 +3596,8 @@
       "enum": [
         "panel",
         "popover",
-        "notification"
+        "notification",
+        "all"
       ]
     },
     "Brightness": {

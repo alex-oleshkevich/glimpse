@@ -10,11 +10,12 @@ pub struct Appearance {
     pub theme_variant: String,
     pub color_scheme: ColorScheme,
     /// Surfaces that blur whatever lies behind them, where the compositor offers
-    /// ext-background-effect-v1; elsewhere they stay opaque. The strength of the blur is the
-    /// compositor's setting, not glimpse's. niri blurs a layer surface in xray mode unless told
-    /// otherwise, which shows the wallpaper rather than the windows under a popover or a
-    /// notification; `layer-rule { match namespace="^glimpse-(popover|notifications)$";
-    /// background-effect { xray false; } }` in the niri config changes that.
+    /// ext-background-effect-v1 and GTK is 4.23.3 or newer; elsewhere they stay opaque. The
+    /// strength of the blur is the compositor's setting, not glimpse's. niri blurs a layer
+    /// surface in xray mode unless told otherwise, which shows the wallpaper rather than the
+    /// windows under a popover or a notification; `layer-rule { match
+    /// namespace="^glimpse-(popover|notifications)$"; background-effect { xray false; } }` in the
+    /// niri config changes that. `all` stands for `panel`, `popover` and `notification`.
     pub blur: Vec<BlurSurface>,
     /// How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,
     /// and `0` turns animations off. Anything else below `0.1` is refused, because a fade that
@@ -61,6 +62,13 @@ pub enum BlurSurface {
     Panel,
     Popover,
     Notification,
+    All,
+}
+
+pub fn blurs(selected: &[BlurSurface], surface: BlurSurface) -> bool {
+    selected
+        .iter()
+        .any(|entry| *entry == BlurSurface::All || *entry == surface)
 }
 
 #[cfg(test)]
