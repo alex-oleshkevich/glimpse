@@ -1,8 +1,9 @@
 # glimpse-weather
 
-`glimpse-weather` owns geolocation and weather fetching independently of the panel. It starts the
-existing `Geolocation` service, injects its typed handle into the existing `Weather` service, and
-exports only `me.aresa.Glimpse.Weather1` on the session bus.
+`glimpse-weather` owns weather fetching independently of the panel. `Here` follows the settings
+daemon's geolocation property through an injected watch receiver; fixed coordinates and named
+places are independent of it. This process acquires no location and exports only
+`me.aresa.Glimpse.Weather1` on the session bus.
 
 The interface exposes one coherent `Snapshot` property plus `WatchPlace` and `Refresh`.
 `WatchPlace(kind, latitude, longitude, location)` uses kind `0` for here, kind `1` for fixed

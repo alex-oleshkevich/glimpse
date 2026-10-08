@@ -8,6 +8,7 @@ pub mod notifications;
 pub mod panel;
 pub mod run;
 pub mod session;
+pub mod settings;
 pub mod status;
 pub mod sunset;
 pub mod weather;
@@ -26,6 +27,7 @@ pub use notifications::{
 pub use panel::panel;
 pub use run::applets_run;
 pub use session::session_declare;
+pub use settings::{settings_mode, settings_resume, settings_status};
 pub use status::status;
 pub use sunset::{sunset_mode, sunset_status, sunset_temperature};
 pub use weather::{weather_refresh, weather_status};

@@ -23,6 +23,7 @@ mod calendar;
 mod clipboard;
 mod color_picker;
 mod compositor;
+mod desktop_mode;
 mod exec;
 mod geolocation;
 mod heartbeat;
@@ -75,6 +76,7 @@ pub use color_picker::{
     Dependencies as ColorPickerDependencies, Picked, PickedColor, Picker, PortalPicker,
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
+pub use desktop_mode::{DesktopMode, DesktopModeHandle, ModeDependencies, ModeWriter};
 pub use exec::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
     CalendarProps, Catalog as ExecCatalog, CheckButtonProps, ChoiceItem, ChoiceListProps,

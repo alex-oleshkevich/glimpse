@@ -12,7 +12,6 @@ use crate::{
     gamma::Gamma,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
-    services::solar::SolarHandle,
     subscription::Sub,
 };
 
@@ -102,7 +101,7 @@ pub enum Watch {
 }
 
 pub struct Dependencies {
-    pub solar: SolarHandle,
+    pub solar: watch::Receiver<Option<SolarStatus>>,
     pub gamma: Box<dyn Gamma>,
 }
 
@@ -143,7 +142,7 @@ impl NightLightHandle {
 
 pub struct NightLight {
     state: Publisher<NightLightState>,
-    solar: SolarHandle,
+    solar: watch::Receiver<Option<SolarStatus>>,
     gamma: Box<dyn Gamma>,
     config: Config,
     forced: Option<Schedule>,
@@ -182,7 +181,7 @@ impl Service for NightLight {
         if self.effective() == Schedule::Automatic {
             declared.push(Sub::watch(
                 Watch::Solar,
-                self.solar.subscribe(),
+                self.solar.clone(),
                 Event::Solar,
                 Event::Solar(None),
             ));
@@ -195,6 +194,7 @@ impl Service for NightLight {
         config: Self::Config,
         dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
+        let observed = dependencies.solar.borrow().clone();
         Ok(Self {
             state: ctx.publisher(),
             solar: dependencies.solar,
@@ -202,7 +202,7 @@ impl Service for NightLight {
             config,
             forced: None,
             manual: None,
-            observed: None,
+            observed,
             applied: None,
         })
     }
@@ -343,7 +343,6 @@ impl NightLight {
             Schedule::Automatic => self
                 .observed
                 .clone()
-                .or_else(|| self.solar.snapshot())
                 .map(|status| (status.phase, status.next_change)),
             Schedule::Schedule => Some(manual(self.config.start?, self.config.end?, now)),
         }
@@ -351,7 +350,7 @@ impl NightLight {
 
     fn missing(&self) -> &'static str {
         match self.effective() {
-            Schedule::Automatic => "there is no location fix yet",
+            Schedule::Automatic => "the settings provider has no solar phase",
             _ => "a schedule needs start-time and end-time, each written as HH:MM",
         }
     }

@@ -3,7 +3,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use super::*;
-use crate::{gamma::FakeGamma, service::ServiceRuntime, services::solar::Solar};
+use crate::gamma::FakeGamma;
 
 const NIGHT: u32 = 4200;
 
@@ -65,9 +65,7 @@ async fn harness(config: Config) -> Harness {
     let (events, inbox) = mpsc::channel(32);
     let cancel = CancellationToken::new();
     let buses = Buses::unavailable("no bus in tests");
-    let (solar_runtime, solar) =
-        ServiceRuntime::<Solar>::new(crate::NoConfig, buses.clone(), cancel.clone());
-    drop(solar_runtime);
+    let (_, solar) = watch::channel(None);
     let (health, health_rx) = watch::channel(ServiceState::Starting);
     let (published, state) = watch::channel(initial_state(&config));
     let ctx = Ctx::<NightLight>::new(events, &cancel, published, health, buses);
@@ -256,8 +254,26 @@ async fn automatic_without_a_fix_degrades_and_applies_nothing() {
     assert!(harness.gamma.applied().is_empty());
     assert_eq!(
         harness.reason().as_deref(),
-        Some("there is no location fix yet")
+        Some("the settings provider has no solar phase")
     );
+}
+
+#[tokio::test]
+async fn a_lost_solar_source_does_not_reuse_its_last_phase() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    let (source, state) = watch::channel(night(None));
+    harness.service.solar = state;
+    harness.feed(Input::Event(Event::Solar(night(None)))).await;
+    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+
+    drop(source);
+    harness.feed(Input::Event(Event::Solar(None))).await;
+    harness.at(at(23, 1)).await;
+
+    assert!(harness.service.observed.is_none());
+    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert_eq!(harness.gamma.resets(), 0);
+    assert!(harness.reason().is_some());
 }
 
 #[tokio::test]
@@ -503,7 +519,7 @@ async fn a_degraded_service_still_publishes_the_mode_in_force() {
     assert!(harness.state.borrow().overridden);
     assert_eq!(
         harness.reason().as_deref(),
-        Some("there is no location fix yet")
+        Some("the settings provider has no solar phase")
     );
 }
 

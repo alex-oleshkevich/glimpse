@@ -1,6 +1,26 @@
 use super::{Appearance, BlurSurface, blurs};
 
 #[test]
+fn auto_dark_defaults_to_auto_and_accepts_only_auto_or_system() {
+    assert_eq!(Appearance::default().auto_dark, super::AutoDark::Auto);
+    assert_eq!(
+        toml::from_str::<Appearance>("").unwrap().auto_dark,
+        super::AutoDark::Auto
+    );
+    for (value, expected) in [
+        ("auto", super::AutoDark::Auto),
+        ("system", super::AutoDark::System),
+    ] {
+        let parsed: Appearance = toml::from_str(&format!("auto-dark = {value:?}")).unwrap();
+        assert_eq!(parsed.auto_dark, expected);
+        assert_eq!(parsed.color_scheme, super::ColorScheme::Auto);
+    }
+    for value in ["solar", "off", "schedule"] {
+        assert!(toml::from_str::<Appearance>(&format!("auto-dark = {value:?}")).is_err());
+    }
+}
+
+#[test]
 fn blur_names_the_surfaces_it_applies_to() {
     let parsed: Appearance =
         toml::from_str("blur = [\"panel\", \"notification\"]\n").expect("the surfaces parse");

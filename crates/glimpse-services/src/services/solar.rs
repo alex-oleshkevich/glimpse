@@ -14,20 +14,7 @@ use crate::{
     service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SolarPhase {
-    Day,
-    Night,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SolarStatus {
-    pub phase: SolarPhase,
-    #[serde(default)]
-    pub next_change: Option<DateTime<Utc>>,
-}
+pub use glimpse_dbus::settings::{SolarPhase, SolarStatus};
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 

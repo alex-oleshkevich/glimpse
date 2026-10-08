@@ -57,8 +57,10 @@ runs one transient client per attempt, subscribed to `Location` **before** `Star
 arrives as that subscription's first item. Coordinates are **last known, not current** — a lost bus
 degrades the service without clearing the cache.
 
-**night light** — the tick period lives in its own subscription key, so crossing a transition window
-rebuilds the timer at the new cadence while the ramp position still comes from the clock. Release is
+**night light** — its solar input is an injected watch receiver, supplied by the settings provider's
+follower in sunset. Owner loss clears the observed phase and degrades automatic mode; manual
+schedules remain independent. The tick period lives in its own subscription key, so crossing a
+transition window rebuilds the timer at the new cadence while the ramp position still comes from the clock. Release is
 decided on the solar phase, not the computed value, since a ramp can round to `DAY` without meaning
 daylight — a manual override held at exactly `DAY` is the one exception.
 

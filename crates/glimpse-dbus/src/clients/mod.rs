@@ -49,6 +49,7 @@ pub mod portal_settings;
 pub mod power_profiles;
 pub mod screenshot_portal;
 pub mod sensor;
+pub mod settings;
 pub mod status_notifier_item;
 pub mod status_notifier_watcher;
 pub mod systemd1;

@@ -6,7 +6,7 @@ connections they run on.
 ## Contents
 
 - `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
-- `provider.rs` — `Exported`, the name-and-object lifecycle the three providers share
+- `provider.rs` — `Exported`, the name-and-object lifecycle providers share
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations; a
   Glimpse-owned provider's module also carries a typed handle and owned follower lifecycle
 - `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
@@ -55,11 +55,11 @@ activation passes those bytes.
 
 **`Exported` puts the object up before it asks for the name**, so a `Get` arriving between the two
 finds something behind it; a refused name takes the object back down. It owns export, `own_name`,
-re-emitting `snapshot` on every state or health change, and release on shutdown.
+re-emitting the interface's snapshot property on every state or health change, and release on shutdown.
 
-**A provider supplies two `watch::Receiver`s and a `Snapshot` impl, not a follow loop** —
-`Exported::serve` runs the loop and never interprets what it watches, so this crate still does not
-depend on `glimpse-services`.
+**A single-service provider supplies two `watch::Receiver`s and a `Snapshot` impl** —
+`Exported::serve` runs its loop. A provider owning several services supplies its change loop to
+`Exported::start`; neither helper interprets service state or depends on `glimpse-services`.
 
 **Backend proxies carry no policy** — a system-service module decodes what it answers, and what to
 do about it belongs to the service. A Glimpse-owned provider's client may additionally own its
@@ -103,9 +103,15 @@ signatures to check against.
 consumer. `clients/mod.rs` holds what more than one decoder needs — `optional_clean`, `epoch` — so a
 timestamp is never decoded twice.
 
-**A provider state carries decoded values, never the wire tuple.** `follow_provider` decodes once
-and every consumer shares the result; an undecodable snapshot is `unavailable` with the reason, the
-shape a dead provider already produces.
+**A provider state carries decoded values, never the wire tuple.** A follower decodes once and
+every consumer shares the result; an undecodable snapshot is unavailable, like a dead provider.
+The settings provider's `Solar` property is `(buxs)`: availability, phase (`0` unknown, `1` day,
+`2` night), the next boundary as UTC microseconds since the Unix epoch (`0` means no boundary),
+and an unavailable reason. Available states carry an empty reason. The solar follower clears its
+phase on invalid data, owner loss or bus loss and reads a fresh snapshot when an owner appears.
+`Geolocation` is `(bdds)`: fix presence, latitude and longitude in degrees, and an unavailable
+reason. Absent fixes use zero coordinates. A cached fix remains present with a nonempty reason
+when GeoClue degrades. The settings follower validates coordinates and clears them on owner or bus loss.
 
 **A follower's loss policy is chosen per provider.** Weather keeps its last reading marked `stale`,
 since an empty comeback must not strand the flag on nothing. Notifications and night light discard

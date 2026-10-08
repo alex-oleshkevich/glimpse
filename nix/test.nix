@@ -30,6 +30,7 @@ let
         machine.succeed("test -e /etc/systemd/user/glimpse-session.target")
         machine.succeed("test -e /run/current-system/sw/share/dbus-1/services/me.aresa.Glimpse.Idle.service")
         machine.succeed("test -e /run/current-system/sw/share/dbus-1/services/me.aresa.Glimpse.Shot.service")
+        machine.succeed("test -e /run/current-system/sw/share/dbus-1/services/me.aresa.Glimpse.Settings.service")
         machine.succeed("grep -q 'Screenshot=glimpse-shot' /etc/xdg/xdg-desktop-portal/niri-portals.conf")
         machine.succeed("grep -q 'Inhibit=glimpse' /etc/xdg/xdg-desktop-portal/glimpse-portals.conf")
         machine.succeed("test -x /run/wrappers/bin/unix_chkpwd")
@@ -45,7 +46,7 @@ let
         machine.succeed("cp /home/glimpse/.config/glimpse/config.toml /tmp/config-before")
 
     def session_checks(user):
-        for service in ["glimpse-panel", "glimpse-wallpaper", "glimpse-idle", "glimpse-notifications", "glimpse-lock"]:
+        for service in ["glimpse-panel", "glimpse-wallpaper", "glimpse-idle", "glimpse-notifications", "glimpse-lock", "glimpse-settings-daemon"]:
             machine.wait_until_succeeds(f"{user} systemctl --user is-active {service}.service", timeout=60)
         machine.succeed(f"{user} glimpse-lock check")
         shown = machine.succeed(f"{user} glimpsectl config show")

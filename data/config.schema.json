@@ -7,6 +7,7 @@
       "$ref": "#/$defs/Appearance",
       "default": {
         "animation-speed": 1.0,
+        "auto-dark": "auto",
         "blur": [],
         "color-scheme": "auto",
         "theme": "adwaita",
@@ -3462,6 +3463,10 @@
           "maximum": 10.0,
           "minimum": 0.0
         },
+        "auto-dark": {
+          "$ref": "#/$defs/AutoDark",
+          "default": "auto"
+        },
         "blur": {
           "description": "Surfaces that blur whatever lies behind them, where the compositor offers\next-background-effect-v1 and GTK is 4.23.3 or newer; elsewhere they stay opaque. The\nstrength of the blur is the compositor's setting, not glimpse's. niri blurs a layer\nsurface in xray mode unless told otherwise, which shows the wallpaper rather than the\nwindows under a popover or a notification; `layer-rule { match\nnamespace=\"^glimpse-(popover|notifications)$\"; background-effect { xray false; } }` in the\nniri config changes that. `all` stands for `panel`, `popover` and `notification`.",
           "type": "array",
@@ -3485,6 +3490,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "AutoDark": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "system"
+      ]
     },
     "Backdrop": {
       "description": "A second background surface, named `glimpse-backdrop`, shown only where the compositor has\nsomewhere to place it — niri's Overview, through a `place-within-backdrop` layer rule.",

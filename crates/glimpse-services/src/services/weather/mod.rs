@@ -7,13 +7,12 @@ use glimpse_dbus::weather::{
     WatchedPlace, WeatherAlert, WeatherStatus,
 };
 use glimpse_utils::clean;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
-    services::geolocation::GeolocationHandle,
     subscription::Sub,
 };
 
@@ -179,7 +178,7 @@ impl WeatherHandle {
 
 #[derive(Clone)]
 pub struct WeatherDependencies {
-    pub geolocation: GeolocationHandle,
+    pub geolocation: watch::Receiver<Option<GeoCoordinates>>,
 }
 
 fn initial_state(config: &Config) -> WeatherStatus {
@@ -255,7 +254,7 @@ pub struct Reading {
 
 pub struct Weather {
     status: Publisher<WeatherStatus>,
-    location: GeolocationHandle,
+    location: watch::Receiver<Option<GeoCoordinates>>,
     client: Option<reqwest::Client>,
     config: Config,
     watched: Vec<Lease>,
@@ -291,8 +290,8 @@ impl Service for Weather {
         if self.wants_here() {
             declared.push(Sub::watch(
                 Watch::Location,
-                self.location.subscribe(),
-                |data| Event::Located(data.coordinates),
+                self.location.clone(),
+                Event::Located,
                 Event::Located(None),
             ));
         }

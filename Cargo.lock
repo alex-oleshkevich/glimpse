@@ -1518,6 +1518,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-settings-daemon"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "gio",
+ "glib",
+ "glimpse-config",
+ "glimpse-dbus",
+ "glimpse-services",
+ "glimpse-utils",
+ "tokio",
+ "tracing",
+ "zbus",
+]
+
+[[package]]
 name = "glimpse-shot"
 version = "0.16.0"
 dependencies = [

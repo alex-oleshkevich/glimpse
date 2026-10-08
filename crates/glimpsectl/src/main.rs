@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use glimpse_utils::init_app_tracing;
 use glimpsectl::cli::{
     AppletsCommand, Cli, ClipboardCommand, Command, ConfigCommand, IdleCommand,
-    NotificationsCommand, SessionCommand, SunsetCommand, WeatherCommand,
+    NotificationsCommand, SessionCommand, SettingsCommand, SunsetCommand, WeatherCommand,
 };
 use glimpsectl::errors::Exit;
 use glimpsectl::{cli, commands, errors};
@@ -54,6 +54,13 @@ async fn run(cli: Cli) -> Result<()> {
             commands::weather_status(bus()?, cli.json).await
         }
         Command::Weather(WeatherCommand::Refresh) => commands::weather_refresh(bus()?).await,
+        Command::Settings(SettingsCommand::Status) => {
+            commands::settings_status(bus()?, cli.json).await
+        }
+        Command::Settings(SettingsCommand::Mode { mode }) => {
+            commands::settings_mode(bus()?, mode).await
+        }
+        Command::Settings(SettingsCommand::Resume) => commands::settings_resume(bus()?).await,
         Command::Notifications(NotificationsCommand::List) => {
             commands::notifications_list(bus()?, cli.json).await
         }

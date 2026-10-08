@@ -22,6 +22,22 @@ fn json_is_accepted_after_the_subcommand() {
 }
 
 #[test]
+fn settings_accepts_status_two_modes_and_resume() {
+    for args in [
+        vec!["status", "--json"],
+        vec!["mode", "light"],
+        vec!["mode", "dark"],
+        vec!["resume"],
+    ] {
+        let cli = Cli::try_parse_from(["glimpsectl", "settings"].into_iter().chain(args)).unwrap();
+        assert!(cli.command.needs_session_bus());
+    }
+    for mode in ["auto", "system", "schedule"] {
+        assert!(Cli::try_parse_from(["glimpsectl", "settings", "mode", mode]).is_err());
+    }
+}
+
+#[test]
 fn every_mode_spells_itself_the_way_the_document_does() {
     assert_eq!(Mode::Off.as_str(), "off");
     assert_eq!(Mode::Automatic.as_str(), "automatic");

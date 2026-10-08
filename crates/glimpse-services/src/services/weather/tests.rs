@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::*;
 
-use crate::{ServiceState, service::ServiceRuntime, services::geolocation::Geolocation};
+use crate::ServiceState;
 
 enum Asked {
     Watch(WatchedPlace),
@@ -38,12 +38,7 @@ async fn harness() -> Harness {
 async fn harness_with(config: Config) -> Harness {
     let (events, inbox) = mpsc::channel(32);
     let cancel = CancellationToken::new();
-    let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-        <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
-        Buses::unavailable("no bus in tests"),
-        cancel.clone(),
-    );
-    drop(location_runtime);
+    let (_, location) = tokio::sync::watch::channel(None);
     let (health, health_rx) = tokio::sync::watch::channel(ServiceState::Starting);
     let (state, _state_rx) = tokio::sync::watch::channel(initial_state(&config));
     let ctx = Ctx::<Weather>::new(
@@ -154,6 +149,36 @@ fn an_alert(headline: &str) -> WeatherAlert {
         starts_at: None,
         expires_at: None,
     }
+}
+
+#[tokio::test]
+async fn here_follows_shared_location_snapshots_changes_and_loss() {
+    let mut harness = harness().await;
+    let initial = fix(52.0, 21.0);
+    let (updates, location) = tokio::sync::watch::channel(Some(initial.clone()));
+    harness.service.location = location;
+    harness.service.client = None;
+    call(&mut harness, Asked::Watch(WatchedPlace::Here))
+        .await
+        .unwrap();
+    let mut live = crate::subscription::Live::new();
+    live.reconcile(&harness.ctx, harness.service.subscriptions());
+    for expected in [Some(initial), Some(fix(51.5, -0.1)), None] {
+        updates.send_replace(expected.clone());
+        let input = tokio::time::timeout(Duration::from_secs(3), harness._inbox.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(&input, Input::Event(Event::Located(fix)) if fix == &expected));
+        harness.service.handle(&harness.ctx, input).await;
+        assert_eq!(harness.service.fix, expected);
+    }
+    drop(updates);
+    let input = tokio::time::timeout(Duration::from_secs(3), harness._inbox.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(input, Input::Event(Event::Located(None))));
 }
 
 mod alerts;

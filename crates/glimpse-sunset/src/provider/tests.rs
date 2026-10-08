@@ -111,7 +111,7 @@ async fn introspection_and_the_typed_property_match_the_frozen_interface() {
     let night_task = tokio::spawn(async move {
         night_runtime
             .run(NightLightDependencies {
-                solar,
+                solar: solar.subscribe(),
                 gamma: Box::new(FakeGamma::default()),
             })
             .await
@@ -214,7 +214,7 @@ async fn set_temperature_refuses_out_of_range_and_sets_the_manual_flag_in_range(
     let night_task = tokio::spawn(async move {
         night_runtime
             .run(NightLightDependencies {
-                solar,
+                solar: solar.subscribe(),
                 gamma: Box::new(FakeGamma::default()),
             })
             .await

@@ -3,14 +3,15 @@ use std::fmt;
 use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
-use glimpse_services::{Geolocation, Running, Weather, WeatherDependencies, WeatherHandle};
+use glimpse_dbus::settings::SettingsProvider;
+use glimpse_services::{Running, Weather, WeatherDependencies, WeatherHandle};
 
 use crate::provider;
 
 pub struct WeatherServices {
     pub weather: WeatherHandle,
     weather_service: Running<Weather>,
-    location_service: Running<Geolocation>,
+    location: SettingsProvider,
     provider: Option<provider::Runtime>,
 }
 
@@ -22,7 +23,7 @@ impl WeatherServices {
             .cloned()
             .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
             .context("weather provider needs the session bus")?;
-        let mut services = Self::start_with_buses(document, buses);
+        let mut services = Self::start_with_buses(document, buses, session.clone());
         match provider::start(session, services.weather.clone()).await {
             Ok(provider) => services.provider = Some(provider),
             Err(error) => {
@@ -33,13 +34,13 @@ impl WeatherServices {
         Ok(services)
     }
 
-    fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (location_service, location) = Running::spawn(document, buses.clone(), ());
+    fn start_with_buses(document: &Config, buses: Buses, session: zbus::Connection) -> Self {
+        let location = SettingsProvider::start(session);
         let (weather_service, weather) = Running::spawn(
             document,
             buses,
             WeatherDependencies {
-                geolocation: location,
+                geolocation: location.subscribe_location(),
             },
         );
 
@@ -47,13 +48,12 @@ impl WeatherServices {
         Self {
             weather,
             weather_service,
-            location_service,
+            location,
             provider: None,
         }
     }
 
     pub fn reconfigure(&self, document: &Config) {
-        self.location_service.reconfigure(document);
         self.weather_service.reconfigure(document);
     }
 
@@ -64,13 +64,12 @@ impl WeatherServices {
             provider.shutdown().await;
         }
         self.weather_service.stop().await;
-        self.location_service.stop().await;
+        self.location.shutdown().await;
         tracing::info!("weather service graph stopped");
     }
 
     fn cancel(&self) {
         self.weather_service.cancel();
-        self.location_service.cancel();
     }
 }
 

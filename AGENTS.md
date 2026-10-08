@@ -1,8 +1,8 @@
 # glimpse
 
 A desktop shell suite for Wayland (niri first, Hyprland second): panel, wallpaper, lock screen, plus
-standalone providers (notifications, weather, night light, idle) behind typed D-Bus names. No daemon:
-`glimpse-panel` owns its services in-process. When unsure, ask "who owns this state?".
+standalone providers (settings, notifications, weather, night light, idle) behind typed D-Bus names.
+Each binary owns its services in-process. When unsure, ask "who owns this state?".
 
 Details, reasons and measured facts live in `docs/` — read the relevant file before working there:
 

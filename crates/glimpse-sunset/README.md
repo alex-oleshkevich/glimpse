@@ -19,9 +19,10 @@ overrides the temperature it runs at.
 The state machine is **not here**: `glimpse-services/src/services/night_light.rs` holds the whole
 schedule and both ramps, testable without a compositor against `FakeGamma`. This crate supplies only
 the implementation of `trait Gamma` that talks to a real compositor, and a composition root. The
-schedule itself comes from `solar`, which publishes `phase` and `next_change` for the night light to
-ramp toward; `[night-light] schedule = "schedule"` is the manual alternative, computed from
-`start-time`/`end-time` in the machine's own zone.
+automatic schedule follows the settings daemon's `Solar` property, which publishes `phase` and
+`next_change`; sunset acquires no location and runs no solar calculation.
+`[night-light] schedule = "schedule"` is the manual alternative, computed from `start-time`/`end-time`
+in the machine's own zone.
 
 ## Rules
 

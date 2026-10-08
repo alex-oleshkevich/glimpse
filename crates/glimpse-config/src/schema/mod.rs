@@ -31,7 +31,7 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use appearance::{Appearance, BlurSurface, ColorScheme, blurs};
+pub use appearance::{Appearance, AutoDark, BlurSurface, ColorScheme, blurs};
 pub use applets::{
     Applet, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig, Chip as SystemMonitorChip,
     Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,

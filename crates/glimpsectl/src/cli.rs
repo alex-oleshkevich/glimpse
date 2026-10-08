@@ -50,6 +50,12 @@ pub enum Command {
     #[command(subcommand, about = "Current conditions and the forecast")]
     Weather(WeatherCommand),
 
+    #[command(
+        subcommand,
+        about = "Location, solar phase and desktop light/dark mode"
+    )]
+    Settings(SettingsCommand),
+
     #[command(subcommand, about = "The notification store")]
     Notifications(NotificationsCommand),
 
@@ -202,6 +208,31 @@ pub enum WeatherCommand {
 
     #[command(about = "Fetch now instead of waiting for the next poll")]
     Refresh,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SettingsCommand {
+    #[command(about = "Print location, solar phase and desktop mode status")]
+    Status,
+    #[command(about = "Hold light or dark mode until resume or daemon shutdown")]
+    Mode { mode: DesktopMode },
+    #[command(about = "Release the temporary mode and follow the configured policy")]
+    Resume,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum DesktopMode {
+    Light,
+    Dark,
+}
+
+impl From<DesktopMode> for glimpse_dbus::settings::Mode {
+    fn from(mode: DesktopMode) -> Self {
+        match mode {
+            DesktopMode::Light => Self::Light,
+            DesktopMode::Dark => Self::Dark,
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]

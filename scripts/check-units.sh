@@ -30,7 +30,7 @@ fi
 if grep -E '^PartOf=' "$lock" | grep -qv '^PartOf=graphical-session.target$'; then
     echo "$lock: PartOf= anything but graphical-session.target can stop the locker mid-lock"; exit 1
 fi
-members="glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications"
+members="glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-settings-daemon"
 target=data/systemd/glimpse-session.target
 for member in $members; do
     unit="data/systemd/$member.service"

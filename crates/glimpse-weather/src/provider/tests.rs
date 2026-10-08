@@ -2,7 +2,7 @@ use glimpse_dbus::testing::PrivateBus;
 
 use super::*;
 use glimpse_dbus::{Buses, weather::Weather1Proxy};
-use glimpse_services::{Geolocation, Service, ServiceRuntime, Weather, WeatherDependencies};
+use glimpse_services::{Service, ServiceRuntime, Weather, WeatherDependencies};
 use tokio_util::sync::CancellationToken;
 
 #[test]
@@ -52,12 +52,7 @@ async fn introspection_and_typed_methods_match_the_frozen_interface() {
     let bus = PrivateBus::start();
     let cancel = CancellationToken::new();
     let buses = Buses::unavailable("no backend bus in test");
-    let (mut location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-        <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
-        buses.clone(),
-        cancel.child_token(),
-    );
-    let location_task = tokio::spawn(async move { location_runtime.run(()).await });
+    let (_, location) = tokio::sync::watch::channel(None);
     let (mut weather_runtime, weather) = ServiceRuntime::<Weather>::new(
         <Weather as Service>::Config::from(&glimpse_config::Config::default()),
         buses,
@@ -121,5 +116,4 @@ async fn introspection_and_typed_methods_match_the_frozen_interface() {
     provider.shutdown().await;
     cancel.cancel();
     weather_task.await.unwrap().unwrap();
-    location_task.await.unwrap().unwrap();
 }

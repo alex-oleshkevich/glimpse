@@ -8,9 +8,6 @@ use zbus::object_server::{Interface, SignalEmitter};
 
 use crate::own_name;
 
-/// A provider interface whose whole public surface is one `snapshot` property. Implementing it is
-/// three lines forwarding to the `snapshot_changed` zbus generates, and it is what lets `Exported`
-/// own the re-emit loop instead of every provider writing it again.
 pub trait Snapshot: Interface {
     fn emit_snapshot_changed(
         &self,

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=me.aresa.Glimpse.Settings
+Exec=/usr/bin/glimpse-settings-daemon
+SystemdService=glimpse-settings-daemon.service

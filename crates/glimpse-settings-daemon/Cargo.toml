@@ -1,0 +1,24 @@
+[package]
+name = "glimpse-settings-daemon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+futures-util.workspace = true
+gio.workspace = true
+glib.workspace = true
+glimpse-config.workspace = true
+glimpse-dbus.workspace = true
+glimpse-services.workspace = true
+glimpse-utils.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+glimpse-dbus = { workspace = true, features = ["testing"] }

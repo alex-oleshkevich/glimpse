@@ -63,7 +63,7 @@ case "$distro" in
         ;;
 esac
 
-for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot; do
+for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon; do
     test -x "/usr/bin/$binary"
     "/usr/bin/$binary" --version >/dev/null
     if ldd "/usr/bin/$binary" | grep -q 'not found'; then
@@ -72,7 +72,7 @@ for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-su
     fi
 done
 
-for file in /usr/bin/glimpse-dpms /usr/share/glimpse/config.default.toml /usr/share/glimpse/config.commented.toml /usr/share/glimpse/config.schema.json /usr/share/glimpse/themes/adwaita/default.jpg /usr/share/glimpse/sdk/template/index.tsx /usr/share/locale/ru/LC_MESSAGES/glimpse.mo /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /etc/geoclue/conf.d/glimpse.conf /etc/pam.d/glimpse-lock; do
+for file in /usr/bin/glimpse-dpms /usr/share/glimpse/config.default.toml /usr/share/glimpse/config.commented.toml /usr/share/glimpse/config.schema.json /usr/share/glimpse/themes/adwaita/default.jpg /usr/share/glimpse/sdk/template/index.tsx /usr/share/locale/ru/LC_MESSAGES/glimpse.mo /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /etc/geoclue/conf.d/glimpse.conf /etc/pam.d/glimpse-lock /usr/lib/systemd/user/glimpse-settings-daemon.service /usr/share/dbus-1/services/me.aresa.Glimpse.Settings.service; do
     test -e "$file"
 done
 
@@ -93,7 +93,7 @@ case "$distro" in
     opensuse) zypper --non-interactive remove glimpse ;;
 esac
 
-for file in /usr/bin/glimpsectl /usr/bin/glimpse-panel /usr/bin/glimpse-lock /usr/bin/glimpse-dpms /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /usr/share/glimpse/config.default.toml; do
+for file in /usr/bin/glimpsectl /usr/bin/glimpse-panel /usr/bin/glimpse-lock /usr/bin/glimpse-dpms /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /usr/share/glimpse/config.default.toml /usr/bin/glimpse-settings-daemon /usr/lib/systemd/user/glimpse-settings-daemon.service /usr/share/dbus-1/services/me.aresa.Glimpse.Settings.service; do
     test ! -e "$file"
 done
 cmp /tmp/glimpse-config-before /root/.config/glimpse/config.toml

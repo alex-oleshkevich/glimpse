@@ -17,12 +17,12 @@ nix_flags=(--extra-experimental-features 'nix-command flakes')
 build_flags=(--option sandbox false --option system-features 'kvm nixos-test' --option cores 2 --option max-jobs 1)
 output="$(nix "${nix_flags[@]}" build 'path:/src#default' --no-link --print-out-paths "${build_flags[@]}")"
 
-for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot; do
+for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather glimpse-idle glimpse-lens glimpse-shot glimpse-settings-daemon; do
     test -x "$output/bin/$binary"
     "$output/bin/$binary" --version >/dev/null
 done
 
-for file in "$output/bin/glimpse-dpms" "$output/share/glimpse/config.default.toml" "$output/share/glimpse/config.commented.toml" "$output/share/glimpse/config.schema.json" "$output/share/glimpse/themes/adwaita/default.jpg" "$output/share/glimpse/sdk/template/index.tsx" "$output/share/locale/ru/LC_MESSAGES/glimpse.mo" "$output/lib/systemd/user/glimpse-session.target" "$output/share/dbus-1/services/me.aresa.Glimpse.Idle.service" "$output/share/xdg-desktop-portal/portals/glimpse.portal" "$output/share/xdg-desktop-portal/portals/glimpse-shot.portal" "$output/share/dbus-1/services/me.aresa.Glimpse.Shot.service" "$output/share/applications/me.aresa.Glimpse.Shot.desktop" "$output/lib/systemd/user/glimpse-desktop.service"; do
+for file in "$output/bin/glimpse-dpms" "$output/share/glimpse/config.default.toml" "$output/share/glimpse/config.commented.toml" "$output/share/glimpse/config.schema.json" "$output/share/glimpse/themes/adwaita/default.jpg" "$output/share/glimpse/sdk/template/index.tsx" "$output/share/locale/ru/LC_MESSAGES/glimpse.mo" "$output/lib/systemd/user/glimpse-session.target" "$output/share/dbus-1/services/me.aresa.Glimpse.Idle.service" "$output/share/xdg-desktop-portal/portals/glimpse.portal" "$output/share/xdg-desktop-portal/portals/glimpse-shot.portal" "$output/share/dbus-1/services/me.aresa.Glimpse.Shot.service" "$output/share/applications/me.aresa.Glimpse.Shot.desktop" "$output/lib/systemd/user/glimpse-desktop.service" "$output/lib/systemd/user/glimpse-settings-daemon.service" "$output/share/dbus-1/services/me.aresa.Glimpse.Settings.service"; do
     test -e "$file"
 done
 

@@ -9,6 +9,7 @@ pub struct Appearance {
     /// `-` and `_` only, not starting with a digit; anything else is ignored with a warning.
     pub theme_variant: String,
     pub color_scheme: ColorScheme,
+    pub auto_dark: AutoDark,
     /// Surfaces that blur whatever lies behind them, where the compositor offers
     /// ext-background-effect-v1 and GTK is 4.23.3 or newer; elsewhere they stay opaque. The
     /// strength of the blur is the compositor's setting, not glimpse's. niri blurs a layer
@@ -32,6 +33,7 @@ impl Default for Appearance {
             theme: "adwaita".to_owned(),
             theme_variant: String::new(),
             color_scheme: ColorScheme::Auto,
+            auto_dark: AutoDark::Auto,
             blur: Vec::new(),
             animation_speed: 1.0,
         }
@@ -54,6 +56,19 @@ pub enum ColorScheme {
     Light,
     Dark,
     Auto,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum AutoDark {
+    Auto,
+    System,
+}
+
+impl From<&crate::Config> for AutoDark {
+    fn from(document: &crate::Config) -> Self {
+        document.appearance.auto_dark
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

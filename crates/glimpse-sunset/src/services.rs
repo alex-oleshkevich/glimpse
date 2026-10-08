@@ -3,16 +3,14 @@ use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::actions::{self, ActionsHandle};
 use glimpse_dbus::night_light::GLIMPSE_NIGHT_LIGHT_OBJECT_PATH;
-use glimpse_services::{
-    Geolocation, NightLight, NightLightDependencies, Running, Solar, SolarDependencies,
-};
+use glimpse_dbus::settings::SettingsProvider;
+use glimpse_services::{NightLight, NightLightDependencies, Running};
 
 use crate::gamma::WaylandGamma;
 use crate::provider;
 
 pub struct SunsetServices {
-    location_service: Running<Geolocation>,
-    solar_service: Running<Solar>,
+    solar: SettingsProvider,
     night_service: Running<NightLight>,
     /// `Option` only so `shutdown` can move it out of a type that also implements `Drop`.
     provider: Option<provider::Runtime>,
@@ -33,8 +31,6 @@ impl SunsetServices {
             .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
             .context("the night light provider needs the session bus")?;
 
-        let (location_pending, location) = Running::<Geolocation>::build(document, buses.clone());
-        let (solar_pending, solar) = Running::<Solar>::build(document, buses.clone());
         let (night_pending, night_light) = Running::<NightLight>::build(document, buses);
 
         let actions = match actions::serve(
@@ -62,19 +58,15 @@ impl SunsetServices {
             .map_err(anyhow::Error::msg)
             .context("cannot take gamma control")?;
 
-        let location_service = location_pending.start(());
-        let solar_service = solar_pending.start(SolarDependencies {
-            geolocation: location,
-        });
+        let solar = SettingsProvider::start(session);
         let night_service = night_pending.start(NightLightDependencies {
-            solar,
+            solar: solar.subscribe(),
             gamma: Box::new(gamma),
         });
 
         tracing::info!("night light service graph started");
         Ok(Self {
-            location_service,
-            solar_service,
+            solar,
             night_service,
             provider: Some(provider),
             actions,
@@ -82,7 +74,6 @@ impl SunsetServices {
     }
 
     pub fn reconfigure(&self, document: &Config) {
-        self.location_service.reconfigure(document);
         self.night_service.reconfigure(document);
     }
 
@@ -106,11 +97,8 @@ impl SunsetServices {
             provider.shutdown().await;
         }
         self.night_service.cancel();
-        self.solar_service.cancel();
-        self.location_service.cancel();
         self.night_service.stop().await;
-        self.solar_service.stop().await;
-        self.location_service.stop().await;
+        self.solar.shutdown().await;
         tracing::info!("night light service graph stopped");
     }
 }
