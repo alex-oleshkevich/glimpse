@@ -1,0 +1,391 @@
+use std::cell::Cell;
+use std::rc::Rc;
+
+use glimpse_config::ColorFormat;
+use glimpse_widgets::{Lens, Swatch, rgba, zoomed};
+use gtk4::{gdk, glib, prelude::*};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+
+use glimpse_wayland::capture::{Frame, Layout};
+
+use crate::{MAX_RADIUS, MAX_ZOOM, MIN_RADIUS};
+
+const PILL_GAP: f64 = 10.0;
+const RADIUS_STEP: f32 = 12.0;
+
+fn resized(radius: f32, notches: f64) -> f32 {
+    let next = if notches < 0.0 {
+        radius + RADIUS_STEP
+    } else if notches > 0.0 {
+        radius - RADIUS_STEP
+    } else {
+        radius
+    };
+    next.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Settings {
+    pub format: Option<ColorFormat>,
+    pub radius: f32,
+    pub zoom: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    Picked([u8; 3]),
+    Cancelled,
+}
+
+struct Surface {
+    monitor: gdk::Monitor,
+    window: gtk4::Window,
+    lens: Lens,
+    layer: gtk4::Fixed,
+    pill: gtk4::Box,
+    swatch: Swatch,
+    value: gtk4::Label,
+    size: Cell<(f64, f64)>,
+    frame: Frame,
+}
+
+pub struct Session {
+    surfaces: Rc<Vec<Surface>>,
+    invalidated: Vec<(gdk::Monitor, glib::SignalHandlerId)>,
+}
+
+impl Session {
+    pub fn open(
+        mut frames: Vec<Frame>,
+        settings: Settings,
+        done: impl Fn(Outcome) + 'static,
+    ) -> Result<Self, String> {
+        let display = gdk::Display::default().ok_or_else(|| "the display".to_owned())?;
+        let zoom = Rc::new(Cell::new(settings.zoom));
+        let radius = Rc::new(Cell::new(
+            settings.radius.clamp(MIN_RADIUS as f32, MAX_RADIUS as f32),
+        ));
+        let mut surfaces: Vec<Surface> = Vec::new();
+        for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {
+            let connector = monitor
+                .connector()
+                .map(|name| name.to_string())
+                .unwrap_or_default();
+
+            let Some(index) = frames.iter().position(|frame| frame.connector == connector) else {
+                for surface in &surfaces {
+                    surface.window.destroy();
+                }
+                return Err(format!("output {connector:?}"));
+            };
+
+            surfaces.push(surface(&monitor, frames.swap_remove(index), settings));
+        }
+        if surfaces.is_empty() {
+            return Err("any output".to_owned());
+        }
+
+        let surfaces = Rc::new(surfaces);
+        let finished = Cell::new(false);
+        let finish: Rc<dyn Fn(Outcome)> = Rc::new(move |outcome| {
+            if !finished.replace(true) {
+                done(outcome);
+            }
+        });
+
+        for index in 0..surfaces.len() {
+            connect(
+                &surfaces,
+                index,
+                zoom.clone(),
+                radius.clone(),
+                settings,
+                finish.clone(),
+            );
+        }
+
+        let mut invalidated = Vec::new();
+        for surface in surfaces.iter() {
+            let handler = surface.monitor.connect_invalidate({
+                let finish = finish.clone();
+                move |_| finish(Outcome::Cancelled)
+            });
+            invalidated.push((surface.monitor.clone(), handler));
+            surface.window.present();
+        }
+
+        Ok(Self {
+            surfaces,
+            invalidated,
+        })
+    }
+
+    pub fn close(self) {
+        for (monitor, handler) in self.invalidated {
+            monitor.disconnect(handler);
+        }
+        for surface in self.surfaces.iter() {
+            surface.window.destroy();
+        }
+    }
+}
+
+fn surface(monitor: &gdk::Monitor, frame: Frame, settings: Settings) -> Surface {
+    let window = gtk4::Window::new();
+    window.init_layer_shell();
+    window.set_namespace(Some("glimpse-lens"));
+    window.set_layer(Layer::Overlay);
+    window.set_keyboard_mode(KeyboardMode::Exclusive);
+    window.set_exclusive_zone(-1);
+    window.set_monitor(Some(monitor));
+    for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+        window.set_anchor(edge, true);
+    }
+
+    window.add_css_class("picker");
+    window.set_cursor(gdk::Cursor::from_name("none", None).as_ref());
+
+    let texture: gdk::Texture = gdk::MemoryTexture::new(
+        frame.width as i32,
+        frame.height as i32,
+        match frame.layout {
+            Layout::Rgbx => gdk::MemoryFormat::R8g8b8x8,
+            Layout::Bgrx => gdk::MemoryFormat::B8g8r8x8,
+        },
+        &frame.pixels,
+        frame.width as usize * 4,
+    )
+    .upcast();
+    let lens = Lens::new(
+        &texture,
+        (frame.width, frame.height),
+        settings.zoom,
+        settings.radius,
+    );
+    let swatch = Swatch::default();
+    swatch.add_css_class("picker__swatch");
+    swatch.set_valign(gtk4::Align::Center);
+
+    let value = gtk4::Label::new(None);
+    value.add_css_class("picker__value");
+
+    let pill = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+    pill.add_css_class("picker__pill");
+    pill.set_visible(false);
+    pill.append(&swatch);
+    pill.append(&value);
+
+    let layer = gtk4::Fixed::new();
+    layer.set_can_target(false);
+    layer.put(&pill, 0.0, 0.0);
+
+    let overlay = gtk4::Overlay::new();
+    overlay.set_child(Some(&lens));
+    overlay.add_overlay(&layer);
+    window.set_child(Some(&overlay));
+
+    Surface {
+        monitor: monitor.clone(),
+        window,
+        lens,
+        layer,
+        pill,
+        swatch,
+        value,
+        size: Cell::new((0.0, 0.0)),
+        frame,
+    }
+}
+
+fn dress(surface: &Surface, settings: Settings, radius: f32) {
+    let Some(format) = settings.format else {
+        surface.pill.set_visible(false);
+        return;
+    };
+    let Some((x, y)) = surface.lens.pointer() else {
+        surface.pill.set_visible(false);
+        return;
+    };
+    let (column, row) = surface.lens.pixel();
+    let color = surface.frame.pixel(column, row);
+    surface.swatch.set_color(Some(&rgba(color)));
+
+    let text = format.render(color);
+    surface.pill.set_visible(true);
+
+    if surface.value.text() != text {
+        surface.value.set_text(&text);
+        let (_, width, _, _) = surface.pill.measure(gtk4::Orientation::Horizontal, -1);
+        let (_, height, _, _) = surface.pill.measure(gtk4::Orientation::Vertical, width);
+        surface.size.set((f64::from(width), f64::from(height)));
+    }
+    let (left, top) = pill_origin(
+        (x, y),
+        f64::from(radius),
+        surface.size.get(),
+        (
+            f64::from(surface.lens.width()),
+            f64::from(surface.lens.height()),
+        ),
+    );
+    surface.layer.move_(&surface.pill, left, top);
+}
+
+fn pill_origin(pointer: (f64, f64), radius: f64, pill: (f64, f64), area: (f64, f64)) -> (f64, f64) {
+    let below = pointer.1 + radius + PILL_GAP;
+    let top = match below + pill.1 > area.1 {
+        true => pointer.1 - radius - PILL_GAP - pill.1,
+        false => below,
+    };
+    let left = (pointer.0 - pill.0 / 2.0).clamp(0.0, (area.0 - pill.0).max(0.0));
+    (left.round(), top.max(0.0).round())
+}
+
+fn connect(
+    surfaces: &Rc<Vec<Surface>>,
+    index: usize,
+    zoom: Rc<Cell<u32>>,
+    radius: Rc<Cell<f32>>,
+    settings: Settings,
+    finish: Rc<dyn Fn(Outcome)>,
+) {
+    let surface = &surfaces[index];
+    let weak = Rc::downgrade(surfaces);
+
+    let motion = gtk4::EventControllerMotion::new();
+    motion.connect_enter({
+        let weak = weak.clone();
+        let radius = radius.clone();
+        move |_, x, y| moved(&weak, index, x, y, settings, radius.get())
+    });
+    motion.connect_motion({
+        let weak = weak.clone();
+        let radius = radius.clone();
+        move |_, x, y| moved(&weak, index, x, y, settings, radius.get())
+    });
+    motion.connect_leave({
+        let weak = weak.clone();
+        let radius = radius.clone();
+        move |_| {
+            if let Some(surfaces) = weak.upgrade() {
+                surfaces[index].lens.leave();
+                dress(&surfaces[index], settings, radius.get());
+            }
+        }
+    });
+    surface.lens.add_controller(motion);
+
+    let click = gtk4::GestureClick::new();
+    click.set_button(0);
+    click.connect_pressed({
+        let weak = weak.clone();
+        let finish = finish.clone();
+        move |gesture, _, x, y| {
+            let Some(surfaces) = weak.upgrade() else {
+                return;
+            };
+            match gesture.current_button() {
+                gdk::BUTTON_PRIMARY if settings.format.is_some() => {
+                    let surface = &surfaces[index];
+                    if !surface.lens.hovered() {
+                        surface.lens.point(x, y);
+                    }
+                    let (column, row) = surface.lens.pixel();
+                    finish(Outcome::Picked(surface.frame.pixel(column, row)));
+                }
+                gdk::BUTTON_SECONDARY => finish(Outcome::Cancelled),
+                _ => {}
+            }
+        }
+    });
+    surface.lens.add_controller(click);
+
+    let scroll = gtk4::EventControllerScroll::new(
+        gtk4::EventControllerScrollFlags::VERTICAL | gtk4::EventControllerScrollFlags::DISCRETE,
+    );
+    scroll.connect_scroll({
+        let weak = weak.clone();
+        let radius = radius.clone();
+        move |controller, _, dy| {
+            let Some(surfaces) = weak.upgrade() else {
+                return glib::Propagation::Stop;
+            };
+            if controller
+                .current_event_state()
+                .contains(gdk::ModifierType::SHIFT_MASK)
+            {
+                let next = resized(radius.get(), dy);
+                radius.set(next);
+                for surface in surfaces.iter() {
+                    surface.lens.set_radius(next);
+                    dress(surface, settings, next);
+                }
+            } else {
+                let next = zoomed(zoom.get(), dy, MAX_ZOOM);
+                zoom.set(next);
+                for surface in surfaces.iter() {
+                    surface.lens.set_zoom(next);
+                }
+            }
+            glib::Propagation::Stop
+        }
+    });
+    surface.lens.add_controller(scroll);
+
+    let keys = gtk4::EventControllerKey::new();
+    keys.connect_key_pressed(move |_, key, _, _| {
+        let Some(surfaces) = weak.upgrade() else {
+            return glib::Propagation::Proceed;
+        };
+        let Some(surface) = surfaces.iter().find(|surface| surface.lens.hovered()) else {
+            if key == gdk::Key::Escape {
+                finish(Outcome::Cancelled);
+            }
+            return glib::Propagation::Stop;
+        };
+        let step = |dx, dy| {
+            surface.lens.nudge(dx, dy);
+            dress(surface, settings, radius.get());
+        };
+        match key {
+            gdk::Key::Escape => finish(Outcome::Cancelled),
+            gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space
+                if settings.format.is_some() =>
+            {
+                let (column, row) = surface.lens.pixel();
+                finish(Outcome::Picked(surface.frame.pixel(column, row)));
+            }
+            gdk::Key::Left => step(-1, 0),
+            gdk::Key::Right => step(1, 0),
+            gdk::Key::Up => step(0, -1),
+            gdk::Key::Down => step(0, 1),
+            _ => return glib::Propagation::Proceed,
+        }
+        glib::Propagation::Stop
+    });
+    surface.window.add_controller(keys);
+}
+
+fn moved(
+    weak: &std::rc::Weak<Vec<Surface>>,
+    index: usize,
+    x: f64,
+    y: f64,
+    settings: Settings,
+    radius: f32,
+) {
+    let Some(surfaces) = weak.upgrade() else {
+        return;
+    };
+    for (other, surface) in surfaces.iter().enumerate() {
+        if other != index && surface.lens.hovered() {
+            surface.lens.leave();
+            dress(surface, settings, radius);
+        }
+    }
+    surfaces[index].lens.point(x, y);
+    dress(&surfaces[index], settings, radius);
+}
+
+#[cfg(test)]
+mod tests;

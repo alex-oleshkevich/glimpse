@@ -98,6 +98,7 @@ fn a_hand_off_that_never_settles_is_cancelled() {
                 height: 1,
                 pixels: glib::Bytes::from_owned(vec![0u8; 4]),
                 alpha: true,
+                layout: glimpse_wayland::capture::Layout::Rgbx,
             },
         },
         crop: None,

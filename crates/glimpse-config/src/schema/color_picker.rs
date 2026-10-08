@@ -2,9 +2,6 @@ use palette::{FromColor, Hsl, Hsv, Oklch, Srgb};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// The screen color picker. The panel's color picker reads it for the notation it copies and for
-/// the palette, which lives in the panel process and in memory only. The lens is configured by
-/// its own flags.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ColorPicker {

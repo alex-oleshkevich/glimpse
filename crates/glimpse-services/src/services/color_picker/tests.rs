@@ -1,5 +1,4 @@
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
@@ -10,12 +9,12 @@ use crate::selection::FakeSelection;
 
 struct FakePicker {
     answers: Mutex<Vec<Result<Option<[u8; 3]>, String>>>,
-    picks: AtomicUsize,
+    requests: Mutex<usize>,
 }
 
 impl Picker for FakePicker {
     fn pick(&self) -> Picked {
-        self.picks.fetch_add(1, Ordering::SeqCst);
+        *self.requests.lock().unwrap() += 1;
         let answer = self.answers.lock().unwrap().remove(0);
         Box::pin(async move { answer })
     }
@@ -54,7 +53,7 @@ async fn harness(answers: Vec<Result<Option<[u8; 3]>, String>>) -> Harness {
     let selection = FakeSelection::default();
     let picker = Arc::new(FakePicker {
         answers: Mutex::new(answers),
-        picks: AtomicUsize::new(0),
+        requests: Mutex::new(0),
     });
     let service = ColorPicker::start(
         &ctx,
@@ -116,6 +115,7 @@ async fn a_pick_lands_in_the_palette_and_on_the_clipboard_in_the_configured_form
     assert_eq!(state.colors.len(), 1);
     assert_eq!(state.colors[0].rgb, [224, 86, 63]);
     assert_eq!(harness.offered(), ["#E0563F"]);
+    assert_eq!(*harness.picker.requests.lock().unwrap(), 1);
 }
 
 #[tokio::test]
@@ -156,7 +156,7 @@ async fn a_second_pick_while_one_is_open_is_refused() {
         second.await.unwrap(),
         Err(CommandError::LimitExceeded(_))
     ));
-    assert_eq!(harness.picker.picks.load(Ordering::SeqCst), 1);
+    assert_eq!(*harness.picker.requests.lock().unwrap(), 1);
 }
 
 #[tokio::test]

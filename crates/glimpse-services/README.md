@@ -78,9 +78,8 @@ History is **in memory only**, and an entry's `id` fingerprints `(kind, content)
 mime spelling, so dedup closes the echo loop. `is_sensitive` classifies an offer before its
 content is read; secrets leave no history entry or tombstone.
 
-**color_picker** — asks the screenshot portal's `PickColor` through an injected `Picker`, one pick
-at a time, and copies through the same `Selection` the clipboard uses, since the panel outlives the
-pick.
+**color_picker** — calls `Screenshot.PickColor` through an injected `Picker`, one pick at a time,
+and copies through the same `Selection` the clipboard uses, since the panel owns the palette.
 
 **brightness** — `SysfsBacklight` reads `/sys/class/backlight` with `tokio::fs` and writes through
 logind. `current` moves when a command is accepted, `confirmed` when the write lands, and a failed

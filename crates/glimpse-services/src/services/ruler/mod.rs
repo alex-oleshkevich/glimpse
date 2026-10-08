@@ -26,9 +26,8 @@ pub struct Config {
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
-        let ruler = &document.ruler;
         Self {
-            limit: ruler.history_limit,
+            limit: document.ruler.history_limit,
         }
     }
 }

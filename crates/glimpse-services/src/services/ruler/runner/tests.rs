@@ -51,14 +51,26 @@ fn one_bad_line_fails_the_whole_batch() {
 }
 
 #[tokio::test]
-async fn a_missing_lens_says_it_cannot_run() {
-    let error = ProcessRunner::new("/nonexistent/glimpse-lens")
+async fn the_lens_runs_in_ruler_mode_without_legacy_settings() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let program = directory.path().join("lens");
+    std::fs::write(
+        &program,
+        format!(
+            "#!/bin/sh\n[ \"$#\" -eq 2 ] && [ \"$1\" = \"--tool\" ] && [ \"$2\" = \"ruler\" ] || exit 1\nprintf '%s\\n' '{}'\n",
+            line(5.0),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let measurements = ProcessRunner::new(program.to_str().unwrap())
         .measure()
         .await
-        .unwrap_err();
+        .unwrap();
 
-    assert!(
-        error.starts_with("cannot run /nonexistent/glimpse-lens"),
-        "{error}"
-    );
+    assert_eq!(measurements.len(), 1);
+    assert_eq!(measurements[0].distance, 5.0);
 }

@@ -313,7 +313,6 @@
           "required": []
         },
         "color-picker": {
-          "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs a screenshot portal that answers\n`PickColor`; on glimpse that is `glimpse-shot` with `glimpse-lens`.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1202,7 +1201,6 @@
           "required": []
         },
         "ruler": {
-          "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-lens`.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1781,7 +1779,6 @@
             ]
           },
           {
-            "description": "The latest picked color. A left click opens the lens to pick one from the screen, a right\nclick the palette of recent picks in every notation. Needs a screenshot portal that answers\n`PickColor`; on glimpse that is `glimpse-shot` with `glimpse-lens`.",
             "type": "object",
             "properties": {
               "extends": {
@@ -2662,7 +2659,6 @@
             ]
           },
           {
-            "description": "Measures on-screen pixel distances. A left click opens the lens to measure from the\nscreen. Needs `glimpse-lens`.",
             "type": "object",
             "properties": {
               "extends": {
@@ -3749,7 +3745,6 @@
       ]
     },
     "ColorPicker": {
-      "description": "The screen color picker. The panel's color picker reads it for the notation it copies and for\nthe palette, which lives in the panel process and in memory only. The lens is configured by\nits own flags.",
       "type": "object",
       "properties": {
         "format": {
@@ -4772,7 +4767,6 @@
       "additionalProperties": false
     },
     "Ruler": {
-      "description": "The screen ruler. The panel's ruler service keeps the history; the lens is configured by its\nown flags.",
       "type": "object",
       "properties": {
         "history-limit": {

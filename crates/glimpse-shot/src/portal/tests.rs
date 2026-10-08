@@ -487,7 +487,14 @@ async fn pick_color_returns_fractions_of_255_and_cancel_is_response_1_impl() {
         (224.0 / 255.0, 86.0 / 255.0, 63.0 / 255.0)
     );
     assert_eq!(program_name(&started.fake.argv()[0]), Some("glimpse-lens"));
-    assert_eq!(started.fake.argv()[0][1..], ["--tool", "picker", "--json"]);
+    assert_eq!(
+        &started.fake.argv()[0][1..],
+        &[
+            OsString::from("--tool"),
+            OsString::from("picker"),
+            OsString::from("--json"),
+        ]
+    );
 
     started.fake.push(Script::Done {
         stdout: String::new(),
@@ -706,7 +713,14 @@ fn overlay_and_headless_commands_name_the_binaries() {
     assert_eq!(headless[5], output.as_os_str());
     let picker = picker_command();
     assert_eq!(program_name(&picker), Some("glimpse-lens"));
-    assert_eq!(picker[1..], ["--tool", "picker", "--json"]);
+    assert_eq!(
+        &picker[1..],
+        &[
+            OsString::from("--tool"),
+            OsString::from("picker"),
+            OsString::from("--json"),
+        ]
+    );
 
     let app_id = |command: &Command| {
         command

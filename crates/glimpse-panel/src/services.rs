@@ -163,14 +163,12 @@ impl PanelServices {
                 picker: Arc::new(PortalPicker::new(buses.clone())),
             },
         );
-        let ruler_program =
-            std::env::var("GLIMPSE_LENS_BIN").unwrap_or_else(|_| "glimpse-lens".to_owned());
         let (ruler_service, ruler) = Running::<Ruler>::spawn(
             document,
             buses.clone(),
             RulerDependencies {
                 selection: Arc::clone(&selection),
-                runner: Arc::new(ProcessRulerRunner::new(ruler_program)),
+                runner: Arc::new(ProcessRulerRunner::new("glimpse-lens")),
             },
         );
         let (exec_service, exec) = Running::<Exec>::spawn(

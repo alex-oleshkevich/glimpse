@@ -7,6 +7,7 @@ fn frame() -> Frame {
         height: 300,
         pixels: glib::Bytes::from_owned(vec![0u8; 400 * 300 * 4]),
         alpha: false,
+        layout: glimpse_wayland::capture::Layout::Rgbx,
     }
 }
 

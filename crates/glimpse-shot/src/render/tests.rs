@@ -84,6 +84,7 @@ fn document() -> Document {
                 height,
                 pixels: glib::Bytes::from_owned(pixels),
                 alpha: false,
+                layout: glimpse_wayland::capture::Layout::Rgbx,
             },
         },
         crop: Some(area(20, 10, 360, 280)),
@@ -134,6 +135,7 @@ fn corner(alpha: bool) -> Frame {
         height: 1,
         pixels: glib::Bytes::from_owned(vec![0, 0, 0, 0, 200, 100, 50, 255]),
         alpha,
+        layout: glimpse_wayland::capture::Layout::Rgbx,
     }
 }
 
@@ -148,6 +150,20 @@ fn alphas(texture: &impl IsA<gdk::Texture>) -> Vec<u8> {
 fn a_frame_with_alpha_uploads_its_transparent_pixels_as_transparent() {
     assert_eq!(alphas(&frame_texture(&corner(true))), [0, 255]);
     assert_eq!(alphas(&frame_texture(&corner(false))), [255, 255]);
+}
+
+#[test]
+fn a_bgr_frame_preserves_color_and_alpha_through_png_encoding() {
+    for alpha in [false, true] {
+        let frame = Frame {
+            layout: Layout::Bgrx,
+            ..corner(alpha)
+        };
+        let png = frame_texture(&frame).save_to_png_bytes();
+        let image = Decoded::new(&png);
+        assert_eq!(image.at(1, 0), [50, 100, 200]);
+        assert_eq!(image.rgba[3], if alpha { 0 } else { 255 });
+    }
 }
 
 #[test]

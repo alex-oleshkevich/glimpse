@@ -1,8 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn without_a_session_bus_the_pick_fails_with_the_reason() {
-    let picker = PortalPicker::new(Buses::unavailable("x"));
-
-    assert_eq!(picker.pick().await, Err("x".to_owned()));
+async fn an_unavailable_session_bus_is_reported() {
+    let picker = PortalPicker::new(Buses::unavailable("no session bus"));
+    assert_eq!(picker.pick().await, Err("no session bus".to_owned()));
 }

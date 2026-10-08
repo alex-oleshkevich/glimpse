@@ -18,6 +18,7 @@ enum Answer {
     NoColor,
     TextColor,
     Never,
+    UnexpectedHandle,
 }
 
 struct FakePortal {
@@ -41,10 +42,13 @@ impl FakePortal {
             .trim_start_matches(':')
             .replace('.', "_");
         let token = <&str>::try_from(options.get("handle_token").unwrap()).unwrap();
-        let path = OwnedObjectPath::try_from(format!(
+        let mut path = OwnedObjectPath::try_from(format!(
             "/org/freedesktop/portal/desktop/request/{sender}/{token}"
         ))
         .unwrap();
+        if matches!(self.answer, Answer::UnexpectedHandle) {
+            path = OwnedObjectPath::try_from(format!("{path}_unexpected")).unwrap();
+        }
         let (code, results): (u32, HashMap<&str, Value<'_>>) = match self.answer {
             Answer::Color(red, green, blue) => (
                 0,
@@ -54,7 +58,7 @@ impl FakePortal {
             Answer::Failed => (2, HashMap::new()),
             Answer::NoColor => (0, HashMap::new()),
             Answer::TextColor => (0, HashMap::from([("color", Value::from("#E0563F"))])),
-            Answer::Never => {
+            Answer::Never | Answer::UnexpectedHandle => {
                 server
                     .at(
                         path.clone(),
@@ -131,11 +135,13 @@ async fn a_response_sent_before_the_method_reply_is_received() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn out_of_range_and_nan_channels_saturate() {
-    assert_eq!(
-        pick(Answer::Color(f64::NAN, -3.0, 7.0)).await.unwrap(),
-        Some([0, 0, 255])
-    );
+async fn out_of_range_and_non_finite_channels_are_rejected() {
+    for value in [f64::NAN, f64::INFINITY, -0.1, 1.1] {
+        assert!(matches!(
+            pick(Answer::Color(value, 0.0, 0.0)).await,
+            Err(PickColorError::Failed)
+        ));
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -171,6 +177,25 @@ async fn dropping_the_pick_closes_the_request() {
             .await
             .is_err()
     );
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !closed.load(Ordering::SeqCst) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_unexpected_request_path_fails_and_is_closed() {
+    let bus = PrivateBus::start();
+    let closed = Arc::new(AtomicBool::new(false));
+    let _portal = serve(&bus, Answer::UnexpectedHandle, closed.clone()).await;
+    let client = bus.connection().await;
+    let result = tokio::time::timeout(Duration::from_secs(2), pick_color(&client))
+        .await
+        .unwrap();
+    assert!(matches!(result, Err(PickColorError::UnexpectedHandle)));
     tokio::time::timeout(Duration::from_secs(2), async {
         while !closed.load(Ordering::SeqCst) {
             tokio::time::sleep(Duration::from_millis(10)).await;

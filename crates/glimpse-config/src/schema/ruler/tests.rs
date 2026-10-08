@@ -22,18 +22,6 @@ fn every_key_reads_kebab_case() {
 }
 
 #[test]
-fn the_removed_lens_keys_are_refused() {
-    let rendered = load("[ruler]\nlens-radius = 150\n")
-        .expect_err("the lens is configured by its own flags")
-        .to_string();
-
-    assert!(
-        rendered.contains("lens-radius"),
-        "the error must name the removed key, got {rendered}"
-    );
-}
-
-#[test]
 fn an_unknown_key_is_refused_naming_the_table_and_the_key() {
     let rendered = load("[ruler]\nbogus = 1\n")
         .expect_err("`bogus` is not a ruler setting")

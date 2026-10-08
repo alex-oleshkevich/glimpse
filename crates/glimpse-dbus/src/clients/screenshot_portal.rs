@@ -36,6 +36,8 @@ pub enum PickColorError {
     Unavailable,
     #[error("the screenshot portal could not pick a color")]
     Failed,
+    #[error("the screenshot portal returned an unexpected request path")]
+    UnexpectedHandle,
 }
 
 pub async fn pick_color(connection: &Connection) -> Result<Option<[u8; 3]>, PickColorError> {
@@ -51,7 +53,8 @@ pub async fn pick_color(connection: &Connection) -> Result<Option<[u8; 3]>, Pick
     ))
     .map_err(|_| PickColorError::Failed)?;
 
-    let (mut request, mut responses) = subscribe(connection, predicted.clone()).await?;
+    let (request, mut responses) = subscribe(connection, predicted.clone()).await?;
+    let mut pending = Pending(Some(request));
     let portal = ScreenshotPortalProxy::builder(connection)
         .cache_properties(CacheProperties::No)
         .build()
@@ -71,10 +74,17 @@ pub async fn pick_color(connection: &Connection) -> Result<Option<[u8; 3]>, Pick
             }
         })?;
     if handle != predicted {
-        (request, responses) = subscribe(connection, handle).await?;
+        let request = PortalRequestProxy::builder(connection)
+            .path(handle)
+            .map_err(|_| PickColorError::Failed)?
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await
+            .map_err(|_| PickColorError::Failed)?;
+        pending.0 = Some(request);
+        return Err(PickColorError::UnexpectedHandle);
     }
 
-    let mut pending = Pending(Some(request));
     let response = responses.next().await.ok_or(PickColorError::Failed)?;
     pending.0 = None;
     let mut args = response.args().map_err(|_| PickColorError::Failed)?;
@@ -83,7 +93,7 @@ pub async fn pick_color(connection: &Connection) -> Result<Option<[u8; 3]>, Pick
             let color = args.results.remove("color").ok_or(PickColorError::Failed)?;
             let (red, green, blue) =
                 <(f64, f64, f64)>::try_from(color).map_err(|_| PickColorError::Failed)?;
-            Ok(Some([channel(red), channel(green), channel(blue)]))
+            Ok(Some([channel(red)?, channel(green)?, channel(blue)?]))
         }
         1 => Ok(None),
         _ => Err(PickColorError::Failed),
@@ -120,8 +130,11 @@ fn unavailable(error: &zbus::Error) -> bool {
     )
 }
 
-fn channel(value: f64) -> u8 {
-    (value.clamp(0.0, 1.0) * 255.0).round() as u8
+fn channel(value: f64) -> Result<u8, PickColorError> {
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Err(PickColorError::Failed);
+    }
+    Ok((value * 255.0).round() as u8)
 }
 
 struct Pending(Option<PortalRequestProxy<'static>>);

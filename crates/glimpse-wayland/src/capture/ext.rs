@@ -275,7 +275,7 @@ fn capture(
             ?raw,
             "image copy capture buffer"
         );
-        frames.push(Frame::upright(target.connector.clone(), raw, &bytes));
+        frames.push(Frame::captured(target.connector.clone(), raw, bytes));
     }
     connection.flush().map_err(failed)?;
     Ok(frames)

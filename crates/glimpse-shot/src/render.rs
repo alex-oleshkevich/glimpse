@@ -6,7 +6,7 @@ use glimpse_config::PaletteColor;
 use glimpse_shot::doc::document::{Document, Mark, MarkId, Source, Style};
 use glimpse_shot::doc::redact::{pixelate_stroke, redact};
 use glimpse_shot::doc::units::{BufferPx, Point, Rect};
-use glimpse_wayland::capture::Frame;
+use glimpse_wayland::capture::{Frame, Layout};
 use gtk4::prelude::*;
 use gtk4::{gdk, glib, graphene, gsk, pango};
 
@@ -277,9 +277,11 @@ fn frame_texture(frame: &Frame) -> gdk::MemoryTexture {
     gdk::MemoryTexture::new(
         frame.width as i32,
         frame.height as i32,
-        match frame.alpha {
-            true => gdk::MemoryFormat::R8g8b8a8,
-            false => gdk::MemoryFormat::R8g8b8x8,
+        match (frame.layout, frame.alpha) {
+            (Layout::Rgbx, true) => gdk::MemoryFormat::R8g8b8a8,
+            (Layout::Rgbx, false) => gdk::MemoryFormat::R8g8b8x8,
+            (Layout::Bgrx, true) => gdk::MemoryFormat::B8g8r8a8,
+            (Layout::Bgrx, false) => gdk::MemoryFormat::B8g8r8x8,
         },
         &frame.pixels,
         frame.width as usize * 4,

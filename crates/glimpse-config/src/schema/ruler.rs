@@ -1,8 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// The screen ruler. The panel's ruler service keeps the history; the lens is configured by its
-/// own flags.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Ruler {

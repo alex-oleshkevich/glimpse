@@ -1,7 +1,7 @@
 # glimpse-wayland
 
-Screen capture and the data-control clipboard, for the binaries that bind `wl_` objects: the panel
-and the screenshot tool. A leaf library — `glimpse-services` never depends on
+Screen capture and the data-control clipboard, for the binaries that bind `wl_` objects: the picker,
+the ruler, the panel and the screenshot tool. A leaf library — `glimpse-services` never depends on
 it, because no service crate may bind a Wayland object.
 
 ## Contents
@@ -38,10 +38,10 @@ match is `NoSuchToplevel`. Its frame's `connector` is empty. `toplevels` lists e
 `identifier`, `app_id` and `title` the same way, capped at 128 and 512 characters; no list global is
 `Unsupported`.
 
-**Frames arrive upright.** `Frame::upright` applies the transform — the output's for screencopy, the
-frame's `transform` event for ext — and screencopy's `y_invert` once, so no caller knows about
-either. `pixel` reads a buffer pixel, clamped to the edge. `alpha` says whether the fourth byte is
-coverage; every captured frame is opaque and sets it false.
+**Frames arrive upright and packed.** Capture applies the output transform and `y_invert` once.
+`layout` identifies RGB or BGR byte order; normal packed captures retain their original buffers.
+`pixel` returns RGB, clamped to the edge. `alpha` says whether the fourth byte is coverage; every
+captured frame is opaque and sets it false.
 
 **Only 8-bit buffers are read.** Screencopy takes `Xrgb8888`, `Argb8888`, `Xbgr8888` and
 `Abgr8888`. The ext path negotiates from the session's `shm_format` and `buffer_size` and takes only

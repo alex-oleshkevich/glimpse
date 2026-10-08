@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-07 21:38+0200\n"
+"POT-Creation-Date: 2026-10-08 17:32+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,16 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: crates/glimpse-lens/src/session.rs:291
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-lens/src/session.rs:304
+msgid "segment {length}px · {angle}°"
+msgstr ""
 
 #: crates/glimpse-lock/src/auth.rs:27
 msgid "Wrong password"
@@ -368,7 +378,7 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:121
 #: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:376
+#: crates/glimpse-widgets/src/lib.rs:378
 msgid "{percent}%"
 msgstr ""
 
@@ -2382,7 +2392,7 @@ msgstr ""
 #: crates/glimpse-shot/src/portal.rs:128
 #: crates/glimpse-shot/src/portal/tests.rs:41
 #: crates/glimpse-shot/src/portal/tests.rs:42
-#: crates/glimpse-shot/src/portal/tests.rs:619
+#: crates/glimpse-shot/src/portal/tests.rs:626
 #: crates/glimpse-widgets/src/shot_banner/mod.rs:56
 msgid "An application"
 msgstr ""
@@ -2568,7 +2578,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/lib.rs:320
 msgid "Play"
 msgstr ""
 
@@ -3378,7 +3388,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:317
+#: crates/glimpse-widgets/src/lib.rs:319
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:134
 msgid "Pause"
 msgstr ""
