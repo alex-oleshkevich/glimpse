@@ -146,7 +146,10 @@ run-weather *ARGS:
 
 [doc("run the color picker: pick a color from the screen and print it")]
 run-picker *ARGS:
-    cargo run -p glimpse-picker -- "$@"
+    cargo run -p glimpse-lens --bin glimpse-lens -- --tool picker "$@"
+
+run-lens *ARGS:
+    cargo run -p glimpse-lens --bin glimpse-lens -- "$@"
 
 [doc("run the screen ruler: measure distances on the screen and print each segment")]
 run-ruler *ARGS:

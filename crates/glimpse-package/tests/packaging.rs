@@ -399,10 +399,24 @@ fn every_workspace_binary_is_built_and_reaches_every_package() {
     let mut binaries: Vec<String> = fs::read_dir(root.join("crates"))
         .expect("crates directory")
         .filter_map(Result::ok)
-        .filter(|entry| entry.path().join("src/main.rs").exists())
-        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|entry| entry.path().join("Cargo.toml").exists())
+        .flat_map(|entry| {
+            let manifest: Table = fs::read_to_string(entry.path().join("Cargo.toml"))
+                .expect("crate manifest")
+                .parse()
+                .expect("valid TOML");
+            let mut binaries = Vec::new();
+            if entry.path().join("src/main.rs").exists() {
+                binaries.push(text(&manifest["package"]["name"]));
+            }
+            if let Some(targets) = manifest.get("bin").and_then(Value::as_array) {
+                binaries.extend(targets.iter().map(|target| text(&target["name"])));
+            }
+            binaries
+        })
         .collect();
     binaries.sort();
+    binaries.dedup();
     assert!(!binaries.is_empty());
 
     for binary in &binaries {
@@ -490,19 +504,20 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
 }
 
 #[test]
-fn the_color_picker_ships_as_a_plain_binary() {
+fn the_lens_ships_as_a_plain_binary() {
     let root = workspace_root();
     let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-picker").count(), 3);
-    assert_eq!(package.matches("target/release/glimpse-ruler").count(), 3);
-    assert!(!root.join("data/systemd/glimpse-picker.service").exists());
+    assert_eq!(package.matches("target/release/glimpse-lens").count(), 3);
+    assert!(!package.contains("target/release/glimpse-picker"));
+    assert!(!package.contains("target/release/glimpse-ruler"));
+    assert!(!root.join("data/systemd/glimpse-lens.service").exists());
 
     let manifest =
-        fs::read_to_string(root.join("crates/glimpse-picker/Cargo.toml")).expect("picker manifest");
+        fs::read_to_string(root.join("crates/glimpse-lens/Cargo.toml")).expect("lens manifest");
     assert!(
         !manifest.contains("zbus"),
-        "the picker is a command, not a D-Bus provider"
+        "the lens is a command, not a D-Bus provider"
     );
 }
 
@@ -550,7 +565,7 @@ fn screenshot_binary_desktop_entry_and_service_reach_every_package() {
     );
 
     let justfile = fs::read_to_string(root.join("justfile")).expect("justfile");
-    assert!(justfile.contains("glimpse-ruler glimpse-shot"));
+    assert!(justfile.contains("glimpse-lens glimpse-shot"));
     assert!(justfile.contains("GLIMPSE_BINARIES=\"{{ binaries }}\" scripts/package-binary.sh"));
     for script in ["scripts/glimpse-paths.sh", "scripts/package-binary.sh"] {
         let text = fs::read_to_string(root.join(script)).expect(script);
