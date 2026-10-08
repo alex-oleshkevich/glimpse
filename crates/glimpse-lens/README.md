@@ -2,8 +2,8 @@
 
 `glimpse-lens` magnifies the frozen screen, exits successfully when dismissed, and writes no result.
 `--tool picker` picks a color and `--tool ruler` measures chained line segments. Options come only
-from flags: `--radius` defaults to 106 logical pixels, clamped to 10–200, and `--zoom` sets opening
-magnification, defaulting to ×5 and clamped to 1–200. `--format` and `--json` require `--tool picker`.
+from flags: `--radius` defaults to 180 logical pixels, clamped to 10–200, and `--zoom` sets opening
+magnification, defaulting to ×3 and clamped to 1–200. `--format` and `--json` require `--tool picker`.
 
 ```
 glimpse-lens [--tool picker|ruler] [--radius PIXELS] [--zoom TIMES]
