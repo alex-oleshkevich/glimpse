@@ -114,8 +114,8 @@ which would drop the creation of `config.d/` itself.
 ## Applets
 
 `Applet` is a `Common` plus a `Kind`, an internally-tagged enum on `extends`, both in the schema so
-a misspelled setting is a load error naming the table and key. The table name supplies the tag
-when `extends` is absent — `[applets.clock]` is the clock; only a second instance needs `extends`.
+a misspelled setting is a load error naming the table and key. Kind names use their canonical
+spelling. The table name supplies the tag when `extends` is absent; custom instances set `extends`.
 **Common settings are split off the table by `take_common`, not `#[serde(flatten)]`** — `flatten`
 collects unclaimed keys and `deny_unknown_fields` rejects them, so serde refuses both on one type.
 Both halves still deny unknown fields, so a misspelled common key survives into the kind's table

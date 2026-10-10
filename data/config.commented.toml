@@ -244,7 +244,7 @@
 
 # [applets.pager]
 # extends = "pager"
-# mode = "workspaces"
+# mode = "windows"
 # shape = "dots"
 # scope = "output"
 # label = "{index}"

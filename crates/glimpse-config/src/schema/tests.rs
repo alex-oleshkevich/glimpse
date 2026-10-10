@@ -547,35 +547,34 @@ fn extends_names_the_applet_so_one_kind_can_have_several_instances() {
 }
 
 #[test]
-fn the_pager_defaults_to_dots_of_workspaces_on_this_output() {
+fn the_pager_defaults_to_dots_of_windows_on_this_output() {
     let parsed: Config = toml::from_str("[applets.pager]\n").expect("settings are optional");
 
     assert_eq!(
         parsed.applets["pager"],
         Applet::from(AppletKind::Pager(applets::Pager {
-            mode: PagerMode::Workspaces,
+            mode: PagerMode::Windows,
             shape: PagerShape::Dots,
             scope: PagerScope::Output,
             label: "{index}".to_owned(),
             focused_label: None,
             unfocused_label: None,
             urgent_label: None,
-        })),
-        "the old applet defaulted to windows, which is the surprising one"
+        }))
     );
 }
 
 #[test]
 fn the_pager_reads_its_settings_in_kebab_case() {
     let parsed: Config = toml::from_str(
-        "[applets.pager]\nmode = \"windows\"\nshape = \"labels\"\nscope = \"session\"\nfocused-label = \"{name}\"\n",
+        "[applets.pager]\nmode = \"workspaces\"\nshape = \"labels\"\nscope = \"session\"\nfocused-label = \"{name}\"\n",
     )
     .expect("a full table");
 
     let AppletKind::Pager(pager) = &parsed.applets["pager"].kind else {
         panic!("the table names the pager");
     };
-    assert_eq!(pager.mode, PagerMode::Windows);
+    assert_eq!(pager.mode, PagerMode::Workspaces);
     assert_eq!(pager.shape, PagerShape::Labels);
     assert_eq!(pager.scope, PagerScope::Session);
     assert_eq!(pager.focused_label.as_deref(), Some("{name}"));

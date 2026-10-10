@@ -161,23 +161,6 @@ fn desired(
         .collect();
     for (zone, names) in zones {
         for name in names {
-            if !applets.contains_key(name)
-                && applets.keys().any(|old| {
-                    glimpse_config::renamed_to(old) == Some(name.as_str())
-                        && zones.iter().any(|(_, names)| names.contains(old))
-                })
-            {
-                continue;
-            }
-            if !applets.contains_key(name)
-                && glimpse_config::renamed_to(name).is_some_and(|renamed| {
-                    zones
-                        .iter()
-                        .any(|(_, names)| names.iter().any(|other| other == renamed))
-                })
-            {
-                continue;
-            }
             let applet = applets::configured(name, applets, regional);
             let kind = applet.map(|applet| std::mem::discriminant(&applet.kind));
             desired.push((zone, name.clone(), kind));
