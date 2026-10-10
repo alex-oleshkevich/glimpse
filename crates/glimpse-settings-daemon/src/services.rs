@@ -1,6 +1,8 @@
 use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
+use glimpse_dbus::actions::{self, ActionsHandle};
+use glimpse_dbus::settings::GLIMPSE_SETTINGS_OBJECT_PATH;
 use glimpse_services::{DesktopMode, Geolocation, Running, Solar, SolarDependencies};
 
 use crate::{mode, provider};
@@ -11,19 +13,32 @@ pub struct SettingsServices {
     mode: Running<DesktopMode>,
     backend: mode::Backend,
     provider: provider::Runtime,
+    actions: ActionsHandle,
 }
 
 impl SettingsServices {
-    pub async fn start(document: &Config) -> Result<Self> {
-        Self::start_with_buses(document, Buses::connect().await).await
+    pub async fn start(document: &Config, initial: Result<(), String>) -> Result<Self> {
+        Self::start_with_buses(document, Buses::connect().await, initial).await
     }
 
-    async fn start_with_buses(document: &Config, buses: Buses) -> Result<Self> {
+    async fn start_with_buses(
+        document: &Config,
+        buses: Buses,
+        initial: Result<(), String>,
+    ) -> Result<Self> {
         let session = buses
             .session_bus()
             .cloned()
             .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
             .context("the settings provider needs the session bus")?;
+        let actions = actions::serve(
+            &session,
+            GLIMPSE_SETTINGS_OBJECT_PATH,
+            env!("CARGO_PKG_VERSION"),
+            initial,
+        )
+        .await
+        .context("cannot export settings actions")?;
         let (location_pending, location) = Running::<Geolocation>::build(document, buses.clone());
         let (solar_pending, solar) = Running::<Solar>::build(document, buses.clone());
         let (mode_pending, mode) = Running::<DesktopMode>::build(document, buses);
@@ -43,12 +58,19 @@ impl SettingsServices {
             mode,
             backend,
             provider,
+            actions,
         })
     }
 
     pub fn reconfigure(&self, document: &Config) {
         self.location.reconfigure(document);
         self.mode.reconfigure(document);
+    }
+
+    pub async fn report(&self, verdict: Result<(), String>) {
+        if let Err(error) = self.actions.report(verdict).await {
+            tracing::warn!(%error, "cannot report settings configuration status");
+        }
     }
 
     pub async fn shutdown(mut self) {

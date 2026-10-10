@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use glimpse_dbus::gtk_actions::GtkActionsProxy;
 use glimpse_dbus::settings::{Settings1Proxy, SettingsProvider, SolarPhase};
 use glimpse_dbus::testing::PrivateBus;
 use glimpse_services::{FakeGamma, NightLight, NightLightDependencies, ServiceState};
@@ -31,10 +32,14 @@ async fn configured_coordinates_publish_solar_and_reconfigure_without_a_system_b
         },
         ..Config::default()
     };
-    let services =
-        SettingsServices::start_with_buses(&config, Buses::for_session(bus.connection().await))
-            .await
-            .unwrap();
+    config.appearance.auto_dark = glimpse_config::AutoDark::System;
+    let services = SettingsServices::start_with_buses(
+        &config,
+        Buses::for_session(bus.connection().await),
+        Ok(()),
+    )
+    .await
+    .unwrap();
     let client = SettingsProvider::start(bus.connection().await);
     let mut state = client.subscribe();
     let mut location = client.subscribe_location();
@@ -45,9 +50,12 @@ async fn configured_coordinates_publish_solar_and_reconfigure_without_a_system_b
     assert_eq!(location.borrow().as_ref().unwrap().latitude, 90.0);
     let first = phase(&mut state).await;
     assert!(state.borrow().as_ref().unwrap().next_change.is_none());
-    let duplicate =
-        SettingsServices::start_with_buses(&config, Buses::for_session(bus.connection().await))
-            .await;
+    let duplicate = SettingsServices::start_with_buses(
+        &config,
+        Buses::for_session(bus.connection().await),
+        Ok(()),
+    )
+    .await;
     assert!(duplicate.is_err());
     config.geolocation = glimpse_config::Geolocation::Manual {
         latitude: -90.0,
@@ -92,10 +100,38 @@ async fn no_location_exposes_unknown_instead_of_day_or_night() {
     let services = SettingsServices::start_with_buses(
         &Config::default(),
         Buses::for_session(bus.connection().await),
+        Err("bad config".into()),
     )
     .await
     .unwrap();
     let connection = bus.connection().await;
+    let actions = GtkActionsProxy::builder(&connection)
+        .destination(glimpse_dbus::settings::GLIMPSE_SETTINGS_BUS_NAME)
+        .unwrap()
+        .path(GLIMPSE_SETTINGS_OBJECT_PATH)
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    let descriptions = actions.describe_all().await.unwrap();
+    assert_eq!(
+        String::try_from(descriptions["version"].2[0].clone()).unwrap(),
+        env!("CARGO_PKG_VERSION")
+    );
+    let status =
+        zbus::zvariant::Structure::try_from(descriptions["config-status"].2[0].clone()).unwrap();
+    assert_eq!(
+        <(bool, String)>::try_from(status).unwrap(),
+        (false, "bad config".into())
+    );
+    services.report(Ok(())).await;
+    let descriptions = actions.describe_all().await.unwrap();
+    let status =
+        zbus::zvariant::Structure::try_from(descriptions["config-status"].2[0].clone()).unwrap();
+    assert_eq!(
+        <(bool, String)>::try_from(status).unwrap(),
+        (true, String::new())
+    );
     let proxy = Settings1Proxy::new(&connection).await.unwrap();
     let (available, phase, next_change, reason) = proxy.solar().await.unwrap();
     assert!(!available);
@@ -119,12 +155,16 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
         },
         ..Config::default()
     };
+    config.appearance.auto_dark = glimpse_config::AutoDark::System;
     config.night_light.schedule = glimpse_config::Schedule::Automatic;
     config.night_light.temperature = 4200;
-    let services =
-        SettingsServices::start_with_buses(&config, Buses::for_session(bus.connection().await))
-            .await
-            .unwrap();
+    let services = SettingsServices::start_with_buses(
+        &config,
+        Buses::for_session(bus.connection().await),
+        Ok(()),
+    )
+    .await
+    .unwrap();
     let client = SettingsProvider::start(bus.connection().await);
     let mut solar = client.subscribe();
     if phase(&mut solar).await == SolarPhase::Day {
@@ -183,10 +223,13 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
         latitude: -latitude,
         longitude,
     };
-    let replacement =
-        SettingsServices::start_with_buses(&config, Buses::for_session(bus.connection().await))
-            .await
-            .unwrap();
+    let replacement = SettingsServices::start_with_buses(
+        &config,
+        Buses::for_session(bus.connection().await),
+        Ok(()),
+    )
+    .await
+    .unwrap();
     tokio::time::timeout(
         Duration::from_secs(3),
         health.wait_for(|health| matches!(health, ServiceState::Running)),

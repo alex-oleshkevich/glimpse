@@ -159,8 +159,8 @@ the folder. No bus or notification server is a warning; the save already happene
 `glimpse-shot portal` is the xdg-desktop-portal backend, a tokio and zbus process. It takes the
 bus name `me.aresa.Glimpse.Shot.Portal` and then serves `org.freedesktop.impl.portal.Screenshot`
 version 2 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor` and `version`. D-Bus
-activation runs `glimpse-shot portal` and the process stays up; it has no systemd unit. It never
-constructs the app.
+activation uses `glimpse-shot-portal.service`, which requires and stops with `glimpse-session.target`.
+It never constructs the app.
 
 Each call exports an `org.freedesktop.impl.portal.Request` at its handle. `Request.Close` SIGTERMs
 its child without replying. Overlay children use fresh GApplication IDs, so SIGTERM closes their

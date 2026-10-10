@@ -1,0 +1,11 @@
+[Unit]
+Description=Glimpse screenshot portal
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=glimpse-session.target
+Requisite=glimpse-session.target
+After=glimpse-session.target
+
+[Service]
+Type=dbus
+BusName=me.aresa.Glimpse.Shot.Portal
+ExecStart=/usr/bin/glimpse-shot portal

@@ -34,11 +34,13 @@ async fn run(cli: Cli) -> Result<()> {
 
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
-    let (config, _) = glimpse_config::load_or_default(cli.config.as_deref());
-    let services = SettingsServices::start(&config).await?;
-    let mut configs = Box::pin(glimpse_config::watch_config(
+    let (config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
+    let failure = failure.map(|error| error.to_string());
+    let services = SettingsServices::start(&config, failure.clone().map_or(Ok(()), Err)).await?;
+    let mut configs = Box::pin(glimpse_config::watch_config_reporting(
         cli.config.config.clone(),
         config,
+        failure,
     ));
     let mut watching = true;
 
@@ -55,7 +57,12 @@ async fn run(cli: Cli) -> Result<()> {
                 break;
             }
             reloaded = configs.next(), if watching => match reloaded {
-                Some(config) => services.reconfigure(&config),
+                Some(Ok(Some(config))) => {
+                    services.reconfigure(&config);
+                    services.report(Ok(())).await;
+                }
+                Some(Ok(None)) => services.report(Ok(())).await,
+                Some(Err(reason)) => services.report(Err(reason)).await,
                 None => {
                     tracing::error!("the configuration is no longer being watched");
                     watching = false;

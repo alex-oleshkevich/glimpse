@@ -1,3 +1,4 @@
 [D-BUS Service]
 Name=me.aresa.Glimpse.Shot.Portal
 Exec=/usr/bin/glimpse-shot portal
+SystemdService=glimpse-shot-portal.service
