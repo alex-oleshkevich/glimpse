@@ -97,7 +97,7 @@ pub use exec::{
     UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
     unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
 };
-pub use geolocation::{Geolocation, GeolocationHandle};
+pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use kdeconnect::{
     Action as KdeconnectAction, Actions as KdeconnectActions, Battery as KdeconnectBattery,

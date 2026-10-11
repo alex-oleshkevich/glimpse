@@ -1,5 +1,7 @@
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 
+use futures_util::FutureExt as _;
 use futures_util::future::BoxFuture;
 use glimpse_config::AutoDark;
 use glimpse_dbus::settings::{Mode, ModeStatus, SolarPhase, SolarStatus};
@@ -67,9 +69,8 @@ impl DesktopModeHandle {
     async fn ask(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), CommandError> {
         let (reply, answer) = oneshot::channel();
         self.0.command(command(reply))?;
-        timeout(Duration::from_secs(3), answer)
+        answer
             .await
-            .map_err(|_| CommandError::Unavailable("desktop mode request timed out".into()))?
             .map_err(|_| CommandError::Unavailable("desktop mode stopped".into()))?
     }
 }
@@ -198,6 +199,7 @@ impl Service for DesktopMode {
                 if let Some(write) = self.queued.take() {
                     self.dispatch(ctx, write);
                 }
+                return;
             }
             Input::Command(Command::Temporary(mode, reply)) => {
                 match self.observed.borrow().clone() {
@@ -310,9 +312,12 @@ impl DesktopMode {
     fn dispatch(&mut self, ctx: &Ctx<Self>, write: Write) {
         let writer = self.writer.clone();
         let effect = ctx.spawn(move |_ctx| async move {
-            let result = timeout(Duration::from_secs(3), writer.write(write.mode))
-                .await
-                .unwrap_or_else(|_| Err("desktop mode write timed out".into()));
+            let written = AssertUnwindSafe(async { writer.write(write.mode).await }).catch_unwind();
+            let result = match timeout(Duration::from_secs(3), written).await {
+                Ok(Ok(result)) => result,
+                Ok(Err(_)) => Err("desktop mode writer panicked".into()),
+                Err(_) => Err("desktop mode write timed out".into()),
+            };
             Event::Written(write.revision, result, write.reply)
         });
         self.effect = Some((effect, write.mode));

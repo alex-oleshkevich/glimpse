@@ -36,6 +36,7 @@ async fn configured_coordinates_publish_solar_and_reconfigure_without_a_system_b
     let services = SettingsServices::start_with_buses(
         &config,
         Buses::for_session(bus.connection().await),
+        GeolocationDependencies::default(),
         Ok(()),
     )
     .await
@@ -53,6 +54,7 @@ async fn configured_coordinates_publish_solar_and_reconfigure_without_a_system_b
     let duplicate = SettingsServices::start_with_buses(
         &config,
         Buses::for_session(bus.connection().await),
+        GeolocationDependencies::default(),
         Ok(()),
     )
     .await;
@@ -100,6 +102,7 @@ async fn no_location_exposes_unknown_instead_of_day_or_night() {
     let services = SettingsServices::start_with_buses(
         &Config::default(),
         Buses::for_session(bus.connection().await),
+        GeolocationDependencies::default(),
         Err("bad config".into()),
     )
     .await
@@ -161,6 +164,7 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
     let services = SettingsServices::start_with_buses(
         &config,
         Buses::for_session(bus.connection().await),
+        GeolocationDependencies::default(),
         Ok(()),
     )
     .await
@@ -226,6 +230,7 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
     let replacement = SettingsServices::start_with_buses(
         &config,
         Buses::for_session(bus.connection().await),
+        GeolocationDependencies::default(),
         Ok(()),
     )
     .await
@@ -243,4 +248,36 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
     night_light.stop().await;
     client.shutdown().await;
     replacement.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_remembered_fix_gives_a_solar_phase_before_geoclue_answers() {
+    let bus = PrivateBus::start();
+    let dir = std::env::temp_dir().join(format!("glimpse-settings-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let cache = dir.join("location.json");
+    std::fs::write(&cache, br#"{"latitude":52.2297,"longitude":21.0122}"#).unwrap();
+
+    let services = SettingsServices::start_with_buses(
+        &Config::default(),
+        Buses::for_session(bus.connection().await),
+        GeolocationDependencies { cache: Some(cache) },
+        Ok(()),
+    )
+    .await
+    .unwrap();
+    let client = SettingsProvider::start(bus.connection().await);
+    let mut state = client.subscribe();
+    let mut location = client.subscribe_location();
+    phase(&mut state).await;
+    tokio::time::timeout(Duration::from_secs(3), location.wait_for(Option::is_some))
+        .await
+        .unwrap()
+        .unwrap();
+    let fix = location.borrow().clone().unwrap();
+    client.shutdown().await;
+    services.shutdown().await;
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert_eq!((fix.latitude, fix.longitude), (52.2297, 21.0122));
 }

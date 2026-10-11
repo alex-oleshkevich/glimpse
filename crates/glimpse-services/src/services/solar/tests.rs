@@ -137,7 +137,7 @@ async fn located(coordinates: Option<GeoCoordinates>) -> (Option<SolarStatus>, S
         cancel.clone(),
     );
     let location_task = tokio::spawn(async move {
-        let _ = location_runtime.run(()).await;
+        let _ = location_runtime.run(Default::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -190,8 +190,12 @@ async fn without_a_location_the_service_degrades_and_publishes_nothing() {
     ));
 }
 
-#[tokio::test]
-async fn losing_the_location_invalidates_the_phase() {
+async fn started() -> (
+    Solar,
+    Ctx<Solar>,
+    tokio::sync::watch::Receiver<Option<SolarStatus>>,
+    tokio::sync::mpsc::Receiver<Input<Solar>>,
+) {
     let cancel = CancellationToken::new();
     let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
         <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
@@ -199,7 +203,7 @@ async fn losing_the_location_invalidates_the_phase() {
         cancel.clone(),
     );
     drop(location_runtime);
-    let (events, _inbox) = tokio::sync::mpsc::channel(4);
+    let (events, inbox) = tokio::sync::mpsc::channel(4);
     let (state, state_rx) = tokio::sync::watch::channel(Solar::initial_state(&NoConfig));
     let (health, _health_rx) = tokio::sync::watch::channel(ServiceState::Starting);
     let ctx = Ctx::<Solar>::new(
@@ -209,7 +213,7 @@ async fn losing_the_location_invalidates_the_phase() {
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let mut solar = Solar::start(
+    let solar = Solar::start(
         &ctx,
         NoConfig,
         SolarDependencies {
@@ -218,6 +222,12 @@ async fn losing_the_location_invalidates_the_phase() {
     )
     .await
     .expect("starts");
+    (solar, ctx, state_rx, inbox)
+}
+
+#[tokio::test]
+async fn losing_the_location_invalidates_the_phase() {
+    let (mut solar, ctx, state_rx, _inbox) = started().await;
 
     solar
         .handle(&ctx, Input::Event(Event::Update(Some(LONDON))))
@@ -227,4 +237,38 @@ async fn losing_the_location_invalidates_the_phase() {
     solar.handle(&ctx, Input::Event(Event::Update(None))).await;
     assert_eq!(*state_rx.borrow(), None);
     assert!(ctx.is_degraded());
+}
+
+#[tokio::test]
+async fn the_next_change_is_scheduled_and_a_resume_re_evaluates() {
+    let (mut solar, ctx, state_rx, _inbox) = started().await;
+
+    solar
+        .handle(&ctx, Input::Event(Event::Update(Some(LONDON))))
+        .await;
+    let next = state_rx
+        .borrow()
+        .as_ref()
+        .and_then(|status| status.next_change)
+        .expect("London has a next change");
+
+    let declared = solar.subscriptions();
+    let keys: Vec<_> = declared.iter().map(|sub| sub.key()).collect();
+    assert!(keys.contains(&&Watch::Change(next)));
+    assert!(keys.contains(&&Watch::Resume));
+    assert!(!keys.contains(&&Watch::Tick));
+}
+
+#[test]
+fn the_solar_day_follows_the_location_not_the_host_clock() {
+    let tokyo = GeoCoordinates {
+        latitude: 35.6762,
+        longitude: 139.6503,
+    };
+    let now = on_midsummer(21, 0);
+
+    let status = status_at(now, solar_date(now, tokyo.longitude), &tokyo).expect("a status");
+
+    assert_eq!(status.phase, SolarPhase::Day, "06:20 in Tokyo is daylight");
+    assert!(status.next_change.is_some_and(|at| at > now));
 }

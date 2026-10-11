@@ -13,7 +13,9 @@ struct Writer {
 impl ModeWriter for Writer {
     fn write(&self, mode: Option<Mode>) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async move {
-            if let Some(reason) = self.failure.lock().unwrap().clone() {
+            let failure = self.failure.lock().unwrap().clone();
+            if let Some(reason) = failure {
+                assert_ne!(reason, "panic", "the writer is broken");
                 return Err(reason);
             }
             self.writes.lock().unwrap().push(mode);
@@ -295,4 +297,22 @@ async fn a_slow_write_cannot_overwrite_a_newer_policy_or_its_health() {
     .unwrap();
     assert_eq!(handle.snapshot().requested, Some(Mode::Light));
     runtime.stop().await;
+}
+
+#[tokio::test]
+async fn a_writer_that_panics_does_not_strand_the_next_request() {
+    let mut fixture = Fixture::new(AutoDark::System, Some(Mode::Light), None);
+    *fixture.writer.failure.lock().unwrap() = Some("panic".into());
+    assert!(fixture.handle.set_temporary(Mode::Dark).await.is_err());
+
+    *fixture.writer.failure.lock().unwrap() = None;
+    timeout(
+        Duration::from_secs(2),
+        fixture.handle.set_temporary(Mode::Dark),
+    )
+    .await
+    .expect("the next request is answered")
+    .expect("and applied");
+    assert_eq!(fixture.writes(), vec![Some(Mode::Dark)]);
+    fixture.runtime.stop().await;
 }

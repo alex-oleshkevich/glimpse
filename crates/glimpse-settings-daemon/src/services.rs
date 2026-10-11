@@ -3,7 +3,9 @@ use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::actions::{self, ActionsHandle};
 use glimpse_dbus::settings::GLIMPSE_SETTINGS_OBJECT_PATH;
-use glimpse_services::{DesktopMode, Geolocation, Running, Solar, SolarDependencies};
+use glimpse_services::{
+    DesktopMode, Geolocation, GeolocationDependencies, Running, Solar, SolarDependencies,
+};
 
 use crate::{mode, provider};
 
@@ -18,12 +20,16 @@ pub struct SettingsServices {
 
 impl SettingsServices {
     pub async fn start(document: &Config, initial: Result<(), String>) -> Result<Self> {
-        Self::start_with_buses(document, Buses::connect().await, initial).await
+        let location = GeolocationDependencies {
+            cache: glimpse_config::state_dir().map(|dir| dir.join("location.json")),
+        };
+        Self::start_with_buses(document, Buses::connect().await, location, initial).await
     }
 
     async fn start_with_buses(
         document: &Config,
         buses: Buses,
+        location_dependencies: GeolocationDependencies,
         initial: Result<(), String>,
     ) -> Result<Self> {
         let session = buses
@@ -48,7 +54,7 @@ impl SettingsServices {
         let (backend, dependencies) =
             mode::Backend::start(solar.subscribe()).context("cannot start desktop mode backend")?;
         let mode = mode_pending.start(dependencies);
-        let location_service = location_pending.start(());
+        let location_service = location_pending.start(location_dependencies);
         let solar = solar_pending.start(SolarDependencies {
             geolocation: location,
         });

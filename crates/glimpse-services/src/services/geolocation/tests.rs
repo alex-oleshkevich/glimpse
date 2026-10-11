@@ -34,18 +34,13 @@ fn configured(latitude: f64, longitude: f64) -> ConfiguredGeolocation {
 #[test]
 fn a_manual_table_maps_to_the_pair_it_names() {
     let mapped = Config::from(&document(configured(51.5074, -0.1278)));
-    assert_eq!(mapped, manual(51.5074, -0.1278));
+    assert_eq!(mapped.provider, manual(51.5074, -0.1278).provider);
 }
 
 #[test]
 fn geoclue_carries_no_coordinates() {
     let mapped = Config::from(&document(ConfiguredGeolocation::Geoclue));
-    assert_eq!(
-        mapped,
-        Config {
-            provider: Provider::Geoclue
-        }
-    );
+    assert_eq!(mapped.provider, Provider::Geoclue);
 }
 
 /// A pair the configuration accepts structurally but that names nowhere on Earth. The service
@@ -61,10 +56,8 @@ fn coordinates_outside_their_ranges_are_refused() {
     ] {
         let mapped = Config::from(&document(configured(latitude, longitude)));
         assert_eq!(
-            mapped,
-            Config {
-                provider: Provider::Manual(None)
-            },
+            mapped.provider,
+            Provider::Manual(None),
             "expected no coordinates from {latitude}/{longitude}"
         );
     }
@@ -73,7 +66,7 @@ fn coordinates_outside_their_ranges_are_refused() {
 #[test]
 fn the_edges_of_the_ranges_are_inside_them() {
     let mapped = Config::from(&document(configured(90.0, 180.0)));
-    assert_eq!(mapped, manual(90.0, 180.0));
+    assert_eq!(mapped.provider, manual(90.0, 180.0).provider);
 }
 
 /// A watch that has been torn down can still have an event waiting in the inbox behind the
@@ -103,7 +96,7 @@ async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
         .expect("queued");
 
     let running = tokio::spawn(async move {
-        let _ = runtime.run(()).await;
+        let _ = runtime.run(GeolocationDependencies::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -175,8 +168,12 @@ fn a_refresh_under_geoclue_advances_the_subscription_key_and_keeps_the_cache() {
     let mut service = Geolocation {
         status: Publisher::new(sender),
         provider: Provider::Geoclue,
+        cache: None,
+        last: None,
+        saving: None,
+        saves: 0,
         attempt: 0,
-        has_fix: false,
+        has_fix: true,
     };
     let fix = GeoCoordinates {
         latitude: 48.8566,
@@ -187,7 +184,7 @@ fn a_refresh_under_geoclue_advances_the_subscription_key_and_keeps_the_cache() {
     let before = service.subscriptions();
     assert_eq!(before.len(), 2);
     assert_eq!(*before[0].key(), Watch::Geoclue { attempt: 0 });
-    assert_eq!(*before[1].key(), Watch::Retry { fixed: true });
+    assert_eq!(*before[1].key(), Watch::Refresh);
 
     service.refresh();
 
@@ -201,8 +198,8 @@ fn a_refresh_under_geoclue_advances_the_subscription_key_and_keeps_the_cache() {
     );
     assert_eq!(
         *after[1].key(),
-        Watch::Retry { fixed: true },
-        "a refresh does not itself change whether a fix is held, so the retry cadence \
+        Watch::Refresh,
+        "a refresh does not itself change whether a fix is held, so the refresh cadence \
              must not be disturbed by it"
     );
     assert_eq!(
@@ -238,6 +235,10 @@ async fn a_retry_event_advances_the_attempt_through_the_real_handler() {
     let mut service = Geolocation {
         status: ctx.publisher(),
         provider: Provider::Geoclue,
+        cache: None,
+        last: None,
+        saving: None,
+        saves: 0,
         attempt: 0,
         has_fix: false,
     };
@@ -313,7 +314,7 @@ async fn an_unavailable_geoclue_source_marks_degraded_without_erasing_the_cached
         .expect("queued");
 
     let running = tokio::spawn(async move {
-        let _ = runtime.run(()).await;
+        let _ = runtime.run(GeolocationDependencies::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -334,4 +335,224 @@ async fn an_unavailable_geoclue_source_marks_degraded_without_erasing_the_cached
 
     cancel.cancel();
     let _ = running.await;
+}
+
+fn context() -> (
+    Ctx<Geolocation>,
+    mpsc::Receiver<Input<Geolocation>>,
+    watch::Receiver<GeolocationStatus>,
+    watch::Receiver<ServiceState>,
+) {
+    let (events, inbox) = mpsc::channel(8);
+    let (state, state_rx) = watch::channel(GeolocationStatus::default());
+    let (health, health_rx) = watch::channel(ServiceState::Starting);
+    let ctx = Ctx::<Geolocation>::new(
+        events,
+        &CancellationToken::new(),
+        state,
+        health,
+        Buses::unavailable("no bus in tests"),
+    );
+    (ctx, inbox, state_rx, health_rx)
+}
+
+const WARSAW: GeoCoordinates = GeoCoordinates {
+    latitude: 52.2297,
+    longitude: 21.0122,
+};
+
+#[tokio::test]
+async fn waiting_for_a_first_fix_is_reported_rather_than_silent() {
+    let (ctx, _inbox, state, health) = context();
+    let config = Config {
+        provider: Provider::Geoclue,
+    };
+    let dependencies = GeolocationDependencies { cache: None };
+
+    let service = Geolocation::start(&ctx, config, dependencies)
+        .await
+        .expect("starts");
+
+    assert_eq!(state.borrow().coordinates, None);
+    assert!(matches!(
+        &*health.borrow(),
+        ServiceState::Degraded { reason } if reason.contains("waiting for a GeoClue fix")
+    ));
+    assert_eq!(
+        service
+            .subscriptions()
+            .iter()
+            .map(|sub| sub.key())
+            .collect::<Vec<_>>(),
+        vec![&Watch::Geoclue { attempt: 0 }],
+        "without a fix the client is held until GeoClue answers, so no ticker may cut it short"
+    );
+}
+
+#[tokio::test]
+async fn a_cold_start_publishes_the_remembered_fix_until_geoclue_answers() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("location.json");
+    store(&path, &dir.path().join("partial"), &WARSAW)
+        .await
+        .expect("stored");
+    let (ctx, _inbox, state, health) = context();
+    let config = Config {
+        provider: Provider::Geoclue,
+    };
+    let dependencies = GeolocationDependencies { cache: Some(path) };
+
+    Geolocation::start(&ctx, config, dependencies)
+        .await
+        .expect("starts");
+
+    assert_eq!(state.borrow().coordinates, Some(WARSAW));
+    assert!(matches!(
+        &*health.borrow(),
+        ServiceState::Degraded { reason } if reason.contains("last known location")
+    ));
+}
+
+#[tokio::test]
+async fn a_manual_provider_never_reads_the_remembered_fix() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("location.json");
+    store(&path, &dir.path().join("partial"), &WARSAW)
+        .await
+        .expect("stored");
+    let (ctx, _inbox, state, _health) = context();
+    let config = Config {
+        provider: Provider::Manual(None),
+    };
+    let dependencies = GeolocationDependencies { cache: Some(path) };
+
+    Geolocation::start(&ctx, config, dependencies)
+        .await
+        .expect("starts");
+
+    assert_eq!(state.borrow().coordinates, None);
+}
+
+#[tokio::test]
+async fn a_geoclue_fix_is_written_private_and_starts_the_refresh_ticker() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("state").join("location.json");
+    let (ctx, _inbox, _state, health) = context();
+    let config = Config {
+        provider: Provider::Geoclue,
+    };
+    let dependencies = GeolocationDependencies {
+        cache: Some(path.clone()),
+    };
+    let mut service = Geolocation::start(&ctx, config, dependencies)
+        .await
+        .expect("starts");
+
+    service
+        .handle(&ctx, Input::Event(Event::Located(Some(WARSAW))))
+        .await;
+
+    assert_eq!(*health.borrow(), ServiceState::Running);
+    assert!(
+        service
+            .subscriptions()
+            .iter()
+            .any(|sub| *sub.key() == Watch::Refresh)
+    );
+    timeout(Duration::from_secs(2), async {
+        while load(&path).await.is_none() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the fix reaches the disk");
+    assert_eq!(load(&path).await, Some(WARSAW));
+    let mode = std::fs::metadata(&path)
+        .expect("written")
+        .permissions()
+        .mode();
+    assert_eq!(
+        mode & 0o777,
+        0o600,
+        "a location is readable by its owner only"
+    );
+}
+
+#[tokio::test]
+async fn a_remembered_fix_out_of_range_is_ignored() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("location.json");
+    tokio::fs::write(&path, br#"{"latitude":91.0,"longitude":0.0}"#)
+        .await
+        .expect("written");
+
+    assert_eq!(load(&path).await, None);
+}
+
+fn located(fix: GeoCoordinates) -> Attempt {
+    Box::pin(async move { Ok(Some(Event::Located(Some(fix)))) })
+}
+
+#[tokio::test]
+async fn a_failed_first_attempt_is_retried_until_a_fix_ends_the_stream() {
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = calls.clone();
+    let locator = move || -> Attempt {
+        match counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+            0 => Box::pin(async { Err("GeoClue not activatable".to_owned()) }),
+            _ => located(WARSAW),
+        }
+    };
+
+    let events: Vec<Event> = timeout(
+        Duration::from_secs(2),
+        until_fixed(locator, Duration::from_secs(60), Duration::from_millis(1)).collect(),
+    )
+    .await
+    .expect("the stream ends at the fix");
+
+    assert!(matches!(&events[..], [
+        Event::Unavailable(reason),
+        Event::Located(Some(fix)),
+    ] if reason == "GeoClue not activatable" && *fix == WARSAW));
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn a_silent_first_attempt_is_abandoned_at_its_bound_and_retried() {
+    let (held, released) = oneshot::channel::<()>();
+    let held = std::sync::Mutex::new(Some(held));
+    let locator = move || -> Attempt {
+        match held.lock().unwrap().take() {
+            Some(held) => Box::pin(async move {
+                let _held = held;
+                std::future::pending().await
+            }),
+            None => located(WARSAW),
+        }
+    };
+
+    let events: Vec<Event> = timeout(
+        Duration::from_secs(2),
+        until_fixed(locator, Duration::from_millis(20), Duration::from_millis(1)).collect(),
+    )
+    .await
+    .expect("a silent attempt is bounded");
+
+    assert!(matches!(&events[..], [
+        Event::Unavailable(reason),
+        Event::Located(Some(_)),
+    ] if reason.contains("no fix")));
+    assert!(
+        released.await.is_err(),
+        "the abandoned attempt is dropped, which releases its client"
+    );
+}
+
+#[tokio::test]
+async fn a_refresh_that_never_answers_says_so() {
+    let event = bounded(Box::pin(std::future::pending()), Duration::from_millis(20)).await;
+    assert!(matches!(event, Event::Unavailable(reason) if reason.contains("no fix")));
 }

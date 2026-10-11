@@ -1,8 +1,10 @@
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::time::Duration;
 
+use futures_util::future::BoxFuture;
 use futures_util::stream::BoxStream;
-use futures_util::{Stream, StreamExt, stream};
+use futures_util::{Stream, StreamExt, future, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
 use glimpse_dbus::weather::GeoCoordinates;
@@ -12,7 +14,7 @@ use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::say;
 use crate::{
-    context::Ctx,
+    context::{Ctx, SourceGuard},
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
@@ -38,7 +40,8 @@ const CITY_ACCURACY: u32 = 4;
 const NO_FIX: &str = "/";
 
 const FIX_TIMEOUT: Duration = Duration::from_secs(30);
-const NO_FIX_RETRY: Duration = Duration::from_secs(45);
+const FIRST_FIX_TIMEOUT: Duration = Duration::from_secs(300);
+const NO_FIX_RETRY: Duration = Duration::from_secs(15);
 const FIX_REFRESH: Duration = Duration::from_secs(1800);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,6 +71,11 @@ pub struct Config {
     pub(crate) provider: Provider,
 }
 
+#[derive(Debug, Default)]
+pub struct GeolocationDependencies {
+    pub cache: Option<PathBuf>,
+}
+
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
@@ -85,6 +93,10 @@ impl From<&glimpse_config::Config> for Config {
 pub struct Geolocation {
     status: Publisher<GeolocationStatus>,
     provider: Provider,
+    cache: Option<PathBuf>,
+    last: Option<GeoCoordinates>,
+    saving: Option<SourceGuard>,
+    saves: u64,
     attempt: u64,
     has_fix: bool,
 }
@@ -121,7 +133,7 @@ impl Geolocation {}
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Watch {
     Geoclue { attempt: u64 },
-    Retry { fixed: bool },
+    Refresh,
 }
 
 impl Service for Geolocation {
@@ -132,7 +144,7 @@ impl Service for Geolocation {
     type Handle = GeolocationHandle;
     type Command = Command;
     type Event = Event;
-    type Dependencies = ();
+    type Dependencies = GeolocationDependencies;
     type SubKey = Watch;
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
@@ -146,25 +158,19 @@ impl Service for Geolocation {
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         match self.provider {
             Provider::Geoclue => {
-                let period = if self.has_fix {
-                    FIX_REFRESH
-                } else {
-                    NO_FIX_RETRY
-                };
-                vec![
-                    Sub::stream(
-                        Watch::Geoclue {
-                            attempt: self.attempt,
-                        },
-                        geoclue,
-                    ),
-                    Sub::stream(
-                        Watch::Retry {
-                            fixed: self.has_fix,
-                        },
-                        move |_ctx| async move { retry_ticks(period) },
-                    ),
-                ]
+                let fixed = self.has_fix;
+                let mut declared = vec![Sub::stream(
+                    Watch::Geoclue {
+                        attempt: self.attempt,
+                    },
+                    move |ctx| geoclue(ctx, fixed),
+                )];
+                if fixed {
+                    declared.push(Sub::stream(Watch::Refresh, |_ctx| async {
+                        retry_ticks(FIX_REFRESH)
+                    }));
+                }
+                declared
             }
             Provider::Manual(_) => Vec::new(),
         }
@@ -173,11 +179,19 @@ impl Service for Geolocation {
     async fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
-        _dependencies: Self::Dependencies,
+        dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
+        let last = match &dependencies.cache {
+            Some(path) => load(path).await,
+            None => None,
+        };
         let mut service = Self {
             status: ctx.publisher(),
             provider: Provider::Manual(None),
+            cache: dependencies.cache,
+            last,
+            saving: None,
+            saves: 0,
             attempt: 0,
             has_fix: false,
         };
@@ -189,8 +203,10 @@ impl Service for Geolocation {
         match input {
             Input::Event(_) if !matches!(self.provider, Provider::Geoclue) => {}
             Input::Event(Event::Located(coordinates)) => {
-                if coordinates.is_some() {
+                if let Some(fix) = &coordinates {
                     ctx.running();
+                    self.has_fix = true;
+                    self.remember(ctx, fix);
                 }
                 self.publish(coordinates);
             }
@@ -224,9 +240,34 @@ impl Geolocation {
                 ctx.degraded("`[geolocation]` coordinates are out of range");
                 self.publish(None);
             }
-            Provider::Geoclue => self.publish(None),
+            Provider::Geoclue => {
+                ctx.degraded(match self.last {
+                    Some(_) => "using the last known location until GeoClue answers",
+                    None => "waiting for a GeoClue fix",
+                });
+                self.has_fix = false;
+                self.publish(self.last.clone());
+            }
         }
         self.provider = provider;
+    }
+
+    fn remember(&mut self, ctx: &Ctx<Self>, fix: &GeoCoordinates) {
+        if self.last.as_ref() == Some(fix) {
+            return;
+        }
+        self.last = Some(fix.clone());
+        if let Some(path) = self.cache.clone() {
+            let fix = fix.clone();
+            self.saves += 1;
+            let partial = path.with_extension(format!("json.{}.partial", self.saves));
+            self.saving = Some(ctx.stream(move |_ctx| async move {
+                if let Err(error) = store(&path, &partial, &fix).await {
+                    tracing::warn!(%error, "cannot remember the last location");
+                }
+                stream::empty()
+            }));
+        }
     }
 
     fn refresh(&mut self) {
@@ -237,9 +278,32 @@ impl Geolocation {
     }
 
     fn publish(&mut self, coordinates: Option<GeoCoordinates>) {
-        self.has_fix = coordinates.is_some();
         self.status.set(GeolocationStatus { coordinates });
     }
+}
+
+async fn load(path: &Path) -> Option<GeoCoordinates> {
+    let bytes = tokio::fs::read(path).await.ok()?;
+    let fix: GeoCoordinates = serde_json::from_slice(&bytes).ok()?;
+    coordinates(fix.latitude, fix.longitude)
+}
+
+async fn store(path: &Path, partial: &Path, fix: &GeoCoordinates) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt as _;
+
+    if let Some(dir) = path.parent() {
+        tokio::fs::create_dir_all(dir).await?;
+    }
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(partial)
+        .await?;
+    file.write_all(&serde_json::to_vec(fix)?).await?;
+    file.sync_all().await?;
+    tokio::fs::rename(partial, path).await
 }
 
 /// Presence is the configuration's job — a `manual` table missing either key is refused before the
@@ -254,29 +318,53 @@ fn coordinates(latitude: f64, longitude: f64) -> Option<GeoCoordinates> {
     )
 }
 
-async fn geoclue(ctx: Ctx<Geolocation>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-    match locations(&ctx).await {
-        Ok(event) => Box::pin(stream::iter(event)),
-        Err(reason) => Box::pin(stream::once(async move { Event::Unavailable(reason) })),
+type Attempt = BoxFuture<'static, Result<Option<Event>, String>>;
+
+async fn geoclue(ctx: Ctx<Geolocation>, fixed: bool) -> BoxStream<'static, Event> {
+    let locator = move || -> Attempt { Box::pin(locate(ctx.clone())) };
+    if fixed {
+        stream::once(bounded(locator(), FIX_TIMEOUT)).boxed()
+    } else {
+        until_fixed(locator, FIRST_FIX_TIMEOUT, NO_FIX_RETRY)
     }
 }
 
-async fn locations(ctx: &Ctx<Geolocation>) -> Result<Option<Event>, String> {
-    let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
-    match timeout(FIX_TIMEOUT, attempt(ctx.clone(), bus)).await {
-        Ok(outcome) => outcome,
-        Err(_) => Ok(None),
+async fn bounded(attempt: Attempt, bound: Duration) -> Event {
+    match timeout(bound, attempt).await {
+        Ok(Ok(Some(event))) => event,
+        Ok(Ok(None)) => Event::Unavailable("GeoClue stopped before a fix".to_owned()),
+        Ok(Err(reason)) => Event::Unavailable(reason),
+        Err(_) => Event::Unavailable(format!("GeoClue gave no fix in {}s", bound.as_secs())),
     }
+}
+
+fn until_fixed(
+    locator: impl Fn() -> Attempt + Send + 'static,
+    bound: Duration,
+    pause: Duration,
+) -> BoxStream<'static, Event> {
+    stream::unfold(Some((locator, false)), move |state| async move {
+        let (locator, retrying) = state?;
+        if retrying {
+            sleep(pause).await;
+        }
+        match bounded(locator(), bound).await {
+            event @ Event::Located(_) => Some((event, None)),
+            event => Some((event, Some((locator, true)))),
+        }
+    })
+    .boxed()
+}
+
+async fn locate(ctx: Ctx<Geolocation>) -> Result<Option<Event>, String> {
+    let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
+    attempt(ctx, bus).await
 }
 
 async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>, String> {
     let manager = GeoClueManagerProxy::new(&bus).await.map_err(say)?;
 
-    // GeoClue hands a caller back the client it already has; only the first call needs a new one.
-    let path = match manager.get_client().await {
-        Ok(path) => path,
-        Err(_) => manager.create_client().await.map_err(say)?,
-    };
+    let path = manager.create_client().await.map_err(say)?;
     let client = GeoClueClientProxy::builder(&bus)
         .path(path.clone())
         .map_err(say)?
@@ -295,6 +383,7 @@ async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>
 
     // Subscribed before `Start`, because the first fix can arrive before it returns.
     let updates = client.receive_location_changed().await;
+    let vanished = client.inner().receive_owner_changed().await.map_err(say)?;
 
     client.set_desktop_id(DESKTOP_ID).await.map_err(say)?;
     client
@@ -316,8 +405,14 @@ async fn attempt(ctx: Ctx<Geolocation>, bus: Connection) -> Result<Option<Event>
         }))
     };
 
-    let event = first_fix(decoded).await;
-    transient.release().await;
+    let mut vanished = std::pin::pin!(vanished.filter(|owner| future::ready(owner.is_none())));
+    let event = tokio::select! {
+        event = first_fix(decoded) => event,
+        _ = vanished.next() => {
+            Some(Event::Unavailable("GeoClue stopped before a fix".to_owned()))
+        }
+    };
+    drop(transient);
 
     Ok(event)
 }
@@ -350,12 +445,6 @@ impl TransientClient {
         Self {
             ctx,
             release: Some(Box::new(move || Box::pin(release()))),
-        }
-    }
-
-    async fn release(mut self) {
-        if let Some(release) = self.release.take() {
-            release().await;
         }
     }
 }

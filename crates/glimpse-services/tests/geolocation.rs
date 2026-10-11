@@ -6,7 +6,10 @@ use glimpse_dbus::geoclue::GeoClueManagerProxy;
 use glimpse_dbus::testing::PrivateBus;
 use glimpse_dbus::testing::geoclue::{Call, FakeGeoClue};
 use glimpse_dbus::weather::GeoCoordinates;
-use glimpse_services::{Geolocation, GeolocationHandle, GeolocationStatus, Running, ServiceState};
+use glimpse_services::{
+    Geolocation, GeolocationDependencies, GeolocationHandle, GeolocationStatus, Running,
+    ServiceState,
+};
 use zbus::zvariant::OwnedObjectPath;
 
 async fn geolocation(
@@ -15,7 +18,7 @@ async fn geolocation(
 ) -> (Running<Geolocation>, GeolocationHandle) {
     let connection = bus.connection().await;
     let buses = Buses::for_system(connection);
-    Running::<Geolocation>::spawn(document, buses, ())
+    Running::<Geolocation>::spawn(document, buses, GeolocationDependencies::default())
 }
 
 fn manual(latitude: f64, longitude: f64) -> Config {
@@ -141,9 +144,10 @@ async fn a_fix_arriving_releases_the_client_and_clears_in_use() {
     })
     .await;
 
-    // The release runs synchronously inside the same attempt that decodes the fix, before the
-    // event ever reaches the published state, so both calls are already in the log here.
-    let calls = fake.calls();
+    let calls = calls_until(&fake, Duration::from_secs(5), |calls| {
+        calls.contains(&Call::DeleteClient(client.clone()))
+    })
+    .await;
     let stop_at = calls
         .iter()
         .position(|call| call == &Call::Stop(client.clone()));
@@ -165,7 +169,7 @@ async fn a_fix_arriving_releases_the_client_and_clears_in_use() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_fix_that_never_arrives_is_still_released_after_the_bounded_timeout() {
+async fn a_cold_start_holds_its_client_and_says_it_is_waiting() {
     let bus = PrivateBus::start();
     let fake = FakeGeoClue::start(bus.connection().await).await.unwrap();
     let (mut service, handle) = geolocation(&bus, &Config::default()).await;
@@ -175,29 +179,64 @@ async fn a_fix_that_never_arrives_is_still_released_after_the_bounded_timeout() 
     })
     .await;
     let client = first_client(&calls);
-    assert!(fake.in_use());
 
-    // No `push_fix`: production bounds the wait at `FIX_TIMEOUT` (30s) and releases the client
-    // anyway, so this genuinely costs the wait rather than asserting a duration.
-    calls_until(&fake, Duration::from_secs(40), |calls| {
-        calls.iter().any(|call| call == &Call::Stop(client.clone()))
-    })
-    .await;
-    calls_until(&fake, Duration::from_secs(5), |calls| {
-        calls
-            .iter()
-            .any(|call| call == &Call::DeleteClient(client.clone()))
+    let health = health_until(&handle, Duration::from_secs(5), |state| {
+        matches!(state, ServiceState::Degraded { .. })
     })
     .await;
     assert!(
-        !fake.in_use(),
-        "a client that never got a fix must not pin InUse forever"
+        matches!(&health, ServiceState::Degraded { reason } if reason.contains("waiting")),
+        "a location that has not arrived yet must say so: {health:?}"
     );
-    assert_eq!(
-        handle.snapshot().coordinates,
-        None,
-        "a fix that never arrived must not be reported as one"
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(
+        fake.in_use() && !fake.calls().contains(&Call::Stop(client.clone())),
+        "GeoClue keeps trying while a client is active, so the first one is held until it answers"
     );
+    assert_eq!(handle.snapshot().coordinates, None);
+
+    service.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_refresh_during_the_first_wait_is_answered_on_a_fresh_client() {
+    let bus = PrivateBus::start();
+    let fake = FakeGeoClue::start(bus.connection().await).await.unwrap();
+    let (mut service, handle) = geolocation(&bus, &Config::default()).await;
+
+    let calls = calls_until(&fake, Duration::from_secs(5), |calls| {
+        calls.iter().any(|call| matches!(call, Call::Start(_)))
+    })
+    .await;
+    let first = first_client(&calls);
+
+    handle
+        .refresh()
+        .await
+        .expect("refresh reaches the running service");
+    let calls = calls_until(&fake, Duration::from_secs(5), |calls| {
+        calls
+            .iter()
+            .filter(|call| matches!(call, Call::Start(_)))
+            .count()
+            >= 2
+            && calls.contains(&Call::DeleteClient(first.clone()))
+    })
+    .await;
+    let second = last_client(&calls);
+    assert_ne!(first, second, "the abandoned client is never handed back");
+
+    let fix = GeoCoordinates {
+        latitude: 50.0647,
+        longitude: 19.945,
+    };
+    fake.push_fix(&second, fix.latitude, fix.longitude)
+        .await
+        .unwrap();
+    state_until(&handle, Duration::from_secs(5), |state| {
+        state.coordinates == Some(fix.clone())
+    })
+    .await;
 
     service.stop().await;
 }
@@ -233,7 +272,7 @@ async fn a_refresh_after_release_is_handed_a_new_client_not_the_released_one() {
     .await;
 
     // Driven through the same command a `geolocation.refresh` call uses, never a wait on the
-    // real 45s retry cadence.
+    // real refresh cadence.
     handle
         .refresh()
         .await
@@ -326,7 +365,10 @@ async fn a_release_that_races_an_already_deleted_client_is_stepped_over() {
     })
     .await;
     assert!(
-        !matches!(&*handle.health().borrow(), ServiceState::Degraded { .. }),
+        matches!(
+            &*handle.health().borrow(),
+            ServiceState::Degraded { reason } if reason.contains("waiting")
+        ),
         "a delete that lands before the service's own release must not degrade it on its own"
     );
 

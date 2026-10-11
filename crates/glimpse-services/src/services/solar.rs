@@ -1,7 +1,9 @@
 use std::f64::consts::TAU;
 
 use crate::services::GeolocationStatus;
-use chrono::{DateTime, Datelike, Local, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, TimeDelta, Utc};
+use futures_util::{StreamExt as _, future, stream, stream::BoxStream};
+use glimpse_dbus::login1::Login1ManagerProxy;
 use glimpse_dbus::weather::GeoCoordinates;
 use tokio::{
     sync::{oneshot, watch},
@@ -32,6 +34,7 @@ pub enum Event {
 pub struct Solar {
     status: Publisher<Option<SolarStatus>>,
     coordinates: Option<GeoCoordinates>,
+    next_change: Option<DateTime<Utc>>,
     location: watch::Receiver<GeolocationStatus>,
 }
 
@@ -69,6 +72,8 @@ impl Solar {}
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
     Tick,
+    Change(DateTime<Utc>),
+    Resume,
     Location,
 }
 
@@ -91,8 +96,8 @@ impl Service for Solar {
         Self::State::default()
     }
 
-    /// The tick re-evaluates a phase that only a location can produce, so without one it would wake
-    /// every minute to return immediately.
+    /// The phase is re-evaluated at its next change, on resume, and every tick where no change is
+    /// due — and only once a location can produce one.
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut declared = vec![Sub::watch(
             Watch::Location,
@@ -101,9 +106,11 @@ impl Service for Solar {
             Event::Update(None),
         )];
         if self.coordinates.is_some() {
-            declared.push(Sub::interval(Watch::Tick, TICK, |_ctx| async {
-                Event::Tick
-            }));
+            declared.push(match self.next_change {
+                Some(at) => Sub::deadline(Watch::Change(at), at, Event::Tick),
+                None => Sub::interval(Watch::Tick, TICK, |_ctx| async { Event::Tick }),
+            });
+            declared.push(Sub::stream(Watch::Resume, resumes));
         }
         declared
     }
@@ -116,6 +123,7 @@ impl Service for Solar {
         ctx.degraded("no location yet");
         Ok(Self {
             coordinates: None,
+            next_change: None,
             status: ctx.publisher(),
             location: dependencies.geolocation.subscribe(),
         })
@@ -130,6 +138,7 @@ impl Service for Solar {
                 }
                 self.coordinates = coordinates;
                 if self.coordinates.is_none() {
+                    self.next_change = None;
                     self.status.set(None);
                 }
                 self.refresh();
@@ -149,10 +158,37 @@ impl Solar {
         let Some(coordinates) = self.coordinates.as_ref() else {
             return;
         };
-        let now = Local::now();
-        if let Some(status) = status_at(now.with_timezone(&Utc), now.date_naive(), coordinates) {
+        let now = Utc::now();
+        if let Some(status) = status_at(now, solar_date(now, coordinates.longitude), coordinates) {
+            self.next_change = status.next_change.filter(|at| *at > now);
             self.status.set(Some(status));
         }
+    }
+}
+
+fn solar_date(now: DateTime<Utc>, longitude: f64) -> NaiveDate {
+    (now + TimeDelta::seconds((longitude * 240.0) as i64)).date_naive()
+}
+
+async fn resumes(ctx: Ctx<Solar>) -> BoxStream<'static, Event> {
+    let Ok(bus) = ctx.system_bus() else {
+        return stream::empty().boxed();
+    };
+    let Ok(manager) = Login1ManagerProxy::new(bus).await else {
+        return stream::empty().boxed();
+    };
+    match manager.receive_prepare_for_sleep().await {
+        Ok(signals) => signals
+            .filter_map(|signal| {
+                future::ready(
+                    signal
+                        .args()
+                        .is_ok_and(|args| !args.start)
+                        .then_some(Event::Tick),
+                )
+            })
+            .boxed(),
+        Err(_) => stream::empty().boxed(),
     }
 }
 

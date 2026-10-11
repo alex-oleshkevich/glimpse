@@ -54,8 +54,11 @@ emitted**, so the handler ignores an event whose deadline no longer matches.
 
 **geolocation** — two providers behind one state. `manual` publishes the configured pair; `geoclue`
 runs one transient client per attempt, subscribed to `Location` **before** `Start` so an existing fix
-arrives as that subscription's first item. Coordinates are **last known, not current** — a lost bus
-degrades the service without clearing the cache.
+arrives as that subscription's first item. Until the first fix a client is held for minutes rather
+than seconds, since GeoClue keeps trying while a client is active; a refresh is bounded tighter.
+Coordinates are **last known, not current** — a lost bus degrades the service without clearing them,
+and an injected cache file carries the last GeoClue fix across restarts, published as degraded until
+GeoClue answers.
 
 **night light** — its solar input is an injected watch receiver, supplied by the settings provider's
 follower in sunset. Owner loss clears the observed phase and degrades automatic mode; manual
