@@ -26,7 +26,7 @@ const THUMBNAIL: i32 = 320;
 const EXCERPT_LINES: usize = 6;
 const EXCERPT_CHARS: usize = 200;
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, wording};
 
 pub struct Clipboard {
@@ -568,7 +568,7 @@ impl Applet for Clipboard {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = ClipboardPopover::new();
         let opener = seat.opener();
         self.query.replace(String::new());
@@ -712,11 +712,10 @@ impl Applet for Clipboard {
                 opener.wake();
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated(crate::applet::popover::footer(&self.footer));
 
         self.shown.set(Some(&shown));
         self.refresh(&opener);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }

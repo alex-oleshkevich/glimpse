@@ -1,7 +1,7 @@
 mod imp;
 
 use adw::prelude::*;
-use gtk4::{gdk, glib, subclass::prelude::*};
+use gtk4::{glib, subclass::prelude::*};
 
 use crate::ShotToolbar;
 
@@ -41,14 +41,6 @@ impl ShotResultPage {
 
     pub fn hand(&self) -> gtk4::ToggleButton {
         self.imp().hand.get()
-    }
-
-    pub fn set_texture(&self, texture: Option<&gdk::Texture>) {
-        let picture = &self.imp().picture;
-        if same_texture(picture, texture) {
-            return;
-        }
-        picture.set_paintable(texture);
     }
 
     pub fn set_size_text(&self, text: &str) {
@@ -274,11 +266,6 @@ impl ShotResultPage {
             glib::closure_local!(move |page: Self| f(&page)),
         )
     }
-}
-
-fn same_texture(picture: &gtk4::Picture, texture: Option<&gdk::Texture>) -> bool {
-    let next = texture.map(|texture| texture.clone().upcast::<gdk::Paintable>());
-    picture.paintable() == next
 }
 
 fn intrinsic(picture: &gtk4::Picture) -> Option<(f64, f64)> {

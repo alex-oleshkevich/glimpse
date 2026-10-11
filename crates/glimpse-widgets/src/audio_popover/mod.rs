@@ -101,9 +101,7 @@ impl AudioPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
+
 
     pub fn set_more_apps(&self, apps: Option<&str>) {
         set_action_label(&self.imp().more_apps, apps);
@@ -115,19 +113,6 @@ impl AudioPopover {
     ) -> glib::SignalHandlerId {
         self.connect_closure(
             "level-changed",
-            false,
-            glib::closure_local!(move |popover: Self, dir: String, value: f64| f(
-                &popover, &dir, value
-            )),
-        )
-    }
-
-    pub fn connect_level_moved<F: Fn(&Self, &str, f64) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "level-moved",
             false,
             glib::closure_local!(move |popover: Self, dir: String, value: f64| f(
                 &popover, &dir, value
@@ -214,13 +199,7 @@ impl AudioPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
+
 
     fn render_devices(&self) {
         let imp = self.imp();

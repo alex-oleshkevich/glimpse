@@ -486,10 +486,12 @@ async fn offer_options_reach_running_attached_slot() {
     let second = next_generation(&handle, 1, first.generation).await;
     assert_eq!(second.tree.children(ROOT), [1]);
     assert_eq!(second.status, Status::Running);
-    sender.reconfigure(Config {
-        applets: BTreeMap::new(),
-        state_base: Some(base),
-    });
+    sender
+        .try_send(Input::Config(Config {
+            applets: BTreeMap::new(),
+            state_base: Some(base),
+        }))
+        .expect("queued");
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert_eq!(
         handle.snapshot().slots.get(&1).expect("slot").status,

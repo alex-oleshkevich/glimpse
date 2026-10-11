@@ -1,5 +1,6 @@
 use super::*;
 use crate::Running;
+use crate::ServiceState;
 use glimpse_dbus::Buses;
 use std::sync::{Arc, Mutex};
 

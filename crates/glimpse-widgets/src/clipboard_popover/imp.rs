@@ -25,8 +25,6 @@ pub struct ClipboardPopover {
     pub more: TemplateChild<ActionRow>,
     #[template_child]
     pub clear: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -75,7 +73,6 @@ impl ObjectImpl for ClipboardPopover {
                     .build(),
                 glib::subclass::Signal::builder("more").build(),
                 glib::subclass::Signal::builder("cleared").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -120,11 +117,7 @@ impl ObjectImpl for ClipboardPopover {
             obj,
             move |_| obj.emit_by_name::<()>("cleared", &[])
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            obj,
-            move |_| obj.emit_by_name::<()>("footer-activated", &[])
-        ));
+
     }
 
     fn dispose(&self) {

@@ -9,11 +9,11 @@ use glimpse_services::{
 };
 
 use glimpse_widgets::{IndicatorSpec, PrivacyPopover, Severity};
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported};
 use crate::applets::audio;
 
@@ -33,10 +33,6 @@ pub struct Privacy {
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<PrivacyPopover>,
     ticking: Option<bool>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 impl Applet for Privacy {
@@ -69,7 +65,7 @@ impl Applet for Privacy {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = PrivacyPopover::new();
 
         shown.connect_stop_activated({
@@ -113,7 +109,7 @@ impl Applet for Privacy {
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

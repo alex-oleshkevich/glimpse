@@ -8,8 +8,8 @@ use glimpse_utils::clean;
 use tokio::sync::oneshot;
 
 use crate::{
-    CommandError, CompositorHandle, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint,
-    ServiceError, Sub, say,
+    CommandError, CompositorHandle, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint, Sub,
+    say,
 };
 
 const INHIBITOR_MAX: usize = 8;
@@ -136,26 +136,11 @@ pub struct SessionActions {
     compositor: CompositorHandle,
 }
 
-#[derive(Clone)]
-pub struct SessionActionsHandle(ServiceEndpoint<SessionActions>);
+pub type SessionActionsHandle = ServiceEndpoint<SessionActions>;
 
-impl SessionActionsHandle {
-    pub fn snapshot(&self) -> SessionActionsState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<SessionActionsState> {
-        self.0.subscribe()
-    }
-
+impl ServiceEndpoint<SessionActions> {
     pub async fn run(&self, action: Action) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Run { action, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "session actions stopped before completing the command".to_owned(),
-            )
-        })?
+        self.call(|reply| Command::Run { action, reply }).await?
     }
 }
 
@@ -173,14 +158,13 @@ impl Service for SessionActions {
     const NAME: &'static str = "session-actions";
     type Config = NoConfig;
     type State = SessionActionsState;
-    type Handle = SessionActionsHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        SessionActionsHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "session actions stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -203,11 +187,11 @@ impl Service for SessionActions {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: ctx.publisher(),
             compositor: dependencies.compositor,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

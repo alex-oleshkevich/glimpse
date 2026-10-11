@@ -13,7 +13,7 @@ use glimpse_dbus::network_manager as nm;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceError},
+    service::{CommandError, Input, Service},
     subscription::Sub,
 };
 
@@ -449,38 +449,25 @@ pub struct Network {
     secret: Option<(Request, oneshot::Sender<Answer>)>,
 }
 
-#[derive(Clone)]
-pub struct NetworkHandle(crate::ServiceEndpoint<Network>);
+pub type NetworkHandle = crate::ServiceEndpoint<Network>;
 
-impl NetworkHandle {
-    pub fn snapshot(&self) -> NetworkState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<NetworkState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Network> {
     pub async fn set_networking_enabled(&self, enabled: bool) -> Result<(), NetworkError> {
         self.call(|reply| Command::SetNetworkingEnabled { enabled, reply })
-            .await
+            .await?
     }
 
     pub async fn set_wifi_enabled(&self, enabled: bool) -> Result<(), NetworkError> {
         self.call(|reply| Command::SetWifiEnabled { enabled, reply })
-            .await
+            .await?
     }
 
     pub async fn start_scan(&self) -> Result<(), NetworkError> {
-        self.call(|reply| Command::StartScan { reply }).await
+        self.call(|reply| Command::StartScan { reply }).await?
     }
 
     pub async fn stop_scan(&self) -> Result<(), NetworkError> {
-        self.call(|reply| Command::StopScan { reply }).await
+        self.call(|reply| Command::StopScan { reply }).await?
     }
 
     pub async fn connect_access_point(
@@ -489,7 +476,7 @@ impl NetworkHandle {
         secret: Option<Secret>,
     ) -> Result<(), NetworkError> {
         self.call(|reply| Command::ConnectAccessPoint { id, secret, reply })
-            .await
+            .await?
     }
 
     pub async fn connect_hidden(
@@ -504,25 +491,25 @@ impl NetworkHandle {
             secret,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn connect_profile(&self, id: NetworkId) -> Result<(), NetworkError> {
         self.call(|reply| Command::ConnectProfile { id, reply })
-            .await
+            .await?
     }
 
     pub async fn connect_device(&self, id: NetworkId) -> Result<(), NetworkError> {
         self.call(|reply| Command::ConnectDevice { id, reply })
-            .await
+            .await?
     }
 
     pub async fn disconnect(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::Disconnect { id, reply }).await
+        self.call(|reply| Command::Disconnect { id, reply }).await?
     }
 
     pub async fn forget(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::Forget { id, reply }).await
+        self.call(|reply| Command::Forget { id, reply }).await?
     }
 
     pub async fn set_autoconnect(
@@ -535,29 +522,21 @@ impl NetworkHandle {
             autoconnect,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn answer_secret(&self, answer: Answer) -> Result<(), NetworkError> {
         self.call(|reply| Command::AnswerSecret { answer, reply })
-            .await
+            .await?
     }
 
     pub async fn connect_vpn(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectVpn { id, reply }).await
+        self.call(|reply| Command::ConnectVpn { id, reply }).await?
     }
 
     pub async fn disconnect_vpn(&self, id: NetworkId) -> Result<(), NetworkError> {
         self.call(|reply| Command::DisconnectVpn { id, reply })
-            .await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), NetworkError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("network stopped before completing the command".to_owned())
-        })?
+            .await?
     }
 }
 
@@ -602,14 +581,13 @@ impl Service for Network {
     const NAME: &'static str = "network";
     type Config = Config;
     type State = NetworkState;
-    type Handle = NetworkHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        NetworkHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "network stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -642,9 +620,9 @@ impl Service for Network {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let _ = ctx;
-        Ok(Self {
+        Self {
             state: ctx.publisher(),
             config,
             generation: 0,
@@ -668,7 +646,7 @@ impl Service for Network {
             register_attempts: std::cell::Cell::new(0),
             agent: false,
             secret: None,
-        })
+        }
     }
 
     async fn stop(self, ctx: &Ctx<Self>) {

@@ -1,5 +1,6 @@
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use super::*;
@@ -73,8 +74,7 @@ async fn harness_with(
             selection: Arc::clone(&selection),
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,

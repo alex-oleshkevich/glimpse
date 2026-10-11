@@ -137,7 +137,7 @@ async fn located(coordinates: Option<GeoCoordinates>) -> (Option<SolarStatus>, S
         cancel.clone(),
     );
     let location_task = tokio::spawn(async move {
-        let _ = location_runtime.run(Default::default()).await;
+        location_runtime.run(Default::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -220,8 +220,7 @@ async fn started() -> (
             geolocation: location,
         },
     )
-    .await
-    .expect("starts");
+    .await;
     (solar, ctx, state_rx, inbox)
 }
 

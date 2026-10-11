@@ -7,9 +7,10 @@ use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{CompositorHandle, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{IndicatorSpec, WorkspaceNamePopover};
 use gtk4::glib;
+use gtk4::prelude::Cast as _;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command,
     wording,
@@ -81,7 +82,7 @@ impl Applet for WorkspaceName {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = WorkspaceNamePopover::new();
         let opener = seat.opener();
         opener.typing(true);
@@ -120,7 +121,7 @@ impl Applet for WorkspaceName {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

@@ -1,7 +1,7 @@
 use glimpse_widgets::IndicatorSpec;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 
 pub struct WidgetDemo;
@@ -17,7 +17,7 @@ impl Applet for WidgetDemo {
         }]
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
-        Some(Box::new(glimpse_widgets::WidgetDemoPopover::new()))
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
+        Some(glimpse_widgets::WidgetDemoPopover::new().upcast())
     }
 }

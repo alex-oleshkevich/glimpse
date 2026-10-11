@@ -34,15 +34,8 @@ fn run(cli: &Cli) -> Result<()> {
     glimpse_config::seed_user_config(cli.config.as_deref());
     let (config, failure) = glimpse_config::load_or_default(cli.config.as_deref());
     init_translations(config.regional.language());
-    let threads = std::env::var("GLIMPSE_THREADS")
-        .ok()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(4);
-    if RELM_THREADS.set(threads).is_err() {
-        tracing::warn!(
-            threads,
-            "RELM_THREADS already initialized; GLIMPSE_THREADS ignored"
-        );
+    if RELM_THREADS.set(4).is_err() {
+        tracing::warn!("RELM_THREADS already initialized");
     }
 
     register_resources()?;

@@ -11,7 +11,7 @@ use glimpse_widgets::{IndicatorSpec, Severity, WeatherPopover};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 const MINUTE: Duration = Duration::from_secs(60);
@@ -78,7 +78,7 @@ impl Applet for Weather {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
         let shown = WeatherPopover::new();
 
         let footer = self.footer.clone();
@@ -86,7 +86,7 @@ impl Applet for Weather {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

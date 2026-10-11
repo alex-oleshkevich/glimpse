@@ -1,3 +1,4 @@
+use crate::services::cap;
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -144,8 +145,14 @@ fn parse_printers(attributes: &IppAttributes) -> Vec<Printer> {
     attributes
         .groups_of(DelimiterTag::PrinterAttributes)
         .map(|group| {
-            let name = cap(&str_attr(group, "printer-name").unwrap_or_default());
-            let make_model = cap(&str_attr(group, "printer-make-and-model").unwrap_or_default());
+            let name = cap(
+                &str_attr(group, "printer-name").unwrap_or_default(),
+                NAME_CAP,
+            );
+            let make_model = cap(
+                &str_attr(group, "printer-make-and-model").unwrap_or_default(),
+                NAME_CAP,
+            );
             let state = match u32_attr(group, "printer-state") {
                 Some(3) => PrinterState::Idle,
                 Some(4) => PrinterState::Processing,
@@ -155,18 +162,24 @@ fn parse_printers(attributes: &IppAttributes) -> Vec<Printer> {
             let state_reasons = str_list_attr(group, "printer-state-reasons")
                 .into_iter()
                 .filter(|reason| reason != "none")
-                .map(|reason| cap(&reason))
+                .map(|reason| cap(&reason, NAME_CAP))
                 .collect();
             let job_count = u32_attr(group, "queued-job-count").unwrap_or(0);
 
             Printer {
                 name,
                 make_model,
-                device_uri: cap(&str_attr(group, "device-uri").unwrap_or_default()),
+                device_uri: cap(&str_attr(group, "device-uri").unwrap_or_default(), NAME_CAP),
                 state,
                 state_reasons,
-                state_message: cap(&str_attr(group, "printer-state-message").unwrap_or_default()),
-                location: cap(&str_attr(group, "printer-location").unwrap_or_default()),
+                state_message: cap(
+                    &str_attr(group, "printer-state-message").unwrap_or_default(),
+                    NAME_CAP,
+                ),
+                location: cap(
+                    &str_attr(group, "printer-location").unwrap_or_default(),
+                    NAME_CAP,
+                ),
                 accepting_jobs: bool_attr(group, "printer-is-accepting-jobs").unwrap_or(true),
                 color: bool_attr(group, "color-supported").unwrap_or(false),
                 duplex: str_list_attr(group, "sides-supported")
@@ -174,7 +187,7 @@ fn parse_printers(attributes: &IppAttributes) -> Vec<Printer> {
                     .any(|side| side.starts_with("two-sided")),
                 media_ready: str_list_attr(group, "media-ready")
                     .into_iter()
-                    .map(|media| cap(&media))
+                    .map(|media| cap(&media, NAME_CAP))
                     .collect(),
                 resolution: resolution_attr(group).unwrap_or_default(),
                 job_count,
@@ -189,10 +202,10 @@ fn parse_jobs(attributes: &IppAttributes) -> Vec<PrintJob> {
         .filter_map(|group| {
             let id = u32_attr(group, "job-id")?;
             let name = str_attr(group, "job-name")
-                .map(|name| cap(&name))
+                .map(|name| cap(&name, NAME_CAP))
                 .unwrap_or_else(|| format!("Job {id}"));
             let printer_uri = str_attr(group, "job-printer-uri").unwrap_or_default();
-            let printer_name = cap(&printer_name_from_uri(&printer_uri));
+            let printer_name = cap(&printer_name_from_uri(&printer_uri), NAME_CAP);
             let state = match u32_attr(group, "job-state") {
                 Some(3) => JobState::Pending,
                 Some(4) => JobState::Held,
@@ -216,10 +229,6 @@ fn parse_jobs(attributes: &IppAttributes) -> Vec<PrintJob> {
             })
         })
         .collect()
-}
-
-fn cap(text: &str) -> String {
-    text.chars().take(NAME_CAP).collect()
 }
 
 fn printer_name_from_uri(uri: &str) -> String {

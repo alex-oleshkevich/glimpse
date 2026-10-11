@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    BLANKED, CHANGED, ENABLE_REQUESTED, FOOTER_ACTIVATED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED,
+    BLANKED, CHANGED, ENABLE_REQUESTED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED,
     NIGHT_LIGHT_SCHEDULED, NIGHT_LIGHT_TOGGLED, TEMPERATURE_MAX, TEMPERATURE_MIN,
 };
 
@@ -55,8 +55,6 @@ pub struct DisplayPopover {
     pub displays: TemplateChild<DisplayList>,
     #[template_child]
     pub blank: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub sources: RefCell<Vec<Source>>,
     pub night_light_state: RefCell<Option<NightLight>>,
@@ -116,7 +114,6 @@ impl ObjectImpl for DisplayPopover {
                     .param_types([String::static_type(), bool::static_type()])
                     .build(),
                 glib::subclass::Signal::builder(BLANKED).build(),
-                glib::subclass::Signal::builder(FOOTER_ACTIVATED).build(),
             ]
         })
     }
@@ -187,11 +184,7 @@ impl ObjectImpl for DisplayPopover {
             popover,
             move |_| popover.emit_by_name::<()>(BLANKED, &[])
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>(FOOTER_ACTIVATED, &[])
-        ));
+
 
         popover.render_sources();
         popover.render_night_light();

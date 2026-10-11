@@ -12,7 +12,7 @@ use glimpse_widgets::{IdlePopover, IndicatorSpec, Severity};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 use keep_awake::{deadline, manual_holds, settling};
 
@@ -56,7 +56,7 @@ impl Applet for Idle {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = IdlePopover::new();
 
         shown.connect_hold_requested({
@@ -101,12 +101,14 @@ impl Applet for Idle {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

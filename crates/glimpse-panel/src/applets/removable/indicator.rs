@@ -12,7 +12,8 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
 
 use super::render;
@@ -27,10 +28,6 @@ pub struct Removable {
     volumes_cap: usize,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<RemovablePopover>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 impl Applet for Removable {
@@ -58,7 +55,7 @@ impl Applet for Removable {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         self.expanded.set(false);
 
         let shown = RemovablePopover::new();
@@ -134,7 +131,7 @@ impl Applet for Removable {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

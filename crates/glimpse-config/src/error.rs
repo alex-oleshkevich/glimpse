@@ -102,23 +102,19 @@ fn schema_message(error: &config::ConfigError) -> String {
             expected,
             key,
             ..
-        } => describe_type_mismatch(expected, key.as_deref(), origin.as_deref()),
+        } => describe_location(
+            format!("expected {expected}"),
+            key.as_deref(),
+            origin.as_deref(),
+        ),
         config::ConfigError::At { error, origin, key } => {
-            let mut message = schema_message(error);
-            if let Some(key) = key {
-                message.push_str(&format!(" for key `{key}`"));
-            }
-            if let Some(origin) = origin {
-                message.push_str(&format!(" in {origin}"));
-            }
-            message
+            describe_location(schema_message(error), key.as_deref(), origin.as_deref())
         }
         other => other.to_string(),
     }
 }
 
-fn describe_type_mismatch(expected: &str, key: Option<&str>, origin: Option<&str>) -> String {
-    let mut message = format!("expected {expected}");
+fn describe_location(mut message: String, key: Option<&str>, origin: Option<&str>) -> String {
     if let Some(key) = key {
         message.push_str(&format!(" for key `{key}`"));
     }

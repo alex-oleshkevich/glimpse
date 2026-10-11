@@ -164,11 +164,6 @@
               "type": "string",
               "const": "clock"
             },
-            "first-day": {
-              "description": "Which day a calendar week starts on.",
-              "$ref": "#/$defs/FirstDay",
-              "default": "monday"
-            },
             "hide-all-day": {
               "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
               "type": "boolean",
@@ -1627,11 +1622,6 @@
               "extends": {
                 "type": "string",
                 "const": "clock"
-              },
-              "first-day": {
-                "description": "Which day a calendar week starts on.",
-                "$ref": "#/$defs/FirstDay",
-                "default": "monday"
               },
               "hide-all-day": {
                 "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
@@ -3092,10 +3082,6 @@
         }
       }
     },
-    "monitors": {
-      "$ref": "#/$defs/Monitors",
-      "default": {}
-    },
     "mpris": {
       "$ref": "#/$defs/Mpris",
       "default": {
@@ -3612,14 +3598,6 @@
       "description": "A strftime pattern naming a saved capture.",
       "type": "string"
     },
-    "FirstDay": {
-      "description": "Which day a calendar week starts on. There is deliberately no `locale` here, unlike\n`hour-format`: the two ways to ask the system are GTK's translated `calendar:week_start:0`,\nwhich came back untranslated when it was measured and would have answered Sunday under an\n`LC_TIME` that means Monday, and glibc's `_NL_TIME_FIRST_WEEKDAY`, which is not portable. A\n`locale` that quietly answers wrong is worse than a default that says what it is.",
-      "type": "string",
-      "enum": [
-        "monday",
-        "sunday"
-      ]
-    },
     "Fit": {
       "oneOf": [
         {
@@ -4031,18 +4009,6 @@
       },
       "additionalProperties": false
     },
-    "Monitors": {
-      "type": "object",
-      "properties": {
-        "builtin-connector": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
     "Mpris": {
       "description": "Which media players the panel service follows, and what it does with their artwork. There are no\nplayers here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`\nsays otherwise.",
       "type": "object",
@@ -4118,7 +4084,8 @@
           "type": "integer",
           "format": "uint32",
           "default": 4200,
-          "minimum": 0
+          "maximum": 6500,
+          "minimum": 1000
         },
         "transition-minutes": {
           "type": "integer",

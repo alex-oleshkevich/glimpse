@@ -2,8 +2,9 @@ use std::collections::VecDeque;
 
 pub const MAX_LIMIT: usize = 64;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
 pub struct Measurement {
+    #[serde(default)]
     pub id: u32,
     pub from_x: u32,
     pub from_y: u32,

@@ -255,15 +255,9 @@ pub(super) fn check() {
         let fired = Rc::clone(&fired);
         move |_| fired.borrow_mut().push("clear")
     });
-    popover.connect_footer_activated({
-        let fired = Rc::clone(&fired);
-        move |_| fired.borrow_mut().push("footer")
-    });
-    popover.set_footer(Some("Settings"));
-    assert!(popover_imp.footer.get_visible());
+
     popover_imp.clear.activate();
-    popover_imp.footer.activate();
-    assert_eq!(*fired.borrow(), ["clear", "footer"]);
-    popover.set_footer(None);
-    assert!(!popover_imp.footer.get_visible());
+
+    assert_eq!(*fired.borrow(), ["clear"]);
+
 }

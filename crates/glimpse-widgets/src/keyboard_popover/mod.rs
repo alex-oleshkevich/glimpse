@@ -32,11 +32,7 @@ impl KeyboardPopover {
         self.render();
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.upcast_ref::<Row>().set_title(label);
-        footer.set_visible(label.is_some());
-    }
+
 
     pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
@@ -46,16 +42,7 @@ impl KeyboardPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
-        )
-    }
+
 
     fn render(&self) {
         let imp = self.imp();

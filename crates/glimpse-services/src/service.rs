@@ -2,7 +2,7 @@ use std::{any::Any, hash::Hash, panic::AssertUnwindSafe};
 
 use futures_util::FutureExt;
 use glimpse_dbus::Buses;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
 use crate::Ctx;
@@ -27,16 +27,6 @@ impl ServiceState {
             Self::Stopped { reason } => reason.as_deref().or(Some("stopped")),
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ServiceError {
-    #[error("service failed to start")]
-    StartError,
-    #[error("did not send message: {0}")]
-    SendError(String),
-    #[error("dbus: {0}")]
-    Bus(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -73,13 +63,14 @@ pub trait Service: Sized + Send + 'static {
 
     type Config: Clone + PartialEq + Send + 'static + for<'a> From<&'a glimpse_config::Config>;
     type State: Clone + PartialEq + Send + Sync + 'static;
-    type Handle: Clone + Send + 'static;
     type Command: Send + 'static;
     type Event: Send + 'static;
     type Dependencies: Send + 'static;
     type SubKey: Eq + Hash + Send + 'static;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle;
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "service stopped before answering"
+    }
 
     fn initial_state(config: &Self::Config) -> Self::State;
 
@@ -91,7 +82,7 @@ pub trait Service: Sized + Send + 'static {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> impl Future<Output = Result<Self, ServiceError>> + Send;
+    ) -> impl Future<Output = Self> + Send;
     fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) -> impl Future<Output = ()> + Send;
     fn stop(self, ctx: &Ctx<Self>) -> impl Future<Output = ()> + Send {
         let _ = ctx;
@@ -118,16 +109,29 @@ impl<S: Service> Clone for ServiceEndpoint<S> {
 }
 
 impl<S: Service> ServiceEndpoint<S> {
-    pub(crate) fn snapshot(&self) -> S::State {
+    pub fn snapshot(&self) -> S::State {
         self.state.borrow().clone()
     }
 
-    pub(crate) fn subscribe(&self) -> watch::Receiver<S::State> {
+    pub fn subscribe(&self) -> watch::Receiver<S::State> {
         self.state.clone()
     }
 
-    pub(crate) fn health(&self) -> watch::Receiver<ServiceState> {
+    pub fn health(&self) -> watch::Receiver<ServiceState> {
         self.health.clone()
+    }
+
+    pub(crate) async fn call<T>(
+        &self,
+        make: impl FnOnce(oneshot::Sender<T>) -> S::Command,
+    ) -> Result<T, CommandError> {
+        let (reply, answer) = oneshot::channel();
+        let command = make(reply);
+        let reason = S::command_stopped_reason(&command);
+        self.command(command)?;
+        answer
+            .await
+            .map_err(|_| CommandError::Unavailable(reason.to_owned()))
     }
 
     pub(crate) fn command(&self, command: S::Command) -> Result<(), CommandError> {
@@ -137,44 +141,8 @@ impl<S: Service> ServiceEndpoint<S> {
     }
 }
 
-pub struct ServiceSender<S: Service> {
-    inbox_tx: mpsc::Sender<Input<S>>,
-}
-
-impl<S: Service> Clone for ServiceSender<S> {
-    fn clone(&self) -> Self {
-        Self {
-            inbox_tx: self.inbox_tx.clone(),
-        }
-    }
-}
-
-impl<S: Service> ServiceSender<S> {
-    pub async fn send(&self, input: Input<S>) -> Result<(), ServiceError> {
-        self.inbox_tx
-            .send(input)
-            .await
-            .map_err(|error| ServiceError::SendError(error.to_string()))
-    }
-
-    pub fn reconfigure(&self, config: S::Config) {
-        match self.inbox_tx.try_send(Input::Config(config)) {
-            Ok(()) => {}
-            Err(mpsc::error::TrySendError::Full(_)) => {
-                tracing::warn!(
-                    service = S::NAME,
-                    "inbox full, dropped a configuration update"
-                );
-            }
-            Err(mpsc::error::TrySendError::Closed(_)) => {
-                tracing::debug!(service = S::NAME, "stopped, dropped a configuration update");
-            }
-        }
-    }
-}
-
 pub struct Running<S: Service> {
-    sender: ServiceSender<S>,
+    sender: mpsc::Sender<Input<S>>,
     cancel: CancellationToken,
     task: Option<tokio::task::JoinHandle<()>>,
 }
@@ -184,7 +152,7 @@ pub struct Running<S: Service> {
 /// copy fails on the name before it touches the outputs the running one holds.
 pub struct Pending<S: Service> {
     runtime: ServiceRuntime<S>,
-    sender: ServiceSender<S>,
+    sender: mpsc::Sender<Input<S>>,
     cancel: CancellationToken,
 }
 
@@ -197,11 +165,8 @@ impl<S: Service> Pending<S> {
         } = self;
         let task = tokio::spawn(async move {
             tracing::debug!(service = S::NAME, "service task starting");
-            if let Err(error) = runtime.run(dependencies).await {
-                tracing::error!(service = S::NAME, %error, "service stopped");
-            } else {
-                tracing::debug!(service = S::NAME, "service task stopped");
-            }
+            runtime.run(dependencies).await;
+            tracing::debug!(service = S::NAME, "service task stopped");
         });
         Running {
             sender,
@@ -212,7 +177,10 @@ impl<S: Service> Pending<S> {
 }
 
 impl<S: Service> Running<S> {
-    pub fn build(document: &glimpse_config::Config, buses: Buses) -> (Pending<S>, S::Handle) {
+    pub fn build(
+        document: &glimpse_config::Config,
+        buses: Buses,
+    ) -> (Pending<S>, ServiceEndpoint<S>) {
         let cancel = CancellationToken::new();
         let (runtime, handle) =
             ServiceRuntime::<S>::new(S::Config::from(document), buses, cancel.clone());
@@ -231,13 +199,27 @@ impl<S: Service> Running<S> {
         document: &glimpse_config::Config,
         buses: Buses,
         dependencies: S::Dependencies,
-    ) -> (Self, S::Handle) {
+    ) -> (Self, ServiceEndpoint<S>) {
         let (pending, handle) = Self::build(document, buses);
         (pending.start(dependencies), handle)
     }
 
     pub fn reconfigure(&self, document: &glimpse_config::Config) {
-        self.sender.reconfigure(S::Config::from(document));
+        match self
+            .sender
+            .try_send(Input::Config(S::Config::from(document)))
+        {
+            Ok(()) => {}
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                tracing::warn!(
+                    service = S::NAME,
+                    "inbox full, dropped a configuration update"
+                );
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                tracing::debug!(service = S::NAME, "stopped, dropped a configuration update");
+            }
+        }
     }
 
     /// Tell the service to stop without waiting for it, so a graph can cancel every service
@@ -275,15 +257,19 @@ pub struct ServiceRuntime<S: Service> {
 }
 
 impl<S: Service> ServiceRuntime<S> {
-    pub fn new(config: S::Config, buses: Buses, cancel: CancellationToken) -> (Self, S::Handle) {
+    pub fn new(
+        config: S::Config,
+        buses: Buses,
+        cancel: CancellationToken,
+    ) -> (Self, ServiceEndpoint<S>) {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_SIZE);
         let (state, state_rx) = watch::channel(S::initial_state(&config));
         let (health, health_rx) = watch::channel(ServiceState::Starting);
-        let handle = S::from_endpoint(ServiceEndpoint {
+        let handle = ServiceEndpoint {
             state: state_rx,
             health: health_rx,
             input: inbox_sender.clone(),
-        });
+        };
         (
             Self {
                 inbox_sender,
@@ -298,13 +284,11 @@ impl<S: Service> ServiceRuntime<S> {
         )
     }
 
-    pub fn sender(&self) -> ServiceSender<S> {
-        ServiceSender {
-            inbox_tx: self.inbox_sender.clone(),
-        }
+    pub fn sender(&self) -> mpsc::Sender<Input<S>> {
+        self.inbox_sender.clone()
     }
 
-    pub async fn run(&mut self, dependencies: S::Dependencies) -> Result<(), ServiceError> {
+    pub async fn run(&mut self, dependencies: S::Dependencies) {
         let config = self.initial_config.clone();
         let ctx = Ctx::<S>::new(
             self.inbox_sender.clone(),
@@ -316,15 +300,7 @@ impl<S: Service> ServiceRuntime<S> {
 
         set_health(&self.health, ServiceState::Starting);
         let mut applied = self.initial_config.clone();
-        let mut service = match S::start(&ctx, config, dependencies).await {
-            Ok(service) => service,
-            Err(error) => {
-                self.close_inbox();
-                ctx.shutdown().await;
-                self.report_stopped(Some(error.to_string()));
-                return Err(error);
-            }
-        };
+        let mut service = S::start(&ctx, config, dependencies).await;
         if !ctx.is_degraded() {
             set_health(&self.health, ServiceState::Running);
         }
@@ -367,7 +343,7 @@ impl<S: Service> ServiceRuntime<S> {
                     self.close_inbox();
                     ctx.shutdown().await;
                     self.report_stopped(Some(reason));
-                    return Ok(());
+                    return;
                 }
             }
         }
@@ -376,7 +352,6 @@ impl<S: Service> ServiceRuntime<S> {
         ctx.shutdown().await;
         service.stop(&ctx).await;
         self.report_stopped(None);
-        Ok(())
     }
 
     fn report_stopped(&self, reason: Option<String>) {

@@ -1452,24 +1452,6 @@ window.notification-popup {
     color: inherit;
 }
 
-.tooltip-card__icon {
-    -gtk-icon-size: 1.5rem;
-}
-
-.tooltip-card__title {
-    font-weight: 600;
-}
-
-.tooltip-card__body {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-}
-
-.tooltip-card__status {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-accent-text);
-}
-
 .slider-row--warm .slider-row__scale:not(:disabled) highlight,
 .slider-row--warm .slider-row__scale:not(:disabled) slider {
     background-color: var(--gl-warning-text);

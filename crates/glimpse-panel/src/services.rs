@@ -24,8 +24,8 @@ use glimpse_services::{
     kdeconnect_batteries,
 };
 
-pub struct PanelServices {
-    pub session: Option<zbus::Connection>,
+#[derive(Clone)]
+pub struct Handles {
     pub compositor: CompositorHandle,
     pub keyboard: KeyboardHandle,
     pub calendar: CalendarHandle,
@@ -36,10 +36,14 @@ pub struct PanelServices {
     pub network: NetworkHandle,
     pub audio: AudioHandle,
     pub brightness: BrightnessHandle,
+    pub night_light: NightLightProviderHandle,
+    pub notifications: NotificationsProviderHandle,
+    pub weather: WeatherProviderHandle,
+    pub idle: IdleProviderHandle,
+    pub color_picker: ColorPickerHandle,
     pub session_actions: SessionActionsHandle,
     pub battery: BatteryHandle,
     pub clipboard: ClipboardHandle,
-    pub color_picker: ColorPickerHandle,
     pub places: PlacesHandle,
     pub printing: PrintingHandle,
     pub removable: RemovableHandle,
@@ -47,7 +51,12 @@ pub struct PanelServices {
     pub privacy: PrivacyHandle,
     pub system_monitor: SystemMonitorHandle,
     pub ruler: RulerHandle,
-    exec: ExecHandle,
+    pub exec: ExecHandle,
+}
+
+pub struct PanelServices {
+    pub session: Option<zbus::Connection>,
+    pub handles: Handles,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
@@ -211,28 +220,34 @@ impl PanelServices {
 
         Self {
             session,
-            compositor,
-            keyboard,
-            calendar,
-            mpris,
-            heartbeat,
-            tray,
-            bluetooth,
-            network,
-            audio,
-            brightness,
-            session_actions,
-            battery,
-            clipboard,
-            color_picker,
-            places,
-            printing,
-            removable,
-            kdeconnect,
-            privacy,
-            system_monitor,
-            ruler,
-            exec,
+            handles: Handles {
+                compositor,
+                keyboard,
+                calendar,
+                mpris,
+                heartbeat,
+                tray,
+                bluetooth,
+                network,
+                audio,
+                brightness,
+                session_actions,
+                battery,
+                clipboard,
+                color_picker,
+                places,
+                printing,
+                removable,
+                kdeconnect,
+                privacy,
+                system_monitor,
+                ruler,
+                exec,
+                night_light: night_light.handle(),
+                notifications: notifications.handle(),
+                weather: weather.handle(),
+                idle: idle.handle(),
+            },
             compositor_service,
             keyboard_service,
             calendar_service,
@@ -325,19 +340,7 @@ impl PanelServices {
     }
 
     pub fn exec(&self) -> ExecHandle {
-        self.exec.clone()
-    }
-
-    pub fn weather(&self) -> WeatherProviderHandle {
-        self.weather.handle()
-    }
-
-    pub fn night_light(&self) -> NightLightProviderHandle {
-        self.night_light.handle()
-    }
-
-    pub fn idle(&self) -> IdleProviderHandle {
-        self.idle.handle()
+        self.handles.exec.clone()
     }
 
     fn cancel(&self) {

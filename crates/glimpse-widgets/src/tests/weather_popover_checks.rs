@@ -239,6 +239,4 @@ pub(super) fn check() {
     )));
     assert!(weather.imp().nowcast.get_visible());
 
-    weather.set_footer(None);
-    assert!(!weather.imp().footer.get_visible());
 }

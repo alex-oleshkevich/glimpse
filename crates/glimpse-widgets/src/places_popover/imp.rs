@@ -48,8 +48,6 @@ pub struct PlacesPopover {
     pub trash_open: TemplateChild<ActionRow>,
     #[template_child]
     pub trash_empty: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub places_data: RefCell<Vec<Entry>>,
     pub places_held: RefCell<Vec<(String, ActionRow)>>,
@@ -89,7 +87,6 @@ impl ObjectImpl for PlacesPopover {
                     .build(),
                 glib::subclass::Signal::builder("more").build(),
                 glib::subclass::Signal::builder("empty-trash").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -118,11 +115,7 @@ impl ObjectImpl for PlacesPopover {
             popover,
             move |_| popover.emit_by_name::<()>("more", &[])
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
     }
 
     fn dispose(&self) {

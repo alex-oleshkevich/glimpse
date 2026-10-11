@@ -1,4 +1,6 @@
+use crate::ServiceState;
 use std::sync::Mutex;
+use tokio::sync::watch;
 
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
@@ -76,8 +78,7 @@ async fn harness(answers: Vec<Result<Vec<Measurement>, String>>) -> Harness {
             runner: runner.clone(),
         },
     )
-    .await
-    .unwrap();
+    .await;
     Harness {
         service,
         selection,

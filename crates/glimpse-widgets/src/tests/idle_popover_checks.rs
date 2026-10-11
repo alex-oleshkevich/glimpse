@@ -45,12 +45,11 @@ pub(super) fn check() {
             .any(|widget| widget.has_css_class("receded"))
     };
     idle.set_inhibitors(&[inhibitor(1, "Zoom", true)]);
-    idle.set_footer(Some("Idle settings"));
+
     idle_hold_row.activate();
     assert!(
         idle_hold_card.open()
-            && dimmed(idle.imp().list.upcast_ref())
-            && dimmed(idle.imp().footer.upcast_ref()),
+            && dimmed(idle.imp().list.upcast_ref()),
         "the duration row opens its choices and dims the rest of the popover"
     );
     idle_hold_row.activate();
@@ -126,12 +125,4 @@ pub(super) fn check() {
         "the section and the dimming clear when the list empties"
     );
 
-    let idle_footer_activated = Rc::new(Cell::new(0u32));
-    idle.connect_footer_activated({
-        let idle_footer_activated = Rc::clone(&idle_footer_activated);
-        move |_| idle_footer_activated.set(idle_footer_activated.get() + 1)
-    });
-    idle.set_footer(Some("Idle settings"));
-    idle.imp().footer.activate();
-    assert_eq!(idle_footer_activated.get(), 1);
 }

@@ -19,22 +19,12 @@ fn shot_capture_page_widgets() {
     assert_eq!(imp.menu.tooltip_text().as_deref(), Some("Main Menu"));
 
     let modes = Rc::new(RefCell::new(Vec::<String>::new()));
-    let outputs = Rc::new(RefCell::new(Vec::<String>::new()));
-    let windows = Rc::new(RefCell::new(Vec::<u64>::new()));
     let delays = Rc::new(RefCell::new(Vec::<u32>::new()));
     let cursors = Rc::new(RefCell::new(Vec::<bool>::new()));
     let takes = Rc::new(Cell::new(0));
     page.connect_mode_changed({
         let modes = Rc::clone(&modes);
         move |_, mode| modes.borrow_mut().push(mode)
-    });
-    page.connect_output_selected({
-        let outputs = Rc::clone(&outputs);
-        move |_, output| outputs.borrow_mut().push(output)
-    });
-    page.connect_window_selected({
-        let windows = Rc::clone(&windows);
-        move |_, id| windows.borrow_mut().push(id)
     });
     page.connect_delay_changed({
         let delays = Rc::clone(&delays);
@@ -59,7 +49,6 @@ fn shot_capture_page_widgets() {
 
     page.set_outputs(&["eDP-1".to_owned()], "eDP-1");
     assert!(!imp.screen.get_visible(), "one output hides the Screen row");
-    assert!(outputs.borrow().is_empty());
     page.set_outputs(&["DP-2".to_owned(), "eDP-1".to_owned()], "eDP-1");
     assert!(
         !imp.screen.get_visible(),
@@ -67,7 +56,6 @@ fn shot_capture_page_widgets() {
     );
     page.set_mode("screen");
     assert!(imp.screen.get_visible());
-    assert!(outputs.borrow().is_empty(), "set_outputs does not emit");
     assert_eq!(page.selected_output(), "current");
     let screens = imp
         .screen
@@ -79,13 +67,11 @@ fn shot_capture_page_widgets() {
     assert_eq!(screens.string(1).as_deref(), Some("DP-2"));
     assert_eq!(screens.string(2).as_deref(), Some("eDP-1"));
     imp.screen.set_selected(0);
-    assert!(outputs.borrow().is_empty(), "Current is already selected");
+    assert_eq!(page.selected_output(), "current");
     imp.screen.set_selected(1);
-    assert_eq!(outputs.borrow().as_slice(), ["DP-2"]);
+    assert_eq!(page.selected_output(), "DP-2");
     imp.screen.set_selected(0);
-    assert_eq!(outputs.borrow().as_slice(), ["DP-2", "current"]);
     page.set_outputs(&["DP-2".to_owned(), "eDP-1".to_owned()], "eDP-1");
-    assert_eq!(outputs.borrow().len(), 2);
     assert_eq!(page.selected_output(), "current");
 
     let hostile = format!("Q&A <b>draft</b>{}", "é".repeat(190));
@@ -102,30 +88,21 @@ fn shot_capture_page_widgets() {
             .expect("a title")
             .contains("Q&A <b>draft</b>")
     );
-    assert!(windows.borrow().is_empty());
     imp.window.set_selected(1);
-    assert_eq!(windows.borrow().as_slice(), [5]);
     assert_eq!(page.selected_window(), Some(5));
     page.set_windows(&[(4, hostile.clone()), (5, "glimpse — design.md".to_owned())]);
-    assert_eq!(windows.borrow().len(), 1);
     page.set_windows(&[
         (1, "A".to_owned()),
         (5, "B".to_owned()),
         (9, "C".to_owned()),
     ]);
     assert_eq!(page.selected_window(), Some(5));
-    assert_eq!(
-        windows.borrow().len(),
-        1,
-        "a refresh keeps the selected window and emits nothing"
-    );
     page.set_windows(&[
         (9, "C".to_owned()),
         (1, "A".to_owned()),
         (5, "B".to_owned()),
     ]);
     assert_eq!(page.selected_window(), Some(5));
-    assert_eq!(windows.borrow().len(), 1);
 
     page.set_delay(0);
     assert!(delays.borrow().is_empty());

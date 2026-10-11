@@ -21,10 +21,8 @@ use gtk4::{gio, glib, prelude::*};
 
 use crate::{
     applet::{
-        Applet, Ctx, Input, Pointer, Report,
-        footer::Footer,
-        popover::{PopoverHandle, Seat},
-        spawn_command, spawn_reported, wording,
+        Applet, Ctx, Input, Pointer, Report, footer::Footer, popover::Seat, spawn_command,
+        spawn_reported, wording,
     },
     components::panel,
 };
@@ -332,7 +330,7 @@ impl Applet for Exec {
         self.specs.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         render::first_child_of_kind(&self.tree, 0, |element| {
             matches!(element, glimpse_services::Element::Popover(_))
         })?;
@@ -361,7 +359,7 @@ impl Applet for Exec {
         shell.body().append(&row);
         shell.body().set_visible(true);
         self.footer_row.set(Some(&row));
-        Some(Box::new(shell))
+        Some(shell.upcast())
     }
 }
 

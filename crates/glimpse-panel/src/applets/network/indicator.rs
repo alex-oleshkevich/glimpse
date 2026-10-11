@@ -2,7 +2,6 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gettextrs::gettext;
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
@@ -16,7 +15,8 @@ use glimpse_services::{
 use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover};
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
 
 use super::render;
@@ -153,10 +153,6 @@ pub struct Network {
     shown: glib::WeakRef<NetworkPopover>,
 }
 
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
-
 impl Network {
     pub fn start(network: NetworkHandle, notifications: NotificationsProviderHandle) -> Self {
         let state = network.snapshot();
@@ -269,7 +265,7 @@ impl Network {
             }),
             Asking::Hidden { ssid } => Some(NetworkAsk {
                 key: format!("hidden-secret:{ssid}"),
-                network: render::cap(&ssid),
+                network: glimpse_utils::clean(&ssid, render::LABEL_MAX_CHARS),
                 question: gettext("Choose how the network is secured, then type its password."),
                 entered: NetworkEntered::Secret,
                 accept: gettext("Connect"),
@@ -278,7 +274,7 @@ impl Network {
             }),
             Asking::Joining { id, name } => Some(NetworkAsk {
                 key: format!("secret:{name}"),
-                network: render::cap(&name),
+                network: glimpse_utils::clean(&name, render::LABEL_MAX_CHARS),
                 question: gettext("The network needs a password before this computer can join it."),
                 entered: self.joining_entry(&id),
                 accept: gettext("Connect"),
@@ -289,10 +285,13 @@ impl Network {
                 key: agent_key(&request),
                 choices: Vec::new(),
                 open_choice: None,
-                network: render::cap(&request.name),
+                network: glimpse_utils::clean(&request.name, render::LABEL_MAX_CHARS),
                 question: match request.retry {
                     true => gettext("{network} refused that password. Check it and try again.")
-                        .replace("{network}", &render::cap(&request.name)),
+                        .replace(
+                            "{network}",
+                            &glimpse_utils::clean(&request.name, render::LABEL_MAX_CHARS),
+                        ),
                     false => {
                         gettext("The network needs a password before this computer can join it.")
                     }
@@ -362,7 +361,7 @@ impl Applet for Network {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = NetworkPopover::new();
 
         shown.connect_wifi_toggled({
@@ -588,8 +587,10 @@ impl Applet for Network {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.expanded.set(false);
         self.all.set(false);
@@ -618,7 +619,7 @@ impl Applet for Network {
             );
         });
 
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

@@ -11,7 +11,7 @@ use futures_util::stream;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError},
+    service::{Input, Service},
     subscription::Sub,
 };
 
@@ -130,36 +130,16 @@ pub struct SystemMonitor {
     discover_generation: u64,
 }
 
-#[derive(Clone)]
-pub struct SystemMonitorHandle(crate::ServiceEndpoint<SystemMonitor>);
-
-impl SystemMonitorHandle {
-    pub fn snapshot(&self) -> SystemMonitorState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<SystemMonitorState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-}
+pub type SystemMonitorHandle = crate::ServiceEndpoint<SystemMonitor>;
 
 impl Service for SystemMonitor {
     const NAME: &'static str = "system-monitor";
     type Config = Config;
     type State = SystemMonitorState;
-    type Handle = SystemMonitorHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        SystemMonitorHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -225,18 +205,14 @@ impl Service for SystemMonitor {
         ]
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        (): Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, (): Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             config,
             previous: None,
             discovery: Arc::new(Mutex::new(Discovery::default())),
             discover_generation: 0,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

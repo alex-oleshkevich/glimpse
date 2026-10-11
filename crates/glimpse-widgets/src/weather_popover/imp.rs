@@ -1,13 +1,12 @@
 use std::cell::RefCell;
-use std::sync::OnceLock;
 
 use gtk4::{
-    AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
+    AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*,
 };
 
 use super::Page;
 use crate::{
-    ActionRow, ExpanderRow, ForecastList, ForecastStrip, Notice, PopoverShell, Readout, Section,
+    ExpanderRow, ForecastList, ForecastStrip, Notice, PopoverShell, Readout, Section,
 };
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -33,8 +32,6 @@ pub struct WeatherPopover {
     pub nowcast: TemplateChild<Notice>,
     #[template_child]
     pub alerts: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub notices: RefCell<Vec<ExpanderRow>>,
     pub built: RefCell<Vec<Page>>,
@@ -57,22 +54,6 @@ impl ObjectSubclass for WeatherPopover {
 }
 
 impl ObjectImpl for WeatherPopover {
-    fn signals() -> &'static [glib::subclass::Signal] {
-        static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-        SIGNALS.get_or_init(|| vec![glib::subclass::Signal::builder("footer-activated").build()])
-    }
-
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj();
-
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
-    }
-
     fn dispose(&self) {
         self.dispose_template();
     }

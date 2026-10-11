@@ -22,8 +22,6 @@ pub struct KeyboardPopover {
     pub layouts: TemplateChild<Section>,
     #[template_child]
     pub rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
     pub layouts_data: RefCell<Vec<Layout>>,
     pub widgets: RefCell<Vec<ToggleRow>>,
 }
@@ -52,7 +50,6 @@ impl ObjectImpl for KeyboardPopover {
                 glib::subclass::Signal::builder("activated")
                     .param_types([u32::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -60,11 +57,7 @@ impl ObjectImpl for KeyboardPopover {
     fn constructed(&self) {
         self.parent_constructed();
         let popover = self.obj();
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
     }
 
     fn dispose(&self) {

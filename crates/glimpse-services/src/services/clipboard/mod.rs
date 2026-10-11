@@ -3,14 +3,13 @@ mod history;
 use std::sync::Arc;
 
 use chrono::Utc;
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 
 use crate::{
-    ServiceState,
     context::Ctx,
     publisher::Publisher,
     selection::{Offer, Selection, SelectionEvent},
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 
@@ -89,60 +88,28 @@ pub struct Dependencies {
     pub selection: Arc<dyn Selection>,
 }
 
-#[derive(Clone)]
-pub struct ClipboardHandle(ServiceEndpoint<Clipboard>);
+pub type ClipboardHandle = ServiceEndpoint<Clipboard>;
 
-impl ClipboardHandle {
-    pub fn snapshot(&self) -> ClipboardState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<ClipboardState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Clipboard> {
     pub async fn restore(&self, id: ClipboardEntryId) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Restore { id, reply }, "restoring")
-            .await
+        self.call(|reply| Command::Restore { id, reply }).await?
     }
 
     pub async fn remove(&self, id: ClipboardEntryId) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Remove { id, reply }, "forgetting an entry")
-            .await
+        self.call(|reply| Command::Remove { id, reply }).await?
     }
 
     pub async fn pin(&self, id: ClipboardEntryId, pinned: bool) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Pin { id, pinned, reply }, "pinning")
-            .await
+        self.call(|reply| Command::Pin { id, pinned, reply })
+            .await?
     }
 
     pub async fn clear_history(&self) -> Result<(), CommandError> {
-        self.ask(
-            |reply| Command::ClearHistory { reply },
-            "clearing the history",
-        )
-        .await
+        self.call(|reply| Command::ClearHistory { reply }).await?
     }
 
     pub async fn copy_text(&self, text: String) -> Result<(), CommandError> {
-        self.ask(|reply| Command::CopyText { text, reply }, "copying text")
-            .await
-    }
-
-    async fn ask(
-        &self,
-        build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-        doing: &str,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(build(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(format!("the clipboard stopped while {doing}"))
-        })?
+        self.call(|reply| Command::CopyText { text, reply }).await?
     }
 }
 
@@ -159,14 +126,19 @@ impl Service for Clipboard {
 
     type Config = Config;
     type State = ClipboardState;
-    type Handle = ClipboardHandle;
     type Command = Command;
     type Event = SelectionEvent;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        ClipboardHandle(endpoint)
+    fn command_stopped_reason(command: &Self::Command) -> &'static str {
+        match command {
+            Command::Restore { .. } => "the clipboard stopped while restoring",
+            Command::Remove { .. } => "the clipboard stopped while forgetting an entry",
+            Command::Pin { .. } => "the clipboard stopped while pinning",
+            Command::ClearHistory { .. } => "the clipboard stopped while clearing the history",
+            Command::CopyText { .. } => "the clipboard stopped while copying text",
+        }
     }
 
     fn initial_state(_config: &Self::Config) -> Self::State {
@@ -187,14 +159,14 @@ impl Service for Clipboard {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: ctx.publisher(),
             selection: dependencies.selection,
             history: History::new(config.limits),
             config,
             unavailable: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

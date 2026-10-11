@@ -11,7 +11,7 @@ use gtk4::prelude::*;
 
 use super::render;
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Button, Ctx, Input, Opener, Pointer, Report, spawn_reported};
 
 const PICKING: &str = "color-picker--picking";
@@ -155,7 +155,7 @@ impl Applet for ColorPicker {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = ColorPickerPopover::new();
         let opener = seat.opener();
 
@@ -191,11 +191,10 @@ impl Applet for ColorPicker {
                 }
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated(crate::applet::popover::footer(&self.footer));
 
         self.shown.set(Some(&shown));
         self.dress(&shown);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }

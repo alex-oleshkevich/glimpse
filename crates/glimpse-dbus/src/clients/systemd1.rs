@@ -45,19 +45,6 @@ pub trait Systemd1Manager {
 }
 
 #[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Unit",
-    default_service = "org.freedesktop.systemd1"
-)]
-pub trait Systemd1Unit {
-    #[zbus(property(emits_changed_signal = "const"))]
-    fn id(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn active_state(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn sub_state(&self) -> zbus::Result<String>;
-}
-
-#[zbus::proxy(
     interface = "org.freedesktop.systemd1.Service",
     default_service = "org.freedesktop.systemd1"
 )]

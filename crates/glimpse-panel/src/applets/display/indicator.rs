@@ -17,12 +17,12 @@ use glimpse_widgets::{
     DisplayMode as WidgetDisplayMode, DisplayPopover, IndicatorSpec, NightLight,
     Source as WidgetSource,
 };
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::themed;
+use crate::applet::popover::Seat;
 use crate::applet::{
     Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, wording,
 };
@@ -33,10 +33,6 @@ const NIGHT_LIGHT_ICON: &str = "night-light-symbolic";
 
 type LevelCoalescers = Rc<RefCell<HashMap<String, Rc<RefCell<Coalescer<u32>>>>>>;
 type TemperatureCoalescer = Rc<RefCell<Coalescer<u32>>>;
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
 
 pub struct Display {
     state: BrightnessState,
@@ -95,7 +91,7 @@ impl Applet for Display {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let focused = self.focused_connector();
         let pinned = render::current_display(&self.powered_sources(), focused)
             .map(|source| source.id.clone());
@@ -247,12 +243,14 @@ impl Applet for Display {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

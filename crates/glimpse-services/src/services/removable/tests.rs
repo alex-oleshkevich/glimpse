@@ -27,9 +27,8 @@ async fn removable() -> (
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Removable::start(&ctx, Config::from(&glimpse_config::Config::default()), ())
-        .await
-        .expect("starts");
+    let service =
+        Removable::start(&ctx, Config::from(&glimpse_config::Config::default()), ()).await;
     (service, ctx, state_rx, health_rx)
 }
 
@@ -517,9 +516,8 @@ async fn capacity_sampling_runs_off_the_handler_and_reaches_the_mounted_volume()
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let mut service = Removable::start(&ctx, Config::from(&glimpse_config::Config::default()), ())
-        .await
-        .expect("starts");
+    let mut service =
+        Removable::start(&ctx, Config::from(&glimpse_config::Config::default()), ()).await;
 
     let objects = BTreeMap::from([
         (DRIVE.to_owned(), removable_drive_interfaces()),
@@ -810,4 +808,21 @@ async fn the_finishing_step_follows_the_drive_capabilities() {
         .expect("the drive");
     drive.can_power_off = Some(false);
     assert_eq!(service.finish_for(DRIVE), Finish::Nothing);
+}
+
+#[test]
+fn filesystem_merge_preserves_absent_mount_points_and_clears_present_empty_ones() {
+    let mut held = FilesystemProperties {
+        mount_points: Some(vec!["/run/media/alex/DATA".to_owned()]),
+        size: Some(1024),
+    };
+    merge_filesystem(&mut held, udisks2::decode_filesystem(&Properties::new()));
+    assert_eq!(
+        held.mount_points,
+        Some(vec!["/run/media/alex/DATA".to_owned()])
+    );
+    let changed = properties(vec![("MountPoints", owned_mount_points(&[]))]);
+    merge_filesystem(&mut held, udisks2::decode_filesystem(&changed));
+    assert_eq!(held.mount_points, Some(Vec::new()));
+    assert_eq!(held.size, Some(1024));
 }

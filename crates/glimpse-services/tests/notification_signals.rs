@@ -5,7 +5,7 @@ use futures_util::StreamExt;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::testing::PrivateBus;
-use glimpse_services::{Notifications, Running, ServiceState};
+use glimpse_services::{Incoming, Notifications, Running, ServiceState};
 use zbus::zvariant::Value;
 use zbus::{MatchRule, MessageStream, message::Type};
 
@@ -105,6 +105,69 @@ async fn activation_hands_over_the_token_before_reporting_the_default_action() {
             format!("ActionInvoked {id} default"),
         ]
     );
+
+    service.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_post_and_a_notify_never_share_an_id() {
+    let bus = PrivateBus::start();
+    let (mut service, handle) = Running::<Notifications>::spawn(
+        &Config::default(),
+        Buses::for_session(bus.connection().await),
+        (),
+    );
+    let mut health = handle.health();
+    tokio::time::timeout(
+        Duration::from_secs(20),
+        health.wait_for(|state| matches!(state, ServiceState::Running)),
+    )
+    .await
+    .expect("the server comes up")
+    .expect("the service is alive");
+
+    let client = bus.connection().await;
+    let reply = client
+        .call_method(
+            Some(NAME),
+            PATH,
+            Some(NAME),
+            "Notify",
+            &(
+                "Chat",
+                0u32,
+                "",
+                "Marta",
+                "Hello",
+                Vec::<&str>::new(),
+                HashMap::<&str, Value<'_>>::new(),
+                -1i32,
+            ),
+        )
+        .await
+        .expect("notify answers");
+    let notified: u32 = reply.body().deserialize().expect("an id");
+
+    let posted = handle
+        .post(Incoming {
+            app_name: "glimpse".to_owned(),
+            app_id: "glimpse".to_owned(),
+            app_pid: None,
+            icon: None,
+            image: None,
+            summary: "Posted".to_owned(),
+            body: String::new(),
+            actions: Vec::new(),
+            urgency: Default::default(),
+            progress: None,
+            resident: false,
+            expire_timeout: -1,
+            transient: false,
+        })
+        .await
+        .expect("post answers");
+
+    assert_ne!(notified, posted);
 
     service.stop().await;
 }

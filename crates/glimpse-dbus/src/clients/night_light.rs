@@ -12,7 +12,7 @@ pub const GLIMPSE_NIGHT_LIGHT_OBJECT_PATH: &str = "/me/aresa/Glimpse/NightLight"
 
 /// A struct rather than a positional tuple, so the field names survive onto the wire description
 /// and a reader needs no comment to know which `u` is which. The signature is the same either way.
-#[derive(Debug, Clone, PartialEq, Eq, Type, Value, OwnedValue, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Type, Serialize, Deserialize)]
 pub struct NightLightSnapshot {
     /// `off`, `automatic` or `schedule`, spelled as `[night-light] schedule` spells it. This is
     /// the mode in force, which is the document's only while `overridden` is false.
@@ -32,6 +32,50 @@ pub struct NightLightSnapshot {
     pub reason: String,
     pub configured: String,
     pub manual: bool,
+}
+
+impl TryFrom<Value<'_>> for NightLightSnapshot {
+    type Error = zbus::zvariant::Error;
+
+    fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
+        let mut fields = zbus::zvariant::Structure::try_from(value)?.into_fields().into_iter();
+        Ok(Self {
+            schedule: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            overridden: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            temperature: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            target: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            active: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            serving: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            reason: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
+            configured: fields.next().map(String::try_from).transpose()?.unwrap_or_default(),
+            manual: fields.next().map(bool::try_from).transpose()?.unwrap_or_default(),
+        })
+    }
+}
+
+impl TryFrom<OwnedValue> for NightLightSnapshot {
+    type Error = zbus::zvariant::Error;
+
+    fn try_from(value: OwnedValue) -> Result<Self, Self::Error> {
+        Self::try_from(Value::from(value))
+    }
+}
+
+impl From<NightLightSnapshot> for Value<'_> {
+    fn from(snapshot: NightLightSnapshot) -> Self {
+        Self::from((
+            snapshot.schedule, snapshot.overridden, snapshot.temperature, snapshot.target,
+            snapshot.active, snapshot.serving, snapshot.reason, snapshot.configured, snapshot.manual,
+        ))
+    }
+}
+
+impl TryFrom<NightLightSnapshot> for OwnedValue {
+    type Error = zbus::zvariant::Error;
+
+    fn try_from(snapshot: NightLightSnapshot) -> Result<Self, Self::Error> {
+        Self::try_from(Value::from(snapshot))
+    }
 }
 
 #[zbus::proxy(

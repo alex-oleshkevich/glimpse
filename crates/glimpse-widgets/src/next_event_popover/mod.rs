@@ -88,18 +88,7 @@ impl NextEventPopover {
         )
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_action_label(&self.imp().footer, label);
-    }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
-        )
-    }
+
+
 }

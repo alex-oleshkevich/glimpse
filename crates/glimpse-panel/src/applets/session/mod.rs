@@ -10,7 +10,7 @@ use gtk4::{gio, glib, prelude::*};
 
 use crate::app::SessionDialog;
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 
 const ICON: &str = "system-shutdown-symbolic";
@@ -97,7 +97,7 @@ impl Applet for Session {
         }]
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
         let shown = SessionPopover::new();
         shown.connect_action_requested({
             let actions = self.actions.clone();
@@ -123,6 +123,6 @@ impl Applet for Session {
         shown.connect_footer_activated(move |_| footer.run());
         self.shown.set(Some(&shown));
         self.dress(&shown);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }

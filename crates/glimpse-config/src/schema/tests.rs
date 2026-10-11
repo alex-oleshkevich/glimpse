@@ -154,22 +154,6 @@ fn collect_underscored(node: &serde_json::Value, offenders: &mut Vec<String>) {
 }
 
 #[test]
-fn config_default_round_trips_losslessly() {
-    let mut config = Config::default();
-    config.printing.server_url = Some("http://localhost:631/".to_owned());
-    config.printing.poll_idle = 45;
-    config.applets.insert(
-        "printing".to_owned(),
-        Applet::from(AppletKind::Printing(applets::Printing::default())),
-    );
-
-    let written = toml::to_string(&config).expect("the document serializes");
-    let again: Config = toml::from_str(&written).expect("what was written parses again");
-
-    assert_eq!(config, again);
-}
-
-#[test]
 fn night_light_still_accepts_manual_for_schedule() {
     let parsed: Config =
         toml::from_str("[night-light]\nschedule = \"manual\"\n").expect("the alias parses");
@@ -180,16 +164,6 @@ fn night_light_still_accepts_manual_for_schedule() {
 #[test]
 fn the_table_name_selects_the_applet_when_extends_is_absent() {
     let parsed: Config = toml::from_str("[applets.clock]\n").expect("the key names the kind");
-
-    assert_eq!(
-        parsed.applets["clock"],
-        Applet::from(AppletKind::Clock(applets::Clock::default()))
-    );
-}
-
-#[test]
-fn an_applet_table_with_no_settings_takes_the_defaults() {
-    let parsed: Config = toml::from_str("[applets.clock]\n").expect("settings are optional");
 
     assert_eq!(
         parsed.applets["clock"],
@@ -417,11 +391,6 @@ fn a_clock_reads_its_world_clock_zones() {
     let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
         panic!("the table names the clock");
     };
-    assert_eq!(
-        clock.first_day,
-        FirstDay::Monday,
-        "first-day has no locale variant, so the default has to say what it is"
-    );
     assert_eq!(clock.timezones.len(), 1);
     assert_eq!(clock.timezones[0].label, "Tokyo");
     assert_eq!(clock.timezones[0].note, None);

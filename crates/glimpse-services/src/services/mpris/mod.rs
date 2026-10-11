@@ -16,7 +16,7 @@ use super::super::{AGENT, say, transport};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 use serde::{Deserialize, Serialize};
@@ -229,40 +229,16 @@ pub struct Mpris {
     attempt: u64,
 }
 
-#[derive(Clone)]
-pub struct MprisHandle(ServiceEndpoint<Mpris>);
+pub type MprisHandle = ServiceEndpoint<Mpris>;
 
-impl MprisHandle {
-    pub fn snapshot(&self) -> MprisPlayers {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<MprisPlayers> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
-    async fn call(
-        &self,
-        command: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("mpris stopped before completing the command".to_owned())
-        })?
-    }
-
+impl ServiceEndpoint<Mpris> {
     pub async fn control(&self, player: String, action: PlayerAction) -> Result<(), CommandError> {
         self.call(|reply| Command::Control {
             player,
             action,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn seek(&self, player: String, offset_us: i64) -> Result<(), CommandError> {
@@ -271,7 +247,7 @@ impl MprisHandle {
             offset_us,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_position(&self, player: String, position_us: i64) -> Result<(), CommandError> {
@@ -280,7 +256,7 @@ impl MprisHandle {
             position_us,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_volume(&self, player: String, volume: f64) -> Result<(), CommandError> {
@@ -289,7 +265,7 @@ impl MprisHandle {
             volume,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_repeat(&self, player: String, repeat: Repeat) -> Result<(), CommandError> {
@@ -298,7 +274,7 @@ impl MprisHandle {
             repeat,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_shuffle(&self, player: String, shuffle: bool) -> Result<(), CommandError> {
@@ -307,7 +283,7 @@ impl MprisHandle {
             shuffle,
             reply,
         })
-        .await
+        .await?
     }
 }
 
@@ -316,14 +292,13 @@ impl Service for Mpris {
 
     type Config = Config;
     type State = MprisPlayers;
-    type Handle = MprisHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        MprisHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "mpris stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -357,16 +332,12 @@ impl Service for Mpris {
         subs
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        (): Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, (): Self::Dependencies) -> Self {
         if let Err(reason) = ctx.session_bus() {
             ctx.degraded(format!("no session bus: {reason}"));
         }
 
-        Ok(Self {
+        Self {
             players: ctx.publisher(),
             known: BTreeMap::new(),
             art: BTreeMap::new(),
@@ -374,7 +345,7 @@ impl Service for Mpris {
             client: client(ctx, &config),
             settings: config,
             attempt: 0,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

@@ -8,7 +8,7 @@ use gtk4::prelude::*;
 
 use super::render;
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Button, Ctx, Input, Pointer, Report, spawn_reported};
 
 pub struct Ruler {
@@ -130,7 +130,7 @@ impl Applet for Ruler {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = RulerPopover::new();
         let opener = seat.opener();
 
@@ -159,6 +159,6 @@ impl Applet for Ruler {
 
         self.shown.set(Some(&shown));
         self.dress(&shown);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }

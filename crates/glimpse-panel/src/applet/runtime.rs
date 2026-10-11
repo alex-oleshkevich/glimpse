@@ -12,7 +12,7 @@ use crate::components::panel::Zone;
 use super::catcher::Catcher;
 use gtk4::prelude::*;
 
-use super::popover::{PopoverHandle, Seat};
+use super::popover::Seat;
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller};
 
 use super::{Applet, Button, Ctx, Direction, Input, Pointer};
@@ -192,7 +192,7 @@ pub struct AppletRuntime {
     scroll: Scroll,
     config: Option<AppletConfig>,
     catcher: Rc<Catcher>,
-    shown: Option<Box<dyn PopoverHandle>>,
+    shown: Option<gtk4::Widget>,
     anchored: Option<i32>,
     slot: SlotInfo,
     kind: Option<String>,
@@ -387,7 +387,7 @@ impl AppletRuntime {
     fn owns(&self) -> bool {
         self.shown
             .as_ref()
-            .is_some_and(|shown| self.catcher.holds(&shown.widget()))
+            .is_some_and(|shown| self.catcher.holds(shown))
     }
 
     fn up(&self) -> bool {
@@ -427,7 +427,7 @@ impl AppletRuntime {
         };
 
         let at = self.anchor().unwrap_or(0);
-        self.catcher.open(&shown.widget(), at, {
+        self.catcher.open(&shown, at, {
             let sender = sender.clone();
             move || sender.input(HostInput::PopoverDismissed)
         });

@@ -22,7 +22,7 @@ async fn places(
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Places::start(&ctx, config, ()).await.expect("starts");
+    let service = Places::start(&ctx, config, ()).await;
     (service, ctx, state_rx, health_rx)
 }
 

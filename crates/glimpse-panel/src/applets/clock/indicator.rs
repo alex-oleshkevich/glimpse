@@ -1,3 +1,4 @@
+use gtk4::prelude::Cast as _;
 use std::fmt::Write as _;
 use std::time::Duration;
 
@@ -10,7 +11,7 @@ use gtk4::glib;
 
 use super::popover;
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 use crate::applets::agenda::{self, Occasion};
 
@@ -108,7 +109,7 @@ impl Applet for Clock {
         }]
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let today = Local::now().date_naive();
 
         let shown = CalendarPopover::new();
@@ -121,13 +122,12 @@ impl Applet for Clock {
         let opener = seat.opener();
         shown.connect_month_shown(move |_, _, _| opener.wake());
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated(crate::applet::popover::footer(&self.footer));
         shown.connect_link_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.dress(&shown);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

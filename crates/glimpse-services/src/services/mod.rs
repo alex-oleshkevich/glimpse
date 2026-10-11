@@ -15,6 +15,26 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
     }
 }
 
+pub(crate) fn cap(text: &str, limit: usize) -> String {
+    text.chars().take(limit).collect()
+}
+
+pub(crate) fn compile_patterns(
+    patterns: &[String],
+    warn: impl Fn(&str, regex::Error),
+) -> Vec<regex::Regex> {
+    patterns
+        .iter()
+        .filter_map(|pattern| match regex::Regex::new(pattern) {
+            Ok(compiled) => Some(compiled),
+            Err(error) => {
+                warn(pattern, error);
+                None
+            }
+        })
+        .collect()
+}
+
 mod audio;
 mod battery;
 mod bluetooth;
@@ -82,20 +102,20 @@ pub use exec::{
     CalendarProps, Catalog as ExecCatalog, CheckButtonProps, ChoiceItem, ChoiceListProps,
     ClassName, ContainerProps, DesktopCatalog, DotsProps, DropDownProps, Edge, Element,
     ElementKind, Ellipsize, EndProps, Entry as ExecEntry, EntryProps, ExpanderRowProps, FactItem,
-    FactListProps, FromApplet, INTERFACE as EXEC_INTERFACE, ImageProps, IndicatorProps, LabelProps,
-    MAX_CHILDREN_PER_PARENT, MAX_LINE, MAX_NODES, MeterRowProps, Node, NoticeProps, Op,
-    Orientation, Outgoing, Paint, PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT,
-    RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
-    SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
-    StackProps, SwitchProps, ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition,
-    Tree, Urgency, Violation, WireNode, Zone, expand as exec_expand,
+    FactListProps, FromApplet, ImageProps, IndicatorProps, LabelProps, MAX_CHILDREN_PER_PARENT,
+    MAX_LINE, MAX_NODES, MeterRowProps, Node, NoticeProps, Op, Orientation, Outgoing, Paint,
+    PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT, RangeBarProps, ReadoutProps,
+    RevealerProps, RowProps, RowTone, RowTypography, ScaleProps, SectionProps, SeparatorProps,
+    Severity, SliderRowProps, SparklineProps, SpinnerProps, StackProps, SwitchProps,
+    ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Urgency, Violation,
+    WireNode, Zone, expand as exec_expand,
 };
 pub use exec::{
     BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,
     EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState, Offer as ExecOffer,
     Origin as ExecOrigin, Pipes as ExecPipes, SlotState as ExecSlotState, Status as ExecStatus,
     UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
-    unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
+    unit_pattern as exec_unit_pattern,
 };
 pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

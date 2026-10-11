@@ -6,7 +6,7 @@ fn row<const N: usize>(texts: [&str; N]) -> [String; N] {
 
 #[test]
 fn columns_align_to_their_widest_cell() {
-    let rendered = Table::new()
+    let rendered = Table::default()
         .with_headers(["NAME", "STATE"])
         .with_rows([row(["audio", "running"])])
         .with_row(row(["network", "degraded"]))
@@ -19,7 +19,7 @@ fn columns_align_to_their_widest_cell() {
 
 #[test]
 fn a_styled_cell_does_not_shift_its_column() {
-    let rendered = Table::new()
+    let rendered = Table::default()
         .with_rows([
             [styled::good("audio"), "running".to_owned()],
             [styled::bad("network"), "degraded".to_owned()],
@@ -30,7 +30,7 @@ fn a_styled_cell_does_not_shift_its_column() {
 
 #[test]
 fn an_empty_trailing_cell_leaves_no_whitespace() {
-    let rendered = Table::new()
+    let rendered = Table::default()
         .with_row(row(["audio", "running", ""]))
         .render();
     assert_eq!(visible(&rendered), "audio  running");
@@ -42,7 +42,7 @@ fn an_empty_trailing_cell_leaves_no_whitespace() {
 
 #[test]
 fn no_rows_says_so_instead_of_printing_headers() {
-    let rendered = Table::<2>::new()
+    let rendered = Table::<2>::default()
         .with_headers(["NAME", "STATE"])
         .with_empty("nothing matches")
         .render();
@@ -51,7 +51,7 @@ fn no_rows_says_so_instead_of_printing_headers() {
 
 #[test]
 fn rows_win_over_the_empty_message() {
-    let rendered = Table::new()
+    let rendered = Table::default()
         .with_headers(["NAME", "STATE"])
         .with_empty("nothing matches")
         .with_row(row(["audio", "running"]))

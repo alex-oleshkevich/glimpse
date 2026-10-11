@@ -1,3 +1,4 @@
+use crate::ServiceState;
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -78,8 +79,7 @@ async fn harness(config: Config) -> Harness {
             gamma: Box::new(gamma.clone()),
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,
@@ -680,7 +680,7 @@ async fn a_temperature_is_refused_while_the_night_light_is_off() {
         .await
         .expect_err("off has nothing to override");
 
-    assert!(matches!(refused, CommandError::Unavailable(_)));
+    assert!(matches!(refused, CommandError::InvalidArgument(_)));
     assert!(harness.gamma.applied().is_empty());
 }
 

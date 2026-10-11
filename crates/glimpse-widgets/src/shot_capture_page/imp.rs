@@ -54,12 +54,6 @@ impl ObjectImpl for ShotCapturePage {
                 glib::subclass::Signal::builder("mode-changed")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("output-selected")
-                    .param_types([String::static_type()])
-                    .build(),
-                glib::subclass::Signal::builder("window-selected")
-                    .param_types([u64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("delay-changed")
                     .param_types([u32::static_type()])
                     .build(),

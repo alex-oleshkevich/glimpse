@@ -101,8 +101,6 @@ pub struct MenuNode {
     pub enabled: bool,
     pub visible: bool,
     pub icon_name: Option<String>,
-    /// PNG *file* bytes, not raw pixels.
-    pub icon_data: Option<Vec<u8>>,
     pub toggle: MenuToggle,
     pub toggle_state: ToggleState,
     pub submenu: bool,
@@ -152,10 +150,6 @@ fn decode_node(
             .and_then(|value| bool::try_from(value).ok())
             .unwrap_or(true),
         icon_name: text(properties, "icon-name", ICON_NAME),
-        icon_data: properties
-            .get("icon-data")
-            .and_then(|value| Vec::<u8>::try_from(value.clone()).ok())
-            .filter(|bytes| !bytes.is_empty()),
         toggle: match properties
             .get("toggle-type")
             .and_then(|value| <&str>::try_from(value).ok())

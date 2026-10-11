@@ -20,6 +20,7 @@ type Calls = StdArc<Mutex<Vec<Call>>>;
 
 struct TestProvider {
     calls: Calls,
+    temperature: u32,
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.NightLight1")]
@@ -29,7 +30,7 @@ impl TestProvider {
         NightLightSnapshot {
             schedule: "automatic".to_owned(),
             overridden: false,
-            temperature: 6500,
+            temperature: self.temperature,
             target: 4000,
             active: false,
             serving: true,
@@ -55,7 +56,7 @@ async fn serve(bus: &PrivateBus, calls: Calls) -> zbus::Connection {
     let connection = bus.connection().await;
     connection
         .object_server()
-        .at(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, TestProvider { calls })
+        .at(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, TestProvider { calls, temperature: 6500 })
         .await
         .unwrap();
     crate::own_name(&connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME)
@@ -165,5 +166,51 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
     wait_until(&mut state, |state| state.unavailable.is_some()).await;
 
     drop(second);
+    provider.shutdown().await;
+}
+
+#[test]
+fn seven_field_snapshot_defaults_additive_fields() {
+    let value = OwnedValue::try_from(Value::from((
+        "automatic", false, 6500u32, 4000u32, false, true, "",
+    )))
+    .unwrap();
+    let snapshot = NightLightSnapshot::try_from(value).unwrap();
+    assert_eq!(snapshot.schedule, "automatic");
+    assert_eq!(snapshot.temperature, 6500);
+    assert_eq!(snapshot.target, 4000);
+    assert!(!snapshot.overridden);
+    assert!(!snapshot.active);
+    assert!(snapshot.serving);
+    assert!(snapshot.reason.is_empty());
+    assert!(snapshot.configured.is_empty());
+    assert!(!snapshot.manual);
+}
+
+#[test]
+fn malformed_snapshots_return_errors() {
+    for value in [
+        Value::from(("automatic", false)),
+        Value::from(("automatic", false, "wrong", 4000u32, false, true, "")),
+        Value::from(("automatic", false, 6500u32, 4000u32, false, true, "", false)),
+        Value::from("not a structure"),
+    ] {
+        assert!(NightLightSnapshot::try_from(OwnedValue::try_from(value).unwrap()).is_err());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn connected_client_observes_snapshot_changes() {
+    let bus = PrivateBus::start();
+    let server = serve(&bus, StdArc::new(Mutex::new(Vec::new()))).await;
+    let mut provider = NightLightProvider::start(bus.connection().await);
+    let mut updates = provider.handle().subscribe();
+    wait_until(&mut updates, |state| state.current.is_some()).await;
+    assert_eq!(updates.borrow().current.as_ref().unwrap().temperature, 6500);
+    let interface = server.object_server().interface::<_, TestProvider>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH).await.unwrap();
+    interface.get_mut().await.temperature = 4500;
+    interface.get().await.snapshot_changed(interface.signal_emitter()).await.unwrap();
+    wait_until(&mut updates, |state| state.current.as_ref().is_some_and(|snapshot| snapshot.temperature == 4500)).await;
+    assert!(updates.borrow().unavailable.is_none());
     provider.shutdown().await;
 }

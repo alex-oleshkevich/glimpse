@@ -72,7 +72,9 @@ async fn options_change_does_not_respawn() {
         .expect("config")
         .options
         .insert("color".to_owned(), Value::from("red"));
-    sender.reconfigure(config.config);
+    sender
+        .try_send(Input::Config(config.config))
+        .expect("queued");
     file_contains(&output, "\"t\":\"options\"").await;
     assert_eq!(
         tokio::fs::read_to_string(format!("{}.pid", output.display()))
@@ -100,7 +102,9 @@ async fn options_changed_while_starting_follow_hello() {
         .expect("config")
         .options
         .insert("color".to_owned(), Value::from("red"));
-    sender.reconfigure(config.config);
+    sender
+        .try_send(Input::Config(config.config))
+        .expect("queued");
     file_contains(&output, "\"t\":\"hello\"").await;
     assert!(
         tokio::fs::read_to_string(output)
@@ -123,10 +127,12 @@ async fn removed_instance_stays_failed_without_respawning() {
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
     let pid = tokio::fs::read_to_string(&output).await.expect("pid");
-    sender.reconfigure(Config {
-        applets: BTreeMap::new(),
-        state_base: None,
-    });
+    sender
+        .try_send(Input::Config(Config {
+            applets: BTreeMap::new(),
+            state_base: None,
+        }))
+        .expect("queued");
     tokio::time::sleep(Duration::from_secs(6)).await;
     assert!(
         matches!(handle.snapshot().slots.get(&1).map(|s| &s.status), Some(Status::Failed(reason)) if reason == "not configured")

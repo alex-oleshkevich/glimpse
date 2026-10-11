@@ -35,7 +35,8 @@ Every key and enum value is kebab-case via `rename_all = "kebab-case"` on each `
 attribute is easy to forget and forgetting it is silent. Every long-lived binary links the whole
 schema and validates the whole document, then acts on only the tables it owns.
 `deny_unknown_fields` on `Config` closes the set of top-level tables, so a misspelled `[panle]`
-errors instead of being silently ignored.
+errors instead of being silently ignored. The loader discards the retired `[monitors]` table and
+clock `first-day` key so existing documents keep loading.
 
 **An applet a panel names that does not resolve is reported, never fatal.** `left`/`center`/`right`
 are plain strings serde cannot check; `unknown_applets` checks them against `[applets]` and the kind
@@ -79,7 +80,7 @@ concurrent edit against a fresh read, up to three times.
 A theme is a directory of stylesheets under `<root>/<name>/`, resolved from `user_dir()/themes`
 then `DATA_DIR/themes` unless `GLIMPSE_THEMES_DIR` replaces both. `GLIMPSE_THEME` overrides
 `appearance.theme` at read time, so `Config` keeps reporting the document on disk. **Resolution
-picks one directory, not one file at a time.** `theme_dir_for` returns the first of
+picks one directory, not one file at a time.** Stylesheet resolution uses the first of
 `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that exists, because GTK resolves a
 relative `@import` against the importing file's own directory — a theme assembled from two roots
 could not import across them.
@@ -103,9 +104,9 @@ directories, existing or not; `--config` replaces the whole stack and so the who
   restart. Every watched directory is made absolute with `std::path::absolute` before arming, or a
   relatively-armed watch matches none of its own events.
 - **A watch re-arms when its directory is replaced**, since it is bound to an inode, not a name;
-  the gap produces no events, so a re-arm means "read everything again." The watch set itself is
-  derived once, at construction — re-pointing a symlinked base file is caught, but edits at the new
-  target are not until restart.
+  the gap produces no events, so a re-arm means "read everything again." The watch set is
+  recomputed after each change or re-arm, so re-pointing a symlinked base file also watches edits at
+  the new target.
 
 `reread` answers with a new document only if it parsed **and differs**. `watch_config` merges the
 filesystem watch with `SIGHUP` — neither replaces the other. Nothing is filtered by extension,
@@ -155,6 +156,6 @@ others name a closed set of behaviours; this names a catalog that may not be ins
 ## Not here
 
 A default naming an external command names one the system already has — `loginctl`, `systemctl` —
-never a helper this repository would have to install, since `scripts/` is not installed. Semantic
-validation across fields is not written; where a rule fits the type it belongs there instead of in
-a pass that has to remember to run.
+never a helper this repository would have to install, since `scripts/` is not installed. Rules that
+fit a type are checked at deserialization; `Config::validate` reports cross-field problems after
+merging, and the loader warns without rejecting the document.

@@ -14,7 +14,7 @@ use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
 use gtk4::{gdk, glib, prelude::*};
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 const SECOND: Duration = Duration::from_secs(1);
@@ -74,7 +74,7 @@ impl Applet for Mpris {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = MprisPopover::new();
         let player = shown.player();
 
@@ -134,7 +134,7 @@ impl Applet for Mpris {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

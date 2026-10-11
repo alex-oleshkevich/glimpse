@@ -17,7 +17,7 @@ pub async fn sunset_status(connection: &Connection, json: bool) -> Result<()> {
 
     Section::new("Night light")
         .with(
-            Table::new()
+            Table::default()
                 .with_row(["mode".to_owned(), mode(&snapshot)])
                 .with_row(["temperature".to_owned(), temperature(&snapshot)])
                 .with_row(["night target".to_owned(), kelvin(snapshot.target)])

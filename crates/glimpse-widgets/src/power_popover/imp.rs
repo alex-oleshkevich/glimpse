@@ -56,8 +56,6 @@ pub struct PowerPopover {
     pub devices_section: TemplateChild<Section>,
     #[template_child]
     pub devices_box: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub(super) devices: RefCell<Vec<Device>>,
     pub(super) history_data: RefCell<Option<History>>,
@@ -108,7 +106,6 @@ impl ObjectImpl for PowerPopover {
                     .param_types([u32::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("history-opened").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -144,11 +141,7 @@ impl ObjectImpl for PowerPopover {
                 }
             }
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
         for (row, seconds) in self.presets() {
             row.connect_toggled(glib::clone!(
                 #[weak]

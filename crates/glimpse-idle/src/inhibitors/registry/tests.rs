@@ -269,3 +269,17 @@ fn mint_id_and_mint_cookie_never_repeat_and_cookie_zero_is_never_issued() {
         assert!(cookies.insert(cookie), "duplicate cookie minted");
     }
 }
+
+#[test]
+fn snapshot_is_ordered_by_id() {
+    let mut r = Registry::default();
+    for n in 0..32 {
+        let id = r.mint_id();
+        r.insert(test_record(id, &format!(":1.{n}"), false), None);
+    }
+
+    let ids: Vec<u64> = r.snapshot().iter().map(|record| record.id).collect();
+    let mut sorted = ids.clone();
+    sorted.sort_unstable();
+    assert_eq!(ids, sorted);
+}

@@ -20,7 +20,7 @@ pub fn resolve(env_user: Option<&str>, uid: u32, passwd: Option<&str>) -> Result
 }
 
 pub fn current() -> Result<String, String> {
-    let uid = glimpse_dbus::login1::current_uid().map_err(|error| error.to_string())?;
+    let uid = glimpse_dbus::login1::current_uid();
     let env_user = std::env::var("USER").ok();
     let passwd = std::fs::read_to_string("/etc/passwd").ok();
     resolve(env_user.as_deref(), uid, passwd.as_deref())

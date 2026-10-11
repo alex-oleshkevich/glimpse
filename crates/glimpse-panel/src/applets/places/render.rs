@@ -8,10 +8,6 @@ pub const ICON: &str = "folder-symbolic";
 const TRASH_ID: &str = "trash";
 const NAME_CAP: usize = 60;
 
-fn cap(name: &str) -> String {
-    glimpse_utils::clean(name, NAME_CAP)
-}
-
 pub fn chip(places: &PlacesState) -> bool {
     !places.places.is_empty()
         || !places.bookmarks.is_empty()
@@ -59,7 +55,7 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
 fn place_entry(place: &Place) -> PlacesEntry {
     PlacesEntry {
         id: place.id.clone(),
-        title: cap(&place.name),
+        title: glimpse_utils::clean(&place.name, NAME_CAP),
         subtitle: String::new(),
         icon: place.kind.icon_name().to_owned(),
         busy: false,
@@ -91,8 +87,8 @@ pub fn network(state: &PlacesState) -> Vec<PlacesEntry> {
             let (title, subtitle) = share(&place.id);
             PlacesEntry {
                 id: place.id.clone(),
-                title: cap(&title),
-                subtitle: cap(&subtitle),
+                title: glimpse_utils::clean(&title, NAME_CAP),
+                subtitle: glimpse_utils::clean(&subtitle, NAME_CAP),
                 icon: place.kind.icon_name().to_owned(),
                 busy: false,
             }

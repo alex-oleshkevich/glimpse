@@ -4,9 +4,10 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, SystemMonitorChip as Ch
 use glimpse_services::{SystemMonitorHandle, SystemMonitorState};
 use glimpse_widgets::{IndicatorSpec, SystemMonitorPopover};
 use gtk4::glib;
+use gtk4::prelude::Cast as _;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 
 pub struct SystemMonitor {
@@ -50,7 +51,7 @@ impl Applet for SystemMonitor {
         self.spec.clone()
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
         let shown = SystemMonitorPopover::new();
 
         let footer = self.footer.clone();
@@ -58,7 +59,7 @@ impl Applet for SystemMonitor {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

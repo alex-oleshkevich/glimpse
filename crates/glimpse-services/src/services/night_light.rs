@@ -1,25 +1,19 @@
 use crate::services::{SolarPhase, SolarStatus};
 use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
-use glimpse_config::Schedule;
+pub use glimpse_config::MAX_TEMPERATURE as DAY;
+use glimpse_config::{MIN_TEMPERATURE, Schedule};
 use tokio::{
     sync::{oneshot, watch},
     time,
 };
 
 use crate::{
-    ServiceState,
     context::Ctx,
     gamma::Gamma,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
-
-/// Neutral daylight. Nothing is applied at this temperature; it is the value both ramps return to,
-/// and the one the gamma curve is normalized against.
-pub const DAY: u32 = 6500;
-
-const MIN_MANUAL_TEMPERATURE: u32 = 1000;
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
@@ -105,38 +99,17 @@ pub struct Dependencies {
     pub gamma: Box<dyn Gamma>,
 }
 
-#[derive(Clone)]
-pub struct NightLightHandle(ServiceEndpoint<NightLight>);
+pub type NightLightHandle = ServiceEndpoint<NightLight>;
 
-impl NightLightHandle {
-    pub fn snapshot(&self) -> NightLightState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<NightLightState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<NightLight> {
     pub async fn set_schedule(&self, schedule: Schedule) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetSchedule { schedule, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("night light stopped before accepting the mode".to_owned())
-        })?
+        self.call(|reply| Command::SetSchedule { schedule, reply })
+            .await?
     }
 
     pub async fn set_temperature(&self, kelvin: Option<u32>) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetTemperature { kelvin, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "night light stopped before accepting the temperature".to_owned(),
-            )
-        })?
+        self.call(|reply| Command::SetTemperature { kelvin, reply })
+            .await?
     }
 }
 
@@ -156,14 +129,18 @@ impl Service for NightLight {
 
     type Config = Config;
     type State = NightLightState;
-    type Handle = NightLightHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        NightLightHandle(endpoint)
+    fn command_stopped_reason(command: &Self::Command) -> &'static str {
+        match command {
+            Command::SetSchedule { .. } => "night light stopped before accepting the mode",
+            Command::SetTemperature { .. } => {
+                "night light stopped before accepting the temperature"
+            }
+        }
     }
 
     fn initial_state(config: &Self::Config) -> Self::State {
@@ -193,9 +170,9 @@ impl Service for NightLight {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let observed = dependencies.solar.borrow().clone();
-        Ok(Self {
+        Self {
             state: ctx.publisher(),
             solar: dependencies.solar,
             gamma: dependencies.gamma,
@@ -204,7 +181,7 @@ impl Service for NightLight {
             manual: None,
             observed,
             applied: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -218,9 +195,9 @@ impl Service for NightLight {
                 pending = Some(reply);
             }
             Input::Command(Command::SetTemperature { kelvin, reply }) => match kelvin {
-                Some(kelvin) if !(MIN_MANUAL_TEMPERATURE..=DAY).contains(&kelvin) => {
+                Some(kelvin) if !(MIN_TEMPERATURE..=DAY).contains(&kelvin) => {
                     let _ = reply.send(Err(CommandError::InvalidArgument(format!(
-                        "temperature must fall between {MIN_MANUAL_TEMPERATURE} and {DAY} kelvin"
+                        "temperature must fall between {MIN_TEMPERATURE} and {DAY} kelvin"
                     ))));
                 }
                 Some(kelvin) => match self.boundary(Utc::now()) {
@@ -229,12 +206,15 @@ impl Service for NightLight {
                         pending = Some(reply);
                     }
                     None => {
-                        let reason = if self.effective() == Schedule::Off {
-                            "there is nothing to override while the night light is off"
+                        let error = if self.effective() == Schedule::Off {
+                            CommandError::InvalidArgument(
+                                "there is nothing to override while the night light is off"
+                                    .to_owned(),
+                            )
                         } else {
-                            self.missing()
+                            CommandError::Unavailable(self.missing().to_owned())
                         };
-                        let _ = reply.send(Err(CommandError::Unavailable(reason.to_owned())));
+                        let _ = reply.send(Err(error));
                     }
                 },
                 None => {

@@ -1,4 +1,6 @@
+use crate::ServiceState;
 use glimpse_dbus::Buses;
+use tokio::sync::watch;
 
 use tokio::sync::mpsc;
 
@@ -80,8 +82,7 @@ async fn started(entries: Vec<Entry>, minimum: u8) -> Harness {
             backend: Arc::new(backend.clone()),
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,

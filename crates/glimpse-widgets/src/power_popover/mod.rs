@@ -152,12 +152,6 @@ impl PowerPopover {
         imp.show_widget(&*imp.devices_section, !devices.is_empty());
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        let imp = self.imp();
-        imp.footer.upcast_ref::<Row>().set_title(label);
-        imp.show_widget(&*imp.footer, label.is_some());
-    }
-
     pub fn connect_profile_activated<F: Fn(&Self, u32) + 'static>(
         &self,
         f: F,
@@ -210,11 +204,4 @@ impl PowerPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
 }

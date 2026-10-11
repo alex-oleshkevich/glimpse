@@ -45,8 +45,8 @@ impl Applet for Raiser {
         vec![spec("raiser")]
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
-        Some(Box::new(gtk4::Label::new(Some("popover"))))
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
+        Some(gtk4::Label::new(Some("popover")).upcast())
     }
 }
 
@@ -737,7 +737,6 @@ fn a_bluetooth_popover_signal_reaches_the_service() {
         .popover(&Seat::new(host))
         .expect("the applet opens a popover");
     let popover = shown
-        .widget()
         .downcast::<BluetoothPopover>()
         .expect("the bluetooth applet's popover is its own widget");
 

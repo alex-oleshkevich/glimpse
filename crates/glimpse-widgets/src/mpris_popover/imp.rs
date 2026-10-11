@@ -19,8 +19,6 @@ pub struct MprisPopover {
     pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<PlayerList>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
     entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
 }
 
@@ -46,7 +44,6 @@ impl ObjectImpl for MprisPopover {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
-                glib::subclass::Signal::builder("footer-activated").build(),
                 glib::subclass::Signal::builder("raise-requested")
                     .param_types([String::static_type()])
                     .build(),
@@ -61,11 +58,7 @@ impl ObjectImpl for MprisPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
 
         self.list.connect_activated(glib::clone!(
             #[weak]

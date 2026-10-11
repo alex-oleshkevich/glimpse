@@ -4,7 +4,6 @@ use zbus::zvariant::{ObjectPath, OwnedValue};
 
 pub const MPRIS_PATH: &str = "/org/mpris/MediaPlayer2";
 pub const MPRIS_ROOT_INTERFACE: &str = "org.mpris.MediaPlayer2";
-pub const MPRIS_PLAYER_INTERFACE: &str = "org.mpris.MediaPlayer2.Player";
 pub const MPRIS_NAME_PREFIX: &str = "org.mpris.MediaPlayer2.";
 
 #[zbus::proxy(
@@ -93,6 +92,3 @@ pub trait MprisPlayer {
     #[zbus(signal)]
     fn seeked(&self, position_microseconds: i64) -> zbus::Result<()>;
 }
-
-#[cfg(test)]
-mod tests;

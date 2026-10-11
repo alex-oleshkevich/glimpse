@@ -14,7 +14,6 @@ const NIGHT_LIGHT_MOVED: &str = "night-light-moved";
 const NIGHT_LIGHT_SCHEDULED: &str = "night-light-scheduled";
 const ENABLE_REQUESTED: &str = "enable-requested";
 const BLANKED: &str = "blanked";
-const FOOTER_ACTIVATED: &str = "footer-activated";
 const AUTOMATIC: &str = "automatic";
 const HOURS: &str = "schedule";
 const BRIGHTNESS_ICON: &str = "display-brightness-symbolic";
@@ -92,16 +91,7 @@ impl DisplayPopover {
         self.render_displays();
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        let imp = self.imp();
-        let label = label.and_then(|label| none_if_empty(label));
-        let row = imp.footer.upcast_ref::<Row>();
-        if row.title().as_deref() == label && imp.footer.get_visible() == label.is_some() {
-            return;
-        }
-        row.set_title(label);
-        imp.footer.set_visible(label.is_some());
-    }
+
 
     pub fn connect_changed<F: Fn(&Self, &str, f64) + 'static>(
         &self,
@@ -181,13 +171,7 @@ impl DisplayPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            FOOTER_ACTIVATED,
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
+
 
     pub(crate) fn report_primary_changed(&self, value: f64) {
         let key = self

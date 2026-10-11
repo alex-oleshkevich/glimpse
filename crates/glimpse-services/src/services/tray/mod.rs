@@ -15,7 +15,7 @@ use glimpse_dbus::status_notifier_watcher::{Registry, WATCHER_NAME};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceError},
+    service::{CommandError, Input, NoConfig, Service},
     subscription::Sub,
 };
 
@@ -130,25 +130,12 @@ pub struct Tray {
     notices: HashMap<String, bool>,
 }
 
-#[derive(Clone)]
-pub struct TrayHandle(crate::ServiceEndpoint<Tray>);
+pub type TrayHandle = crate::ServiceEndpoint<Tray>;
 
-impl TrayHandle {
-    pub fn snapshot(&self) -> TrayItems {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<TrayItems> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Tray> {
     pub async fn activate(&self, key: String, x: i32, y: i32) -> Result<(), CommandError> {
         self.call(|reply| Command::Activate { key, x, y, reply })
-            .await
+            .await?
     }
 
     pub async fn secondary_activate(
@@ -158,12 +145,12 @@ impl TrayHandle {
         y: i32,
     ) -> Result<(), CommandError> {
         self.call(|reply| Command::SecondaryActivate { key, x, y, reply })
-            .await
+            .await?
     }
 
     pub async fn context_menu(&self, key: String, x: i32, y: i32) -> Result<(), CommandError> {
         self.call(|reply| Command::ContextMenu { key, x, y, reply })
-            .await
+            .await?
     }
 
     pub async fn scroll(
@@ -178,15 +165,13 @@ impl TrayHandle {
             orientation,
             reply,
         })
-        .await
+        .await?
     }
 
     /// Fetched on pointer-enter rather than on click: `AboutToShow` is where an application fills
     /// a menu in, and doing it on the click shows an empty one first.
     pub async fn menu(&self, key: String) -> Result<MenuNode, CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Menu { key, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call(|reply| Command::Menu { key, reply }).await?
     }
 
     pub async fn menu_event(
@@ -201,35 +186,21 @@ impl TrayHandle {
             event,
             reply,
         })
-        .await
+        .await?
     }
-
-    async fn call(
-        &self,
-        command: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| stopped())?
-    }
-}
-
-fn stopped() -> CommandError {
-    CommandError::Unavailable("the tray stopped before completing the command".to_owned())
 }
 
 impl Service for Tray {
     const NAME: &'static str = "tray";
     type Config = NoConfig;
     type State = TrayItems;
-    type Handle = TrayHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        TrayHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "the tray stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -260,11 +231,7 @@ impl Service for Tray {
         subs
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        _config: Self::Config,
-        _: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    async fn start(ctx: &Ctx<Self>, _config: Self::Config, _: Self::Dependencies) -> Self {
         // The claim is not made here: see `watcher::name_changes`. `start` returns before the
         // runtime installs any source, so claiming now would race the very signal that recovers it.
         let registry: watcher::Shared = Arc::new(Mutex::new(Registry::default()));
@@ -281,7 +248,7 @@ impl Service for Tray {
             notices: HashMap::new(),
         };
         tray.republish();
-        Ok(tray)
+        tray
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

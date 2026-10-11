@@ -18,7 +18,7 @@ use super::*;
 
 use crate::selection::FakeSelection;
 
-use crate::service::{ServiceRuntime, ServiceSender};
+use crate::service::ServiceRuntime;
 
 #[derive(Clone)]
 struct FakeCatalog(Arc<Mutex<Result<Entry, String>>>);
@@ -137,7 +137,7 @@ fn running(
     catalog: FakeCatalog,
 ) -> (
     ExecHandle,
-    ServiceSender<Exec>,
+    tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
@@ -150,7 +150,7 @@ fn running_with(
     catalog: Arc<dyn Catalog>,
 ) -> (
     ExecHandle,
-    ServiceSender<Exec>,
+    tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
@@ -183,7 +183,7 @@ fn running_with(
     };
     let task = tokio::spawn(async move {
         let _state_dir = state_dir;
-        let _ = runtime.run(deps).await;
+        runtime.run(deps).await;
     });
     (handle, sender, cancel, task, selection)
 }

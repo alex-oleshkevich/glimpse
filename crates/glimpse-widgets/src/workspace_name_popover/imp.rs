@@ -20,8 +20,6 @@ pub struct WorkspaceNamePopover {
     pub recent: TemplateChild<Section>,
     #[template_child]
     pub recent_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
     pub given: RefCell<String>,
     pub taken_names: RefCell<Vec<(String, String)>>,
     pub recent_names: RefCell<Vec<String>>,
@@ -54,7 +52,6 @@ impl ObjectImpl for WorkspaceNamePopover {
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("cancelled").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -103,11 +100,6 @@ impl ObjectImpl for WorkspaceNamePopover {
         popover.add_controller(keys);
         popover.connect_map(|popover| popover.focus_entry());
 
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
     }
 
     fn dispose(&self) {

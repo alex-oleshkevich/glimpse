@@ -115,5 +115,5 @@ async fn introspection_and_typed_methods_match_the_frozen_interface() {
 
     provider.shutdown().await;
     cancel.cancel();
-    weather_task.await.unwrap().unwrap();
+    weather_task.await.unwrap();
 }

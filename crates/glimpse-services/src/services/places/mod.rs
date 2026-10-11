@@ -9,7 +9,7 @@ use glimpse_utils::clean;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceError},
+    service::{CommandError, Input, Service},
     subscription::Sub,
 };
 
@@ -86,28 +86,11 @@ impl From<&glimpse_config::Config> for Config {
     }
 }
 
-#[derive(Clone)]
-pub struct PlacesHandle(crate::ServiceEndpoint<Places>);
+pub type PlacesHandle = crate::ServiceEndpoint<Places>;
 
-impl PlacesHandle {
-    pub fn snapshot(&self) -> PlacesState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<PlacesState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Places> {
     pub async fn empty_trash(&self) -> Result<(), CommandError> {
-        let (reply, result) = tokio::sync::oneshot::channel();
-        self.0.command(Command::EmptyTrash { reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("places stopped while emptying the trash".to_owned())
-        })?
+        self.call(|reply| Command::EmptyTrash { reply }).await?
     }
 }
 
@@ -136,14 +119,13 @@ impl Service for Places {
     const NAME: &'static str = "places";
     type Config = Config;
     type State = PlacesState;
-    type Handle = PlacesHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        PlacesHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "places stopped while emptying the trash"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -177,17 +159,13 @@ impl Service for Places {
         subs
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        (): Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, (): Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             roots: Roots::resolve(),
             config,
             failures: BTreeMap::new(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

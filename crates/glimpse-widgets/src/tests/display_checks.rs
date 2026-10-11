@@ -724,16 +724,6 @@ pub(super) fn check() {
         .emit_by_name::<()>("changed", &[&3400.0f64]);
     assert_eq!(*night_changed.borrow(), [3400.0]);
 
-    brightness.set_footer(Some("Display settings"));
-    assert!(brightness.imp().footer.get_visible());
-    let brightness_footer = Rc::new(Cell::new(0u32));
-    brightness.connect_footer_activated({
-        let brightness_footer = Rc::clone(&brightness_footer);
-        move |_| brightness_footer.set(brightness_footer.get() + 1)
-    });
-    brightness.imp().footer.emit_by_name::<()>("activated", &[]);
-    assert_eq!(brightness_footer.get(), 1);
-
     let display_popover = DisplayPopover::new();
     assert!(
         !display_popover.imp().displays_section.get_visible(),
@@ -827,9 +817,6 @@ pub(super) fn check() {
         .emit_by_name::<()>("activated", &[]);
     assert_eq!(blanked.get(), 1);
 
-    display_popover.set_footer(Some("Display settings"));
-    assert!(display_popover.imp().footer.get_visible());
-
     let open_head = head_of(&children_of::<ExpanderRow>(&*display_popover.imp().displays)[0]);
     open_head.emit_by_name::<()>("activated", &[]);
     assert!(
@@ -841,14 +828,10 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && display_popover
                 .imp()
-                .footer
-                .has_css_class(crate::drawer::RECEDED)
-            && display_popover
-                .imp()
                 .blank
                 .has_css_class(crate::drawer::RECEDED)
             && !open_head.has_css_class(crate::drawer::RECEDED),
-        "opening display details dims the header, the blank row and the footer, preserving \
+        "opening display details dims the header and the blank row, preserving \
              the open row"
     );
     open_head.emit_by_name::<()>("activated", &[]);
@@ -861,25 +844,10 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && !display_popover
                 .imp()
-                .footer
-                .has_css_class(crate::drawer::RECEDED)
-            && !display_popover
-                .imp()
                 .blank
                 .has_css_class(crate::drawer::RECEDED),
         "closing details restores the popover chrome"
     );
-
-    let popover_footer = Rc::new(Cell::new(0u32));
-    display_popover.connect_footer_activated({
-        let popover_footer = Rc::clone(&popover_footer);
-        move |_| popover_footer.set(popover_footer.get() + 1)
-    });
-    display_popover
-        .imp()
-        .footer
-        .emit_by_name::<()>("activated", &[]);
-    assert_eq!(popover_footer.get(), 1);
 
     laptop_fixture();
     desktop_fixture();
@@ -921,7 +889,6 @@ fn laptop_fixture() {
         built_in: true,
         ..Display::default()
     }));
-    popover.set_footer(Some("Display settings"));
 
     let imp = popover.imp();
     assert!(imp.readout.get_visible());
@@ -932,7 +899,7 @@ fn laptop_fixture() {
     assert!(imp.night_light.get_visible());
     assert!(imp.displays_section.get_visible());
     assert!(imp.blank.get_visible());
-    assert!(imp.footer.get_visible());
+
     assert_eq!(
         imp.shell.icon_name().as_deref(),
         Some("display-brightness-symbolic")
@@ -960,7 +927,7 @@ fn laptop_fixture() {
         Some(imp.displays.upcast_ref()),
         "blank follows the display list"
     );
-    assert_ne!(imp.footer.parent(), imp.brightness.parent());
+
 }
 
 fn desktop_fixture() {
@@ -1009,7 +976,7 @@ fn signals_fire_once_per_action() {
     let scheduled = Rc::new(Cell::new(0u32));
     let enabled = Rc::new(Cell::new(0u32));
     let blanked = Rc::new(Cell::new(0u32));
-    let footer = Rc::new(Cell::new(0u32));
+
     popover.connect_changed({
         let changed = Rc::clone(&changed);
         move |_, _, _| changed.set(changed.get() + 1)
@@ -1037,10 +1004,6 @@ fn signals_fire_once_per_action() {
     popover.connect_blanked({
         let blanked = Rc::clone(&blanked);
         move |_| blanked.set(blanked.get() + 1)
-    });
-    popover.connect_footer_activated({
-        let footer = Rc::clone(&footer);
-        move |_| footer.set(footer.get() + 1)
     });
 
     popover.set_sources(&[
@@ -1092,7 +1055,7 @@ fn signals_fire_once_per_action() {
             ..Display::default()
         },
     ]);
-    popover.set_footer(Some("Display settings"));
+
     let rows: Vec<ExpanderRow> = children_of(&*popover.imp().displays);
     let toggle = rows[0]
         .details()
@@ -1109,9 +1072,8 @@ fn signals_fire_once_per_action() {
             scheduled.get(),
             enabled.get(),
             blanked.get(),
-            footer.get(),
         ),
-        (0, 0, 0, 0, 0, 0, 0, 0),
+        (0, 0, 0, 0, 0, 0, 0),
         "setters emit nothing"
     );
 
@@ -1155,6 +1117,5 @@ fn signals_fire_once_per_action() {
 
     popover.imp().blank.emit_by_name::<()>("activated", &[]);
     assert_eq!(blanked.get(), 1);
-    popover.imp().footer.emit_by_name::<()>("activated", &[]);
-    assert_eq!(footer.get(), 1);
+
 }

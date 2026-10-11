@@ -1,3 +1,4 @@
+use crate::services::cap;
 mod composite;
 mod ddc;
 
@@ -10,7 +11,7 @@ use futures_util::future::BoxFuture;
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_dbus::login1::{self, Login1SessionProxy};
 use glimpse_dbus::upower;
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 use zbus::zvariant::OwnedObjectPath;
 
 pub use composite::CompositeBacklight;
@@ -18,10 +19,9 @@ pub use ddc::DdcBacklight;
 
 use super::say;
 use crate::{
-    ServiceState,
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 
@@ -29,10 +29,6 @@ const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
 const LEDS_ROOT: &str = "/sys/class/leds";
 const KEYBOARD_ID: &str = "keyboard";
 const LABEL_CAP: usize = 64;
-
-fn cap(value: &str) -> String {
-    value.chars().take(LABEL_CAP).collect()
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -639,13 +635,30 @@ fn reenumerate_on_hotplug(
 }
 
 async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-    match keyboard_change_events(&ctx).await {
-        Ok(events) => Box::pin(events),
-        Err(error) => {
-            tracing::debug!(%error, "no keyboard backlight signal to follow");
-            Box::pin(stream::empty())
+    let mut appearances = upower_owner_changes(&ctx).await;
+    loop {
+        match keyboard_change_events(&ctx).await {
+            Ok(events) => return Box::pin(events),
+            Err(error) => {
+                tracing::debug!(%error, "no keyboard backlight signal to follow");
+                match appearances.as_mut() {
+                    Some(owners) if owners.next().await.is_some() => {}
+                    _ => return Box::pin(stream::empty()),
+                }
+            }
         }
     }
+}
+
+async fn upower_owner_changes(
+    ctx: &Ctx<Brightness>,
+) -> Option<Pin<Box<dyn Stream<Item = ()> + Send>>> {
+    let dbus = zbus::fdo::DBusProxy::new(ctx.system_bus().ok()?).await.ok()?;
+    let owners = dbus.receive_name_owner_changed().await.ok()?;
+    Some(Box::pin(owners.filter_map(|signal| async move {
+        let args = signal.args().ok()?;
+        (args.name.as_str() == upower::SERVICE && args.new_owner.is_some()).then_some(())
+    })))
 }
 
 async fn keyboard_change_events(
@@ -748,7 +761,7 @@ fn sources_from(mut entries: Vec<Entry>) -> Vec<SourceRecord> {
         records.push(SourceRecord {
             id: entry.id,
             kind: entry.kind,
-            connector: connector.map(|value| cap(&value)),
+            connector: connector.map(|value| cap(&value, LABEL_CAP)),
             max: entry.max_brightness,
             confirmed: level,
             current: level,
@@ -813,46 +826,21 @@ pub struct Dependencies {
     pub backend: Arc<dyn Backlight>,
 }
 
-#[derive(Clone)]
-pub struct BrightnessHandle(ServiceEndpoint<Brightness>);
+pub type BrightnessHandle = ServiceEndpoint<Brightness>;
 
-impl BrightnessHandle {
-    pub fn snapshot(&self) -> BrightnessState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<BrightnessState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Brightness> {
     pub async fn set_level(&self, id: String, value: u32) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetLevel { id, value, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("brightness stopped before accepting the level".to_owned())
-        })?
+        self.call(|reply| Command::SetLevel { id, value, reply })
+            .await?
     }
 
     pub async fn adjust_level(&self, id: String, delta: i32) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::AdjustLevel { id, delta, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "brightness stopped before accepting the adjustment".to_owned(),
-            )
-        })?
+        self.call(|reply| Command::AdjustLevel { id, delta, reply })
+            .await?
     }
 
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Refresh { reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("brightness stopped before refreshing".to_owned())
-        })?
+        self.call(|reply| Command::Refresh { reply }).await?
     }
 }
 
@@ -861,6 +849,7 @@ pub struct Brightness {
     backend: Arc<dyn Backlight>,
     minimum: u8,
     sources: Vec<SourceRecord>,
+    inert: HashSet<String>,
 }
 
 impl Service for Brightness {
@@ -868,14 +857,17 @@ impl Service for Brightness {
 
     type Config = Config;
     type State = BrightnessState;
-    type Handle = BrightnessHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        BrightnessHandle(endpoint)
+    fn command_stopped_reason(command: &Self::Command) -> &'static str {
+        match command {
+            Command::SetLevel { .. } => "brightness stopped before accepting the level",
+            Command::AdjustLevel { .. } => "brightness stopped before accepting the adjustment",
+            Command::Refresh { .. } => "brightness stopped before refreshing",
+        }
     }
 
     fn initial_state(_config: &Self::Config) -> Self::State {
@@ -904,13 +896,14 @@ impl Service for Brightness {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: ctx.publisher(),
             backend: dependencies.backend,
             minimum: config.minimum,
             sources: Vec::new(),
-        })
+            inert: HashSet::new(),
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -937,6 +930,7 @@ impl Service for Brightness {
                     }
                 }
                 self.sources = sources;
+                self.warn_inert();
                 self.publish();
             }
             Input::Event(Event::WriteSettled { id, value, failure }) => {
@@ -965,6 +959,7 @@ impl Service for Brightness {
             }
             Input::Config(config) => {
                 self.minimum = config.minimum;
+                self.warn_inert();
                 self.publish();
                 self.raise_floors(ctx);
             }
@@ -973,6 +968,33 @@ impl Service for Brightness {
 }
 
 impl Brightness {
+    fn newly_inert(&mut self) -> Vec<String> {
+        let inert: HashSet<String> = self
+            .sources
+            .iter()
+            .filter(|record| {
+                record.kind == Kind::Display
+                    && self.minimum > 0
+                    && floor(record.max, self.minimum) >= record.max
+            })
+            .map(|record| record.id.clone())
+            .collect();
+        let mut fresh: Vec<String> = inert.difference(&self.inert).cloned().collect();
+        fresh.sort_unstable();
+        self.inert = inert;
+        fresh
+    }
+
+    fn warn_inert(&mut self) {
+        for id in self.newly_inert() {
+            tracing::warn!(
+                id,
+                minimum = self.minimum,
+                "the configured brightness minimum leaves this source no range to move in"
+            );
+        }
+    }
+
     fn request(
         &mut self,
         ctx: &Ctx<Self>,
@@ -1112,7 +1134,7 @@ impl Brightness {
             .sources
             .iter()
             .map(|record| Source {
-                id: cap(&record.id),
+                id: cap(&record.id, LABEL_CAP),
                 kind: record.kind,
                 connector: record.connector.clone(),
                 current: record.current,

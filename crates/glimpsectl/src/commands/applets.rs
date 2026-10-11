@@ -226,7 +226,7 @@ pub async fn applets_list(config_path: Option<PathBuf>, json: bool) -> Result<()
         return emit(&list_value(rows, unavailable));
     }
     render::print(
-        &Table::new()
+        &Table::default()
             .with_headers(["ID", "NAME", "PLACEMENT", "DESKTOP", "EXEC", "STATE"])
             .with_empty("no external applets installed or placed")
             .with_rows(rows.into_iter().map(|row| {

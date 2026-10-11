@@ -162,10 +162,13 @@ impl Registry {
     }
 
     pub fn snapshot(&self) -> Vec<IdleInhibitorRecord> {
-        self.records
+        let mut records: Vec<_> = self
+            .records
             .values()
             .map(|internal| internal.record.clone())
-            .collect()
+            .collect();
+        records.sort_unstable_by_key(|record| record.id);
+        records
     }
 
     pub fn set_hold_expiry(&mut self, id: u64, expires_at_unix: u64) {

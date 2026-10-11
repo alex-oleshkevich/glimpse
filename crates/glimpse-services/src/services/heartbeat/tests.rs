@@ -16,7 +16,7 @@ async fn running() -> (
         cancel.clone(),
     );
     let task = tokio::spawn(async move {
-        let _ = runtime.run(()).await;
+        runtime.run(()).await;
     });
     (handle, cancel, task)
 }

@@ -153,3 +153,73 @@ async fn raising_the_minimum_does_not_lift_a_keyboard_off_zero() {
     assert!(harness.backend.writes().is_empty());
     assert_eq!(harness.state.borrow().sources[0].current, 0);
 }
+
+struct FakeKbdBacklight;
+
+#[zbus::interface(name = "org.freedesktop.UPower.KbdBacklight")]
+impl FakeKbdBacklight {
+    fn get_brightness(&self) -> i32 {
+        1
+    }
+
+    fn get_max_brightness(&self) -> i32 {
+        3
+    }
+
+    #[zbus(signal)]
+    async fn brightness_changed_with_source(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        value: i32,
+        source: String,
+    ) -> zbus::Result<()>;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let (events, _inbox) = mpsc::channel(32);
+    let cancel = CancellationToken::new();
+    let (health, _health) = watch::channel(ServiceState::Starting);
+    let (published, _state) = watch::channel(BrightnessState::default());
+    let ctx = Ctx::<Brightness>::new(
+        events,
+        &cancel,
+        published,
+        health,
+        Buses::for_system(bus.connection().await),
+    );
+    let watcher = tokio::spawn(async move { keyboard_watch(ctx).await.next().await });
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    let upower = bus.connection().await;
+    upower
+        .object_server()
+        .at("/org/freedesktop/UPower/KbdBacklight", FakeKbdBacklight)
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&upower, "org.freedesktop.UPower")
+        .await
+        .unwrap();
+    let emitter = zbus::object_server::SignalEmitter::new(
+        &upower,
+        "/org/freedesktop/UPower/KbdBacklight",
+    )
+    .unwrap();
+
+    let event = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+        let mut watcher = watcher;
+        loop {
+            let _ = FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new())
+                .await;
+            if let Ok(joined) =
+                tokio::time::timeout(std::time::Duration::from_millis(50), &mut watcher).await
+            {
+                return joined.unwrap();
+            }
+        }
+    })
+    .await
+    .expect("the watch recovers once UPower appears");
+
+    assert!(matches!(event, Some(Event::Rescanned { .. })));
+}

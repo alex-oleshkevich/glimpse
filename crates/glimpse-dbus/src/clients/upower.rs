@@ -353,7 +353,6 @@ pub struct DeviceProperties {
     pub capacity_pct: Option<u8>,
     pub voltage_mv: Option<u32>,
     pub cycles: Option<u32>,
-    pub temperature_mc: Option<i32>,
     pub technology: Technology,
     pub warning: WarningLevel,
     pub charge_threshold: Option<ChargeThreshold>,
@@ -385,7 +384,6 @@ pub fn decode_device(properties: &Properties) -> DeviceProperties {
         capacity_pct: percent_opt(properties, "Capacity"),
         voltage_mv: milli(properties, "Voltage"),
         cycles: cycles(properties),
-        temperature_mc: temperature(properties),
         technology: Technology::from_code(code(properties, "Technology")),
         warning: WarningLevel::from_code(code(properties, "WarningLevel")),
         charge_threshold: threshold(properties),
@@ -440,14 +438,6 @@ fn cycles(properties: &Properties) -> Option<u32> {
         .get("ChargeCycles")
         .and_then(|value| i32::try_from(value).ok())?;
     u32::try_from(value).ok().filter(|cycles| *cycles > 0)
-}
-
-fn temperature(properties: &Properties) -> Option<i32> {
-    let value = float(properties, "Temperature")?;
-    if value == 0.0 {
-        return None;
-    }
-    Some((value * 1000.0).round() as i32)
 }
 
 fn threshold(properties: &Properties) -> Option<ChargeThreshold> {

@@ -37,15 +37,10 @@ impl Service for Panicky {
 
     type Config = NoConfig;
     type State = ();
-    type Handle = ServiceEndpoint<Self>;
     type Command = tokio::sync::oneshot::Sender<()>;
     type Event = ();
     type Dependencies = ();
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -55,8 +50,8 @@ impl Service for Panicky {
         _ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self)
+    ) -> Self {
+        Self
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {
@@ -76,10 +71,7 @@ async fn a_panicking_handler_stops_its_service() {
         .send(Input::Event(()))
         .await
         .expect("queued");
-    runtime
-        .run(())
-        .await
-        .expect("run returns rather than unwinding");
+    runtime.run(()).await;
 
     assert!(matches!(
         &*handle.health().borrow(),
@@ -102,10 +94,7 @@ async fn a_command_queued_behind_a_panicking_handler_is_settled_rather_than_left
     let (reply, answer) = tokio::sync::oneshot::channel();
     handle.command(reply).expect("queued");
 
-    runtime
-        .run(())
-        .await
-        .expect("run returns rather than unwinding");
+    runtime.run(()).await;
 
     let settled = tokio::time::timeout(std::time::Duration::from_secs(1), answer)
         .await
@@ -131,15 +120,10 @@ impl Service for Tunable {
 
     type Config = Tuning;
     type State = (u8, u32);
-    type Handle = ServiceEndpoint<Self>;
     type Command = ();
     type Event = ();
     type Dependencies = ();
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -149,8 +133,8 @@ impl Service for Tunable {
         _ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self { seen: 0 })
+    ) -> Self {
+        Self { seen: 0 }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -173,72 +157,22 @@ async fn an_unchanged_configuration_never_reaches_the_handler() {
     let mut state = handle.subscribe();
     let running = tokio::spawn(async move { runtime.run(()).await });
 
-    sender.reconfigure(Tuning(1));
-    sender.reconfigure(Tuning(2));
+    sender.try_send(Input::Config(Tuning(1))).expect("queued");
+    sender.try_send(Input::Config(Tuning(2))).expect("queued");
     state
         .wait_for(|state| *state == (2, 1))
         .await
         .expect("a reload matching the config it started on is not a change");
 
-    sender.reconfigure(Tuning(2));
-    sender.reconfigure(Tuning(1));
+    sender.try_send(Input::Config(Tuning(2))).expect("queued");
+    sender.try_send(Input::Config(Tuning(1))).expect("queued");
     state
         .wait_for(|state| *state == (1, 2))
         .await
         .expect("going back is a change, repeating is not");
 
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
-}
-
-struct RefusesToStart;
-
-impl Service for RefusesToStart {
-    const NAME: &'static str = "refuses-to-start";
-
-    type Config = NoConfig;
-    type State = ();
-    type Handle = ServiceEndpoint<Self>;
-    type Command = tokio::sync::oneshot::Sender<()>;
-    type Event = ();
-    type Dependencies = ();
-    type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
-
-    fn initial_state(_: &Self::Config) -> Self::State {
-        Self::State::default()
-    }
-
-    async fn start(
-        _ctx: &Ctx<Self>,
-        _config: Self::Config,
-        _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Err(ServiceError::StartError)
-    }
-
-    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
-        if let Input::Command(reply) = input {
-            let _ = reply.send(());
-        }
-    }
-}
-
-#[tokio::test]
-async fn a_failed_start_settles_queued_command_replies() {
-    let (mut runtime, handle) = ServiceRuntime::<RefusesToStart>::new(
-        NoConfig,
-        Buses::unavailable("no bus in tests"),
-        CancellationToken::new(),
-    );
-    let (reply, answer) = tokio::sync::oneshot::channel();
-    handle.command(reply).expect("queued");
-
-    assert!(runtime.run(()).await.is_err());
-    assert!(answer.await.is_err());
+    running.await.expect("joined");
 }
 
 struct Armable {
@@ -250,15 +184,10 @@ impl Service for Armable {
 
     type Config = NoConfig;
     type State = u8;
-    type Handle = ServiceEndpoint<Self>;
     type Command = ();
     type Event = u8;
     type Dependencies = ();
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -279,8 +208,8 @@ impl Service for Armable {
         _ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self { armed: false })
+    ) -> Self {
+        Self { armed: false }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -328,15 +257,10 @@ impl Service for NeedsTheBus {
 
     type Config = NoConfig;
     type State = ();
-    type Handle = ServiceEndpoint<Self>;
     type Command = ();
     type Event = ();
     type Dependencies = ();
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -346,11 +270,11 @@ impl Service for NeedsTheBus {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         if let Err(reason) = ctx.system_bus() {
             ctx.degraded(format!("no system bus: {reason}"));
         }
-        Ok(Self)
+        Self
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
@@ -374,8 +298,54 @@ async fn a_service_without_a_bus_degrades_and_keeps_running() {
     ));
 
     cancel.cancel();
-    running
-        .await
-        .expect("runtime joins")
-        .expect("runtime stops");
+    running.await.expect("runtime joins");
+}
+
+#[tokio::test]
+async fn dropped_command_replies_keep_the_command_specific_reason() {
+    let (mut runtime, handle) = ServiceRuntime::<crate::Heartbeat>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        CancellationToken::new(),
+    );
+    let mut reset = std::pin::pin!(handle.reset());
+    assert!(futures_util::poll!(&mut reset).is_pending());
+    drop(runtime.inbox.recv().await.expect("queued reset"));
+    assert_eq!(
+        reset.await,
+        Err(CommandError::Unavailable(
+            "`heartbeat` stopped before resetting".to_owned()
+        ))
+    );
+
+    let mut interval = std::pin::pin!(handle.set_interval(100));
+    assert!(futures_util::poll!(&mut interval).is_pending());
+    drop(runtime.inbox.recv().await.expect("queued interval"));
+    assert_eq!(
+        interval.await,
+        Err(CommandError::Unavailable(
+            "`heartbeat` stopped before changing its interval".to_owned()
+        ))
+    );
+}
+
+#[tokio::test]
+async fn a_full_or_closed_inbox_keeps_the_command_submission_error() {
+    let (mut runtime, handle) = ServiceRuntime::<crate::Heartbeat>::new(
+        NoConfig,
+        Buses::unavailable("no bus in tests"),
+        CancellationToken::new(),
+    );
+    for _ in 0..INBOX_SIZE {
+        runtime
+            .sender()
+            .try_send(Input::Config(NoConfig))
+            .expect("queued");
+    }
+    let rejected = Err(CommandError::Unavailable(
+        "`heartbeat` is not accepting commands".to_owned(),
+    ));
+    assert_eq!(handle.reset().await, rejected);
+    runtime.close_inbox();
+    assert_eq!(handle.reset().await, rejected);
 }

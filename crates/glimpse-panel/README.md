@@ -127,7 +127,7 @@ color-picker: right click runs `glimpse-lens --tool ruler`, refused mid-measurem
 icon-only, since a measurement has no swatch to substitute it with.
 
 **places** — a share reads as its folder over `host · PROTOCOL`, parsed out of the GVFS mount name,
-never the raw `smb-share:` string; bookmark and volume labels are capped through `render::cap`,
+never the raw `smb-share:` string; bookmark and volume labels are capped through `glimpse_utils::clean`,
 since that text comes from another application. **removable** — renders no chip with no
 visible device; an empty card reader is not one. **A device is one row, and its main volume is the
 largest, the first on a tie.** Space is the short "N free" form, never a percentage, and a main
@@ -193,8 +193,8 @@ fresh snapshot at signal time, never a value captured when the popover was built
 and the charge-limit switch come from the first present `BAT*` object, since the composite omits them.
 
 **command** — a user-defined chip running one argv per gesture with no shell; a program that
-cannot start is throttled to one notification per interval. **session** — power actions confirm on
-the app host after the popover closes, with the action as the default response; lock runs immediately.
+cannot start is throttled to one notification per interval. **session** — power actions confirm in a
+parentless dialog after the popover closes, with the action as the default response; lock runs immediately.
 
 **privacy** — a use with no application (location, a screencopy cast) is titled by the resource.
 **A `PipeWire` cast's card offers only *Stop sharing*** — nothing else opens, since a camera cannot

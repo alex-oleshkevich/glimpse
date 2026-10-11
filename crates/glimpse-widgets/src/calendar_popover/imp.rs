@@ -24,8 +24,6 @@ pub struct CalendarPopover {
     pub zones: TemplateChild<Section>,
     #[template_child]
     pub clocks: TemplateChild<WorldClock>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -55,7 +53,6 @@ impl ObjectImpl for CalendarPopover {
                 glib::subclass::Signal::builder("month-shown")
                     .param_types([i32::static_type(), u32::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
                 glib::subclass::Signal::builder("link-activated")
                     .param_types([String::static_type()])
                     .build(),
@@ -91,11 +88,7 @@ impl ObjectImpl for CalendarPopover {
             move |_, url| popover.emit_by_name::<()>("link-activated", &[&url])
         ));
 
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
     }
 
     fn dispose(&self) {

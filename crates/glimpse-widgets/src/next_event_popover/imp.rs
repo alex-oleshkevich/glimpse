@@ -26,8 +26,6 @@ pub struct NextEventPopover {
     pub upcoming: TemplateChild<Section>,
     #[template_child]
     pub later: TemplateChild<EventList>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
     pub join_url: RefCell<Option<String>>,
     pub open_event_url: RefCell<Option<String>>,
 }
@@ -53,7 +51,6 @@ impl ObjectImpl for NextEventPopover {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
-                glib::subclass::Signal::builder("footer-activated").build(),
                 glib::subclass::Signal::builder("join-activated")
                     .param_types([String::static_type()])
                     .build(),
@@ -68,11 +65,7 @@ impl ObjectImpl for NextEventPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
         self.join.connect_activated(glib::clone!(
             #[weak]
             popover,

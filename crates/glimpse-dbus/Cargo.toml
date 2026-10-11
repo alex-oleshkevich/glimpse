@@ -12,6 +12,7 @@ testing = []
 chrono.workspace = true
 futures-util.workspace = true
 glimpse-utils.workspace = true
+rustix.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

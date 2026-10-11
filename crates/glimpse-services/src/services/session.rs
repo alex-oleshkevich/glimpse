@@ -1,3 +1,4 @@
+use crate::services::say;
 use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
@@ -6,7 +7,7 @@ use glimpse_dbus::login1::{Login1SessionProxy, session_path};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, NoConfig, Service, ServiceError},
+    service::{Input, NoConfig, Service},
     subscription::Sub,
 };
 
@@ -39,22 +40,7 @@ pub struct Session {
     compositor: CompositorHandle,
 }
 
-#[derive(Clone)]
-pub struct SessionHandle(crate::ServiceEndpoint<Session>);
-
-impl SessionHandle {
-    pub fn snapshot(&self) -> Option<SessionStatus> {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<Option<SessionStatus>> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-}
+pub type SessionHandle = crate::ServiceEndpoint<Session>;
 
 pub struct Dependencies {
     pub compositor: CompositorHandle,
@@ -64,15 +50,10 @@ impl Service for Session {
     const NAME: &'static str = "session";
     type Config = NoConfig;
     type State = Option<SessionStatus>;
-    type Handle = SessionHandle;
     type Command = Infallible;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        SessionHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -94,14 +75,14 @@ impl Service for Session {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             status: ctx.publisher(),
             locked: None,
             lock_available: false,
             compositor_private: None,
             compositor: dependencies.compositor,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -177,10 +158,6 @@ async fn locked_events(
         }
     });
     Ok(stream::once(async move { Event::Locked(first) }).chain(following))
-}
-
-fn say(error: impl std::fmt::Display) -> String {
-    error.to_string()
 }
 
 #[cfg(test)]

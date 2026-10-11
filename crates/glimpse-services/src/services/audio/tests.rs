@@ -1,3 +1,4 @@
+use crate::CommandError;
 use glimpse_dbus::Buses;
 use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
@@ -22,9 +23,7 @@ async fn harness() -> (
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Audio::start(&ctx, NoConfig, ())
-        .await
-        .expect("starts with no config and no dependencies");
+    let service = Audio::start(&ctx, NoConfig, ()).await;
     (service, ctx, state_rx, health_rx)
 }
 

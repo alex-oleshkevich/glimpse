@@ -12,7 +12,7 @@ use glimpse_dbus::upower::{ChargeState, DeviceKind, WarningLevel};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceError},
+    service::{CommandError, Input, NoConfig, Service},
     subscription::Sub,
 };
 
@@ -218,45 +218,26 @@ pub struct Kdeconnect {
     fetches: Fetches,
 }
 
-#[derive(Clone)]
-pub struct KdeconnectHandle(crate::ServiceEndpoint<Kdeconnect>);
+pub type KdeconnectHandle = crate::ServiceEndpoint<Kdeconnect>;
 
-impl KdeconnectHandle {
-    pub fn snapshot(&self) -> KdeconnectState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<KdeconnectState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Kdeconnect> {
     pub async fn act(&self, id: DeviceId, action: Action) -> Result<(), CommandError> {
-        self.call(|reply| Command::Act { id, action, reply }).await
+        self.call(|reply| Command::Act { id, action, reply })
+            .await?
     }
 
     pub async fn share(&self, id: DeviceId, urls: Vec<String>) -> Result<(), CommandError> {
-        self.call(|reply| Command::Share { id, urls, reply }).await
+        self.call(|reply| Command::Share { id, urls, reply })
+            .await?
     }
 
     pub async fn share_text(&self, id: DeviceId, text: String) -> Result<(), CommandError> {
         self.call(|reply| Command::ShareText { id, text, reply })
-            .await
+            .await?
     }
 
     pub async fn discover(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Discover { reply }).await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("kdeconnect stopped before completing the command".to_owned())
-        })?
+        self.call(|reply| Command::Discover { reply }).await?
     }
 }
 
@@ -264,14 +245,13 @@ impl Service for Kdeconnect {
     const NAME: &'static str = "kdeconnect";
     type Config = NoConfig;
     type State = KdeconnectState;
-    type Handle = KdeconnectHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        KdeconnectHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "kdeconnect stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -289,18 +269,14 @@ impl Service for Kdeconnect {
         subs
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        _: Self::Config,
-        _: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, _: Self::Config, _: Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             owner: None,
             generation: 0,
             devices: Vec::new(),
             fetches: Fetches::default(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

@@ -1,3 +1,4 @@
+use crate::services::cap;
 use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -574,8 +575,8 @@ fn sink_to_raw(info: &SinkInfo) -> RawDevice {
     let label = info
         .description
         .as_deref()
-        .map(cap)
-        .unwrap_or_else(|| cap(&name));
+        .map(|value| cap(value, NAME_CAP))
+        .unwrap_or_else(|| cap(&name, NAME_CAP));
     RawDevice {
         index: info.index,
         pa_name: name,
@@ -593,8 +594,8 @@ fn source_to_raw(info: &SourceInfo) -> RawDevice {
     let label = info
         .description
         .as_deref()
-        .map(cap)
-        .unwrap_or_else(|| cap(&name));
+        .map(|value| cap(value, NAME_CAP))
+        .unwrap_or_else(|| cap(&name, NAME_CAP));
     RawDevice {
         index: info.index,
         pa_name: name,
@@ -1001,7 +1002,7 @@ async fn move_streams(
 }
 
 fn proplist_str(proplist: &Proplist, key: &str) -> Option<String> {
-    proplist.get_str(key).map(|value| cap(&value))
+    proplist.get_str(key).map(|value| cap(&value, NAME_CAP))
 }
 
 fn proplist_to_map(proplist: &Proplist) -> HashMap<String, String> {
@@ -1010,13 +1011,9 @@ fn proplist_to_map(proplist: &Proplist) -> HashMap<String, String> {
         .filter(|key| key.chars().count() <= PROP_KEY_CAP)
         .filter_map(|key| {
             let value = proplist.get_str(&key)?;
-            Some((key, bound(&value)))
+            Some((key, cap(&value, PROP_VALUE_CAP)))
         })
         .collect()
-}
-
-fn bound(value: &str) -> String {
-    value.chars().take(PROP_VALUE_CAP).collect()
 }
 
 fn volume_to_percent(volume: Volume) -> u32 {
@@ -1028,10 +1025,6 @@ fn percent_to_volume(percent: u32) -> Volume {
     let normal = u64::from(Volume::NORMAL.0);
     let raw = (u64::from(percent) * normal) / 100;
     Volume(raw.min(u64::from(Volume::MAX.0)) as u32)
-}
-
-fn cap(value: &str) -> String {
-    value.chars().take(NAME_CAP).collect()
 }
 
 #[cfg(test)]

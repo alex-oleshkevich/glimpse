@@ -114,9 +114,7 @@ impl Indicator {
         if slot.first_child().as_ref() == widget {
             return;
         }
-        while let Some(child) = slot.first_child() {
-            slot.remove(&child);
-        }
+        crate::clear_children(slot);
         if let Some(widget) = widget {
             if let Some(parent) = widget.parent().and_downcast::<gtk4::Box>() {
                 parent.remove(widget);

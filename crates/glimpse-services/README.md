@@ -15,7 +15,7 @@ required because a handle answers `snapshot()` before `run` is called — a defe
 an `Option` into every consumer. **`Running<S>` is one owned service — spawn, reconfigure, stop.** A
 dropped `Running` cancels its service, so no root writes its own `Drop`.
 
-**The unchanged-configuration gate belongs in `run`, never on `ServiceSender`** — see
+**The unchanged-configuration gate belongs in `run`, never on the sender** — see
 `.claude/rules/daemon.md`; a `try_send` onto a full inbox must not record a config that never
 arrived. Health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`, and
 **`Degraded` is a running service** that keeps publishing what it can, so a consumer must not dim its
@@ -31,7 +31,7 @@ Everything reaching a handler arrives from a source, and every source is one `ct
 | -------------------- | --------------- | --------------------------------------------------- |
 | `ctx.spawn`          | one event       | one unit of async work whose result is an event     |
 | `ctx.spawn_detached` | nothing         | work with no result to report                       |
-| `ctx.interval`       | an event a tick | polling, clocks; `at_interval` picks the first tick |
+| `ctx.interval`       | an event a tick | polling, clocks, starting immediately               |
 | `ctx.stream`         | many events     | a backend signal stream, a watch, a subscription    |
 | `Sub::watch`         | many events     | another service's typed state                       |
 

@@ -16,7 +16,7 @@ use failure::{Action, classify};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceError},
+    service::{CommandError, Input, Service},
     subscription::Sub,
 };
 
@@ -147,44 +147,23 @@ pub struct Printing {
     generation: u64,
 }
 
-#[derive(Clone)]
-pub struct PrintingHandle(crate::ServiceEndpoint<Printing>);
+pub type PrintingHandle = crate::ServiceEndpoint<Printing>;
 
-impl PrintingHandle {
-    pub fn snapshot(&self) -> PrintingState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<PrintingState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Printing> {
     pub async fn cancel_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::CancelJob { id, reply }).await
+        self.call(|reply| Command::CancelJob { id, reply }).await?
     }
 
     pub async fn pause_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::PauseJob { id, reply }).await
+        self.call(|reply| Command::PauseJob { id, reply }).await?
     }
 
     pub async fn resume_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::ResumeJob { id, reply }).await
+        self.call(|reply| Command::ResumeJob { id, reply }).await?
     }
 
     pub async fn refresh(&self) -> Result<(), PrintingError> {
-        self.call(|reply| Command::Refresh { reply }).await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), PrintingError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("printing stopped before completing the command".to_owned())
-        })?
+        self.call(|reply| Command::Refresh { reply }).await?
     }
 }
 
@@ -192,14 +171,13 @@ impl Service for Printing {
     const NAME: &'static str = "printing";
     type Config = Config;
     type State = PrintingState;
-    type Handle = PrintingHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        PrintingHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "printing stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -237,17 +215,13 @@ impl Service for Printing {
         ]
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        _: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, _: Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             config,
             active: false,
             generation: 0,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

@@ -7,16 +7,9 @@ const PLAYERCTLD: &str = "playerctld";
 const KDECONNECT: &str = "kdeconnect.mpris_";
 
 pub fn compile(patterns: &[String]) -> Vec<Regex> {
-    patterns
-        .iter()
-        .filter_map(|pattern| match Regex::new(pattern) {
-            Ok(compiled) => Some(compiled),
-            Err(error) => {
-                tracing::warn!(pattern, %error, "ignoring an mpris filter that does not compile");
-                None
-            }
-        })
-        .collect()
+    crate::services::compile_patterns(patterns, |pattern, error| {
+        tracing::warn!(pattern, %error, "ignoring an mpris filter that does not compile");
+    })
 }
 
 pub fn ignored(patterns: &[Regex], id: &str, identity: &str) -> bool {

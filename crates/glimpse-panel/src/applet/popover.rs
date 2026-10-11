@@ -47,13 +47,7 @@ fn activation_token() -> Option<gtk4::glib::GString> {
     (!token.is_empty()).then_some(token)
 }
 
-pub trait PopoverHandle {
-    fn widget(&self) -> gtk4::Widget;
-}
-
-impl<W: gtk4::prelude::IsA<gtk4::Widget> + Clone> PopoverHandle for W {
-    fn widget(&self) -> gtk4::Widget {
-        use gtk4::prelude::Cast as _;
-        self.clone().upcast()
-    }
+pub fn footer<W>(footer: &super::footer::Footer) -> impl Fn(&W) + 'static {
+    let footer = footer.clone();
+    move |_| footer.run()
 }

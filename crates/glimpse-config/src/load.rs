@@ -62,7 +62,7 @@ fn write_table_with(
 ) -> Result<(), ConfigError> {
     let target = match fs::canonicalize(path) {
         Ok(target) => target,
-        Err(error) if error.kind() == io::ErrorKind::NotFound && !is_symlink(path) => {
+        Err(error) if error.kind() == io::ErrorKind::NotFound && !path.is_symlink() => {
             path.to_path_buf()
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -117,10 +117,6 @@ fn write_table_with(
         &target,
         io::Error::other("the file kept changing while it was being written"),
     ))
-}
-
-fn is_symlink(path: &Path) -> bool {
-    fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
 }
 
 fn temporary_beside(target: &Path, dir: &Path, text: &str) -> io::Result<NamedTempFile> {
@@ -365,8 +361,12 @@ fn load_from(
             Ok(table) => table,
             Err(error) => return Err(ConfigError::parse(&path, &text, &error)),
         };
-        let text = if path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref()) {
+        let screenshot = path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref());
+        let retired = table.remove("monitors").is_some();
+        let text = if screenshot {
             table.retain(|key, _| key == SCREENSHOT_TABLE);
+            table.to_string()
+        } else if retired {
             table.to_string()
         } else {
             text
@@ -374,11 +374,15 @@ fn load_from(
         builder = builder.add_source(config::File::from_str(&text, config::FileFormat::Toml));
     }
 
-    builder
+    let config: Config = builder
         .build()
         .map_err(ConfigError::schema)?
         .try_deserialize()
-        .map_err(ConfigError::schema)
+        .map_err(ConfigError::schema)?;
+    for problem in config.validate() {
+        tracing::warn!(%problem, "configuration problem");
+    }
+    Ok(config)
 }
 
 pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigError>) {

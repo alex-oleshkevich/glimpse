@@ -34,7 +34,7 @@ pub async fn weather_status(connection: &Connection, json: bool) -> Result<()> {
 
     let units = state.status.as_ref().map(|status| status.units);
     let header = Section::new("Weather").with(
-        Table::new()
+        Table::default()
             .with_row(["available".to_owned(), yes_no(state.available).to_owned()])
             .with_row(["stale".to_owned(), yes_no(state.stale).to_owned()])
             .with_row([
@@ -58,7 +58,7 @@ pub async fn weather_status(connection: &Connection, json: bool) -> Result<()> {
     crate::render::print("")?;
     Section::new("Places")
         .with(
-            Table::new()
+            Table::default()
                 .with_headers(["PLACE", "TEMP", "CONDITION", "ALERTS"])
                 .with_empty("nothing is watching a place, so nothing is fetched")
                 .with_rows(

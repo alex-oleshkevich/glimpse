@@ -141,12 +141,4 @@ fn kdeconnect_popover_widgets() {
         "no header until something is found"
     );
 
-    popover.set_footer(Some("KDE Connect settings"));
-    let footer = Rc::new(Cell::new(false));
-    popover.connect_footer_activated({
-        let footer = Rc::clone(&footer);
-        move |_| footer.set(true)
-    });
-    imp.footer.emit_by_name::<()>("activated", &[]);
-    assert!(footer.get());
 }

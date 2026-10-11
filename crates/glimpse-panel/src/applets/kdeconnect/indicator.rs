@@ -11,7 +11,8 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::themed;
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
 use super::render;
@@ -28,10 +29,6 @@ pub struct Kdeconnect {
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<KdeconnectPopover>,
     opener: Option<Opener>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 fn default_footer() -> (String, Vec<String>) {
@@ -72,7 +69,7 @@ impl Applet for Kdeconnect {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = KdeconnectPopover::new();
         shown.set_nearby_open(!render::any_paired(&self.state.borrow()));
 
@@ -148,13 +145,15 @@ impl Applet for Kdeconnect {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.opener = Some(seat.opener());
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

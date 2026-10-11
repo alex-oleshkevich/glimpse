@@ -1,5 +1,6 @@
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use super::*;
@@ -96,7 +97,7 @@ async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
         .expect("queued");
 
     let running = tokio::spawn(async move {
-        let _ = runtime.run(GeolocationDependencies::default()).await;
+        runtime.run(GeolocationDependencies::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -314,7 +315,7 @@ async fn an_unavailable_geoclue_source_marks_degraded_without_erasing_the_cached
         .expect("queued");
 
     let running = tokio::spawn(async move {
-        let _ = runtime.run(GeolocationDependencies::default()).await;
+        runtime.run(GeolocationDependencies::default()).await;
     });
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -369,9 +370,7 @@ async fn waiting_for_a_first_fix_is_reported_rather_than_silent() {
     };
     let dependencies = GeolocationDependencies { cache: None };
 
-    let service = Geolocation::start(&ctx, config, dependencies)
-        .await
-        .expect("starts");
+    let service = Geolocation::start(&ctx, config, dependencies).await;
 
     assert_eq!(state.borrow().coordinates, None);
     assert!(matches!(
@@ -402,9 +401,7 @@ async fn a_cold_start_publishes_the_remembered_fix_until_geoclue_answers() {
     };
     let dependencies = GeolocationDependencies { cache: Some(path) };
 
-    Geolocation::start(&ctx, config, dependencies)
-        .await
-        .expect("starts");
+    Geolocation::start(&ctx, config, dependencies).await;
 
     assert_eq!(state.borrow().coordinates, Some(WARSAW));
     assert!(matches!(
@@ -426,9 +423,7 @@ async fn a_manual_provider_never_reads_the_remembered_fix() {
     };
     let dependencies = GeolocationDependencies { cache: Some(path) };
 
-    Geolocation::start(&ctx, config, dependencies)
-        .await
-        .expect("starts");
+    Geolocation::start(&ctx, config, dependencies).await;
 
     assert_eq!(state.borrow().coordinates, None);
 }
@@ -446,9 +441,7 @@ async fn a_geoclue_fix_is_written_private_and_starts_the_refresh_ticker() {
     let dependencies = GeolocationDependencies {
         cache: Some(path.clone()),
     };
-    let mut service = Geolocation::start(&ctx, config, dependencies)
-        .await
-        .expect("starts");
+    let mut service = Geolocation::start(&ctx, config, dependencies).await;
 
     service
         .handle(&ctx, Input::Event(Event::Located(Some(WARSAW))))

@@ -104,7 +104,7 @@ GUI face, marks and earlier results kept. `OutputGone` hands the document to a w
 emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
-`Notifier`, `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
+`Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
 `Screens` on `glimpse-wayland` and the compositor snapshot, `Windows` as the ladder below,
 `Clipboard` through `hold`, `Files` with `create_new`, and `Clock`. An `Effected` for anything but
 the first pending effect is stale and ignored; an `OutputGone` while finishing is remembered and

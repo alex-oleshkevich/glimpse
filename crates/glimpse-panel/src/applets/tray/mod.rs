@@ -27,6 +27,15 @@ pub struct Tray {
 }
 
 impl Applet for Tray {
+    fn place(&mut self, placement: glimpse_services::Placement) {
+        self.strip.set_overflow_edge(match placement.zone {
+            glimpse_services::Zone::Left => glimpse_widgets::Edge::End,
+            glimpse_services::Zone::Center | glimpse_services::Zone::Right => {
+                glimpse_widgets::Edge::Start
+            }
+        });
+    }
+
     fn view(&mut self, _ctx: &Ctx) -> Option<gtk4::Widget> {
         self.strip.connect_activated({
             let tray = self.tray.clone();
@@ -163,13 +172,15 @@ impl Applet for Tray {
 }
 
 impl Tray {
-    pub fn start(tray: TrayHandle) -> Self {
-        Self {
+    pub fn start(tray: TrayHandle, placement: glimpse_services::Placement) -> Self {
+        let mut applet = Self {
             strip: TrayStrip::new(),
             settings: Rc::new(RefCell::new(TrayAppletConfig::default())),
             items: Rc::new(RefCell::new(tray.snapshot().items)),
             tray,
-        }
+        };
+        applet.place(placement);
+        applet
     }
 
     fn render(&self) {

@@ -19,7 +19,7 @@ use zbus::{Connection, interface};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 
@@ -141,56 +141,27 @@ pub struct NotificationsState {
     pub dnd: Option<NotificationsDnd>,
 }
 
-#[derive(Clone)]
-pub struct NotificationsHandle(ServiceEndpoint<Notifications>);
+pub type NotificationsHandle = ServiceEndpoint<Notifications>;
 
-impl NotificationsHandle {
-    pub fn snapshot(&self) -> NotificationsState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<NotificationsState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Notifications> {
     pub async fn post(&self, incoming: Incoming) -> Result<u32, CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Post {
+        self.call(|reply| Command::Post {
             incoming: Box::new(incoming),
             reply,
-        })?;
-        result
-            .await
-            .map_err(|_| CommandError::Unavailable("notifications did not answer".to_owned()))?
-    }
-
-    async fn call(
-        &self,
-        command: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "notifications stopped before completing the command".to_owned(),
-            )
-        })?
+        })
+        .await?
     }
 
     pub async fn dismiss(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Dismiss { id, reply }).await
+        self.call(|reply| Command::Dismiss { id, reply }).await?
     }
 
     pub async fn expire(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Expire { id, reply }).await
+        self.call(|reply| Command::Expire { id, reply }).await?
     }
 
     pub async fn remove(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Remove { id, reply }).await
+        self.call(|reply| Command::Remove { id, reply }).await?
     }
 
     pub async fn activate(&self, id: u32, token: Option<String>) -> Result<(), CommandError> {
@@ -199,7 +170,7 @@ impl NotificationsHandle {
             token: valid_activation_token(token),
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn invoke_action(
@@ -214,19 +185,20 @@ impl NotificationsHandle {
             token: valid_activation_token(token),
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn clear_app(&self, app_id: String) -> Result<(), CommandError> {
-        self.call(|reply| Command::ClearApp { app_id, reply }).await
+        self.call(|reply| Command::ClearApp { app_id, reply })
+            .await?
     }
 
     pub async fn clear_all(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::ClearAll { reply }).await
+        self.call(|reply| Command::ClearAll { reply }).await?
     }
 
     pub async fn set_dnd(&self, dnd: DoNotDisturb) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetDnd { dnd, reply }).await
+        self.call(|reply| Command::SetDnd { dnd, reply }).await?
     }
 }
 
@@ -245,7 +217,6 @@ impl Service for Notifications {
 
     type Config = Config;
     type State = NotificationsState;
-    type Handle = NotificationsHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
@@ -262,19 +233,18 @@ impl Service for Notifications {
         )]
     }
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        NotificationsHandle(endpoint)
+    fn command_stopped_reason(command: &Self::Command) -> &'static str {
+        match command {
+            Command::Post { .. } => "notifications did not answer",
+            _ => "notifications stopped before completing the command",
+        }
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        (): Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, (): Self::Dependencies) -> Self {
         let mut service = Self {
             state: ctx.publisher(),
             store: Store::with_suppression(config.keep, &config.suppress),
@@ -292,7 +262,7 @@ impl Service for Notifications {
             Ok(connection) => connection.clone(),
             Err(reason) => {
                 ctx.degraded(format!("no session bus: {reason}"));
-                return Ok(service);
+                return service;
             }
         };
 
@@ -310,7 +280,7 @@ impl Service for Notifications {
         };
         if let Err(error) = connection.object_server().at(OBJECT_PATH, served).await {
             ctx.degraded(format!("cannot serve {OBJECT_PATH}: {error}"));
-            return Ok(service);
+            return service;
         }
 
         match glimpse_dbus::own_name(&connection, BUS_NAME).await {
@@ -325,7 +295,7 @@ impl Service for Notifications {
             Err(error) => ctx.degraded(format!("cannot take {BUS_NAME}: {error}")),
         }
 
-        Ok(service)
+        service
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -581,16 +551,9 @@ impl Store {
 }
 
 fn compile_patterns(patterns: &[String]) -> Vec<Regex> {
-    patterns
-        .iter()
-        .filter_map(|pattern| match Regex::new(pattern) {
-            Ok(compiled) => Some(compiled),
-            Err(error) => {
-                tracing::warn!(pattern, %error, "ignoring a notification suppression pattern that does not compile");
-                None
-            }
-        })
-        .collect()
+    crate::services::compile_patterns(patterns, |pattern, error| {
+        tracing::warn!(pattern, %error, "ignoring a notification suppression pattern that does not compile");
+    })
 }
 
 fn matches_patterns(

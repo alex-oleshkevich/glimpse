@@ -8,12 +8,12 @@ use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{PrintingError, PrintingHandle, PrintingState};
 
 use glimpse_widgets::{IndicatorSpec, PrintingPopover, Severity};
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure};
 
 use super::render;
@@ -29,10 +29,6 @@ pub struct Printing {
     footer: Footer,
     pending: Rc<RefCell<HashSet<u32>>>,
     shown: glib::WeakRef<PrintingPopover>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 impl Applet for Printing {
@@ -59,7 +55,7 @@ impl Applet for Printing {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = PrintingPopover::new();
 
         shown.connect_cancelled({
@@ -149,12 +145,14 @@ impl Applet for Printing {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

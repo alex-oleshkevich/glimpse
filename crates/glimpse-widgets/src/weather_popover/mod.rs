@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
     Day, ExpanderRow, Fact, Hour, Notice, RowTone, Section, Severity, fact_row, replace_children,
-    set_action_label,
+    
 };
 
 const DESCRIPTION: &str = "detail-card__description";
@@ -151,20 +151,6 @@ impl WeatherPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
-        )
-    }
 }
 
 fn dress(notice: &Notice, advisory: &Advisory) {

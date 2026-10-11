@@ -19,7 +19,7 @@ use gtk4::prelude::{Cast, WidgetExt};
 use gtk4::{gdk, gio, glib};
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 use super::render;
@@ -68,7 +68,7 @@ impl Applet for Notifications {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = NotificationsPopover::new();
         let opener = seat.opener();
         let held = self.held.clone();
@@ -123,12 +123,14 @@ impl Applet for Notifications {
                 opener.wake();
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

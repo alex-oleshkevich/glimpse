@@ -6,7 +6,7 @@ use gtk4::{
 };
 
 use super::{
-    ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED, FOOTER_ACTIVATED,
+    ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED,
     Group,
 };
 use crate::{ActionRow, Notice, Placeholder};
@@ -29,8 +29,6 @@ pub struct NotificationsPopover {
     pub empty: TemplateChild<Placeholder>,
     #[template_child]
     pub clear: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub held: RefCell<Vec<Group>>,
     pub sections: RefCell<Vec<(String, gtk4::Revealer)>>,
@@ -77,7 +75,6 @@ impl ObjectImpl for NotificationsPopover {
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder(CLEAR_ALL).build(),
-                glib::subclass::Signal::builder(FOOTER_ACTIVATED).build(),
             ]
         })
     }
@@ -116,11 +113,7 @@ impl ObjectImpl for NotificationsPopover {
             self,
             move |_| popover.obj().emit_by_name::<()>(CLEAR_ALL, &[])
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak(rename_to = popover)]
-            self,
-            move |_| popover.obj().emit_by_name::<()>(FOOTER_ACTIVATED, &[])
-        ));
+
     }
 
     fn dispose(&self) {

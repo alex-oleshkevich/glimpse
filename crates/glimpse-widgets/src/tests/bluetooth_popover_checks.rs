@@ -248,16 +248,7 @@ pub(super) fn check() {
     assert_eq!(*expanded.borrow(), ["paired", "nearby"]);
     popover.set_overflow(None, None);
     assert!(!popover.imp().more_paired.get_visible() && !popover.imp().more_nearby.get_visible());
-    let footer_pressed = Rc::new(Cell::new(0u32));
-    popover.connect_footer_activated({
-        let footer_pressed = Rc::clone(&footer_pressed);
-        move |_| footer_pressed.set(footer_pressed.get() + 1)
-    });
-    popover.set_footer(Some("Settings"));
-    popover.imp().footer.activate();
-    assert_eq!(footer_pressed.get(), 1);
-    popover.set_footer(None);
-    assert!(!popover.imp().footer.get_visible());
+
     popover.set_controls_sensitive(false);
     assert!(!popover.imp().search.get_sensitive());
     popover.set_controls_sensitive(true);
@@ -317,7 +308,7 @@ pub(super) fn check() {
         probe.imp().pages.visible_child_name().as_deref(),
         Some("prompt")
     );
-    assert!(!probe.imp().shell.imp().header.get_sensitive() && !probe.imp().footer.get_sensitive());
+    assert!(!probe.imp().shell.imp().header.get_sensitive());
     assert_eq!(probe.imp().prompt_device.text(), "Pixel 9 Pro");
     assert_eq!(
         probe.imp().prompt_ask.text(),
@@ -369,7 +360,7 @@ pub(super) fn check() {
         probe.imp().pages.visible_child_name().as_deref(),
         Some("devices")
     );
-    assert!(probe.imp().shell.imp().header.get_sensitive() && probe.imp().footer.get_sensitive());
+    assert!(probe.imp().shell.imp().header.get_sensitive());
     probe.set_nearby(1, true);
     probe.set_prompt(Some(&BluetoothAsk {
         key: "pair:/org/bluez/hci0/dev_n".to_owned(),

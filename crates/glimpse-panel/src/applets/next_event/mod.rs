@@ -9,7 +9,7 @@ use glimpse_widgets::{IndicatorSpec, NextEventPopover};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, Opener};
 use crate::applets::agenda::{self, Occasion};
 
@@ -57,17 +57,19 @@ impl Applet for NextEvent {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = NextEventPopover::new();
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.connect_footer_activated({
+            let footer = self.footer.clone();
+            move |_| footer.run()
+        });
         shown.connect_join_activated(|_, url| agenda::open_http(url));
         shown.connect_open_event_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 

@@ -8,8 +8,6 @@ pub const ROOT: &str = "/org/freedesktop/UDisks2";
 pub const BLOCK1: &str = "org.freedesktop.UDisks2.Block";
 pub const DRIVE1: &str = "org.freedesktop.UDisks2.Drive";
 pub const FILESYSTEM1: &str = "org.freedesktop.UDisks2.Filesystem";
-pub const PARTITION1: &str = "org.freedesktop.UDisks2.Partition";
-pub const ENCRYPTED1: &str = "org.freedesktop.UDisks2.Encrypted";
 
 #[zbus::proxy(
     interface = "org.freedesktop.UDisks2.Filesystem",
@@ -37,7 +35,7 @@ pub trait Encrypted {
     fn lock(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
 }
 
-use super::{Properties, flag, number, text};
+use super::{Properties, flag, text};
 
 const NAME: usize = 64;
 const LABEL: usize = 24;
@@ -190,14 +188,6 @@ pub struct FilesystemProperties {
     pub size: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PartitionProperties {
-    pub number: Option<u32>,
-    pub name: Option<String>,
-    pub table: Option<String>,
-    pub type_: Option<String>,
-}
-
 fn path(properties: &Properties, key: &str) -> Option<String> {
     match &**properties.get(key)? {
         Value::ObjectPath(value) if value.as_str() != "/" => Some(value.as_str().to_owned()),
@@ -224,7 +214,7 @@ fn paths(properties: &Properties, key: &str) -> Option<Vec<String>> {
             (!entry.is_empty()).then(|| String::from_utf8_lossy(&entry).into_owned())
         })
         .collect();
-    (!values.is_empty()).then_some(values)
+    Some(values)
 }
 
 fn size(properties: &Properties, key: &str) -> Option<u64> {
@@ -281,15 +271,6 @@ pub fn decode_filesystem(properties: &Properties) -> FilesystemProperties {
     FilesystemProperties {
         mount_points: paths(properties, "MountPoints"),
         size: size(properties, "Size"),
-    }
-}
-
-pub fn decode_partition(properties: &Properties) -> PartitionProperties {
-    PartitionProperties {
-        number: number(properties, "Number"),
-        name: text(properties, "Name", NAME),
-        table: path(properties, "Table"),
-        type_: text(properties, "Type", NAME),
     }
 }
 

@@ -63,39 +63,35 @@ fn every_security_the_hidden_page_offers_has_a_label_and_the_first_is_the_open_o
 }
 
 fn state(strength: u8) -> NetworkState {
-    NetworkState {
-        networking: true,
-        wifi: Some(Radio {
-            enabled: true,
-            hardware_enabled: true,
-        }),
-        connectivity: nm::Connectivity::Full,
-        ..NetworkState::default()
-    }
-    .tap(strength)
+    with_strength(
+        NetworkState {
+            networking: true,
+            wifi: Some(Radio {
+                enabled: true,
+                hardware_enabled: true,
+            }),
+            connectivity: nm::Connectivity::Full,
+            ..NetworkState::default()
+        },
+        strength,
+    )
 }
 
-trait Tap {
-    fn tap(self, strength: u8) -> Self;
-}
-
-impl Tap for NetworkState {
-    fn tap(mut self, strength: u8) -> Self {
-        self.networks = vec![glimpse_services::Access {
-            id: glimpse_services::NetworkId::new("/ap/1"),
-            ssid: Some("Skylink".to_owned()),
-            bssid: None,
-            strength,
-            band: nm::Band::Five,
-            security: nm::Security::Wpa2,
-            active: true,
-            saved: None,
-            address: None,
-            busy: None,
-            failure: None,
-        }];
-        self
-    }
+fn with_strength(mut state: NetworkState, strength: u8) -> NetworkState {
+    state.networks = vec![glimpse_services::Access {
+        id: glimpse_services::NetworkId::new("/ap/1"),
+        ssid: Some("Skylink".to_owned()),
+        bssid: None,
+        strength,
+        band: nm::Band::Five,
+        security: nm::Security::Wpa2,
+        active: true,
+        saved: None,
+        address: None,
+        busy: None,
+        failure: None,
+    }];
+    state
 }
 
 fn secured(state: &mut NetworkState, saved: bool, security: nm::Security) {

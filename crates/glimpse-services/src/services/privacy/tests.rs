@@ -131,9 +131,7 @@ async fn harness(audio: AudioHandle, compositor: CompositorHandle) -> Harness {
     let (state, state_rx) = watch::channel(PrivacyState::default());
     let (health, _health_rx) = watch::channel(crate::ServiceState::Starting);
     let ctx = Ctx::<Privacy>::new(events, &cancel, state, health, buses());
-    let service = Privacy::start(&ctx, NoConfig, Dependencies { audio, compositor })
-        .await
-        .expect("starts");
+    let service = Privacy::start(&ctx, NoConfig, Dependencies { audio, compositor }).await;
 
     Harness {
         service,

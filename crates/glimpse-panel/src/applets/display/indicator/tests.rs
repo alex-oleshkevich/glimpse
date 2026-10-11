@@ -28,9 +28,9 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
     let mut display = Display::start(
-        services.brightness.clone(),
-        services.night_light(),
-        services.compositor.clone(),
+        services.handles.brightness.clone(),
+        services.handles.night_light.clone(),
+        services.handles.compositor.clone(),
         services.notifications(),
     );
     display.outputs = vec![output("DP-1", false)];

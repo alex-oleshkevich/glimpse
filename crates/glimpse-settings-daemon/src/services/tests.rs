@@ -253,9 +253,8 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
 #[tokio::test]
 async fn a_remembered_fix_gives_a_solar_phase_before_geoclue_answers() {
     let bus = PrivateBus::start();
-    let dir = std::env::temp_dir().join(format!("glimpse-settings-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let cache = dir.join("location.json");
+    let dir = tempfile::tempdir().unwrap();
+    let cache = dir.path().join("location.json");
     std::fs::write(&cache, br#"{"latitude":52.2297,"longitude":21.0122}"#).unwrap();
 
     let services = SettingsServices::start_with_buses(
@@ -277,7 +276,6 @@ async fn a_remembered_fix_gives_a_solar_phase_before_geoclue_answers() {
     let fix = location.borrow().clone().unwrap();
     client.shutdown().await;
     services.shutdown().await;
-    let _ = std::fs::remove_dir_all(&dir);
 
     assert_eq!((fix.latitude, fix.longitude), (52.2297, 21.0122));
 }

@@ -1,7 +1,7 @@
 mod imp;
 mod row;
 
-pub use row::PlayerRow;
+pub(crate) use row::PlayerRow;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 

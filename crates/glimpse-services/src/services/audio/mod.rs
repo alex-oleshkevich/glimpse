@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceError},
+    service::{Input, NoConfig, Service},
     subscription::Sub,
 };
 
@@ -67,22 +67,9 @@ pub struct Audio {
     generation: u64,
 }
 
-#[derive(Clone)]
-pub struct AudioHandle(crate::ServiceEndpoint<Audio>);
+pub type AudioHandle = crate::ServiceEndpoint<Audio>;
 
-impl AudioHandle {
-    pub fn snapshot(&self) -> AudioState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<AudioState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Audio> {
     pub async fn set_device_volume(
         &self,
         dir: Direction,
@@ -95,7 +82,7 @@ impl AudioHandle {
             percent,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_device_muted(
@@ -110,12 +97,12 @@ impl AudioHandle {
             muted,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_default(&self, dir: Direction, id: DeviceId) -> Result<(), AudioError> {
         self.call(|reply| Command::SetDefault { dir, id, reply })
-            .await
+            .await?
     }
 
     pub async fn set_app_volume(
@@ -130,7 +117,7 @@ impl AudioHandle {
             percent,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn set_app_muted(
@@ -145,7 +132,7 @@ impl AudioHandle {
             muted,
             reply,
         })
-        .await
+        .await?
     }
 
     pub async fn move_app(
@@ -160,15 +147,7 @@ impl AudioHandle {
             to,
             reply,
         })
-        .await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), AudioError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("audio stopped before completing the command".to_owned())
-        })?
+        .await?
     }
 }
 
@@ -176,14 +155,13 @@ impl Service for Audio {
     const NAME: &'static str = "audio";
     type Config = NoConfig;
     type State = AudioState;
-    type Handle = AudioHandle;
     type Command = Command;
     type Event = pulse::Event;
     type Dependencies = ();
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        AudioHandle(endpoint)
+    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
+        "audio stopped before completing the command"
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -196,17 +174,13 @@ impl Service for Audio {
         })]
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        _config: Self::Config,
-        _: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, _config: Self::Config, _: Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             current: AudioState::default(),
             client: None,
             generation: 0,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

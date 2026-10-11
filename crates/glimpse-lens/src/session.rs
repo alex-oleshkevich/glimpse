@@ -4,14 +4,13 @@ use std::rc::{Rc, Weak};
 use gettextrs::{gettext, ngettext};
 use glimpse_widgets::{Lens, zoomed};
 use gtk4::{gdk, glib, prelude::*};
-use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::marks::Marks;
 use glimpse_wayland::capture::{Frame, Layout};
 
+use crate::overlay::pill_origin;
 use crate::{MAX_RADIUS, MAX_ZOOM, MIN_RADIUS};
 
-const PILL_GAP: f64 = 10.0;
 const RADIUS_STEP: f32 = 1.15;
 
 fn resized(radius: f32, notches: f64) -> f32 {
@@ -217,16 +216,7 @@ impl Session {
 }
 
 fn surface(monitor: &gdk::Monitor, frame: Frame, settings: Settings) -> Surface {
-    let window = gtk4::Window::new();
-    window.init_layer_shell();
-    window.set_namespace(Some("glimpse-lens"));
-    window.set_layer(Layer::Overlay);
-    window.set_keyboard_mode(KeyboardMode::Exclusive);
-    window.set_exclusive_zone(-1);
-    window.set_monitor(Some(monitor));
-    for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
-        window.set_anchor(edge, true);
-    }
+    let window = crate::overlay::overlay(monitor);
     window.add_css_class("ruler");
     window.set_cursor(gdk::Cursor::from_name("none", None).as_ref());
 
@@ -361,16 +351,6 @@ fn dress(surface: &Surface, index: usize, chain: &Chain, radius: f32, shift: boo
         ),
     );
     surface.layer.move_(&surface.pill, left, top);
-}
-
-fn pill_origin(pointer: (f64, f64), radius: f64, pill: (f64, f64), area: (f64, f64)) -> (f64, f64) {
-    let below = pointer.1 + radius + PILL_GAP;
-    let top = match below + pill.1 > area.1 {
-        true => pointer.1 - radius - PILL_GAP - pill.1,
-        false => below,
-    };
-    let left = (pointer.0 - pill.0 / 2.0).clamp(0.0, (area.0 - pill.0).max(0.0));
-    (left.round(), top.max(0.0).round())
 }
 
 fn place(surfaces: &Surfaces, index: usize, chain: &Shared, radius: f32, shift: bool) {

@@ -16,8 +16,8 @@ pub use {
     publisher::Publisher,
     selection::{Capture, FakeSelection, Offer, Selection, SelectionEvent, is_sensitive},
     service::{
-        CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceError,
-        ServiceRuntime, ServiceSender, ServiceState,
+        CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceRuntime,
+        ServiceState,
     },
     services::*,
     subscription::Sub,

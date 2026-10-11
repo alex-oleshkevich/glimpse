@@ -41,27 +41,14 @@ pub mod styled {
     }
 }
 
+#[derive(Default)]
 pub struct Table<const N: usize> {
     headers: Option<[String; N]>,
     rows: Vec<[String; N]>,
     empty: Option<String>,
 }
 
-impl<const N: usize> Default for Table<N> {
-    fn default() -> Self {
-        Self {
-            headers: None,
-            rows: Vec::new(),
-            empty: None,
-        }
-    }
-}
-
 impl<const N: usize> Table<N> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn with_headers(mut self, headers: [&str; N]) -> Self {
         self.headers = Some(headers.map(styled::header));
         self

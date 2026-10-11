@@ -38,7 +38,7 @@ fn an_absent_property_takes_its_default_rather_than_a_zero_value() {
         ToggleState::Indeterminate,
         "no toggle-state is indeterminate, which is not off"
     );
-    assert!(node.label.is_empty() && node.icon_name.is_none() && node.icon_data.is_none());
+    assert!(node.label.is_empty() && node.icon_name.is_none());
 }
 
 #[test]

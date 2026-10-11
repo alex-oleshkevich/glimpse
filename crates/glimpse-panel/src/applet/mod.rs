@@ -8,7 +8,7 @@ use glimpse_config::Applet as AppletConfig;
 use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use glimpse_services::CommandError;
 use glimpse_widgets::IndicatorSpec;
-use popover::{PopoverHandle, Seat};
+use popover::Seat;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::future::Future;
@@ -40,7 +40,7 @@ pub trait Applet: 'static {
         Vec::new()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let _ = seat;
         None
     }
@@ -101,6 +101,11 @@ where
             tracing::warn!(operation, %error, "service command failed");
         }
     });
+}
+
+pub fn themed(name: &str) -> gtk4::gio::Icon {
+    use gtk4::prelude::Cast as _;
+    gtk4::gio::ThemedIcon::new(name).upcast()
 }
 
 pub fn app_id() -> String {
