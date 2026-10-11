@@ -107,9 +107,6 @@ fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -
     };
     let screens = WaylandScreens {
         compositor: snapshot.is_some(),
-        focused: snapshot
-            .as_ref()
-            .and_then(|snapshot| snapshot.focused_output.clone()),
         counted: RefCell::default(),
     };
     let clipboard = HoldClipboard {
@@ -117,7 +114,7 @@ fn capture(args: &CaptureArgs, config_path: Option<&Path>, terminal: Terminal) -
     };
     let windows = snapshot.clone().map(|snapshot| CompositorWindows {
         compositor: detect_compositor(),
-        snapshot,
+        snapshot: RefCell::new(snapshot),
         clipboard: &clipboard,
         restore: !args.copy,
     });
