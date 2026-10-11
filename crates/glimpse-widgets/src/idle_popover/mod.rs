@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use gettextrs::gettext;
 
-use crate::{InhibitorEntry, Row};
+use crate::{InhibitorEntry};
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)
@@ -49,8 +49,6 @@ impl IdlePopover {
             imp.others.set_visible(!entries.is_empty());
         }
     }
-
-
 
     /// The hold row names what a preset will replace — "Awake until 15:40" while a timed hold
     /// runs — and falls back to its own "Keep awake for…" with `None`.
@@ -108,6 +106,4 @@ impl IdlePopover {
             glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
         )
     }
-
-
 }

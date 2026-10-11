@@ -17,7 +17,7 @@ impl Seat {
 
 pub fn run(command: &[String]) {
     if let Err(error) = launch(command) {
-        tracing::warn!(program = command.first(), %error, "settings-command did not start");
+        tracing::warn!(program = command.first(), %error, "command did not start");
     }
 }
 
@@ -45,9 +45,4 @@ fn activation_token() -> Option<gtk4::glib::GString> {
         .app_launch_context()
         .startup_notify_id(gtk4::gio::AppInfo::NONE, &[])?;
     (!token.is_empty()).then_some(token)
-}
-
-pub fn footer<W>(footer: &super::footer::Footer) -> impl Fn(&W) + 'static {
-    let footer = footer.clone();
-    move |_| footer.run()
 }

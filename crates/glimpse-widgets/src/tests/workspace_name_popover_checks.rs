@@ -77,5 +77,4 @@ fn workspace_name_popover_widgets() {
     popover.connect_cancelled(move |_| sink.set(true));
     popover.emit_by_name::<()>("cancelled", &[]);
     assert!(cancelled.get());
-
 }

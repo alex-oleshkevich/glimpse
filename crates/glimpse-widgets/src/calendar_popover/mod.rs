@@ -100,8 +100,6 @@ impl CalendarPopover {
         self.imp().clocks.set_twelve_hour(twelve_hour);
     }
 
-
-
     pub fn connect_day_selected<F: Fn(&Self, Ymd) + 'static>(
         &self,
         handler: F,
@@ -125,6 +123,4 @@ impl CalendarPopover {
             glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
         )
     }
-
-
 }

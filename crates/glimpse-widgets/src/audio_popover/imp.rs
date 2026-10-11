@@ -178,7 +178,6 @@ impl ObjectImpl for AudioPopover {
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"apps".to_owned()])
         ));
-
     }
 
     fn dispose(&self) {

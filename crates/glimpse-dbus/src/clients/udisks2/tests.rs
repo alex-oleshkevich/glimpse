@@ -193,9 +193,13 @@ fn a_fixed_nvme_drive_decodes_its_sample_properties() {
 #[test]
 fn empty_mount_points_are_present_but_absent_or_malformed_properties_are_not() {
     let decoded = decode_filesystem(&properties(vec![(
-        "MountPoints", owned(Vec::<Vec<u8>>::new()),
+        "MountPoints",
+        owned(Vec::<Vec<u8>>::new()),
     )]));
     assert_eq!(decoded.mount_points, Some(Vec::new()));
     assert_eq!(decode_filesystem(&Properties::new()).mount_points, None);
-    assert_eq!(decode_filesystem(&properties(vec![("MountPoints", owned(false))])).mount_points, None);
+    assert_eq!(
+        decode_filesystem(&properties(vec![("MountPoints", owned(false))])).mount_points,
+        None
+    );
 }

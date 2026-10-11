@@ -7,7 +7,6 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::render;
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Button, Ctx, Input, Pointer, Report, spawn_reported};
 
@@ -16,7 +15,6 @@ pub struct Ruler {
     notifications: NotificationsProviderHandle,
     state: RulerState,
     tooltip_format: Option<String>,
-    footer: Footer,
     shown: glib::WeakRef<RulerPopover>,
     spec: Vec<IndicatorSpec>,
     icon: gtk4::gio::Icon,
@@ -30,7 +28,6 @@ impl Ruler {
             service,
             notifications,
             tooltip_format: None,
-            footer: Footer::default(),
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             icon: gtk4::gio::ThemedIcon::new(render::ICON).upcast(),
@@ -55,7 +52,6 @@ impl Ruler {
 
     fn dress(&self, shown: &RulerPopover) {
         shown.set_history(&render::history(&self.state.history));
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn report(&self, summary: String) -> Report {
@@ -103,7 +99,7 @@ impl Applet for Ruler {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -154,8 +150,6 @@ impl Applet for Ruler {
                 }
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.dress(&shown);

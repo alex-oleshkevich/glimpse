@@ -108,7 +108,6 @@ impl ObjectImpl for RemovablePopover {
                 }
             }
         ));
-
     }
 
     fn dispose(&self) {

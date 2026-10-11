@@ -48,8 +48,7 @@ pub(super) fn check() {
 
     idle_hold_row.activate();
     assert!(
-        idle_hold_card.open()
-            && dimmed(idle.imp().list.upcast_ref()),
+        idle_hold_card.open() && dimmed(idle.imp().list.upcast_ref()),
         "the duration row opens its choices and dims the rest of the popover"
     );
     idle_hold_row.activate();
@@ -124,5 +123,4 @@ pub(super) fn check() {
         !idle.imp().others.get_visible() && !dimmed(idle_hold_card.upcast_ref()),
         "the section and the dimming clear when the list empties"
     );
-
 }

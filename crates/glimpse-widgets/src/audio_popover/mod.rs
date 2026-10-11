@@ -101,8 +101,6 @@ impl AudioPopover {
         }
     }
 
-
-
     pub fn set_more_apps(&self, apps: Option<&str>) {
         set_action_label(&self.imp().more_apps, apps);
     }
@@ -198,8 +196,6 @@ impl AudioPopover {
             glib::closure_local!(move |popover: Self, place: String| f(&popover, &place)),
         )
     }
-
-
 
     fn render_devices(&self) {
         let imp = self.imp();

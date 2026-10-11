@@ -238,5 +238,4 @@ pub(super) fn check() {
         Severity::Info,
     )));
     assert!(weather.imp().nowcast.get_visible());
-
 }

@@ -1,13 +1,9 @@
 use std::cell::RefCell;
 
-use gtk4::{
-    AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*,
-};
+use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 
 use super::Page;
-use crate::{
-    ExpanderRow, ForecastList, ForecastStrip, Notice, PopoverShell, Readout, Section,
-};
+use crate::{ExpanderRow, ForecastList, ForecastStrip, Notice, PopoverShell, Readout, Section};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/weather_popover.ui")]

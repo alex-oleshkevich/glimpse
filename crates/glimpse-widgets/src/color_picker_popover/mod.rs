@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Shade, set_action_label};
+use crate::{Shade};
 
 glib::wrapper! {
     pub struct ColorPickerPopover(ObjectSubclass<imp::ColorPickerPopover>)
@@ -46,8 +46,6 @@ impl ColorPickerPopover {
         );
     }
 
-
-
     pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -71,6 +69,4 @@ impl ColorPickerPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
-
 }

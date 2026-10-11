@@ -20,11 +20,10 @@ use glimpse_widgets::{
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::themed;
 use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{
-    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, wording,
+    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, tell, wording,
 };
 
 use super::render::{self, Coalescer};
@@ -46,7 +45,6 @@ pub struct Display {
     notifications: NotificationsProviderHandle,
     settings: DisplayAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<DisplayPopover>,
     pinned: RefCell<Option<String>>,
@@ -61,7 +59,7 @@ impl Applet for Display {
         };
         self.settings = *settings;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -218,11 +216,17 @@ impl Applet for Display {
                 let compositor = compositor.clone();
                 let connector = connector.to_owned();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Displays"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not change that display"),
+                    },
                     opener.clone(),
                     "compositor.set_output_enabled",
-                    gettext("Could not change that display"),
                     async move { compositor.set_output_enabled(connector, enabled).await },
+                    gettext("The compositor is unavailable."),
+                    wording,
                 );
             }
         });
@@ -234,18 +238,19 @@ impl Applet for Display {
             move |_| {
                 let compositor = compositor.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Displays"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not blank the screens"),
+                    },
                     opener.clone(),
                     "compositor.power_off_monitors",
-                    gettext("Could not blank the screens"),
                     async move { compositor.power_off_monitors().await },
+                    gettext("The compositor is unavailable."),
+                    wording,
                 );
             }
-        });
-
-        shown.connect_footer_activated({
-            let footer = self.footer.clone();
-            move |_| footer.run()
         });
 
         self.shown.set(Some(&shown));
@@ -374,32 +379,6 @@ fn night_light_wording(error: &NightLightProviderError) -> Option<String> {
     })
 }
 
-fn tell<F, T>(
-    notifications: &NotificationsProviderHandle,
-    opener: Opener,
-    operation: &'static str,
-    summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
-    T: 'static,
-{
-    let report = Report {
-        notifications: notifications.clone(),
-        app_name: gettext("Displays"),
-        icon: render::ICON.to_owned(),
-        summary,
-    };
-    let unavailable = gettext("The compositor is unavailable.");
-    relm4::spawn_local(async move {
-        let Err(error) = future.await else {
-            return;
-        };
-        opener.wake();
-        report_failure(operation, report, wording(&error, &unavailable), error).await;
-    });
-}
-
 fn to_mode(mode: &OutputMode) -> WidgetDisplayMode {
     WidgetDisplayMode {
         width: mode.width as i32,
@@ -498,7 +477,6 @@ impl Display {
             notifications,
             settings: DisplayAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
             pinned: RefCell::new(None),
@@ -554,8 +532,6 @@ impl Display {
         shown.set_output_power(output_power);
         let displays: Vec<WidgetDisplay> = self.outputs.iter().map(to_widget_display).collect();
         shown.set_displays(&displays);
-
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

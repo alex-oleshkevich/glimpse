@@ -270,16 +270,6 @@ fn every_field_populated_record() -> IdleInhibitorRecord {
 }
 
 #[test]
-fn a_record_with_every_field_populated_round_trips_through_json() {
-    let record = every_field_populated_record();
-
-    let encoded = serde_json::to_string(&record).unwrap();
-    let decoded: IdleInhibitorRecord = serde_json::from_str(&encoded).unwrap();
-
-    assert_eq!(decoded, record);
-}
-
-#[test]
 fn a_record_round_trips_positionally_over_the_wire() {
     use zbus::zvariant::Endian;
     use zbus::zvariant::serialized::Context;

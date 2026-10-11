@@ -341,5 +341,4 @@ fn removable_popover_widgets() {
     assert_eq!(moved.borrow().last().map(String::as_str), Some("v"));
     popover.set_overflow(None, true);
     assert!(!imp.devices_more.get_visible());
-
 }

@@ -73,7 +73,6 @@ impl ObjectImpl for RulerPopover {
             obj,
             move |_| obj.emit_by_name::<()>("measure-requested", &[])
         ));
-
     }
 
     fn dispose(&self) {

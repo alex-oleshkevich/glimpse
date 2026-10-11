@@ -73,5 +73,4 @@ impl SessionPopover {
             glib::closure_local!(move |popover: Self, action: String| f(&popover, &action)),
         )
     }
-
 }

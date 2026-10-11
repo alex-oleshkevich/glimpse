@@ -31,7 +31,7 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         services.handles.brightness.clone(),
         services.handles.night_light.clone(),
         services.handles.compositor.clone(),
-        services.notifications(),
+        services.handles.notifications.clone(),
     );
     display.outputs = vec![output("DP-1", false)];
     display.night_light_seen = true;

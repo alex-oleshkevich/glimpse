@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Fact, Row, Tick, none_if_empty};
+use crate::{Choice, Fact, Tick, none_if_empty};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Device {
@@ -203,5 +203,4 @@ impl PowerPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
 }

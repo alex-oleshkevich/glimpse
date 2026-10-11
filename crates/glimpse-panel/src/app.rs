@@ -243,12 +243,12 @@ impl SimpleComponent for App {
                     sender.clone(),
                 ));
                 self.exec_watch = Some(spawn_exec_watch(
-                    services.exec(),
+                    services.handles.exec.clone(),
                     self.attached.clone(),
                     sender.clone(),
                 ));
                 self.alert = Some(config_alert::spawn(
-                    services.notifications(),
+                    services.handles.notifications.clone(),
                     self.problems.body(),
                 ));
                 self.services = Some(services);
@@ -259,7 +259,7 @@ impl SimpleComponent for App {
                 if let Some(services) = &self.services {
                     crate::applet::spawn_command(
                         "exec.offer_options",
-                        services.exec().offer_options(&id, options),
+                        services.handles.exec.offer_options(&id, options),
                     );
                 }
                 return;
@@ -452,7 +452,7 @@ impl App {
         let notifications = self
             .services
             .as_ref()
-            .map(|services| services.notifications());
+            .map(|services| services.handles.notifications.clone());
         dialog.connect_response(None, move |_, response| {
             if session_accepted(response)
                 && let (Some(actions), Some(notifications)) =
@@ -471,7 +471,7 @@ impl App {
         };
         execute_session(
             services.handles.session_actions.clone(),
-            services.notifications(),
+            services.handles.notifications.clone(),
             action,
         );
     }

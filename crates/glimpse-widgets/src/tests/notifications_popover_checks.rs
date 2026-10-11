@@ -259,5 +259,4 @@ pub(super) fn check() {
     popover_imp.clear.activate();
 
     assert_eq!(*fired.borrow(), ["clear"]);
-
 }

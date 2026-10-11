@@ -207,6 +207,15 @@ async fn follow(
             return;
         }
     };
+    let name = match zbus::names::BusName::try_from(GLIMPSE_SETTINGS_BUS_NAME) {
+        Ok(name) => name,
+        Err(error) => {
+            tracing::warn!(%error, "invalid provider bus name");
+            return;
+        }
+    };
+    let mut retry_delay = std::time::Duration::from_millis(250);
+
     loop {
         let proxy = bounded(
             Settings1Proxy::builder(&connection)
@@ -215,11 +224,14 @@ async fn follow(
         )
         .await;
         let proxy = match proxy {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay = std::time::Duration::from_millis(250);
+                proxy
+            }
             Err(error) => {
                 publish(&updates, Err(error.to_string()));
                 publish(&locations, Ok(None));
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
                     return;
                 }
                 continue;
@@ -269,17 +281,6 @@ async fn follow(
         publish(&updates, Err("settings owner changed".to_owned()));
         publish(&locations, Ok(None));
     }
-}
-
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    while let Some(owner) = owners.next().await {
-        if let Ok(args) = owner.args()
-            && args.new_owner().is_some()
-        {
-            return true;
-        }
-    }
-    false
 }
 
 #[cfg(test)]

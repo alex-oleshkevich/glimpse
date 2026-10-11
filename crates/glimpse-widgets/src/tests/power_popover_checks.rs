@@ -226,7 +226,6 @@ fn assert_laptop(power: &PowerPopover, history: &PowerHistory) {
     assert_eq!(devices[2].title().as_deref(), Some("Pixel 8"));
     assert_eq!(devices[2].tone(), RowTone::Warning);
     assert!(children_of::<ToggleRow>(&*power.imp().devices_box).is_empty());
-
 }
 
 fn face(row: &impl IsA<Row>) -> &Row {
@@ -370,7 +369,6 @@ fn fill_laptop(power: &PowerPopover, history: &PowerHistory) {
     power.set_hold_active(true);
     power.set_hold_preset(Some(3_600));
     power.set_devices(&devices());
-
 }
 
 fn profiles() -> Vec<Choice> {

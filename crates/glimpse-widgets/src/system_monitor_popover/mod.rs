@@ -67,7 +67,6 @@ impl SystemMonitorPopover {
                 || readings.gpu_temp.is_some(),
         );
     }
-
 }
 
 fn apply_named(row: &MeterRow, named: &NamedMeter) {

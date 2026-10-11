@@ -242,8 +242,6 @@ impl ObjectImpl for NetworkPopover {
             object,
             move |_| object.answer(true)
         ));
-
-
     }
 
     fn dispose(&self) {

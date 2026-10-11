@@ -433,3 +433,34 @@ async fn a_broken_document_undone_to_the_running_one_reports_the_recovery() {
         "the running document is unchanged, and the break is over"
     );
 }
+
+#[tokio::test]
+async fn repointing_a_config_symlink_watches_edits_in_the_new_target_directory() {
+    let root = tempfile::tempdir().expect("temporary directory");
+    let old = root.path().join("old");
+    let new = root.path().join("new");
+    std::fs::create_dir(&old).expect("creates");
+    std::fs::create_dir(&new).expect("creates");
+    let old_target = old.join("config.toml");
+    let new_target = new.join("config.toml");
+    std::fs::write(&old_target, good(4200)).expect("writes");
+    std::fs::write(&new_target, good(3000)).expect("writes");
+    let path = root.path().join("config.toml");
+    std::os::unix::fs::symlink(&old_target, &path).expect("links");
+    let current = load(Some(&path)).expect("loads");
+    let mut configs = Box::pin(watch_config(Some(path.clone()), current));
+    let replacement = root.path().join("replacement");
+    std::os::unix::fs::symlink(&new_target, &replacement).expect("links");
+    std::fs::rename(&replacement, &path).expect("repoints");
+    let moved = tokio::time::timeout(SETTLE, configs.next())
+        .await
+        .expect("reloads")
+        .expect("alive");
+    assert_eq!(moved.night_light.temperature, 3000);
+    std::fs::write(&new_target, good(2500)).expect("edits the new target");
+    let edited = tokio::time::timeout(SETTLE, configs.next())
+        .await
+        .expect("reloads the new target")
+        .expect("alive");
+    assert_eq!(edited.night_light.temperature, 2500);
+}

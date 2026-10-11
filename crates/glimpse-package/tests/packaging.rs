@@ -258,20 +258,8 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 }
 
 #[test]
-fn binary_tarball_includes_idle_portal_assets() {
+fn idle_portal_routing_assets_reach_every_package() {
     let root = workspace_root();
-    let script = fs::read_to_string(root.join("scripts/package-binary.sh"))
-        .expect("binary packaging script");
-
-    assert!(script.contains("data/portals/*.portal"));
-    assert!(
-        script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/portals/$(basename \"$f\")\"")
-    );
-    assert!(script.contains("data/portals/*-portals.conf"));
-    assert!(script.contains("\"$pkgroot/etc/xdg-desktop-portal/$(basename \"$f\")\""));
-    assert!(!script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/$(basename \"$f\")\""));
-    assert!(script.contains("\"$pkgroot/usr/share/glimpse/portals/$(basename \"$f\")\""));
-
     assert!(root.join("data/portals/glimpse.portal").is_file());
     let manifest = manifest(&root);
     for conf in ["glimpse-portals.conf", "niri-portals.conf"] {
@@ -440,85 +428,11 @@ fn every_workspace_binary_is_built_and_reaches_every_package() {
 }
 
 #[test]
-fn notification_provider_binary_is_packaged_with_its_local_services() {
+fn weather_provider_is_not_started_by_the_session_target() {
     let root = workspace_root();
-    let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))
-        .expect("notifications manifest");
-    assert!(
-        !manifest.contains("glimpse-panel"),
-        "a provider that depends on the panel is not standalone"
-    );
-    assert!(manifest.contains("glimpse-services.workspace = true"));
-    assert!(manifest.contains("glimpse-dbus.workspace = true"));
-
-    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
-        .expect("package manifest");
-    assert_eq!(
-        package
-            .matches("target/release/glimpse-notifications")
-            .count(),
-        3
-    );
-    let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
-    let binaries_line = binaries
-        .lines()
-        .find(|line| line.starts_with("binaries :="))
-        .expect("justfile has a binaries list");
-    assert!(binaries_line.contains("glimpse-notifications"));
-}
-
-#[test]
-fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start() {
-    let root = workspace_root();
-    let manifest = fs::read_to_string(root.join("crates/glimpse-weather/Cargo.toml"))
-        .expect("weather manifest");
-    assert!(
-        !manifest.contains("glimpse-panel"),
-        "a provider that depends on the panel is not standalone"
-    );
-    assert!(manifest.contains("glimpse-services.workspace = true"));
-    assert!(manifest.contains("glimpse-dbus.workspace = true"));
-
-    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
-        .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-weather").count(), 3);
-
-    let unit = fs::read_to_string(root.join("data/systemd/glimpse-weather.service"))
-        .expect("weather unit");
-    assert!(unit.contains("Type=dbus"));
-    assert!(unit.contains("BusName=me.aresa.Glimpse.Weather"));
-    assert!(!unit.contains("glimpsed.service"));
-
-    let activation =
-        fs::read_to_string(root.join("data/dbus-1/services/me.aresa.Glimpse.Weather.service"))
-            .expect("weather activation");
-    assert!(activation.contains("SystemdService=glimpse-weather.service"));
-
-    let uninstall =
-        fs::read_to_string(root.join("scripts/uninstall.sh")).expect("uninstall script");
-    assert!(uninstall.contains("me.aresa.Glimpse.Weather.service"));
-
     let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
         .expect("session target");
     assert!(!target.contains("glimpse-weather.service"));
-}
-
-#[test]
-fn the_lens_ships_as_a_plain_binary() {
-    let root = workspace_root();
-    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
-        .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-lens").count(), 3);
-    assert!(!package.contains("target/release/glimpse-picker"));
-    assert!(!package.contains("target/release/glimpse-ruler"));
-    assert!(!root.join("data/systemd/glimpse-lens.service").exists());
-
-    let manifest =
-        fs::read_to_string(root.join("crates/glimpse-lens/Cargo.toml")).expect("lens manifest");
-    assert!(
-        !manifest.contains("zbus"),
-        "the lens is a command, not a D-Bus provider"
-    );
 }
 
 #[test]

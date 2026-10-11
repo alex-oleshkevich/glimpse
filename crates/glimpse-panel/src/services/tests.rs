@@ -11,7 +11,7 @@ async fn the_panel_owns_one_typed_local_service_graph() {
         services.handles.keyboard.health(),
         services.handles.calendar.health(),
         services.handles.mpris.health(),
-        services.exec().health(),
+        services.handles.exec.health(),
         services.handles.heartbeat.health(),
         services.handles.tray.health(),
     ];

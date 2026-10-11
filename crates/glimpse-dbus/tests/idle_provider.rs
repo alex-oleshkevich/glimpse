@@ -328,14 +328,32 @@ struct TransientProvider {
 
 #[zbus::interface(name = "org.freedesktop.DBus.Properties")]
 impl TransientProvider {
-    fn get_all(&self, interface: &str) -> zbus::fdo::Result<HashMap<String, zbus::zvariant::OwnedValue>> {
+    fn get_all(
+        &self,
+        interface: &str,
+    ) -> zbus::fdo::Result<HashMap<String, zbus::zvariant::OwnedValue>> {
         assert_eq!(interface, "me.aresa.Glimpse.Idle1");
-        if self.attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
-            return Err(zbus::fdo::Error::Failed("transient GetAll failure".to_owned()));
+        if self
+            .attempts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            == 0
+        {
+            return Err(zbus::fdo::Error::Failed(
+                "transient GetAll failure".to_owned(),
+            ));
         }
         Ok(HashMap::from([
-            ("Inhibitors".to_owned(), zbus::zvariant::OwnedValue::try_from(zbus::zvariant::Value::from(vec![one_record()])).unwrap()),
-            ("Health".to_owned(), zbus::zvariant::OwnedValue::try_from(ready()).unwrap()),
+            (
+                "Inhibitors".to_owned(),
+                zbus::zvariant::OwnedValue::try_from(zbus::zvariant::Value::from(vec![
+                    one_record(),
+                ]))
+                .unwrap(),
+            ),
+            (
+                "Health".to_owned(),
+                zbus::zvariant::OwnedValue::try_from(ready()).unwrap(),
+            ),
         ]))
     }
 }
@@ -343,12 +361,29 @@ impl TransientProvider {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn client_retries_get_all_failure_while_name_stays_owned() {
     let bus = PrivateBus::start();
-    let server = serve(&bus, Arc::new(Mutex::new(Vec::new())), Arc::new(Mutex::new(vec![one_record()])), Arc::new(Mutex::new(ready()))).await;
-    server.object_server().remove::<zbus::fdo::Properties, _>(GLIMPSE_IDLE_OBJECT_PATH).await.unwrap();
+    let server = serve(
+        &bus,
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(Mutex::new(vec![one_record()])),
+        Arc::new(Mutex::new(ready())),
+    )
+    .await;
+    server
+        .object_server()
+        .remove::<zbus::fdo::Properties, _>(GLIMPSE_IDLE_OBJECT_PATH)
+        .await
+        .unwrap();
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    server.object_server().at(GLIMPSE_IDLE_OBJECT_PATH, TransientProvider {
-        attempts: attempts.clone(),
-    }).await.unwrap();
+    server
+        .object_server()
+        .at(
+            GLIMPSE_IDLE_OBJECT_PATH,
+            TransientProvider {
+                attempts: attempts.clone(),
+            },
+        )
+        .await
+        .unwrap();
     let mut provider = IdleProvider::start(bus.connection().await);
     let mut updates = provider.handle().subscribe();
     wait_until(&mut updates, |state| state.available).await;

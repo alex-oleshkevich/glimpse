@@ -9,7 +9,6 @@ use glimpse_widgets::{IndicatorSpec, WorkspaceNamePopover};
 use gtk4::glib;
 use gtk4::prelude::Cast as _;
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_command,
@@ -29,7 +28,6 @@ pub struct WorkspaceName {
     current: Rc<RefCell<Option<WorkspaceInfo>>>,
     pending: Pending,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<WorkspaceNamePopover>,
 }
@@ -41,7 +39,7 @@ impl Applet for WorkspaceName {
         };
         self.output = ctx.output().map(str::to_owned);
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -116,9 +114,6 @@ impl Applet for WorkspaceName {
             move |_| opener.close_popover()
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.shown.set(Some(&shown));
         self.refresh();
         Some(shown.upcast())
@@ -139,7 +134,6 @@ impl WorkspaceName {
             current: Rc::default(),
             pending: Rc::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -167,7 +161,6 @@ impl WorkspaceName {
     }
 
     fn dress(&self, shown: &WorkspaceNamePopover) {
-        shown.set_footer(self.footer.label().as_deref());
         let current = self.current.borrow();
         let Some(workspace) = current.as_ref() else {
             shown.set_workspace("");

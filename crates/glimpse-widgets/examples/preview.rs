@@ -832,7 +832,6 @@ mod fixtures {
         });
 
         popover.set_pages(&pages);
-
     }
 
     struct Song {
@@ -3256,7 +3255,856 @@ mod fixtures {
             }
 
             popover.set_readings(&readings);
- an example is a top-level object, not a template",
+        }
+    }
+
+    fn system_monitor_indicator_states(builder: &gtk4::Builder) {
+        let cases: &[(&str, &str, Option<Severity>)] = &[
+            ("cpu_normal", "CPU 42%", None),
+            ("cpu_warning", "CPU 88%", Some(Severity::Warning)),
+            ("cpu_error", "CPU 97%", Some(Severity::Error)),
+            ("ram_normal", "RAM 51%", None),
+            ("ram_warning", "RAM 88%", Some(Severity::Warning)),
+            ("ram_error", "RAM 97%", Some(Severity::Error)),
+            ("swap_normal", "Swap 12%", None),
+            ("swap_warning", "Swap 88%", Some(Severity::Warning)),
+            ("swap_error", "Swap 97%", Some(Severity::Error)),
+            ("network_normal", "↓ 1.2 MB/s", None),
+            ("network_warning", "↓ 1.2 MB/s", Some(Severity::Warning)),
+            ("network_error", "↓ 1.2 MB/s", Some(Severity::Error)),
+            ("gpu_normal", "GPU 18%", None),
+            ("gpu_warning", "GPU 88%", Some(Severity::Warning)),
+            ("gpu_error", "GPU 97%", Some(Severity::Error)),
+        ];
+        for (id, label, severity) in cases {
+            let Some(indicator) = builder.object::<Indicator>(*id) else {
+                eprintln!("{id} names no $Indicator in this file");
+                continue;
+            };
+            indicator.set_label(Some(label));
+            indicator.set_severity(*severity);
+        }
+    }
+
+    fn inhibitor_list_states(root: &gtk4::Widget) {
+        let entry = |id: u64,
+                     source: InhibitorSource,
+                     label: &str,
+                     status: &str,
+                     targets: InhibitorTargets,
+                     can_release: bool| InhibitorEntry {
+            id,
+            source,
+            label: label.to_owned(),
+            status: status.to_owned(),
+            targets,
+            can_release,
+        };
+
+        let zoom = entry(
+            1,
+            InhibitorSource::ScreenSaver,
+            "Zoom",
+            "screen sharing · 2m ago",
+            InhibitorTargets {
+                idle: true,
+                suspend: true,
+                ..InhibitorTargets::default()
+            },
+            true,
+        );
+
+        for list in collect::<InhibitorList>(root) {
+            let case = list
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+                .unwrap_or_default();
+
+            match case.as_str() {
+                "empty" => list.set_inhibitors(&[]),
+                "one" => list.set_inhibitors(std::slice::from_ref(&zoom)),
+                "mix" => list.set_inhibitors(&[
+                    zoom.clone(),
+                    entry(
+                        2,
+                        InhibitorSource::Portal,
+                        "Steam (Flatpak)",
+                        "playing a video · (Flatpak via portal)",
+                        InhibitorTargets {
+                            idle: true,
+                            shutdown: true,
+                            ..InhibitorTargets::default()
+                        },
+                        false,
+                    ),
+                    entry(
+                        3,
+                        InhibitorSource::Login1,
+                        "packagekitd",
+                        "installing updates · (systemd-inhibit · pid 1183)",
+                        InhibitorTargets {
+                            shutdown: true,
+                            power_key: true,
+                            suspend_key: true,
+                            ..InhibitorTargets::default()
+                        },
+                        true,
+                    ),
+                ]),
+                _ => {}
+            }
+        }
+    }
+
+    fn printing_popover_states(root: &gtk4::Widget) {
+        for popover in collect::<PrintingPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $PrintingPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            match case.as_str() {
+                "empty" => {
+                    popover.set_jobs(&[]);
+                    popover.set_printers(&[]);
+                }
+                "busy" => {
+                    popover.set_jobs(&[
+                        PrintingJob {
+                            id: "1".into(),
+                            name: "specs-004-panel-final-review-draft.pdf".into(),
+                            printer: "HP LaserJet 400".into(),
+                            status: "Printing".into(),
+                            progress: Some((3, 12)),
+                            busy: true,
+                            cancellable: true,
+                            pausable: true,
+                            resumable: false,
+                        },
+                        PrintingJob {
+                            id: "2".into(),
+                            name: "boarding-pass.pdf".into(),
+                            printer: "Kitchen".into(),
+                            status: "Queued".into(),
+                            progress: None,
+                            busy: false,
+                            cancellable: true,
+                            pausable: false,
+                            resumable: false,
+                        },
+                        PrintingJob {
+                            id: "3".into(),
+                            name: "invoice-final.pdf".into(),
+                            printer: "HP LaserJet 400".into(),
+                            status: "Held".into(),
+                            progress: None,
+                            busy: false,
+                            cancellable: true,
+                            pausable: false,
+                            resumable: true,
+                        },
+                    ]);
+                    popover.set_printers(&[
+                        PrintingPrinter {
+                            id: "brother".into(),
+                            name: "Brother DCP-L2530".into(),
+                            problem: String::new(),
+                            network: false,
+                            facts: Vec::new(),
+                        },
+                        PrintingPrinter {
+                            id: "laserjet".into(),
+                            name: "HP LaserJet 400".into(),
+                            problem: String::new(),
+                            network: true,
+                            facts: vec![
+                                Fact::new("Model", "HP LaserJet Pro 400 M401dn"),
+                                Fact::new("Location", "Office, 2nd floor"),
+                            ],
+                        },
+                        PrintingPrinter {
+                            id: "kitchen".into(),
+                            name: "Kitchen".into(),
+                            problem: "Out of paper".into(),
+                            network: false,
+                            facts: vec![Fact::new("Location", "Ground floor, by the fridge")],
+                        },
+                    ]);
+                }
+                _ => {
+                    eprintln!("{DEMO}{case} names no printing case");
+                    popover.set_jobs(&[]);
+                    popover.set_printers(&[]);
+                }
+            }
+        }
+    }
+
+    fn privacy_popover_states(root: &gtk4::Widget) {
+        for popover in collect::<PrivacyPopover>(root) {
+            let Some(case) = popover
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $PrivacyPopover carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            match case.as_str() {
+                "empty" => popover.set_usages(&[]),
+                "in_use" => {
+                    popover.set_usages(&[
+                        PrivacyUsage {
+                            id: "app:Google Chrome".into(),
+                            icon: "google-chrome".into(),
+                            title: "Google Chrome".into(),
+                            detail: Some("Camera · Microphone · Sharing Dell U2723QE".into()),
+                            stoppable: true,
+                        },
+                        PrivacyUsage {
+                            id: "app:Telegram".into(),
+                            icon: "telegram".into(),
+                            title: "Telegram".into(),
+                            detail: Some("Microphone".into()),
+                            stoppable: false,
+                        },
+                        PrivacyUsage {
+                            id: "location".into(),
+                            icon: "find-location-symbolic".into(),
+                            title: "Location".into(),
+                            detail: None,
+                            stoppable: false,
+                        },
+                    ]);
+                    popover.set_microphone_muted(Some(false));
+                }
+                _ => {
+                    eprintln!("{DEMO}{case} names no privacy case");
+                    popover.set_usages(&[]);
+                }
+            }
+        }
+    }
+
+    fn tray(root: &gtk4::Widget) {
+        let group = gio::SimpleActionGroup::new();
+
+        for name in [
+            "activate",
+            "open-browser",
+            "open-folder",
+            "open-file",
+            "open-inbox",
+            "compose",
+            "mark-read",
+            "conflicts",
+            "reconnect",
+            "disconnect",
+            "settings",
+            "about",
+            "quit",
+        ] {
+            let action = gio::SimpleAction::new(name, None);
+            action.connect_activate(move |_, _| eprintln!("action: tray.{name}"));
+            group.add_action(&action);
+        }
+
+        for (name, on) in [("pause", false), ("notify", true), ("autostart", true)] {
+            let action = gio::SimpleAction::new_stateful(name, None, &on.to_variant());
+            action.connect_activate(move |action, _| {
+                let next = !action
+                    .state()
+                    .and_then(|on| on.get::<bool>())
+                    .unwrap_or(false);
+                action.set_state(&next.to_variant());
+                eprintln!("action: tray.{name} = {next}");
+            });
+            group.add_action(&action);
+        }
+
+        for (name, initial) in [("limit", "none"), ("quality", "high")] {
+            let action = gio::SimpleAction::new_stateful(
+                name,
+                Some(&String::static_variant_type()),
+                &initial.to_variant(),
+            );
+            action.connect_activate(move |action, target| {
+                let Some(target) = target else { return };
+                action.set_state(target);
+                eprintln!("action: tray.{name} = {}", target.str().unwrap_or_default());
+            });
+            group.add_action(&action);
+        }
+
+        let logout = gio::SimpleAction::new("logout", None);
+        logout.set_enabled(false);
+        group.add_action(&logout);
+
+        root.insert_action_group("tray", Some(&group));
+
+        if std::env::var_os("GLIMPSE_PREVIEW_POPUP").is_some()
+            && let Some(button) = find::<gtk4::MenuButton>(root)
+        {
+            glib::timeout_add_local(Duration::from_millis(500), move || {
+                if button.popover().is_some_and(|menu| !menu.is_visible()) {
+                    button.popup();
+                }
+                glib::ControlFlow::Continue
+            });
+        }
+    }
+
+    fn charts(root: &gtk4::Widget) {
+        use glimpse_widgets::{Bars, Sparkline};
+
+        fn case_of(widget: &gtk4::Widget) -> Option<String> {
+            widget
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+        }
+
+        fn wave(count: usize, base: f64, swing: f64, seed: f64) -> Vec<Option<f64>> {
+            (0..count)
+                .map(|i| {
+                    let t = i as f64;
+                    let v = base
+                        + swing * ((t * 0.9 + seed).sin() * 0.6 + (t * 2.3 + seed).cos() * 0.4);
+                    Some(v.max(0.0))
+                })
+                .collect()
+        }
+
+        for bars in collect::<Bars>(root) {
+            let Some(case) = case_of(bars.upcast_ref()) else {
+                eprintln!("a $Bars carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+            let mut values = wave(30, 6.0, 4.0, 0.0);
+            match case.as_str() {
+                "typical" | "narrow" | "wide" => {}
+                "days90" => values = wave(90, 6.0, 4.0, 1.0),
+                "week" => values = wave(7, 6.0, 4.0, 2.0),
+                "zeros" => values = vec![Some(0.0); 30],
+                "single" => values = vec![Some(4.2)],
+                "none" => values = vec![None; 30],
+                "gaps" => {
+                    for i in [3, 4, 5, 12, 20, 21] {
+                        values[i] = None;
+                    }
+                }
+                "spikes" => {
+                    values = vec![Some(0.05); 30];
+                    values[9] = Some(40.0);
+                    values[21] = Some(18.0);
+                    values[29] = Some(0.0);
+                }
+                "max" => {
+                    values = wave(30, 6.0, 4.0, 3.0);
+                    values[14] = Some(40.0);
+                    bars.set_maximum(Some(10.0));
+                }
+                "nohighlight" => bars.set_highlight_last(false),
+                "days366" => values = wave(400, 6.0, 4.0, 4.0),
+                _ => eprintln!("{DEMO}{case} names no bars case"),
+            }
+            bars.set_values(&values);
+            let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            let tooltips: Vec<Option<String>> = values
+                .iter()
+                .enumerate()
+                .map(|(i, v)| v.map(|v| format!("{} {} Sep · ${v:.2}", days[i % 7], 1 + i % 30)))
+                .collect();
+            bars.set_tooltips(&tooltips);
+            bars.set_label(&format!("Daily cost, {case}"));
+        }
+
+        for line in collect::<Sparkline>(root) {
+            let Some(case) = case_of(line.upcast_ref()) else {
+                eprintln!("a $Sparkline carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+            let mut values = wave(30, 6.0, 3.0, 0.0);
+            match case.as_str() {
+                "line" => {}
+                "fill" => {
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
+                "gaps" => {
+                    for i in [6, 7, 8, 18, 24] {
+                        values[i] = None;
+                    }
+                    line.set_show_last(true);
+                }
+                "flat" => values = vec![Some(5.0); 30],
+                "battery" => {
+                    values = (0..48)
+                        .map(|i| {
+                            Some(match i {
+                                0..=17 => 100.0 - i as f64 * 3.4,
+                                18..=27 => 42.0 + (i - 18) as f64 * 5.8,
+                                _ => 100.0 - (i - 28) as f64 * 1.2,
+                            })
+                        })
+                        .collect();
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
+                "single" => {
+                    values = vec![None; 30];
+                    values[14] = Some(3.0);
+                }
+                "rising" => {
+                    values = (0..30).map(|i| Some(i as f64 * 1.5)).collect();
+                    line.set_fill(true);
+                    line.set_show_last(true);
+                }
+                "noisy" => {
+                    values = (0..90).map(|i| Some(((i * 7919) % 101) as f64)).collect();
+                }
+                "none" => values = vec![None; 30],
+                "narrow" | "wide" => line.set_show_last(true),
+                _ => eprintln!("{DEMO}{case} names no sparkline case"),
+            }
+            line.set_values(&values);
+            line.set_label(&format!("Trend, {case}"));
+        }
+    }
+
+    fn pager(root: &gtk4::Widget) {
+        for pager in collect::<Pager>(root) {
+            let Some(case) = pager
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $Pager carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            let (shape, slots, windows) = pager_case(&case);
+            pager.set_shape(shape);
+            pager.set_slots(&slots);
+
+            pager.connect_pressed({
+                let case = case.clone();
+                move |_| eprintln!("pager: {case} opens the popover")
+            });
+
+            let state = Rc::new(RefCell::new(slots));
+            pager.connect_stepped(move |pager, horizontal, forward| {
+                let way = if forward { "next" } else { "previous" };
+                let (strip, other) = match windows {
+                    true => ("window", "workspace"),
+                    false => ("workspace", "window"),
+                };
+
+                if horizontal {
+                    eprintln!("pager: {case} focuses the {way} {other}");
+                    return;
+                }
+
+                let mut slots = state.borrow_mut();
+                if slots.is_empty() {
+                    return;
+                }
+                advance(&mut slots, forward);
+                pager.set_slots(&slots);
+                eprintln!("pager: {case} focuses the {way} {strip}");
+            });
+        }
+    }
+
+    fn advance(slots: &mut [Slot], forward: bool) {
+        let count = slots.len();
+        let at = slots
+            .iter()
+            .position(|slot| slot.focus != Focus::None)
+            .unwrap_or(0);
+        let next = match forward {
+            true => (at + 1) % count,
+            false => (at + count - 1) % count,
+        };
+        if next != at {
+            slots[next].focus = slots[at].focus;
+            slots[at].focus = Focus::None;
+        }
+    }
+
+    fn workspace(id: u64, label: &str, tooltip: &str) -> Slot {
+        Slot {
+            id,
+            label: label.to_owned(),
+            tooltip: tooltip.to_owned(),
+            ..Slot::default()
+        }
+    }
+
+    fn pager_case(case: &str) -> (Shape, Vec<Slot>, bool) {
+        let mut slots = vec![
+            workspace(1, "1", "Workspace 1 · Browsing"),
+            workspace(2, "2", "Workspace 2 · glimpse"),
+            workspace(3, "3", "Workspace 3 · Notes"),
+            workspace(4, "4", "Workspace 4 · empty"),
+        ];
+        for slot in slots.iter_mut().take(3) {
+            slot.occupied = true;
+        }
+        slots[1].focus = Focus::Here;
+
+        match case {
+            "workspaces" => (Shape::Dots, slots, false),
+            "elsewhere" => {
+                slots[1].focus = Focus::Elsewhere;
+                (Shape::Dots, slots, false)
+            }
+            "urgent" => {
+                slots[2].urgent = true;
+                (Shape::Dots, slots, false)
+            }
+            "windows" => {
+                let mut windows = vec![
+                    workspace(11, "1", "Alacritty · just verify"),
+                    workspace(12, "2", "Zed · preview.rs — glimpse"),
+                    workspace(13, "3", "Nautilus · widget_examples"),
+                ];
+                for window in windows.iter_mut() {
+                    window.occupied = true;
+                }
+                windows[1].focus = Focus::Here;
+                (Shape::Dots, windows, true)
+            }
+            "labels" => (Shape::Labels, slots, false),
+            "named" => {
+                let named = ["Browsing", "glimpse", "Notes", "4"];
+                for (slot, name) in slots.iter_mut().zip(named) {
+                    slot.label = name.to_owned();
+                }
+                slots[2].urgent = true;
+                (Shape::Labels, slots, false)
+            }
+            "empty" => (Shape::Dots, Vec::new(), false),
+            _ => {
+                eprintln!("{DEMO}{case} names no pager case");
+                (Shape::Dots, Vec::new(), false)
+            }
+        }
+    }
+
+    /// The nearest ancestor that asked for its rows to recede behind an open expander.
+    ///
+    /// Opt-in, because `.expander` also reveals an audio stream's volume slider, and dimming a
+    /// whole popover around a slider would be wrong.
+    /// Everything outside an open detail dims, the row that opened it does not.
+    ///
+    /// Derived from what is revealed rather than remembered, so two expanders open at once leave
+    /// both details lit and closing one does not undim the other's neighbours.
+    /// A `Gtk.MenuButton` carrying `.open-on-map` shows its menu once the board is on screen.
+    ///
+    /// A blueprint cannot do this: `active: true` is applied by `Builder` before the button is
+    /// realized, and `GtkMenuButton` drops it, so the popup is never even created — no
+    /// `xdg_positioner` reaches the compositor. Without this a board can only show a menu if
+    /// someone clicks it, and `just click` cannot reliably reach a preview window
+    /// (`glimpse-cd67`), which is what made a real `Gtk.PopoverMenu` look broken here.
+    ///
+    /// The popup is deferred to an idle after the first frame because its anchor rectangle is the
+    /// button's *allocation*: popping up before layout anchors it to a zero-sized rectangle, and a
+    /// compositor legitimately squeezes that popup to nothing.
+    fn opened_menus(root: &gtk4::Widget) {
+        for button in collect::<gtk4::MenuButton>(root) {
+            if !button.has_css_class(OPEN) {
+                continue;
+            }
+            if button.popover().is_none() {
+                eprintln!("a .{OPEN} menu button has no menu to open");
+                continue;
+            }
+            // Opened when the window becomes *active*, not merely mapped: a compositor dismisses
+            // a popup belonging to an unfocused window with `xdg_popup.popup_done` the moment it
+            // appears, and a preview opens on its own workspace, which is usually not the focused
+            // one. Waiting for focus is what makes the menu stay up long enough to read.
+            //
+            // Hooked from `map`, because a fixture runs while the tree is still being built and
+            // the button has no root window to ask about focus yet.
+            button.connect_map(|button| {
+                let Some(window) = button.root().and_downcast::<gtk4::Window>() else {
+                    return;
+                };
+                let shown = button.clone();
+                let opened = std::cell::Cell::new(false);
+                let open = move |window: &gtk4::Window| {
+                    if !window.is_active() || opened.replace(true) || !shown.is_mapped() {
+                        return;
+                    }
+                    shown.popup();
+                };
+                open(&window);
+                window.connect_is_active_notify(move |window| open(window));
+            });
+        }
+    }
+
+    fn collect<T: IsA<gtk4::Widget>>(widget: &gtk4::Widget) -> Vec<T> {
+        let mut found = Vec::new();
+        if let Ok(this) = widget.clone().downcast::<T>() {
+            found.push(this);
+        }
+        let mut child = widget.first_child();
+        while let Some(node) = child {
+            found.extend(collect::<T>(&node));
+            child = node.next_sibling();
+        }
+        found
+    }
+
+    fn agenda(events: &EventList) {
+        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
+        let work = color("#3584e4");
+        let home = color("#2ec27e");
+        let birthday = color("#e01b24");
+
+        let event = |summary: &str, detail: &str, when: &str, color| Event {
+            id: summary.to_owned(),
+            summary: summary.to_owned(),
+            facts: vec![Fact::new("Location", detail)],
+            when: when.to_owned(),
+            color: Some(color),
+            ..Default::default()
+        };
+
+        let today = [
+            event("Company all-hands", "All day", "—", work),
+            event("Team standup", "Daily · Google Meet", "09:30", work),
+            event(
+                "Vilnius ↔ Berlin design review with the platform group",
+                "Meeting room Kaunas",
+                "14:00",
+                work,
+            ),
+            event("Marta's birthday", "All day", "—", birthday),
+            event("Pick up the parcel", "Antakalnio g. 18", "18:00", home),
+        ];
+
+        events.set_max_rows(4);
+        events.set_events(&today);
+    }
+
+    fn world_clock(clocks: &WorldClock) {
+        let zone = |label: &str, timezone: &str, note: &str, icon_name: &str| Zone {
+            label: label.to_owned(),
+            timezone: timezone.to_owned(),
+            note: note.to_owned(),
+            icon_name: icon_name.to_owned(),
+        };
+        clocks.set_zones(&[
+            zone(
+                "Vilnius",
+                "Europe/Vilnius",
+                "18° · Light rain",
+                "weather-showers-scattered-symbolic",
+            ),
+            zone("Berlin", "Europe/Berlin", "", ""),
+            zone("San Francisco", "America/Los_Angeles", "", ""),
+            zone(
+                "Auckland",
+                "Pacific/Auckland",
+                "9° · Clear",
+                "weather-clear-night-symbolic",
+            ),
+        ]);
+    }
+
+    fn calendar_events(calendar: &Calendar) {
+        let today = calendar.today();
+        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
+        let work = color("#3584e4");
+        let home = color("#2ec27e");
+        let birthday = color("#e01b24");
+
+        let day = |day: u32| Ymd::new(today.year, today.month, day);
+        calendar.set_events(&[
+            (day(4), vec![work]),
+            (day(9), vec![work, home]),
+            (day(11), vec![work, home, birthday]),
+            (day(17), vec![home, birthday, work, home]),
+            (today, vec![work, birthday]),
+        ]);
+        calendar.select(day(17));
+    }
+
+    fn find<T: IsA<gtk4::Widget>>(widget: &gtk4::Widget) -> Option<T> {
+        if let Ok(found) = widget.clone().downcast::<T>() {
+            return Some(found);
+        }
+        let mut child = widget.first_child();
+        while let Some(node) = child {
+            if let Some(found) = find::<T>(&node) {
+                return Some(found);
+            }
+            child = node.next_sibling();
+        }
+        None
+    }
+}
+
+fn ensure_types() {
+    use glimpse_widgets::{
+        Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ColorList,
+        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, ForecastList,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LockClock,
+        LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
+        NotificationImageBody, NotificationStack, NotificationTextBody, NotificationsPopover,
+        NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList, PopoverShell,
+        PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber, Section, SessionPopover,
+        SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion,
+        ShotResultPage, ShotToolbar, ShotWindowList, SourceList, StatusIsland, Swatch,
+        SystemMonitorPopover, TrackCard, Transport, TrayStrip, WeatherPopover,
+        WorkspaceNamePopover, WorldClock,
+    };
+
+    for widget in [
+        glimpse_widgets::Bars::static_type(),
+        glimpse_widgets::Sparkline::static_type(),
+        glimpse_widgets::Row::static_type(),
+        glimpse_widgets::ActionRow::static_type(),
+        glimpse_widgets::ToggleRow::static_type(),
+        glimpse_widgets::MeterRow::static_type(),
+        glimpse_widgets::ExpanderRow::static_type(),
+        glimpse_widgets::SliderRow::static_type(),
+        glimpse_widgets::PowerPopover::static_type(),
+        Calendar::static_type(),
+        CalendarPopover::static_type(),
+        ChoiceList::static_type(),
+        ColorList::static_type(),
+        ColorPickerPopover::static_type(),
+        Swatch::static_type(),
+        DisplayList::static_type(),
+        DisplayPopover::static_type(),
+        SourceList::static_type(),
+        ForecastList::static_type(),
+        ForecastStrip::static_type(),
+        Notice::static_type(),
+        NotificationCard::static_type(),
+        NotificationHeader::static_type(),
+        NotificationImageBody::static_type(),
+        NotificationTextBody::static_type(),
+        NotificationStack::static_type(),
+        NotificationsPopover::static_type(),
+        NowPlaying::static_type(),
+        PasswordPrompt::static_type(),
+        PlayerList::static_type(),
+        Scrubber::static_type(),
+        Transport::static_type(),
+        RangeBar::static_type(),
+        Readout::static_type(),
+        EventList::static_type(),
+        Section::static_type(),
+        SessionPopover::static_type(),
+        WeatherPopover::static_type(),
+        Expandable::static_type(),
+        WorldClock::static_type(),
+        Hero::static_type(),
+        PopoverShell::static_type(),
+        Pager::static_type(),
+        Panel::static_type(),
+        Indicator::static_type(),
+        IndicatorGroup::static_type(),
+        TrayStrip::static_type(),
+        KeyboardPopover::static_type(),
+        Placeholder::static_type(),
+        InhibitorList::static_type(),
+        ClipboardList::static_type(),
+        ClipboardPopover::static_type(),
+        SystemMonitorPopover::static_type(),
+        PrintingPopover::static_type(),
+        PrivacyPopover::static_type(),
+        WorkspaceNamePopover::static_type(),
+        LockClock::static_type(),
+        SessionSheet::static_type(),
+        StatusIsland::static_type(),
+        TrackCard::static_type(),
+        NotificationChips::static_type(),
+        LockStage::static_type(),
+        ShotBanner::static_type(),
+        ShotCapturePage::static_type(),
+        ShotCountdown::static_type(),
+        ShotPreferences::static_type(),
+        ShotRegion::static_type(),
+        ShotResultPage::static_type(),
+        ShotToolbar::static_type(),
+        ShotWindowList::static_type(),
+    ] {
+        let _ = widget;
+    }
+}
+
+fn build(
+    slot: &gtk4::Box,
+    blueprint: &Path,
+    fixture: Option<&str>,
+    sheets: &[(PathBuf, gtk4::CssProvider)],
+) {
+    while let Some(child) = slot.first_child() {
+        slot.remove(&child);
+    }
+
+    let ui = match compile(blueprint) {
+        Ok(ui) => ui,
+        Err(message) => {
+            slot.append(&error_label(&message));
+            return;
+        }
+    };
+
+    let builder = gtk4::Builder::new();
+    if let Err(error) = builder.add_from_file(&ui) {
+        slot.append(&error_label(error.message()));
+        return;
+    }
+
+    if let Some(showing) = unsafe { slot.steal_data::<adw::Dialog>("preview-dialog") } {
+        showing.close();
+    }
+
+    let parentless: Vec<gtk4::Widget> = builder
+        .objects()
+        .into_iter()
+        .filter_map(|object| object.downcast::<gtk4::Widget>().ok())
+        .filter(|widget| widget.parent().is_none())
+        .collect();
+
+    let root = parentless
+        .iter()
+        .find(|widget| !widget.is::<adw::Dialog>())
+        .or_else(|| parentless.first())
+        .cloned();
+
+    match root {
+        Some(root) => {
+            if let Some(fixture) = fixture {
+                fixtures::apply(fixture, &root, sheets, &builder);
+            }
+            match root.downcast::<adw::Dialog>() {
+                Ok(dialog) => {
+                    dialog.present(Some(slot));
+                    unsafe { slot.set_data("preview-dialog", dialog) };
+                }
+                Err(widget) => {
+                    widget.set_halign(gtk4::Align::Center);
+                    widget.set_valign(gtk4::Align::Center);
+                    slot.append(&widget);
+                }
+            }
+        }
+        None => slot.append(&error_label(
+            "nothing in this file builds a widget; an example is a top-level object, not a template",
         )),
     }
 }

@@ -464,7 +464,7 @@ async fn follow_provider(
     let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
         Ok(dbus) => dbus,
         Err(error) => {
-            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            replace_unavailable(&updates, error.to_string());
             tracing::warn!(%error, "cannot observe the notifications provider owner");
             return;
         }
@@ -472,11 +472,20 @@ async fn follow_provider(
     let mut owners = match dbus.receive_name_owner_changed().await {
         Ok(owners) => owners,
         Err(error) => {
-            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            replace_unavailable(&updates, error.to_string());
             tracing::warn!(%error, "cannot observe notifications provider owner changes");
             return;
         }
     };
+
+    let name = match zbus::names::BusName::try_from(GLIMPSE_NOTIFICATIONS_BUS_NAME) {
+        Ok(name) => name,
+        Err(error) => {
+            tracing::warn!(%error, "invalid provider bus name");
+            return;
+        }
+    };
+    let mut retry_delay = std::time::Duration::from_millis(250);
 
     loop {
         let proxy = match Notifications1Proxy::builder(&connection)
@@ -484,15 +493,18 @@ async fn follow_provider(
             .build()
             .await
         {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay = std::time::Duration::from_millis(250);
+                proxy
+            }
             Err(error) => {
                 *current.write().await = None;
-                updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                replace_unavailable(&updates, error.to_string());
                 tracing::debug!(
                     reason = %error,
-                    "notifications provider has no owner; waiting"
+                    "notifications provider property cache is unavailable"
                 );
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
                     return;
                 }
                 continue;
@@ -504,15 +516,14 @@ async fn follow_provider(
             Ok(None) => match proxy.snapshot().await {
                 Ok(snapshot) => Some(snapshot),
                 Err(error) => {
-                    updates
-                        .send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                    replace_unavailable(&updates, error.to_string());
                     *current.write().await = None;
                     tracing::warn!(reason = %error, "notifications snapshot is unavailable");
                     None
                 }
             },
             Err(error) => {
-                updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                replace_unavailable(&updates, error.to_string());
                 *current.write().await = None;
                 tracing::warn!(reason = %error, "notifications property cache is unavailable");
                 None
@@ -560,7 +571,7 @@ async fn follow_provider(
                             updates.send_replace(state);
                         }
                         Err(error) => {
-                            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                            replace_unavailable(&updates, error.to_string());
                             tracing::warn!(reason = %error, "notifications snapshot change failed");
                             if serving {
                                 *current.write().await = None;
@@ -588,26 +599,24 @@ async fn follow_provider(
         }
         if serving {
             *current.write().await = None;
-            updates.send_replace(NotificationsProviderState::unavailable(
-                "provider has no bus owner",
-            ));
+            replace_unavailable(&updates, "provider has no bus owner");
             tracing::warn!("notifications provider disconnected");
         }
     }
 }
 
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    use futures_util::StreamExt;
-
-    while let Some(owner) = owners.next().await {
-        let Ok(args) = owner.args() else {
-            continue;
-        };
-        if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME && args.new_owner().is_some() {
-            return true;
+fn replace_unavailable(
+    updates: &tokio::sync::watch::Sender<NotificationsProviderState>,
+    reason: impl Into<String>,
+) {
+    let next = NotificationsProviderState::unavailable(reason);
+    updates.send_if_modified(|previous| {
+        if previous.view.is_none() && previous.unavailable == next.unavailable {
+            return false;
         }
-    }
-    false
+        *previous = next;
+        true
+    });
 }
 
 #[cfg(test)]

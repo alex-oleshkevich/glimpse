@@ -32,15 +32,8 @@ fn run(cli: &Cli) -> Result<()> {
     init_translations(config.regional.language());
     gtk4::init().context("cannot initialize GTK")?;
     glimpse_widgets::register_resources()?;
-    let threads = std::env::var("GLIMPSE_THREADS")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(4);
-    if RELM_THREADS.set(threads).is_err() {
-        tracing::warn!(
-            threads,
-            "RELM_THREADS already initialized; GLIMPSE_THREADS ignored"
-        );
+    if RELM_THREADS.set(4).is_err() {
+        tracing::warn!("RELM_THREADS already initialized");
     }
 
     let app_id = std::env::var("GLIMPSE_NOTIFICATIONS_APP_ID")

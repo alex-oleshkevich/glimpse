@@ -38,17 +38,48 @@ impl TryFrom<Value<'_>> for NightLightSnapshot {
     type Error = zbus::zvariant::Error;
 
     fn try_from(value: Value<'_>) -> Result<Self, Self::Error> {
-        let mut fields = zbus::zvariant::Structure::try_from(value)?.into_fields().into_iter();
+        let mut fields = zbus::zvariant::Structure::try_from(value)?
+            .into_fields()
+            .into_iter();
         Ok(Self {
-            schedule: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            overridden: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            temperature: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            target: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            active: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            serving: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            reason: fields.next().ok_or(Self::Error::IncorrectType)?.try_into()?,
-            configured: fields.next().map(String::try_from).transpose()?.unwrap_or_default(),
-            manual: fields.next().map(bool::try_from).transpose()?.unwrap_or_default(),
+            schedule: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            overridden: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            temperature: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            target: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            active: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            serving: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            reason: fields
+                .next()
+                .ok_or(Self::Error::IncorrectType)?
+                .try_into()?,
+            configured: fields
+                .next()
+                .map(String::try_from)
+                .transpose()?
+                .unwrap_or_default(),
+            manual: fields
+                .next()
+                .map(bool::try_from)
+                .transpose()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -64,8 +95,15 @@ impl TryFrom<OwnedValue> for NightLightSnapshot {
 impl From<NightLightSnapshot> for Value<'_> {
     fn from(snapshot: NightLightSnapshot) -> Self {
         Self::from((
-            snapshot.schedule, snapshot.overridden, snapshot.temperature, snapshot.target,
-            snapshot.active, snapshot.serving, snapshot.reason, snapshot.configured, snapshot.manual,
+            snapshot.schedule,
+            snapshot.overridden,
+            snapshot.temperature,
+            snapshot.target,
+            snapshot.active,
+            snapshot.serving,
+            snapshot.reason,
+            snapshot.configured,
+            snapshot.manual,
         ))
     }
 }
@@ -257,7 +295,7 @@ async fn follow_provider(
     let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
         Ok(dbus) => dbus,
         Err(error) => {
-            updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+            replace_unavailable(&updates, error.to_string());
             tracing::warn!(%error, "cannot observe the night light provider owner");
             return;
         }
@@ -265,11 +303,20 @@ async fn follow_provider(
     let mut owners = match dbus.receive_name_owner_changed().await {
         Ok(owners) => owners,
         Err(error) => {
-            updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+            replace_unavailable(&updates, error.to_string());
             tracing::warn!(%error, "cannot observe night light provider owner changes");
             return;
         }
     };
+
+    let name = match zbus::names::BusName::try_from(GLIMPSE_NIGHT_LIGHT_BUS_NAME) {
+        Ok(name) => name,
+        Err(error) => {
+            tracing::warn!(%error, "invalid provider bus name");
+            return;
+        }
+    };
+    let mut retry_delay = std::time::Duration::from_millis(250);
 
     loop {
         let proxy = match NightLight1Proxy::builder(&connection)
@@ -277,15 +324,18 @@ async fn follow_provider(
             .build()
             .await
         {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay = std::time::Duration::from_millis(250);
+                proxy
+            }
             Err(error) => {
                 *current.write().await = None;
-                updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+                replace_unavailable(&updates, error.to_string());
                 tracing::debug!(
                     reason = %error,
-                    "night light provider has no owner; waiting"
+                    "night light provider property cache is unavailable"
                 );
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
                     return;
                 }
                 continue;
@@ -297,14 +347,14 @@ async fn follow_provider(
             Ok(None) => match proxy.snapshot().await {
                 Ok(snapshot) => Some(snapshot),
                 Err(error) => {
-                    updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+                    replace_unavailable(&updates, error.to_string());
                     *current.write().await = None;
                     tracing::warn!(reason = %error, "night light snapshot is unavailable");
                     None
                 }
             },
             Err(error) => {
-                updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+                replace_unavailable(&updates, error.to_string());
                 *current.write().await = None;
                 tracing::warn!(reason = %error, "night light property cache is unavailable");
                 None
@@ -348,7 +398,7 @@ async fn follow_provider(
                             updates.send_replace(state);
                         }
                         Err(error) => {
-                            updates.send_replace(NightLightProviderState::unavailable(error.to_string()));
+                            replace_unavailable(&updates, error.to_string());
                             tracing::warn!(reason = %error, "night light snapshot change failed");
                             if serving {
                                 *current.write().await = None;
@@ -381,7 +431,7 @@ async fn follow_provider(
         };
         if serving {
             *current.write().await = None;
-            updates.send_replace(NightLightProviderState::unavailable(&reason));
+            replace_unavailable(&updates, &reason);
             tracing::warn!(reason, "night light provider disconnected");
         } else {
             tracing::debug!(reason, "night light provider rebuilding its proxy");
@@ -389,16 +439,18 @@ async fn follow_provider(
     }
 }
 
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    while let Some(owner) = owners.next().await {
-        let Ok(args) = owner.args() else {
-            continue;
-        };
-        if args.name().as_str() == GLIMPSE_NIGHT_LIGHT_BUS_NAME && args.new_owner().is_some() {
-            return true;
+fn replace_unavailable(
+    updates: &tokio::sync::watch::Sender<NightLightProviderState>,
+    reason: impl Into<String>,
+) {
+    let next = NightLightProviderState::unavailable(reason);
+    updates.send_if_modified(|previous| {
+        if *previous == next {
+            return false;
         }
-    }
-    false
+        *previous = next;
+        true
+    });
 }
 
 #[cfg(test)]

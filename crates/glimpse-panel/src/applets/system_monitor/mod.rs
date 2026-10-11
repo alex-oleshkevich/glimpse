@@ -6,7 +6,6 @@ use glimpse_widgets::{IndicatorSpec, SystemMonitorPopover};
 use gtk4::glib;
 use gtk4::prelude::Cast as _;
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 
@@ -18,7 +17,6 @@ pub struct SystemMonitor {
     warn_percent: u8,
     critical_percent: u8,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<SystemMonitorPopover>,
 }
@@ -33,7 +31,7 @@ impl Applet for SystemMonitor {
         self.warn_percent = cfg.warn_percent;
         self.critical_percent = cfg.critical_percent;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -54,9 +52,6 @@ impl Applet for SystemMonitor {
     fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
         let shown = SystemMonitorPopover::new();
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.shown.set(Some(&shown));
         self.refresh();
         Some(shown.upcast())
@@ -74,7 +69,6 @@ impl SystemMonitor {
             warn_percent: 85,
             critical_percent: 95,
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -112,6 +106,5 @@ impl SystemMonitor {
             self.warn_percent,
             self.critical_percent,
         ));
-        shown.set_footer(self.footer.label().as_deref());
     }
 }

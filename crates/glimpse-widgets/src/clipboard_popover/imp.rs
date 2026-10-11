@@ -117,7 +117,6 @@ impl ObjectImpl for ClipboardPopover {
             obj,
             move |_| obj.emit_by_name::<()>("cleared", &[])
         ));
-
     }
 
     fn dispose(&self) {

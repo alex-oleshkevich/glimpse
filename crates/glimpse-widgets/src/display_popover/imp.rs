@@ -185,7 +185,6 @@ impl ObjectImpl for DisplayPopover {
             move |_| popover.emit_by_name::<()>(BLANKED, &[])
         ));
 
-
         popover.render_sources();
         popover.render_night_light();
         popover.render_displays();

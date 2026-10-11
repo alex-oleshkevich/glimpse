@@ -361,12 +361,8 @@ fn load_from(
             Ok(table) => table,
             Err(error) => return Err(ConfigError::parse(&path, &text, &error)),
         };
-        let screenshot = path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref());
-        let retired = table.remove("monitors").is_some();
-        let text = if screenshot {
+        let text = if path.file_name() == Some(SCREENSHOT_FILE_NAME.as_ref()) {
             table.retain(|key, _| key == SCREENSHOT_TABLE);
-            table.to_string()
-        } else if retired {
             table.to_string()
         } else {
             text
@@ -379,15 +375,17 @@ fn load_from(
         .map_err(ConfigError::schema)?
         .try_deserialize()
         .map_err(ConfigError::schema)?;
-    for problem in config.validate() {
-        tracing::warn!(%problem, "configuration problem");
-    }
     Ok(config)
 }
 
 pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigError>) {
     match load(config_path) {
-        Ok(config) => (config, None),
+        Ok(config) => {
+            for problem in config.validate() {
+                tracing::warn!(%problem, "configuration problem");
+            }
+            (config, None)
+        }
         Err(error) => {
             tracing::error!(%error, "starting with the default configuration");
             (Config::default(), Some(error))

@@ -151,7 +151,7 @@ async fn private_bus_checks_sender_and_delivers_fds() {
         &glimpse_config::Config::default(),
         Buses::unavailable("no bus in tests"),
     );
-    let exec = services.exec();
+    let exec = services.handles.exec.clone();
     let (input, receiver) = relm4::channel();
     export(&server, registry.clone(), exec.clone(), input).await;
     let name = glimpse_dbus::applet_host_name(&glimpse_dbus::panel_app_id());

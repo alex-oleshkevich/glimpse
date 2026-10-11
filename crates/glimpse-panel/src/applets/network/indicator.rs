@@ -14,7 +14,6 @@ use glimpse_services::{
 };
 use glimpse_widgets::{IndicatorSpec, NetworkAsk, NetworkEntered, NetworkPopover};
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
@@ -141,7 +140,6 @@ pub struct Network {
     network: NetworkHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Footer,
     vpn_chip: bool,
     metered_in_tooltip: bool,
     visible_networks: usize,
@@ -161,7 +159,6 @@ impl Network {
             network,
             notifications,
             tooltip_format: None,
-            footer: Footer::default(),
             vpn_chip: true,
             metered_in_tooltip: true,
             visible_networks: 8,
@@ -230,8 +227,6 @@ impl Network {
             .filter_map(|entry| render::details(&self.state, &entry.id))
             .collect();
         shown.set_details(&details);
-
-        shown.set_footer(self.footer.label().as_deref());
 
         if let Some(opener) = &self.opener {
             opener.typing(ask.is_some());
@@ -342,7 +337,7 @@ impl Applet for Network {
         self.vpn_chip = cfg.vpn_chip;
         self.metered_in_tooltip = cfg.metered_in_tooltip;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -585,11 +580,6 @@ impl Applet for Network {
                 all.set(true);
                 opener.wake();
             }
-        });
-
-        shown.connect_footer_activated({
-            let footer = self.footer.clone();
-            move |_| footer.run()
         });
 
         self.expanded.set(false);

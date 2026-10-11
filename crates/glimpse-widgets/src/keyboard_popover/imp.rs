@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, PopoverShell, Section, ToggleRow};
+use crate::{PopoverShell, Section, ToggleRow};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Layout {
@@ -52,12 +52,6 @@ impl ObjectImpl for KeyboardPopover {
                     .build(),
             ]
         })
-    }
-
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj();
-
     }
 
     fn dispose(&self) {

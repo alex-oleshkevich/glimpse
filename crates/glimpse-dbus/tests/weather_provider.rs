@@ -73,7 +73,13 @@ async fn serve(bus: &PrivateBus, calls: Calls) -> Connection {
     let connection = bus.connection().await;
     connection
         .object_server()
-        .at(GLIMPSE_WEATHER_OBJECT_PATH, TestProvider { calls, city: "Vilnius".to_owned() })
+        .at(
+            GLIMPSE_WEATHER_OBJECT_PATH,
+            TestProvider {
+                calls,
+                city: "Vilnius".to_owned(),
+            },
+        )
         .await
         .unwrap();
     glimpse_dbus::own_name(&connection, GLIMPSE_WEATHER_BUS_NAME)
@@ -164,11 +170,31 @@ async fn connected_client_observes_snapshot_changes() {
     let mut provider = WeatherProvider::start(bus.connection().await);
     let mut updates = provider.handle().subscribe();
     wait_until(&mut updates, |state| state.owner).await;
-    assert_eq!(updates.borrow().status.as_ref().unwrap().places[0].city.as_deref(), Some("Vilnius"));
-    let interface = server.object_server().interface::<_, TestProvider>(GLIMPSE_WEATHER_OBJECT_PATH).await.unwrap();
+    assert_eq!(
+        updates.borrow().status.as_ref().unwrap().places[0]
+            .city
+            .as_deref(),
+        Some("Vilnius")
+    );
+    let interface = server
+        .object_server()
+        .interface::<_, TestProvider>(GLIMPSE_WEATHER_OBJECT_PATH)
+        .await
+        .unwrap();
     interface.get_mut().await.city = "Warsaw".to_owned();
-    interface.get().await.snapshot_changed(interface.signal_emitter()).await.unwrap();
-    wait_until(&mut updates, |state| state.status.as_ref().is_some_and(|status| status.places[0].city.as_deref() == Some("Warsaw"))).await;
+    interface
+        .get()
+        .await
+        .snapshot_changed(interface.signal_emitter())
+        .await
+        .unwrap();
+    wait_until(&mut updates, |state| {
+        state
+            .status
+            .as_ref()
+            .is_some_and(|status| status.places[0].city.as_deref() == Some("Warsaw"))
+    })
+    .await;
     assert!(updates.borrow().owner);
     provider.shutdown().await;
 }

@@ -5,10 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use super::{
-    ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED,
-    Group,
-};
+use super::{ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED, Group};
 use crate::{ActionRow, Notice, Placeholder};
 
 const ATTENTIVE: &str = "preferences-system-notifications-symbolic";
@@ -113,7 +110,6 @@ impl ObjectImpl for NotificationsPopover {
             self,
             move |_| popover.obj().emit_by_name::<()>(CLEAR_ALL, &[])
         ));
-
     }
 
     fn dispose(&self) {

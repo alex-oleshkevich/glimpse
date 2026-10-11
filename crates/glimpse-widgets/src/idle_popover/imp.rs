@@ -102,8 +102,6 @@ impl ObjectImpl for IdlePopover {
             popover,
             move |_, id| popover.emit_by_name::<()>("release-requested", &[&id])
         ));
-
-
     }
 
     fn dispose(&self) {

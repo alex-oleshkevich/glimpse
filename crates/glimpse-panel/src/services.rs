@@ -335,14 +335,6 @@ impl PanelServices {
         self.system_monitor_service.reconfigure(document);
     }
 
-    pub fn notifications(&self) -> NotificationsProviderHandle {
-        self.notifications.handle()
-    }
-
-    pub fn exec(&self) -> ExecHandle {
-        self.handles.exec.clone()
-    }
-
     fn cancel(&self) {
         self.system_monitor_service.cancel();
         self.removable_service.cancel();
@@ -373,7 +365,7 @@ impl fmt::Debug for PanelServices {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("PanelServices")
-            .field("exec_slots", &self.exec().snapshot().slots.len())
+            .field("exec_slots", &self.handles.exec.snapshot().slots.len())
             .finish_non_exhaustive()
     }
 }

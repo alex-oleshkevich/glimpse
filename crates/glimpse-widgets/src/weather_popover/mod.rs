@@ -4,7 +4,6 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{
     Day, ExpanderRow, Fact, Hour, Notice, RowTone, Section, Severity, fact_row, replace_children,
-    
 };
 
 const DESCRIPTION: &str = "detail-card__description";
@@ -150,7 +149,6 @@ impl WeatherPopover {
             replace_children(&row.details(), page.map(build).as_ref());
         }
     }
-
 }
 
 fn dress(notice: &Notice, advisory: &Advisory) {

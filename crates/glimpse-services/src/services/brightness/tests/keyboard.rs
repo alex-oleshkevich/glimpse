@@ -200,17 +200,15 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
     glimpse_dbus::own_name(&upower, "org.freedesktop.UPower")
         .await
         .unwrap();
-    let emitter = zbus::object_server::SignalEmitter::new(
-        &upower,
-        "/org/freedesktop/UPower/KbdBacklight",
-    )
-    .unwrap();
+    let emitter =
+        zbus::object_server::SignalEmitter::new(&upower, "/org/freedesktop/UPower/KbdBacklight")
+            .unwrap();
 
     let event = tokio::time::timeout(std::time::Duration::from_secs(20), async {
         let mut watcher = watcher;
         loop {
-            let _ = FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new())
-                .await;
+            let _ =
+                FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new()).await;
             if let Ok(joined) =
                 tokio::time::timeout(std::time::Duration::from_millis(50), &mut watcher).await
             {

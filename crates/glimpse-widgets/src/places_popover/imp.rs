@@ -115,7 +115,6 @@ impl ObjectImpl for PlacesPopover {
             popover,
             move |_| popover.emit_by_name::<()>("more", &[])
         ));
-
     }
 
     fn dispose(&self) {

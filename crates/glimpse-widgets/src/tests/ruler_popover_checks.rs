@@ -79,5 +79,4 @@ pub(super) fn check() {
         "an emptied history hides the section again, matching the approved board's empty state"
     );
     assert_eq!(children(&*ruler_imp.history_rows), 0);
-
 }

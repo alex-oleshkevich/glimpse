@@ -35,10 +35,6 @@ impl MprisPopover {
         imp.list.set_players(players);
     }
 
-
-
-
-
     /// Both carry the row's key rather than a captured widget or its position: a row is reused in
     /// place whenever the list changes, so neither survives the next `set_others`.
     pub fn connect_raise_requested<F: Fn(&Self, String) + 'static>(

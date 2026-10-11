@@ -99,7 +99,6 @@ impl ObjectImpl for WorkspaceNamePopover {
         ));
         popover.add_controller(keys);
         popover.connect_map(|popover| popover.focus_entry());
-
     }
 
     fn dispose(&self) {

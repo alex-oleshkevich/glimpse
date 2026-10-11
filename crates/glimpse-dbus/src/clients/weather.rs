@@ -509,21 +509,33 @@ async fn follow_provider(
         }
     };
 
+    let name = match zbus::names::BusName::try_from(GLIMPSE_WEATHER_BUS_NAME) {
+        Ok(name) => name,
+        Err(error) => {
+            tracing::warn!(%error, "invalid provider bus name");
+            return;
+        }
+    };
+    let mut retry_delay = std::time::Duration::from_millis(250);
+
     loop {
         let proxy = match Weather1Proxy::builder(&connection)
             .cache_properties(CacheProperties::Yes)
             .build()
             .await
         {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay = std::time::Duration::from_millis(250);
+                proxy
+            }
             Err(error) => {
                 *current.write().await = None;
                 replace_unavailable(&updates, error.to_string());
                 tracing::debug!(
                     reason = clean(&error.to_string(), REASON),
-                    "weather provider has no owner; waiting"
+                    "weather provider property cache is unavailable"
                 );
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
                     return;
                 }
                 continue;
@@ -633,20 +645,15 @@ async fn follow_provider(
 }
 
 fn replace_unavailable(updates: &watch::Sender<WeatherProviderState>, reason: impl Into<String>) {
-    let previous = updates.borrow().clone();
-    updates.send_replace(WeatherProviderState::unavailable(reason, Some(&previous)));
-}
-
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    while let Some(owner) = owners.next().await {
-        let Ok(args) = owner.args() else {
-            continue;
-        };
-        if args.name().as_str() == GLIMPSE_WEATHER_BUS_NAME && args.new_owner().is_some() {
-            return true;
+    let reason = reason.into();
+    updates.send_if_modified(|previous| {
+        let next = WeatherProviderState::unavailable(reason, Some(previous));
+        if *previous == next {
+            return false;
         }
-    }
-    false
+        *previous = next;
+        true
+    });
 }
 
 pub fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, String> {

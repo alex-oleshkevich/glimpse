@@ -71,8 +71,6 @@ impl ClipboardPopover {
         set_action_label(&self.imp().clear, label);
     }
 
-
-
     pub fn connect_restored<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "restored",
@@ -133,6 +131,4 @@ impl ClipboardPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
-
 }

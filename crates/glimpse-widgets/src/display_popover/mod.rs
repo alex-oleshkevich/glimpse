@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Fact, Row, Source, none_if_empty};
+use crate::{Choice, Fact, Source, none_if_empty};
 
 pub use imp::NightLight;
 
@@ -91,8 +91,6 @@ impl DisplayPopover {
         self.render_displays();
     }
 
-
-
     pub fn connect_changed<F: Fn(&Self, &str, f64) + 'static>(
         &self,
         f: F,
@@ -170,8 +168,6 @@ impl DisplayPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
-
 
     pub(crate) fn report_primary_changed(&self, value: f64) {
         let key = self

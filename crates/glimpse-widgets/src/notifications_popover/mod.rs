@@ -256,7 +256,6 @@ impl NotificationsPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
 }
 
 fn set_row(row: &ActionRow, label: Option<&str>) {

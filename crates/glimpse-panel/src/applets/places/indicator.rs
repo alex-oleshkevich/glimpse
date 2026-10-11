@@ -11,7 +11,6 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
@@ -23,7 +22,6 @@ pub struct Places {
     notifications: NotificationsProviderHandle,
     places_state: Rc<RefCell<PlacesState>>,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     bookmarks_cap: usize,
     expanded: Rc<Cell<bool>>,
@@ -37,7 +35,7 @@ impl Applet for Places {
         };
         self.bookmarks_cap = cfg.bookmarks;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -96,11 +94,6 @@ impl Applet for Places {
             }
         });
 
-        shown.connect_footer_activated({
-            let footer = self.footer.clone();
-            move |_| footer.run()
-        });
-
         self.shown.set(Some(&shown));
         self.refresh();
         Some(shown.upcast())
@@ -132,7 +125,6 @@ impl Places {
             notifications,
             places_state: Rc::new(RefCell::new(places_state)),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             bookmarks_cap: 8,
             expanded: Rc::new(Cell::new(false)),
@@ -158,7 +150,6 @@ impl Places {
         shown.set_network(&render::network(&places_state));
         shown.set_overflow(bookmarks.more.as_deref());
         shown.set_trash(render::trash(&places_state));
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

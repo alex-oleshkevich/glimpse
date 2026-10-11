@@ -11,7 +11,6 @@ use glimpse_dbus::idle::{IdleProviderHandle, IdleProviderState};
 use glimpse_widgets::{IdlePopover, IndicatorSpec, Severity};
 use gtk4::{gio, glib, prelude::*};
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 use keep_awake::{deadline, manual_holds, settling};
@@ -20,7 +19,6 @@ const MINUTE: Duration = Duration::from_secs(60);
 
 pub struct Idle {
     idle: IdleProviderHandle,
-    footer: Footer,
     tooltip_format: Option<String>,
     state: IdleProviderState,
     twelve: bool,
@@ -36,7 +34,6 @@ impl Applet for Idle {
         };
         self.tooltip_format = config.common.tooltip_format.clone();
         self.twelve = config.regional.twelve_hour();
-        self.footer.configure(&config.common);
 
         ctx.interval(MINUTE);
         self.sync();
@@ -101,11 +98,6 @@ impl Applet for Idle {
             }
         });
 
-        shown.connect_footer_activated({
-            let footer = self.footer.clone();
-            move |_| footer.run()
-        });
-
         self.shown.set(Some(&shown));
         self.refresh();
         Some(shown.upcast())
@@ -117,7 +109,6 @@ impl Idle {
         let state = idle.snapshot();
         Self {
             idle,
-            footer: Footer::default(),
             tooltip_format: None,
             state,
             twelve: false,
@@ -187,7 +178,6 @@ impl Idle {
     }
 
     fn dress(&self, shown: &IdlePopover) {
-        shown.set_footer(self.footer.label().as_deref());
         let held = !manual_holds(&self.state.inhibitors).is_empty();
         let ends = self.ends();
         shown.set_heading(

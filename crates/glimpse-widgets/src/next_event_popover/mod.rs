@@ -87,8 +87,4 @@ impl NextEventPopover {
             glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
         )
     }
-
-
-
-
 }

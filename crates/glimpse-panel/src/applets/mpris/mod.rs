@@ -120,18 +120,6 @@ impl Applet for Mpris {
             }
         });
 
-        shown.connect_footer_activated({
-            let (service, held) = (self.service.clone(), self.aimed.clone());
-            move |_| {
-                let service = service.clone();
-                aimed(&held, |player| {
-                    spawn_command("mpris.raise", async move {
-                        service.control(player, PlayerAction::Raise).await
-                    });
-                })
-            }
-        });
-
         self.shown.set(Some(&shown));
         self.refresh();
         Some(shown.upcast())
@@ -307,7 +295,7 @@ impl Mpris {
             self.aimed.replace(String::new());
             shown.player().set_visible(false);
             shown.set_others(None);
-            shown.set_footer(None);
+
             return;
         };
 
@@ -345,13 +333,6 @@ impl Mpris {
             .then(|| popover::rows(&self.players, &self.icons))
             .filter(|rows| !rows.is_empty());
         shown.set_others(others.as_deref());
-        shown.set_footer(
-            player
-                .can
-                .raise
-                .then(|| gettext("Open {player}").replace("{player}", &player.identity))
-                .as_deref(),
-        );
     }
 }
 

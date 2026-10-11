@@ -78,7 +78,6 @@ impl ObjectImpl for ColorPickerPopover {
             obj,
             move |_| obj.emit_by_name::<()>("pick-requested", &[])
         ));
-
     }
 
     fn dispose(&self) {

@@ -58,8 +58,6 @@ impl ObjectImpl for MprisPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-
-
         self.list.connect_activated(glib::clone!(
             #[weak]
             popover,

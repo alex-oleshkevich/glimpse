@@ -65,7 +65,6 @@ impl ObjectImpl for NextEventPopover {
         self.parent_constructed();
         let popover = self.obj();
 
-
         self.join.connect_activated(glib::clone!(
             #[weak]
             popover,

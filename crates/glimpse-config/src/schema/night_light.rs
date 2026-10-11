@@ -2,6 +2,9 @@ use chrono::NaiveTime;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub const MIN_TEMPERATURE: u32 = 1000;
+pub const MAX_TEMPERATURE: u32 = 6500;
+
 pub const CLOCK: &str = "%H:%M";
 const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 
@@ -9,6 +12,8 @@ const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct NightLight {
     pub schedule: Schedule,
+    #[serde(deserialize_with = "temperature")]
+    #[schemars(range(min = MIN_TEMPERATURE, max = MAX_TEMPERATURE))]
     pub temperature: u32,
     #[serde(deserialize_with = "clock", skip_serializing_if = "Option::is_none")]
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
@@ -17,6 +22,21 @@ pub struct NightLight {
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub end_time: Option<String>,
     pub transition_minutes: u32,
+}
+
+fn temperature<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = u32::deserialize(deserializer)?;
+    (MIN_TEMPERATURE..=MAX_TEMPERATURE)
+        .contains(&value)
+        .then_some(value)
+        .ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE} kelvin"
+            ))
+        })
 }
 
 fn clock<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>

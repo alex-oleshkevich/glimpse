@@ -117,5 +117,4 @@ impl WorkspaceNamePopover {
             glib::closure_local!(move |popover: Self| handler(&popover)),
         )
     }
-
 }

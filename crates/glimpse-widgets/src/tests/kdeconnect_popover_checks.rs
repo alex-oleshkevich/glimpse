@@ -140,5 +140,4 @@ fn kdeconnect_popover_widgets() {
         !imp.nearby.get_visible(),
         "no header until something is found"
     );
-
 }

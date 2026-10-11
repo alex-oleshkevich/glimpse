@@ -1,5 +1,4 @@
 pub mod catcher;
-pub mod footer;
 pub mod popover;
 pub mod runtime;
 
@@ -88,6 +87,26 @@ pub enum Direction {
     Down,
     Left,
     Right,
+}
+
+pub fn tell<F, T>(
+    report: Report,
+    opener: Opener,
+    operation: &'static str,
+    future: F,
+    unavailable: String,
+    wording: fn(&CommandError, &str) -> Option<String>,
+) where
+    F: Future<Output = Result<T, CommandError>> + 'static,
+    T: 'static,
+{
+    relm4::spawn_local(async move {
+        let Err(error) = future.await else {
+            return;
+        };
+        opener.wake();
+        report_failure(operation, report, wording(&error, &unavailable), error).await;
+    });
 }
 
 pub fn spawn_command<F, T, E>(operation: &'static str, future: F)

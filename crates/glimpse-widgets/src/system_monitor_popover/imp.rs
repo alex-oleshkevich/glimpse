@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 
-use gtk4::{
-    AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*,
-};
+use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 
 use crate::{MeterRow, PopoverShell, Row, Section};
 

@@ -82,11 +82,13 @@ async fn a_floor_at_a_device_maximum_is_reported_once_per_source() {
     )
     .await;
 
-    assert_eq!(harness.service.newly_inert(), vec!["coarse".to_owned()]);
+    assert_eq!(harness.service.inert, HashSet::from(["coarse".to_owned()]));
     assert!(harness.service.newly_inert().is_empty());
 
-    harness.service.minimum = 0;
-    assert!(harness.service.newly_inert().is_empty());
+    harness.feed(Input::Config(Config { minimum: 0 })).await;
+    assert!(harness.service.inert.is_empty());
+
     harness.service.minimum = 50;
     assert_eq!(harness.service.newly_inert(), vec!["coarse".to_owned()]);
+    assert!(harness.service.newly_inert().is_empty());
 }

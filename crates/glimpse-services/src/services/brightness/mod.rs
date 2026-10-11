@@ -641,9 +641,11 @@ async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event
             Ok(events) => return Box::pin(events),
             Err(error) => {
                 tracing::debug!(%error, "no keyboard backlight signal to follow");
-                match appearances.as_mut() {
-                    Some(owners) if owners.next().await.is_some() => {}
-                    _ => return Box::pin(stream::empty()),
+                let Some(owners) = appearances.as_mut() else {
+                    return Box::pin(stream::empty());
+                };
+                if owners.next().await.is_none() {
+                    return Box::pin(stream::empty());
                 }
             }
         }
@@ -653,7 +655,9 @@ async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event
 async fn upower_owner_changes(
     ctx: &Ctx<Brightness>,
 ) -> Option<Pin<Box<dyn Stream<Item = ()> + Send>>> {
-    let dbus = zbus::fdo::DBusProxy::new(ctx.system_bus().ok()?).await.ok()?;
+    let dbus = zbus::fdo::DBusProxy::new(ctx.system_bus().ok()?)
+        .await
+        .ok()?;
     let owners = dbus.receive_name_owner_changed().await.ok()?;
     Some(Box::pin(owners.filter_map(|signal| async move {
         let args = signal.args().ok()?;

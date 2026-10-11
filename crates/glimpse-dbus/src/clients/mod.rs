@@ -1,9 +1,42 @@
 use std::collections::HashMap;
+use std::time::Duration;
+
+use futures_util::StreamExt;
 
 use chrono::{DateTime, Utc};
 use zbus::zvariant::OwnedValue;
 
 pub const DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
+pub(crate) async fn retry_after_failure(
+    dbus: &zbus::fdo::DBusProxy<'_>,
+    owners: &mut zbus::fdo::NameOwnerChangedStream,
+    name: &zbus::names::BusName<'_>,
+    delay: &mut Duration,
+) -> bool {
+    match dbus.name_has_owner(name.clone()).await {
+        Ok(true) => {
+            tokio::time::sleep(*delay).await;
+            *delay = (*delay * 2).min(Duration::from_secs(30));
+            true
+        }
+        Ok(false) => {
+            while let Some(owner) = owners.next().await {
+                if let Ok(args) = owner.args()
+                    && args.name().as_str() == name.as_str()
+                    && args.new_owner().is_some()
+                {
+                    return true;
+                }
+            }
+            false
+        }
+        Err(error) => {
+            tracing::warn!(%error, %name, "cannot observe provider ownership");
+            false
+        }
+    }
+}
 
 pub(crate) type Properties = HashMap<String, OwnedValue>;
 

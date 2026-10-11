@@ -927,7 +927,6 @@ fn laptop_fixture() {
         Some(imp.displays.upcast_ref()),
         "blank follows the display list"
     );
-
 }
 
 fn desktop_fixture() {
@@ -1117,5 +1116,4 @@ fn signals_fire_once_per_action() {
 
     popover.imp().blank.emit_by_name::<()>("activated", &[]);
     assert_eq!(blanked.get(), 1);
-
 }

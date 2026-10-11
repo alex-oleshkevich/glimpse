@@ -120,8 +120,6 @@ impl NetworkPopover {
         }
     }
 
-
-
     pub fn set_prompt(&self, ask: Option<&Ask>) {
         let imp = self.imp();
         if imp.prompt.borrow().as_ref() == ask {
@@ -299,8 +297,6 @@ impl NetworkPopover {
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
-
-
 
     fn render_entries(&self) {
         let imp = self.imp();

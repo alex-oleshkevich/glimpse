@@ -35,8 +35,7 @@ Every key and enum value is kebab-case via `rename_all = "kebab-case"` on each `
 attribute is easy to forget and forgetting it is silent. Every long-lived binary links the whole
 schema and validates the whole document, then acts on only the tables it owns.
 `deny_unknown_fields` on `Config` closes the set of top-level tables, so a misspelled `[panle]`
-errors instead of being silently ignored. The loader discards the retired `[monitors]` table and
-clock `first-day` key so existing documents keep loading.
+errors instead of being silently ignored.
 
 **An applet a panel names that does not resolve is reported, never fatal.** `left`/`center`/`right`
 are plain strings serde cannot check; `unknown_applets` checks them against `[applets]` and the kind
@@ -122,8 +121,6 @@ collects unclaimed keys and `deny_unknown_fields` rejects them, so serde refuses
 Both halves still deny unknown fields, so a misspelled common key survives into the kind's table
 and fails by name.
 
-**`settings-command` is a list, never one string** — no quoting, no word splitting, no shell to
-inject through. A label without a command, or a command without a label, is a load error.
 **A variant with no settings is written `Clock {}`, never `Clock`** — `deny_unknown_fields` has
 nothing to deny on a unit variant, so it silently swallows every key under it.
 

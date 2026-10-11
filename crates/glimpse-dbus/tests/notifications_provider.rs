@@ -18,7 +18,9 @@ struct TestProvider {
 impl TestProvider {
     #[zbus(property)]
     fn snapshot(&self) -> NotificationsSnapshot {
-        (Vec::new(), (self.do_not_disturb, 0), true, String::new())
+        let notifications: Vec<NotificationWire> = Vec::new();
+        let do_not_disturb: DoNotDisturbWire = (self.do_not_disturb, 0);
+        (notifications, do_not_disturb, true, String::new())
     }
 
     async fn dismiss(&self, _id: u32) -> zbus::fdo::Result<()> {
@@ -60,7 +62,13 @@ async fn serve(bus: &PrivateBus, calls: Arc<Mutex<Vec<(bool, i64)>>>) -> Connect
     let connection = bus.connection().await;
     connection
         .object_server()
-        .at(GLIMPSE_NOTIFICATIONS_OBJECT_PATH, TestProvider { calls, do_not_disturb: false })
+        .at(
+            GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
+            TestProvider {
+                calls,
+                do_not_disturb: false,
+            },
+        )
         .await
         .unwrap();
     glimpse_dbus::own_name(&connection, GLIMPSE_NOTIFICATIONS_BUS_NAME)
@@ -130,28 +138,6 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
     provider.shutdown().await;
 }
 
-#[test]
-fn contract_wire_types_remain_available_to_integration_consumers() {
-    let _: NotificationWire = (
-        1,
-        String::new(),
-        String::new(),
-        0,
-        String::new(),
-        String::new(),
-        String::new(),
-        String::new(),
-        1,
-        Vec::new(),
-        -1.0,
-        0,
-        false,
-        false,
-        -1,
-    );
-    let _: DoNotDisturbWire = (false, 0);
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn connected_client_observes_snapshot_changes() {
     let bus = PrivateBus::start();
@@ -159,10 +145,25 @@ async fn connected_client_observes_snapshot_changes() {
     let mut provider = NotificationsProvider::start(bus.connection().await);
     let mut updates = provider.handle().subscribe();
     wait_until(&mut updates, complete).await;
-    let interface = server.object_server().interface::<_, TestProvider>(GLIMPSE_NOTIFICATIONS_OBJECT_PATH).await.unwrap();
+    let interface = server
+        .object_server()
+        .interface::<_, TestProvider>(GLIMPSE_NOTIFICATIONS_OBJECT_PATH)
+        .await
+        .unwrap();
     interface.get_mut().await.do_not_disturb = true;
-    interface.get().await.snapshot_changed(interface.signal_emitter()).await.unwrap();
-    wait_until(&mut updates, |state| state.view.as_ref().is_some_and(|view| view.do_not_disturb.enabled)).await;
+    interface
+        .get()
+        .await
+        .snapshot_changed(interface.signal_emitter())
+        .await
+        .unwrap();
+    wait_until(&mut updates, |state| {
+        state
+            .view
+            .as_ref()
+            .is_some_and(|view| view.do_not_disturb.enabled)
+    })
+    .await;
     assert!(updates.borrow().unavailable.is_none());
     provider.shutdown().await;
 }

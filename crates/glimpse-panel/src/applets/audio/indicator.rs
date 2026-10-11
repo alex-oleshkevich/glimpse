@@ -1,4 +1,3 @@
-use crate::applet::themed;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -13,8 +12,8 @@ use glimpse_widgets::{AudioBlock, AudioDetails, AudioEntry, AudioPopover, Indica
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
 };
@@ -30,7 +29,6 @@ pub struct Audio {
     audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<AudioPopover>,
@@ -42,7 +40,7 @@ impl Applet for Audio {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -210,8 +208,6 @@ impl Applet for Audio {
                 opener.wake();
             }
         });
-
-        shown.connect_footer_activated(crate::applet::popover::footer(&self.footer));
 
         self.expanded.set(false);
         self.shown.set(Some(&shown));
@@ -484,7 +480,6 @@ impl Audio {
             audio,
             notifications,
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             expanded: Rc::new(Cell::new(false)),
             shown: glib::WeakRef::new(),
@@ -540,7 +535,6 @@ impl Audio {
             .filter_map(|app| details(&self.state, &app.id))
             .collect();
         shown.set_details(&details);
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

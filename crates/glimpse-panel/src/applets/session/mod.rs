@@ -9,7 +9,6 @@ use glimpse_widgets::{
 use gtk4::{gio, glib, prelude::*};
 
 use crate::app::SessionDialog;
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input};
 
@@ -19,7 +18,6 @@ pub struct Session {
     actions: SessionActionsHandle,
     dialog: relm4::Sender<crate::app::AppInput>,
     state: SessionActionsState,
-    footer: Footer,
     tooltip_format: Option<String>,
     icon: gio::Icon,
     shown: glib::WeakRef<SessionPopover>,
@@ -34,7 +32,6 @@ impl Session {
             state: actions.snapshot(),
             actions,
             dialog,
-            footer: Footer::default(),
             tooltip_format: None,
             icon: gio::ThemedIcon::new(ICON).upcast(),
             shown: glib::WeakRef::new(),
@@ -62,7 +59,6 @@ impl Session {
         ] {
             popover.set_action(name, &render::action_state(state, action, capability));
         }
-        popover.set_footer(self.footer.label().as_deref());
     }
 }
 
@@ -72,7 +68,7 @@ impl Applet for Session {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -119,8 +115,7 @@ impl Applet for Session {
                 let _ = dialog.send(crate::app::AppInput::SessionRun(action));
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+
         self.shown.set(Some(&shown));
         self.dress(&shown);
         Some(shown.upcast())

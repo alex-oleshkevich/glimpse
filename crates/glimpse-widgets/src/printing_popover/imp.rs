@@ -90,12 +90,6 @@ impl ObjectImpl for PrintingPopover {
         })
     }
 
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj().clone();
-
-    }
-
     fn dispose(&self) {
         self.dispose_template();
     }

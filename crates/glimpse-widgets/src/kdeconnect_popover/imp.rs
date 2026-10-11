@@ -86,13 +86,6 @@ impl ObjectImpl for KdeconnectPopover {
         })
     }
 
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj();
-
-
-    }
-
     fn dispose(&self) {
         self.dispose_template();
     }

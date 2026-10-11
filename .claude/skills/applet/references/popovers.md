@@ -29,7 +29,6 @@ popovers already agree on it and a ninth that does not is a finding, not a style
 │              $Row   view-more-symbolic "N more" │
 │                                                 │
 ├─────────────────────────────────────────────────┤  footer_rule, follows footer_box
-│ [footer] $Row   settings-symbolic  "Settings"   │  footer_box, horizontal, 0..N children
 └─────────────────────────────────────────────────┘
 ```
 
@@ -44,8 +43,6 @@ $Section   header( [title]──►──[count] [trail] )  content  [placeholde
 - **A slot with nothing visible in it renders nothing, including its rule.** `hero_box` and
   `footer_box` start `visible: false` and `PopoverShell` watches `notify::visible` on what is
   appended, so a hero whose title is cleared takes its separator with it.
-- **`[footer]` takes more than one child.** `NotificationsPopover` appends `clear` and then `footer`
-  into the same horizontal box.
 - **`.column` is what carries the width floor** — `min-width: var(--gl-popover-min-width)`, 27rem in
   `:root`. Put it on the content box, or on the single `$Section` when there is no box
   (`KeyboardPopover`). Overriding the token per popover is the supported way to be narrower.
@@ -92,10 +89,6 @@ template $XPopover: Gtk.Widget {
       }
     }
 
-    [footer]
-    $Row footer {
-      visible: false;
-    }
   }
 }
 ```
@@ -155,7 +148,6 @@ $PopoverShell
 │              │    ├── $Notice        an inline banner carrying a severity
 │              │    └── $Placeholder   the empty state, wording in the .blp
 │              └── $Section …
-└── [footer]  $Row             the settings row, 0..N of them
 ```
 
 The domain lists drop into a `$Section` in place of loose rows, and each owns its own row type:
@@ -287,7 +279,7 @@ last chip on the bar sits flush against the edge. That is the design, not a clip
 ## The four steps of `popover()`
 
 ```rust
-fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
     let shown = WeatherPopover::new();                     // 1. build fresh
 
     let caller = seat.caller();                            // 2. wire
@@ -296,14 +288,10 @@ fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
     let opener = seat.opener();
     shown.connect_day_selected(move |_, _| opener.wake());
 
-    if let Some((_, command)) = &self.footer {
-        let command = command.clone();
-        shown.connect_footer_activated(move |_| run(&command));
-    }
 
     self.shown.set(Some(&shown));                          // 3. hold weakly
     self.refresh();                                        // 4. dress, then hand over
-    Some(Box::new(shown))
+    Some(shown.upcast())
 }
 ```
 
@@ -340,7 +328,7 @@ one; `&Ctx` is neither and cannot be captured.
 ## `dress` and the weak reference
 
 The applet's only handle is `shown: glib::WeakRef<XPopover>`. The strong references are the
-catcher's child and the runtime's `Option<Box<dyn PopoverHandle>>`, and both go on dismissal — so
+catcher's child and the runtime's `Option<gtk4::Widget>`, and both go on dismissal — so
 `upgrade()` returning `None` **is** the closed state. There is no `is_open` flag to keep correct.
 
 **Never hold a strong reference.** It keeps the widget alive past dismissal, and the next open builds
@@ -442,28 +430,6 @@ handler id is kept for.
 turns into wording (`spawn_reported`), so the viewer gets a notification rather than a `warn!` line
 they will never read. Only failures answering something the viewer asked for: a device dropping on
 its own belongs on its row, not in a notification.
-
-## The footer
-
-`config.common.settings()` returns `Option<(&str, &[String])>` — a label and an argv, guaranteed by
-the loader to be set together or not at all. Every applet stores it identically in `configure`:
-
-```rust
-self.footer = config
-    .common
-    .settings()
-    .map(|(label, command)| (label.to_owned(), command.to_vec()));
-```
-
-The label goes to `shown.set_footer(...)` in `dress`; `connect_footer_activated` is connected **at
-build time**, in `popover()`, and runs `popover::run(&command)`. Connecting a signal inside `dress`
-stacks one handler per event, and the symptom is a footer that launches four copies of the settings
-app.
-
-`run` spawns through `gio::Subprocess` and warns if the program does not start. It is the one place
-in the panel that starts a process; nothing else shells out.
-
-`WorkspacesPopover` is the only one of the eight popovers with no footer.
 
 ## Size
 

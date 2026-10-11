@@ -33,7 +33,7 @@ impl Applet for Heartbeat {
 
     fn indicators(&self) -> Vec<IndicatorSpec> { ... }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> { ... }   // None: no popover
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> { ... }   // None: no popover
 }
 ```
 
@@ -195,9 +195,7 @@ capped before it reaches a label. They are not repeated here. What follows is wh
   before calling, so an unchanged one never reaches the applet.
 
   **`config.common` is read the same way by every applet**, and reading it is not optional where it
-  applies: `tooltip_format` fills `IndicatorSpec.tooltip`, and `common.settings()` returns the
-  label and argv for the row an applet's popover puts in its footer, or `None` when the user set
-  neither. The loader guarantees they are set together, so an applet never handles a half-set pair.
+  applies: `tooltip_format` fills `IndicatorSpec.tooltip`.
 
   Adding settings to an applet means adding a config struct in `glimpse-config` and promoting the
   variant from `Clock {}` to `Clock(Clock)`. **Never write a unit variant** (`Clock`) —
@@ -230,9 +228,6 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 - Pure logic is split out of anything needing a `Ctx` so it can be tested headlessly — see the
   `testing` skill. For an applet with a popover that is a `render.rs` beside it, holding every
   formatting function over `now` and the payload, with no GTK in the signatures.
-- An applet with a popover reads `common.settings()` into an `Option<(String, Vec<String>)>`, hands
-  the label to `set_footer` while dressing, and connects `connect_footer_activated` to
-  `popover::run` once, at build.
 - Every user-visible string in the popover was formatted by the applet, except a placeholder
   wording, which lives in the `.blp` — nothing in this tree translates a Rust string reaching a
   label.

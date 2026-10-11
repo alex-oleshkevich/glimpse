@@ -4,7 +4,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, Calendar, EventList, PopoverShell, Section, WorldClock};
+use crate::{Calendar, EventList, PopoverShell, Section, WorldClock};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/calendar_popover.ui")]
@@ -87,8 +87,6 @@ impl ObjectImpl for CalendarPopover {
             popover,
             move |_, url| popover.emit_by_name::<()>("link-activated", &[&url])
         ));
-
-
     }
 
     fn dispose(&self) {

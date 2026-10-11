@@ -74,7 +74,6 @@ impl ObjectImpl for SessionPopover {
                 move |_| popover.emit_by_name::<()>("action-requested", &[&action])
             ));
         }
-
     }
 
     fn dispose(&self) {

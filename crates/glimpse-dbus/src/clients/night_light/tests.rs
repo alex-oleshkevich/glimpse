@@ -56,7 +56,13 @@ async fn serve(bus: &PrivateBus, calls: Calls) -> zbus::Connection {
     let connection = bus.connection().await;
     connection
         .object_server()
-        .at(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, TestProvider { calls, temperature: 6500 })
+        .at(
+            GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
+            TestProvider {
+                calls,
+                temperature: 6500,
+            },
+        )
         .await
         .unwrap();
     crate::own_name(&connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME)
@@ -172,7 +178,13 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
 #[test]
 fn seven_field_snapshot_defaults_additive_fields() {
     let value = OwnedValue::try_from(Value::from((
-        "automatic", false, 6500u32, 4000u32, false, true, "",
+        "automatic",
+        false,
+        6500u32,
+        4000u32,
+        false,
+        true,
+        "",
     )))
     .unwrap();
     let snapshot = NightLightSnapshot::try_from(value).unwrap();
@@ -207,10 +219,99 @@ async fn connected_client_observes_snapshot_changes() {
     let mut updates = provider.handle().subscribe();
     wait_until(&mut updates, |state| state.current.is_some()).await;
     assert_eq!(updates.borrow().current.as_ref().unwrap().temperature, 6500);
-    let interface = server.object_server().interface::<_, TestProvider>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH).await.unwrap();
+    let interface = server
+        .object_server()
+        .interface::<_, TestProvider>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
+        .await
+        .unwrap();
     interface.get_mut().await.temperature = 4500;
-    interface.get().await.snapshot_changed(interface.signal_emitter()).await.unwrap();
-    wait_until(&mut updates, |state| state.current.as_ref().is_some_and(|snapshot| snapshot.temperature == 4500)).await;
+    interface
+        .get()
+        .await
+        .snapshot_changed(interface.signal_emitter())
+        .await
+        .unwrap();
+    wait_until(&mut updates, |state| {
+        state
+            .current
+            .as_ref()
+            .is_some_and(|snapshot| snapshot.temperature == 4500)
+    })
+    .await;
     assert!(updates.borrow().unavailable.is_none());
     provider.shutdown().await;
+}
+
+struct TransientProperties {
+    attempts: StdArc<std::sync::atomic::AtomicUsize>,
+}
+
+#[zbus::interface(name = "org.freedesktop.DBus.Properties")]
+impl TransientProperties {
+    fn get_all(
+        &self,
+        interface: &str,
+    ) -> zbus::fdo::Result<std::collections::HashMap<String, OwnedValue>> {
+        if interface != "me.aresa.Glimpse.NightLight1" {
+            return Err(zbus::fdo::Error::UnknownInterface(interface.to_owned()));
+        }
+        if self
+            .attempts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            == 0
+        {
+            return Err(zbus::fdo::Error::Failed(
+                "transient GetAll failure".to_owned(),
+            ));
+        }
+        let snapshot = TestProvider {
+            calls: StdArc::new(Mutex::new(Vec::new())),
+            temperature: 4500,
+        }
+        .snapshot();
+        let value = OwnedValue::try_from(Value::from(snapshot))
+            .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))?;
+        Ok(std::collections::HashMap::from([(
+            "Snapshot".to_owned(),
+            value,
+        )]))
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn client_recovers_from_get_all_failure_while_name_stays_owned() {
+    let bus = PrivateBus::start();
+    let server = serve(&bus, StdArc::new(Mutex::new(Vec::new()))).await;
+    server
+        .object_server()
+        .remove::<zbus::fdo::Properties, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
+        .await
+        .unwrap();
+    let attempts = StdArc::new(std::sync::atomic::AtomicUsize::new(0));
+    server
+        .object_server()
+        .at(
+            GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
+            TransientProperties {
+                attempts: attempts.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let mut provider = NightLightProvider::start(bus.connection().await);
+    let mut updates = provider.handle().subscribe();
+    wait_until(&mut updates, |state| state.current.is_some()).await;
+    assert_eq!(updates.borrow().current.as_ref().unwrap().temperature, 4500);
+    assert!(attempts.load(std::sync::atomic::Ordering::SeqCst) >= 2);
+    provider.shutdown().await;
+}
+
+#[test]
+fn repeated_unavailability_does_not_notify_subscribers() {
+    let (updates, mut receiver) = watch::channel(NightLightProviderState::unavailable("first"));
+    replace_unavailable(&updates, "failed GetAll");
+    assert!(receiver.has_changed().unwrap());
+    receiver.borrow_and_update();
+    replace_unavailable(&updates, "failed GetAll");
+    assert!(!receiver.has_changed().unwrap());
 }

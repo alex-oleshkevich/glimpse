@@ -150,6 +150,9 @@ impl Reader {
                     let recovered = self.failure.take().is_some();
                     match loaded {
                         Some(config) => {
+                            for problem in config.validate() {
+                                tracing::warn!(%problem, "configuration problem");
+                            }
                             self.current = config.clone();
                             return Some(Ok(Some(config)));
                         }

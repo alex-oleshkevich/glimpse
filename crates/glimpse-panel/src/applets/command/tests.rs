@@ -77,7 +77,7 @@ async fn a_chip_with_neither_icon_nor_label_takes_no_room() {
         &glimpse_config::Config::default(),
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
-    let mut command = Command::start(services.notifications());
+    let mut command = Command::start(services.handles.notifications.clone());
     assert!(command.indicators().is_empty());
 
     command.label = Some("Shot".to_owned());

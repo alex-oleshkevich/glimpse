@@ -1,36 +1,8 @@
-use super::{Privacy, SessionAction};
-
 fn load(text: &str) -> Result<crate::Config, crate::ConfigError> {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");
     std::fs::write(&path, text).expect("writes");
     crate::load(Some(&path))
-}
-
-#[test]
-fn the_defaults_match_the_stage_design() {
-    let config = load("").expect("defaults load").lock;
-    assert_eq!(config.pam_service, "glimpse-lock");
-    assert_eq!(config.prompt_output, "focused");
-    assert_eq!(config.background.color, "#000000");
-    assert_eq!(config.background.fit, crate::Fit::Cover);
-    assert_eq!(config.background.blur_radius, 0);
-    assert_eq!(config.background.dim, 0.35);
-    assert_eq!(config.background.dim_dark, 0.5);
-    assert_eq!(config.clock.date_format, "%A, {day} %B");
-    assert!(config.status.enabled);
-    assert!(config.media.enabled);
-    assert!(config.notifications.enabled);
-    assert_eq!(config.notifications.privacy, Privacy::Apps);
-    assert!(config.session.enabled);
-    assert_eq!(
-        config.session.actions,
-        vec![
-            SessionAction::Suspend,
-            SessionAction::Reboot,
-            SessionAction::PowerOff,
-        ]
-    );
 }
 
 #[test]

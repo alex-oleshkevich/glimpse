@@ -152,5 +152,4 @@ fn places_popover_widgets() {
     popover.set_overflow(Some("3 more"));
     imp.bookmarks_more.activate();
     assert!(more.get());
-
 }

@@ -32,8 +32,6 @@ impl KeyboardPopover {
         self.render();
     }
 
-
-
     pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -41,8 +39,6 @@ impl KeyboardPopover {
             glib::closure_local!(move |popover: Self, index: u32| f(&popover, index)),
         )
     }
-
-
 
     fn render(&self) {
         let imp = self.imp();

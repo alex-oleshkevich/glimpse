@@ -78,15 +78,8 @@ fn daemon(cli: Cli) -> Result<()> {
         })
         .ok();
 
-    let threads = std::env::var("GLIMPSE_THREADS")
-        .ok()
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(4);
-    if RELM_THREADS.set(threads).is_err() {
-        tracing::warn!(
-            threads,
-            "RELM_THREADS already initialized; GLIMPSE_THREADS ignored"
-        );
+    if RELM_THREADS.set(4).is_err() {
+        tracing::warn!("RELM_THREADS already initialized");
     }
 
     let unlocked = Arc::new(AtomicBool::new(false));

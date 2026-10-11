@@ -397,5 +397,4 @@ pub(super) fn check() {
     assert_eq!(*expanded.borrow(), ["apps"]);
     audio.set_more_apps(None);
     assert!(!audio.imp().more_apps.get_visible());
-
 }

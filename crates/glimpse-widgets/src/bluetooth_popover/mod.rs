@@ -129,8 +129,6 @@ impl BluetoothPopover {
         }
     }
 
-
-
     pub fn connect_powered<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "powered",
@@ -163,8 +161,6 @@ impl BluetoothPopover {
             )),
         )
     }
-
-
 
     fn render_prompt(&self, switched: bool) {
         let imp = self.imp();

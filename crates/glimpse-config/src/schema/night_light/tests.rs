@@ -64,3 +64,20 @@ fn the_document_only_alias_is_not_a_mode_a_caller_can_name() {
     assert_eq!(Schedule::parse("Off"), None);
     assert_eq!(Schedule::parse(""), None);
 }
+
+#[test]
+fn temperature_bounds_match_the_emitted_schema() {
+    for value in [MIN_TEMPERATURE, MAX_TEMPERATURE] {
+        let parsed: NightLight =
+            toml::from_str(&format!("temperature = {value}")).expect("boundary loads");
+        assert_eq!(parsed.temperature, value);
+    }
+    for value in [MIN_TEMPERATURE - 1, MAX_TEMPERATURE + 1] {
+        assert!(toml::from_str::<NightLight>(&format!("temperature = {value}")).is_err());
+    }
+    let document: serde_json::Value =
+        serde_json::from_str(&crate::json_schema_document()).expect("JSON");
+    let temperature = &document["$defs"]["NightLight"]["properties"]["temperature"];
+    assert_eq!(temperature["minimum"], MIN_TEMPERATURE);
+    assert_eq!(temperature["maximum"], MAX_TEMPERATURE);
+}

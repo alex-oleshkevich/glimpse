@@ -9,7 +9,6 @@ mod geolocation;
 mod idle;
 mod keyboard;
 mod lock;
-mod monitors;
 mod mpris;
 mod network;
 mod night_light;
@@ -35,7 +34,7 @@ pub use appearance::{Appearance, AutoDark, BlurSurface, ColorScheme, blurs};
 pub use applets::{
     Applet, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig, Chip as SystemMonitorChip,
     Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
-    Common as AppletCommon, Display as DisplayAppletConfig, Exec as ExecAppletConfig, FirstDay,
+    Common as AppletCommon, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
     Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
@@ -57,10 +56,9 @@ pub use lock::{
     Background as LockBackground, Lock, Privacy as LockPrivacy, Session as LockSession,
     SessionAction as LockSessionAction,
 };
-pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
 pub use network::Network as NetworkSettings;
-pub use night_light::{CLOCK, NightLight, Schedule, parse_clock};
+pub use night_light::{CLOCK, MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
@@ -79,7 +77,6 @@ pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 pub struct Config {
     pub appearance: Appearance,
     pub regional: Regional,
-    pub monitors: Monitors,
     pub geolocation: Geolocation,
     pub bluetooth: Bluetooth,
     pub printing: Printing,
@@ -108,12 +105,47 @@ pub struct Config {
     pub applets: BTreeMap<String, Applet>,
 }
 
+impl Config {
+    pub fn validate(&self) -> Vec<crate::ConfigError> {
+        let mut problems = Vec::new();
+        let mut report = |message| problems.push(crate::ConfigError::Schema { message });
+        if let (Some(start), Some(end)) = (&self.night_light.start_time, &self.night_light.end_time)
+            && let (Ok(start), Ok(end)) = (parse_clock(start), parse_clock(end))
+            && start == end
+        {
+            report("night-light.start-time and night-light.end-time must differ".to_owned());
+        }
+        for (name, profile) in [
+            ("ac", &self.idle.profiles.ac),
+            ("battery", &self.idle.profiles.battery),
+        ] {
+            let mut timeouts = std::collections::BTreeSet::new();
+            for (index, listener) in profile.listeners.iter().enumerate() {
+                if !timeouts.insert(listener.timeout) {
+                    report(format!(
+                        "idle.profiles.{name}.listeners[{index}].timeout: duplicate timeout {}",
+                        listener.timeout
+                    ));
+                }
+                if listener.on_idle.trim().is_empty() {
+                    report(format!(
+                        "idle.profiles.{name}.listeners[{index}].on-idle: command is empty"
+                    ));
+                }
+            }
+        }
+        for message in crate::unknown_applets(self) {
+            report(message);
+        }
+        problems
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             appearance: Appearance::default(),
             regional: Regional::default(),
-            monitors: Monitors::default(),
             geolocation: Geolocation::default(),
             bluetooth: Bluetooth::default(),
             printing: Printing::default(),

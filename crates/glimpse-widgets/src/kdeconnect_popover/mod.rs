@@ -78,8 +78,6 @@ impl KdeconnectPopover {
         }
     }
 
-
-
     pub fn connect_action<F: Fn(&Self, &str, &str) + 'static>(
         &self,
         f: F,
@@ -100,8 +98,6 @@ impl KdeconnectPopover {
             glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
         )
     }
-
-
 
     fn apply_device(&self, holder: &ExpanderRow, device: &Device, actions_changed: bool) {
         holder.set_title(none_if_empty(&device.title));

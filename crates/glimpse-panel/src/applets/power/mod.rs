@@ -16,7 +16,6 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
 use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, Report, report_failure, tell, wording};
 use crate::applets::idle::keep_awake;
@@ -29,7 +28,6 @@ pub struct Power {
     idle_state: IdleProviderState,
     settings: PowerAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     twelve: bool,
     spec: Vec<IndicatorSpec>,
     icon: Option<(String, gio::Icon)>,
@@ -63,7 +61,6 @@ impl Power {
             notifications,
             settings: PowerAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             twelve: false,
             spec: Vec::new(),
             icon: None,
@@ -190,7 +187,6 @@ impl Power {
             keep_awake::deadline(&self.idle_state.inhibitors, &self.idle_state.hold_expiries)
                 .map(|(_, seconds)| seconds),
         );
-        shown.set_footer(self.footer.label().as_deref());
     }
 }
 
@@ -202,7 +198,7 @@ impl Applet for Power {
         self.settings = settings.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
         self.twelve = config.regional.twelve_hour();
-        self.footer.configure(&config.common);
+
         ctx.interval(Duration::from_secs(60));
         self.refresh();
     }
@@ -336,11 +332,6 @@ impl Applet for Power {
                 gettext("The battery service is unavailable."),
                 wording,
             );
-        });
-
-        shown.connect_footer_activated({
-            let footer = self.footer.clone();
-            move |_| footer.run()
         });
 
         self.shown.set(Some(&shown));
