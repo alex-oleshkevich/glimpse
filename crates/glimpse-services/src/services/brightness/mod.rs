@@ -916,7 +916,27 @@ impl Service for Brightness {
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Enumerated(entries)) => {
-                self.sources = sources_from(entries);
+                let mut sources = sources_from(entries);
+                for source in &mut sources {
+                    if let Some(previous) = self
+                        .sources
+                        .iter_mut()
+                        .find(|previous| previous.id == source.id && previous.inflight)
+                    {
+                        source.confirmed = previous.confirmed;
+                        source.current = previous.current;
+                        source.inflight = true;
+                        source.queued = previous.queued.take();
+                    }
+                }
+                for vanished in &mut self.sources {
+                    if let Some((_, reply)) = vanished.queued.take() {
+                        let _ = reply.send(Err(CommandError::Unavailable(
+                            "the backlight source went away".to_owned(),
+                        )));
+                    }
+                }
+                self.sources = sources;
                 self.publish();
             }
             Input::Event(Event::WriteSettled { id, value, failure }) => {
