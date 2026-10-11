@@ -240,7 +240,7 @@ async fn losing_the_location_invalidates_the_phase() {
 }
 
 #[tokio::test]
-async fn the_next_change_is_scheduled_and_a_resume_re_evaluates() {
+async fn the_next_change_is_scheduled_beside_the_tick_and_a_resume() {
     let (mut solar, ctx, state_rx, _inbox) = started().await;
 
     solar
@@ -256,7 +256,10 @@ async fn the_next_change_is_scheduled_and_a_resume_re_evaluates() {
     let keys: Vec<_> = declared.iter().map(|sub| sub.key()).collect();
     assert!(keys.contains(&&Watch::Change(next)));
     assert!(keys.contains(&&Watch::Resume));
-    assert!(!keys.contains(&&Watch::Tick));
+    assert!(
+        keys.contains(&&Watch::Tick),
+        "a clock set back after boot moves no deadline, so the tick stays"
+    );
 }
 
 #[test]

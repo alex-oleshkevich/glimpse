@@ -96,8 +96,8 @@ impl Service for Solar {
         Self::State::default()
     }
 
-    /// The phase is re-evaluated at its next change, on resume, and every tick where no change is
-    /// due — and only once a location can produce one.
+    /// The phase is re-evaluated at its next change, on resume, and every tick, since a clock set
+    /// back after boot moves no deadline — and only once a location can produce one.
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut declared = vec![Sub::watch(
             Watch::Location,
@@ -106,10 +106,12 @@ impl Service for Solar {
             Event::Update(None),
         )];
         if self.coordinates.is_some() {
-            declared.push(match self.next_change {
-                Some(at) => Sub::deadline(Watch::Change(at), at, Event::Tick),
-                None => Sub::interval(Watch::Tick, TICK, |_ctx| async { Event::Tick }),
-            });
+            declared.push(Sub::interval(Watch::Tick, TICK, |_ctx| async {
+                Event::Tick
+            }));
+            if let Some(at) = self.next_change {
+                declared.push(Sub::deadline(Watch::Change(at), at, Event::Tick));
+            }
             declared.push(Sub::stream(Watch::Resume, resumes));
         }
         declared
