@@ -62,92 +62,34 @@ impl Applet for Printing {
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = PrintingPopover::new();
 
-        shown.connect_cancelled({
-            let printing = self.printing.clone();
-            let notifications = self.notifications.clone();
-            let opener = seat.opener();
-            let pending = Rc::clone(&self.pending);
-            let popover = shown.downgrade();
-            move |_, id| {
-                let Ok(id) = id.parse::<u32>() else {
-                    return;
-                };
-                if !pending.borrow_mut().insert(id) {
-                    return;
-                }
-                opener.wake();
-                let command = printing.clone();
-                act(
-                    &notifications,
-                    "printing.cancel_job",
-                    gettext("Could not cancel the print job"),
-                    &opener,
-                    &popover,
-                    &pending,
-                    id,
-                    printing.clone(),
-                    async move { command.cancel_job(id).await },
-                );
-            }
-        });
-
-        shown.connect_paused({
-            let printing = self.printing.clone();
-            let notifications = self.notifications.clone();
-            let opener = seat.opener();
-            let pending = Rc::clone(&self.pending);
-            let popover = shown.downgrade();
-            move |_, id| {
-                let Ok(id) = id.parse::<u32>() else {
-                    return;
-                };
-                if !pending.borrow_mut().insert(id) {
-                    return;
-                }
-                opener.wake();
-                let command = printing.clone();
-                act(
-                    &notifications,
-                    "printing.pause_job",
-                    gettext("Could not pause the print job"),
-                    &opener,
-                    &popover,
-                    &pending,
-                    id,
-                    printing.clone(),
-                    async move { command.pause_job(id).await },
-                );
-            }
-        });
-
-        shown.connect_resumed({
-            let printing = self.printing.clone();
-            let notifications = self.notifications.clone();
-            let opener = seat.opener();
-            let pending = Rc::clone(&self.pending);
-            let popover = shown.downgrade();
-            move |_, id| {
-                let Ok(id) = id.parse::<u32>() else {
-                    return;
-                };
-                if !pending.borrow_mut().insert(id) {
-                    return;
-                }
-                opener.wake();
-                let command = printing.clone();
-                act(
-                    &notifications,
-                    "printing.resume_job",
-                    gettext("Could not resume the print job"),
-                    &opener,
-                    &popover,
-                    &pending,
-                    id,
-                    printing.clone(),
-                    async move { command.resume_job(id).await },
-                );
-            }
-        });
+        shown.connect_cancelled(self.command(
+            seat,
+            &shown,
+            "printing.cancel_job",
+            gettext("Could not cancel the print job"),
+            |printing, id| async move { printing.cancel_job(id).await },
+        ));
+        shown.connect_paused(self.command(
+            seat,
+            &shown,
+            "printing.pause_job",
+            gettext("Could not pause the print job"),
+            |printing, id| async move { printing.pause_job(id).await },
+        ));
+        shown.connect_resumed(self.command(
+            seat,
+            &shown,
+            "printing.resume_job",
+            gettext("Could not resume the print job"),
+            |printing, id| async move { printing.resume_job(id).await },
+        ));
+        shown.connect_retried(self.command(
+            seat,
+            &shown,
+            "printing.retry_job",
+            gettext("Could not retry the print job"),
+            |printing, id| async move { printing.retry_job(id).await },
+        ));
 
         let footer = self.footer.clone();
         shown.connect_footer_activated(move |_| footer.run());
@@ -222,6 +164,45 @@ impl Printing {
             footer: Footer::default(),
             pending: Rc::new(RefCell::new(HashSet::new())),
             shown: glib::WeakRef::new(),
+        }
+    }
+
+    fn command<F, Fut>(
+        &self,
+        seat: &Seat,
+        shown: &PrintingPopover,
+        operation: &'static str,
+        summary: String,
+        call: F,
+    ) -> impl Fn(&PrintingPopover, &str) + 'static
+    where
+        F: Fn(PrintingHandle, u32) -> Fut + 'static,
+        Fut: std::future::Future<Output = Result<(), PrintingError>> + 'static,
+    {
+        let printing = self.printing.clone();
+        let notifications = self.notifications.clone();
+        let opener = seat.opener();
+        let pending = Rc::clone(&self.pending);
+        let popover = shown.downgrade();
+        move |_, id| {
+            let Ok(id) = id.parse::<u32>() else {
+                return;
+            };
+            if !pending.borrow_mut().insert(id) {
+                return;
+            }
+            opener.wake();
+            act(
+                &notifications,
+                operation,
+                summary.clone(),
+                &opener,
+                &popover,
+                &pending,
+                id,
+                printing.clone(),
+                call(printing.clone(), id),
+            );
         }
     }
 

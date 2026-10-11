@@ -117,6 +117,8 @@ reflecting the fetch clock.
 
 **printing** — CUPS over IPP, polled rather than mirrored, since the protocol has no subscription
 surviving a client restart, and `Cancel-Job`/`Release-Job` on an already-finished job are not failures.
+Job commands to the local CUPS go over `/run/cups/cups.sock` with `Authorization: PeerCred`, because
+`@OWNER` policies authenticate only there and refuse the same request over TCP with 401.
 
 **mpris** — both sources subscribe before they read, so nothing is missed between the two, and there
 is no progress timer since the payload carries `position_us`, `position_at` and `rate`.

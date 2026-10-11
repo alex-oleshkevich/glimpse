@@ -226,3 +226,55 @@ fn the_device_uri_is_read_and_capped() {
     );
     assert!(parse_printers(&nameless)[0].device_uri.is_empty());
 }
+
+fn job_with(pairs: Vec<(&str, IppValue)>) -> PrintJob {
+    let mut all = vec![("job-id", IppValue::Integer(28))];
+    all.extend(pairs);
+    parse_jobs(&group(DelimiterTag::JobAttributes, all)).remove(0)
+}
+
+#[test]
+fn a_job_reason_prefers_the_printer_message_over_the_keyword() {
+    let job = job_with(vec![
+        (
+            "job-printer-state-message",
+            IppValue::TextWithoutLanguage(
+                "Waiting for printer to become available."
+                    .try_into()
+                    .expect("text"),
+            ),
+        ),
+        (
+            "job-state-reasons",
+            IppValue::Keyword("printer-stopped".try_into().expect("a keyword")),
+        ),
+    ]);
+    assert_eq!(job.reason, "Waiting for printer to become available.");
+}
+
+#[test]
+fn a_blank_message_falls_back_to_the_first_real_keyword() {
+    let job = job_with(vec![
+        (
+            "job-printer-state-message",
+            IppValue::TextWithoutLanguage("  ".try_into().expect("text")),
+        ),
+        (
+            "job-state-reasons",
+            IppValue::Array(vec![
+                IppValue::Keyword("none".try_into().expect("a keyword")),
+                IppValue::Keyword("printer-stopped".try_into().expect("a keyword")),
+            ]),
+        ),
+    ]);
+    assert_eq!(job.reason, "printer-stopped");
+}
+
+#[test]
+fn a_job_with_only_none_has_no_reason() {
+    let job = job_with(vec![(
+        "job-state-reasons",
+        IppValue::Keyword("none".try_into().expect("a keyword")),
+    )]);
+    assert_eq!(job.reason, "");
+}

@@ -21,13 +21,15 @@ use super::{Config, Event, JobState, PrintJob, Printer, PrinterState, Printing, 
 const NAME_CAP: usize = 128;
 const NOTIFIER_INTERFACE: &str = "org.cups.cupsd.Notifier";
 const NOTIFIER_PATH: &str = "/org/cups/cupsd/Notifier";
-const REQUESTED_JOB_ATTRIBUTES: [&str; 6] = [
+const REQUESTED_JOB_ATTRIBUTES: [&str; 8] = [
     "job-id",
     "job-name",
     "job-state",
     "job-printer-uri",
     "job-impressions",
     "job-impressions-completed",
+    "job-printer-state-message",
+    "job-state-reasons",
 ];
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
@@ -205,6 +207,15 @@ fn parse_jobs(attributes: &IppAttributes) -> Vec<PrintJob> {
             };
             let pages_completed = u32_attr(group, "job-impressions-completed");
             let pages_total = u32_attr(group, "job-impressions");
+            let reason = str_attr(group, "job-printer-state-message")
+                .filter(|message| !message.trim().is_empty())
+                .or_else(|| {
+                    str_list_attr(group, "job-state-reasons")
+                        .into_iter()
+                        .find(|reason| reason != "none")
+                })
+                .map(|reason| cap(&reason))
+                .unwrap_or_default();
 
             Some(PrintJob {
                 id,
@@ -213,6 +224,7 @@ fn parse_jobs(attributes: &IppAttributes) -> Vec<PrintJob> {
                 state,
                 pages_completed,
                 pages_total,
+                reason,
             })
         })
         .collect()

@@ -46,6 +46,7 @@ fn active_job() -> PrintJob {
         state: JobState::Processing,
         pages_completed: None,
         pages_total: Some(3),
+        reason: String::new(),
     }
 }
 
@@ -111,6 +112,7 @@ async fn a_completed_only_job_list_keeps_the_idle_cadence() {
         state: JobState::Completed,
         pages_completed: Some(3),
         pages_total: Some(3),
+        reason: String::new(),
     };
 
     service

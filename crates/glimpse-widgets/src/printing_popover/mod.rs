@@ -94,6 +94,14 @@ impl PrintingPopover {
         )
     }
 
+    pub fn connect_retried<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "retried",
+            false,
+            glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
+        )
+    }
+
     fn render_jobs(&self) {
         let imp = self.imp();
         #[cfg(test)]
@@ -133,6 +141,7 @@ impl PrintingPopover {
         details.append(&gtk4::Box::new(gtk4::Orientation::Vertical, 0));
         details.append(&self.build_action(&job.id, gettext("Pause"), "paused"));
         details.append(&self.build_action(&job.id, gettext("Resume"), "resumed"));
+        details.append(&self.build_action(&job.id, gettext("Retry"), "retried"));
         let cancel = self.build_action(&job.id, gettext("Cancel"), "cancelled");
         cancel.upcast_ref::<Row>().set_tone(RowTone::Destructive);
         details.append(&cancel);
@@ -166,7 +175,7 @@ fn dress_job(row: &ExpanderRow, job: &Job) {
             Fact::new(gettext("Status"), job_status(job)),
         ],
     );
-    let shown = [job.pausable, job.resumable, job.cancellable];
+    let shown = [job.pausable, job.resumable, job.retryable, job.cancellable];
     let mut child = facts.next_sibling();
     for visible in shown {
         let Some(action) = child else {
