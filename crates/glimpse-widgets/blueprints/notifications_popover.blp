@@ -31,10 +31,15 @@ template $NotificationsPopover: Gtk.Widget {
         visible: false;
       }
 
-      $Placeholder empty {
-        icon-name: "preferences-system-notifications-symbolic";
-        title: _("Nothing new");
-        description: _("You are all caught up.");
+      Gtk.Revealer empty_reveal {
+        transition-type: slide_down;
+        reveal-child: true;
+
+        $Placeholder empty {
+          icon-name: "preferences-system-notifications-symbolic";
+          title: _("Nothing new");
+          description: _("You are all caught up.");
+        }
       }
     }
 

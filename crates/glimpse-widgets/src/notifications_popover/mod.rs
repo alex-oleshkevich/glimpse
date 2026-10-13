@@ -47,6 +47,7 @@ impl NotificationsPopover {
             return;
         }
         imp.held.replace(groups.to_vec());
+        self.settle_chrome(groups);
         if imp.fading.get() {
             return;
         }
@@ -63,18 +64,25 @@ impl NotificationsPopover {
                 section.set_transition_duration(crate::duration_ms());
                 section.set_reveal_child(false);
             }
-            let leaving = leaving
+            let faded = leaving
                 .iter()
                 .filter_map(|section| section.child())
                 .collect();
             crate::fade_out(
                 self,
-                leaving,
+                faded,
                 glib::clone!(
                     #[weak(rename_to = popover)]
                     self,
                     move || {
-                        popover.imp().fading.set(false);
+                        let imp = popover.imp();
+                        imp.fading.set(false);
+                        imp.sections
+                            .borrow_mut()
+                            .retain(|(_, section)| !leaving.contains(section));
+                        for section in leaving {
+                            discard(section);
+                        }
                         popover.apply();
                     }
                 ),
@@ -111,10 +119,24 @@ impl NotificationsPopover {
         );
         drop(sections);
 
-        let anything = groups.iter().any(|group| !group.notifications.is_empty());
-        imp.groups.set_visible(anything);
-        imp.empty.set_visible(!anything);
-        imp.clear.set_visible(anything);
+        imp.groups.set_visible(has_any(&groups));
+        self.settle_chrome(&groups);
+    }
+
+    fn settle_chrome(&self, groups: &[Group]) {
+        let imp = self.imp();
+        let anything = has_any(groups);
+        if imp.clear.get_visible() != anything {
+            imp.clear.set_visible(anything);
+        }
+        let reveal = &imp.empty_reveal;
+        if reveal.reveals_child() == anything {
+            reveal.set_transition_duration(crate::duration_ms());
+            if !anything {
+                reveal.set_visible(true);
+            }
+            reveal.set_reveal_child(!anything);
+        }
     }
 
     fn section(&self, key: &str) -> gtk4::Revealer {
@@ -307,4 +329,29 @@ fn descendant_with_class<T: IsA<gtk4::Widget>>(
         child = node.next_sibling();
     }
     None
+}
+
+fn has_any(groups: &[Group]) -> bool {
+    groups.iter().any(|group| !group.notifications.is_empty())
+}
+
+fn discard(section: gtk4::Revealer) {
+    section.set_opacity(0.0);
+    if !section.is_child_revealed() {
+        if section.parent().is_some() {
+            section.unparent();
+        }
+        return;
+    }
+    section.connect_child_revealed_notify(|section| {
+        if section.is_child_revealed() {
+            return;
+        }
+        let section = section.clone();
+        glib::idle_add_local_once(move || {
+            if section.parent().is_some() {
+                section.unparent();
+            }
+        });
+    });
 }
