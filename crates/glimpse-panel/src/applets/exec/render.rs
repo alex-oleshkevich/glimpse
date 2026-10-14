@@ -195,19 +195,9 @@ const LAUNCHERS: [&str; 11] = [
     "application/x-flatpakref",
 ];
 
-pub fn openable(
-    path: &std::path::Path,
-    writable: &[std::path::PathBuf],
-) -> Result<(std::path::PathBuf, String), &'static str> {
+pub fn openable(path: &std::path::Path) -> Result<(std::path::PathBuf, String), &'static str> {
     use std::os::unix::fs::PermissionsExt;
     let path = std::fs::canonicalize(path).map_err(|_| "missing")?;
-    if writable
-        .iter()
-        .filter_map(|root| std::fs::canonicalize(root).ok())
-        .any(|root| path.starts_with(root))
-    {
-        return Err("written by the applet");
-    }
     let metadata = std::fs::metadata(&path).map_err(|_| "missing")?;
     let content_type = gio::File::for_path(&path)
         .query_info(

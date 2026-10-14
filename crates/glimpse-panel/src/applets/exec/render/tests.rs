@@ -94,15 +94,13 @@ fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
 }
 
 #[test]
-fn files_the_applet_could_have_written_or_run_stay_closed() {
+fn files_that_run_programs_stay_closed() {
     use std::os::unix::fs::PermissionsExt;
     let root = std::env::temp_dir().join(format!("glimpse-open-file-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).expect("dir");
     let state = root.join("state");
     std::fs::create_dir(&state).expect("state");
-    let planted = state.join("notes.txt");
-    std::fs::write(&planted, "hi").expect("planted");
     let outside = root.as_path().join("notes.txt");
     std::fs::write(&outside, "hi").expect("outside");
     let script = root.as_path().join("run.sh");
@@ -114,34 +112,22 @@ fn files_the_applet_could_have_written_or_run_stay_closed() {
     std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).expect("mode");
     let link = state.join("escape");
     std::os::unix::fs::symlink(&outside, &link).expect("link");
-    let writable = vec![state.clone()];
 
     let canonical = outside.canonicalize().expect("outside");
     assert_eq!(
-        openable(&outside, &writable),
+        openable(&outside),
         Ok((canonical.clone(), "text/plain".to_owned()))
     );
-    assert!(openable(root.as_path(), &writable).is_ok());
-    assert_eq!(
-        openable(&link, &writable).map(|(path, _)| path),
-        Ok(canonical)
-    );
+    assert!(openable(root.as_path()).is_ok());
+    assert_eq!(openable(&link).map(|(path, _)| path), Ok(canonical));
     let disguised = root.as_path().join("notes");
     let mut elf = b"\x7fELF\x02\x01\x01".to_vec();
     elf.resize(64, 0);
     std::fs::write(&disguised, elf).expect("disguised");
-    assert_eq!(openable(&disguised, &writable), Err("launches programs"));
-    assert_eq!(openable(&planted, &writable), Err("written by the applet"));
-    assert_eq!(
-        openable(&state.join("../state/notes.txt"), &writable),
-        Err("written by the applet")
-    );
-    assert_eq!(openable(&tool, &writable), Err("executable"));
-    assert_eq!(openable(&script, &writable), Err("launches programs"));
-    assert_eq!(openable(&desktop, &writable), Err("launches programs"));
-    assert_eq!(
-        openable(&root.as_path().join("missing"), &writable),
-        Err("missing")
-    );
+    assert_eq!(openable(&disguised), Err("launches programs"));
+    assert_eq!(openable(&tool), Err("executable"));
+    assert_eq!(openable(&script), Err("launches programs"));
+    assert_eq!(openable(&desktop), Err("launches programs"));
+    assert_eq!(openable(&root.as_path().join("missing")), Err("missing"));
     std::fs::remove_dir_all(&root).expect("cleanup");
 }

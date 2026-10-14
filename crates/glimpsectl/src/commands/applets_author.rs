@@ -182,16 +182,8 @@ pub fn applets_new_with_catalog(
         ))
         .print()?;
     println!();
-    config_section(&id, &dir, false)?.print()
-}
-
-fn config_section(id: &str, dir: &Path, placed: bool) -> Result<Section> {
-    let path = serde_json::to_string(&dir.display().to_string())?;
-    let section = Section::new("config.toml").with(format!(
-        "[applets.\"{id}\"]\nsandbox = {{ read = [{path}], write = [{path}] }}"
-    ));
-    Ok(match placed {
-        true => section,
-        false => section.with_note(&format!("then add it to a panel zone: center = [\"{id}\"]")),
-    })
+    Section::new("config.toml")
+        .with(format!("[applets.\"{id}\"]\napplet = \"{id}\""))
+        .with_note(&format!("then add it to a panel zone: center = [\"{id}\"]"))
+        .print()
 }

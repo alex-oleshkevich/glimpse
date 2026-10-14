@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -12,6 +15,7 @@ import {
   restoreConsole,
   session,
   setEmit,
+  socketIo,
   standardIo,
   stdinLines,
 } from "./reconciler.ts";
@@ -882,6 +886,86 @@ standardIo().writeLine(JSON.stringify({ t: "commit", ops: [{ op: "set", text: "x
     const message = JSON.parse(lines[0]);
     assert(message.t === "commit" && message.ops[0].text.length === 200_000,
       "incomplete commit");
+  });
+
+  await t.test("socket io round trips lines and ends on close", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
+    const socketPath = path.join(dir, "a.sock");
+    const received: string[] = [];
+    const server = net.createServer((conn) => {
+      conn.setEncoding("utf8");
+      conn.on("data", (data: string) => {
+        received.push(...data.split("\n").filter(Boolean));
+        if (received.length === 1) conn.write(`${hostLine()}\n`);
+        if (received.length === 2) conn.end();
+      });
+    });
+    server.listen(socketPath);
+    await once(server, "listening");
+    const exit = mockExit(false);
+    try {
+      await session(createElement(Indicator, { text: "s" }), socketIo(socketPath));
+    } finally {
+      exit.restore();
+      server.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    assert(received[0] === '{"t":"hello","v":1}', received.join("\n"));
+    assert(received.length >= 2 && JSON.parse(received[1]).t === "commit",
+      received.join("\n"));
+    assert(exit.code() === null, `exit ${exit.code()}`);
+  });
+
+  await t.test("socket io exits 0 when the socket is missing or refused", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
+    const stale = path.join(dir, "stale.sock");
+    const holder = net.createServer().listen(stale);
+    await once(holder, "listening");
+    holder.close();
+    await once(holder, "close");
+    fs.writeFileSync(stale, "");
+    for (const target of [path.join(dir, "none.sock"), stale]) {
+      const exit = mockExit(false);
+      try {
+        await session(createElement(Indicator), socketIo(target));
+      } finally {
+        exit.restore();
+      }
+      assert(exit.code() === 0, `${target}: exit ${exit.code()}`);
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  await t.test("run uses the socket when GLIMPSE_APPLET_SOCKET is set", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
+    const socketPath = path.join(dir, "r.sock");
+    const received: string[] = [];
+    const server = net.createServer((conn) => {
+      conn.setEncoding("utf8");
+      conn.on("data", (data: string) => {
+        received.push(...data.split("\n").filter(Boolean));
+        conn.end();
+      });
+    });
+    server.listen(socketPath);
+    await once(server, "listening");
+    const exit = mockExit(true);
+    process.env.GLIMPSE_APPLET_SOCKET = socketPath;
+    try {
+      await run(createElement(Indicator));
+      throw new Error("run returned without exiting");
+    } catch (error) {
+      assert(
+        error instanceof Error && error.message === "node-exit:0",
+        String(error),
+      );
+    } finally {
+      delete process.env.GLIMPSE_APPLET_SOCKET;
+      exit.restore();
+      server.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    assert(received[0] === '{"t":"hello","v":1}', received.join("\n"));
   });
 
   await t.test("stdin batches lines received in one tick", async () => {

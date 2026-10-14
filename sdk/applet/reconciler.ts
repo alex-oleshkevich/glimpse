@@ -1,6 +1,7 @@
 import fs from "node:fs";
+import { createConnection } from "node:net";
 import { createInterface } from "node:readline";
-import type { Readable } from "node:stream";
+import { PassThrough, type Readable } from "node:stream";
 import { inspect } from "node:util";
 import Reconciler from "react-reconciler";
 import { DefaultEventPriority } from "react-reconciler/constants.js";
@@ -747,6 +748,25 @@ export async function* stdinLines(input: Readable = process.stdin): AsyncIterabl
   } finally {
     reader.close();
   }
+}
+
+export function socketIo(path: string): Io {
+  const socket = createConnection(path);
+  const input = new PassThrough();
+  socket.pipe(input);
+  socket.on("error", (error: NodeJS.ErrnoException) => {
+    const gone = error.code === "ENOENT" || error.code === "ECONNREFUSED";
+    if (!gone) console.error(error);
+    input.end();
+    process.exit(gone ? 0 : 1);
+  });
+  socket.on("close", () => input.end());
+  return {
+    writeLine(line: string) {
+      if (!socket.destroyed) socket.write(`${line}\n`);
+    },
+    lines: stdinLines(input),
+  };
 }
 
 export function standardIo(): Io {

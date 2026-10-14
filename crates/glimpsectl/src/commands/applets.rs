@@ -4,9 +4,11 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Local, Utc};
-use glimpse_config::{AppletKind, AppletSandbox, Config, is_desktop_id, resolve_applet};
-use glimpse_dbus::systemd1::{Systemd1ManagerProxy, Systemd1ScopeProxy, Systemd1UnitEntry};
-use glimpse_services::{DesktopCatalog, ExecCatalog, ExecEntry, exec_unit_pattern};
+use glimpse_config::{AppletKind, Config, is_desktop_id, resolve_applet};
+use glimpse_dbus::systemd1::{
+    Systemd1ManagerProxy, Systemd1ServiceProxy, Systemd1UnitEntry, Systemd1UnitProxy,
+};
+use glimpse_services::{DesktopCatalog, ExecCatalog, ExecEntry};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use zbus::Connection;
@@ -21,7 +23,6 @@ pub struct Placement {
     pub zone: String,
     pub panel: usize,
     pub options: Map<String, Value>,
-    pub sandbox: AppletSandbox,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,9 +49,11 @@ pub struct Desktop {
 #[derive(Serialize)]
 struct RuntimeUnit {
     unit: String,
+    slot: String,
     status: &'static str,
-    pids: Option<Vec<u32>>,
+    main_pid: Option<u32>,
     memory_current: Option<u64>,
+    restarts: Option<u32>,
     active_enter_timestamp: Option<u64>,
 }
 
@@ -90,7 +93,6 @@ pub fn placements(config: &Config) -> BTreeMap<String, Vec<Placement>> {
                         zone: zone.to_owned(),
                         panel,
                         options: exec.options,
-                        sandbox: exec.sandbox,
                     });
             }
         }
@@ -174,13 +176,45 @@ async fn manager(connection: &Connection) -> Result<Systemd1ManagerProxy<'_>> {
     Ok(proxy)
 }
 
-async fn active_units(
+const UNIT_PATTERN: &str = "app-glimpse-*.service";
+
+fn unescape(component: &str) -> String {
+    component.replace("\\x2d", "-")
+}
+
+pub fn parse_unit(name: &str) -> Option<(String, String)> {
+    let body = name
+        .strip_prefix("app-glimpse-")?
+        .strip_suffix(".service")?;
+    let mut parts = body.split('-');
+    let (_panel, applet, slot, count) =
+        (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+    if parts.next().is_some()
+        || count.is_empty()
+        || !count.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    Some((unescape(applet), unescape(slot)))
+}
+
+async fn active_units(manager: &Systemd1ManagerProxy<'_>) -> Result<Vec<Systemd1UnitEntry>> {
+    within(manager.list_units_by_patterns(&["active", "activating"], &[UNIT_PATTERN])).await
+}
+
+async fn applet_units(
     manager: &Systemd1ManagerProxy<'_>,
     id: &str,
-) -> Result<Vec<Systemd1UnitEntry>> {
+) -> Result<Vec<(Systemd1UnitEntry, String)>> {
     valid_id(id)?;
-    let pattern = exec_unit_pattern(id);
-    within(manager.list_units_by_patterns(&["active", "activating"], &[&pattern])).await
+    Ok(active_units(manager)
+        .await?
+        .into_iter()
+        .filter_map(|entry| {
+            let (applet, slot) = parse_unit(&entry.0)?;
+            (applet == id).then_some((entry, slot))
+        })
+        .collect())
 }
 
 async fn session() -> Result<Connection> {
@@ -191,35 +225,19 @@ pub async fn applets_list(config_path: Option<PathBuf>, json: bool) -> Result<()
     let config = glimpse_config::load(config_path.as_deref())?;
     let placed = placements(&config);
     let installed = DesktopCatalog.installed();
-    let ids: BTreeSet<_> = installed
-        .iter()
-        .map(|(id, _)| id.clone())
-        .chain(placed.keys().cloned())
-        .collect();
     let mut running = BTreeSet::new();
     let mut unavailable = false;
-    if let Ok(connection) = session().await {
-        match manager(&connection).await {
-            Ok(manager) => {
-                for id in &ids {
-                    if !is_desktop_id(id) {
-                        continue;
-                    }
-                    match active_units(&manager, id).await {
-                        Ok(units) if !units.is_empty() => {
-                            running.insert(id.clone());
-                        }
-                        Ok(_) => {}
-                        Err(_) => {
-                            unavailable = true;
-                        }
-                    }
+    match session().await {
+        Ok(connection) => match manager(&connection).await {
+            Ok(manager) => match active_units(&manager).await {
+                Ok(units) => {
+                    running.extend(units.iter().filter_map(|unit| Some(parse_unit(&unit.0)?.0)));
                 }
-            }
+                Err(_) => unavailable = true,
+            },
             Err(_) => unavailable = true,
-        }
-    } else {
-        unavailable = true;
+        },
+        Err(_) => unavailable = true,
     }
     let rows = rows(installed, &placed, &running);
     if json {
@@ -309,28 +327,6 @@ fn config_text(placed: &[Placement]) -> String {
                     ));
                 }
             }
-            let grants = |paths: &[String]| {
-                if paths.is_empty() {
-                    "none".to_owned()
-                } else {
-                    paths
-                        .iter()
-                        .map(|path| safe(path))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                }
-            };
-            lines.push(format!(
-                "  sandbox: read {}; write {}; network {}{}",
-                grants(&place.sandbox.read),
-                grants(&place.sandbox.write),
-                if place.sandbox.network { "yes" } else { "no" },
-                if place.sandbox.unconfined {
-                    "; unconfined"
-                } else {
-                    ""
-                }
-            ));
             lines.join("\n")
         })
         .collect::<Vec<_>>()
@@ -361,16 +357,11 @@ fn runtime_text(runtime: &Runtime) -> String {
     };
     for unit in &runtime.units {
         let _ = write!(text, "\n{}  {}", safe(&unit.unit), unit.status);
-        if let Some(pids) = &unit.pids {
-            let pids = if pids.is_empty() {
-                "none".to_owned()
-            } else {
-                pids.iter()
-                    .map(u32::to_string)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            };
-            let _ = write!(text, "  pid {pids}");
+        if let Some(pid) = unit.main_pid {
+            let _ = write!(text, "  pid {pid}");
+        }
+        if let Some(restarts) = unit.restarts {
+            let _ = write!(text, "  restarts {restarts}");
         }
         if let Some(memory) = unit.memory_current {
             let _ = write!(text, "  memory {}", size_text(memory));
@@ -390,51 +381,54 @@ fn runtime_text(runtime: &Runtime) -> String {
     text
 }
 
+async fn unit_info(
+    connection: &Connection,
+    path: zbus::zvariant::OwnedObjectPath,
+) -> Result<(u32, u64, u32, u64)> {
+    let service = within(
+        Systemd1ServiceProxy::builder(connection)
+            .path(path.clone())?
+            .cache_properties(CacheProperties::No)
+            .build(),
+    )
+    .await?;
+    let unit = within(
+        Systemd1UnitProxy::builder(connection)
+            .path(path)?
+            .cache_properties(CacheProperties::No)
+            .build(),
+    )
+    .await?;
+    Ok((
+        within(service.main_pid()).await?,
+        within(service.memory_current()).await?,
+        within(service.n_restarts()).await?,
+        within(unit.active_enter_timestamp()).await?,
+    ))
+}
+
 async fn runtime(connection: &Connection, id: &str) -> Result<Runtime> {
     let manager = manager(connection).await?;
     let mut units = Vec::new();
-    for entry in active_units(&manager, id).await? {
+    for (entry, slot) in applet_units(&manager, id).await? {
         let name = entry.0;
-        let path = entry.6;
-        let info = async {
-            let processes = within(manager.get_unit_processes(&name)).await?;
-            let scope = within(
-                Systemd1ScopeProxy::builder(connection)
-                    .path(path.clone())?
-                    .cache_properties(CacheProperties::No)
-                    .build(),
-            )
-            .await?;
-            let memory_current = within(scope.memory_current()).await?;
-            let unit = within(zbus::Proxy::new(
-                connection,
-                "org.freedesktop.systemd1",
-                path,
-                "org.freedesktop.systemd1.Unit",
-            ))
-            .await?;
-            let active_enter_timestamp =
-                within(unit.get_property::<u64>("ActiveEnterTimestamp")).await?;
-            Ok::<_, anyhow::Error>((
-                processes.into_iter().map(|(_, pid, _)| pid).collect(),
-                memory_current,
-                active_enter_timestamp,
-            ))
-        }
-        .await;
-        units.push(match info {
-            Ok((pids, memory_current, active_enter_timestamp)) => RuntimeUnit {
+        units.push(match unit_info(connection, entry.6).await {
+            Ok((main_pid, memory_current, restarts, active_enter_timestamp)) => RuntimeUnit {
                 unit: name,
+                slot,
                 status: "running",
-                pids: Some(pids),
-                memory_current: Some(memory_current),
+                main_pid: Some(main_pid),
+                memory_current: Some(memory_current).filter(|bytes| *bytes != u64::MAX),
+                restarts: Some(restarts),
                 active_enter_timestamp: Some(active_enter_timestamp),
             },
             Err(_) => RuntimeUnit {
                 unit: name,
+                slot,
                 status: "unavailable",
-                pids: None,
+                main_pid: None,
                 memory_current: None,
+                restarts: None,
                 active_enter_timestamp: None,
             },
         });
@@ -485,10 +479,10 @@ pub async fn applets_restart(id: String) -> Result<()> {
     valid_id(&id)?;
     let connection = session().await.context("runtime: unavailable")?;
     let manager = manager(&connection).await.context("runtime: unavailable")?;
-    let units = active_units(&manager, &id).await?;
-    anyhow::ensure!(!units.is_empty(), "no running scopes for {id}");
-    for unit in units {
-        within(manager.kill_unit(&unit.0, "all", 15)).await?;
+    let units = applet_units(&manager, &id).await?;
+    anyhow::ensure!(!units.is_empty(), "no running units for {id}");
+    for (unit, _) in units {
+        within(manager.kill_unit(&unit.0, "main", 15)).await?;
     }
     Ok(())
 }

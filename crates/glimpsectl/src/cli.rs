@@ -338,7 +338,7 @@ pub enum AppletsCommand {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
     },
-    #[command(about = "Stop running scopes so the panel restarts the applet")]
+    #[command(about = "Signal the applet's running units so systemd restarts them")]
     Restart {
         #[arg(value_name = "ID", help = "The applet's desktop-file id")]
         id: String,
@@ -533,14 +533,10 @@ pub struct RunArgs {
         help = "Set an applet environment variable"
     )]
     pub env: Vec<String>,
-    #[arg(long, help = "Print protocol lines on stderr")]
-    pub trace: bool,
-    #[arg(long, help = "Run without Landlock confinement")]
-    pub no_sandbox: bool,
     #[arg(
         long,
         value_name = "FILE",
-        help = "TOML with the applet's options and sandbox grants; relative grants resolve against its directory"
+        help = "TOML with the applet's options and environment"
     )]
     pub applet_config: Option<PathBuf>,
 }

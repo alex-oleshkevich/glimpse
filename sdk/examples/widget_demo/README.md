@@ -8,7 +8,7 @@ Build the local SDK first, from the repository root:
 cd sdk/applet && npm ci && npm run build
 ```
 
-`.npmrc` (`install-links=true`) copies that build in so the sandbox can read it.
+`.npmrc` (`install-links=true`) copies that build in.
 
 From this directory:
 

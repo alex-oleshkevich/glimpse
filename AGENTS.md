@@ -47,8 +47,8 @@ Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `app
 - **Never add `panic = "abort"`. Never sandbox `glimpse-lock.service`**, and nothing may stop it while
   it holds the lock.
 - Mirror services follow the backend and add no policy (exceptions listed in the handbook).
-- A built-in applet renders state and sends commands; it never opens D-Bus. An exec applet reaches
-  only the names its `sandbox.dbus` grants. UI updates optimistically. A failed
+- A built-in applet renders state and sends commands; it never opens D-Bus. An exec applet runs
+  unconfined as a systemd unit. UI updates optimistically. A failed
   command is a notification, never a popover banner.
 - Mark user-facing strings with `_("…")` / `gettext`, double quotes, named `{placeholders}`.
 

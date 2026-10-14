@@ -32,7 +32,7 @@ glimpsectl applets restart me.example.Clock
 
 ## Rules
 
-`applets run` attaches an applet until Ctrl-C, loading nearby `config.toml` or the file passed to `--applet-config`; an installed id requires the flag. `applets run --dev` also restarts on source or sandbox edits and updates options live. `applets new` renders every file of `$GLIMPSE_TS_SDK_TEMPLATE_DIR`, or of `DATA_DIR/sdk/template` when it is unset, with minijinja, file names included. An installed applet's sandbox grants live in the user's config, never in its desktop entry.
+`applets run` asks the panel's `AppletHost` to run an applet as a systemd unit until Ctrl-C, passing glimpsectl's stderr as the unit's, with options and env from the nearby `config.toml` or the file passed to `--applet-config` plus `--env`; an installed id requires the flag. `applets run --dev` also calls `Restart` on source edits, updates options live, and attaches again when the env or desktop file changes. It never spawns or relays an applet. `applets new` renders every file of `$GLIMPSE_TS_SDK_TEMPLATE_DIR`, or of `DATA_DIR/sdk/template` when it is unset, with minijinja, file names included.
 
 **There are no generic commands.** Every command names one operation on one provider, with a typed
 request and a typed result, so the help text is the whole surface rather than a starting point for
@@ -63,10 +63,10 @@ probes all three concurrently, and tells a provider that is gone apart from one 
 but reports `serving = false` or fails to reply, both `degraded` with the reason.
 
 **`applets list` and `inspect` read desktop entries and placements locally**, query systemd for
-running scopes when a bus is there, and report `runtime: unavailable` when it is not. `list --json`
+running `app-glimpse-*.service` units when a bus is there, and report `runtime: unavailable` when it is not. `list --json`
 returns `{runtime, applets}`; each refused row keeps its reason in `refused`, separate from `name`.
-`inspect --json` marks a vanished runtime unit unavailable without losing its peers. `restart`
-requires a running scope and signals each one so the panel respawns it.
+`inspect --json` marks a vanished runtime unit unavailable without losing its peers. `inspect` shows `MainPID`, `MemoryCurrent`, `NRestarts` and `ActiveEnterTimestamp` per unit. `restart`
+requires a running unit and sends each one `SIGTERM` to its main process so systemd restarts it.
 
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through

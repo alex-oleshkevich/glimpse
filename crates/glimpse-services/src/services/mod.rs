@@ -92,11 +92,11 @@ pub use exec::{
     expand as exec_expand,
 };
 pub use exec::{
-    BarRequest as ExecBarRequest, BusProxy, Config as ExecConfig, Dependencies as ExecDependencies,
-    EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState, Offer as ExecOffer,
-    Origin as ExecOrigin, PROXY_PROGRAM, Pipes as ExecPipes, ProxyDir, SlotState as ExecSlotState,
-    Status as ExecStatus, UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
-    unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
+    BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,
+    DevRequest as ExecDevRequest, EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState,
+    Launcher as ExecLauncher, Origin as ExecOrigin, SlotState as ExecSlotState,
+    Status as ExecStatus, SystemdLauncher, UnitSpec as ExecUnitSpec, UnitState as ExecUnitState,
+    UserEvent as ExecUserEvent, exec_state_dir,
 };
 pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};

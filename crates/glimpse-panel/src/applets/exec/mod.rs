@@ -180,15 +180,14 @@ impl Exec {
     fn request(&self, request: &BarRequest, opener: &crate::applet::Opener) {
         match request {
             BarRequest::ClosePopover => opener.close_popover(),
-            BarRequest::OpenFile { uri, writable } => {
+            BarRequest::OpenFile { uri } => {
                 let file = gio::File::for_uri(uri);
-                let writable = writable.clone();
                 let report = self.report();
                 relm4::spawn_local(async move {
                     let Some(path) = file.path() else {
                         return;
                     };
-                    let checked = gio::spawn_blocking(move || render::openable(&path, &writable))
+                    let checked = gio::spawn_blocking(move || render::openable(&path))
                         .await
                         .unwrap_or(Err("unreadable"));
                     let (path, content_type) = match checked {
@@ -280,7 +279,6 @@ impl Exec {
             name: name.to_owned(),
             args,
             seq: None,
-            gesture: wanted,
         };
         send_event(&self.handle, self.report(), event);
     }

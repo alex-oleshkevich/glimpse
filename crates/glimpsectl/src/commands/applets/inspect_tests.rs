@@ -1,25 +1,32 @@
 use super::*;
 
 #[test]
-fn config_formats_empty_and_granted_placement() {
+fn config_formats_empty_and_placed_applets() {
     assert_eq!(config_text(&[]), "not placed");
     let place = Placement {
         instance: "clock\nmain".to_owned(),
         zone: "left".to_owned(),
         panel: 1,
         options: Map::from_iter([("label".to_owned(), Value::from("Work"))]),
-        sandbox: AppletSandbox {
-            read: vec!["/tmp/read\npath".to_owned()],
-            write: vec!["/tmp/write".to_owned()],
-            network: true,
-            unconfined: true,
-            ..AppletSandbox::default()
-        },
     };
     assert_eq!(
         config_text(&[place]),
-        "panel 1 · left · clock main\n  options: label = \"Work\"\n  sandbox: read /tmp/read path; write /tmp/write; network yes; unconfined"
+        "panel 1 · left · clock main\n  options: label = \"Work\""
     );
+}
+
+#[test]
+fn unit_names_parse_back_to_applet_and_slot() {
+    assert_eq!(
+        parse_unit(
+            "app-glimpse-me.aresa.GlimpsePanel-me.example.My\\x2dClock-left\\x2d0-3.service"
+        ),
+        Some(("me.example.My-Clock".to_owned(), "left-0".to_owned()))
+    );
+    assert_eq!(parse_unit("app-glimpse-a-b-c-x.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-1.scope"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-1.service"), None);
+    assert_eq!(parse_unit("other-a-b-c-1.service"), None);
 }
 
 #[test]
@@ -34,16 +41,20 @@ fn runtime_formats_units_with_and_without_details() {
         units: vec![
             RuntimeUnit {
                 unit: "applet\nunit".to_owned(),
+                slot: "0".to_owned(),
                 status: "running",
-                pids: Some(vec![12, 34]),
+                main_pid: Some(12),
                 memory_current: Some(1_572_864),
+                restarts: Some(2),
                 active_enter_timestamp: Some(1_700_000_000_000_000),
             },
             RuntimeUnit {
                 unit: "unavailable.service".to_owned(),
+                slot: "1".to_owned(),
                 status: "unavailable",
-                pids: None,
+                main_pid: None,
                 memory_current: None,
+                restarts: None,
                 active_enter_timestamp: None,
             },
         ],
@@ -51,7 +62,7 @@ fn runtime_formats_units_with_and_without_details() {
     assert_eq!(
         runtime_text(&runtime),
         format!(
-            "running\napplet unit  running  pid 12, 34  memory 1.5 MiB  since {since}\nunavailable.service  unavailable"
+            "running\napplet unit  running  pid 12  restarts 2  memory 1.5 MiB  since {since}\nunavailable.service  unavailable"
         )
     );
     assert_eq!(

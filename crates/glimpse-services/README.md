@@ -189,31 +189,25 @@ PipeWire**, since PipeWire is blind to raw V4L2 capture. **`app: None` is first-
 resource, and always the case for location**, since GeoClue has no per-client attribution; it takes
 no commands at all.
 
-**exec** — a slot owns a configured child or offered pipes; when the pipes end, a configured slot spawns its child again. A takeover keeps the last tree until the next applet hello and commit. The applet speaks first with
-`Hello`; every `Hello` resets its tree and advances the generation, so stale UI events cannot reach
-a reloaded applet. Placement and options changes go over its stdin without respawning it. A failed
-child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
-a row is stopped. The source resolves desktop entries and builds the sandbox off the async worker,
-spawns on that worker for PDEATHSIG in the entry's `Path`, or the desktop file's resolved directory
-without one, and Landlock-confines the child to its configured `sandbox`.
-A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unconfined` is set;
-PATH entries under the home directory receive no implicit grant. The host passes the applet's
-persistent state directory as `state` in `hello`. Stopping a child kills its
-process group and adopted scope; MemoryMax applies only when scope adoption succeeds.
-A `sandbox.dbus` grant starts one `xdg-dbus-proxy` per spawn, filtered to the granted names, and
-the child's `DBUS_SESSION_BUS_ADDRESS` points at its socket; a confined child without a grant gets
-no address. Config `env` is applied before the bus address, so it never overrides the proxy. The
-proxy lives exactly as long as the child: every stop drops it, and a panel that died leaves
-directories that the next start prunes. `sandbox.wayland` grants connect on the compositor socket
-and read-write on the GPU render nodes, never the card nodes, so the applet can run a Wayland
-program that draws on the GPU.
-**A user press or activation arms a one-use, two-second gate** for copy,
-URI, launch and close-window requests; close-popover needs the gate without spending it, and notifications bypass
-it at one per second. MPRIS and compositor state reaches only an applet whose sandbox grants
-it, as one whole snapshot per change; their other commands skip the gate at ten a second. Launch starts only an id the sandbox
-lists. A file URI carries the applet's writable paths, and the panel refuses a file under them, an executable one, or a launcher type. Lines past the rate cap are read later, never fatal; invalid JSON, oversized
-lines, invalid trees, more than five `Hello`s in ten seconds and a full stdin queue stop only the
-offending child. Child stderr goes to the log, capped and rate-limited.
+**exec** — **the service never forks**: each start is a transient systemd user unit
+`app-glimpse-<panel>-<applet>-<slot>-<n>.service` started through the injected `Launcher`, and
+systemd owns the process, its restart curve, cgroup, `MemoryMax` and logs. Applets run unconfined
+with the panel's environment; there is no sandbox. Each slot listens on its own socket under the
+runtime dir, named in `GLIMPSE_APPLET_SOCKET`, and serves one connection at a time; the applet speaks
+first with `Hello`, and every `Hello` resets its tree and advances the generation, so stale UI events
+cannot reach a reloaded applet. A takeover keeps the last tree until the next hello and commit.
+`argv[0]` resolves against the panel's `PATH`, because systemd ignores it; the working directory is
+the entry's `Path`, or the desktop file's directory. Placement and options changes go over the
+socket without a restart; a changed entry or `env` stops the unit and starts the next `<n>`. Every
+start sweeps the panel's leftover units and the sockets of dead panels; a clean stop stops each unit,
+and a crashed panel closes the sockets so applets exit on EOF. Without the systemd user manager every
+slot fails with a reason and the panel keeps running. A dev slot from AppletHost takes over the
+same-id slot, never restarts, and writes stderr to the caller. The host passes the applet's state
+directory as `state` in `hello`. Notifications are capped at one per second, MPRIS and compositor
+calls at ten; a URI must pass the scheme allowlist, and the panel refuses an executable file or a
+launcher type. Lines past the rate cap are read later, never fatal; invalid JSON, oversized lines,
+invalid trees, more than five `Hello`s in ten seconds and a full write queue kill only the offending
+unit.
 
 ## Rules
 

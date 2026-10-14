@@ -19,5 +19,4 @@ glimpsectl applets run --dev .
 ```
 
 The entry runs `node --run start`, which builds and starts the applet in this
-directory, so grant it in the panel config:
-`[applets."me.aresa.GlimpseTodo"] sandbox = { read = ["/absolute/path/to/todo"], write = ["/absolute/path/to/todo"] }`.
+directory.

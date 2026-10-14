@@ -40,6 +40,18 @@ pub trait Systemd1Manager {
     ) -> zbus::Result<Vec<Systemd1UnitEntry>>;
     fn get_unit_processes(&self, name: &str) -> zbus::Result<Vec<(String, u32, String)>>;
     fn kill_unit(&self, name: &str, whom: &str, signal: i32) -> zbus::Result<()>;
+    fn subscribe(&self) -> zbus::Result<()>;
+    fn reset_failed_unit(&self, name: &str) -> zbus::Result<()>;
+    #[zbus(signal)]
+    fn job_removed(
+        &self,
+        id: u32,
+        job: OwnedObjectPath,
+        unit: String,
+        result: String,
+    ) -> zbus::Result<()>;
+    #[zbus(signal)]
+    fn unit_removed(&self, id: String, unit: OwnedObjectPath) -> zbus::Result<()>;
     #[zbus(property(emits_changed_signal = "false"))]
     fn environment(&self) -> zbus::Result<Vec<String>>;
 }
@@ -55,6 +67,8 @@ pub trait Systemd1Unit {
     fn active_state(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn sub_state(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn active_enter_timestamp(&self) -> zbus::Result<u64>;
 }
 
 #[zbus::proxy(
@@ -64,14 +78,11 @@ pub trait Systemd1Unit {
 pub trait Systemd1Service {
     #[zbus(property, name = "MainPID")]
     fn main_pid(&self) -> zbus::Result<u32>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Scope",
-    default_service = "org.freedesktop.systemd1"
-)]
-pub trait Systemd1Scope {
-    #[zbus(property(emits_changed_signal = "false"))]
+    #[zbus(property)]
+    fn result(&self) -> zbus::Result<String>;
+    #[zbus(property, name = "NRestarts")]
+    fn n_restarts(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
     fn memory_current(&self) -> zbus::Result<u64>;
 }
 

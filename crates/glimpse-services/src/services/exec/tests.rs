@@ -1,23 +1,15 @@
 use std::os::unix::fs::PermissionsExt;
-
 use std::path::PathBuf;
-
 use std::sync::{Arc, Mutex};
 
+use futures_util::future::BoxFuture;
+use futures_util::stream::BoxStream;
 use glimpse_dbus::{Buses, notifications::NotificationsProvider};
-
-use rustix::pipe::{PipeFlags, pipe_with};
-
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-
-use tokio::net::unix::pipe;
-
 use tokio_util::sync::CancellationToken;
 
+use super::launcher::{Launcher, NEEDS_SYSTEMD, ProcessLauncher, UnitSpec, UnitState};
 use super::*;
-
 use crate::selection::FakeSelection;
-
 use crate::service::{ServiceRuntime, ServiceSender};
 
 #[derive(Clone)]
@@ -44,6 +36,29 @@ impl Catalog for PairCatalog {
     }
 }
 
+struct FailingLauncher;
+
+impl Launcher for FailingLauncher {
+    fn start(&self, _spec: UnitSpec) -> BoxFuture<'static, Result<(), String>> {
+        Box::pin(async { Err(NEEDS_SYSTEMD.to_owned()) })
+    }
+    fn stop(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn kill(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn reset_failed(&self, _name: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+    fn watch(&self, _name: &str) -> BoxStream<'static, UnitState> {
+        Box::pin(futures_util::stream::empty())
+    }
+    fn sweep(&self, _prefix: &str) -> BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
+}
+
 fn placement() -> Placement {
     Placement {
         output: Some("DP-1".to_owned()),
@@ -54,9 +69,15 @@ fn placement() -> Placement {
     }
 }
 
-fn script(source: &str) -> (tempfile::TempDir, Entry, PathBuf) {
+const PREAMBLE: &str = "#!/usr/bin/env python3\nimport os, socket, sys\n_sock = socket.socket(socket.AF_UNIX)\n_sock.connect(os.environ[\"GLIMPSE_APPLET_SOCKET\"])\nr = _sock.makefile(\"r\", encoding=\"utf-8\")\ndef send(line):\n    _sock.sendall((line + \"\\n\").encode())\n";
+
+fn script(body: &str) -> (tempfile::TempDir, Entry, PathBuf) {
+    raw_script(&format!("{PREAMBLE}{body}"))
+}
+
+fn raw_script(source: &str) -> (tempfile::TempDir, Entry, PathBuf) {
     let dir = tempfile::tempdir().expect("tempdir");
-    let path = dir.path().join("applet.sh");
+    let path = dir.path().join("applet.py");
     std::fs::write(&path, source).expect("script");
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("executable");
     let output = dir.path().join("messages");
@@ -71,93 +92,63 @@ fn script(source: &str) -> (tempfile::TempDir, Entry, PathBuf) {
     (dir, entry, output)
 }
 
+const LOOP: &str =
+    "send('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    open(sys.argv[1], 'a').write(line)\n";
+
 struct TestConfig {
     config: Config,
-    state_dir: tempfile::TempDir,
-}
-
-impl std::ops::Deref for TestConfig {
-    type Target = Config;
-
-    fn deref(&self) -> &Config {
-        &self.config
-    }
-}
-
-impl std::ops::DerefMut for TestConfig {
-    fn deref_mut(&mut self) -> &mut Config {
-        &mut self.config
-    }
+    _state_dir: tempfile::TempDir,
+    _runtime_dir: tempfile::TempDir,
 }
 
 fn configured() -> TestConfig {
     let state_dir = tempfile::tempdir().expect("state dir");
+    let runtime_dir = tempfile::tempdir().expect("runtime dir");
     let config = Config {
         state_base: Some(state_dir.path().to_path_buf()),
-        bus_proxy: std::path::PathBuf::from(super::PROXY_PROGRAM),
+        runtime_base: Some(runtime_dir.path().to_path_buf()),
+        panel: "me.aresa.TestPanel".to_owned(),
         applets: BTreeMap::from([(
             "test".to_owned(),
             glimpse_config::ExecAppletConfig {
                 applet: "me.example.Test".to_owned(),
                 options: Map::from_iter([("color".to_owned(), Value::from("blue"))]),
                 env: BTreeMap::new(),
-                sandbox: glimpse_config::AppletSandbox {
-                    read: vec![std::env::temp_dir().display().to_string()],
-                    write: vec![std::env::temp_dir().display().to_string()],
-                    ..Default::default()
-                },
             },
         )]),
     };
-    TestConfig { config, state_dir }
-}
-
-fn confined(entry: &Entry) -> TestConfig {
-    let mut config = configured();
-    let path = entry
-        .path
-        .parent()
-        .expect("script parent")
-        .display()
-        .to_string();
-    let sandbox = &mut config.applets.get_mut("test").expect("test applet").sandbox;
-    sandbox.read = vec![path.clone()];
-    sandbox.write = vec![path];
-    config
-}
-
-fn landlock_available() -> bool {
-    if sandbox::abi() < 10 {
-        eprintln!("skipped: Landlock ABI < 10");
-        false
-    } else {
-        true
+    TestConfig {
+        config,
+        _state_dir: state_dir,
+        _runtime_dir: runtime_dir,
     }
 }
 
-fn running(
-    catalog: FakeCatalog,
-) -> (
+type Running = (
     ExecHandle,
     ServiceSender<Exec>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
-) {
-    running_with(configured(), Arc::new(catalog))
+    Arc<ProcessLauncher>,
+);
+
+fn running(catalog: FakeCatalog) -> (Running, Config) {
+    let test = configured();
+    let snapshot = test.config.clone();
+    (running_with(test, Arc::new(catalog), None), snapshot)
 }
 
 fn running_with(
     config: TestConfig,
     catalog: Arc<dyn Catalog>,
-) -> (
-    ExecHandle,
-    ServiceSender<Exec>,
-    CancellationToken,
-    tokio::task::JoinHandle<()>,
-    FakeSelection,
-) {
-    let TestConfig { config, state_dir } = config;
+    launcher: Option<Arc<dyn Launcher>>,
+) -> Running {
+    let TestConfig {
+        config,
+        _state_dir,
+        _runtime_dir,
+    } = config;
     let cancel = CancellationToken::new();
     let (mut runtime, handle) = ServiceRuntime::<Exec>::new(
         config,
@@ -166,6 +157,7 @@ fn running_with(
     );
     let sender = runtime.sender();
     let selection = FakeSelection::default();
+    let process = Arc::new(ProcessLauncher::new());
     let deps = Dependencies {
         catalog,
         selection: Arc::new(selection.clone()),
@@ -182,12 +174,13 @@ fn running_with(
             cancel.clone(),
         )
         .1,
+        launcher: launcher.unwrap_or_else(|| Arc::clone(&process) as Arc<dyn Launcher>),
     };
     let task = tokio::spawn(async move {
-        let _state_dir = state_dir;
+        let _keep = (_state_dir, _runtime_dir);
         let _ = runtime.run(deps).await;
     });
-    (handle, sender, cancel, task, selection)
+    (handle, sender, cancel, task, selection, process)
 }
 
 async fn status(handle: &ExecHandle, slot: u64, predicate: impl Fn(&Status) -> bool) -> SlotState {
@@ -210,7 +203,7 @@ async fn status(handle: &ExecHandle, slot: u64, predicate: impl Fn(&Status) -> b
 }
 
 async fn file_contains(path: &PathBuf, needle: &str) -> String {
-    tokio::time::timeout(Duration::from_secs(2), async {
+    tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if let Ok(content) = tokio::fs::read_to_string(path).await
                 && content.contains(needle)
@@ -224,8 +217,23 @@ async fn file_contains(path: &PathBuf, needle: &str) -> String {
     .expect("message written")
 }
 
+async fn file_lines(path: &PathBuf, count: usize) -> Vec<String> {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Ok(content) = tokio::fs::read_to_string(path).await
+                && content.lines().count() >= count
+            {
+                return content.lines().map(str::to_owned).collect();
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("lines written")
+}
+
 async fn next_generation(handle: &ExecHandle, slot: u64, generation: u64) -> SlotState {
-    tokio::time::timeout(Duration::from_secs(4), async {
+    tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             if let Some(state) = handle
                 .snapshot()
@@ -242,85 +250,35 @@ async fn next_generation(handle: &ExecHandle, slot: u64, generation: u64) -> Slo
     .expect("next generation")
 }
 
-fn attached_entry() -> Entry {
+async fn pid_gone(pid: &str) {
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while std::path::Path::new(&format!("/proc/{}", pid.trim())).exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("process gone");
+}
+
+fn dev_entry(entry: &Entry) -> Entry {
     Entry {
-        argv: Vec::new(),
-        cwd: None,
-        name: "Attached applet".to_owned(),
-        icon: Some("test-symbolic".to_owned()),
-        path: PathBuf::new(),
-        exec: String::new(),
+        name: "Dev applet".to_owned(),
+        icon: Some("dev-symbolic".to_owned()),
+        ..entry.clone()
     }
 }
 
-fn attached_peer() -> (Pipes, pipe::Sender, BufReader<pipe::Receiver>) {
-    let (from_applet, peer_writer) = pipe_with(PipeFlags::CLOEXEC).expect("applet pipe");
-    let (peer_reader, to_applet) = pipe_with(PipeFlags::CLOEXEC).expect("host pipe");
-    (
-        Pipes {
-            to_applet,
-            from_applet,
-        },
-        pipe::Sender::from_owned_fd(peer_writer).expect("peer writer"),
-        BufReader::new(pipe::Receiver::from_owned_fd(peer_reader).expect("peer reader")),
-    )
+fn dev_request(entry: Entry) -> DevRequest {
+    DevRequest {
+        entry,
+        output: None,
+        position: None,
+        options: Map::new(),
+        env: BTreeMap::new(),
+        stderr: None,
+    }
 }
 
-async fn offer_and_attach(
-    handle: &ExecHandle,
-    slot: u64,
-    applet: &str,
-    options: Map<String, Value>,
-    pipes: Pipes,
-) {
-    handle
-        .offer(
-            applet,
-            Offer {
-                output: None,
-                position: None,
-                entry: attached_entry(),
-                options,
-                sandbox: glimpse_config::AppletSandbox::default(),
-                pipes,
-            },
-        )
-        .await
-        .expect("offer");
-    handle
-        .attach(slot, applet, placement())
-        .await
-        .expect("attach offer");
-}
-
-#[tokio::test]
-#[ignore = "runs for 61 seconds"]
-async fn child_survives_the_blocking_pool_retirement_window() {
-    let (_dir, entry, output) = script(
-        "#!/usr/bin/env python3\nimport os, sys, time\nopen(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nsys.stdin.readline()\ntime.sleep(70)\n",
-    );
-    let (handle, _sender, cancel, task, _selection) =
-        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
-    handle.attach(1, "test", placement()).await.expect("attach");
-    status(&handle, 1, |s| matches!(s, Status::Running)).await;
-    let pid: u32 = tokio::fs::read_to_string(format!("{}.pid", output.display()))
-        .await
-        .expect("pid")
-        .trim()
-        .parse()
-        .expect("numeric pid");
-    tokio::time::sleep(Duration::from_secs(61)).await;
-    assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
-    assert!(matches!(
-        handle.snapshot().slots.get(&1).map(|s| &s.status),
-        Some(Status::Running)
-    ));
-    handle.detach(1).await.expect("detach");
-    cancel.cancel();
-    let _ = task.await;
-}
-
-mod attached;
-mod confinement;
+mod dev;
 mod lifecycle;
 mod protocol;

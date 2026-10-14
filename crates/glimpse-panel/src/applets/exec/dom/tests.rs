@@ -117,7 +117,7 @@ fn descendant_label(widget: &gtk4::Widget, text: &str) -> Option<gtk4::Label> {
 }
 
 #[test]
-fn signal_dispatch_keeps_name_args_generation_and_gesture() {
+fn signal_dispatch_keeps_name_args_and_generation() {
     let events = Rc::new(RefCell::new(Vec::new()));
     let seen = events.clone();
     let dispatch: Dispatch = Rc::new(move |event| seen.borrow_mut().push(event));
@@ -128,7 +128,6 @@ fn signal_dispatch_keeps_name_args_generation_and_gesture() {
         "onClick",
         vec![json!("go")],
         Some(2),
-        true,
     );
     let events = events.borrow();
     assert_eq!(events.len(), 1);
@@ -138,7 +137,6 @@ fn signal_dispatch_keeps_name_args_generation_and_gesture() {
     assert_eq!(events[0].name, "onClick");
     assert_eq!(events[0].args, vec![json!("go")]);
     assert_eq!(events[0].seq, Some(2));
-    assert!(events[0].gesture);
 }
 
 #[test]
@@ -562,7 +560,6 @@ fn dressing_controls_emits_no_events() {
         .set_active(false);
     assert_eq!(events.borrow().len(), 1);
     assert_eq!(events.borrow()[0].name, "onToggle");
-    assert!(!events.borrow()[0].gesture);
     widget(&dom, 1, 3, ElementKind::Scale)
         .downcast::<gtk4::Scale>()
         .expect("scale")
@@ -594,8 +591,6 @@ fn dressing_controls_emits_no_events() {
     assert_eq!(events[1].args, vec![json!(60.0)]);
     assert_eq!(events[2].args, vec![json!("B")]);
     assert_eq!(events[3].args, vec![json!("B")]);
-    assert!(events[3].gesture && events[4].gesture && events[5].gesture);
-    assert!(!events[6].gesture);
 }
 
 #[test]

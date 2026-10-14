@@ -139,7 +139,6 @@ impl Dom {
                 "onToggle",
                 vec![Value::Bool(expanded)],
                 Some(bump(&self.seq, key)),
-                false,
             );
         }
     }
@@ -430,7 +429,7 @@ impl Dom {
                 let dispatch = self.dispatch.clone();
                 let slot = self.slot;
                 handlers.push(row.connect_activated(move |_| {
-                    emit(&dispatch, slot, key, "onActivate", vec![], None, true)
+                    emit(&dispatch, slot, key, "onActivate", vec![], None)
                 }));
                 row.upcast()
             }
@@ -447,7 +446,6 @@ impl Dom {
                         "onToggle",
                         vec![Value::Bool(active)],
                         Some(bump(&seq, key)),
-                        false,
                     )
                 }));
                 row.upcast()
@@ -476,7 +474,6 @@ impl Dom {
                             "onToggle",
                             vec![Value::Bool(open)],
                             Some(bump(&seq, key)),
-                            false,
                         );
                     }
                 }));
@@ -501,7 +498,6 @@ impl Dom {
                             "onMove",
                             vec![Value::Number(value)],
                             None,
-                            false,
                         );
                     }
                 }));
@@ -516,7 +512,6 @@ impl Dom {
                             "onChange",
                             vec![Value::Number(value)],
                             Some(bump(&seq, key)),
-                            false,
                         );
                     }
                 }));
@@ -536,7 +531,6 @@ impl Dom {
                         "onChange",
                         vec![Value::String(entry.text().to_string())],
                         Some(bump(&seq, key)),
-                        false,
                     )
                 }));
                 let dispatch = self.dispatch.clone();
@@ -548,7 +542,6 @@ impl Dom {
                         "onSubmit",
                         vec![Value::String(entry.text().to_string())],
                         None,
-                        true,
                     )
                 }));
                 entry.upcast()
@@ -567,7 +560,6 @@ impl Dom {
                         "onSelect",
                         vec![Value::from(index)],
                         Some(bump(&seq, key)),
-                        true,
                     )
                 }));
                 list.upcast()
@@ -578,7 +570,7 @@ impl Dom {
                 let dispatch = self.dispatch.clone();
                 let slot = self.slot;
                 handlers.push(notice.connect_clicked(move |_| {
-                    emit(&dispatch, slot, key, "onActivate", vec![], None, true)
+                    emit(&dispatch, slot, key, "onActivate", vec![], None)
                 }));
                 notice.upcast()
             }
@@ -594,7 +586,6 @@ impl Dom {
                         "onMonth",
                         vec![Value::from(year), Value::from(month)],
                         None,
-                        true,
                     )
                 }));
                 let dispatch = self.dispatch.clone();
@@ -609,7 +600,6 @@ impl Dom {
                             day.year, day.month, day.day
                         ))],
                         None,
-                        true,
                     )
                 }));
                 calendar.upcast()
@@ -632,7 +622,6 @@ impl Dom {
                             "onSelect",
                             vec![Value::from(drop_down.selected())],
                             Some(bump(&seq, key)),
-                            false,
                         );
                     }
                 }));
@@ -651,7 +640,6 @@ impl Dom {
                         "onToggle",
                         vec![Value::Bool(button.is_active())],
                         Some(bump(&seq, key)),
-                        false,
                     )
                 }));
                 button.upcast()
@@ -669,7 +657,6 @@ impl Dom {
                         "onToggle",
                         vec![Value::Bool(check.is_active())],
                         Some(bump(&seq, key)),
-                        false,
                     )
                 }));
                 check.upcast()
@@ -703,9 +690,11 @@ impl Dom {
                 let button = gtk4::Button::new();
                 let dispatch = self.dispatch.clone();
                 let slot = self.slot;
-                handlers.push(button.connect_clicked(move |_| {
-                    emit(&dispatch, slot, key, "onClick", vec![], None, true)
-                }));
+                handlers.push(
+                    button.connect_clicked(move |_| {
+                        emit(&dispatch, slot, key, "onClick", vec![], None)
+                    }),
+                );
                 button.upcast()
             }
             Element::Switch(_) => {
@@ -721,7 +710,6 @@ impl Dom {
                         "onToggle",
                         vec![Value::Bool(switch.is_active())],
                         Some(bump(&seq, key)),
-                        false,
                     )
                 }));
                 switch.upcast()
@@ -746,7 +734,6 @@ impl Dom {
                             "onChange",
                             vec![Value::Number(value)],
                             Some(bump(&seq, key)),
-                            false,
                         );
                     }
                 }));
@@ -1432,15 +1419,7 @@ fn bump(seq: &Rc<RefCell<HashMap<Key, u64>>>, key: Key) -> u64 {
     *value
 }
 
-fn emit(
-    dispatch: &Dispatch,
-    slot: u64,
-    key: Key,
-    name: &str,
-    args: Vec<Value>,
-    seq: Option<u64>,
-    gesture: bool,
-) {
+fn emit(dispatch: &Dispatch, slot: u64, key: Key, name: &str, args: Vec<Value>, seq: Option<u64>) {
     dispatch(UserEvent {
         slot,
         generation: key.0,
@@ -1448,7 +1427,6 @@ fn emit(
         name: name.to_owned(),
         args,
         seq,
-        gesture,
     });
 }
 

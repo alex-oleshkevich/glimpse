@@ -10,6 +10,7 @@ import {
   servicesStore,
   session,
   stateStore,
+  socketIo,
   standardIo,
 } from "./reconciler.ts";
 import * as react from "react";
@@ -580,8 +581,13 @@ export function closePopover(): void {
   send({ t: "close-popover" });
 }
 
+function defaultIo(): Io {
+  const path = process.env.GLIMPSE_APPLET_SOCKET;
+  return path ? socketIo(path) : standardIo();
+}
+
 export async function run(element: unknown, io?: Io): Promise<void> {
   redirectConsole();
-  await session(element, io ?? standardIo());
+  await session(element, io ?? defaultIo());
   process.exit(0);
 }

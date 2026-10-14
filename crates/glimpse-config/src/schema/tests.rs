@@ -33,7 +33,6 @@ fn desktop_id_in_zone_resolves_and_is_placed() {
             applet: "me.example.Pomodoro".to_owned(),
             options: serde_json::Map::new(),
             env: std::collections::BTreeMap::new(),
-            sandbox: AppletSandbox::default(),
         }))
     );
 }

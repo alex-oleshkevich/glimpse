@@ -154,7 +154,7 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 
 - A built-in applet renders topics and sends commands. It never opens a D-Bus connection, never
   reaches a backend directly, and holds no state that outlives its own widget. An exec applet
-  reaches only the session bus names its `sandbox.dbus` grants, through a filtering proxy.
+  runs unconfined as a systemd user unit the panel starts.
 - UI state never waits on a round trip. Update the widget optimistically and let the topic event
   reconcile it.
 - **A failed command is reported by a notification and never by a banner in the popover.** A popover

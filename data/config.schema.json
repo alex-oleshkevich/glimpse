@@ -424,19 +424,6 @@
               "additionalProperties": true,
               "default": {}
             },
-            "sandbox": {
-              "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
-              "$ref": "#/$defs/Sandbox",
-              "default": {
-                "compositor": false,
-                "launch": [],
-                "mpris": false,
-                "network": false,
-                "read": [],
-                "unconfined": false,
-                "write": []
-              }
-            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -1904,19 +1891,6 @@
                 "additionalProperties": true,
                 "default": {}
               },
-              "sandbox": {
-                "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
-                "$ref": "#/$defs/Sandbox",
-                "default": {
-                  "compositor": false,
-                  "launch": [],
-                  "mpris": false,
-                  "network": false,
-                  "read": [],
-                  "unconfined": false,
-                  "write": []
-                }
-              },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
                 "type": "array",
@@ -2946,19 +2920,6 @@
               "additionalProperties": true,
               "default": {}
             },
-            "sandbox": {
-              "description": "What the applet may touch beyond the system directories and its own state directory. Only\nthis table grants access; the desktop entry never does.",
-              "$ref": "#/$defs/Sandbox",
-              "default": {
-                "compositor": false,
-                "launch": [],
-                "mpris": false,
-                "network": false,
-                "read": [],
-                "unconfined": false,
-                "write": []
-              }
-            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -3624,37 +3585,6 @@
         "dark",
         "auto"
       ]
-    },
-    "DbusGrant": {
-      "description": "What an exec applet may reach on the session bus. Needs `xdg-dbus-proxy`.",
-      "type": "object",
-      "properties": {
-        "broadcast": {
-          "description": "Signals, `NAME=INTERFACE.MEMBER@PATH`, from a name the applet may not otherwise use.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "call": {
-          "description": "Single methods, `NAME=INTERFACE.METHOD@PATH`, on a name the applet may not otherwise use.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "talk": {
-          "description": "Names the applet may call and receive signals from, e.g. `org.kde.kdeconnect`.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
     },
     "Editor": {
       "type": "string",
@@ -4661,65 +4591,6 @@
           "format": "uint",
           "default": 8,
           "minimum": 0
-        }
-      },
-      "additionalProperties": false
-    },
-    "Sandbox": {
-      "description": "The confinement an exec applet runs under. Everything not granted here is denied.",
-      "type": "object",
-      "properties": {
-        "compositor": {
-          "description": "Whether the applet sees workspaces, windows and outputs, and may focus, move, rename and\nclose them.",
-          "type": "boolean",
-          "default": false
-        },
-        "dbus": {
-          "description": "Session bus names the applet may use, through a filtering proxy. Empty grants no bus at\nall. A granted service acts with your rights: `org.kde.kdeconnect` can send any of your\nfiles to a phone, whatever `read` allows.",
-          "$ref": "#/$defs/DbusGrant"
-        },
-        "launch": {
-          "description": "Desktop-file ids the applet may start after a click, e.g. `org.gnome.Nautilus`.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "mpris": {
-          "description": "Whether the applet sees media players and may control them.",
-          "type": "boolean",
-          "default": false
-        },
-        "network": {
-          "description": "Whether the applet may reach the network: TCP, UDP and the system resolver.",
-          "type": "boolean",
-          "default": false
-        },
-        "read": {
-          "description": "Extra paths the applet may read and execute. Absolute, or starting with `~/`.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
-        },
-        "unconfined": {
-          "description": "Runs the applet with no confinement at all, for a kernel without Landlock.",
-          "type": "boolean",
-          "default": false
-        },
-        "wayland": {
-          "description": "Whether the applet may connect to the compositor, to run a Wayland program such as\n`glimpse-lens` or `wl-copy`, and use the GPU render nodes to draw. A Wayland client can read\nthe clipboard and capture the screen.",
-          "type": "boolean"
-        },
-        "write": {
-          "description": "Extra paths the applet may read and write. Absolute, or starting with `~/`.",
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "string"
-          }
         }
       },
       "additionalProperties": false

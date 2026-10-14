@@ -36,7 +36,6 @@ depends = [
   "geoclue-2.0",
   "ddcutil",
 ]
-recommends = "xdg-dbus-proxy"
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
   ["target/release/glimpse-panel", "usr/bin/", "755"],
@@ -182,9 +181,6 @@ pulseaudio-libs = "*"
 systemd-libs = "*"
 ddcutil = "*"
 pam = "*"
-
-[package.metadata.generate-rpm.recommends]
-xdg-dbus-proxy = "*"
 
 # Replaces the table above rather than merging into it. Those are Fedora names; openSUSE's differ for
 # every linked library, which auto-req already requires by soname, so only names that match stay.

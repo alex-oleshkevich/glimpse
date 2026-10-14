@@ -21,17 +21,20 @@ pub trait AppletHost {
     #[allow(clippy::too_many_arguments)]
     fn attach(
         &self,
-        desktop_file: &str,
+        desktop_path: &str,
         panel: u32,
         output: &str,
         zone: &str,
-        options: &str,
-        grants: &str,
-        to_applet: zbus::zvariant::Fd<'_>,
-        from_applet: zbus::zvariant::Fd<'_>,
+        options_json: &str,
+        env: std::collections::HashMap<&str, &str>,
+        stderr: zbus::zvariant::Fd<'_>,
     ) -> zbus::Result<String>;
 
-    fn set_options(&self, handle: &str, options: &str) -> zbus::Result<()>;
+    fn restart(&self, handle: &str) -> zbus::Result<()>;
+
+    fn detach(&self, handle: &str) -> zbus::Result<()>;
+
+    fn set_options(&self, handle: &str, options_json: &str) -> zbus::Result<()>;
 }
 
 #[cfg(test)]

@@ -73,10 +73,6 @@ pub enum AppInput {
     ServicesReady(PanelServices),
     ThemeChanged,
     Attached,
-    OfferOptions {
-        id: String,
-        options: serde_json::Map<String, serde_json::Value>,
-    },
     Detached(String),
 }
 
@@ -96,7 +92,6 @@ impl std::fmt::Debug for AppInput {
             AppInput::ServicesReady(_) => "ServicesReady",
             AppInput::ThemeChanged => "ThemeChanged",
             AppInput::Attached => "Attached",
-            AppInput::OfferOptions { .. } => "OfferOptions",
             AppInput::Detached(_) => "Detached",
         })
     }
@@ -258,15 +253,6 @@ impl SimpleComponent for App {
                 export = true;
             }
             AppInput::Attached => {}
-            AppInput::OfferOptions { id, options } => {
-                if let Some(services) = &self.services {
-                    crate::applet::spawn_command(
-                        "exec.offer_options",
-                        services.exec().offer_options(&id, options),
-                    );
-                }
-                return;
-            }
             AppInput::Detached(handle) => {
                 if let Ok(mut registry) = self.attached.lock() {
                     registry.remove(&handle);
@@ -648,11 +634,12 @@ fn spawn_exec_watch(
 ) -> JoinHandle<()> {
     relm4::spawn(async move {
         let mut states = exec.subscribe();
+        let mut seen = std::collections::BTreeSet::new();
         loop {
             let ended = {
                 let state = states.borrow_and_update();
                 let Ok(registry) = registry.lock() else { break };
-                ended_offers(&state, &registry)
+                ended_dev(&state, &registry, &mut seen)
             };
             for handle in ended {
                 sender.input(AppInput::Detached(handle));
@@ -664,11 +651,28 @@ fn spawn_exec_watch(
     })
 }
 
-fn ended_offers(state: &ExecState, registry: &AttachedRegistry) -> Vec<String> {
+fn ended_dev(
+    state: &ExecState,
+    registry: &AttachedRegistry,
+    seen: &mut std::collections::BTreeSet<String>,
+) -> Vec<String> {
+    seen.extend(
+        registry
+            .applets
+            .iter()
+            .filter(|applet| state.dev.contains(&applet.handle))
+            .map(|applet| applet.handle.clone()),
+    );
+    seen.retain(|handle| {
+        registry
+            .applets
+            .iter()
+            .any(|applet| &applet.handle == handle)
+    });
     registry
         .applets
         .iter()
-        .filter(|applet| applet.offered && !state.offers.contains(&applet.desktop_id))
+        .filter(|applet| seen.contains(&applet.handle) && !state.dev.contains(&applet.handle))
         .map(|applet| applet.handle.clone())
         .collect()
 }

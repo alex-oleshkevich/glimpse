@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use glimpse_config::{AppletSandbox, Config};
+use glimpse_config::Config;
 use glimpse_services::ExecEntry;
 use glimpsectl::commands::applets::{
     Placement, desktop, desktop_detail, list_value, placements, rows, valid_id,
@@ -36,20 +36,6 @@ fn placement_is_recorded_once_per_zone_occurrence() {
     assert_eq!(placements(&config)["me.example.Clock"].len(), 2);
 }
 
-#[test]
-fn placement_reports_its_sandbox() {
-    let config: Config = toml::from_str(
-        "[[panels]]\ncenter = [\"me.example.Test\"]\n[applets.\"me.example.Test\"]\nsandbox = { read = [\"/tmp/read\"], write = [\"/tmp/write\"], network = true, unconfined = false }\n",
-    )
-    .unwrap();
-    let place = &placements(&config)["me.example.Test"][0];
-    let json = serde_json::to_value(place).unwrap();
-    assert_eq!(json["sandbox"]["read"], serde_json::json!(["/tmp/read"]));
-    assert_eq!(json["sandbox"]["write"], serde_json::json!(["/tmp/write"]));
-    assert_eq!(json["sandbox"]["network"], true);
-    assert_eq!(json["sandbox"]["unconfined"], false);
-}
-
 fn entry(name: &str) -> ExecEntry {
     ExecEntry {
         argv: vec!["applet".to_owned()],
@@ -71,7 +57,6 @@ fn installed_rows_precede_missing_placements() {
             zone: "left".to_owned(),
             panel: 0,
             options: Map::new(),
-            sandbox: AppletSandbox::default(),
         }],
     );
     placed.insert(
@@ -81,7 +66,6 @@ fn installed_rows_precede_missing_placements() {
             zone: "right".to_owned(),
             panel: 0,
             options: Map::new(),
-            sandbox: AppletSandbox::default(),
         }],
     );
     let running = BTreeSet::from(["me.example.A".to_owned()]);

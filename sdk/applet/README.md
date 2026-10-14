@@ -47,13 +47,7 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
 - Services, each behind its own grant: `useMpris` with `mpris.*`, `useCompositor` with
   `compositor.*`. `positionNow` advances a playing track's position.
 
-The applet runs in a sandbox. Beyond its state directory, it reaches only the paths the user
-grants under `[applets."<id>"] sandbox` in the glimpse config, and it has no network unless
-`network = true`. It sees media players only with `mpris = true` and workspaces and windows
-only with `compositor = true`, and `launch` starts only the desktop ids listed in
-`launch = [...]`. It has no session bus unless `sandbox.dbus` grants names: `talk`, `call` and
-`broadcast` take `xdg-dbus-proxy` rules, and the applet connects through `DBUS_SESSION_BUS_ADDRESS`.
-`wayland = true` lets it run a Wayland program such as `glimpse-lens` or `wl-copy`.
+An exec applet runs unconfined as a systemd user unit and has the user's full session.
 
 The wire format is specified in [PROTOCOL.md](PROTOCOL.md).
 

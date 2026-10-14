@@ -9,6 +9,7 @@ use glimpse_dbus::{
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
 };
+use glimpse_services::SystemdLauncher;
 use glimpse_services::{
     Audio, AudioHandle, Backlight, Battery, BatteryDependencies, BatteryHandle, BatterySource,
     Bluetooth, BluetoothDependencies, BluetoothHandle, Brightness, BrightnessDependencies,
@@ -180,6 +181,7 @@ impl PanelServices {
                 notifications: notifications.handle(),
                 mpris: mpris.clone(),
                 compositor: compositor.clone(),
+                launcher: Arc::new(SystemdLauncher::new(session.clone())),
             },
         );
         let (kdeconnect_service, kdeconnect) =

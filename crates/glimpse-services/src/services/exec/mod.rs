@@ -1,17 +1,15 @@
 mod bridge;
 mod catalog;
-mod proxy;
-mod sandbox;
-mod scope;
+mod launcher;
 mod spawn;
 mod tree;
 mod wire;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::os::fd::OwnedFd;
-use std::path::PathBuf;
+use std::os::fd::{AsFd, OwnedFd};
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
@@ -25,9 +23,7 @@ use crate::services::compositor::{CompositorHandle, CompositorState};
 use crate::services::mpris::{MprisHandle, MprisPlayers};
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, ServiceError, Sub};
 
-pub use proxy::{BusProxy, PROXY_PROGRAM, ProxyDir};
-pub use sandbox::{exec_confine, exec_sandbox, exec_state_dir};
-pub use scope::{unit_name, unit_pattern};
+pub use launcher::{Launcher, SystemdLauncher, UnitSpec, UnitState};
 pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
 
 pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
@@ -42,24 +38,35 @@ pub use tree::{
     SparklineProps, SpinnerProps, StackProps, SwatchProps, SwatchSize, SwitchProps,
     ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Violation,
 };
-use wire::CompositorCall;
 pub use wire::{
     Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, Urgency, WireNode, Zone,
 };
 
 const MAX_UPDATES_PER_SECOND: u32 = 120;
 const RETRY: Duration = Duration::from_secs(5);
-const OFFER_TTL: Duration = Duration::from_secs(5);
-const GESTURE: Duration = Duration::from_secs(2);
+const RESET_AFTER: Duration = Duration::from_secs(60);
 const TEXT: &str = "text/plain;charset=utf-8";
 const URI_CAP: usize = 2048;
 const CALLS_PER_SECOND: u32 = 10;
 const NAME_CAP: usize = 256;
 
+fn protect_state_dir(state: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(state)
+        .map_err(|error| format!("cannot create applet state directory: {error}"))?;
+    std::fs::set_permissions(state, std::fs::Permissions::from_mode(0o700))
+        .map_err(|error| format!("cannot protect applet state directory: {error}"))
+}
+
+pub fn exec_state_dir(base: &Path, id: &str) -> Result<PathBuf, String> {
+    let state = base.join("applets").join(id);
+    protect_state_dir(&state)?;
+    Ok(state)
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecState {
     pub slots: BTreeMap<u64, SlotState>,
-    pub offers: BTreeSet<String>,
+    pub dev: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,7 +92,7 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BarRequest {
     OpenUri(String),
-    OpenFile { uri: String, writable: Vec<PathBuf> },
+    OpenFile { uri: String },
     Launch(String),
     ClosePopover,
 }
@@ -94,14 +101,16 @@ pub enum BarRequest {
 pub struct Config {
     pub applets: BTreeMap<String, glimpse_config::ExecAppletConfig>,
     pub state_base: Option<PathBuf>,
-    pub bus_proxy: PathBuf,
+    pub runtime_base: Option<PathBuf>,
+    pub panel: String,
 }
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
             state_base: glimpse_config::state_dir(),
-            bus_proxy: PathBuf::from(proxy::PROXY_PROGRAM),
+            runtime_base: glimpse_config::runtime_dir(),
+            panel: glimpse_dbus::panel_app_id(),
             applets: glimpse_config::placed_applets(document)
                 .filter_map(|(name, applet)| match applet.kind {
                     glimpse_config::AppletKind::Exec(exec) => Some((name.to_owned(), *exec)),
@@ -112,55 +121,66 @@ impl From<&glimpse_config::Config> for Config {
     }
 }
 
+impl Config {
+    fn socket_path(&self, slot: u64) -> PathBuf {
+        let base = self.runtime_base.clone().unwrap_or_else(std::env::temp_dir);
+        base.join("applets")
+            .join(format!("{}-{slot}.sock", std::process::id()))
+    }
+
+    fn sockets_dir(&self) -> Option<PathBuf> {
+        self.runtime_base.as_ref().map(|base| base.join("applets"))
+    }
+}
+
 pub struct Dependencies {
     pub catalog: Arc<dyn Catalog>,
     pub selection: Arc<dyn Selection>,
     pub notifications: NotificationsProviderHandle,
     pub mpris: MprisHandle,
     pub compositor: CompositorHandle,
+    pub launcher: Arc<dyn Launcher>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Origin {
     Spawned,
-    Attached,
+    Dev,
 }
 
-pub struct Pipes {
-    pub to_applet: OwnedFd,
-    pub from_applet: OwnedFd,
-}
-
-pub struct Offer {
+pub struct DevRequest {
+    pub entry: Entry,
     pub output: Option<String>,
     pub position: Option<Edge>,
-    pub entry: Entry,
     pub options: Map<String, Value>,
-    pub sandbox: glimpse_config::AppletSandbox,
-    pub pipes: Pipes,
+    pub env: BTreeMap<String, String>,
+    pub stderr: Option<OwnedFd>,
 }
 
-struct StoredOffer {
-    offer: Offer,
-    offered_at: Instant,
+struct DevSpec {
+    entry: Entry,
+    stderr: Option<Arc<OwnedFd>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SubKey {
     Child { slot: u64, spawn: u64 },
-    Backoff { slot: u64, spawn: u64 },
-    Offer { applet: String, offered_at: Instant },
+    Reset { slot: u64, generation: u64 },
     Retry,
     Mpris,
     Compositor,
 }
 
 pub enum Event {
-    Spawned {
+    Started {
+        slot: u64,
+        spawn: u64,
+        entry: Entry,
+    },
+    Connected {
         slot: u64,
         spawn: u64,
         link: Link,
-        entry: Entry,
     },
     Hello {
         slot: u64,
@@ -177,24 +197,31 @@ pub enum Event {
         spawn: u64,
         request: FromApplet,
     },
+    Disconnected {
+        slot: u64,
+        spawn: u64,
+        spoke: bool,
+    },
+    Misbehaved {
+        slot: u64,
+        spawn: u64,
+        reason: String,
+    },
+    Unit {
+        slot: u64,
+        spawn: u64,
+        state: UnitState,
+    },
     Exited {
         slot: u64,
         spawn: u64,
         spoke: bool,
-        ran: Duration,
         reason: String,
         resolved: Option<Entry>,
     },
-    Ended {
+    ResetFailed {
         slot: u64,
-        spawn: u64,
-    },
-    Backoff {
-        slot: u64,
-    },
-    OfferExpired {
-        applet: String,
-        offered_at: Instant,
+        generation: u64,
     },
     Retry,
     Mpris(MprisPlayers),
@@ -221,7 +248,6 @@ pub struct UserEvent {
     pub name: String,
     pub args: Vec<Value>,
     pub seq: Option<u64>,
-    pub gesture: bool,
 }
 
 pub enum Command {
@@ -231,13 +257,21 @@ pub enum Command {
         placement: Placement,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    Offer {
+    DevAttach {
         applet: String,
-        offer: Box<Offer>,
+        request: Box<DevRequest>,
+        reply: oneshot::Sender<Result<String, CommandError>>,
+    },
+    DevRestart {
+        handle: String,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    OfferOptions {
-        applet: String,
+    DevDetach {
+        handle: String,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    DevSetOptions {
+        handle: String,
         options: Map<String, Value>,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
@@ -301,24 +335,49 @@ impl ExecHandle {
             reply,
         }))
     }
-    pub fn offer(
+    pub fn attach_dev(
         &self,
         applet: &str,
-        offer: Offer,
-    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
-        answered(self.submit(|reply| Command::Offer {
+        request: DevRequest,
+    ) -> impl Future<Output = Result<String, CommandError>> + Send + 'static + use<> {
+        let (reply, answer) = oneshot::channel();
+        let sent = self.0.command(Command::DevAttach {
             applet: applet.to_owned(),
-            offer: Box::new(offer),
+            request: Box::new(request),
+            reply,
+        });
+        async move {
+            sent?;
+            answer.await.map_err(|_| {
+                CommandError::Unavailable("`exec` stopped before answering".to_owned())
+            })?
+        }
+    }
+    pub fn restart_dev(
+        &self,
+        handle: &str,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::DevRestart {
+            handle: handle.to_owned(),
             reply,
         }))
     }
-    pub fn offer_options(
+    pub fn detach_dev(
         &self,
-        applet: &str,
+        handle: &str,
+    ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
+        answered(self.submit(|reply| Command::DevDetach {
+            handle: handle.to_owned(),
+            reply,
+        }))
+    }
+    pub fn dev_set_options(
+        &self,
+        handle: &str,
         options: Map<String, Value>,
     ) -> impl Future<Output = Result<(), CommandError>> + Send + 'static + use<> {
-        answered(self.submit(|reply| Command::OfferOptions {
-            applet: applet.to_owned(),
+        answered(self.submit(|reply| Command::DevSetOptions {
+            handle: handle.to_owned(),
             options,
             reply,
         }))
@@ -380,32 +439,32 @@ async fn answered((sent, answer): Pending) -> Result<(), CommandError> {
 
 struct Slot {
     origin: Origin,
-    pipes: Option<Arc<tokio::sync::Mutex<Option<Pipes>>>>,
     public: SlotState,
     placement: Placement,
     applet_id: String,
-    sandbox: glimpse_config::AppletSandbox,
     env: BTreeMap<String, String>,
     state: Option<PathBuf>,
     entry: Option<Entry>,
+    dev: Option<DevSpec>,
     catalog_refused: bool,
     options: Map<String, Value>,
     spawn: u64,
-    attempt: u32,
-    backoff_until: Option<chrono::DateTime<Utc>>,
+    unit: String,
+    socket: PathBuf,
+    restarts: u32,
     link: Option<Link>,
     stop: CancellationToken,
     popover_open: bool,
-    last_gesture: Option<Instant>,
     last_notify: Option<Instant>,
     calls: (Instant, u32),
-    warned_gate: bool,
     last_failed_reason: Option<String>,
     serial: u64,
     failed_at: Option<Instant>,
     failures: u32,
     catalog_misses: u32,
     resolving: bool,
+    running_since: Option<Instant>,
+    reset_done: bool,
 }
 
 pub struct Exec {
@@ -413,11 +472,11 @@ pub struct Exec {
     config: Config,
     dependencies: Dependencies,
     slots: BTreeMap<u64, Slot>,
-    offers: BTreeMap<String, StoredOffer>,
-    taken: BTreeMap<String, u64>,
+    pending_dev: BTreeMap<String, DevRequest>,
+    taken_dev: BTreeMap<String, u64>,
     next_spawn: u64,
+    next_unit: u64,
     next_generation: u64,
-    scope_warned: Arc<AtomicBool>,
     mpris: Option<Value>,
     compositor: Option<Value>,
 }
@@ -430,65 +489,79 @@ impl Exec {
             .map_or_else(|| name.to_owned(), |config| config.applet.clone())
     }
 
-    fn attached_slot(&mut self, applet: String, placement: Placement, offer: Offer) -> Slot {
+    fn next_unit(&mut self, applet_id: &str, slot: u64) -> String {
+        self.next_unit += 1;
+        launcher::unit_name(&self.config.panel, applet_id, slot, self.next_unit)
+    }
+
+    fn dev_slot(
+        &mut self,
+        slot_id: u64,
+        applet: String,
+        placement: Placement,
+        request: DevRequest,
+    ) -> Slot {
         self.next_spawn += 1;
         let applet_id = self.desktop_id(&applet);
+        let unit = self.next_unit(&applet_id, slot_id);
         let state = self
             .config
             .state_base
             .as_ref()
             .map(|base| base.join("applets").join(&applet_id));
         Slot {
-            origin: Origin::Attached,
-            pipes: Some(Arc::new(tokio::sync::Mutex::new(Some(offer.pipes)))),
+            origin: Origin::Dev,
             public: SlotState {
-                applet: applet.clone(),
+                applet,
                 generation: 0,
                 tree: Arc::new(Tree::default()),
                 status: Status::Starting,
-                title: offer.entry.name.clone(),
-                icon: offer.entry.icon.clone(),
+                title: request.entry.name.clone(),
+                icon: request.entry.icon.clone(),
                 requests: Vec::new(),
             },
             placement,
             applet_id,
-            sandbox: offer.sandbox,
-            env: BTreeMap::new(),
+            env: request.env,
             state,
-            entry: Some(offer.entry),
+            entry: Some(request.entry.clone()),
+            dev: Some(DevSpec {
+                entry: request.entry,
+                stderr: request.stderr.map(Arc::new),
+            }),
             catalog_refused: false,
-            options: offer.options,
+            options: request.options,
             spawn: self.next_spawn,
-            attempt: 0,
-            backoff_until: None,
+            unit,
+            socket: self.config.socket_path(slot_id),
+            restarts: 0,
             link: None,
             stop: CancellationToken::new(),
             popover_open: false,
-            last_gesture: None,
             last_notify: None,
             calls: (Instant::now(), 0),
-            warned_gate: false,
             last_failed_reason: None,
             serial: 0,
             failed_at: None,
             failures: 0,
             catalog_misses: 0,
             resolving: false,
+            running_since: None,
+            reset_done: false,
         }
     }
 
-    fn finish_attached(&mut self, id: u64, failed: Option<String>) {
+    fn finish_dev(&mut self, id: u64) {
         let Some(slot) = self.slots.get_mut(&id) else {
             return;
         };
-        self.taken.remove(&slot.applet_id);
+        self.taken_dev.remove(&slot.applet_id);
         slot.link = None;
-        slot.pipes = None;
+        slot.dev = None;
         if let Some(config) = self.config.applets.get(&slot.public.applet) {
-            tracing::info!(applet = %slot.applet_id, slot = id, "attached applet ended, returning the configured one");
+            tracing::info!(applet = %slot.applet_id, slot = id, "dev applet detached, returning the configured one");
             slot.origin = Origin::Spawned;
             slot.applet_id = config.applet.clone();
-            slot.sandbox = config.sandbox.clone();
             slot.env = config.env.clone();
             slot.options = config.options.clone();
             slot.state = self
@@ -497,16 +570,12 @@ impl Exec {
                 .as_ref()
                 .map(|base| base.join("applets").join(&config.applet));
             slot.entry = None;
-            slot.attempt = 0;
             slot.failures = 0;
             slot.last_failed_reason = None;
-            self.spawn_slot(id);
-        } else if let Some(reason) = failed {
-            tracing::info!(applet = %slot.applet_id, slot = id, %reason, "attached applet failed");
-            slot.last_failed_reason = Some(reason.clone());
-            slot.public.status = Status::Failed(reason);
+            self.restart_slot(id);
         } else {
-            tracing::info!(applet = %slot.applet_id, slot = id, "attached applet ended");
+            tracing::info!(applet = %slot.applet_id, slot = id, "dev applet detached");
+            slot.stop.cancel();
             slot.public.status = Status::Ended;
         }
     }
@@ -518,39 +587,39 @@ impl Exec {
                 .iter()
                 .map(|(id, slot)| (*id, slot.public.clone()))
                 .collect(),
-            offers: self
-                .offers
+            dev: self
+                .pending_dev
                 .keys()
-                .chain(self.taken.keys())
+                .chain(self.taken_dev.keys())
                 .cloned()
                 .collect(),
         });
     }
 
-    fn spawn_slot(&mut self, id: u64) {
-        if self
-            .slots
-            .get(&id)
-            .is_some_and(|slot| slot.origin == Origin::Attached)
-        {
-            return;
-        }
+    fn restart_slot(&mut self, id: u64) {
         self.next_spawn += 1;
+        let spawn = self.next_spawn;
+        let Some(applet_id) = self.slots.get(&id).map(|slot| slot.applet_id.clone()) else {
+            return;
+        };
+        let unit = self.next_unit(&applet_id, id);
         if let Some(slot) = self.slots.get_mut(&id) {
-            tracing::info!(applet = %slot.applet_id, slot = id, attempt = slot.attempt, "applet restarting");
+            tracing::info!(applet = %slot.applet_id, slot = id, %unit, "applet restarting");
             if let Some(link) = slot.link.take() {
                 link.stop.cancel();
             }
             slot.stop.cancel();
             slot.stop = CancellationToken::new();
-            slot.spawn = self.next_spawn;
-            slot.backoff_until = None;
+            slot.spawn = spawn;
+            slot.unit = unit;
+            slot.restarts = 0;
             slot.public.status = Status::Starting;
             slot.public.tree = Arc::new(Tree::default());
-            slot.entry = None;
+            slot.entry = slot.dev.as_ref().map(|dev| dev.entry.clone());
             slot.catalog_refused = false;
-            slot.last_gesture = None;
             slot.failed_at = None;
+            slot.running_since = None;
+            slot.reset_done = false;
         }
     }
 
@@ -562,7 +631,7 @@ impl Exec {
             link.queue_full
                 .store(true, std::sync::atomic::Ordering::Relaxed);
             link.stop.cancel();
-            tracing::warn!(applet = %slot.public.applet, "not reading stdin");
+            tracing::warn!(applet = %slot.public.applet, "not reading its socket");
         }
     }
 
@@ -607,7 +676,7 @@ impl Exec {
             FromApplet::Mpris { player, .. } => player.len() > NAME_CAP,
             FromApplet::Compositor {
                 call:
-                    CompositorCall::RenameWorkspace {
+                    wire::CompositorCall::RenameWorkspace {
                         name: Some(name), ..
                     },
             } => name.len() > NAME_CAP,
@@ -617,60 +686,18 @@ impl Exec {
             tracing::warn!(applet = %slot.public.applet, "applet sent an oversized service argument");
             return;
         }
-        let grant = match &request {
-            FromApplet::Mpris { .. } => Some(slot.sandbox.mpris),
-            FromApplet::Compositor { .. } => Some(slot.sandbox.compositor),
-            _ => None,
-        };
-        if grant == Some(false) {
-            tracing::warn!(applet = %slot.public.applet, "applet called a service it was not granted");
-            return;
-        }
-        let gated = !matches!(
-            request,
-            FromApplet::Mpris { .. }
-                | FromApplet::Compositor {
-                    call: CompositorCall::FocusWorkspace { .. }
-                        | CompositorCall::FocusWindow { .. }
-                        | CompositorCall::MoveWindow { .. }
-                        | CompositorCall::RenameWorkspace { .. },
-                }
-        );
-        if !gated {
-            if slot.calls.0.elapsed() >= Duration::from_secs(1) {
-                slot.calls = (Instant::now(), 0);
-            }
-            if slot.calls.1 >= CALLS_PER_SECOND {
-                tracing::warn!(applet = %slot.public.applet, "service call rate exceeded");
-                return;
-            }
-            slot.calls.1 += 1;
-            self.call(request, ctx);
-            return;
-        }
-        if let FromApplet::Launch { id } = &request
-            && !may_launch(&slot.sandbox, id)
-        {
-            tracing::warn!(applet = %slot.public.applet, "applet asked to launch an id it was not granted");
-            return;
-        }
-        if let FromApplet::OpenUri { uri } = &request
-            && !allowed_uri(uri)
-        {
-            tracing::warn!(applet = %slot.public.applet, "applet asked to open a refused uri");
-            return;
-        }
-        if slot.last_gesture.is_none_or(|at| at.elapsed() > GESTURE) {
-            if !slot.warned_gate {
-                tracing::warn!(applet = %slot.public.applet, "applet request without recent gesture");
-                slot.warned_gate = true;
-            }
-            return;
-        }
-        if !matches!(request, FromApplet::ClosePopover) {
-            slot.last_gesture = None;
-        }
         match request {
+            FromApplet::Mpris { .. } | FromApplet::Compositor { .. } => {
+                if slot.calls.0.elapsed() >= Duration::from_secs(1) {
+                    slot.calls = (Instant::now(), 0);
+                }
+                if slot.calls.1 >= CALLS_PER_SECOND {
+                    tracing::warn!(applet = %slot.public.applet, "service call rate exceeded");
+                    return;
+                }
+                slot.calls.1 += 1;
+                self.call(request, ctx);
+            }
             FromApplet::Copy { text } => {
                 if text.len() <= 1 << 20 {
                     let offer = SelectionOffer {
@@ -682,23 +709,22 @@ impl Exec {
                     }
                 }
             }
-            FromApplet::OpenUri { uri } if is_file(&uri) => {
-                let writable = slot
-                    .state
-                    .iter()
-                    .cloned()
-                    .chain(
-                        slot.sandbox
-                            .write
-                            .iter()
-                            .filter_map(|path| sandbox::expanded(path).ok()),
-                    )
-                    .collect();
-                slot.push_request(BarRequest::OpenFile { uri, writable });
+            FromApplet::OpenUri { uri } => {
+                if !allowed_uri(&uri) {
+                    tracing::warn!(applet = %slot.public.applet, "applet asked to open a refused uri");
+                } else if is_file(&uri) {
+                    slot.push_request(BarRequest::OpenFile { uri });
+                } else {
+                    slot.push_request(BarRequest::OpenUri(uri));
+                }
             }
-            FromApplet::OpenUri { uri } => slot.push_request(BarRequest::OpenUri(uri)),
-            FromApplet::Launch { id } => slot.push_request(BarRequest::Launch(id)),
-            FromApplet::Compositor { .. } => self.call(request, ctx),
+            FromApplet::Launch { id } => {
+                if id.strip_suffix(".desktop").unwrap_or(&id).is_empty() {
+                    tracing::warn!(applet = %slot.public.applet, "applet asked to launch an empty id");
+                } else {
+                    slot.push_request(BarRequest::Launch(id));
+                }
+            }
             FromApplet::ClosePopover => slot.push_request(BarRequest::ClosePopover),
             _ => {}
         }
@@ -731,7 +757,7 @@ impl Exec {
         }
         *slot_value = Some(value.clone());
         for slot in self.slots.values_mut() {
-            if Self::granted(slot, name) && matches!(slot.public.status, Status::Running) {
+            if matches!(slot.public.status, Status::Running) {
                 Self::send(
                     slot,
                     Outgoing::Service {
@@ -740,13 +766,6 @@ impl Exec {
                     },
                 );
             }
-        }
-    }
-
-    fn granted(slot: &Slot, name: &str) -> bool {
-        match name {
-            "mpris" => slot.sandbox.mpris,
-            _ => slot.sandbox.compositor,
         }
     }
 }
@@ -764,12 +783,6 @@ impl Slot {
 fn is_file(uri: &str) -> bool {
     uri.split_once(':')
         .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
-}
-
-fn may_launch(sandbox: &glimpse_config::AppletSandbox, id: &str) -> bool {
-    let bare = |id: &str| id.strip_suffix(".desktop").unwrap_or(id).to_owned();
-    let id = bare(id);
-    !id.is_empty() && sandbox.launch.iter().any(|allowed| bare(allowed) == id)
 }
 
 fn allowed_uri(uri: &str) -> bool {
@@ -816,8 +829,24 @@ fn note(entry: &Entry, id: &str, request: &FromApplet) -> Option<Note> {
     })
 }
 
-fn backoff(attempt: u32) -> Duration {
-    Duration::from_secs(1_u64 << attempt.min(6)).min(Duration::from_secs(60))
+fn prune_dead_sockets(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(pid) = name
+            .strip_suffix(".sock")
+            .and_then(|stem| stem.split('-').next())
+            .and_then(|pid| pid.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid != std::process::id() && !Path::new(&format!("/proc/{pid}")).exists() {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 impl Service for Exec {
@@ -840,78 +869,79 @@ impl Service for Exec {
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut subs = Vec::new();
         for (&slot_id, slot) in &self.slots {
-            let spawn_id = slot.spawn;
-            match slot.public.status {
-                Status::Starting | Status::Running => {
-                    let catalog = Arc::clone(&self.dependencies.catalog);
-                    let args = spawn::SourceArgs {
+            if matches!(
+                slot.public.status,
+                Status::Starting | Status::Running | Status::Restarting { .. }
+            ) {
+                let catalog = Arc::clone(&self.dependencies.catalog);
+                let (entry, cwd, stderr) = match &slot.dev {
+                    Some(dev) => (
+                        Some(dev.entry.clone()),
+                        dev.entry.path.parent().map(Path::to_path_buf),
+                        dev.stderr
+                            .as_ref()
+                            .and_then(|fd| fd.as_fd().try_clone_to_owned().ok()),
+                    ),
+                    None => (slot.entry.clone(), None, None),
+                };
+                let args = spawn::SourceArgs {
+                    slot: slot_id,
+                    spawn: slot.spawn,
+                    id: slot.applet_id.clone(),
+                    env: slot.env.clone(),
+                    state_base: self.config.state_base.clone(),
+                    entry,
+                    cwd,
+                    restart: slot.origin == Origin::Spawned,
+                    stderr,
+                    unit: slot.unit.clone(),
+                    socket: slot.socket.clone(),
+                    launcher: Arc::clone(&self.dependencies.launcher),
+                    stop: slot.stop.clone(),
+                };
+                subs.push(Sub::stream(
+                    SubKey::Child {
                         slot: slot_id,
-                        spawn: spawn_id,
-                        id: slot.applet_id.clone(),
-                        sandbox: slot.sandbox.clone(),
-                        env: slot.env.clone(),
-                        state: slot.state.clone(),
-                        state_base: self.config.state_base.clone(),
-                        bus_proxy: self.config.bus_proxy.clone(),
-                        origin: slot.origin,
-                        pipes: slot.pipes.clone(),
-                        entry: slot.entry.clone(),
-                        stop: slot.stop.clone(),
-                        scope_warned: Arc::clone(&self.scope_warned),
-                    };
-                    subs.push(Sub::stream(
-                        SubKey::Child {
-                            slot: slot_id,
-                            spawn: spawn_id,
-                        },
-                        move |ctx| async move { spawn::source(ctx, catalog, args).await },
-                    ));
-                }
-                Status::Restarting { .. } => {
-                    if let Some(at) = slot.backoff_until {
-                        subs.push(Sub::deadline(
-                            SubKey::Backoff {
-                                slot: slot_id,
-                                spawn: spawn_id,
-                            },
-                            at,
-                            Event::Backoff { slot: slot_id },
-                        ));
-                    }
-                }
-                Status::Failed(_) | Status::Ended => {}
+                        spawn: slot.spawn,
+                    },
+                    move |ctx| async move {
+                        let _ = ctx;
+                        spawn::source(catalog, args).await
+                    },
+                ));
+            }
+            if matches!(slot.public.status, Status::Running)
+                && !slot.reset_done
+                && let Some(since) = slot.running_since
+            {
+                let remaining = RESET_AFTER.saturating_sub(since.elapsed());
+                let at = Utc::now() + chrono::Duration::from_std(remaining).unwrap_or_default();
+                subs.push(Sub::deadline(
+                    SubKey::Reset {
+                        slot: slot_id,
+                        generation: slot.public.generation,
+                    },
+                    at,
+                    Event::ResetFailed {
+                        slot: slot_id,
+                        generation: slot.public.generation,
+                    },
+                ));
             }
         }
-        for (applet, stored) in &self.offers {
-            let offered_at = stored.offered_at;
-            let remaining = OFFER_TTL.saturating_sub(offered_at.elapsed());
-            let at = Utc::now() + chrono::Duration::from_std(remaining).unwrap_or_default();
-            subs.push(Sub::deadline(
-                SubKey::Offer {
-                    applet: applet.clone(),
-                    offered_at,
-                },
-                at,
-                Event::OfferExpired {
-                    applet: applet.clone(),
-                    offered_at,
-                },
-            ));
-        }
-        let running = |grant: fn(&Slot) -> bool| {
-            self.slots.values().any(|slot| {
-                grant(slot) && matches!(slot.public.status, Status::Starting | Status::Running)
-            })
-        };
-        if running(|slot| slot.sandbox.mpris) {
+        let active = self.slots.values().any(|slot| {
+            matches!(
+                slot.public.status,
+                Status::Starting | Status::Running | Status::Restarting { .. }
+            )
+        });
+        if active {
             subs.push(Sub::watch(
                 SubKey::Mpris,
                 self.dependencies.mpris.subscribe(),
                 Event::Mpris,
                 Event::Mpris(MprisPlayers::default()),
             ));
-        }
-        if running(|slot| slot.sandbox.compositor) {
             subs.push(Sub::watch(
                 SubKey::Compositor,
                 self.dependencies.compositor.subscribe(),
@@ -935,20 +965,35 @@ impl Service for Exec {
         config: Self::Config,
         dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
-        tokio::task::spawn_blocking(proxy::prune_dead);
+        let launcher = Arc::clone(&dependencies.launcher);
+        let prefix = launcher::sweep_prefix(&config.panel);
+        let sockets = config.sockets_dir();
+        ctx.spawn_detached(move |_ctx| async move {
+            if let Some(dir) = sockets {
+                let _ = tokio::task::spawn_blocking(move || prune_dead_sockets(&dir)).await;
+            }
+            launcher.sweep(&prefix).await;
+        });
         Ok(Self {
             state: ctx.publisher(),
             config,
             dependencies,
             slots: BTreeMap::new(),
-            offers: BTreeMap::new(),
-            taken: BTreeMap::new(),
+            pending_dev: BTreeMap::new(),
+            taken_dev: BTreeMap::new(),
             next_spawn: 0,
+            next_unit: 0,
             next_generation: 0,
-            scope_warned: Arc::new(AtomicBool::new(false)),
             mpris: None,
             compositor: None,
         })
+    }
+
+    async fn stop(self, _ctx: &Ctx<Self>) {
+        for slot in self.slots.values() {
+            self.dependencies.launcher.stop(&slot.unit).await;
+            let _ = tokio::fs::remove_file(&slot.socket).await;
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -966,30 +1011,28 @@ impl Service for Exec {
                     return;
                 }
                 let desktop_id = self.desktop_id(&applet);
-                if self.offers.get(&desktop_id).is_some_and(|stored| {
-                    stored.offer.output.is_none() || stored.offer.output == placement.output
-                }) && let Some(stored) = self.offers.remove(&desktop_id)
+                if self.pending_dev.get(&desktop_id).is_some_and(|request| {
+                    request.output.is_none() || request.output == placement.output
+                }) && let Some(request) = self.pending_dev.remove(&desktop_id)
                 {
-                    tracing::info!(applet = %desktop_id, slot, output = ?placement.output, "applet attached from its offer");
-                    let attached = self.attached_slot(applet, placement, stored.offer);
-                    self.slots.insert(slot, attached);
-                    self.taken.insert(desktop_id, slot);
+                    tracing::info!(applet = %desktop_id, slot, output = ?placement.output, "dev applet attached");
+                    let dev = self.dev_slot(slot, applet, placement, request);
+                    self.slots.insert(slot, dev);
+                    self.taken_dev.insert(desktop_id, slot);
                     let _ = reply.send(Ok(()));
                     self.publish();
                     return;
                 }
                 let config = self.config.applets.get(&applet);
-                let (applet_id, sandbox, env, options, status) = match config {
+                let (applet_id, env, options, status) = match config {
                     Some(config) => (
                         config.applet.clone(),
-                        config.sandbox.clone(),
                         config.env.clone(),
                         config.options.clone(),
                         Status::Starting,
                     ),
                     None => (
                         String::new(),
-                        glimpse_config::AppletSandbox::default(),
                         BTreeMap::new(),
                         Map::new(),
                         Status::Failed("not configured".to_owned()),
@@ -1008,11 +1051,11 @@ impl Service for Exec {
                     .as_ref()
                     .map(|base| base.join("applets").join(&applet_id));
                 self.next_spawn += 1;
+                let unit = self.next_unit(&applet_id, slot);
                 self.slots.insert(
                     slot,
                     Slot {
                         origin: Origin::Spawned,
-                        pipes: None,
                         public: SlotState {
                             applet,
                             generation: 0,
@@ -1024,112 +1067,124 @@ impl Service for Exec {
                         },
                         placement,
                         applet_id,
-                        sandbox,
                         env,
                         state,
                         entry: None,
+                        dev: None,
                         catalog_refused: false,
                         options,
                         spawn: self.next_spawn,
-                        attempt: 0,
-                        backoff_until: None,
+                        unit,
+                        socket: self.config.socket_path(slot),
+                        restarts: 0,
                         link: None,
                         stop: CancellationToken::new(),
                         popover_open: false,
-                        last_gesture: None,
                         last_notify: None,
                         calls: (Instant::now(), 0),
-                        warned_gate: false,
                         last_failed_reason,
                         serial: 0,
                         failed_at: None,
                         failures: 0,
                         catalog_misses: 0,
                         resolving: false,
+                        running_since: None,
+                        reset_done: false,
                     },
                 );
                 let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::Offer {
+            Input::Command(Command::DevAttach {
                 applet,
-                offer,
+                request,
                 reply,
             }) => {
-                let offer = *offer;
+                let request = *request;
                 let id = self.desktop_id(&applet);
-                let result = if self.offers.contains_key(&id) || self.taken.contains_key(&id) {
-                    tracing::info!(applet = %id, "offer refused, already attached");
+                let result = if self.pending_dev.contains_key(&id)
+                    || self.taken_dev.contains_key(&id)
+                {
+                    tracing::info!(applet = %id, "dev attach refused, already attached");
                     Err(CommandError::InvalidArgument(format!(
                         "{id} is already attached"
                     )))
                 } else if let Some((&slot_id, _)) = self.slots.iter().find(|(_, slot)| {
                     self.desktop_id(&slot.public.applet) == id
                         && (slot.origin == Origin::Spawned
-                            || (slot.origin == Origin::Attached
+                            || (slot.origin == Origin::Dev
                                 && matches!(slot.public.status, Status::Ended | Status::Failed(_))))
-                        && (offer.output.is_none() || offer.output == slot.placement.output)
-                        && offer
+                        && (request.output.is_none() || request.output == slot.placement.output)
+                        && request
                             .position
                             .is_none_or(|edge| edge == slot.placement.position)
                 }) {
-                    self.next_spawn += 1;
                     if let Some(slot) = self.slots.get_mut(&slot_id) {
-                        tracing::info!(applet = %id, slot = slot_id, output = ?slot.placement.output, from = ?slot.origin, "applet taken over by its offer");
-                        if let Some(link) = slot.link.take() {
-                            link.stop.cancel();
-                        }
-                        slot.stop.cancel();
-                        slot.stop = CancellationToken::new();
-                        slot.spawn = self.next_spawn;
-                        slot.origin = Origin::Attached;
+                        tracing::info!(applet = %id, slot = slot_id, output = ?slot.placement.output, "applet taken over by a dev slot");
+                        slot.origin = Origin::Dev;
                         slot.applet_id = id.clone();
                         slot.state = self
                             .config
                             .state_base
                             .as_ref()
                             .map(|base| base.join("applets").join(&id));
-                        slot.pipes = Some(Arc::new(tokio::sync::Mutex::new(Some(offer.pipes))));
-                        slot.entry = Some(offer.entry.clone());
-                        slot.options = offer.options;
-                        slot.sandbox = offer.sandbox;
-                        slot.public.title = offer.entry.name;
-                        slot.public.icon = offer.entry.icon;
-                        slot.public.status = Status::Starting;
-                        slot.attempt = 0;
-                        slot.backoff_until = None;
+                        slot.env = request.env;
+                        slot.dev = Some(DevSpec {
+                            entry: request.entry.clone(),
+                            stderr: request.stderr.map(Arc::new),
+                        });
+                        slot.entry = Some(request.entry.clone());
+                        slot.options = request.options;
+                        slot.public.title = request.entry.name;
+                        slot.public.icon = request.entry.icon;
                         slot.failures = 0;
                         slot.last_failed_reason = None;
                         slot.failed_at = None;
                         slot.catalog_refused = false;
                         slot.resolving = false;
                     }
-                    self.taken.insert(id, slot_id);
-                    Ok(())
+                    self.restart_slot(slot_id);
+                    self.taken_dev.insert(id.clone(), slot_id);
+                    Ok(id.clone())
                 } else {
-                    tracing::info!(applet = %id, output = ?offer.output, "applet offered, waiting for its widget");
-                    self.offers.insert(
-                        id,
-                        StoredOffer {
-                            offer,
-                            offered_at: Instant::now(),
-                        },
-                    );
-                    Ok(())
+                    tracing::info!(applet = %id, output = ?request.output, "dev applet waiting for its widget");
+                    self.pending_dev.insert(id.clone(), request);
+                    Ok(id.clone())
                 };
                 let _ = reply.send(result);
             }
-            Input::Command(Command::OfferOptions {
-                applet,
+            Input::Command(Command::DevRestart { handle, reply }) => {
+                let result = if let Some(&slot_id) = self.taken_dev.get(&handle) {
+                    self.restart_slot(slot_id);
+                    Ok(())
+                } else if self.pending_dev.contains_key(&handle) {
+                    Ok(())
+                } else {
+                    Err(CommandError::InvalidArgument("unknown applet".to_owned()))
+                };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::DevDetach { handle, reply }) => {
+                let result = if let Some(&slot_id) = self.taken_dev.get(&handle) {
+                    self.finish_dev(slot_id);
+                    Ok(())
+                } else if self.pending_dev.remove(&handle).is_some() {
+                    Ok(())
+                } else {
+                    Err(CommandError::InvalidArgument("unknown applet".to_owned()))
+                };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::DevSetOptions {
+                handle,
                 options,
                 reply,
             }) => {
-                let id = self.desktop_id(&applet);
-                let result = if let Some(stored) = self.offers.get_mut(&id) {
-                    stored.offer.options = options;
+                let result = if let Some(request) = self.pending_dev.get_mut(&handle) {
+                    request.options = options;
                     Ok(())
                 } else if let Some(slot) = self
-                    .taken
-                    .get(&id)
+                    .taken_dev
+                    .get(&handle)
                     .and_then(|slot| self.slots.get_mut(slot))
                 {
                     slot.options = options.clone();
@@ -1177,10 +1232,18 @@ impl Service for Exec {
                 let _ = reply.send(result);
             }
             Input::Command(Command::Detach { slot, reply }) => {
-                if let Some(state) = self.slots.remove(&slot)
-                    && state.origin == Origin::Attached
-                {
-                    self.taken.remove(&state.applet_id);
+                if let Some(state) = self.slots.remove(&slot) {
+                    state.stop.cancel();
+                    if state.origin == Origin::Dev {
+                        self.taken_dev.remove(&state.applet_id);
+                    }
+                    let launcher = Arc::clone(&self.dependencies.launcher);
+                    let unit = state.unit.clone();
+                    let socket = state.socket.clone();
+                    ctx.spawn_detached(move |_ctx| async move {
+                        launcher.stop(&unit).await;
+                        let _ = tokio::fs::remove_file(&socket).await;
+                    });
                 }
                 let _ = reply.send(Ok(()));
             }
@@ -1189,10 +1252,6 @@ impl Service for Exec {
                     && slot.public.generation == event.generation
                     && matches!(slot.public.status, Status::Running)
                 {
-                    if event.gesture {
-                        slot.last_gesture = Some(Instant::now());
-                        slot.warned_gate = false;
-                    }
                     Self::send(
                         slot,
                         Outgoing::Event {
@@ -1217,20 +1276,17 @@ impl Service for Exec {
                 };
                 let _ = reply.send(result);
             }
-            Input::Event(Event::Spawned {
-                slot,
-                spawn,
-                link,
-                entry,
-            }) => {
+
+            Input::Event(Event::Started { slot, spawn, entry }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.public.title = entry.name.clone();
                     state.public.icon = entry.icon.clone();
                     state.entry = Some(entry);
+                }
+            }
+            Input::Event(Event::Connected { slot, spawn, link }) => {
+                if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = Some(link);
-                    if state.origin == Origin::Attached {
-                        state.pipes = None;
-                    }
                 } else {
                     link.stop.cancel();
                 }
@@ -1247,8 +1303,9 @@ impl Service for Exec {
                         state.public.tree = Arc::new(Tree::default());
                     }
                     state.public.status = Status::Running;
+                    state.running_since = Some(Instant::now());
+                    state.reset_done = false;
                     state.last_failed_reason = None;
-                    state.last_gesture = None;
                     state.failures = 0;
                     Self::send(
                         state,
@@ -1265,9 +1322,7 @@ impl Service for Exec {
                     }
                     for (name, value) in [("mpris", &self.mpris), ("compositor", &self.compositor)]
                     {
-                        if let Some(value) = value
-                            && Self::granted(state, name)
-                        {
+                        if let Some(value) = value {
                             Self::send(
                                 state,
                                 Outgoing::Service {
@@ -1301,13 +1356,68 @@ impl Service for Exec {
                     self.request(slot, request, ctx);
                 }
             }
+            Input::Event(Event::Disconnected { slot, spawn, .. })
+            | Input::Event(Event::Misbehaved { slot, spawn, .. }) => {
+                if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
+                    state.link = None;
+                    state.public.tree = Arc::new(Tree::default());
+                    state.running_since = None;
+                    state.public.status = match state.origin {
+                        Origin::Dev => Status::Ended,
+                        Origin::Spawned
+                            if self.config.applets.contains_key(&state.public.applet) =>
+                        {
+                            Status::Restarting {
+                                attempt: state.restarts,
+                            }
+                        }
+                        Origin::Spawned => Status::Failed("not configured".to_owned()),
+                    };
+                }
+            }
+            Input::Event(Event::Unit { slot, spawn, state }) => {
+                if let Some(current) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
+                    match state {
+                        UnitState::Restarting { restarts } => {
+                            current.restarts = restarts;
+                            current.link = None;
+                            current.running_since = None;
+                            if current.origin == Origin::Spawned
+                                && !matches!(current.public.status, Status::Failed(_))
+                            {
+                                current.public.status = Status::Restarting { attempt: restarts };
+                            }
+                        }
+                        UnitState::Failed { result } => {
+                            if current.last_failed_reason.as_deref() != Some(result.as_str()) {
+                                tracing::warn!(applet = %current.public.applet, %result, "applet unit failed");
+                            }
+                            current.link = None;
+                            current.running_since = None;
+                            current.last_failed_reason = Some(result.clone());
+                            current.failures = current.failures.saturating_add(1);
+                            current.failed_at = Some(Instant::now());
+                            current.public.status = Status::Failed(result);
+                        }
+                        UnitState::Gone => {
+                            current.link = None;
+                            current.running_since = None;
+                            if matches!(
+                                current.public.status,
+                                Status::Starting | Status::Restarting { .. }
+                            ) {
+                                current.public.status = Status::Ended;
+                            }
+                        }
+                    }
+                }
+            }
             Input::Event(Event::Exited {
                 slot,
                 spawn,
-                spoke,
-                ran,
                 reason,
                 resolved,
+                ..
             }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
@@ -1315,25 +1425,10 @@ impl Service for Exec {
                         state.entry = Some(entry);
                     }
                     state.public.tree = Arc::new(Tree::default());
-                    if state.origin == Origin::Attached {
-                        self.finish_attached(slot, Some(reason));
-                    } else if !self.config.applets.contains_key(&state.public.applet) {
+                    if state.origin == Origin::Spawned
+                        && !self.config.applets.contains_key(&state.public.applet)
+                    {
                         state.public.status = Status::Failed("not configured".to_owned());
-                    } else if spoke && !matches!(state.public.status, Status::Failed(_)) {
-                        tracing::warn!(applet = %state.public.applet, %reason, "applet exited");
-                        state.attempt = if ran >= Duration::from_secs(60) {
-                            0
-                        } else {
-                            state.attempt.saturating_add(1)
-                        };
-                        state.public.status = Status::Restarting {
-                            attempt: state.attempt,
-                        };
-                        state.backoff_until = Some(
-                            Utc::now()
-                                + chrono::Duration::from_std(backoff(state.attempt))
-                                    .unwrap_or_default(),
-                        );
                     } else {
                         if state.last_failed_reason.as_deref() != Some(reason.as_str()) {
                             tracing::warn!(applet = %state.public.applet, %reason, "applet failed");
@@ -1345,40 +1440,19 @@ impl Service for Exec {
                     }
                 }
             }
-            Input::Event(Event::Ended { slot, spawn }) => {
-                if self
-                    .slots
-                    .get(&slot)
-                    .is_some_and(|s| s.spawn == spawn && s.origin == Origin::Attached)
-                {
-                    self.finish_attached(slot, None);
-                }
-            }
-            Input::Event(Event::OfferExpired { applet, offered_at }) => {
-                if self
-                    .offers
-                    .get(&applet)
-                    .is_some_and(|stored| stored.offered_at == offered_at)
-                {
-                    tracing::info!(%applet, "offer expired, no widget took it");
-                    self.offers.remove(&applet);
-                }
-            }
-            Input::Event(Event::Backoff { slot }) => {
-                if self.slots.get(&slot).is_some_and(|s| {
-                    s.origin == Origin::Spawned
-                        && matches!(s.public.status, Status::Restarting { .. })
-                        && s.backoff_until.is_some_and(|at| Utc::now() >= at)
+            Input::Event(Event::ResetFailed { slot, generation }) => {
+                if let Some(state) = self.slots.get_mut(&slot).filter(|s| {
+                    s.public.generation == generation
+                        && matches!(s.public.status, Status::Running)
+                        && !s.reset_done
                 }) {
-                    if self
-                        .slots
-                        .get(&slot)
-                        .is_some_and(|s| self.config.applets.contains_key(&s.public.applet))
-                    {
-                        self.spawn_slot(slot);
-                    } else if let Some(state) = self.slots.get_mut(&slot) {
-                        state.public.status = Status::Failed("not configured".to_owned());
-                    }
+                    state.reset_done = true;
+                    state.restarts = 0;
+                    let launcher = Arc::clone(&self.dependencies.launcher);
+                    let unit = state.unit.clone();
+                    ctx.spawn_detached(move |_ctx| async move {
+                        launcher.reset_failed(&unit).await;
+                    });
                 }
             }
             Input::Event(Event::Retry) => {
@@ -1450,23 +1524,22 @@ impl Service for Exec {
                     state.catalog_refused = true;
                     state.failed_at = Some(Instant::now());
                     state.public.status = Status::Failed(reason.clone());
-                } else if let Some(state) = self.slots.get_mut(&slot)
+                } else if let Some(state) = self.slots.get(&slot)
                     && state.spawn == spawn
                     && matches!(state.public.status, Status::Failed(_))
                     && self.config.applets.contains_key(&state.public.applet)
                 {
-                    let due = state
-                        .failed_at
-                        .is_some_and(|at| at.elapsed() >= backoff(state.failures));
                     match resolved {
                         Some(Ok(entry))
-                            if due
-                                || state.catalog_refused
-                                || state.entry.as_ref() != Some(&entry) =>
+                            if state.catalog_refused || state.entry.as_ref() != Some(&entry) =>
                         {
-                            self.spawn_slot(slot)
+                            self.restart_slot(slot)
                         }
-                        Some(Err(_)) => state.catalog_refused = true,
+                        Some(Err(_)) => {
+                            if let Some(state) = self.slots.get_mut(&slot) {
+                                state.catalog_refused = true;
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -1474,13 +1547,12 @@ impl Service for Exec {
             Input::Config(config) => {
                 let mut respawn = Vec::new();
                 for (&id, slot) in &mut self.slots {
-                    if slot.origin == Origin::Attached {
+                    if slot.origin == Origin::Dev {
                         continue;
                     }
                     match config.applets.get(&slot.public.applet) {
                         Some(applet) if applet.applet != slot.applet_id => {
                             slot.applet_id = applet.applet.clone();
-                            slot.sandbox = applet.sandbox.clone();
                             slot.env = applet.env.clone();
                             slot.state = config
                                 .state_base
@@ -1489,10 +1561,7 @@ impl Service for Exec {
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }
-                        Some(applet)
-                            if applet.sandbox != slot.sandbox || applet.env != slot.env =>
-                        {
-                            slot.sandbox = applet.sandbox.clone();
+                        Some(applet) if applet.env != slot.env => {
                             slot.env = applet.env.clone();
                             slot.options = applet.options.clone();
                             respawn.push(id);
@@ -1523,13 +1592,14 @@ impl Service for Exec {
                             if let Some(link) = slot.link.take() {
                                 link.stop.cancel();
                             }
+                            slot.stop.cancel();
                         }
                         _ => {}
                     }
                 }
                 self.config = config;
                 for id in respawn {
-                    self.spawn_slot(id);
+                    self.restart_slot(id);
                 }
             }
         }

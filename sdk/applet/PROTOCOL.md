@@ -1,8 +1,9 @@
 # Applet protocol
 
-The panel is the host. It starts the applet as a child process, or `glimpsectl applets run --dev`
-starts it and relays the protocol to the panel. The host writes the applet's stdin and reads
-its stdout as UTF-8 NDJSON: one JSON object per line, separated by `\n`. The host also
+The panel is the host. An exec applet runs as a systemd user unit, or `glimpsectl applets run --dev`
+starts it and relays the protocol to the panel. The applet connects once to the unix socket named
+by `GLIMPSE_APPLET_SOCKET`; both directions carry UTF-8 NDJSON on that one connection: one JSON
+object per line, separated by `\n`. Stdio carries the same stream in tests. The host also
 accepts a trailing `\r`. Stderr is not part of the protocol; the panel logs it at most 50
 lines a second, each line up to 4 KiB, while `glimpsectl applets run --dev` sends it to the terminal.
 
@@ -120,9 +121,7 @@ or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `se
 
 ### `service`
 
-The whole current value of a granted service, sent after `hello` and on every change. A
-service is granted by `mpris = true` or `compositor = true` in the applet's `sandbox` table;
-an ungranted one is never sent.
+The whole current value of a service, sent after `hello` and on every change.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -165,7 +164,7 @@ Every applet message is an object with a `t` tag.
 | --- | --- |
 | `v` | number, `1` |
 
-The first message on stdout. The host answers with its own `hello`. A later `hello` from
+The first message the applet sends. The host answers with its own `hello`. A later `hello` from
 the same process starts a new generation and an empty tree.
 
 ### `commit`
@@ -186,11 +185,6 @@ the node cap and the child cap are checked before the copy replaces the live tre
 | `icon` | string or absent | absent |
 | `urgency` | `low`, `normal`, `critical` | `normal` |
 
-`copy`, `open-uri`, `launch`, `close-popover` and the compositor's `close-window` are
-honored only within two seconds of a press, click, activation or submit. All but
-`close-popover` use up that gesture. A scroll is not a gesture. The other `mpris` and
-`compositor` requests need no gesture and are capped at ten a second.
-
 ### `copy`
 
 | Field | Type |
@@ -205,7 +199,7 @@ honored only within two seconds of a press, click, activation or submit. All but
 
 Only `http`, `https`, `mailto` and `file` URIs of at most 2,048 bytes are opened; any other
 is dropped. A `file` URI opens the resolved path, and not when it resolves into the applet's state
-directory or a `write` grant, is executable, or is a type that starts a program: a desktop
+directory, is executable, or is a type that starts a program: a desktop
 entry, a script, a binary, an installer or an archive that runs.
 
 ### `launch`
@@ -214,11 +208,7 @@ entry, a script, a binary, an installer or an archive that runs.
 | --- | --- |
 | `id` | string — a desktop-file id, with or without `.desktop` |
 
-Only an id listed in the applet's `sandbox.launch` is started.
-
 ### `mpris`
-
-Needs the `mpris` grant.
 
 | `op` | Fields |
 | --- | --- |
@@ -228,7 +218,7 @@ Needs the `mpris` grant.
 
 ### `compositor`
 
-Needs the `compositor` grant. A workspace target is `{"id":n}`, `{"index":n}`,
+A workspace target is `{"id":n}`, `{"index":n}`,
 `{"name":"…"}`, `"next"` or `"prev"`; a window target is `{"id":n}`, `"next"` or `"prev"`.
 
 | `op` | Fields |

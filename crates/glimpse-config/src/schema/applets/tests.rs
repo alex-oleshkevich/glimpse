@@ -4,24 +4,18 @@ use super::{
 };
 
 #[test]
-fn exec_sandbox_resolves_paths_and_refuses_unknown_keys() {
-    let config: super::Exec =
-        toml::from_str("applet = \"me.x.A\"\noptions = {}\n[sandbox]\nread = [\".\"]\n")
-            .expect("exec settings parse");
-    let resolved = config
-        .sandbox
-        .resolve(std::path::Path::new("/a/b"))
-        .expect("paths resolve");
-    assert_eq!(resolved.read, ["/a/b"]);
+fn exec_refuses_unknown_keys() {
     assert!(toml::from_str::<super::Exec>("applet = \"me.x.A\"\nunknown = true").is_err());
-    assert!(toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nextra = true").is_err());
-    assert!(
-        toml::from_str::<super::Exec>("applet = \"me.x.A\"\n[sandbox]\nread = [\"relative\"]")
-            .expect("relative dev grants parse")
-            .sandbox
-            .resolve(std::path::Path::new("relative-dir"))
-            .is_err()
-    );
+}
+
+#[test]
+fn exec_sandbox_table_is_refused_by_name() {
+    let error = toml::from_str::<crate::Config>(
+        "[applets.x]\nextends = \"exec\"\napplet = \"me.x.A\"\n[applets.x.sandbox]\nnetwork = true\n",
+    )
+    .expect_err("the sandbox table no longer exists")
+    .to_string();
+    assert!(error.contains("sandbox"), "{error}");
 }
 
 #[test]
@@ -78,74 +72,6 @@ fn desktop_id_table_without_extends_carries_options() {
     };
     assert_eq!(exec.applet, "me.example.Pomodoro");
     assert_eq!(exec.options["work-minutes"], 25);
-    assert_eq!(exec.sandbox, super::Sandbox::default());
-}
-
-#[test]
-fn exec_sandbox_grants_parse_and_relative_paths_are_refused() {
-    let config: crate::Config = toml::from_str(
-        "[applets.\"me.example.Weather\"]\nsandbox = { read = [\"~/code\"], write = [\"/srv/x\"], network = true }\n",
-    )
-    .expect("absolute and home-relative grants load");
-    let Kind::Exec(exec) = &config.applets["me.example.Weather"].kind else {
-        panic!("the desktop-id table resolves to exec");
-    };
-    assert_eq!(exec.sandbox.read, ["~/code"]);
-    assert_eq!(exec.sandbox.write, ["/srv/x"]);
-    assert!(exec.sandbox.network);
-    assert!(!exec.sandbox.unconfined);
-
-    for bad in [
-        "sandbox = { read = [\"code\"] }",
-        "sandbox = { write = [\"~code\"] }",
-        "sandbox = { exec = true }",
-    ] {
-        let error =
-            toml::from_str::<crate::Config>(&format!("[applets.\"me.example.Weather\"]\n{bad}\n"))
-                .expect_err(bad)
-                .to_string();
-        assert!(error.contains("me.example.Weather"), "{bad}: {error}");
-    }
-}
-
-#[test]
-fn exec_dbus_grants_parse_and_malformed_names_are_refused() {
-    let config: crate::Config = toml::from_str(
-        "[applets.\"me.example.Phone\"]\nsandbox.dbus = { talk = [\"org.kde.kdeconnect\"], call = [\"org.freedesktop.portal.Desktop=org.freedesktop.portal.FileChooser.OpenFile@/org/freedesktop/portal/desktop\"] }\n",
-    )
-    .expect("well-formed bus grants load");
-    let Kind::Exec(exec) = &config.applets["me.example.Phone"].kind else {
-        panic!("the desktop-id table resolves to exec");
-    };
-    assert_eq!(exec.sandbox.dbus.talk, ["org.kde.kdeconnect"]);
-    assert_eq!(exec.sandbox.dbus.call.len(), 1);
-
-    for bad in [
-        "sandbox.dbus = { talk = [\"not a name\"] }",
-        "sandbox.dbus = { talk = [\"kdeconnect\"] }",
-        "sandbox.dbus = { talk = [\"org.1kde\"] }",
-        "sandbox.dbus = { call = [\"org.kde.kdeconnect\"] }",
-        "sandbox.dbus = { broadcast = [\"org.kde.kdeconnect=a b\"] }",
-        "sandbox.dbus = { own = [\"org.kde.kdeconnect\"] }",
-    ] {
-        let error =
-            toml::from_str::<crate::Config>(&format!("[applets.\"me.example.Phone\"]\n{bad}\n"))
-                .expect_err(bad)
-                .to_string();
-        assert!(error.contains("me.example.Phone"), "{bad}: {error}");
-    }
-
-    let local = super::Sandbox {
-        dbus: super::DbusGrant {
-            talk: vec!["org.kde kdeconnect".to_owned()],
-            ..super::DbusGrant::default()
-        },
-        ..super::Sandbox::default()
-    };
-    assert!(
-        local.resolve(std::path::Path::new("/tmp")).is_err(),
-        "glimpsectl's local config is checked too"
-    );
 }
 
 #[test]
@@ -192,28 +118,6 @@ fn exec_env_parses_and_an_invalid_name_is_rejected() {
     nul_value.insert("GSK_RENDERER".to_owned(), "cai\0ro".to_owned());
     let error = super::validate_env(&nul_value).expect_err("a value containing NUL");
     assert!(error.contains("GSK_RENDERER"), "{error}");
-}
-
-#[test]
-fn an_empty_dbus_grant_is_left_out_of_the_serialized_sandbox() {
-    let json = serde_json::to_value(super::Sandbox::default()).expect("serializes");
-    assert!(
-        json.get("dbus").is_none(),
-        "an older panel refuses an unknown key"
-    );
-    let granted = super::Sandbox {
-        dbus: super::DbusGrant {
-            talk: vec!["org.kde.kdeconnect".to_owned()],
-            ..super::DbusGrant::default()
-        },
-        ..super::Sandbox::default()
-    };
-    assert!(
-        serde_json::to_value(granted)
-            .expect("serializes")
-            .get("dbus")
-            .is_some()
-    );
 }
 
 #[test]
