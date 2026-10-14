@@ -569,6 +569,8 @@ fn an_applet_reaches_its_group() {
     a_clock_interval_repaints_its_group();
     crate::applet::catcher::tests::every_arrow_paints_over_the_body_on_its_panel_side();
     crate::applet::catcher::tests::a_typing_popover_takes_the_keyboard_without_a_click();
+    crate::applet::catcher::tests::only_the_body_sized_surface_is_blurred();
+    crate::applet::catcher::tests::the_popover_surface_follows_its_body();
 }
 
 fn an_applet_action_injects_what_a_pointer_would() {

@@ -11,6 +11,7 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 const SIDEWAYS: &str = "applet-popover__arrow--sideways";
 const SHOWN: &str = "shown";
 const SHOWN_OPACITY: f64 = 0.5;
+const GUTTER: i32 = 40;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -23,6 +24,7 @@ enum State {
 
 pub struct Catcher {
     window: gtk4::Window,
+    popup: gtk4::Window,
     slot: gtk4::Grid,
     arrow: glimpse_widgets::PopoverArrow,
     body: gtk4::Box,
@@ -36,7 +38,8 @@ pub struct Catcher {
 
 impl Catcher {
     pub fn new(monitor: Option<&gtk4::gdk::Monitor>, side: Position) -> Rc<Self> {
-        let window = surface(monitor, 0);
+        let window = catching(monitor, 0);
+        let popup = surface(monitor);
 
         let slot = gtk4::Grid::new();
 
@@ -48,8 +51,8 @@ impl Catcher {
         arrow.add_css_class("applet-popover__arrow");
         slot.attach(&arrow, 0, 0, 1, 1);
 
-        window.set_child(Some(&slot));
-        shade(&window, &body, &arrow, 0.0);
+        popup.set_child(Some(&slot));
+        shade(&popup, &body, &arrow, 0.0);
 
         let fade = adw::TimedAnimation::new(
             &slot,
@@ -57,10 +60,10 @@ impl Catcher {
             1.0,
             glimpse_widgets::duration_ms(),
             adw::CallbackAnimationTarget::new({
-                let window = window.clone();
+                let popup = popup.clone();
                 let body = body.clone();
                 let arrow = arrow.clone();
-                move |value| shade(&window, &body, &arrow, value)
+                move |value| shade(&popup, &body, &arrow, value)
             }),
         );
         fade.set_easing(adw::Easing::EaseOutCubic);
@@ -68,6 +71,7 @@ impl Catcher {
         let side = Rc::new(Cell::new(side));
         let catcher = Rc::new(Self {
             window: window.clone(),
+            popup: popup.clone(),
             slot,
             arrow,
             body,
@@ -93,15 +97,17 @@ impl Catcher {
             }
         });
 
+        catcher.guard(&window);
+
         let press = gtk4::GestureClick::new();
         press.connect_pressed({
             let catcher = Rc::downgrade(&catcher);
-            let window = window.clone();
+            let popup = popup.clone();
             move |_, _, x, y| {
                 let Some(catcher) = catcher.upgrade() else {
                     return;
                 };
-                let under = window.pick(x, y, gtk4::PickFlags::DEFAULT);
+                let under = popup.pick(x, y, gtk4::PickFlags::DEFAULT);
                 let inside = under.is_some_and(|widget| {
                     widget == catcher.slot || widget.is_ancestor(&catcher.slot)
                 });
@@ -110,7 +116,7 @@ impl Catcher {
                 }
             }
         });
-        window.add_controller(press);
+        popup.add_controller(press);
 
         let keys = gtk4::EventControllerKey::new();
         keys.set_propagation_phase(gtk4::PropagationPhase::Capture);
@@ -126,7 +132,7 @@ impl Catcher {
                 gtk4::glib::Propagation::Stop
             }
         });
-        window.add_controller(keys);
+        popup.add_controller(keys);
 
         catcher.layout(side.get());
 
@@ -154,8 +160,9 @@ impl Catcher {
         self.body.append(child.as_ref());
         self.shield();
         self.state.set(State::Opening);
-        shade(&self.window, &self.body, &self.arrow, 0.0);
+        shade(&self.popup, &self.body, &self.arrow, 0.0);
         self.window.present();
+        self.popup.present();
 
         // A layer surface has no size and is not mapped until the compositor configures it, so
         // an idle right after present() has nothing to centre against and animates nothing. The
@@ -208,8 +215,8 @@ impl Catcher {
             true => KeyboardMode::Exclusive,
             false => KeyboardMode::None,
         };
-        if self.window.keyboard_mode() != wanted {
-            self.window.set_keyboard_mode(wanted);
+        if self.popup.keyboard_mode() != wanted {
+            self.popup.set_keyboard_mode(wanted);
         }
     }
 
@@ -231,10 +238,11 @@ impl Catcher {
     }
 
     pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position, blur: bool) {
-        glimpse_widgets::blur::apply(&self.window, blur);
+        glimpse_widgets::blur::apply(&self.popup, blur);
         let moved = self.window.monitor().as_ref() != Some(monitor);
         if moved {
             self.window.set_monitor(Some(monitor));
+            self.popup.set_monitor(Some(monitor));
         }
         if moved || side != self.side.get() {
             self.finish_close();
@@ -274,10 +282,22 @@ impl Catcher {
                 self.arrow.add_css_class(SIDEWAYS);
             }
         }
+        let (bar, along) = match side {
+            Position::Top => (Edge::Top, Edge::Left),
+            Position::Bottom => (Edge::Bottom, Edge::Left),
+            Position::Left => (Edge::Left, Edge::Top),
+            Position::Right => (Edge::Right, Edge::Top),
+        };
+        for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
+            self.popup.set_anchor(edge, edge == bar || edge == along);
+            self.popup.set_margin(edge, 0);
+        }
+        self.slot.set_margin_start(gutter(side == Position::Right));
+        self.slot.set_margin_end(gutter(side == Position::Left));
+        self.slot.set_margin_top(gutter(side == Position::Bottom));
+        self.slot.set_margin_bottom(gutter(side == Position::Top));
         self.arrow.set_margin_start(0);
         self.arrow.set_margin_top(0);
-        self.slot.set_margin_start(0);
-        self.slot.set_margin_top(0);
         self.arrow.set_tip(tip(side));
         self.settle();
     }
@@ -318,16 +338,38 @@ impl Catcher {
             false => self.arrow.height(),
         };
         let (start, offset) = placement(self.center.get(), extent, room, arrow);
+        let lead = start.min(GUTTER);
+        let trail = (room - start - extent).clamp(0, GUTTER);
         match self.horizontal() {
             true => {
-                self.slot.set_margin_start(start);
+                self.popup.set_margin(Edge::Left, start - lead);
+                self.slot.set_margin_start(lead);
+                self.slot.set_margin_end(trail);
                 self.arrow.set_margin_start(offset);
             }
             false => {
-                self.slot.set_margin_top(start);
+                self.popup.set_margin(Edge::Top, start - lead);
+                self.slot.set_margin_top(lead);
+                self.slot.set_margin_bottom(trail);
                 self.arrow.set_margin_top(offset);
             }
         }
+    }
+
+    fn guard(self: &Rc<Self>, window: &gtk4::Window) {
+        let canvas = gtk4::DrawingArea::new();
+        canvas.set_draw_func(|_, _, _, _| {});
+        window.set_child(Some(&canvas));
+        let press = gtk4::GestureClick::new();
+        press.connect_pressed({
+            let catcher = Rc::downgrade(self);
+            move |_, _, _, _| {
+                if let Some(catcher) = catcher.upgrade() {
+                    catcher.close();
+                }
+            }
+        });
+        window.add_controller(press);
     }
 
     fn shield(self: &Rc<Self>) {
@@ -341,20 +383,8 @@ impl Catcher {
             .flatten()
             .filter(|monitor| *monitor != own)
             .map(|monitor| {
-                let window = surface(Some(&monitor), -1);
-                let canvas = gtk4::DrawingArea::new();
-                canvas.set_draw_func(|_, _, _, _| {});
-                window.set_child(Some(&canvas));
-                let press = gtk4::GestureClick::new();
-                press.connect_pressed({
-                    let catcher = Rc::downgrade(self);
-                    move |_, _, _, _| {
-                        if let Some(catcher) = catcher.upgrade() {
-                            catcher.close();
-                        }
-                    }
-                });
-                window.add_controller(press);
+                let window = catching(Some(&monitor), -1);
+                self.guard(&window);
                 window.present();
                 window
             })
@@ -370,6 +400,7 @@ impl Catcher {
 
     fn finish_close(&self) {
         self.release();
+        self.popup.set_visible(false);
         self.window.set_visible(false);
     }
 
@@ -378,7 +409,7 @@ impl Catcher {
             self.body.remove(&child);
         }
         self.unshield();
-        shade(&self.window, &self.body, &self.arrow, 0.0);
+        shade(&self.popup, &self.body, &self.arrow, 0.0);
         self.state.set(State::Closed);
         if let Some(dismissed) = self.dismissed.take() {
             dismissed();
@@ -389,25 +420,38 @@ impl Catcher {
 impl Drop for Catcher {
     fn drop(&mut self) {
         self.unshield();
+        self.popup.destroy();
         self.window.destroy();
     }
 }
 
-fn surface(monitor: Option<&gtk4::gdk::Monitor>, zone: i32) -> gtk4::Window {
+fn surface(monitor: Option<&gtk4::gdk::Monitor>) -> gtk4::Window {
     let window = gtk4::Window::new();
     window.init_layer_shell();
     window.set_namespace(Some("glimpse-popover"));
     window.set_layer(Layer::Top);
     window.set_keyboard_mode(KeyboardMode::None);
-    window.set_exclusive_zone(zone);
     window.add_css_class("popover-catcher");
-    for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
-        window.set_anchor(edge, true);
-    }
     if let Some(monitor) = monitor {
         window.set_monitor(Some(monitor));
     }
     window
+}
+
+fn catching(monitor: Option<&gtk4::gdk::Monitor>, zone: i32) -> gtk4::Window {
+    let window = surface(monitor);
+    window.set_exclusive_zone(zone);
+    for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom] {
+        window.set_anchor(edge, true);
+    }
+    window
+}
+
+fn gutter(far: bool) -> i32 {
+    match far {
+        true => GUTTER,
+        false => 0,
+    }
 }
 
 fn shade(

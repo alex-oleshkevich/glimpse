@@ -28,6 +28,7 @@ fn transient_properties_preserve_argv_and_use_the_resolved_executable() {
                 Value::from(vec![("/usr/bin/a-b".to_owned(), command, false)])
             ),
             ("Type", Value::from("exec")),
+            ("ExitType", Value::from("cgroup")),
             ("Slice", Value::from("app.slice")),
             ("CollectMode", Value::from("inactive-or-failed")),
             ("Environment", Value::from(Vec::<String>::new())),
@@ -70,5 +71,15 @@ fn transient_environment_includes_only_set_launch_variables() {
             .1;
         assert_eq!(value, &Value::from(expected));
         assert_eq!(value.value_signature().to_string(), "as");
+    }
+}
+
+#[test]
+fn only_a_job_that_finished_otherwise_than_done_is_an_error() {
+    assert!(finished(Some("done")).is_ok());
+    assert!(finished(None).is_ok(), "an unanswered job was still queued");
+    for result in ["failed", "timeout", "canceled", "dependency", "skipped"] {
+        let error = finished(Some(result)).expect_err(result);
+        assert!(error.message().contains(result), "{error}");
     }
 }

@@ -109,6 +109,9 @@ impl Config {
     pub fn validate(&self) -> Vec<crate::ConfigError> {
         let mut problems = Vec::new();
         let mut report = |message| problems.push(crate::ConfigError::Schema { message });
+        if let Some(problem) = &self.night_light.temperature_problem {
+            report(problem.clone());
+        }
         if let (Some(start), Some(end)) = (&self.night_light.start_time, &self.night_light.end_time)
             && let (Ok(start), Ok(end)) = (parse_clock(start), parse_clock(end))
             && start == end

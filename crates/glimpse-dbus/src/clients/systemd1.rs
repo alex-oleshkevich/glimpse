@@ -40,6 +40,15 @@ pub trait Systemd1Manager {
     ) -> zbus::Result<Vec<Systemd1UnitEntry>>;
     fn get_unit_processes(&self, name: &str) -> zbus::Result<Vec<(String, u32, String)>>;
     fn kill_unit(&self, name: &str, whom: &str, signal: i32) -> zbus::Result<()>;
+    fn subscribe(&self) -> zbus::Result<()>;
+    #[zbus(signal)]
+    fn job_removed(
+        &self,
+        id: u32,
+        job: OwnedObjectPath,
+        unit: String,
+        result: String,
+    ) -> zbus::Result<()>;
     #[zbus(property(emits_changed_signal = "false"))]
     fn environment(&self) -> zbus::Result<Vec<String>>;
 }

@@ -234,14 +234,20 @@ struct KeyboardProxy {
 
 pub struct SysfsBacklight {
     buses: Buses,
+    root: PathBuf,
     session: Mutex<Option<OwnedObjectPath>>,
     keyboard: Mutex<Option<KeyboardProxy>>,
 }
 
 impl SysfsBacklight {
     pub fn new(buses: Buses) -> Self {
+        Self::at(buses, PathBuf::from(BACKLIGHT_ROOT))
+    }
+
+    fn at(buses: Buses, root: PathBuf) -> Self {
         Self {
             buses,
+            root,
             session: Mutex::new(None),
             keyboard: Mutex::new(None),
         }
@@ -399,7 +405,7 @@ impl Backlight for SysfsBacklight {
             if self.buses.system_bus().is_err() {
                 return Enumeration::default();
             }
-            let mut entries = enumerate_sysfs().await;
+            let mut entries = enumerate_sysfs(&self.root).await;
             entries.extend(self.keyboard_entry().await);
             entries.into()
         })
@@ -413,7 +419,7 @@ impl Backlight for SysfsBacklight {
             return Box::pin(async move { self.keyboard_outcome().await });
         }
         Box::pin(async move {
-            match read_entry(Path::new(BACKLIGHT_ROOT), &id).await {
+            match read_entry(&self.root, &id).await {
                 Some(entry) => ReadOutcome::Found(entry),
                 None => ReadOutcome::Gone,
             }
@@ -517,15 +523,15 @@ fn is_stale_session(error: &zbus::Error) -> bool {
     )
 }
 
-async fn enumerate_sysfs() -> Vec<Entry> {
-    let mut dir = match tokio::fs::read_dir(BACKLIGHT_ROOT).await {
+async fn enumerate_sysfs(root: &Path) -> Vec<Entry> {
+    let mut dir = match tokio::fs::read_dir(root).await {
         Ok(dir) => dir,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            tracing::debug!(%error, root = BACKLIGHT_ROOT, "no backlight to enumerate");
+            tracing::debug!(%error, root = %root.display(), "no backlight to enumerate");
             return Vec::new();
         }
         Err(error) => {
-            tracing::warn!(%error, root = BACKLIGHT_ROOT, "could not read the backlight directory");
+            tracing::warn!(%error, root = %root.display(), "could not read the backlight directory");
             return Vec::new();
         }
     };
@@ -535,7 +541,7 @@ async fn enumerate_sysfs() -> Vec<Entry> {
             Ok(Some(next)) => next,
             Ok(None) => break,
             Err(error) => {
-                tracing::warn!(%error, "could not continue reading /sys/class/backlight");
+                tracing::warn!(%error, root = %root.display(), "could not continue reading the backlight directory");
                 break;
             }
         };

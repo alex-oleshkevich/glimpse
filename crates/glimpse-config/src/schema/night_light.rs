@@ -8,37 +8,78 @@ pub const MAX_TEMPERATURE: u32 = 6500;
 pub const CLOCK: &str = "%H:%M";
 const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct NightLight {
     pub schedule: Schedule,
-    #[serde(deserialize_with = "temperature")]
     #[schemars(range(min = MIN_TEMPERATURE, max = MAX_TEMPERATURE))]
     pub temperature: u32,
-    #[serde(deserialize_with = "clock", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub start_time: Option<String>,
-    #[serde(deserialize_with = "clock", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub end_time: Option<String>,
     pub transition_minutes: u32,
+    #[serde(skip)]
+    pub(crate) temperature_problem: Option<String>,
 }
 
-fn temperature<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = u32::deserialize(deserializer)?;
-    let clamped = value.clamp(MIN_TEMPERATURE, MAX_TEMPERATURE);
-    if clamped != value {
-        tracing::warn!(
-            problem = %format!(
-                "night-light.temperature {value} is outside {MIN_TEMPERATURE}..={MAX_TEMPERATURE} kelvin; using {clamped}"
-            ),
-            "configuration problem"
-        );
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct Document {
+    schedule: Option<Schedule>,
+    temperature: Option<Kelvin>,
+    #[serde(default, deserialize_with = "clock")]
+    start_time: Option<String>,
+    #[serde(default, deserialize_with = "clock")]
+    end_time: Option<String>,
+    transition_minutes: Option<u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged, expecting = "a number of kelvin")]
+enum Kelvin {
+    Whole(i64),
+    Fraction(f64),
+}
+
+impl Kelvin {
+    fn clamped(self) -> (u32, Option<String>) {
+        let (written, whole, exact) = match self {
+            Self::Whole(value) => (value.to_string(), value, true),
+            Self::Fraction(value) => (format!("{value:?}"), value.round() as i64, false),
+        };
+        let used = whole.clamp(MIN_TEMPERATURE.into(), MAX_TEMPERATURE.into());
+        let problem = (!exact || whole != used).then(|| {
+            format!(
+                "night-light.temperature: {written} is not a whole number of kelvin in \
+                 {MIN_TEMPERATURE}..={MAX_TEMPERATURE}; using {used}"
+            )
+        });
+        (used as u32, problem)
     }
-    Ok(clamped)
+}
+
+impl<'de> Deserialize<'de> for NightLight {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let document = Document::deserialize(deserializer)?;
+        let defaults = Self::default();
+        let (temperature, temperature_problem) = match document.temperature {
+            Some(kelvin) => kelvin.clamped(),
+            None => (defaults.temperature, None),
+        };
+        Ok(Self {
+            schedule: document.schedule.unwrap_or(defaults.schedule),
+            temperature,
+            start_time: document.start_time,
+            end_time: document.end_time,
+            transition_minutes: document
+                .transition_minutes
+                .unwrap_or(defaults.transition_minutes),
+            temperature_problem,
+        })
+    }
 }
 
 fn clock<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -65,6 +106,7 @@ impl Default for NightLight {
             start_time: None,
             end_time: None,
             transition_minutes: 15,
+            temperature_problem: None,
         }
     }
 }

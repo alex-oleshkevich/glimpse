@@ -116,7 +116,7 @@ fn method_error(name: &str) -> zbus::Error {
 #[tokio::test]
 #[ignore = "reads the live /sys/class/backlight and writes it back; run under just test-crate-compositor"]
 async fn enumerate_sysfs_reads_a_real_backlight() {
-    let entries = enumerate_sysfs().await;
+    let entries = enumerate_sysfs(Path::new(BACKLIGHT_ROOT)).await;
 
     assert!(!entries.is_empty(), "this host has no backlight to read");
     assert!(
@@ -159,7 +159,20 @@ async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
 
 #[tokio::test]
 async fn sysfs_without_a_system_bus_lists_nothing_and_refuses_writes() {
-    let backend = SysfsBacklight::new(glimpse_dbus::Buses::unavailable("no bus in tests"));
+    let root = tempfile::tempdir().expect("temporary directory");
+    let device = root.path().join("intel_backlight");
+    std::fs::create_dir(&device).expect("creates");
+    for (file, value) in [
+        ("brightness", "40"),
+        ("max_brightness", "100"),
+        ("type", "raw"),
+    ] {
+        std::fs::write(device.join(file), value).expect("writes");
+    }
+    let backend = SysfsBacklight::at(
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+        root.path().to_owned(),
+    );
 
     let enumeration = backend.enumerate().await;
     let read = backend.read("intel_backlight".to_owned()).await;

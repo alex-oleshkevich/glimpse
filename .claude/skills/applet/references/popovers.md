@@ -245,9 +245,10 @@ window. It reaches the runtime as `HostInput::PopoverDismissed`, which drops the
 ## Where it opens
 
 **One `Catcher` per bar**, built in `Panel::init` and shared by every applet in every zone. So one
-popover is open at a time per monitor, and opening a second replaces the first. It is a layer-shell
-window covering the whole monitor at `Layer::Top`, exclusive zone 0, with an arrow drawn by a
-`DrawingArea` and a 150ms `adw::TimedAnimation` on opacity.
+popover is open at a time per monitor, and opening a second replaces the first. A bare layer-shell
+window covering the whole monitor at `Layer::Top`, exclusive zone 0, catches outside clicks; the
+body sits above it on a `Layer::Top` surface sized to itself, with an arrow drawn by a `DrawingArea`
+and a 150ms `adw::TimedAnimation` on opacity.
 
 **`KeyboardMode::None`.** A popover receives no key events at all — no focus, no `Escape`, no
 type-ahead. Do not design a surface that needs typing; it will silently not work.

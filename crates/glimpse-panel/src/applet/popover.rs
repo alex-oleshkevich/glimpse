@@ -1,12 +1,15 @@
 use super::Opener;
+use futures_util::StreamExt;
 use glimpse_dbus::systemd1::Systemd1ManagerProxy;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tokio::sync::OnceCell;
 use zbus::zvariant::Value;
 
-static SESSION: OnceCell<zbus::Connection> = OnceCell::const_new();
+static MANAGER: OnceCell<Systemd1ManagerProxy<'static>> = OnceCell::const_new();
 static LAUNCH_SERIAL: AtomicU64 = AtomicU64::new(0);
+const JOB_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct Seat {
@@ -57,16 +60,11 @@ pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
             std::env::var("DISPLAY").ok(),
         ],
     );
-    let result = async {
-        let bus = SESSION.get_or_try_init(zbus::Connection::session).await?;
-        let proxy = Systemd1ManagerProxy::new(bus).await?;
-        proxy
-            .start_transient_unit(&unit, "fail", &properties, &[])
-            .await
-    }
-    .await;
-    match result {
-        Ok(_) => return Ok(()),
+    let started = relm4::spawn(start(unit, properties))
+        .await
+        .unwrap_or_else(|error| Err(zbus::Error::Failure(error.to_string())));
+    match started {
+        Ok(result) => return finished(result.as_deref()),
         Err(error) => {
             tracing::debug!(program, %error, "cannot start transient service, spawning directly")
         }
@@ -80,6 +78,48 @@ pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
     }
     let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
     launcher.spawn(&argv).map(drop)
+}
+
+async fn manager() -> zbus::Result<Systemd1ManagerProxy<'static>> {
+    let bus = zbus::Connection::session().await?;
+    let manager = Systemd1ManagerProxy::new(&bus).await?;
+    manager.subscribe().await?;
+    Ok(manager)
+}
+
+async fn start(
+    unit: String,
+    properties: Vec<(&'static str, Value<'static>)>,
+) -> zbus::Result<Option<String>> {
+    let manager = MANAGER.get_or_try_init(manager).await?;
+    let mut removed = manager.receive_job_removed().await?;
+    let job = manager
+        .start_transient_unit(&unit, "fail", &properties, &[])
+        .await?;
+    let result = async {
+        while let Some(signal) = removed.next().await {
+            if let Ok(args) = signal.args()
+                && args.job == job
+            {
+                return Some(args.result);
+            }
+        }
+        None
+    };
+    Ok(tokio::time::timeout(JOB_TIMEOUT, result)
+        .await
+        .ok()
+        .flatten())
+}
+
+fn finished(result: Option<&str>) -> Result<(), gtk4::glib::Error> {
+    match result {
+        None | Some("done") => Ok(()),
+        Some(result) => Err(gtk4::glib::Error::new(
+            gtk4::glib::FileError::Failed,
+            &format!("the service ended with {result}"),
+        )),
+    }
 }
 
 fn transient_unit(
@@ -114,6 +154,7 @@ fn transient_unit(
                 Value::from(vec![(path.to_owned(), command.to_vec(), false)]),
             ),
             ("Type", Value::from("exec")),
+            ("ExitType", Value::from("cgroup")),
             ("Slice", Value::from("app.slice")),
             ("CollectMode", Value::from("inactive-or-failed")),
             ("Environment", Value::from(environment)),

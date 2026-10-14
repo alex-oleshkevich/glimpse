@@ -90,3 +90,54 @@ fn temperature_bounds_match_the_emitted_schema() {
     assert_eq!(temperature["minimum"], MIN_TEMPERATURE);
     assert_eq!(temperature["maximum"], MAX_TEMPERATURE);
 }
+
+#[test]
+fn a_temperature_the_range_cannot_hold_loads_clamped_and_is_reported_once() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let path = directory.path().join("config.toml");
+    for (written, used) in [
+        ("9000", MAX_TEMPERATURE),
+        ("999", MIN_TEMPERATURE),
+        ("-1", MIN_TEMPERATURE),
+        ("4500.0", 4500),
+        ("nan", MIN_TEMPERATURE),
+    ] {
+        std::fs::write(
+            &path,
+            format!(
+                "[night-light]\ntemperature = {written}\nschedule = \"off\"\ntransition-minutes = 3\n\
+                 [power]\nlock-before-sleep = false\n"
+            ),
+        )
+        .expect("writes");
+        let config = crate::load(Some(&path)).expect("the rest of the document still loads");
+
+        assert_eq!(config.night_light.temperature, used, "{written}");
+        assert_eq!(config.night_light.schedule, Schedule::Off, "{written}");
+        assert_eq!(config.night_light.transition_minutes, 3, "{written}");
+        assert!(!config.power.lock_before_sleep, "{written}");
+        let problems: Vec<String> = config.validate().iter().map(ToString::to_string).collect();
+        assert_eq!(problems.len(), 1, "{written}: {problems:?}");
+        assert!(
+            problems[0]
+                .to_lowercase()
+                .contains(&format!("night-light.temperature: {written}"))
+                && problems[0].contains(&format!("using {used}")),
+            "{problems:?}"
+        );
+    }
+}
+
+#[test]
+fn a_whole_temperature_in_range_is_not_reported_and_a_string_is_refused() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let path = directory.path().join("config.toml");
+    std::fs::write(&path, "[night-light]\ntemperature = 4500\n").expect("writes");
+    let config = crate::load(Some(&path)).expect("loads");
+    assert_eq!(config.night_light.temperature, 4500);
+    assert!(config.validate().is_empty());
+
+    std::fs::write(&path, "[night-light]\ntemperature = \"4500\"\n").expect("writes");
+    let error = crate::load(Some(&path)).expect_err("a string is a type error");
+    assert!(error.to_string().contains("kelvin"), "{error}");
+}

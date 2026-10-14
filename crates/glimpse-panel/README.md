@@ -10,8 +10,10 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::launch`, which starts an argv in a transient user service with no shell and falls back
-  to a direct spawn when the user manager is unavailable
+  `popover::launch`, which starts an argv in a transient user service with no shell, kept until its
+  cgroup empties so whatever a launcher forks survives it, reports a start job ending other than
+  `done` as an error, and falls back to a direct spawn when the user manager is unavailable; its
+  D-Bus half runs on relm4's tokio runtime, since zbus finds no reactor on the GLib executor
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
   and next-event applets both need to say about a calendar entry
 
@@ -81,15 +83,21 @@ open popover alone, so a question arriving inside the fade is still shown.
 **A `Gtk.Popover` on a layer surface cannot be dismissed by a click elsewhere** — that dismissal is
 `xdg_popup.grab`, and `autohide(true)` with `KeyboardMode::OnDemand` (how GTK asks for the grab)
 leaves `focused-window` at `None` for as long as the popover is open. `applet/catcher.rs` instead
-holds a second layer surface over the whole output, and a bare one over every other output, mapped
-only while a popover is up, buying outside-click dismissal at the cost of hand-rolled placement and
-a drawn arrow. **A layer surface that paints nothing is never mapped and takes no click**, so each
-bare surface holds an empty `DrawingArea`. One catcher per panel means **one popover at a time is
-structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. A popover that asks for
-typing takes `KeyboardMode::Exclusive`, since on-demand focus arrives only with a click into the
-surface and keys would reach the window behind; there `Escape` closes it. **Blur is the body and the
-arrow, not the surface** — `[appearance] blur` puts `backdrop-filter` on both, never on the
-catcher's own window.
+maps, only while a popover is up, a bare layer surface over every output and the arrow and body on a
+surface of their own, presented after the bare one so it stacks above it, buying outside-click
+dismissal at the cost of hand-rolled placement and a drawn arrow. **A layer surface that paints
+nothing is never mapped and takes no click**, so each bare surface holds an empty `DrawingArea`.
+**The popover surface is the arrow and body plus a `GUTTER` for the shadow, never the output**: a
+compositor blurs the whole surface that carries a blur region, again on any damage beneath it, so a
+blurred surface over the output is a full-output blur every frame. It is anchored to the bar's edge
+and placed along it by layer-shell margin, the gutter yielding where the output ends; like the bare
+surface on its output it takes exclusive zone 0, so both share the coordinates `placement()` works
+in. One catcher per panel means **one popover at a time is structural**, and `KeyboardMode::None`
+means `Escape` dismisses nothing. A popover that asks for typing gives its surface
+`KeyboardMode::Exclusive`, since on-demand focus arrives only with a click into the surface and keys
+would reach the window behind; there `Escape` closes it. **Blur is the body and the arrow, not a
+surface** — `[appearance] blur` marks only the popover surface, and `backdrop-filter` sits on the
+body and the arrow inside it.
 
 `Applet::anchor` names a widget in the view; `placement()` keeps the arrow centred on the pressed
 item and the body on the output with a gutter that yields when the arrow needs the room instead.
