@@ -10,8 +10,7 @@ use gettextrs::gettext;
 use gio_unix::DesktopAppInfo;
 use glimpse_compositors::Snapshot;
 use glimpse_config::{
-    Config, DARK_STYLESHEET, Editor, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet,
-    user_stylesheet,
+    Config, DARK_STYLESHEET, PANEL_STYLESHEET, stylesheet, user_dark_stylesheet, user_stylesheet,
 };
 use glimpse_shot::doc::document::{Document, Mark, Style, Tool};
 use glimpse_shot::ports::Notice;
@@ -460,7 +459,7 @@ impl Shell {
             .as_deref()
             .map(|app| glimpse_utils::text::clean(app, 200));
         Ok(Options {
-            in_window: portal.is_none() && gui.editor.unwrap_or(config.editor) == Editor::Window,
+            in_window: gui.in_window(config.editor),
             delay: gui.delay.unwrap_or(config.delay).min(60),
             cursor: paired(gui.cursor, gui.no_cursor).unwrap_or(config.cursor),
             flash: paired(gui.flash, gui.no_flash).unwrap_or(config.flash),

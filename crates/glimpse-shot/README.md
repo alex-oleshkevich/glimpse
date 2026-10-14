@@ -54,8 +54,10 @@ Every usage rule is checked, and all violations are reported together, before an
 clap's own rows (two targets, a target with `FILE.png`, `--no-save` with `-o` or without `--copy`,
 `--delay` over 60) and the `Usage` rows clap cannot express (`-o -` with `--json` or on a terminal,
 `--annotate -` on a terminal, `--annotate` without a concrete target, `--region` without a geometry
-under `capture`, `--json`/`--prompt`/`--timeout` without a target, `--editor window` with `--prompt`,
-`--timeout` or `-o -`). The terminal facts are passed in, so every row is a unit test.
+under `capture`, an empty target value such as a cancelled slurp's `--region ""`,
+`--json`/`--prompt`/`--timeout` without a target, `--editor window` with `--prompt`, `--timeout` or
+`-o -`). A configured `editor = "window"` yields to the overlay for those three, as the portal does.
+The terminal facts are passed in, so every row is a unit test.
 
 | Code | Meaning |
 | --- | --- |
@@ -105,7 +107,8 @@ emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
 `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
-`Screens` on `glimpse-wayland` and the compositor snapshot, `Windows` as the ladder below,
+`Screens` on `glimpse-wayland`, `Windows` as the ladder below, both asking the compositor for the
+focused output and the windows when the capture happens, so a delay ends on what was focused then,
 `Clipboard` through `hold`, `Files` with `create_new`, and `Clock`. An `Effected` for anything but
 the first pending effect is stale and ignored; an `OutputGone` while finishing is remembered and
 opens the window when the machine returns to `Editing`.
