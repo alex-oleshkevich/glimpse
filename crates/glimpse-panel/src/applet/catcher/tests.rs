@@ -93,15 +93,21 @@ pub(crate) fn a_typing_popover_takes_the_keyboard_without_a_click() {
     );
     catcher.set_typing(false);
     assert_eq!(catcher.window.keyboard_mode(), KeyboardMode::None);
-    assert!(
-        catcher
-            .window
+    let capturing_keys = |window: &gtk4::Window| {
+        window
             .observe_controllers()
-            .iter::<gtk4::EventController>()
+            .iter::<gtk4::glib::Object>()
             .filter_map(Result::ok)
-            .any(|controller| controller.is::<gtk4::EventControllerKey>()
-                && controller.propagation_phase() == gtk4::PropagationPhase::Capture),
+            .filter_map(|object| object.downcast::<gtk4::EventControllerKey>().ok())
+            .filter(|controller| controller.propagation_phase() == gtk4::PropagationPhase::Capture)
+            .count()
+    };
+    let plain = gtk4::Window::new();
+    assert_eq!(
+        capturing_keys(&catcher.window),
+        capturing_keys(&plain) + 1,
         "a search entry consumes Escape in the bubble phase, so the popover must see it first"
     );
+    plain.destroy();
     catcher.window.destroy();
 }
