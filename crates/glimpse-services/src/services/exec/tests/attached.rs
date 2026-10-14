@@ -490,6 +490,7 @@ async fn offer_options_reach_running_attached_slot() {
         .try_send(Input::Config(Config {
             applets: BTreeMap::new(),
             state_base: Some(base),
+            bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
         }))
         .expect("queued");
     handle

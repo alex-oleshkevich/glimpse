@@ -3388,6 +3388,7 @@ mod fixtures {
                             cancellable: true,
                             pausable: true,
                             resumable: false,
+                            retryable: false,
                         },
                         PrintingJob {
                             id: "2".into(),
@@ -3399,6 +3400,7 @@ mod fixtures {
                             cancellable: true,
                             pausable: false,
                             resumable: false,
+                            retryable: false,
                         },
                         PrintingJob {
                             id: "3".into(),
@@ -3410,6 +3412,7 @@ mod fixtures {
                             cancellable: true,
                             pausable: false,
                             resumable: true,
+                            retryable: false,
                         },
                     ]);
                     popover.set_printers(&[

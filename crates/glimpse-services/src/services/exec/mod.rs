@@ -1,5 +1,6 @@
 mod bridge;
 mod catalog;
+mod proxy;
 mod sandbox;
 mod scope;
 mod spawn;
@@ -24,6 +25,7 @@ use crate::services::compositor::{CompositorHandle, CompositorState};
 use crate::services::mpris::{MprisHandle, MprisPlayers};
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, Sub};
 
+pub use proxy::{BusProxy, PROXY_PROGRAM, ProxyDir};
 pub use sandbox::{exec_confine, exec_sandbox, exec_state_dir};
 pub use scope::unit_pattern;
 pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
@@ -37,8 +39,8 @@ pub use tree::{
     MAX_CHILDREN_PER_PARENT, MAX_NODES, MeterRowProps, Node, NoticeProps, Paint, PlaceholderProps,
     PopoverProps, PopoverSize, ROOT, RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone,
     RowTypography, ScaleProps, SectionProps, SeparatorProps, Severity, SliderRowProps,
-    SparklineProps, SpinnerProps, StackProps, SwitchProps, ToggleButtonProps, ToggleControl,
-    ToggleRowProps, Tone, Transition, Tree, Violation,
+    SparklineProps, SpinnerProps, StackProps, SwatchProps, SwatchSize, SwitchProps,
+    ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Violation,
 };
 use wire::CompositorCall;
 pub use wire::{
@@ -92,12 +94,14 @@ pub enum BarRequest {
 pub struct Config {
     pub applets: BTreeMap<String, glimpse_config::ExecAppletConfig>,
     pub state_base: Option<PathBuf>,
+    pub bus_proxy: PathBuf,
 }
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
             state_base: glimpse_config::state_dir(),
+            bus_proxy: PathBuf::from(proxy::PROXY_PROGRAM),
             applets: glimpse_config::placed_applets(document)
                 .filter_map(|(name, applet)| match applet.kind {
                     glimpse_config::AppletKind::Exec(exec) => Some((name.to_owned(), *exec)),
@@ -370,6 +374,7 @@ struct Slot {
     placement: Placement,
     applet_id: String,
     sandbox: glimpse_config::AppletSandbox,
+    env: BTreeMap<String, String>,
     state: Option<PathBuf>,
     entry: Option<Entry>,
     catalog_refused: bool,
@@ -437,6 +442,7 @@ impl Exec {
             placement,
             applet_id,
             sandbox: offer.sandbox,
+            env: BTreeMap::new(),
             state,
             entry: Some(offer.entry),
             catalog_refused: false,
@@ -472,6 +478,7 @@ impl Exec {
             slot.origin = Origin::Spawned;
             slot.applet_id = config.applet.clone();
             slot.sandbox = config.sandbox.clone();
+            slot.env = config.env.clone();
             slot.options = config.options.clone();
             slot.state = self
                 .config
@@ -827,8 +834,10 @@ impl Service for Exec {
                         spawn: spawn_id,
                         id: slot.applet_id.clone(),
                         sandbox: slot.sandbox.clone(),
+                        env: slot.env.clone(),
                         state: slot.state.clone(),
                         state_base: self.config.state_base.clone(),
+                        bus_proxy: self.config.bus_proxy.clone(),
                         origin: slot.origin,
                         pipes: slot.pipes.clone(),
                         entry: slot.entry.clone(),
@@ -911,6 +920,7 @@ impl Service for Exec {
         config: Self::Config,
         dependencies: Self::Dependencies,
     ) -> Self {
+        tokio::task::spawn_blocking(proxy::prune_dead);
         Self {
             state: ctx.publisher(),
             config,
@@ -954,16 +964,18 @@ impl Service for Exec {
                     return;
                 }
                 let config = self.config.applets.get(&applet);
-                let (applet_id, sandbox, options, status) = match config {
+                let (applet_id, sandbox, env, options, status) = match config {
                     Some(config) => (
                         config.applet.clone(),
                         config.sandbox.clone(),
+                        config.env.clone(),
                         config.options.clone(),
                         Status::Starting,
                     ),
                     None => (
                         String::new(),
                         glimpse_config::AppletSandbox::default(),
+                        BTreeMap::new(),
                         Map::new(),
                         Status::Failed("not configured".to_owned()),
                     ),
@@ -998,6 +1010,7 @@ impl Service for Exec {
                         placement,
                         applet_id,
                         sandbox,
+                        env,
                         state,
                         entry: None,
                         catalog_refused: false,
@@ -1453,6 +1466,7 @@ impl Service for Exec {
                         Some(applet) if applet.applet != slot.applet_id => {
                             slot.applet_id = applet.applet.clone();
                             slot.sandbox = applet.sandbox.clone();
+                            slot.env = applet.env.clone();
                             slot.state = config
                                 .state_base
                                 .as_ref()
@@ -1460,8 +1474,11 @@ impl Service for Exec {
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }
-                        Some(applet) if applet.sandbox != slot.sandbox => {
+                        Some(applet)
+                            if applet.sandbox != slot.sandbox || applet.env != slot.env =>
+                        {
                             slot.sandbox = applet.sandbox.clone();
+                            slot.env = applet.env.clone();
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }

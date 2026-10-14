@@ -69,6 +69,7 @@ pub enum ElementKind {
     Dots,
     Label,
     Image,
+    Swatch,
     Button,
     Switch,
     Scale,
@@ -202,6 +203,7 @@ pub enum Element {
     Dots(DotsProps),
     Label(LabelProps),
     Image(ImageProps),
+    Swatch(SwatchProps),
     Button(ButtonProps),
     Switch(SwitchProps),
     Scale(ScaleProps),
@@ -501,6 +503,22 @@ pub struct ImageProps {
     #[serde(default, deserialize_with = "de_pixel")]
     pub pixel_size: Option<u32>,
     pub class_name: Option<ClassName>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SwatchProps {
+    pub color: Option<String>,
+    pub tooltip: Option<String>,
+    pub size: SwatchSize,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SwatchSize {
+    #[default]
+    Regular,
+    Large,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -1055,6 +1073,7 @@ impl Element {
             Self::Dots(_) => ElementKind::Dots,
             Self::Label(_) => ElementKind::Label,
             Self::Image(_) => ElementKind::Image,
+            Self::Swatch(_) => ElementKind::Swatch,
             Self::Button(_) => ElementKind::Button,
             Self::Switch(_) => ElementKind::Switch,
             Self::Scale(_) => ElementKind::Scale,
@@ -1101,6 +1120,7 @@ impl ElementKind {
             Self::Dots => "dots",
             Self::Label => "label",
             Self::Image => "image",
+            Self::Swatch => "swatch",
             Self::Button => "button",
             Self::Switch => "switch",
             Self::Scale => "scale",
@@ -1151,6 +1171,7 @@ fn kind_of(name: &str) -> Option<ElementKind> {
         "dots" => ElementKind::Dots,
         "label" => ElementKind::Label,
         "image" => ElementKind::Image,
+        "swatch" => ElementKind::Swatch,
         "button" => ElementKind::Button,
         "switch" => ElementKind::Switch,
         "scale" => ElementKind::Scale,
@@ -1175,7 +1196,10 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
         ElementKind::Popover => child == ElementKind::Addon || is_body(child),
         ElementKind::Addon => matches!(
             child,
-            ElementKind::Readout | ElementKind::Switch | ElementKind::Container
+            ElementKind::Readout
+                | ElementKind::Switch
+                | ElementKind::Container
+                | ElementKind::Swatch
         ),
         ElementKind::Box => is_body(child),
         ElementKind::Container
@@ -1201,6 +1225,7 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
                 | ElementKind::Readout
                 | ElementKind::Spinner
                 | ElementKind::Dots
+                | ElementKind::Swatch
         ),
         _ => false,
     }
@@ -1378,6 +1403,7 @@ fn realize_into(
         ElementKind::Dots => Element::Dots(finish_dots(read_props(id, raw, kept))),
         ElementKind::Label => Element::Label(finish_label(read_props(id, raw, kept))),
         ElementKind::Image => Element::Image(finish_image(read_props(id, raw, kept))),
+        ElementKind::Swatch => Element::Swatch(finish_swatch(read_props(id, raw, kept))),
         ElementKind::Button => Element::Button(finish_button(read_props(id, raw, kept))),
         ElementKind::Switch => Element::Switch(read_props(id, raw, kept)),
         ElementKind::Scale => Element::Scale(finish_scale(read_props(id, raw, kept))),
@@ -1576,6 +1602,12 @@ fn finish_label(mut props: LabelProps) -> LabelProps {
 
 fn finish_image(mut props: ImageProps) -> ImageProps {
     props.icon = icon(props.icon);
+    props.tooltip = text(props.tooltip);
+    props
+}
+
+fn finish_swatch(mut props: SwatchProps) -> SwatchProps {
+    props.color = dot(props.color);
     props.tooltip = text(props.tooltip);
     props
 }

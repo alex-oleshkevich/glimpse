@@ -317,7 +317,7 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | --- | --- |
 | root | `indicator`, `popover` |
 | `popover` | at most one `addon`, and any body element |
-| `addon` | at most one of `readout`, `switch`, `container` |
+| `addon` | at most one of `readout`, `switch`, `container`, `swatch` |
 | `container` | at most one body element except `section` |
 | `section` | body elements except `section` |
 | `revealer` | any number of body elements except `section` |
@@ -327,7 +327,7 @@ The root holds `indicator` and `popover` elements. The panel shows the first `po
 | `meterrow` | at most one of `image`, `readout`, `spinner`, drawn at its end |
 | `expanderrow` | at most one `end` and one `start`; drawer children: `actionrow`, `togglerow`, `meterrow`, `sliderrow`, `expanderrow`, `factlist`, `choicelist`, `row` |
 | `end` | at most one of `image`, `readout`, `spinner` |
-| `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots` |
+| `start` | at most one of `image`, `button`, `readout`, `spinner`, `dots`, `swatch` |
 | `sliderrow` | at most one `start` |
 | `togglerow` | nothing |
 | `box` | body elements |
@@ -354,8 +354,8 @@ pair the table does not list.
 
 `type` is one of the lowercase names below. Props use camelCase. Every element takes
 `className`, one class from this list, or the key is dropped. `addon`, `container`, `row`,
-`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start` and `sliderrow`
-do not take `className`:
+`actionrow`, `togglerow`, `meterrow`, `expanderrow`, `end`, `start`, `sliderrow` and
+`swatch` do not take `className`:
 
 `dim-label`, `caption`, `heading`, `title-1`, `title-2`, `title-3`, `title-4`,
 `numeric`, `accent`, `success`, `warning`, `error`, `flat`, `pill`, `circular`,
@@ -413,7 +413,7 @@ Children follow the parent table. The order of `children` is the order on screen
 
 ### `addon`
 
-At most one, under `popover`. Its one child is `readout`, `switch` or `container`, drawn
+At most one, under `popover`. Its one child is `readout`, `switch`, `container` or `swatch`, drawn
 in the header's end slot. It does not take `className`.
 
 ### `container`
@@ -547,7 +547,7 @@ Only under `expanderrow`. It takes no props and holds at most one `image`,
 ### `start`
 
 Under `sliderrow`, `actionrow` or `expanderrow`. It takes no props and holds at most one
-`image`, `button`, `readout`, `spinner` or `dots`. Under `sliderrow` it is drawn left of the
+`image`, `button`, `readout`, `spinner`, `dots` or `swatch`. Under `sliderrow` it is drawn left of the
 scale; under a row it takes the icon's place, centred, and hides `icon`. Empty slots are hidden.
 No events.
 
@@ -639,6 +639,16 @@ When set, `tooltip` also provides the accessible name.
 | `tooltip` | string | absent |
 | `pixelSize` | number | absent. When set, rounded and clamped to `8`–`64` |
 | `className` | class | |
+
+### `swatch`
+
+A leaf: a chip filled with `color`. Only in `addon` and `start`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `color` | string | absent, an empty chip. A CSS color — `#e0563f`, `rgb(224 86 63)`, a name; capped at 256 characters; one that does not parse draws nothing |
+| `tooltip` | string | absent |
+| `size` | `regular`, `large` | `regular`. `large` is the addon's hero size |
 
 ### `button`
 

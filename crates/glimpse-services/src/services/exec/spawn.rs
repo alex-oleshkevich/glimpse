@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::process::ExitStatusExt;
 use std::path::PathBuf;
@@ -18,6 +18,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Ctx;
 
+use super::proxy::{BusProxy, ProxyDir};
 use super::{
     Catalog, Event, Exec, FromApplet, Link, MAX_LINE, MAX_UPDATES_PER_SECOND, Origin, Outgoing,
     Pipes, Tree, sandbox, scope,
@@ -30,13 +31,16 @@ struct ChildStream {
     spawn: u64,
     id: String,
     sandbox: glimpse_config::AppletSandbox,
+    env: BTreeMap<String, String>,
     state: Option<PathBuf>,
     state_base: Option<PathBuf>,
+    bus_proxy: PathBuf,
     origin: Origin,
     pipes: Option<Arc<Mutex<Option<Pipes>>>>,
     hello_state: String,
     resolved: Option<super::Entry>,
     child: Option<Child>,
+    proxy: Option<BusProxy>,
     group: Option<rustix::process::Pid>,
     scope: Option<String>,
     scope_warned: Arc<AtomicBool>,
@@ -62,8 +66,10 @@ pub(super) struct SourceArgs {
     pub spawn: u64,
     pub id: String,
     pub sandbox: glimpse_config::AppletSandbox,
+    pub env: BTreeMap<String, String>,
     pub state: Option<PathBuf>,
     pub state_base: Option<PathBuf>,
+    pub bus_proxy: PathBuf,
     pub origin: Origin,
     pub pipes: Option<Arc<Mutex<Option<Pipes>>>>,
     pub entry: Option<super::Entry>,
@@ -99,13 +105,16 @@ pub async fn source(
             spawn: args.spawn,
             id: args.id,
             sandbox: args.sandbox,
+            env: args.env,
             state: args.state,
             state_base: args.state_base,
+            bus_proxy: args.bus_proxy,
             origin: args.origin,
             pipes: args.pipes,
             hello_state: String::new(),
             resolved: args.entry,
             child: None,
+            proxy: None,
             group: None,
             scope: None,
             scope_warned: args.scope_warned,
@@ -291,10 +300,13 @@ impl ChildStream {
         let catalog = Arc::clone(&self.catalog);
         let id = self.id.clone();
         let sandbox = self.sandbox.clone();
-        let (entry, ruleset) = match tokio::task::spawn_blocking(move || {
+        let wants_bus = !sandbox.unconfined && !sandbox.dbus.is_empty();
+        let (entry, ruleset, bus_dir) = match tokio::task::spawn_blocking(move || {
             let entry = catalog.resolve(&id)?;
-            let ruleset = sandbox::exec_sandbox(&sandbox, &id, &state)?;
-            Ok::<_, String>((entry, ruleset))
+            let bus_dir = wants_bus.then(ProxyDir::create).transpose()?;
+            let ruleset =
+                sandbox::exec_sandbox(&sandbox, &id, &state, bus_dir.as_ref().map(ProxyDir::path))?;
+            Ok::<_, String>((entry, ruleset, bus_dir))
         })
         .await
         {
@@ -306,6 +318,13 @@ impl ChildStream {
         if self.stop.is_cancelled() {
             return self.failed("stopped".to_owned());
         }
+        let proxy = match bus_dir {
+            Some(dir) => match BusProxy::start(&self.bus_proxy, &self.sandbox.dbus, dir).await {
+                Ok(proxy) => Some(proxy),
+                Err(reason) => return self.failed(reason),
+            },
+            None => None,
+        };
         let Some(program) = entry.argv.first() else {
             return self.failed("empty argv".to_owned());
         };
@@ -319,6 +338,16 @@ impl ChildStream {
             .kill_on_drop(true);
         if let Some(cwd) = &entry.cwd {
             command.current_dir(cwd);
+        }
+        command.envs(&self.env);
+        match &proxy {
+            Some(proxy) => {
+                command.env("DBUS_SESSION_BUS_ADDRESS", proxy.address());
+            }
+            None if ruleset.is_some() => {
+                command.env_remove("DBUS_SESSION_BUS_ADDRESS");
+            }
+            None => {}
         }
         let parent = rustix::process::getpid();
         let ruleset_fd = ruleset.as_ref().map(AsRawFd::as_raw_fd);
@@ -337,6 +366,7 @@ impl ChildStream {
             }
             Err(error) => return self.failed(format!("cannot start applet: {error}")),
         };
+        self.proxy = proxy;
         self.began = Instant::now();
         if let Some(pid) = child.id() {
             tracing::info!(applet = %self.id, slot = self.slot, pid, "applet spawned");
@@ -457,6 +487,7 @@ impl ChildStream {
 
     fn failed(&mut self, reason: String) -> Option<Event> {
         self.done = true;
+        self.proxy = None;
         Some(Event::Exited {
             slot: self.slot,
             spawn: self.spawn,
@@ -477,6 +508,7 @@ impl ChildStream {
             }
             let _ = child.wait().await;
         }
+        self.proxy = None;
         Some(Event::Exited {
             slot: self.slot,
             spawn: self.spawn,

@@ -6,6 +6,7 @@ pub enum Action {
     Cancel,
     Pause,
     Resume,
+    Retry,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

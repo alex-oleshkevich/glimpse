@@ -64,6 +64,10 @@ impl PrivateBus {
             .expect("a connection")
     }
 
+    pub fn address(&self) -> &str {
+        &self.address
+    }
+
     /// Stop the daemon early, for a test that wants to see a provider lose the bus.
     pub fn kill(&mut self) {
         let _ = self.child.kill();

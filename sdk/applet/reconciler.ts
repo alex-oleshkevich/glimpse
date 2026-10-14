@@ -49,6 +49,8 @@ type Session = {
   container: HostNode;
   reconciler: Reconciler;
   root: unknown;
+  flushing: boolean;
+  scheduled: boolean;
 };
 
 type Store<T> = {
@@ -424,6 +426,13 @@ function makeHost(session: Session): object {
     resetAfterCommit() {
       session.pending.push(...session.ops);
       session.ops = [];
+      if (!session.flushing && !session.scheduled) {
+        session.scheduled = true;
+        queueMicrotask(() => {
+          session.scheduled = false;
+          if (current === session) flushGuarded(session);
+        });
+      }
     },
     clearContainer: () => {},
     detachDeletedInstance: () => {},
@@ -502,7 +511,26 @@ function propsOversized(props: Record<string, unknown>): boolean {
   );
 }
 
+function flushGuarded(session: Session): void {
+  try {
+    flush(session);
+  } catch (error) {
+    if (!(error instanceof ProtocolLimitError)) throw error;
+    console.error(error);
+    fail(70);
+  }
+}
+
 function flush(session: Session, fn?: () => void, emitCommit = true): void {
+  session.flushing = true;
+  try {
+    flushInner(session, fn, emitCommit);
+  } finally {
+    session.flushing = false;
+  }
+}
+
+function flushInner(session: Session, fn?: () => void, emitCommit = true): void {
   session.reconciler.flushSyncFromReconciler(fn);
   session.reconciler["flushPassiveEffects"]?.();
   for (const node of session.nodes.values()) {
@@ -550,6 +578,8 @@ async function mountFresh(element: unknown): Promise<void> {
     container,
     reconciler: null as unknown as Reconciler,
     root: null,
+    flushing: false,
+    scheduled: false,
   };
   session.reconciler = factory(makeHost(session));
   session.root = session.reconciler.createContainer(

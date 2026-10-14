@@ -34,7 +34,7 @@ pub use appearance::{Appearance, AutoDark, BlurSurface, ColorScheme, blurs};
 pub use applets::{
     Applet, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig, Chip as SystemMonitorChip,
     Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
-    Common as AppletCommon, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
+    Common as AppletCommon, DbusGrant, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
     Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
     NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,

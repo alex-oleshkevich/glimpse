@@ -6,8 +6,7 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
-use ipp::client::non_blocking::AsyncIppClient;
-use ipp::error::IppError;
+use ipp::model::Operation;
 use ipp::prelude::Uri;
 
 pub use failure::Failure;
@@ -54,6 +53,7 @@ pub struct PrintJob {
     pub state: JobState,
     pub pages_completed: Option<u32>,
     pub pages_total: Option<u32>,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +132,7 @@ pub enum Command {
     CancelJob { id: u32, reply: Reply },
     PauseJob { id: u32, reply: Reply },
     ResumeJob { id: u32, reply: Reply },
+    RetryJob { id: u32, reply: Reply },
     Refresh { reply: Reply },
 }
 
@@ -167,6 +168,13 @@ impl crate::ServiceEndpoint<Printing> {
     pub async fn resume_job(&self, id: u32) -> Result<(), PrintingError> {
         self.call("printing stopped before completing the command", |reply| {
             Command::ResumeJob { id, reply }
+        })
+        .await?
+    }
+
+    pub async fn retry_job(&self, id: u32) -> Result<(), PrintingError> {
+        self.call("printing stopped before completing the command", |reply| {
+            Command::RetryJob { id, reply }
         })
         .await?
     }
@@ -262,13 +270,16 @@ impl Printing {
     async fn dispatch(&mut self, ctx: &Ctx<Self>, command: Command) {
         match command {
             Command::CancelJob { id, reply } => {
-                self.job_action(ctx, Action::Cancel, id, reply, call::cancel_job)
+                self.job_action(ctx, Action::Cancel, Operation::CancelJob, id, reply)
             }
             Command::PauseJob { id, reply } => {
-                self.job_action(ctx, Action::Pause, id, reply, call::hold_job)
+                self.job_action(ctx, Action::Pause, Operation::HoldJob, id, reply)
             }
             Command::ResumeJob { id, reply } => {
-                self.job_action(ctx, Action::Resume, id, reply, call::release_job)
+                self.job_action(ctx, Action::Resume, Operation::ReleaseJob, id, reply)
+            }
+            Command::RetryJob { id, reply } => {
+                self.job_action(ctx, Action::Retry, Operation::RestartJob, id, reply)
             }
             Command::Refresh { reply } => self.refresh(ctx, reply),
         }
@@ -290,11 +301,14 @@ impl Printing {
         });
     }
 
-    fn job_action<F, Fut>(&self, ctx: &Ctx<Self>, action: Action, id: u32, reply: Reply, call: F)
-    where
-        F: FnOnce(AsyncIppClient, Uri, u32) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), IppError>> + Send + 'static,
-    {
+    fn job_action(
+        &self,
+        ctx: &Ctx<Self>,
+        action: Action,
+        operation: Operation,
+        id: u32,
+        reply: Reply,
+    ) {
         let uri = match self.config.uri() {
             Ok(uri) => uri,
             Err(reason) => {
@@ -302,9 +316,10 @@ impl Printing {
                 return;
             }
         };
-        let client = AsyncIppClient::new(uri.clone());
+        let local = matches!(uri.host(), Some("localhost" | "127.0.0.1" | "[::1]"))
+            && uri.port_u16() == Some(631);
         ctx.spawn_detached(move |_ctx| async move {
-            let outcome = match call(client, uri, id).await {
+            let outcome = match call::perform(local, uri, operation, id).await {
                 Ok(()) => Ok(()),
                 Err(error) => classify(action, &error).map_err(PrintingError::Failed),
             };

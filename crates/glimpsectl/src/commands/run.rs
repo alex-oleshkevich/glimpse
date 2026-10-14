@@ -11,8 +11,8 @@ use futures_util::{SinkExt, StreamExt};
 use glimpse_config::{AppletSandbox, ExecAppletConfig, is_desktop_id};
 use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name, panel_app_id};
 use glimpse_services::{
-    DesktopCatalog, EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, ExecEntry, FromApplet, MAX_LINE, Outgoing,
-    Tree, exec_confine, exec_sandbox, exec_state_dir,
+    BusProxy, DesktopCatalog, EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, ExecEntry, FromApplet, MAX_LINE,
+    Outgoing, PROXY_PROGRAM, ProxyDir, Tree, exec_confine, exec_sandbox, exec_state_dir,
 };
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::io::AsyncWriteExt;
@@ -40,6 +40,7 @@ struct Applet {
     child: Child,
     input: FramedRead<tokio::process::ChildStdout, LinesCodec>,
     output: ChildStdin,
+    _proxy: Option<BusProxy>,
 }
 
 struct HostTarget<'a> {
@@ -83,6 +84,10 @@ fn settings(path: &Path, id: &str) -> Result<ExecAppletConfig> {
         .or_insert_with(|| toml::Value::String(id.to_owned()));
     let mut config: ExecAppletConfig = table
         .try_into()
+        .with_context(|| format!("cannot parse {}", path.display()))?;
+    config
+        .validate()
+        .map_err(anyhow::Error::msg)
         .with_context(|| format!("cannot parse {}", path.display()))?;
     ensure!(
         config.applet == id,
@@ -180,7 +185,7 @@ async fn attach(
     Ok(link)
 }
 
-fn spawn(
+async fn spawn(
     entry: &ExecEntry,
     id: &str,
     state: &Path,
@@ -190,6 +195,12 @@ fn spawn(
     source: Option<&Path>,
 ) -> Result<Applet> {
     let (program, args) = entry.argv.split_first().context("empty Exec")?;
+    let confined = !no_sandbox && !settings.sandbox.unconfined;
+    let bus_dir = if confined && !settings.sandbox.dbus.is_empty() {
+        Some(ProxyDir::create().map_err(anyhow::Error::msg)?)
+    } else {
+        None
+    };
     let ruleset = if no_sandbox {
         None
     } else {
@@ -201,7 +212,16 @@ fn spawn(
             sandbox.read.push(source.to_owned());
             sandbox.write.push(source.to_owned());
         }
-        exec_sandbox(&sandbox, id, state).map_err(anyhow::Error::msg)?
+        exec_sandbox(&sandbox, id, state, bus_dir.as_ref().map(ProxyDir::path))
+            .map_err(anyhow::Error::msg)?
+    };
+    let proxy = match bus_dir {
+        Some(dir) => Some(
+            BusProxy::start(Path::new(PROXY_PROGRAM), &settings.sandbox.dbus, dir)
+                .await
+                .map_err(anyhow::Error::msg)?,
+        ),
+        None => None,
     };
     let parent = rustix::process::getpid();
     let ruleset_fd = ruleset.as_ref().map(AsRawFd::as_raw_fd);
@@ -216,8 +236,18 @@ fn spawn(
     if let Some(cwd) = &entry.cwd {
         command.current_dir(cwd);
     }
+    command.envs(&settings.env);
     for (key, value) in env {
         command.env(key, value);
+    }
+    match &proxy {
+        Some(proxy) => {
+            command.env("DBUS_SESSION_BUS_ADDRESS", proxy.address());
+        }
+        None if ruleset.is_some() => {
+            command.env_remove("DBUS_SESSION_BUS_ADDRESS");
+        }
+        None => {}
     }
     unsafe {
         command.pre_exec(move || exec_confine(ruleset_fd, parent));
@@ -239,6 +269,7 @@ fn spawn(
         child,
         input,
         output,
+        _proxy: proxy,
     })
 }
 
@@ -476,15 +507,18 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         });
     }
     let mut starts = VecDeque::new();
-    let mut applet = Some(spawn(
-        &entry,
-        &id,
-        &state,
-        &current_settings,
-        &environment,
-        no_sandbox,
-        directory_target.then_some(dir.as_path()),
-    )?);
+    let mut applet = Some(
+        spawn(
+            &entry,
+            &id,
+            &state,
+            &current_settings,
+            &environment,
+            no_sandbox,
+            directory_target.then_some(dir.as_path()),
+        )
+        .await?,
+    );
     starts.push_back(Instant::now());
     if !watch {
         eprintln!("not watching files; pass --dev to restart on change");
@@ -600,7 +634,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
                         }
                         Err(error) => eprintln!("cannot reload desktop entry: {error}"),
                     }
-                    applet = match spawn(&entry, &id, &state, &current_settings, &environment, no_sandbox, directory_target.then_some(dir.as_path())) {
+                    applet = match spawn(&entry, &id, &state, &current_settings, &environment, no_sandbox, directory_target.then_some(dir.as_path())).await {
                         Ok(next) => Some(next),
                         Err(error) => { applet_failure(watch, &error)?; None },
                     };

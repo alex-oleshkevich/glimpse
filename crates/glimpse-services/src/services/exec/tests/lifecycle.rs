@@ -131,6 +131,7 @@ async fn removed_instance_stays_failed_without_respawning() {
         .try_send(Input::Config(Config {
             applets: BTreeMap::new(),
             state_base: None,
+            bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
         }))
         .expect("queued");
     status(

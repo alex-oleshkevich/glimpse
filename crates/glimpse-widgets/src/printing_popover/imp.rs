@@ -20,6 +20,7 @@ pub struct Job {
     pub cancellable: bool,
     pub pausable: bool,
     pub resumable: bool,
+    pub retryable: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -84,6 +85,9 @@ impl ObjectImpl for PrintingPopover {
                     .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("resumed")
+                    .param_types([String::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder("retried")
                     .param_types([String::static_type()])
                     .build(),
             ]

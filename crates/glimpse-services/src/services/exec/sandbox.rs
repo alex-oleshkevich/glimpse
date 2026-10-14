@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use glimpse_config::AppletSandbox;
 
+const GPU_DIR: &str = "/dev/dri";
 const VERSION: u32 = 1;
 const PATH_BENEATH: u32 = 1;
 const EXECUTE: u64 = 1 << 0;
@@ -72,6 +73,25 @@ pub(super) fn expanded(path: &str) -> Result<PathBuf, String> {
     }
 }
 
+pub(super) fn wayland_socket() -> Option<PathBuf> {
+    let display = PathBuf::from(std::env::var_os("WAYLAND_DISPLAY").unwrap_or("wayland-0".into()));
+    if display.is_absolute() {
+        return Some(display);
+    }
+    std::env::var_os("XDG_RUNTIME_DIR").map(|runtime| PathBuf::from(runtime).join(display))
+}
+
+pub(super) fn render_nodes(dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().as_bytes().starts_with(b"renderD"))
+        .map(|entry| entry.path())
+        .collect()
+}
+
 fn broad(path: &Path, home: &Path) -> bool {
     path == Path::new("/") || home.starts_with(path)
 }
@@ -127,7 +147,7 @@ fn add_path(ruleset: &OwnedFd, path: &Path, access: u64) -> Result<(), String> {
     let allowed_access = if metadata.is_dir() {
         access
     } else {
-        access & (EXECUTE | FILE_WRITE)
+        access & (EXECUTE | FILE_WRITE | RESOLVE_UNIX)
     };
     let attr = PathBeneathAttr {
         allowed_access,
@@ -194,6 +214,7 @@ pub fn exec_sandbox(
     sandbox: &AppletSandbox,
     id: &str,
     state: &Path,
+    bus_dir: Option<&Path>,
 ) -> Result<Option<OwnedFd>, String> {
     protect_state_dir(state)?;
     if sandbox.unconfined {
@@ -278,6 +299,24 @@ pub fn exec_sandbox(
             Path::new("/run/systemd/resolve"),
             READ_FILE | READ_DIR | RESOLVE_UNIX,
         )?;
+    }
+    if sandbox.wayland {
+        if let Some(socket) = wayland_socket() {
+            add_path(&ruleset, &socket, RESOLVE_UNIX)?;
+        }
+        add_path(&ruleset, Path::new(GPU_DIR), READ_DIR)?;
+        for node in render_nodes(Path::new(GPU_DIR)) {
+            add_path(&ruleset, &node, FILE_WRITE)?;
+        }
+    }
+    if let Some(dir) = bus_dir {
+        if !dir.is_dir() {
+            return Err(format!(
+                "D-Bus proxy directory is missing: {}",
+                dir.display()
+            ));
+        }
+        add_path(&ruleset, dir, RESOLVE_UNIX)?;
     }
     Ok(Some(ruleset))
 }

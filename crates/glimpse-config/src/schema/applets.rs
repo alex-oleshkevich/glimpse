@@ -116,10 +116,19 @@ pub struct Exec {
     /// Passed to the applet as written.
     #[serde(default)]
     pub options: serde_json::Map<String, serde_json::Value>,
+    /// Variables set for the applet process on top of the panel's environment.
+    #[serde(default)]
+    pub env: BTreeMap<String, String>,
     /// What the applet may touch beyond the system directories and its own state directory. Only
     /// this table grants access; the desktop entry never does.
     #[serde(default)]
     pub sandbox: Sandbox,
+}
+
+impl Exec {
+    pub fn validate(&self) -> Result<(), String> {
+        validate_env(&self.env)
+    }
 }
 
 /// The confinement an exec applet runs under. Everything not granted here is denied.
@@ -139,8 +148,36 @@ pub struct Sandbox {
     pub compositor: bool,
     /// Desktop-file ids the applet may start after a click, e.g. `org.gnome.Nautilus`.
     pub launch: Vec<String>,
+    /// Session bus names the applet may use, through a filtering proxy. Empty grants no bus at
+    /// all. A granted service acts with your rights: `org.kde.kdeconnect` can send any of your
+    /// files to a phone, whatever `read` allows.
+    #[serde(skip_serializing_if = "DbusGrant::is_empty")]
+    pub dbus: DbusGrant,
+    /// Whether the applet may connect to the compositor, to run a Wayland program such as
+    /// `glimpse-lens` or `wl-copy`, and use the GPU render nodes to draw. A Wayland client can read
+    /// the clipboard and capture the screen.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub wayland: bool,
     /// Runs the applet with no confinement at all, for a kernel without Landlock.
     pub unconfined: bool,
+}
+
+/// What an exec applet may reach on the session bus. Needs `xdg-dbus-proxy`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct DbusGrant {
+    /// Names the applet may call and receive signals from, e.g. `org.kde.kdeconnect`.
+    pub talk: Vec<String>,
+    /// Single methods, `NAME=INTERFACE.METHOD@PATH`, on a name the applet may not otherwise use.
+    pub call: Vec<String>,
+    /// Signals, `NAME=INTERFACE.MEMBER@PATH`, from a name the applet may not otherwise use.
+    pub broadcast: Vec<String>,
+}
+
+impl DbusGrant {
+    pub fn is_empty(&self) -> bool {
+        self.talk.is_empty() && self.call.is_empty() && self.broadcast.is_empty()
+    }
 }
 
 impl Sandbox {
@@ -157,8 +194,53 @@ impl Sandbox {
             }
         }
         validate_sandbox_paths(&self)?;
+        validate_dbus(&self.dbus)?;
         Ok(self)
     }
+}
+
+fn bus_name(name: &str) -> bool {
+    let mut elements = 0;
+    for element in name.split('.') {
+        let mut chars = element.chars();
+        let valid_start = chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+        if !valid_start || !chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+            return false;
+        }
+        elements += 1;
+    }
+    elements >= 2
+}
+
+fn validate_env(env: &BTreeMap<String, String>) -> Result<(), String> {
+    for (name, value) in env {
+        if name.is_empty() || name.contains('=') || name.contains('\0') {
+            return Err(format!("env name is invalid: {name:?}"));
+        }
+        if value.contains('\0') {
+            return Err(format!("env value for {name:?} contains NUL"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_dbus(grant: &DbusGrant) -> Result<(), String> {
+    for name in &grant.talk {
+        if !bus_name(name) {
+            return Err(format!("sandbox.dbus name is not a bus name: {name}"));
+        }
+    }
+    for rule in grant.call.iter().chain(&grant.broadcast) {
+        let valid = rule.split_once('=').is_some_and(|(name, rest)| {
+            bus_name(name) && !rest.is_empty() && !rest.contains(char::is_whitespace)
+        });
+        if !valid {
+            return Err(format!("sandbox.dbus rule is not NAME=RULE: {rule}"));
+        }
+    }
+    Ok(())
 }
 
 fn validate_sandbox_paths(sandbox: &Sandbox) -> Result<(), String> {
@@ -849,6 +931,7 @@ impl Applet {
                 Self::from(Kind::Exec(Box::new(Exec {
                     applet: name.to_owned(),
                     options: serde_json::Map::new(),
+                    env: BTreeMap::new(),
                     sandbox: Sandbox::default(),
                 })))
             })
@@ -904,6 +987,8 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     }
     if let Kind::Exec(exec) = &kind {
         validate_sandbox_paths(&exec.sandbox).map_err(toml::de::Error::custom)?;
+        validate_dbus(&exec.sandbox.dbus).map_err(toml::de::Error::custom)?;
+        exec.validate().map_err(toml::de::Error::custom)?;
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;

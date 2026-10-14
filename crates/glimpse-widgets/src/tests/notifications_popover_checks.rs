@@ -16,7 +16,7 @@ pub(super) fn check() {
     };
 
     assert!(
-        popover_imp.empty.get_visible()
+        popover_imp.empty_reveal.reveals_child()
             && !popover_imp.groups.get_visible()
             && !popover_imp.clear.get_visible(),
         "a popover with nothing in it offers no way to clear it"
@@ -89,7 +89,7 @@ pub(super) fn check() {
     assert_eq!(trail_buttons.len(), 2);
     assert!(trail_buttons[0].has_css_class("notification-stack__chip"));
     assert!(trail_buttons[1].has_css_class("section__clear"));
-    assert!(popover_imp.clear.get_visible() && !popover_imp.empty.get_visible());
+    assert!(popover_imp.clear.get_visible() && !popover_imp.empty_reveal.get_visible());
 
     popover.set_groups(&[group("a", "", 2)]);
     let anonymous = group_sections(&popover_imp.groups.get())[0].clone();
@@ -246,7 +246,7 @@ pub(super) fn check() {
 
     popover.set_groups(&[]);
     assert!(
-        popover_imp.empty.get_visible() && !popover_imp.clear.get_visible(),
+        popover_imp.empty_reveal.reveals_child() && !popover_imp.clear.get_visible(),
         "clearing the last notification puts the placeholder back and takes the row away"
     );
 

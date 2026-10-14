@@ -13,6 +13,7 @@ fn job(id: &str, progress: Option<(u32, u32)>) -> Job {
         cancellable: true,
         pausable: false,
         resumable: false,
+        retryable: false,
     }
 }
 
@@ -99,10 +100,7 @@ fn printing_popover_states() {
     assert!(row.subtitle().is_none(), "a job row is one line");
     assert!(row.busy(), "a job in flight shows the spinner");
     assert!(row.icon_name().is_none(), "a job row carries no icon");
-    assert!(
-        imp.shell.icon_name().is_none(),
-        "the popover header carries no icon"
-    );
+    assert_eq!(imp.shell.icon_name().as_deref(), Some("printer-symbolic"));
 
     let renders_after_first = imp.renders.get();
     popover.set_jobs(&[job("1", Some((3, 12)))]);
@@ -118,7 +116,7 @@ fn printing_popover_states() {
     );
 
     let drawer = children(&row.details());
-    assert_eq!(drawer.len(), 4, "facts, Pause, Resume, Cancel");
+    assert_eq!(drawer.len(), 5, "facts, Pause, Resume, Retry, Cancel");
     let facts = drawer[0]
         .clone()
         .downcast::<gtk4::Box>()
@@ -139,13 +137,19 @@ fn printing_popover_states() {
         [
             Some("Pause".to_owned()),
             Some("Resume".to_owned()),
+            Some("Retry".to_owned()),
             Some("Cancel".to_owned())
         ],
-        "info first, then Pause and Resume, then the destructive Cancel last"
+        "info first, then Pause, Resume and Retry, then the destructive Cancel last"
     );
-    let [pause, resume, cancel] =
-        <[ActionRow; 3]>::try_from(drawer_actions(&row)).expect("three actions");
-    assert!(!pause.get_visible() && !resume.get_visible() && cancel.get_visible());
+    let [pause, resume, retry, cancel] =
+        <[ActionRow; 4]>::try_from(drawer_actions(&row)).expect("four actions");
+    assert!(
+        !pause.get_visible()
+            && !resume.get_visible()
+            && !retry.get_visible()
+            && cancel.get_visible()
+    );
     assert_eq!(
         cancel.upcast_ref::<Row>().tone(),
         RowTone::Destructive,
@@ -195,8 +199,9 @@ fn printing_popover_states() {
     let held = drawer_actions(&held_row);
     assert!(!held[0].get_visible(), "not pausable while held");
     assert!(held[1].get_visible(), "a resumable job shows Resume");
+    assert!(!held[2].get_visible(), "a held job is not retryable");
     assert!(
-        !held[2].get_visible(),
+        !held[3].get_visible(),
         "a job that is not cancellable hides Cancel"
     );
     let resumed = Rc::new(RefCell::new(Vec::new()));
@@ -206,6 +211,21 @@ fn printing_popover_states() {
     });
     held[1].emit_by_name::<()>("activated", &[]);
     assert_eq!(*resumed.borrow(), ["3".to_owned()]);
+
+    popover.set_jobs(&[Job {
+        retryable: true,
+        busy: false,
+        ..job("4", None)
+    }]);
+    let stopped = drawer_actions(&job_row(&popover, "4"));
+    assert!(stopped[2].get_visible(), "a retryable job shows Retry");
+    let retried = Rc::new(RefCell::new(Vec::new()));
+    popover.connect_retried({
+        let retried = Rc::clone(&retried);
+        move |_, id| retried.borrow_mut().push(id.to_owned())
+    });
+    stopped[2].emit_by_name::<()>("activated", &[]);
+    assert_eq!(*retried.borrow(), ["4".to_owned()]);
 
     popover.set_jobs(&[job("1", None), job("2", None), job("3", None)]);
     assert_eq!(imp.jobs.count().as_deref(), Some("3"));

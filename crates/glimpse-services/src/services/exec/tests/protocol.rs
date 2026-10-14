@@ -182,6 +182,7 @@ time.sleep(30)
             glimpse_config::ExecAppletConfig {
                 applet: "me.example.Other".to_owned(),
                 options: Map::new(),
+                env: BTreeMap::new(),
                 sandbox: glimpse_config::AppletSandbox {
                     read: vec![_good_dir.path().display().to_string()],
                     write: vec![_good_dir.path().display().to_string()],

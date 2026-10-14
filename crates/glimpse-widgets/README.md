@@ -62,7 +62,9 @@ mapped keyed row that leaves, and a mapped Section that hides, leave a picture o
 collapsing, fading revealer and go at once, so the real widget is never reparented or kept alive
 for an animation. A Section takes that picture a painted frame after the hide, because a row
 reconciled out of it in the same turn leaves it unallocated and it would draw nothing. Exits need a
-`Gtk.Box` parent; elsewhere, unmapped, or at zero duration they remove synchronously.
+`Gtk.Box` parent; elsewhere, unmapped, or at zero duration they remove synchronously. A widget that
+already faded and collapsed itself is removed as it is, never given a second exit, and what replaces
+it (the notifications placeholder) slides in during the exit rather than after it.
 `PopoverShell` scrolls only when its body exceeds the cap, since an unused scrollbar still adds its
 minimum height.
 
@@ -182,7 +184,7 @@ the same row widget, with the applet owning its open state and the `quiet` flag 
 
 **A job and a printer are an `ExpanderRow` whose head opens the drawer; a printer with no facts is a
 plain `Row`.** A drawer holds info first, then toggles, then actions, with the destructive one
-last: a job's facts, Pause or Resume as allowed, then Cancel. The job count is the section's
+last: a job's facts, Pause, Resume or Retry as allowed, then Cancel. The job count is the section's
 count, and there is no hero. Formatting and sanitizing raw CUPS text is the panel applet's job, not
 this widget's.
 

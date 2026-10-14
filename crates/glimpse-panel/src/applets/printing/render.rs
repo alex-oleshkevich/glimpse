@@ -80,11 +80,15 @@ fn job_row(job: &PrintJob, pending: &HashSet<u32>) -> PrintingJob {
         name: glimpse_utils::clean(&job.name, NAME_CAP),
         printer: glimpse_utils::clean(&job.printer_name, NAME_CAP),
         status: job_status(job),
-        progress: job.pages_completed.zip(job.pages_total),
+        progress: job
+            .pages_completed
+            .zip(job.pages_total)
+            .filter(|_| job.state == JobState::Processing),
         busy: in_flight || job.state == JobState::Processing,
         cancellable: !in_flight && cancellable(job.state),
         pausable: !in_flight && job.state == JobState::Processing,
         resumable: !in_flight && job.state == JobState::Held,
+        retryable: !in_flight && job.state == JobState::Stopped,
     }
 }
 
@@ -96,7 +100,20 @@ fn cancellable(state: JobState) -> bool {
 }
 
 fn job_status(job: &PrintJob) -> String {
+    let status = state_name(job.state);
+    let reason = glimpse_utils::clean(&job.reason, NAME_CAP);
     match job.state {
+        JobState::Held | JobState::Stopped | JobState::Aborted if !reason.is_empty() => {
+            gettext("{status}: {reason}")
+                .replace("{status}", &status)
+                .replace("{reason}", &reason)
+        }
+        _ => status,
+    }
+}
+
+fn state_name(state: JobState) -> String {
+    match state {
         JobState::Pending => gettext("Queued"),
         JobState::Held => gettext("Held"),
         JobState::Processing => gettext("Printing"),

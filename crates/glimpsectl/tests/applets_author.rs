@@ -68,7 +68,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
     let package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
     assert_eq!(package["name"], "me.example.Hello");
-    assert_eq!(package["dependencies"]["glimpse-sdk"], "^0.10.0");
+    assert_eq!(package["dependencies"]["glimpse-sdk"], "^0.11.0");
     assert!(
         fs::read_to_string(dir.join("index.tsx"))
             .unwrap()

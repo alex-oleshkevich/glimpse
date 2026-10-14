@@ -23,6 +23,8 @@ pub struct NotificationsPopover {
     #[template_child]
     pub groups: TemplateChild<gtk4::Box>,
     #[template_child]
+    pub empty_reveal: TemplateChild<gtk4::Revealer>,
+    #[template_child]
     pub empty: TemplateChild<Placeholder>,
     #[template_child]
     pub clear: TemplateChild<ActionRow>,
@@ -105,6 +107,11 @@ impl ObjectImpl for NotificationsPopover {
             }
         ));
 
+        self.empty_reveal.connect_child_revealed_notify(|reveal| {
+            if !reveal.reveals_child() && !reveal.is_child_revealed() {
+                reveal.set_visible(false);
+            }
+        });
         self.clear.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,

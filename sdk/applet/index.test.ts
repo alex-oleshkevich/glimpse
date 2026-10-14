@@ -55,6 +55,7 @@ import {
   useStateDir,
   ToggleButton,
   ToggleRow,
+  useEffect,
   useState,
 } from "./index.ts";
 
@@ -115,6 +116,15 @@ function hostLine(): string {
   const line = text.split("\n")[0];
   assert(line, "host.ndjson has a hello");
   return line;
+}
+
+function Ticking() {
+  const [text, setText] = useState("before");
+  useEffect(() => {
+    const timer = setTimeout(() => setText("after"), 5);
+    return () => clearTimeout(timer);
+  }, []);
+  return createElement(Label, { text });
 }
 
 function HelloApp() {
@@ -275,6 +285,18 @@ test("applet sdk", async (t) => {
     const lines = await drive(createElement(Indicator), [hostLine()]);
     assert(lines[0] === '{"t":"hello","v":1}', lines.join("\n"));
     assert(lines[1] === '{"t":"notify","summary":"early"}', lines.join("\n"));
+  });
+
+  await t.test("a state change from a timer reaches the host without a host message", async () => {
+    const lines: string[] = [];
+    await session(createElement(Ticking), {
+      writeLine: (line) => lines.push(line),
+      lines: (async function* () {
+        yield hostLine();
+        await delay(100);
+      })(),
+    });
+    assert(lines.some((line) => line.includes('"after"')), lines.join("\n"));
   });
 
   await t.test("hello fixture matches hello.ndjson", async () => {

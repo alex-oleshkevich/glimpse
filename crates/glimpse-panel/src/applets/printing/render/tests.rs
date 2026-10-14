@@ -8,6 +8,7 @@ fn job_at(id: u32, printer_name: &str, state: JobState) -> PrintJob {
         state,
         pages_completed: None,
         pages_total: None,
+        reason: String::new(),
     }
 }
 
@@ -290,15 +291,15 @@ fn a_printer_problem_is_its_second_line() {
 }
 
 #[test]
-fn cancellable_pausable_resumable_follow_the_job_state() {
-    for (state, cancellable_expected, pausable_expected, resumable_expected) in [
-        (JobState::Pending, true, false, false),
-        (JobState::Held, true, false, true),
-        (JobState::Processing, true, true, false),
-        (JobState::Stopped, true, false, false),
-        (JobState::Completed, false, false, false),
-        (JobState::Cancelled, false, false, false),
-        (JobState::Aborted, false, false, false),
+fn the_job_actions_follow_the_job_state() {
+    for (state, cancellable_expected, pausable_expected, resumable_expected, retryable_expected) in [
+        (JobState::Pending, true, false, false, false),
+        (JobState::Held, true, false, true, false),
+        (JobState::Processing, true, true, false, false),
+        (JobState::Stopped, true, false, false, true),
+        (JobState::Completed, false, false, false, false),
+        (JobState::Cancelled, false, false, false, false),
+        (JobState::Aborted, false, false, false, false),
     ] {
         let converted = jobs(
             &PrintingState {
@@ -311,6 +312,7 @@ fn cancellable_pausable_resumable_follow_the_job_state() {
         assert_eq!(converted[0].cancellable, cancellable_expected, "{state:?}");
         assert_eq!(converted[0].pausable, pausable_expected, "{state:?}");
         assert_eq!(converted[0].resumable, resumable_expected, "{state:?}");
+        assert_eq!(converted[0].retryable, retryable_expected, "{state:?}");
     }
 }
 
@@ -369,4 +371,47 @@ fn a_completed_job_leaves_always_on_the_idle_icon() {
     let state = idle_state(vec![job_at(1, "office", JobState::Completed)]);
     assert_eq!(chip(&state, PrintingShow::Always), Some(IDLE));
     assert_eq!(chip(&state, PrintingShow::Jobs), None);
+}
+
+fn row_of(job: PrintJob) -> PrintingJob {
+    jobs(
+        &PrintingState {
+            printers: Vec::new(),
+            jobs: vec![job],
+        },
+        8,
+        &no_pending(),
+    )
+    .remove(0)
+}
+
+fn status_of(job: PrintJob) -> String {
+    row_of(job).status
+}
+
+#[test]
+fn a_stopped_job_says_why() {
+    let mut job = job_at(1, "office", JobState::Stopped);
+    job.reason = "Printer not connected".to_owned();
+    job.pages_completed = Some(0);
+    job.pages_total = Some(1);
+    let row = row_of(job);
+    assert_eq!(row.status, "Stopped: Printer not connected");
+    assert_eq!(row.progress, None, "a page count would replace the reason");
+}
+
+#[test]
+fn a_running_job_keeps_its_plain_status_whatever_the_reason() {
+    let mut job = job_at(1, "office", JobState::Pending);
+    job.reason = "job-incoming".to_owned();
+    assert_eq!(status_of(job), "Queued");
+}
+
+#[test]
+fn a_hostile_job_reason_is_capped() {
+    let mut job = job_at(1, "office", JobState::Held);
+    job.reason = "ж".repeat(4096);
+    let status = status_of(job);
+    assert_eq!(status.chars().count(), "Held: ".len() + NAME_CAP + 1);
+    assert!(status.ends_with('…'));
 }

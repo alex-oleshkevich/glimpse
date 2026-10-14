@@ -13,6 +13,7 @@ pub(super) fn check(styles: &Styles) {
     section_exit();
     unmapped_section();
     idle_section_leaves_with_its_last_row();
+    notifications_clear_all();
 
     let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     let mut held = Vec::new();
@@ -171,5 +172,51 @@ fn idle_section_leaves_with_its_last_row() {
         .filter(|sibling| sibling.has_css_class("exiting"))
         .expect("the section and its last row collapse as one picture");
     wait_until(|| exit.parent().is_none());
+    window.close();
+}
+
+fn notifications_clear_all() {
+    let popover = NotificationsPopover::new();
+    let imp = popover.imp();
+    let groups: Vec<Group> = ["mail", "chat"]
+        .into_iter()
+        .map(|key| Group {
+            key: key.to_owned(),
+            app_name: key.to_owned(),
+            notifications: vec![Notification {
+                key: format!("{key}-0"),
+                summary: key.to_owned(),
+                ..Notification::default()
+            }],
+        })
+        .collect();
+    popover.set_groups(&groups);
+    let window = mapped(&popover);
+    wait_until(|| !imp.empty_reveal.get_visible());
+
+    let exiting = || {
+        let mut count = 0;
+        let mut child = imp.groups.first_child();
+        while let Some(node) = child {
+            count += usize::from(node.has_css_class("exiting"));
+            child = node.next_sibling();
+        }
+        count
+    };
+    popover.set_groups(&[]);
+    assert!(
+        !imp.clear.get_visible() && imp.empty_reveal.reveals_child(),
+        "clearing everything swaps the clear row for the placeholder at once, not after the exit"
+    );
+    assert!(imp.groups.get_visible(), "the groups stay while they leave");
+
+    wait_until(|| imp.groups.first_child().is_none() || exiting() > 0);
+    assert_eq!(
+        exiting(),
+        0,
+        "a group that already faded and collapsed is not given a second exit"
+    );
+    wait_until(|| !imp.groups.get_visible() && imp.empty_reveal.is_child_revealed());
+    assert!(imp.sections.borrow().is_empty());
     window.close();
 }

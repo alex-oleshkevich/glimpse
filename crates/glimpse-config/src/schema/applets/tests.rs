@@ -109,6 +109,114 @@ fn exec_sandbox_grants_parse_and_relative_paths_are_refused() {
 }
 
 #[test]
+fn exec_dbus_grants_parse_and_malformed_names_are_refused() {
+    let config: crate::Config = toml::from_str(
+        "[applets.\"me.example.Phone\"]\nsandbox.dbus = { talk = [\"org.kde.kdeconnect\"], call = [\"org.freedesktop.portal.Desktop=org.freedesktop.portal.FileChooser.OpenFile@/org/freedesktop/portal/desktop\"] }\n",
+    )
+    .expect("well-formed bus grants load");
+    let Kind::Exec(exec) = &config.applets["me.example.Phone"].kind else {
+        panic!("the desktop-id table resolves to exec");
+    };
+    assert_eq!(exec.sandbox.dbus.talk, ["org.kde.kdeconnect"]);
+    assert_eq!(exec.sandbox.dbus.call.len(), 1);
+
+    for bad in [
+        "sandbox.dbus = { talk = [\"not a name\"] }",
+        "sandbox.dbus = { talk = [\"kdeconnect\"] }",
+        "sandbox.dbus = { talk = [\"org.1kde\"] }",
+        "sandbox.dbus = { call = [\"org.kde.kdeconnect\"] }",
+        "sandbox.dbus = { broadcast = [\"org.kde.kdeconnect=a b\"] }",
+        "sandbox.dbus = { own = [\"org.kde.kdeconnect\"] }",
+    ] {
+        let error =
+            toml::from_str::<crate::Config>(&format!("[applets.\"me.example.Phone\"]\n{bad}\n"))
+                .expect_err(bad)
+                .to_string();
+        assert!(error.contains("me.example.Phone"), "{bad}: {error}");
+    }
+
+    let local = super::Sandbox {
+        dbus: super::DbusGrant {
+            talk: vec!["org.kde kdeconnect".to_owned()],
+            ..super::DbusGrant::default()
+        },
+        ..super::Sandbox::default()
+    };
+    assert!(
+        local.resolve(std::path::Path::new("/tmp")).is_err(),
+        "glimpsectl's local config is checked too"
+    );
+}
+
+#[test]
+fn exec_env_parses_and_an_invalid_name_is_rejected() {
+    let config: crate::Config = toml::from_str(
+        "[applets.ruler]\nextends = \"exec\"\napplet = \"me.aresa.Ruler\"\nenv = { GSK_RENDERER = \"cairo\" }\n",
+    )
+    .expect("env parses");
+    let Kind::Exec(exec) = &config.applets["ruler"].kind else {
+        panic!("ruler is an exec applet");
+    };
+    assert_eq!(
+        exec.env.get("GSK_RENDERER").map(String::as_str),
+        Some("cairo")
+    );
+
+    let absent: crate::Config =
+        toml::from_str("[applets.ruler]\nextends = \"exec\"\napplet = \"me.aresa.Ruler\"\n")
+            .expect("env defaults to empty");
+    let Kind::Exec(exec) = &absent.applets["ruler"].kind else {
+        panic!("ruler is an exec applet");
+    };
+    assert!(exec.env.is_empty());
+
+    for (table, key) in [
+        ("env = { \"\" = \"x\" }\n", "\"\""),
+        ("env = { \"A=B\" = \"x\" }\n", "A=B"),
+    ] {
+        let error = toml::from_str::<crate::Config>(&format!(
+            "[applets.ruler]\nextends = \"exec\"\napplet = \"me.aresa.Ruler\"\n{table}"
+        ))
+        .expect_err(table)
+        .to_string();
+        assert!(error.contains("ruler"), "{table}{error}");
+        assert!(error.contains(key), "{table}{error}");
+    }
+
+    let mut nul_name = std::collections::BTreeMap::new();
+    nul_name.insert("A\0B".to_owned(), "x".to_owned());
+    let error = super::validate_env(&nul_name).expect_err("a name containing NUL");
+    assert!(error.contains("A\\0B"), "{error}");
+
+    let mut nul_value = std::collections::BTreeMap::new();
+    nul_value.insert("GSK_RENDERER".to_owned(), "cai\0ro".to_owned());
+    let error = super::validate_env(&nul_value).expect_err("a value containing NUL");
+    assert!(error.contains("GSK_RENDERER"), "{error}");
+}
+
+#[test]
+fn an_empty_dbus_grant_is_left_out_of_the_serialized_sandbox() {
+    let json = serde_json::to_value(super::Sandbox::default()).expect("serializes");
+    assert!(
+        json.get("dbus").is_none(),
+        "an older panel refuses an unknown key"
+    );
+    let granted = super::Sandbox {
+        dbus: super::DbusGrant {
+            talk: vec!["org.kde.kdeconnect".to_owned()],
+            ..super::DbusGrant::default()
+        },
+        ..super::Sandbox::default()
+    };
+    assert!(
+        serde_json::to_value(granted)
+            .expect("serializes")
+            .get("dbus")
+            .is_some()
+    );
+}
+
+#[test]
 fn desktop_id_schema_accepts_options_without_an_explicit_kind() {
     let schema: serde_json::Value =
         serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
