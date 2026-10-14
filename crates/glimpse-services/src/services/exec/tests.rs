@@ -94,11 +94,13 @@ fn configured() -> TestConfig {
     let state_dir = tempfile::tempdir().expect("state dir");
     let config = Config {
         state_base: Some(state_dir.path().to_path_buf()),
+        bus_proxy: std::path::PathBuf::from(super::PROXY_PROGRAM),
         applets: BTreeMap::from([(
             "test".to_owned(),
             glimpse_config::ExecAppletConfig {
                 applet: "me.example.Test".to_owned(),
                 options: Map::from_iter([("color".to_owned(), Value::from("blue"))]),
+                env: BTreeMap::new(),
                 sandbox: glimpse_config::AppletSandbox {
                     read: vec![std::env::temp_dir().display().to_string()],
                     write: vec![std::env::temp_dir().display().to_string()],

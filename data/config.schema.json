@@ -406,6 +406,14 @@
               "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
               "type": "string"
             },
+            "env": {
+              "description": "Variables set for the applet process on top of the panel's environment.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {}
+            },
             "extends": {
               "type": "string",
               "const": "exec"
@@ -1878,6 +1886,14 @@
                 "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
                 "type": "string"
               },
+              "env": {
+                "description": "Variables set for the applet process on top of the panel's environment.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {}
+              },
               "extends": {
                 "type": "string",
                 "const": "exec"
@@ -2912,6 +2928,14 @@
               "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
               "type": "string"
             },
+            "env": {
+              "description": "Variables set for the applet process on top of the panel's environment.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {}
+            },
             "extends": {
               "type": "string",
               "const": "exec"
@@ -3600,6 +3624,37 @@
         "dark",
         "auto"
       ]
+    },
+    "DbusGrant": {
+      "description": "What an exec applet may reach on the session bus. Needs `xdg-dbus-proxy`.",
+      "type": "object",
+      "properties": {
+        "broadcast": {
+          "description": "Signals, `NAME=INTERFACE.MEMBER@PATH`, from a name the applet may not otherwise use.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "call": {
+          "description": "Single methods, `NAME=INTERFACE.METHOD@PATH`, on a name the applet may not otherwise use.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "talk": {
+          "description": "Names the applet may call and receive signals from, e.g. `org.kde.kdeconnect`.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "Editor": {
       "type": "string",
@@ -4619,6 +4674,10 @@
           "type": "boolean",
           "default": false
         },
+        "dbus": {
+          "description": "Session bus names the applet may use, through a filtering proxy. Empty grants no bus at\nall. A granted service acts with your rights: `org.kde.kdeconnect` can send any of your\nfiles to a phone, whatever `read` allows.",
+          "$ref": "#/$defs/DbusGrant"
+        },
         "launch": {
           "description": "Desktop-file ids the applet may start after a click, e.g. `org.gnome.Nautilus`.",
           "type": "array",
@@ -4649,6 +4708,10 @@
           "description": "Runs the applet with no confinement at all, for a kernel without Landlock.",
           "type": "boolean",
           "default": false
+        },
+        "wayland": {
+          "description": "Whether the applet may connect to the compositor, to run a Wayland program such as\n`glimpse-lens` or `wl-copy`, and use the GPU render nodes to draw. A Wayland client can read\nthe clipboard and capture the screen.",
+          "type": "boolean"
         },
         "write": {
           "description": "Extra paths the applet may read and write. Absolute, or starting with `~/`.",

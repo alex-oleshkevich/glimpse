@@ -155,6 +155,7 @@ time.sleep(30)
             glimpse_config::ExecAppletConfig {
                 applet: "me.example.Other".to_owned(),
                 options: Map::new(),
+                env: BTreeMap::new(),
                 sandbox: glimpse_config::AppletSandbox {
                     read: vec![std::env::temp_dir().display().to_string()],
                     write: vec![std::env::temp_dir().display().to_string()],

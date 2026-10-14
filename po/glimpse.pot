@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-11 17:24+0200\n"
+"POT-Creation-Date: 2026-10-12 16:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -935,12 +935,12 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1159
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1182
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:478
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1164
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1187
 #: crates/glimpse-panel/src/applets/exec/dom/tests.rs:483
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""

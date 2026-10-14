@@ -87,14 +87,15 @@ pub use exec::{
     Orientation, Outgoing, Paint, PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT,
     RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
     SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
-    StackProps, SwitchProps, ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition,
-    Tree, Urgency, Violation, WireNode, Zone, expand as exec_expand,
+    StackProps, SwatchProps, SwatchSize, SwitchProps, ToggleButtonProps, ToggleControl,
+    ToggleRowProps, Tone, Transition, Tree, Urgency, Violation, WireNode, Zone,
+    expand as exec_expand,
 };
 pub use exec::{
-    BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,
+    BarRequest as ExecBarRequest, BusProxy, Config as ExecConfig, Dependencies as ExecDependencies,
     EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS, Exec, ExecHandle, ExecState, Offer as ExecOffer,
-    Origin as ExecOrigin, Pipes as ExecPipes, SlotState as ExecSlotState, Status as ExecStatus,
-    UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
+    Origin as ExecOrigin, PROXY_PROGRAM, Pipes as ExecPipes, ProxyDir, SlotState as ExecSlotState,
+    Status as ExecStatus, UserEvent as ExecUserEvent, exec_confine, exec_sandbox, exec_state_dir,
     unit_name as exec_unit_name, unit_pattern as exec_unit_pattern,
 };
 pub use geolocation::{Geolocation, GeolocationDependencies, GeolocationHandle};

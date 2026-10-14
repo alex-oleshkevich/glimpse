@@ -126,6 +126,7 @@ async fn removed_instance_stays_failed_without_respawning() {
     sender.reconfigure(Config {
         applets: BTreeMap::new(),
         state_base: None,
+        bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
     });
     tokio::time::sleep(Duration::from_secs(6)).await;
     assert!(

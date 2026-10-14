@@ -431,3 +431,64 @@ fn addon_and_container_reject_bad_children_and_clamp_props() {
         other => panic!("{other:?}"),
     }
 }
+
+#[test]
+fn a_swatch_sits_in_an_addon_or_start_with_a_capped_color() {
+    let root = hosted(&Tree::default());
+    let tree = root
+        .apply(vec![
+            insert(
+                1,
+                wire(
+                    2,
+                    "addon",
+                    json!({}),
+                    vec![wire(
+                        3,
+                        "swatch",
+                        json!({"color": "#".repeat(400), "size": "large"}),
+                        Vec::new(),
+                    )],
+                ),
+                None,
+            ),
+            insert(
+                1,
+                wire(
+                    4,
+                    "expanderrow",
+                    json!({"title": "Red"}),
+                    vec![wire(
+                        5,
+                        "start",
+                        json!({}),
+                        vec![wire(6, "swatch", json!({"color": "red"}), Vec::new())],
+                    )],
+                ),
+                None,
+            ),
+        ])
+        .expect("swatches");
+    let Element::Swatch(large) = only(&tree, 3) else {
+        panic!("swatch")
+    };
+    assert_eq!(large.color.map(|color| color.chars().count()), Some(256));
+    assert_eq!(large.size, super::super::SwatchSize::Large);
+    let Element::Swatch(regular) = only(&tree, 6) else {
+        panic!("swatch")
+    };
+    assert_eq!(regular.color.as_deref(), Some("red"));
+    assert_eq!(regular.size, super::super::SwatchSize::Regular);
+    let under_row = root.apply(vec![insert(
+        1,
+        wire(2, "row", json!({}), vec![leaf(3, "swatch")]),
+        None,
+    )]);
+    assert_eq!(
+        under_row,
+        Err(Violation::BadParent {
+            parent: ElementKind::Row,
+            child: ElementKind::Swatch,
+        })
+    );
+}

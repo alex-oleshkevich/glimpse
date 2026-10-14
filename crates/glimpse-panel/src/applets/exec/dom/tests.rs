@@ -1236,3 +1236,38 @@ fn row_family_keeps_local_values_and_reports_shell_close() {
     assert!(dom.reconcile(&stale, 1));
     assert!(!open.open());
 }
+
+#[gtk4::test]
+#[ignore = "needs a display"]
+fn swatch_takes_its_color_and_the_large_size() {
+    init();
+    let built = tree(vec![node(
+        2,
+        "addon",
+        json!({}),
+        vec![node(
+            3,
+            "swatch",
+            json!({"color": "#e0563f", "size": "large", "tooltip": "Latest"}),
+            vec![],
+        )],
+    )]);
+    let (_shell, mut dom, _) = setup(&built);
+    let swatch = widget(&dom, 1, 3, ElementKind::Swatch)
+        .downcast::<glimpse_widgets::Swatch>()
+        .expect("swatch");
+    assert_eq!(swatch.color(), gdk::RGBA::parse("#e0563f").ok());
+    assert!(swatch.has_css_class("swatch--hero"));
+    assert_eq!(swatch.tooltip_text().as_deref(), Some("Latest"));
+    let regular = built
+        .apply(vec![Op::Set {
+            id: 3,
+            props: serde_json::from_value(json!({"color": "not a color", "size": null}))
+                .expect("props"),
+            seq: None,
+        }])
+        .expect("set");
+    assert!(dom.reconcile(&regular, 1));
+    assert_eq!(swatch.color(), None);
+    assert!(!swatch.has_css_class("swatch--hero"));
+}

@@ -9,12 +9,12 @@ use gettextrs::gettext;
 use glimpse_services::{
     CalendarProps, ClassName, Element, ElementKind, ExecUserEvent as UserEvent, Node, Paint,
     PopoverSize as ExecSize, ROOT, RowTone as ExecRowTone, RowTypography as ExecTypography,
-    ToggleControl as ExecControl, Tone, Transition, Tree,
+    SwatchSize, ToggleControl as ExecControl, Tone, Transition, Tree,
 };
 use glimpse_widgets::{
     ActionRow, Bars, Calendar, ChoiceList, Container, ContainerPaint, DOTS_SIZE, Dots, ExpanderRow,
     MeterRow, Notice, Placeholder, PopoverShell, PopoverSize, RangeBar, Readout, Row as UiRow,
-    RowTone, RowTypography, Section, SliderRow, Sparkline, ToggleControl, ToggleRow, Ymd,
+    RowTone, RowTypography, Section, SliderRow, Sparkline, Swatch, ToggleControl, ToggleRow, Ymd,
     reconcile::by_key,
 };
 use gtk4::{gdk, glib, prelude::*};
@@ -694,6 +694,11 @@ impl Dom {
             Element::Placeholder(_) => Placeholder::new().upcast(),
             Element::Label(_) => gtk4::Label::new(None).upcast(),
             Element::Image(_) => gtk4::Image::new().upcast(),
+            Element::Swatch(_) => {
+                let swatch = Swatch::default();
+                swatch.set_valign(gtk4::Align::Center);
+                swatch.upcast()
+            }
             Element::Button(_) => {
                 let button = gtk4::Button::new();
                 let dispatch = self.dispatch.clone();
@@ -1019,6 +1024,24 @@ impl Dom {
                 }
             }
             Element::Stack(_) => {}
+            Element::Swatch(p) => {
+                if let Some(swatch) = widget.downcast_ref::<Swatch>() {
+                    let color = p
+                        .color
+                        .as_deref()
+                        .and_then(|color| gdk::RGBA::parse(color).ok());
+                    swatch.set_color(color.as_ref());
+                    swatch.set_tooltip_text(p.tooltip.as_deref());
+                    let large = p.size == SwatchSize::Large;
+                    if swatch.has_css_class("swatch--hero") != large {
+                        if large {
+                            swatch.add_css_class("swatch--hero");
+                        } else {
+                            swatch.remove_css_class("swatch--hero");
+                        }
+                    }
+                }
+            }
             Element::Dots(p) => {
                 if let Some(dots) = widget.downcast_ref::<Dots>() {
                     dots.set_colors(&paint_tones(&tone_palette(), &p.colors));
@@ -1253,6 +1276,7 @@ fn element_class(element: &Element) -> Option<ClassName> {
         | Element::SliderRow(_)
         | Element::Unsupported(_)
         | Element::Addon(_)
+        | Element::Swatch(_)
         | Element::Container(_) => None,
     }
 }

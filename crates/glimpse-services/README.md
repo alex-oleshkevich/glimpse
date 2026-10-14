@@ -200,6 +200,13 @@ A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unc
 PATH entries under the home directory receive no implicit grant. The host passes the applet's
 persistent state directory as `state` in `hello`. Stopping a child kills its
 process group and adopted scope; MemoryMax applies only when scope adoption succeeds.
+A `sandbox.dbus` grant starts one `xdg-dbus-proxy` per spawn, filtered to the granted names, and
+the child's `DBUS_SESSION_BUS_ADDRESS` points at its socket; a confined child without a grant gets
+no address. Config `env` is applied before the bus address, so it never overrides the proxy. The
+proxy lives exactly as long as the child: every stop drops it, and a panel that died leaves
+directories that the next start prunes. `sandbox.wayland` grants connect on the compositor socket
+and read-write on the GPU render nodes, never the card nodes, so the applet can run a Wayland
+program that draws on the GPU.
 **A user press or activation arms a one-use, two-second gate** for copy,
 URI, launch and close-window requests; close-popover needs the gate without spending it, and notifications bypass
 it at one per second. MPRIS and compositor state reaches only an applet whose sandbox grants

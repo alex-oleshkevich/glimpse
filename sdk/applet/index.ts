@@ -320,6 +320,12 @@ export const Image = "image" as unknown as FC<{
   className?: ClassName;
 }>;
 
+export const Swatch = "swatch" as unknown as FC<{
+  color?: string;
+  tooltip?: string;
+  size?: "regular" | "large";
+}>;
+
 export const Button = "button" as unknown as FC<{
   text?: string;
   icon?: string;

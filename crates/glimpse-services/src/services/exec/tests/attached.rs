@@ -489,6 +489,7 @@ async fn offer_options_reach_running_attached_slot() {
     sender.reconfigure(Config {
         applets: BTreeMap::new(),
         state_base: Some(base),
+        bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
     });
     tokio::time::sleep(Duration::from_millis(50)).await;
     assert_eq!(

@@ -367,3 +367,334 @@ async fn unconfined_runs_ungranted_executable() {
     cancel.cancel();
     let _ = task.await;
 }
+
+struct Grant;
+
+#[zbus::interface(name = "me.example.Grant")]
+impl Grant {
+    fn ping(&self) -> &str {
+        "pong"
+    }
+
+    fn secret(&self) -> &str {
+        "secret"
+    }
+}
+
+fn bus_tools_available() -> bool {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let found = ["xdg-dbus-proxy", "dbus-daemon", "dbus-send"]
+        .iter()
+        .all(|program| std::env::split_paths(&path).any(|dir| dir.join(program).is_file()));
+    if !found {
+        eprintln!("skipped: xdg-dbus-proxy, dbus-daemon or dbus-send missing");
+    }
+    found
+}
+
+async fn serve(bus: &glimpse_dbus::testing::PrivateBus, name: &str) -> zbus::Connection {
+    let connection = bus.connection().await;
+    connection
+        .object_server()
+        .at("/", Grant)
+        .await
+        .expect("grant object");
+    glimpse_dbus::own_name(&connection, name)
+        .await
+        .expect("bus name");
+    connection
+}
+
+fn proxy_to(dir: &std::path::Path, bus: &glimpse_dbus::testing::PrivateBus) -> PathBuf {
+    let path = dir.join("proxy.sh");
+    std::fs::write(
+        &path,
+        format!(
+            "#!/bin/sh\nready=$1\nshift 2\nexec xdg-dbus-proxy \"$ready\" '{}' \"$@\"\n",
+            bus.address()
+        ),
+    )
+    .expect("proxy wrapper");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("executable");
+    path
+}
+
+#[tokio::test]
+async fn dbus_grant_reaches_only_the_granted_method_and_leaves_nothing_behind() {
+    if !landlock_available() || !bus_tools_available() {
+        return;
+    }
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let _granted = serve(&bus, "me.example.Granted").await;
+    let _hidden = serve(&bus, "me.example.Hidden").await;
+    let (dir, mut entry, output) = script(
+        r#"#!/bin/sh
+call() { dbus-send --session --print-reply --dest="$1" / "me.example.Grant.$2" >/dev/null 2>&1 && echo ok || echo no; }
+direct=$(dbus-send --bus="$2" --print-reply --dest=me.example.Granted / me.example.Grant.Ping >/dev/null 2>&1 && echo ok || echo no)
+printf '%s %s %s %s %s\n' "$(call me.example.Granted Ping)" "$(call me.example.Granted Secret)" "$(call me.example.Hidden Ping)" "$direct" "$DBUS_SESSION_BUS_ADDRESS" > "$1"
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+    );
+    let mut config = confined(&entry);
+    config.bus_proxy = proxy_to(dir.path(), &bus);
+    config
+        .applets
+        .get_mut("test")
+        .expect("test applet")
+        .sandbox
+        .dbus
+        .call
+        .push("me.example.Granted=me.example.Grant.Ping@/".to_owned());
+    entry.argv.push(bus.address().to_owned());
+    let (handle, _, cancel, task, _) = running_with(
+        config,
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let line = file_contains(&output, "\n").await;
+    let mut fields = line.split_whitespace();
+    assert_eq!(
+        fields.by_ref().take(4).collect::<Vec<_>>(),
+        ["ok", "no", "no", "no"]
+    );
+    let socket = fields
+        .next()
+        .and_then(|address| address.strip_prefix("unix:path="))
+        .map(PathBuf::from)
+        .expect("proxy address");
+    let proxy_dir = socket.parent().expect("proxy directory").to_path_buf();
+    assert!(proxy_dir.exists());
+    handle.detach(1).await.expect("detach");
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while proxy_dir.exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("proxy directory removed");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn confined_applet_without_a_grant_has_no_session_bus() {
+    if !landlock_available() {
+        return;
+    }
+    let (_dir, entry, output) = script(
+        r#"#!/bin/sh
+printf '%s\n' "${DBUS_SESSION_BUS_ADDRESS-unset}" > "$1"
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+    );
+    let (handle, _, cancel, task, _) = running_with(
+        confined(&entry),
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    assert_eq!(file_contains(&output, "\n").await, "unset\n");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn configured_env_reaches_the_applet_and_cannot_override_the_bus_address() {
+    if !landlock_available() {
+        return;
+    }
+    let (_dir, entry, output) = script(
+        r#"#!/bin/sh
+printf '%s\n%s\n' "${GLIMPSE_APPLET_ENV-unset}" "${DBUS_SESSION_BUS_ADDRESS-unset}" > "$1"
+printf '{"t":"hello","v":1}\n'
+read -r line
+sleep 30
+"#,
+    );
+    let mut config = confined(&entry);
+    config
+        .applets
+        .get_mut("test")
+        .expect("test applet")
+        .env
+        .extend([
+            ("GLIMPSE_APPLET_ENV".to_owned(), "from-config".to_owned()),
+            (
+                "DBUS_SESSION_BUS_ADDRESS".to_owned(),
+                "unix:path=/tmp/from-config".to_owned(),
+            ),
+        ]);
+    let (handle, _, cancel, task, _) = running_with(
+        config,
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    assert_eq!(
+        file_contains(&output, "from-config\n").await,
+        "from-config\nunset\n"
+    );
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn missing_proxy_program_fails_the_slot() {
+    if !landlock_available() {
+        return;
+    }
+    let (_dir, entry, output) = script("#!/bin/sh\nprintf x > \"$1\"\n");
+    let mut config = confined(&entry);
+    config.bus_proxy = PathBuf::from("/missing-glimpse-test/xdg-dbus-proxy");
+    config
+        .applets
+        .get_mut("test")
+        .expect("test applet")
+        .sandbox
+        .dbus
+        .talk
+        .push("me.example.Granted".to_owned());
+    let (handle, _, cancel, task, _) = running_with(
+        config,
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+    assert!(
+        matches!(failed.status, Status::Failed(reason) if reason == "sandbox.dbus needs xdg-dbus-proxy")
+    );
+    assert!(!output.exists());
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn wayland_grant_reaches_the_compositor_socket_and_nothing_beside_it() {
+    if !landlock_available() {
+        return;
+    }
+    let Some(socket) = super::super::sandbox::wayland_socket().filter(|path| path.exists()) else {
+        eprintln!("skipped: no Wayland socket");
+        return;
+    };
+    let neighbour = socket.with_file_name("bus");
+    for granted in [false, true] {
+        let (_dir, mut entry, output) = script(
+            r#"#!/usr/bin/env python3
+import errno, socket, sys, time
+def reach(path):
+    try:
+        socket.socket(socket.AF_UNIX).connect(path)
+        return "allowed"
+    except OSError as error:
+        return "denied" if error.errno == errno.EACCES else f"other:{error.errno}"
+open(sys.argv[1], "w").write(reach(sys.argv[2]) + " " + reach(sys.argv[3]) + "\n")
+print('{"t":"hello","v":1}', flush=True)
+sys.stdin.readline()
+time.sleep(30)
+"#,
+        );
+        let mut config = confined(&entry);
+        config
+            .applets
+            .get_mut("test")
+            .expect("test applet")
+            .sandbox
+            .wayland = granted;
+        entry.argv.push(socket.display().to_string());
+        entry.argv.push(neighbour.display().to_string());
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let wanted = if granted {
+            "allowed denied\n"
+        } else {
+            "denied denied\n"
+        };
+        assert_eq!(file_contains(&output, "\n").await, wanted);
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+}
+
+#[tokio::test]
+async fn wayland_grant_opens_the_render_nodes_and_never_a_card_node() {
+    if !landlock_available() {
+        return;
+    }
+    let Some(node) = super::super::sandbox::render_nodes(std::path::Path::new("/dev/dri"))
+        .into_iter()
+        .next()
+    else {
+        eprintln!("skipped: no render node");
+        return;
+    };
+    let card = std::fs::read_dir("/dev/dri")
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name.as_encoded_bytes().starts_with(b"card"))
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from("/dev/dri/card-missing"));
+    for granted in [false, true] {
+        let (_dir, mut entry, output) = script(
+            r#"#!/usr/bin/env python3
+import errno, os, sys, time
+def reach(path):
+    try:
+        os.close(os.open(path, os.O_RDWR))
+        return "allowed"
+    except OSError as error:
+        return "denied" if error.errno == errno.EACCES else f"other:{error.errno}"
+def listed():
+    try:
+        os.listdir("/dev/dri")
+        return "listed"
+    except OSError:
+        return "unlisted"
+open(sys.argv[1], "w").write(reach(sys.argv[2]) + " " + reach(sys.argv[3]) + " " + listed() + "\n")
+print('{"t":"hello","v":1}', flush=True)
+sys.stdin.readline()
+time.sleep(30)
+"#,
+        );
+        let mut config = confined(&entry);
+        config
+            .applets
+            .get_mut("test")
+            .expect("test applet")
+            .sandbox
+            .wayland = granted;
+        entry.argv.push(node.display().to_string());
+        entry.argv.push(card.display().to_string());
+        let (handle, _, cancel, task, _) = running_with(
+            config,
+            Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        );
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let got = file_contains(&output, "\n").await;
+        let fields: Vec<&str> = got.split_whitespace().collect();
+        if granted {
+            assert_eq!(fields[0], "allowed", "{got}");
+            assert_eq!(fields[2], "listed", "{got}");
+        } else {
+            assert_eq!(fields[0], "denied", "{got}");
+            assert_eq!(fields[2], "unlisted", "{got}");
+        }
+        assert_ne!(fields[1], "allowed", "a card node is never granted: {got}");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
+}

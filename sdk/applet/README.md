@@ -51,7 +51,9 @@ The applet runs in a sandbox. Beyond its state directory, it reaches only the pa
 grants under `[applets."<id>"] sandbox` in the glimpse config, and it has no network unless
 `network = true`. It sees media players only with `mpris = true` and workspaces and windows
 only with `compositor = true`, and `launch` starts only the desktop ids listed in
-`launch = [...]`.
+`launch = [...]`. It has no session bus unless `sandbox.dbus` grants names: `talk`, `call` and
+`broadcast` take `xdg-dbus-proxy` rules, and the applet connects through `DBUS_SESSION_BUS_ADDRESS`.
+`wayland = true` lets it run a Wayland program such as `glimpse-lens` or `wl-copy`.
 
 The wire format is specified in [PROTOCOL.md](PROTOCOL.md).
 
