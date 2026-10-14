@@ -177,6 +177,14 @@ impl FakeKbdBacklight {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
     let bus = glimpse_dbus::testing::PrivateBus::start();
+    let monitor = bus.connection().await;
+    let mut messages = zbus::MessageStream::from(&monitor);
+    zbus::fdo::MonitoringProxy::new(&monitor)
+        .await
+        .unwrap()
+        .become_monitor(&[], 0)
+        .await
+        .unwrap();
     let (events, _inbox) = mpsc::channel(32);
     let cancel = CancellationToken::new();
     let (health, _health) = watch::channel(ServiceState::Starting);
@@ -188,8 +196,14 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
         health,
         Buses::for_system(bus.connection().await),
     );
-    let watcher = tokio::spawn(async move { keyboard_watch(ctx).await.next().await });
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let backend: Arc<dyn Backlight> =
+        Arc::new(FakeBacklight::new(vec![Entry::keyboard(KEYBOARD_ID, 1, 3)]));
+    let mut watcher = tokio::spawn(async move {
+        let mut events = keyboard_watch(ctx, backend).await;
+        (events.next().await, events.next().await)
+    });
+    let failed = keyboard_bus_reply(&mut messages, "GetMaxBrightness", None).await;
+    assert_eq!(failed.message_type(), zbus::message::Type::Error);
 
     let upower = bus.connection().await;
     upower
@@ -204,20 +218,56 @@ async fn the_keyboard_watch_follows_upower_that_appears_after_start() {
         zbus::object_server::SignalEmitter::new(&upower, "/org/freedesktop/UPower/KbdBacklight")
             .unwrap();
 
-    let event = tokio::time::timeout(std::time::Duration::from_secs(20), async {
-        let mut watcher = watcher;
-        loop {
-            let _ =
-                FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new()).await;
-            if let Ok(joined) =
-                tokio::time::timeout(std::time::Duration::from_millis(50), &mut watcher).await
-            {
-                return joined.unwrap();
-            }
+    tokio::select! {
+        reply = keyboard_bus_reply(&mut messages, "AddMatch", Some("BrightnessChangedWithSource")) => {
+            assert_eq!(reply.message_type(), zbus::message::Type::MethodReturn);
         }
-    })
-    .await
-    .expect("the watch recovers once UPower appears");
+        _ = &mut watcher => panic!("the watch stopped before subscribing"),
+    }
+    FakeKbdBacklight::brightness_changed_with_source(&emitter, 2, String::new())
+        .await
+        .unwrap();
+    let (first, second) = tokio::time::timeout(std::time::Duration::from_secs(10), watcher)
+        .await
+        .expect("the watch delivers an enumeration and the change")
+        .unwrap();
 
-    assert!(matches!(event, Some(Event::Rescanned { .. })));
+    assert!(
+        matches!(&first, Some(Event::Enumerated(found)) if found.entries.iter().any(|entry| entry.id == KEYBOARD_ID)),
+        "a keyboard that appears after start is enumerated, since a rescan of an unknown id is dropped"
+    );
+    assert!(matches!(second, Some(Event::Rescanned { .. })));
+}
+
+async fn keyboard_bus_reply(
+    messages: &mut zbus::MessageStream,
+    member: &str,
+    match_contains: Option<&str>,
+) -> zbus::Message {
+    let request = loop {
+        let message = messages.next().await.unwrap().unwrap();
+        if message.message_type() == zbus::message::Type::MethodCall
+            && message
+                .header()
+                .member()
+                .is_some_and(|name| name.as_str() == member)
+            && match_contains.is_none_or(|needle| {
+                message
+                    .body()
+                    .deserialize::<String>()
+                    .is_ok_and(|rule| rule.contains(needle))
+            })
+        {
+            break message;
+        }
+    };
+    loop {
+        let message = messages.next().await.unwrap().unwrap();
+        if message.header().reply_serial() == Some(request.primary_header().serial_num())
+            && message.header().destination().map(|name| name.as_str())
+                == request.header().sender().map(|name| name.as_str())
+        {
+            return message;
+        }
+    }
 }

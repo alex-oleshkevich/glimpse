@@ -229,10 +229,10 @@ fn source_constructors_populate_only_their_own_kinds_fields() {
     assert_eq!(portal.pid, 0);
     assert_eq!(portal.uid, 0);
 
-    let login1 = IdleInhibitorSource::login1(123, 1000, Login1Mode::Delay);
+    let login1 = IdleInhibitorSource::login1(123, 4242, Login1Mode::Delay);
     assert_eq!(login1.kind, SourceKind::Login1);
     assert_eq!(login1.pid, 123);
-    assert_eq!(login1.uid, 1000);
+    assert_eq!(login1.uid, 4242);
     assert_eq!(login1.mode, Login1Mode::Delay);
     assert_eq!(login1.cookie, 0);
     assert_eq!(login1.app_id, "");
@@ -252,7 +252,7 @@ fn every_field_populated_record() -> IdleInhibitorRecord {
             app_id: "org.example.App".to_owned(),
             request_handle: "/org/freedesktop/portal/desktop/request/1".to_owned(),
             pid: 555,
-            uid: 1000,
+            uid: 4242,
             mode: Login1Mode::BlockWeak,
         },
         targets: InhibitionTargets {

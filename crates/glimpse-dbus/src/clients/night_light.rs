@@ -32,6 +32,7 @@ pub struct NightLightSnapshot {
     pub reason: String,
     pub configured: String,
     pub manual: bool,
+    pub paused_until: i64,
 }
 
 impl TryFrom<Value<'_>> for NightLightSnapshot {
@@ -80,6 +81,11 @@ impl TryFrom<Value<'_>> for NightLightSnapshot {
                 .map(bool::try_from)
                 .transpose()?
                 .unwrap_or_default(),
+            paused_until: fields
+                .next()
+                .map(i64::try_from)
+                .transpose()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -104,6 +110,7 @@ impl From<NightLightSnapshot> for Value<'_> {
             snapshot.reason,
             snapshot.configured,
             snapshot.manual,
+            snapshot.paused_until,
         ))
     }
 }
@@ -130,6 +137,10 @@ pub trait NightLight1 {
     fn set_schedule(&self, schedule: &str) -> zbus::Result<()>;
 
     fn set_temperature(&self, kelvin: u32) -> zbus::Result<()>;
+
+    fn pause(&self) -> zbus::Result<()>;
+
+    fn resume(&self) -> zbus::Result<()>;
 }
 
 const REASON: usize = 240;
@@ -162,6 +173,8 @@ pub enum NightLightProviderError {
     InvalidSchedule(String),
     #[error("night light temperature is invalid: {0}")]
     InvalidTemperature(String),
+    #[error("night light is not active: {0}")]
+    NotActive(String),
     #[error("night light provider unavailable: {0}")]
     Unavailable(String),
     #[error("night light provider call timed out")]
@@ -247,6 +260,14 @@ impl NightLightProviderHandle {
         })
     }
 
+    pub async fn pause(&self) -> Result<(), NightLightProviderError> {
+        call(self.proxy().await?.pause()).await
+    }
+
+    pub async fn resume(&self) -> Result<(), NightLightProviderError> {
+        call(self.proxy().await?.resume()).await
+    }
+
     pub async fn set_schedule(&self, schedule: &str) -> Result<(), NightLightProviderError> {
         call(self.proxy().await?.set_schedule(schedule)).await
     }
@@ -269,6 +290,9 @@ async fn call<T>(
                 }
                 "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature" => {
                     Err(NightLightProviderError::InvalidTemperature(reason))
+                }
+                "me.aresa.Glimpse.NightLight1.Error.NotActive" => {
+                    Err(NightLightProviderError::NotActive(reason))
                 }
                 "me.aresa.Glimpse.NightLight1.Error.Unavailable"
                 | "org.freedesktop.DBus.Error.ServiceUnknown"
@@ -300,7 +324,10 @@ async fn follow_provider(
             return;
         }
     };
-    let mut owners = match dbus.receive_name_owner_changed().await {
+    let mut owners = match dbus
+        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_NIGHT_LIGHT_BUS_NAME)])
+        .await
+    {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -309,14 +336,7 @@ async fn follow_provider(
         }
     };
 
-    let name = match zbus::names::BusName::try_from(GLIMPSE_NIGHT_LIGHT_BUS_NAME) {
-        Ok(name) => name,
-        Err(error) => {
-            tracing::warn!(%error, "invalid provider bus name");
-            return;
-        }
-    };
-    let mut retry_delay = std::time::Duration::from_millis(250);
+    let mut retry_delay = super::RetryDelay::default();
 
     loop {
         let proxy = match NightLight1Proxy::builder(&connection)
@@ -325,7 +345,7 @@ async fn follow_provider(
             .await
         {
             Ok(proxy) => {
-                retry_delay = std::time::Duration::from_millis(250);
+                retry_delay.reset();
                 proxy
             }
             Err(error) => {
@@ -335,7 +355,14 @@ async fn follow_provider(
                     reason = %error,
                     "night light provider property cache is unavailable"
                 );
-                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_NIGHT_LIGHT_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;

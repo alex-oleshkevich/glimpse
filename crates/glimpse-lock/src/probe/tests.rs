@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn only_the_padded_identity_map_is_the_initial_namespace() {
     assert_eq!(uid_map("         0          0 4294967295\n"), Ok(()));
-    assert!(uid_map("      1000       1000          1\n").is_err());
+    assert!(uid_map("      4242       4242          1\n").is_err());
     assert!(uid_map("         0          0 4294967294\n").is_err());
     assert!(uid_map("0 0 4294967295\n0 0 1\n").is_err());
     assert!(uid_map("").is_err());
@@ -14,7 +14,7 @@ fn only_the_padded_identity_map_is_the_initial_namespace() {
 fn no_new_privs_must_read_zero() {
     let status = |value: &str| {
         format!(
-            "Name:\tglimpse-lock\nUid:\t1000\t1000\t1000\t1000\nNoNewPrivs:\t{value}\nSeccomp:\t0\n"
+            "Name:\tglimpse-lock\nUid:\t4242\t4242\t4242\t4242\nNoNewPrivs:\t{value}\nSeccomp:\t0\n"
         )
     };
     assert_eq!(no_new_privs(&status("0")), Ok(()));
@@ -32,7 +32,7 @@ fn unix_chkpwd_must_be_setuid_or_setgid_root_on_a_suid_filesystem() {
         "Debian ships it 2755 root:shadow"
     );
     assert!(chkpwd(0, 0o100755, false).is_err());
-    assert!(chkpwd(1000, 0o104755, false).is_err());
+    assert!(chkpwd(4242, 0o104755, false).is_err());
     assert!(chkpwd(65534, 0o106755, false).is_err());
     assert!(chkpwd(0, 0o106755, true).is_err());
     assert!(chkpwd(0, 0o102755, true).is_err());

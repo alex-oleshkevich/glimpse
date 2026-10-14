@@ -7,7 +7,7 @@ fn a_share_reads_as_its_folder_on_its_host_and_never_as_the_raw_mount() {
         ("media library".to_owned(), "nas · SMB".to_owned())
     );
     assert_eq!(
-        share("sftp:host=box.lan,user=alex"),
+        share("sftp:host=box.lan,user=someone"),
         ("box.lan".to_owned(), "SFTP".to_owned())
     );
     assert_eq!(
@@ -49,7 +49,7 @@ fn a_hostile_bookmark_label_is_capped_before_it_reaches_a_dto() {
         "bookmark",
         &long,
         glimpse_services::PlacesKind::Bookmark,
-        "/home/alex/projects",
+        "/home/user/projects",
     ));
 
     let listing = bookmarks(&state, 8, false);
@@ -69,7 +69,7 @@ fn bookmarks_past_the_cap_go_behind_an_overflow_row() {
             &format!("b{index}"),
             &format!("bookmark{index}"),
             glimpse_services::PlacesKind::Bookmark,
-            "/home/alex",
+            "/home/user",
         ));
     }
 
@@ -89,11 +89,11 @@ fn activating_a_place_opens_its_path() {
         "home",
         "Home",
         glimpse_services::PlacesKind::Home,
-        "/home/alex",
+        "/home/user",
     ));
 
     match activation(&places, "home") {
-        Some(Activation::Open(path)) => assert_eq!(path, PathBuf::from("/home/alex")),
+        Some(Activation::Open(path)) => assert_eq!(path, PathBuf::from("/home/user")),
         _ => panic!("expected an open request"),
     }
 }

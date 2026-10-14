@@ -59,3 +59,22 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
     );
     services.shutdown().await;
 }
+
+#[test]
+fn an_inactive_night_light_has_distinct_wording() {
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::NotActive("off".to_owned())).as_deref(),
+        Some("The night light is off.")
+    );
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::InvalidTemperature(
+            "invalid".to_owned()
+        ))
+        .as_deref(),
+        Some("That was not a valid value.")
+    );
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::Unavailable("gone".to_owned())).as_deref(),
+        Some("The night light is not running.")
+    );
+}

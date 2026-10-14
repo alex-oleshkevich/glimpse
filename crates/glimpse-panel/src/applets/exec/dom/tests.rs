@@ -1165,3 +1165,80 @@ fn row_family_keeps_local_values_and_reports_shell_close() {
     assert!(dom.reconcile(&stale, 1));
     assert!(!open.open());
 }
+
+#[test]
+#[ignore = "needs a display"]
+fn icon_only_toggle_has_an_accessible_name() {
+    init();
+    let first = tree(vec![node(
+        2,
+        "togglebutton",
+        json!({"icon": "media-playback-start-symbolic"}),
+        vec![],
+    )]);
+    let (_shell, mut dom, _) = setup(&first);
+    let toggle = widget(&dom, 1, 2, ElementKind::ToggleButton)
+        .downcast::<gtk4::ToggleButton>()
+        .expect("toggle");
+    assert!(gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+    let next = first
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"label": "Play"})).expect("props"),
+            seq: None,
+        }])
+        .expect("set");
+    assert!(dom.reconcile(&next, 1));
+    assert!(gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+    let empty = next
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"label": null, "icon": null})).expect("props"),
+            seq: None,
+        }])
+        .expect("clear");
+    assert!(dom.reconcile(&empty, 1));
+    assert!(!gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn style_notifications_redress_unchanged_calendar_markers() {
+    init();
+    let first = tree(vec![node(
+        2,
+        "calendar",
+        json!({"events": [{"date": "2026-06-05", "colors": ["accent"]}]}),
+        vec![],
+    )]);
+    let (_shell, mut dom, events) = setup(&first);
+    let calendar = widget(&dom, 1, 2, ElementKind::Calendar)
+        .downcast::<Calendar>()
+        .expect("calendar");
+    let date = Ymd::new(2026, 6, 5);
+    for property in ["dark", "accent-color"] {
+        calendar.set_events(&[]);
+        assert!(dom.reconcile(&first, 1));
+        assert!(calendar.events(date).is_empty());
+        dom.style_manager.notify(property);
+        assert!(dom.needs_redress());
+        assert!(dom.reconcile(&first, 1));
+        assert_eq!(calendar.events(date), vec![tone_palette()[0]]);
+        assert!(!dom.needs_redress());
+        assert!(events.borrow().is_empty());
+    }
+    let dirty = dom.tones_dirty.clone();
+    let manager = dom.style_manager.clone();
+    drop(dom);
+    manager.notify("dark");
+    assert!(!dirty.get());
+}

@@ -20,13 +20,13 @@ fn everything_exists(_: &Path) -> bool {
 fn an_absolute_path_that_is_really_there_wins_outright() {
     assert_eq!(
         choose(
-            Some("/run/user/1000/tray-icon/x.png"),
+            Some("/fixture/tray-icon/x.png"),
             None,
             &[],
             22,
             &everything_exists
         ),
-        Source::File(PathBuf::from("/run/user/1000/tray-icon/x.png"))
+        Source::File(PathBuf::from("/fixture/tray-icon/x.png"))
     );
 }
 

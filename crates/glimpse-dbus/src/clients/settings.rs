@@ -207,14 +207,7 @@ async fn follow(
             return;
         }
     };
-    let name = match zbus::names::BusName::try_from(GLIMPSE_SETTINGS_BUS_NAME) {
-        Ok(name) => name,
-        Err(error) => {
-            tracing::warn!(%error, "invalid provider bus name");
-            return;
-        }
-    };
-    let mut retry_delay = std::time::Duration::from_millis(250);
+    let mut retry_delay = super::RetryDelay::default();
 
     loop {
         let proxy = bounded(
@@ -225,13 +218,20 @@ async fn follow(
         .await;
         let proxy = match proxy {
             Ok(proxy) => {
-                retry_delay = std::time::Duration::from_millis(250);
+                retry_delay.reset();
                 proxy
             }
             Err(error) => {
                 publish(&updates, Err(error.to_string()));
                 publish(&locations, Ok(None));
-                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_SETTINGS_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;

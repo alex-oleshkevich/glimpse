@@ -6,11 +6,7 @@ pub fn applet_host_name(app_id: &str) -> String {
 }
 
 pub fn panel_app_id() -> String {
-    panel_app_id_from(std::env::var("GLIMPSE_PANEL_APP_ID").ok())
-}
-
-fn panel_app_id_from(value: Option<String>) -> String {
-    value.unwrap_or_else(|| "me.aresa.GlimpsePanel".to_owned())
+    std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or_else(|_| "me.aresa.GlimpsePanel".to_owned())
 }
 
 #[zbus::proxy(

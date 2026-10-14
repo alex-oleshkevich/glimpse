@@ -352,63 +352,91 @@ pub type BluetoothHandle = crate::ServiceEndpoint<Bluetooth>;
 
 impl crate::ServiceEndpoint<Bluetooth> {
     pub async fn set_powered(&self, powered: bool) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::SetPowered { powered, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::SetPowered { powered, reply }
+        })
+        .await?
     }
 
     pub async fn start_scan(&self, hold: Hold) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::StartScan { hold, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::StartScan { hold, reply }
+        })
+        .await?
     }
 
     pub async fn set_discoverable(&self, on: bool) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::SetDiscoverable { on, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::SetDiscoverable { on, reply }
+        })
+        .await?
     }
 
     pub async fn stop_scan(&self) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::StopScan { reply }).await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::StopScan { reply }
+        })
+        .await?
     }
 
     pub async fn connect(&self, id: DeviceId) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::Connect { id, reply }).await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::Connect { id, reply }
+        })
+        .await?
     }
 
     pub async fn disconnect(&self, id: DeviceId) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::Disconnect { id, reply }).await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::Disconnect { id, reply }
+        })
+        .await?
     }
 
     pub async fn pair(&self, id: DeviceId) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::Pair { id, reply }).await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::Pair { id, reply }
+        })
+        .await?
     }
 
     pub async fn cancel_pairing(&self, id: DeviceId) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::CancelPairing { id, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::CancelPairing { id, reply }
+        })
+        .await?
     }
 
     pub async fn set_trusted(&self, id: DeviceId, trusted: bool) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::SetTrusted { id, trusted, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::SetTrusted { id, trusted, reply }
+        })
+        .await?
     }
 
     pub async fn forget(&self, id: DeviceId, confirmed: bool) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::Forget {
-            id,
-            confirmed,
-            reply,
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::Forget {
+                id,
+                confirmed,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn dismiss_confirmation(&self) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::DismissConfirmation { reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::DismissConfirmation { reply }
+        })
+        .await?
     }
 
     pub async fn answer_pairing(&self, answer: Answer) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::AnswerPairing { answer, reply })
-            .await?
+        self.call("bluetooth stopped before completing the command", |reply| {
+            Command::AnswerPairing { answer, reply }
+        })
+        .await?
     }
 }
 
@@ -443,10 +471,6 @@ impl Service for Bluetooth {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "bluetooth stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

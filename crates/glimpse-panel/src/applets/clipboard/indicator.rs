@@ -496,7 +496,6 @@ fn open(uri: String) {
 
 /// A command the viewer asked for answers in words they can read. `spawn_command` only logs, and a
 /// row that does nothing when pressed is exactly the failure a person needs told about.
-
 fn wording_for(error: &CommandError, unavailable: &str) -> Option<String> {
     match error {
         CommandError::Unavailable(_) => Some(unavailable.to_owned()),

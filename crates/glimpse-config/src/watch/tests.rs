@@ -156,26 +156,24 @@ async fn directories_sharing_a_watch_survive_each_other_descending() {
 }
 
 #[tokio::test]
-async fn watch_config_yields_a_changed_document_and_skips_an_identical_rewrite() {
+async fn a_reread_skips_an_identical_rewrite_and_yields_a_changed_document() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join("config.toml");
     let original = "[night-light]\ntemperature = 4200\n";
     std::fs::write(&path, original).expect("writes");
-
     let current = load(Some(&path)).expect("loads");
-    let mut configs = Box::pin(watch_config(Some(path.clone()), current));
 
     std::fs::write(&path, original).expect("rewrites");
-    tokio::time::sleep(DEBOUNCE * 2).await;
-    std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
+    assert!(
+        matches!(reread(Some(&path), &current).await, Ok(None)),
+        "an identical rewrite must yield nothing"
+    );
 
-    let config = tokio::time::timeout(SETTLE, configs.next())
-        .await
-        .expect("a configuration within the settle window")
-        .expect("the stream is still alive");
-    assert_eq!(
-        config.night_light.temperature, 3000,
-        "the identical rewrite must not have been yielded first"
+    std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
+    let changed = reread(Some(&path), &current).await;
+    assert!(
+        matches!(&changed, Ok(Some(config)) if config.night_light.temperature == 3000),
+        "{changed:?}"
     );
 }
 
@@ -389,19 +387,23 @@ async fn watch_config_keeps_the_running_document_when_a_reload_does_not_parse() 
     std::fs::write(&path, "[night-light]\ntemperature = 4200\n").expect("writes");
 
     let current = load(Some(&path)).expect("loads");
-    let mut configs = Box::pin(watch_config(Some(path.clone()), current));
+    let mut reloads = Box::pin(watch_config_reporting(Some(path.clone()), current, None));
 
     std::fs::write(&path, "not toml [[[").expect("breaks it");
-    tokio::time::sleep(DEBOUNCE * 2).await;
-    std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("fixes it");
-
-    let config = tokio::time::timeout(SETTLE, configs.next())
+    let broken = tokio::time::timeout(SETTLE, reloads.next())
         .await
-        .expect("a configuration within the settle window")
+        .expect("a report within the settle window")
         .expect("the stream is still alive");
-    assert_eq!(
-        config.night_light.temperature, 3000,
-        "the broken write is dropped, and the next good one still arrives"
+    assert!(broken.is_err(), "the broken write is dropped");
+
+    std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("fixes it");
+    let fixed = tokio::time::timeout(SETTLE, reloads.next())
+        .await
+        .expect("a report within the settle window")
+        .expect("the stream is still alive");
+    assert!(
+        matches!(&fixed, Ok(Some(config)) if config.night_light.temperature == 3000),
+        "the next good write still arrives, got {fixed:?}"
     );
 }
 

@@ -41,10 +41,7 @@ pub fn configured(
     configured: &BTreeMap<String, AppletConfig>,
     regional: &Regional,
 ) -> Option<AppletConfig> {
-    let Some(mut config) = glimpse_config::resolve_applet(name, configured) else {
-        tracing::warn!(applet = name, "unknown applet, skipping");
-        return None;
-    };
+    let mut config = glimpse_config::resolve_applet(name, configured)?;
     config.regional = regional.clone();
     Some(config)
 }

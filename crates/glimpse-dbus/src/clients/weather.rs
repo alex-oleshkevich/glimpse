@@ -500,7 +500,10 @@ async fn follow_provider(
             return;
         }
     };
-    let mut owners = match dbus.receive_name_owner_changed().await {
+    let mut owners = match dbus
+        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_WEATHER_BUS_NAME)])
+        .await
+    {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -509,14 +512,7 @@ async fn follow_provider(
         }
     };
 
-    let name = match zbus::names::BusName::try_from(GLIMPSE_WEATHER_BUS_NAME) {
-        Ok(name) => name,
-        Err(error) => {
-            tracing::warn!(%error, "invalid provider bus name");
-            return;
-        }
-    };
-    let mut retry_delay = std::time::Duration::from_millis(250);
+    let mut retry_delay = super::RetryDelay::default();
 
     loop {
         let proxy = match Weather1Proxy::builder(&connection)
@@ -525,7 +521,7 @@ async fn follow_provider(
             .await
         {
             Ok(proxy) => {
-                retry_delay = std::time::Duration::from_millis(250);
+                retry_delay.reset();
                 proxy
             }
             Err(error) => {
@@ -535,7 +531,14 @@ async fn follow_provider(
                     reason = clean(&error.to_string(), REASON),
                     "weather provider property cache is unavailable"
                 );
-                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_WEATHER_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;

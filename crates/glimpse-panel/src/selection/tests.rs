@@ -101,7 +101,16 @@ async fn settled() {
     for _ in 0..50 {
         tokio::task::yield_now().await;
     }
-    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+}
+
+async fn settled_when(done: impl Fn() -> bool) {
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while !done() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the selection worker reaches the expected state");
 }
 
 #[tokio::test]
@@ -178,11 +187,11 @@ async fn an_offer_superseded_during_setup_never_publishes() {
     tokio::spawn(run(Arc::default(), inbox, cancel.clone(), factory, publish));
 
     requests.send(offer(b"first")).unwrap();
-    settled().await;
+    settled_when(|| publisher.setting_up.load(Ordering::SeqCst) == 1).await;
     requests.send(offer(b"second")).unwrap();
     settled().await;
     publisher.release();
-    settled().await;
+    settled_when(|| !publisher.published().is_empty()).await;
 
     assert_eq!(publisher.published(), vec![b"second".to_vec()]);
     cancel.cancel();
@@ -201,7 +210,7 @@ async fn offers_are_set_up_one_at_a_time_and_only_the_latest_waiting_one_publish
         settled().await;
     }
     publisher.release();
-    settled().await;
+    settled_when(|| !publisher.published().is_empty()).await;
 
     assert_eq!(publisher.published(), vec![b"third".to_vec()]);
     assert_eq!(
@@ -221,11 +230,11 @@ async fn an_offer_in_setup_when_cancelled_never_publishes() {
     tokio::spawn(run(Arc::default(), inbox, cancel.clone(), factory, publish));
 
     requests.send(offer(b"first")).unwrap();
-    settled().await;
+    settled_when(|| publisher.setting_up.load(Ordering::SeqCst) == 1).await;
     cancel.cancel();
     settled().await;
     publisher.release();
-    settled().await;
+    settled_when(|| publisher.setting_up.load(Ordering::SeqCst) == 0).await;
 
     assert!(publisher.published().is_empty());
 }

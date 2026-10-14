@@ -127,10 +127,7 @@ async fn enumerate_sysfs_reads_a_real_backlight() {
     );
 
     let entry = entries.first().expect("at least one backlight entry");
-    let bus = zbus::Connection::system()
-        .await
-        .expect("a system bus connection");
-    let backend = SysfsBacklight::new(bus);
+    let backend = SysfsBacklight::new(glimpse_dbus::Buses::connect().await);
     backend
         .write(entry.id.clone(), entry.brightness)
         .await
@@ -158,6 +155,16 @@ async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
         .expect("the udev monitor stream stayed open");
 
     assert!(matches!(event, Event::Enumerated(_)));
+}
+
+#[tokio::test]
+async fn sysfs_without_a_system_bus_enumerates_and_refuses_writes() {
+    let backend = SysfsBacklight::new(glimpse_dbus::Buses::unavailable("no bus in tests"));
+
+    backend.enumerate().await;
+    let refused = backend.write("panel".to_owned(), 1).await;
+
+    assert!(refused.is_err());
 }
 
 mod enumeration;

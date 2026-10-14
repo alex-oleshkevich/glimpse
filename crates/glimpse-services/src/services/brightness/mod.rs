@@ -1,4 +1,3 @@
-use crate::services::cap;
 mod composite;
 mod ddc;
 
@@ -6,9 +5,11 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use futures_util::{Stream, StreamExt, stream};
+use glimpse_dbus::Buses;
 use glimpse_dbus::login1::{self, Login1SessionProxy};
 use glimpse_dbus::upower;
 use tokio::sync::oneshot;
@@ -17,7 +18,7 @@ use zbus::zvariant::OwnedObjectPath;
 pub use composite::CompositeBacklight;
 pub use ddc::DdcBacklight;
 
-use super::say;
+use super::{cap, say};
 use crate::{
     context::Ctx,
     publisher::Publisher,
@@ -29,6 +30,13 @@ const BACKLIGHT_ROOT: &str = "/sys/class/backlight";
 const LEDS_ROOT: &str = "/sys/class/leds";
 const KEYBOARD_ID: &str = "keyboard";
 const LABEL_CAP: usize = 64;
+const REPROBE_DELAYS: [Duration; 5] = [
+    Duration::from_secs(1),
+    Duration::from_secs(2),
+    Duration::from_secs(4),
+    Duration::from_secs(8),
+    Duration::from_secs(16),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -74,6 +82,21 @@ pub struct BrightnessState {
     pub sources: Vec<Source>,
 }
 
+#[derive(Debug, Default)]
+pub struct Enumeration {
+    pub entries: Vec<Entry>,
+    pub unanswered: Vec<String>,
+}
+
+impl From<Vec<Entry>> for Enumeration {
+    fn from(entries: Vec<Entry>) -> Self {
+        Self {
+            entries,
+            unanswered: Vec::new(),
+        }
+    }
+}
+
 pub enum ReadOutcome {
     Found(Entry),
     Gone,
@@ -81,28 +104,11 @@ pub enum ReadOutcome {
 }
 
 pub trait Backlight: Send + Sync + 'static {
-    fn enumerate(&self) -> BoxFuture<'_, Vec<Entry>>;
+    fn enumerate(&self) -> BoxFuture<'_, Enumeration>;
     fn read(&self, id: String) -> BoxFuture<'_, ReadOutcome>;
     fn write(&self, id: String, value: u32) -> BoxFuture<'_, Result<(), String>>;
-}
-
-/// A null backend for when no backlight source can be reached at all — no system bus to build
-/// `SysfsBacklight` on. It enumerates nothing, so the applet renders the ordinary "no backlight"
-/// state rather than a fault, and it refuses a write plainly rather than pretending one landed.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct UnavailableBacklight;
-
-impl Backlight for UnavailableBacklight {
-    fn enumerate(&self) -> BoxFuture<'_, Vec<Entry>> {
-        Box::pin(async { Vec::new() })
-    }
-
-    fn read(&self, _id: String) -> BoxFuture<'_, ReadOutcome> {
-        Box::pin(async { ReadOutcome::Gone })
-    }
-
-    fn write(&self, _id: String, _value: u32) -> BoxFuture<'_, Result<(), String>> {
-        Box::pin(async { Err("no system bus".to_owned()) })
+    fn reprobe(&self, _connector: String) -> BoxFuture<'_, Option<Entry>> {
+        Box::pin(async { None })
     }
 }
 
@@ -129,6 +135,7 @@ struct FakeRecord {
     entries: Vec<Entry>,
     writes: Vec<(String, u32)>,
     failure: Option<String>,
+    late: Option<(String, usize, Entry)>,
 }
 
 #[cfg(test)]
@@ -139,6 +146,7 @@ impl FakeBacklight {
                 entries,
                 writes: Vec::new(),
                 failure: None,
+                late: None,
             })),
         }
     }
@@ -149,6 +157,10 @@ impl FakeBacklight {
 
     pub fn fail(&self, reason: Option<&str>) {
         self.record().failure = reason.map(str::to_owned);
+    }
+
+    pub fn answer_late(&self, connector: &str, misses: usize, entry: Entry) {
+        self.record().late = Some((connector.to_owned(), misses, entry));
     }
 
     pub fn set_brightness(&self, id: &str, brightness: u32) {
@@ -165,9 +177,13 @@ impl FakeBacklight {
 
 #[cfg(test)]
 impl Backlight for FakeBacklight {
-    fn enumerate(&self) -> BoxFuture<'_, Vec<Entry>> {
-        let entries = self.record().entries.clone();
-        Box::pin(async move { entries })
+    fn enumerate(&self) -> BoxFuture<'_, Enumeration> {
+        let record = self.record();
+        let enumeration = Enumeration {
+            entries: record.entries.clone(),
+            unanswered: record.late.iter().map(|(name, ..)| name.clone()).collect(),
+        };
+        Box::pin(async move { enumeration })
     }
 
     fn read(&self, id: String) -> BoxFuture<'_, ReadOutcome> {
@@ -196,6 +212,18 @@ impl Backlight for FakeBacklight {
         };
         Box::pin(async move { outcome })
     }
+
+    fn reprobe(&self, connector: String) -> BoxFuture<'_, Option<Entry>> {
+        let answer = match &mut self.record().late {
+            Some((name, 0, entry)) if *name == connector => Some(entry.clone()),
+            Some((name, misses, _)) if *name == connector => {
+                *misses -= 1;
+                None
+            }
+            _ => None,
+        };
+        Box::pin(async move { answer })
+    }
 }
 
 #[derive(Clone)]
@@ -205,15 +233,15 @@ struct KeyboardProxy {
 }
 
 pub struct SysfsBacklight {
-    bus: zbus::Connection,
+    buses: Buses,
     session: Mutex<Option<OwnedObjectPath>>,
     keyboard: Mutex<Option<KeyboardProxy>>,
 }
 
 impl SysfsBacklight {
-    pub fn new(bus: zbus::Connection) -> Self {
+    pub fn new(buses: Buses) -> Self {
         Self {
-            bus,
+            buses,
             session: Mutex::new(None),
             keyboard: Mutex::new(None),
         }
@@ -244,7 +272,10 @@ impl SysfsBacklight {
         if let Some(keyboard) = self.cached_keyboard() {
             return Ok(Some(keyboard));
         }
-        let (_, proxy) = upower::kbd_backlight_proxy(&self.bus).await?;
+        let Ok(bus) = self.buses.system_bus() else {
+            return Ok(None);
+        };
+        let (_, proxy) = upower::kbd_backlight_proxy(bus).await?;
         let max_brightness = proxy.get_max_brightness().await?;
         if max_brightness <= 0 {
             return Ok(None);
@@ -304,11 +335,17 @@ impl SysfsBacklight {
         *self.session.lock().unwrap_or_else(|held| held.into_inner()) = None;
     }
 
+    fn system_bus(&self) -> Result<&zbus::Connection, String> {
+        self.buses
+            .system_bus()
+            .map_err(|reason| format!("no system bus: {reason}"))
+    }
+
     async fn session(&self) -> Result<OwnedObjectPath, String> {
         match self.cached_session() {
             Some(path) => Ok(path),
             None => {
-                let path = login1::session_path(&self.bus).await?;
+                let path = login1::session_path(self.system_bus()?).await?;
                 self.cache_session(path.clone());
                 Ok(path)
             }
@@ -317,7 +354,7 @@ impl SysfsBacklight {
 
     async fn write_backlight(&self, id: &str, value: u32) -> Result<(), String> {
         let path = self.session().await?;
-        set_brightness_at(&self.bus, &path, "backlight", id, value)
+        set_brightness_at(self.system_bus()?, &path, "backlight", id, value)
             .await
             .map_err(|error| {
                 if is_stale_session(&error) {
@@ -329,7 +366,7 @@ impl SysfsBacklight {
 
     async fn write_led(&self, name: &str, value: u32) -> Result<(), String> {
         let path = self.session().await?;
-        set_brightness_at(&self.bus, &path, "leds", name, value)
+        set_brightness_at(self.system_bus()?, &path, "leds", name, value)
             .await
             .map_err(|error| {
                 if is_stale_session(&error) {
@@ -357,11 +394,11 @@ impl SysfsBacklight {
 }
 
 impl Backlight for SysfsBacklight {
-    fn enumerate(&self) -> BoxFuture<'_, Vec<Entry>> {
+    fn enumerate(&self) -> BoxFuture<'_, Enumeration> {
         Box::pin(async move {
             let mut entries = enumerate_sysfs().await;
             entries.extend(self.keyboard_entry().await);
-            entries
+            entries.into()
         })
     }
 
@@ -634,10 +671,18 @@ fn reenumerate_on_hotplug(
         })
 }
 
-async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
+async fn keyboard_watch(
+    ctx: Ctx<Brightness>,
+    backend: Arc<dyn Backlight>,
+) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
     let mut appearances = upower_owner_changes(&ctx).await;
+    let mut waited = false;
     loop {
         match keyboard_change_events(&ctx).await {
+            Ok(events) if waited => {
+                let enumerated = Event::Enumerated(backend.enumerate().await);
+                return Box::pin(stream::once(async move { enumerated }).chain(events));
+            }
             Ok(events) => return Box::pin(events),
             Err(error) => {
                 tracing::debug!(%error, "no keyboard backlight signal to follow");
@@ -647,6 +692,7 @@ async fn keyboard_watch(ctx: Ctx<Brightness>) -> Pin<Box<dyn Stream<Item = Event
                 if owners.next().await.is_none() {
                     return Box::pin(stream::empty());
                 }
+                waited = true;
             }
         }
     }
@@ -688,6 +734,30 @@ async fn keyboard_change_events(
         let args = signal.args().ok()?;
         Some(keyboard_rescan_event(args.value, max_brightness))
     }))
+}
+
+fn reprobes(
+    backend: Arc<dyn Backlight>,
+    connector: String,
+    enumeration: u64,
+) -> impl Stream<Item = Event> {
+    let probed = connector.clone();
+    stream::iter(REPROBE_DELAYS)
+        .then(move |delay| {
+            let backend = Arc::clone(&backend);
+            let connector = probed.clone();
+            async move {
+                tokio::time::sleep(delay).await;
+                backend.reprobe(connector).await
+            }
+        })
+        .filter_map(futures_util::future::ready)
+        .take(1)
+        .map(move |entry| Event::Reprobed {
+            connector: connector.clone(),
+            enumeration,
+            entry,
+        })
 }
 
 fn keyboard_rescan_event(value: i32, max_brightness: u32) -> Event {
@@ -790,7 +860,7 @@ impl From<&glimpse_config::Config> for Config {
 }
 
 pub enum Event {
-    Enumerated(Vec<Entry>),
+    Enumerated(Enumeration),
     WriteSettled {
         id: String,
         value: u32,
@@ -799,6 +869,11 @@ pub enum Event {
     Rescanned {
         id: String,
         entry: Option<Entry>,
+    },
+    Reprobed {
+        connector: String,
+        enumeration: u64,
+        entry: Entry,
     },
 }
 
@@ -824,6 +899,7 @@ pub enum Watch {
     Udev,
     DrmHotplug,
     Keyboard,
+    Reprobe { connector: String, enumeration: u64 },
 }
 
 pub struct Dependencies {
@@ -834,17 +910,25 @@ pub type BrightnessHandle = ServiceEndpoint<Brightness>;
 
 impl ServiceEndpoint<Brightness> {
     pub async fn set_level(&self, id: String, value: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetLevel { id, value, reply })
-            .await?
+        self.call("brightness stopped before accepting the level", |reply| {
+            Command::SetLevel { id, value, reply }
+        })
+        .await?
     }
 
     pub async fn adjust_level(&self, id: String, delta: i32) -> Result<(), CommandError> {
-        self.call(|reply| Command::AdjustLevel { id, delta, reply })
-            .await?
+        self.call(
+            "brightness stopped before accepting the adjustment",
+            |reply| Command::AdjustLevel { id, delta, reply },
+        )
+        .await?
     }
 
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("brightness stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -854,6 +938,8 @@ pub struct Brightness {
     minimum: u8,
     sources: Vec<SourceRecord>,
     inert: HashSet<String>,
+    unanswered: Vec<String>,
+    enumeration: u64,
 }
 
 impl Service for Brightness {
@@ -866,14 +952,6 @@ impl Service for Brightness {
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::SetLevel { .. } => "brightness stopped before accepting the level",
-            Command::AdjustLevel { .. } => "brightness stopped before accepting the adjustment",
-            Command::Refresh { .. } => "brightness stopped before refreshing",
-        }
-    }
-
     fn initial_state(_config: &Self::Config) -> Self::State {
         Self::State::default()
     }
@@ -882,7 +960,8 @@ impl Service for Brightness {
         let enumerate_backend = Arc::clone(&self.backend);
         let udev_backend = Arc::clone(&self.backend);
         let drm_backend = Arc::clone(&self.backend);
-        vec![
+        let keyboard_backend = Arc::clone(&self.backend);
+        let mut subs = vec![
             Sub::stream(Watch::Enumerate, move |_ctx| async move {
                 stream::once(async move { Event::Enumerated(enumerate_backend.enumerate().await) })
             }),
@@ -892,8 +971,23 @@ impl Service for Brightness {
             Sub::stream(Watch::DrmHotplug, move |_ctx| async move {
                 drm_hotplug_events(drm_backend)
             }),
-            Sub::stream(Watch::Keyboard, keyboard_watch),
-        ]
+            Sub::stream(Watch::Keyboard, move |ctx| {
+                keyboard_watch(ctx, Arc::clone(&keyboard_backend))
+            }),
+        ];
+        subs.extend(self.unanswered.iter().map(|connector| {
+            let backend = Arc::clone(&self.backend);
+            let probed = connector.clone();
+            let enumeration = self.enumeration;
+            Sub::stream(
+                Watch::Reprobe {
+                    connector: connector.clone(),
+                    enumeration,
+                },
+                move |_ctx| async move { reprobes(backend, probed, enumeration) },
+            )
+        }));
+        subs
     }
 
     async fn start(
@@ -907,12 +1001,19 @@ impl Service for Brightness {
             minimum: config.minimum,
             sources: Vec::new(),
             inert: HashSet::new(),
+            unanswered: Vec::new(),
+            enumeration: 0,
         }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Enumerated(entries)) => {
+            Input::Event(Event::Enumerated(Enumeration {
+                entries,
+                unanswered,
+            })) => {
+                self.enumeration = self.enumeration.wrapping_add(1);
+                self.unanswered = unanswered;
                 let mut sources = sources_from(entries);
                 for source in &mut sources {
                     if let Some(previous) = self
@@ -942,6 +1043,13 @@ impl Service for Brightness {
             }
             Input::Event(Event::Rescanned { id, entry }) => {
                 self.rescanned(&id, entry);
+            }
+            Input::Event(Event::Reprobed {
+                connector,
+                enumeration,
+                entry,
+            }) => {
+                self.reprobed(&connector, enumeration, entry);
             }
             Input::Command(Command::Refresh { reply }) => {
                 self.refresh_all(ctx);
@@ -1117,6 +1225,30 @@ impl Brightness {
             self.sources[index].current = level;
             self.publish();
         }
+    }
+
+    fn reprobed(&mut self, connector: &str, enumeration: u64, entry: Entry) {
+        if enumeration != self.enumeration {
+            return;
+        }
+        let Some(index) = self.unanswered.iter().position(|name| name == connector) else {
+            return;
+        };
+        self.unanswered.remove(index);
+        let Some(record) = sources_from(vec![entry]).pop() else {
+            return;
+        };
+        if self.sources.iter().any(|source| source.id == record.id) {
+            return;
+        }
+        let at = self
+            .sources
+            .iter()
+            .position(|source| source.kind == Kind::Keyboard)
+            .unwrap_or(self.sources.len());
+        self.sources.insert(at, record);
+        self.warn_inert();
+        self.publish();
     }
 
     fn refresh_all(&self, ctx: &Ctx<Self>) {

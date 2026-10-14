@@ -147,7 +147,6 @@ pub struct NotificationsView {
 const APP_ID: usize = 120;
 const APP_NAME: usize = 120;
 const SUMMARY: usize = 200;
-const BODY: usize = 800;
 const ICON: usize = 200;
 const IMAGE: usize = 4096;
 const ACTION_LABEL: usize = 120;
@@ -191,7 +190,7 @@ fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, Str
         app_name: glimpse_utils::clean(&app_name, APP_NAME),
         app_pid: (app_pid != 0).then_some(app_pid),
         summary: glimpse_utils::clean(&summary, SUMMARY),
-        body: optional_clean(body, BODY),
+        body: (!body.trim().is_empty()).then(|| glimpse_utils::markup::sanitize_body(&body)),
         icon: optional_clean(icon, ICON),
         image: optional_clean(image, IMAGE),
         urgency: decode_urgency(urgency),
@@ -469,7 +468,10 @@ async fn follow_provider(
             return;
         }
     };
-    let mut owners = match dbus.receive_name_owner_changed().await {
+    let mut owners = match dbus
+        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_NOTIFICATIONS_BUS_NAME)])
+        .await
+    {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -478,14 +480,7 @@ async fn follow_provider(
         }
     };
 
-    let name = match zbus::names::BusName::try_from(GLIMPSE_NOTIFICATIONS_BUS_NAME) {
-        Ok(name) => name,
-        Err(error) => {
-            tracing::warn!(%error, "invalid provider bus name");
-            return;
-        }
-    };
-    let mut retry_delay = std::time::Duration::from_millis(250);
+    let mut retry_delay = super::RetryDelay::default();
 
     loop {
         let proxy = match Notifications1Proxy::builder(&connection)
@@ -494,7 +489,7 @@ async fn follow_provider(
             .await
         {
             Ok(proxy) => {
-                retry_delay = std::time::Duration::from_millis(250);
+                retry_delay.reset();
                 proxy
             }
             Err(error) => {
@@ -504,7 +499,14 @@ async fn follow_provider(
                     reason = %error,
                     "notifications provider property cache is unavailable"
                 );
-                if !super::retry_after_failure(&dbus, &mut owners, &name, &mut retry_delay).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_NOTIFICATIONS_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;

@@ -78,7 +78,7 @@ A binary that constructs one of these must have called `register_resources()` fi
    to the enclosing `PopoverShell` and is derived from the tree, so a widget holding `Expandable`s
    writes no open-state, accordion or recede code at all.
 
-9. **A slot with no visible content renders nothing — including its hairline.** An empty footer
+9. **A slot with no visible content renders nothing — including its hairline.** An empty slot
    still costs its padding and leaves a stray border that reads as a broken edge. `PopoverShell`
    watches `notify::visible` on what is appended to a slot, so the slot follows its children rather
    than the fact that something was appended once. Use `get_visible` (the widget's own flag), never

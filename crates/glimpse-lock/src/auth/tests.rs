@@ -127,13 +127,13 @@ fn anything_else_is_a_generic_failure() {
 
 #[test]
 fn the_conversation_answers_the_user_and_the_password_once() {
-    let mut conversation = Conversation::new("alex", Zeroizing::new("hunter2".to_owned()));
+    let mut conversation = Conversation::new("sam", Zeroizing::new("hunter2".to_owned()));
     assert_eq!(
         conversation
             .prompt_echo_on(c"login:")
             .expect("user")
             .as_bytes(),
-        b"alex"
+        b"sam"
     );
     assert_eq!(
         conversation
@@ -150,7 +150,7 @@ fn the_conversation_answers_the_user_and_the_password_once() {
 
 #[test]
 fn the_conversation_keeps_the_last_pam_text_sanitized_and_capped() {
-    let mut conversation = Conversation::new("alex", Zeroizing::new(String::new()));
+    let mut conversation = Conversation::new("sam", Zeroizing::new(String::new()));
     assert_eq!(conversation.text(), None);
     conversation.text_info(c"first");
     conversation.error_msg(c"The account\tis \x1b[31mlocked\n");

@@ -10,7 +10,7 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::Seat;
+use crate::applet::popover::{Seat, run};
 use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
@@ -126,6 +126,10 @@ impl Applet for Kdeconnect {
                     || {},
                 );
             }
+        });
+
+        shown.settings().connect_activated(move |_| {
+            run(&["kdeconnect-app".to_owned()]);
         });
 
         self.opener = Some(seat.opener());

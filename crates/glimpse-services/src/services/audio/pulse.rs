@@ -1,4 +1,3 @@
-use crate::services::cap;
 use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -16,6 +15,8 @@ use libpulse_binding::proplist::{Proplist, properties};
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::timeout;
+
+use crate::services::cap;
 
 use super::identify::{self, Stream as StreamInfo};
 use super::model::{App, AudioError, Device, DeviceId, Direction, NAME_CAP};

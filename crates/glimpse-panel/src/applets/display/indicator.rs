@@ -174,6 +174,28 @@ impl Applet for Display {
             }
         });
 
+        shown.connect_night_light_paused({
+            let night_light = self.night_light.clone();
+            let notifications = self.notifications.clone();
+            let resync = resync.clone();
+            move |_, paused| {
+                let night_light = night_light.clone();
+                let notifications = notifications.clone();
+                let resync = resync.clone();
+                relm4::spawn_local(async move {
+                    let (operation, result) = if paused {
+                        ("night_light.pause", night_light.pause().await)
+                    } else {
+                        ("night_light.resume", night_light.resume().await)
+                    };
+                    if let Err(error) = result {
+                        resync.run();
+                        report_night_light_failure(&notifications, operation, error).await;
+                    }
+                });
+            }
+        });
+
         shown.connect_night_light_changed({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
@@ -373,6 +395,7 @@ fn night_light_wording(error: &NightLightProviderError) -> Option<String> {
     Some(match error {
         NightLightProviderError::InvalidSchedule(_) => gettext("That was not a valid setting."),
         NightLightProviderError::InvalidTemperature(_) => gettext("That was not a valid value."),
+        NightLightProviderError::NotActive(_) => gettext("The night light is off."),
         NightLightProviderError::Unavailable(_) => gettext("The night light is not running."),
         NightLightProviderError::TimedOut => gettext("That took too long."),
         NightLightProviderError::Call(_) => gettext("That did not work."),
@@ -525,11 +548,22 @@ impl Display {
                 schedule: render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned(),
                 fixed_hours: snapshot.schedule == "schedule" || snapshot.configured == "schedule",
                 serving: snapshot.serving,
+                can_pause: snapshot.active && snapshot.serving,
+                paused_until: (snapshot.paused_until != 0).then(|| {
+                    chrono::DateTime::from_timestamp(snapshot.paused_until, 0)
+                        .map(|time| {
+                            time.with_timezone(&chrono::Local)
+                                .format("%H:%M")
+                                .to_string()
+                        })
+                        .unwrap_or_default()
+                }),
             });
         shown.set_night_light(night_light.as_ref());
 
         let output_power = self.capabilities.is_some_and(|caps| caps.output_power);
         shown.set_output_power(output_power);
+        shown.set_blank_screens(self.capabilities.is_some_and(|caps| caps.blank_screens));
         let displays: Vec<WidgetDisplay> = self.outputs.iter().map(to_widget_display).collect();
         shown.set_displays(&displays);
     }

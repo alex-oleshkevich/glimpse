@@ -370,12 +370,11 @@ fn load_from(
         builder = builder.add_source(config::File::from_str(&text, config::FileFormat::Toml));
     }
 
-    let config: Config = builder
+    builder
         .build()
         .map_err(ConfigError::schema)?
         .try_deserialize()
-        .map_err(ConfigError::schema)?;
-    Ok(config)
+        .map_err(ConfigError::schema)
 }
 
 pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigError>) {

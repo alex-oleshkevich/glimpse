@@ -10,7 +10,8 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::launch`, which spawns an argv with no shell
+  `popover::launch`, which starts an argv in a transient user service with no shell and falls back
+  to a direct spawn when the user manager is unavailable
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
   and next-event applets both need to say about a calendar entry
 
@@ -84,7 +85,9 @@ holds a second layer surface over the whole output, and a bare one over every ot
 only while a popover is up, buying outside-click dismissal at the cost of hand-rolled placement and
 a drawn arrow. **A layer surface that paints nothing is never mapped and takes no click**, so each
 bare surface holds an empty `DrawingArea`. One catcher per panel means **one popover at a time is
-structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. **Blur is the body and the
+structural**, and `KeyboardMode::None` means `Escape` dismisses nothing. A popover that asks for
+typing takes `KeyboardMode::Exclusive`, since on-demand focus arrives only with a click into the
+surface and keys would reach the window behind; there `Escape` closes it. **Blur is the body and the
 arrow, not the surface** — `[appearance] blur` puts `backdrop-filter` on both, never on the
 catcher's own window.
 
@@ -102,7 +105,8 @@ same node did not animate, and an unmapped widget or `gtk-enable-animations: fal
 end and emits `done` synchronously, keeping the state machine one path. **The shadow is in `px`**:
 `box-shadow` with `rem` lengths renders nothing in GTK4, silently. The arrow is a
 `Gtk.DrawingArea`, not a rotated box, since GTK4 has no triangle and a rotated square overflows its
-allocation into the bar.
+allocation into the bar. The slot is a `Gtk.Grid` placing the arrow by cell and drawing it after the
+body on every side: a box draws in layout order, so the body's shadow would cover a top or left arrow.
 
 ## The applets
 

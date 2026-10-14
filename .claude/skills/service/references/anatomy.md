@@ -7,21 +7,20 @@
 | `const NAME: &'static str` | stable diagnostic name and health identity |
 | `type Config: Clone + PartialEq + Send + 'static + for<'a> From<&'a glimpse_config::Config>` | its slice of the document |
 | `type State: Clone + PartialEq + Send + Sync + 'static` | the complete current snapshot |
-| `type Handle: Clone + Send + 'static` | concrete consumer handle built from the endpoint |
 | `type Dependencies: Send + 'static` | required typed handles supplied by the composition root |
 | `type Command: Send + 'static` | typed commands, each carrying its own reply sender |
 | `type Event: Send + 'static` | everything a source delivers |
 | `type SubKey: Eq + Hash + Send + 'static` | identity for a declared source |
-| `fn from_endpoint(ServiceEndpoint<Self>) -> Self::Handle` | wrap the common state, health, and inbox endpoint |
+| `fn initial_state(&Self::Config) -> Self::State` | complete snapshot before the service starts |
 | `fn subscriptions(&self) -> Vec<Sub<Self>>` | sources that should be running; default empty |
-| `async fn start(ctx, config, dependencies) -> Result<Self, ServiceError>` | build the model |
+| `async fn start(ctx, config, dependencies) -> Self` | build the model |
 | `async fn handle(&mut self, ctx, input)` | the one handler; cannot fail |
 | `async fn stop(self, ctx)` | default no-op; skipped after a panic |
 
-`ServiceRuntime::new(initial, buses, cancel)` creates the state and health watch cells, the inbox,
+`ServiceRuntime::new(config, buses, cancel)` creates the state and health watch cells, the inbox,
 and the concrete handle. The composition root holds the runtime task and passes only typed handles
-to consumers. `handle` returning `()` is deliberate: `start` may fail, while handler failures are
-reported through health or a command's typed reply.
+to consumers. `start` reports unavailable backends through health; handler failures are reported
+through health or a command's typed reply, so `handle` returns `()`.
 
 ## `Ctx<S>` — `crates/glimpse-services/src/context.rs`
 
@@ -33,9 +32,8 @@ instead of a sender and a token threaded through its arguments.
 | `publisher()` | `Publisher<S::State>` | take once in `start`, keep for life |
 | `session_bus()` / `system_bus()` | `Result<&Connection, &str>` | the `Err` is why there is none |
 | `spawn(FnOnce(Ctx) -> Future<Output = S::Event>)` | `SourceGuard` | one unit of work, one event |
-| `spawn_detached(FnOnce(Ctx) -> Future<Output = ()>)` | `SourceGuard` | work with nothing to report |
+| `spawn_detached(FnOnce(Ctx) -> Future<Output = ()>)` | `()` | work with nothing to report |
 | `interval(period, Fn(Ctx) -> Future<S::Event>)` | `SourceGuard` | an event a tick |
-| `at_interval(start, period, ...)` | `SourceGuard` | the same, from a chosen instant |
 | `stream(FnOnce(Ctx) -> Future<Output = Stream<S::Event>>)` | `SourceGuard` | a backend signal stream |
 | `subscribe` through `Sub::watch(key, receiver, map, unavailable)` | `SourceGuard` | another service's typed state |
 | `degraded(reason)` / `running()` | | health, both directions |
@@ -61,8 +59,8 @@ a value equal to the last one, so unchanged state produces no watch notification
 A publisher rebuilt per call defeats this by starting from no last value every time. Take it once.
 
 `watch::Receiver::borrow()` gives a complete immediate snapshot; `changed()` waits for the next
-different state. A handle's command method creates a typed oneshot, submits the command with
-`ServiceEndpoint::command`, and maps a closed reply to `CommandError::Unavailable`.
+different state. A handle method uses `self.call(stopped, |reply| Command::Refresh { reply }).await?`.
+`call` creates the typed oneshot and maps a closed reply to `CommandError::Unavailable(stopped)`.
 
 ## Adding a service, end to end
 
@@ -147,29 +145,33 @@ pub enum Watch { Poll { units: Units } }
 
 pub struct Dependencies { pub location: LocationHandle }
 
-#[derive(Clone)]
-pub struct WeatherHandle(ServiceEndpoint<Weather>);
+pub type WeatherHandle = ServiceEndpoint<Weather>;
+
+impl ServiceEndpoint<Weather> {
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        self.call("weather stopped before refreshing", |reply| Command::Refresh { reply }).await?
+    }
+}
 
 impl Service for Weather {
     const NAME: &'static str = "weather";
 
     type Config = Config;
     type State = WeatherState;
-    type Handle = WeatherHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle { WeatherHandle(endpoint) }
+    fn initial_state(_: &Self::Config) -> Self::State { WeatherState { current: None } }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![Sub::interval(Watch::Poll { units: self.units }, POLL, fetch)]
     }
 
     async fn start(ctx: &Ctx<Self>, config: Self::Config, deps: Self::Dependencies)
-        -> Result<Self, ServiceError> {
-        Ok(Self { state: ctx.publisher(), location: deps.location, units: config.units })
+        -> Self {
+        Self { state: ctx.publisher(), location: deps.location, units: config.units }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -183,9 +185,8 @@ impl Service for Weather {
 }
 ```
 
-Slow backend calls stay in the handler when ordering matters, or move into a cancellable context
-task when the command is explicitly fire-and-forget. A command that has a reply keeps its oneshot
-sender until the backend operation finishes.
+Slow backend calls move into a cancellable context task. A command that has a reply keeps its
+oneshot sender until the backend operation finishes; serial handlers must remain responsive.
 
 ### 5. Compose it
 
@@ -199,12 +200,12 @@ pub use weather::{Weather, WeatherHandle};
 
 ```rust
 let (mut location_runtime, location) = ServiceRuntime::new(
-    Location::initial_state(), buses.clone(), cancel.child_token());
+    location_config, buses.clone(), cancel.child_token());
 let (mut weather_runtime, weather) = ServiceRuntime::new(
-    weather::initial_state(&weather_config), buses.clone(), cancel.child_token());
+    weather_config, buses.clone(), cancel.child_token());
 let deps = weather::Dependencies { location };
-tokio::spawn(async move { location_runtime.run(location_config, ()).await });
-tokio::spawn(async move { weather_runtime.run(weather_config, deps).await });
+tokio::spawn(async move { location_runtime.run(()).await });
+tokio::spawn(async move { weather_runtime.run(deps).await });
 ```
 
 The composition root makes dependency order visible. A panel-local root passes handles directly to
@@ -220,8 +221,8 @@ handles; they need no broker, socket, compositor, or live D-Bus.
 ```rust
 #[tokio::test]
 async fn refresh_returns_a_typed_result() {
-    let (mut runtime, handle) = ServiceRuntime::new(weather::initial_state(&config), buses, cancel);
-    let task = tokio::spawn(async move { runtime.run(config, deps).await });
+    let (mut runtime, handle) = ServiceRuntime::new(config, buses, cancel);
+    let task = tokio::spawn(async move { runtime.run(deps).await });
     handle.refresh().await.expect("service is running");
     task.abort();
 }

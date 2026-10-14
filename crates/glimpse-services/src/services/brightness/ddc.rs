@@ -4,7 +4,7 @@ use ddc::{Ddc, FeatureCode};
 use futures_util::future::BoxFuture;
 use tokio::task::spawn_blocking;
 
-use super::{Backlight, Entry, Kind, ReadOutcome};
+use super::{Backlight, Entry, Enumeration, Kind, ReadOutcome};
 
 const DRM_ROOT: &str = "/sys/class/drm";
 const BRIGHTNESS_FEATURE: FeatureCode = 0x10;
@@ -27,7 +27,7 @@ impl DdcBacklight {
 }
 
 impl Backlight for DdcBacklight {
-    fn enumerate(&self) -> BoxFuture<'_, Vec<Entry>> {
+    fn enumerate(&self) -> BoxFuture<'_, Enumeration> {
         Box::pin(async move { spawn_blocking(enumerate_blocking).await.unwrap_or_default() })
     }
 
@@ -50,27 +50,55 @@ impl Backlight for DdcBacklight {
                 .unwrap_or_else(|error| Err(error.to_string()))
         })
     }
+
+    fn reprobe(&self, connector: String) -> BoxFuture<'_, Option<Entry>> {
+        Box::pin(async move {
+            spawn_blocking(move || {
+                connector_entry(&Path::new(DRM_ROOT).join(&connector), &connector)
+            })
+            .await
+            .ok()
+            .flatten()
+        })
+    }
 }
 
 fn bus_of(id: &str) -> Option<u32> {
     id.strip_prefix(ID_PREFIX)?.parse().ok()
 }
 
-fn enumerate_blocking() -> Vec<Entry> {
+fn enumerate_blocking() -> Enumeration {
+    let mut enumeration = Enumeration::default();
     let Ok(dir) = std::fs::read_dir(DRM_ROOT) else {
-        return Vec::new();
+        return enumeration;
     };
-    dir.flatten()
-        .filter_map(|item| connector_entry(&item.path(), &item.file_name().to_string_lossy()))
-        .collect()
+    for item in dir.flatten() {
+        let name = item.file_name().to_string_lossy().into_owned();
+        let path = item.path();
+        match connector_entry(&path, &name) {
+            Some(entry) => enumeration.entries.push(entry),
+            None if external_output(&path, &name) && enabled(&path) => {
+                enumeration.unanswered.push(name);
+            }
+            None => {}
+        }
+    }
+    enumeration
+}
+
+fn external_output(card_dir: &Path, name: &str) -> bool {
+    name.starts_with("card")
+        && name.contains('-')
+        && !built_in(name)
+        && std::fs::read_to_string(card_dir.join("status")).is_ok_and(|s| s.trim() == "connected")
+}
+
+fn enabled(card_dir: &Path) -> bool {
+    std::fs::read_to_string(card_dir.join("enabled")).is_ok_and(|s| s.trim() == "enabled")
 }
 
 fn connector_entry(card_dir: &Path, name: &str) -> Option<Entry> {
-    if !name.starts_with("card") || !name.contains('-') || built_in(name) {
-        return None;
-    }
-    let status = std::fs::read_to_string(card_dir.join("status")).ok()?;
-    if status.trim() != "connected" {
+    if !external_output(card_dir, name) {
         return None;
     }
     let mut entry = candidate_buses(card_dir).find_map(probe)?;
@@ -137,12 +165,8 @@ fn bus_is_connected(root: &Path, bus: u32) -> bool {
         return false;
     };
     dir.flatten().any(|item| {
-        let name = item.file_name().to_string_lossy().into_owned();
         let path = item.path();
-        name.starts_with("card")
-            && name.contains('-')
-            && !built_in(&name)
-            && std::fs::read_to_string(path.join("status")).is_ok_and(|s| s.trim() == "connected")
+        external_output(&path, &item.file_name().to_string_lossy())
             && candidate_buses(&path).any(|candidate| candidate == bus)
     })
 }

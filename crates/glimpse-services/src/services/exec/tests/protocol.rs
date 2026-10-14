@@ -3,13 +3,41 @@ use super::*;
 #[tokio::test]
 async fn requests_require_a_recent_gesture() {
     let (_dir, entry, _output) = script(
-        "#!/bin/sh\nprintf '{\"t\":\"hello\",\"v\":1}\\n'\nread -r line\nprintf '{\"t\":\"copy\",\"text\":\"blocked\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/blocked\"}\\n'\nwhile read -r line; do printf '{\"t\":\"close-popover\"}\\n{\"t\":\"open-uri\",\"uri\":\"javascript:x\"}\\n{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}\\n{\"t\":\"copy\",\"text\":\"second\"}\\n'; done\n",
+        r#"#!/usr/bin/env python3
+import json, sys
+print('{"t":"hello","v":1}', flush=True)
+sys.stdin.readline()
+print('{"t":"copy","text":"blocked"}\n{"t":"open-uri","uri":"https://example.com/blocked"}', flush=True)
+print('{"t":"commit","ops":[{"op":"insert","parent":0,"node":{"id":1,"type":"indicator"}}]}', flush=True)
+for seq, line in enumerate(sys.stdin, 1):
+    print('{"t":"close-popover"}\n{"t":"open-uri","uri":"javascript:x"}\n{"t":"open-uri","uri":"https://example.com/open"}\n{"t":"copy","text":"second"}', flush=True)
+    print(json.dumps({"t":"commit","ops":[{"op":"set","id":1,"props":{},"seq":seq}]}), flush=True)
+"#,
     );
+    async fn settled(handle: &ExecHandle, seq: Option<u64>) {
+        let mut receiver = handle.subscribe();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if receiver
+                    .borrow()
+                    .slots
+                    .get(&1)
+                    .and_then(|s| s.tree.node(1))
+                    .is_some_and(|node| node.seq == seq)
+                {
+                    break;
+                }
+                receiver.changed().await.expect("protocol checkpoint");
+            }
+        })
+        .await
+        .expect("requests processed");
+    }
     let (handle, _sender, cancel, task, selection) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let state = status(&handle, 1, |s| matches!(s, Status::Running)).await;
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    settled(&handle, None).await;
     assert!(selection.offered().is_empty());
     assert!(
         handle
@@ -32,7 +60,7 @@ async fn requests_require_a_recent_gesture() {
         })
         .await
         .expect("change");
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    settled(&handle, Some(1)).await;
     assert!(selection.offered().is_empty());
     handle
         .send_event(UserEvent {
@@ -64,9 +92,8 @@ async fn requests_require_a_recent_gesture() {
         accepted.requests[1].1,
         BarRequest::OpenUri("https://example.com/open".to_owned())
     );
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    settled(&handle, Some(2)).await;
     assert!(selection.offered().is_empty());
-    tokio::time::sleep(Duration::from_secs(3)).await;
     handle
         .send_event(UserEvent {
             slot: 1,
@@ -79,7 +106,7 @@ async fn requests_require_a_recent_gesture() {
         })
         .await
         .expect("late change");
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    settled(&handle, Some(3)).await;
     assert_eq!(
         handle
             .snapshot()
@@ -149,15 +176,15 @@ time.sleep(30)
         let (_bad_dir, mut bad, _bad_output) = script(bad_source);
         bad.argv.push(mode.to_owned());
         let (_good_dir, good, _good_output) = script(good_source);
-        let mut config = configured();
+        let mut config = confined(&bad);
         config.applets.insert(
             "other".to_owned(),
             glimpse_config::ExecAppletConfig {
                 applet: "me.example.Other".to_owned(),
                 options: Map::new(),
                 sandbox: glimpse_config::AppletSandbox {
-                    read: vec![std::env::temp_dir().display().to_string()],
-                    write: vec![std::env::temp_dir().display().to_string()],
+                    read: vec![_good_dir.path().display().to_string()],
+                    write: vec![_good_dir.path().display().to_string()],
                     ..Default::default()
                 },
             },

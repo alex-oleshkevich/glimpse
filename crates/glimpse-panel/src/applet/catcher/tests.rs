@@ -52,3 +52,46 @@ fn the_arrow_never_sits_on_the_bodys_rounded_corner() {
 fn an_unmeasured_popover_asks_for_nothing_out_of_range() {
     assert_eq!(placement(120, 0, 0, 0), (0, 0));
 }
+
+pub(crate) fn every_arrow_paints_over_the_body_on_its_panel_side() {
+    use glimpse_config::Position;
+    use gtk4::prelude::*;
+
+    for (side, arrow, body) in [
+        (Position::Top, (0, 0), (0, 1)),
+        (Position::Bottom, (0, 1), (0, 0)),
+        (Position::Left, (0, 0), (1, 0)),
+        (Position::Right, (1, 0), (0, 0)),
+    ] {
+        let catcher = super::Catcher::new(None, side);
+        let cell = |widget: &gtk4::Widget| {
+            let (column, row, _, _) = catcher.slot.query_child(widget);
+            (column, row)
+        };
+        assert_eq!(
+            catcher.slot.last_child().as_ref(),
+            Some(catcher.arrow.upcast_ref::<gtk4::Widget>()),
+            "{side:?}: the arrow is drawn after the body, so the body's shadow never covers it"
+        );
+        assert_eq!(cell(catcher.arrow.upcast_ref()), arrow, "{side:?}");
+        assert_eq!(cell(catcher.body.upcast_ref()), body, "{side:?}");
+        catcher.window.destroy();
+    }
+}
+
+pub(crate) fn a_typing_popover_takes_the_keyboard_without_a_click() {
+    use gtk4::prelude::*;
+    use gtk4_layer_shell::{KeyboardMode, LayerShell};
+
+    let catcher = super::Catcher::new(None, glimpse_config::Position::Bottom);
+    catcher.set_typing(true);
+    assert_eq!(
+        catcher.window.keyboard_mode(),
+        KeyboardMode::Exclusive,
+        "on-demand focus arrives only with a click into the surface, so keys would reach the \
+         window behind"
+    );
+    catcher.set_typing(false);
+    assert_eq!(catcher.window.keyboard_mode(), KeyboardMode::None);
+    catcher.window.destroy();
+}

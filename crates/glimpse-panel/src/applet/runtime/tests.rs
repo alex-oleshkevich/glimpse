@@ -566,6 +566,9 @@ fn an_applet_reaches_its_group() {
     a_raise_opens_a_popover_and_never_closes_one();
     a_bluetooth_popover_signal_reaches_the_service();
     an_applet_action_injects_what_a_pointer_would();
+    a_clock_interval_repaints_its_group();
+    crate::applet::catcher::tests::every_arrow_paints_over_the_body_on_its_panel_side();
+    crate::applet::catcher::tests::a_typing_popover_takes_the_keyboard_without_a_click();
 }
 
 fn an_applet_action_injects_what_a_pointer_would() {
@@ -762,4 +765,111 @@ fn a_bluetooth_popover_signal_reaches_the_service() {
 
     drop(guard);
     runtime.block_on(service.stop());
+}
+
+fn a_clock_interval_repaints_its_group() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    let services = {
+        let _guard = runtime.enter();
+        crate::services::PanelServices::start_with_buses(
+            &glimpse_config::Config::default(),
+            glimpse_dbus::Buses::unavailable("no bus in tests"),
+        )
+    };
+    let settings = config("%H:%M:%S");
+    let build = crate::applets::build(
+        &settings,
+        &services.handles,
+        glimpse_services::Placement {
+            output: None,
+            position: glimpse_services::Edge::Top,
+            orientation: glimpse_services::Orientation::Horizontal,
+            zone: glimpse_services::Zone::Center,
+            size: 32,
+        },
+        None,
+    )
+    .expect("the clock builder");
+    struct Ticking {
+        applet: Box<dyn Applet>,
+        ticks: Rc<Cell<u32>>,
+    }
+
+    impl Applet for Ticking {
+        fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
+            self.applet.configure(ctx, config);
+        }
+
+        fn handle(&mut self, ctx: &Ctx, input: &Input) {
+            if matches!(input, Input::Tick) {
+                self.ticks.set(self.ticks.get() + 1);
+            }
+            self.applet.handle(ctx, input);
+        }
+
+        fn indicators(&self) -> Vec<IndicatorSpec> {
+            self.applet.indicators()
+        }
+    }
+
+    let ticks = Rc::new(Cell::new(0));
+    let received = Rc::clone(&ticks);
+    let handle = AppletHandle::launch(
+        "ticking-clock".to_owned(),
+        None,
+        Box::new(move |ctx| {
+            Box::new(Ticking {
+                applet: build(ctx),
+                ticks: received,
+            })
+        }),
+        settings,
+        Catcher::new(None, Position::Top),
+        slot("ticking-clock"),
+    );
+    let window = gtk4::Window::new();
+    window.set_child(Some(&handle.widget));
+    window.present();
+    settle();
+
+    let mut pending = vec![group(&handle).upcast::<gtk4::Widget>()];
+    let mut label = None;
+    while let Some(widget) = pending.pop() {
+        if let Some(found) = widget.downcast_ref::<gtk4::Label>()
+            && !found.text().is_empty()
+        {
+            label = Some(found.clone());
+            break;
+        }
+        let mut child = widget.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            pending.push(widget);
+        }
+    }
+    let label = label.expect("the clock renders a label");
+    let before = label.text();
+    assert!(!before.is_empty());
+    glib::MainContext::default().block_on(async {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while (label.text() == before || ticks.get() == 0) && std::time::Instant::now() < deadline {
+            glib::timeout_future(std::time::Duration::from_millis(10)).await;
+        }
+    });
+    assert_ne!(
+        label.text(),
+        before,
+        "the configured interval repaints the clock group"
+    );
+    assert!(
+        ticks.get() > 0,
+        "the interval delivers Input::Tick to the clock"
+    );
+    window.close();
+    drop(handle);
+    settle();
+    runtime.block_on(services.shutdown());
 }

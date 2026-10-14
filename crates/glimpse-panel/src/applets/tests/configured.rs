@@ -25,11 +25,6 @@ fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
 }
 
 #[test]
-fn a_known_name_resolves_to_configuration() {
-    assert!(configured("heartbeat", &BTreeMap::new(), &Regional::default()).is_some());
-}
-
-#[test]
 fn a_kind_without_an_implementation_is_not_the_same_as_a_typo() {
     assert!(
         AppletConfig::from_name("removable").is_some(),

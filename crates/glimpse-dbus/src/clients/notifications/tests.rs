@@ -44,7 +44,7 @@ fn wire_sentinels_become_absent_fields_rather_than_defaults() {
 fn untrusted_text_is_bounded_before_anything_can_render_it() {
     let decoded = decode_notification(wire(
         format!("{}\u{202e}", "s".repeat(SUMMARY + 50)),
-        "b".repeat(BODY + 50),
+        "b".repeat(glimpse_utils::markup::BODY_MAX_CHARS + 50),
         (0..MOST_ACTIONS + 5)
             .map(|n| (format!("key{n}"), "Label".to_owned()))
             .collect(),
@@ -54,7 +54,7 @@ fn untrusted_text_is_bounded_before_anything_can_render_it() {
     assert_eq!(decoded.summary, format!("{}…", "s".repeat(SUMMARY)));
     assert_eq!(
         decoded.body.expect("a body"),
-        format!("{}…", "b".repeat(BODY))
+        "b".repeat(glimpse_utils::markup::BODY_MAX_CHARS)
     );
     assert_eq!(decoded.actions.len(), MOST_ACTIONS);
 }
@@ -81,4 +81,27 @@ fn wire_signatures_match_the_versioned_contract() {
         NotificationsSnapshot::SIGNATURE,
         "(a(ussissssya(ss)dxbbi)(bx)bs)"
     );
+}
+
+#[test]
+fn a_body_keeps_its_markup_and_line_breaks_and_stays_bounded() {
+    let kept = decode_notification(wire(
+        "s".to_owned(),
+        "<b>one</b>\ntwo".to_owned(),
+        Vec::new(),
+    ))
+    .expect("the wire is readable");
+    assert_eq!(kept.body.as_deref(), Some("<b>one</b>\ntwo"));
+
+    let long = decode_notification(wire(
+        "s".to_owned(),
+        format!(
+            "<b>{}</b>",
+            "b".repeat(glimpse_utils::markup::BODY_MAX_CHARS * 2)
+        ),
+        Vec::new(),
+    ))
+    .expect("the wire is readable");
+    let body = long.body.expect("a body");
+    assert!(body.starts_with("<b>") && body.ends_with("</b>"));
 }

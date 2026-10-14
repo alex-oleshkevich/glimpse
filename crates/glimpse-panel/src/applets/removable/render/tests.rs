@@ -5,7 +5,7 @@ use super::*;
 
 fn mounted() -> RemovableMount {
     RemovableMount {
-        at: PathBuf::from("/run/media/alex/Photos"),
+        at: PathBuf::from("/run/media/user/Photos"),
         capacity: Some(RemovableCapacity {
             available: 24_000_000_000,
             total: 64_000_000_000,
@@ -203,7 +203,7 @@ fn an_extra_volume_reads_its_label_or_filesystem_with_its_size() {
 #[test]
 fn a_full_main_volume_says_so_instead_of_zero_free() {
     let full = RemovableMount {
-        at: PathBuf::from("/run/media/alex/Full"),
+        at: PathBuf::from("/run/media/user/Full"),
         capacity: Some(RemovableCapacity {
             available: 0,
             total: 64_000_000_000,
@@ -281,7 +281,7 @@ fn activating_a_mounted_volume_opens_its_mount_path() {
 
     match activation(&state, "/v1") {
         Some(Activation::Open(path)) => {
-            assert_eq!(path, PathBuf::from("/run/media/alex/Photos"))
+            assert_eq!(path, PathBuf::from("/run/media/user/Photos"))
         }
         _ => panic!("expected an open request"),
     }

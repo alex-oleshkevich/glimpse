@@ -318,7 +318,10 @@ impl SimpleComponent for App {
                 .and_then(|services| services.session.clone())
         {
             let registry = self.attached.clone();
-            let exec = self.services.as_ref().map(PanelServices::exec);
+            let exec = self
+                .services
+                .as_ref()
+                .map(|services| services.handles.exec.clone());
             let input = sender.input_sender().clone();
             if let Some(exec) = exec {
                 relm4::spawn(async move {

@@ -113,11 +113,11 @@ fn blockers_name_inhibitors_that_match_the_action() {
 #[test]
 fn signed_in_today_is_not_a_day_count() {
     let state = SessionActionsState {
-        user: Some("alex".into()),
+        user: Some("sam".into()),
         signed_in_seconds: Some(3_600),
         ..Default::default()
     };
     let (user, signed) = heading(&state);
-    assert_eq!(user, Some("alex"));
+    assert_eq!(user, Some("sam"));
     assert_eq!(signed.as_deref(), Some("Signed in today"));
 }

@@ -7,16 +7,26 @@ use super::*;
 
 #[test]
 fn the_wire_signature_matches_the_versioned_contract() {
-    assert_eq!(NightLightSnapshot::SIGNATURE, "(sbuubbssb)");
+    assert_eq!(NightLightSnapshot::SIGNATURE, "(sbuubbssbx)");
 }
 
 #[derive(Debug, Clone, PartialEq)]
 enum Call {
     Schedule(String),
     Temperature(u32),
+    Pause,
+    Resume,
 }
 
 type Calls = StdArc<Mutex<Vec<Call>>>;
+
+#[derive(Debug, zbus::DBusError)]
+#[zbus(prefix = "me.aresa.Glimpse.NightLight1.Error", impl_display = true)]
+enum TestError {
+    NotActive(String),
+    #[zbus(error)]
+    ZBus(zbus::Error),
+}
 
 struct TestProvider {
     calls: Calls,
@@ -37,7 +47,20 @@ impl TestProvider {
             reason: String::new(),
             configured: "automatic".to_owned(),
             manual: false,
+            paused_until: 0,
         }
+    }
+
+    fn pause(&self) -> Result<(), TestError> {
+        if self.temperature == 0 {
+            return Err(TestError::NotActive("off".to_owned()));
+        }
+        self.calls.lock().unwrap().push(Call::Pause);
+        Ok(())
+    }
+
+    fn resume(&self) {
+        self.calls.lock().unwrap().push(Call::Resume);
     }
 
     fn set_schedule(&self, schedule: &str) {
@@ -314,4 +337,100 @@ fn repeated_unavailability_does_not_notify_subscribers() {
     receiver.borrow_and_update();
     replace_unavailable(&updates, "failed GetAll");
     assert!(!receiver.has_changed().unwrap());
+}
+
+#[test]
+fn a_nine_field_snapshot_defaults_the_pause_and_a_new_one_round_trips() {
+    let old = Value::from((
+        "automatic",
+        false,
+        6500u32,
+        4200u32,
+        false,
+        true,
+        "",
+        "automatic",
+        false,
+    ));
+    let mut snapshot = NightLightSnapshot::try_from(old).unwrap();
+    assert_eq!(snapshot.paused_until, 0);
+    snapshot.paused_until = 1_800_000_000;
+    assert_eq!(
+        NightLightSnapshot::try_from(Value::from(snapshot.clone())).unwrap(),
+        snapshot
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pause_and_resume_are_sent_to_the_provider() {
+    let bus = PrivateBus::start();
+    let calls = StdArc::new(Mutex::new(Vec::new()));
+    let _server = serve(&bus, calls.clone()).await;
+    let mut provider = NightLightProvider::start(bus.connection().await);
+    let handle = provider.handle();
+    wait_until(&mut handle.subscribe(), |state| state.current.is_some()).await;
+    handle.pause().await.unwrap();
+    handle.resume().await.unwrap();
+    assert_eq!(*calls.lock().unwrap(), [Call::Pause, Call::Resume]);
+    provider.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_inactive_pause_is_decoded_as_not_active_over_a_private_bus() {
+    let bus = PrivateBus::start();
+    let server = serve(&bus, StdArc::new(Mutex::new(Vec::new()))).await;
+    server
+        .object_server()
+        .interface::<_, TestProvider>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
+        .await
+        .unwrap()
+        .get_mut()
+        .await
+        .temperature = 0;
+    let mut provider = NightLightProvider::start(bus.connection().await);
+    let handle = provider.handle();
+    wait_until(&mut handle.subscribe(), |state| state.current.is_some()).await;
+    assert!(
+        matches!(handle.pause().await, Err(NightLightProviderError::NotActive(reason)) if reason == "off")
+    );
+    provider.shutdown().await;
+}
+
+struct OldProvider;
+
+#[zbus::interface(name = "me.aresa.Glimpse.NightLight1")]
+impl OldProvider {
+    #[zbus(property)]
+    fn snapshot(&self) -> (String, bool, u32, u32, bool, bool, String, String, bool) {
+        (
+            "automatic".to_owned(),
+            false,
+            4200,
+            4200,
+            true,
+            true,
+            String::new(),
+            "automatic".to_owned(),
+            false,
+        )
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_old_provider_with_nine_fields_connects_as_not_paused() {
+    let bus = PrivateBus::start();
+    let server = bus.connection().await;
+    server
+        .object_server()
+        .at(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, OldProvider)
+        .await
+        .unwrap();
+    crate::own_name(&server, GLIMPSE_NIGHT_LIGHT_BUS_NAME)
+        .await
+        .unwrap();
+    let mut provider = NightLightProvider::start(bus.connection().await);
+    let handle = provider.handle();
+    wait_until(&mut handle.subscribe(), |state| state.current.is_some()).await;
+    assert_eq!(handle.snapshot().current.unwrap().paused_until, 0);
+    provider.shutdown().await;
 }

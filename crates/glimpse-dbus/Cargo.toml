@@ -21,6 +21,7 @@ tracing.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 glimpse-dbus = { path = ".", features = ["testing"] }
 serde_json.workspace = true
 

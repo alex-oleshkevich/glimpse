@@ -1,8 +1,10 @@
 use std::ffi::OsStr;
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 
-use super::{exec_state_dir, expanded, path_entries, require_abi};
+use super::{exec_confine, exec_state_dir, expanded, path_entries, require_abi};
 
 #[test]
 fn state_dir_is_private() {
@@ -42,4 +44,24 @@ fn path_entries_exclude_home_and_ancestors() {
 #[test]
 fn sandbox_grants_must_be_absolute() {
     assert!(expanded("relative/path").is_err());
+}
+
+#[test]
+fn a_confined_child_inherits_no_descriptor_beyond_stdio() {
+    let (_reader, writer) = std::io::pipe().expect("pipe");
+    rustix::io::fcntl_setfd(&writer, rustix::io::FdFlags::empty()).expect("inheritable");
+    let fd = writer.as_raw_fd();
+    let target = std::fs::read_link(format!("/proc/self/fd/{fd}")).expect("pipe target");
+    let parent = rustix::process::getpid();
+    let mut command = std::process::Command::new("/bin/sh");
+    command.args(["-c", &format!("readlink /proc/$$/fd/{fd} || true")]);
+    unsafe {
+        command.pre_exec(move || exec_confine(None, parent));
+    }
+    let output = command.output().expect("the child runs");
+
+    assert_ne!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        target.to_string_lossy()
+    );
 }

@@ -66,7 +66,7 @@ async fn run(cli: Cli) -> Result<()> {
             }
             reloaded = configs.next(), if watching => match reloaded {
                 Some(Ok(Some(reloaded))) => {
-                    services.reconfigure(&reloaded);
+                    services.reconfigure(&reloaded).await;
                     services.report(Ok(())).await;
                 }
                 Some(Ok(None)) => services.report(Ok(())).await,

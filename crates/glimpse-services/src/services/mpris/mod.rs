@@ -233,55 +233,67 @@ pub type MprisHandle = ServiceEndpoint<Mpris>;
 
 impl ServiceEndpoint<Mpris> {
     pub async fn control(&self, player: String, action: PlayerAction) -> Result<(), CommandError> {
-        self.call(|reply| Command::Control {
-            player,
-            action,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::Control {
+                player,
+                action,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn seek(&self, player: String, offset_us: i64) -> Result<(), CommandError> {
-        self.call(|reply| Command::Seek {
-            player,
-            offset_us,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::Seek {
+                player,
+                offset_us,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn set_position(&self, player: String, position_us: i64) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetPosition {
-            player,
-            position_us,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::SetPosition {
+                player,
+                position_us,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn set_volume(&self, player: String, volume: f64) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetVolume {
-            player,
-            volume,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::SetVolume {
+                player,
+                volume,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn set_repeat(&self, player: String, repeat: Repeat) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetRepeat {
-            player,
-            repeat,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::SetRepeat {
+                player,
+                repeat,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn set_shuffle(&self, player: String, shuffle: bool) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetShuffle {
-            player,
-            shuffle,
-            reply,
+        self.call("mpris stopped before completing the command", |reply| {
+            Command::SetShuffle {
+                player,
+                shuffle,
+                reply,
+            }
         })
         .await?
     }
@@ -296,10 +308,6 @@ impl Service for Mpris {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "mpris stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

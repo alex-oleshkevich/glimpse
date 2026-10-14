@@ -222,22 +222,35 @@ pub type KdeconnectHandle = crate::ServiceEndpoint<Kdeconnect>;
 
 impl crate::ServiceEndpoint<Kdeconnect> {
     pub async fn act(&self, id: DeviceId, action: Action) -> Result<(), CommandError> {
-        self.call(|reply| Command::Act { id, action, reply })
-            .await?
+        self.call(
+            "kdeconnect stopped before completing the command",
+            |reply| Command::Act { id, action, reply },
+        )
+        .await?
     }
 
     pub async fn share(&self, id: DeviceId, urls: Vec<String>) -> Result<(), CommandError> {
-        self.call(|reply| Command::Share { id, urls, reply })
-            .await?
+        self.call(
+            "kdeconnect stopped before completing the command",
+            |reply| Command::Share { id, urls, reply },
+        )
+        .await?
     }
 
     pub async fn share_text(&self, id: DeviceId, text: String) -> Result<(), CommandError> {
-        self.call(|reply| Command::ShareText { id, text, reply })
-            .await?
+        self.call(
+            "kdeconnect stopped before completing the command",
+            |reply| Command::ShareText { id, text, reply },
+        )
+        .await?
     }
 
     pub async fn discover(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Discover { reply }).await?
+        self.call(
+            "kdeconnect stopped before completing the command",
+            |reply| Command::Discover { reply },
+        )
+        .await?
     }
 }
 
@@ -249,10 +262,6 @@ impl Service for Kdeconnect {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "kdeconnect stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

@@ -23,7 +23,7 @@ enum State {
 
 pub struct Catcher {
     window: gtk4::Window,
-    slot: gtk4::Box,
+    slot: gtk4::Grid,
     arrow: glimpse_widgets::PopoverArrow,
     body: gtk4::Box,
     fade: adw::TimedAnimation,
@@ -38,15 +38,15 @@ impl Catcher {
     pub fn new(monitor: Option<&gtk4::gdk::Monitor>, side: Position) -> Rc<Self> {
         let window = surface(monitor, 0);
 
-        let slot = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-
-        let arrow = glimpse_widgets::PopoverArrow::new(tip(side));
-        arrow.add_css_class("applet-popover__arrow");
-        slot.append(&arrow);
+        let slot = gtk4::Grid::new();
 
         let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         body.add_css_class("applet-popover__body");
-        slot.append(&body);
+        slot.attach(&body, 0, 1, 1, 1);
+
+        let arrow = glimpse_widgets::PopoverArrow::new(tip(side));
+        arrow.add_css_class("applet-popover__arrow");
+        slot.attach(&arrow, 0, 0, 1, 1);
 
         window.set_child(Some(&slot));
         shade(&window, &body, &arrow, 0.0);
@@ -111,6 +111,21 @@ impl Catcher {
             }
         });
         window.add_controller(press);
+
+        let keys = gtk4::EventControllerKey::new();
+        keys.connect_key_pressed({
+            let catcher = Rc::downgrade(&catcher);
+            move |_, key, _, _| {
+                if key != gtk4::gdk::Key::Escape {
+                    return gtk4::glib::Propagation::Proceed;
+                }
+                if let Some(catcher) = catcher.upgrade() {
+                    catcher.close();
+                }
+                gtk4::glib::Propagation::Stop
+            }
+        });
+        window.add_controller(keys);
 
         catcher.layout(side.get());
 
@@ -189,7 +204,7 @@ impl Catcher {
 
     pub fn set_typing(&self, typing: bool) {
         let wanted = match typing {
-            true => KeyboardMode::OnDemand,
+            true => KeyboardMode::Exclusive,
             false => KeyboardMode::None,
         };
         if self.window.keyboard_mode() != wanted {
@@ -229,10 +244,6 @@ impl Catcher {
     fn layout(&self, side: Position) {
         self.side.set(side);
 
-        self.slot.set_orientation(match horizontal(side) {
-            true => gtk4::Orientation::Vertical,
-            false => gtk4::Orientation::Horizontal,
-        });
         self.slot.set_halign(match side {
             Position::Right => gtk4::Align::End,
             _ => gtk4::Align::Start,
@@ -241,13 +252,14 @@ impl Catcher {
             Position::Bottom => gtk4::Align::End,
             _ => gtk4::Align::Start,
         });
-        self.slot.reorder_child_after(
-            &self.arrow,
-            match side {
-                Position::Top | Position::Left => None,
-                Position::Bottom | Position::Right => Some(&self.body),
-            },
-        );
+        let (arrow, body) = match side {
+            Position::Top => ((0, 0), (0, 1)),
+            Position::Bottom => ((0, 1), (0, 0)),
+            Position::Left => ((0, 0), (1, 0)),
+            Position::Right => ((1, 0), (0, 0)),
+        };
+        self.cell(self.arrow.upcast_ref(), arrow);
+        self.cell(self.body.upcast_ref(), body);
 
         match horizontal(side) {
             true => {
@@ -267,6 +279,20 @@ impl Catcher {
         self.slot.set_margin_top(0);
         self.arrow.set_tip(tip(side));
         self.settle();
+    }
+
+    fn cell(&self, widget: &gtk4::Widget, (column, row): (i32, i32)) {
+        let Some(child) = self
+            .slot
+            .layout_manager()
+            .and_downcast::<gtk4::GridLayout>()
+            .map(|manager| manager.layout_child(widget))
+            .and_downcast::<gtk4::GridLayoutChild>()
+        else {
+            return;
+        };
+        child.set_column(column);
+        child.set_row(row);
     }
 
     fn room(&self) -> i32 {
@@ -425,4 +451,4 @@ fn horizontal(side: Position) -> bool {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

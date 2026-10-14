@@ -101,7 +101,7 @@ fn the_organizer_prefers_a_common_name_over_the_mailbox() {
 #[test]
 fn guests_are_a_count_and_only_when_there_are_two() {
     let pair = one(
-        "ATTENDEE;CN=Alex;PARTSTAT=ACCEPTED:mailto:alex@example.com\r\n\
+        "ATTENDEE;CN=Sam;PARTSTAT=ACCEPTED:mailto:sam@example.com\r\n\
              ATTENDEE;CN=Marta;PARTSTAT=NEEDS-ACTION:mailto:marta@example.com\r\n",
     );
     assert_eq!(
@@ -112,7 +112,7 @@ fn guests_are_a_count_and_only_when_there_are_two() {
         })
     );
 
-    let solo = one("ATTENDEE;CN=Alex;PARTSTAT=ACCEPTED:mailto:alex@example.com\r\n");
+    let solo = one("ATTENDEE;CN=Sam;PARTSTAT=ACCEPTED:mailto:sam@example.com\r\n");
     assert_eq!(solo.guests, None);
 }
 

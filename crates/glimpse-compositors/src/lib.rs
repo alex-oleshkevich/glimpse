@@ -29,6 +29,7 @@ pub struct Capabilities {
     pub floating: bool,
     pub workspace_reorder: bool,
     pub output_power: bool,
+    pub blank_screens: bool,
 }
 
 impl Capabilities {
@@ -36,6 +37,7 @@ impl Capabilities {
         floating: false,
         workspace_reorder: false,
         output_power: false,
+        blank_screens: false,
     };
 }
 

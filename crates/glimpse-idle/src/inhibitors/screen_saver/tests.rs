@@ -14,10 +14,6 @@ trait ScreenSaver {
     fn un_inhibit(&self, cookie: u32) -> zbus::Result<()>;
 }
 
-async fn settle() {
-    tokio::time::sleep(Duration::from_millis(50)).await;
-}
-
 async fn start_server(bus: &PrivateBus) -> (Connection, Arc<SharedRegistry>) {
     let app = bus.connection().await;
     let (registry, _any_idle_target, _generation) = SharedRegistry::new();
@@ -162,14 +158,16 @@ async fn disconnecting_client_auto_releases_its_records() {
 
     drop(proxy);
     drop(client);
-    settle().await;
-
-    assert!(
-        !registry
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while registry
             .read(|registry| registry.lookup_by_cookie(cookie).is_some())
-            .await,
-        "a disconnected client's record must be auto-released"
-    );
+            .await
+        {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("a disconnected client's record must be auto-released");
 
     cancel.cancel();
     let _ = watch_task.await;

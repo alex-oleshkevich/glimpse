@@ -163,7 +163,7 @@ impl Exec {
         }
         if let Some(dom) = &mut self.dom
             && (!dom.is_alive()
-                || ((!unchanged || generation_changed)
+                || ((!unchanged || generation_changed || dom.needs_redress())
                     && !dom.reconcile(&self.tree, self.generation)))
         {
             self.dom = None;

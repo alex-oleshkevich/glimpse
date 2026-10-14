@@ -20,8 +20,7 @@ use glimpse_services::{
     PortalPicker, Printing, PrintingHandle, Privacy, PrivacyDependencies, PrivacyHandle,
     ProcessRulerRunner, Removable, RemovableHandle, Ruler, RulerDependencies, RulerHandle, Running,
     Selection, SessionActions, SessionActionsDependencies, SessionActionsHandle, SysfsBacklight,
-    SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, UnavailableBacklight,
-    kdeconnect_batteries,
+    SystemMonitor, SystemMonitorHandle, Tray, TrayHandle, kdeconnect_batteries,
 };
 
 #[derive(Clone)]
@@ -129,10 +128,7 @@ impl PanelServices {
         let (network_service, network) =
             Running::<Network>::spawn(document, buses.clone(), NetworkDependencies { agent: true });
         let (audio_service, audio) = Running::<Audio>::spawn(document, buses.clone(), ());
-        let sysfs: Arc<dyn Backlight> = match buses.system_bus() {
-            Ok(bus) => Arc::new(SysfsBacklight::new(bus.clone())),
-            Err(_) => Arc::new(UnavailableBacklight),
-        };
+        let sysfs: Arc<dyn Backlight> = Arc::new(SysfsBacklight::new(buses.clone()));
         let backend: Arc<dyn Backlight> = if document.brightness.ddc {
             Arc::new(CompositeBacklight::new(
                 sysfs,

@@ -133,7 +133,23 @@ async fn removed_instance_stays_failed_without_respawning() {
             state_base: None,
         }))
         .expect("queued");
-    tokio::time::sleep(Duration::from_secs(6)).await;
+    status(
+        &handle,
+        1,
+        |s| matches!(s, Status::Failed(reason) if reason == "not configured"),
+    )
+    .await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while PathBuf::from(format!("/proc/{}", pid.trim())).exists() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("removed child reaped");
+    sender
+        .try_send(Input::Event(Event::Retry))
+        .expect("retry queued");
+    handle.place(1, placement()).await.expect("retry processed");
     assert!(
         matches!(handle.snapshot().slots.get(&1).map(|s| &s.status), Some(Status::Failed(reason)) if reason == "not configured")
     );
@@ -175,7 +191,7 @@ async fn dropping_live_child_stream_reaps_process() {
 async fn exits_before_hello_fails() {
     let (_dir, entry, output) = script("#!/bin/sh\necho $$ >> \"$1\"\nexit 3\n");
     let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
-    let (handle, _sender, cancel, task, _selection) = running(catalog.clone());
+    let (handle, sender, cancel, task, _selection) = running(catalog.clone());
     handle.attach(1, "test", placement()).await.expect("attach");
     let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
     assert_eq!(
@@ -190,7 +206,11 @@ async fn exits_before_hello_fails() {
             {
                 return;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            sender
+                .send(Input::Event(Event::Retry))
+                .await
+                .expect("queued");
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     })
     .await
@@ -254,7 +274,7 @@ async fn stale_generation_is_dropped_and_detach_kills_child() {
         })
         .await
         .expect("send");
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    handle.place(1, placement()).await.expect("event processed");
     assert!(
         !tokio::fs::read_to_string(&output)
             .await

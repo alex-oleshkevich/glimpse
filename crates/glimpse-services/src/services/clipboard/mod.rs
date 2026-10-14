@@ -92,24 +92,39 @@ pub type ClipboardHandle = ServiceEndpoint<Clipboard>;
 
 impl ServiceEndpoint<Clipboard> {
     pub async fn restore(&self, id: ClipboardEntryId) -> Result<(), CommandError> {
-        self.call(|reply| Command::Restore { id, reply }).await?
+        self.call("the clipboard stopped while restoring", |reply| {
+            Command::Restore { id, reply }
+        })
+        .await?
     }
 
     pub async fn remove(&self, id: ClipboardEntryId) -> Result<(), CommandError> {
-        self.call(|reply| Command::Remove { id, reply }).await?
+        self.call("the clipboard stopped while forgetting an entry", |reply| {
+            Command::Remove { id, reply }
+        })
+        .await?
     }
 
     pub async fn pin(&self, id: ClipboardEntryId, pinned: bool) -> Result<(), CommandError> {
-        self.call(|reply| Command::Pin { id, pinned, reply })
-            .await?
+        self.call("the clipboard stopped while pinning", |reply| {
+            Command::Pin { id, pinned, reply }
+        })
+        .await?
     }
 
     pub async fn clear_history(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::ClearHistory { reply }).await?
+        self.call(
+            "the clipboard stopped while clearing the history",
+            |reply| Command::ClearHistory { reply },
+        )
+        .await?
     }
 
     pub async fn copy_text(&self, text: String) -> Result<(), CommandError> {
-        self.call(|reply| Command::CopyText { text, reply }).await?
+        self.call("the clipboard stopped while copying text", |reply| {
+            Command::CopyText { text, reply }
+        })
+        .await?
     }
 }
 
@@ -130,16 +145,6 @@ impl Service for Clipboard {
     type Event = SelectionEvent;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Restore { .. } => "the clipboard stopped while restoring",
-            Command::Remove { .. } => "the clipboard stopped while forgetting an entry",
-            Command::Pin { .. } => "the clipboard stopped while pinning",
-            Command::ClearHistory { .. } => "the clipboard stopped while clearing the history",
-            Command::CopyText { .. } => "the clipboard stopped while copying text",
-        }
-    }
 
     fn initial_state(_config: &Self::Config) -> Self::State {
         ClipboardState::default()

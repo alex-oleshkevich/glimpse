@@ -11,7 +11,9 @@ use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
 use glimpse_services::MprisHandle;
 use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
-use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
+use glimpse_widgets::{
+    IndicatorSpec, MprisPopover, Repeat as TransportRepeat, Row, TransportAction,
+};
 use gtk4::{gdk, glib, prelude::*};
 
 use crate::applet::popover::Seat;
@@ -117,6 +119,18 @@ impl Applet for Mpris {
                 spawn_command("mpris.play_pause", async move {
                     service.control(player, PlayerAction::PlayPause).await
                 });
+            }
+        });
+
+        shown.open_player().connect_activated({
+            let (service, held) = (self.service.clone(), self.aimed.clone());
+            move |_| {
+                let service = service.clone();
+                aimed(&held, |player| {
+                    spawn_command("mpris.raise", async move {
+                        service.control(player, PlayerAction::Raise).await
+                    });
+                })
             }
         });
 
@@ -295,7 +309,7 @@ impl Mpris {
             self.aimed.replace(String::new());
             shown.player().set_visible(false);
             shown.set_others(None);
-
+            shown.open_player().set_visible(false);
             return;
         };
 
@@ -333,6 +347,13 @@ impl Mpris {
             .then(|| popover::rows(&self.players, &self.icons))
             .filter(|rows| !rows.is_empty());
         shown.set_others(others.as_deref());
+        let open_player = shown.open_player();
+        open_player.upcast_ref::<Row>().set_title(Some(
+            gettext("Open {player}")
+                .replace("{player}", &player.identity)
+                .as_str(),
+        ));
+        open_player.set_visible(player.can.raise);
     }
 }
 

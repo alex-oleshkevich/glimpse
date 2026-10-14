@@ -2,8 +2,8 @@ use super::*;
 
 #[test]
 fn a_title_keeps_its_text_and_loses_its_bidi_overrides() {
-    let hostile = "\u{200e}\u{2068}Jenny\u{2069} @ \u{2068}Alex\u{2069}";
-    assert_eq!(sanitize(hostile, TITLE_CAP), "\u{200e}Jenny @ Alex");
+    let hostile = "\u{200e}\u{2068}Jenny\u{2069} @ \u{2068}Sam\u{2069}";
+    assert_eq!(sanitize(hostile, TITLE_CAP), "\u{200e}Jenny @ Sam");
 }
 
 #[test]

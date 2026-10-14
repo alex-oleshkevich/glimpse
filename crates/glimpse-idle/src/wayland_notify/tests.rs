@@ -1,5 +1,5 @@
 use super::*;
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn setup_timeout_surfaces_error_for_a_stalled_connect() {
     let stalled = std::future::pending::<anyhow::Result<()>>();
     let error = with_timeout(Duration::from_millis(10), stalled)
@@ -22,13 +22,13 @@ fn the_session_display_comes_from_the_manager_environment() {
     assert_eq!(wayland_display(&environment(&["HOME=/home/a"])), None);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn setup_timeout_passes_through_immediate_success() {
     let result = with_timeout(Duration::from_millis(10), async { Ok(7u32) }).await;
     assert_eq!(result.expect("immediate success should pass through"), 7);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_full_queue_holds_the_event_instead_of_dropping_it() {
     let (_actor, idle) = idle::Actor::new(
         glimpse_config::Idle::default(),

@@ -1,5 +1,6 @@
-use crate::services::cap;
 use std::collections::HashMap;
+
+use crate::services::cap;
 
 use super::model::{App, AppId, DeviceId, NAME_CAP, Role, StreamRef};
 

@@ -76,11 +76,13 @@ impl crate::ServiceEndpoint<Audio> {
         id: DeviceId,
         percent: u32,
     ) -> Result<(), AudioError> {
-        self.call(|reply| Command::SetDeviceVolume {
-            dir,
-            id,
-            percent,
-            reply,
+        self.call("audio stopped before completing the command", |reply| {
+            Command::SetDeviceVolume {
+                dir,
+                id,
+                percent,
+                reply,
+            }
         })
         .await?
     }
@@ -91,18 +93,22 @@ impl crate::ServiceEndpoint<Audio> {
         id: DeviceId,
         muted: bool,
     ) -> Result<(), AudioError> {
-        self.call(|reply| Command::SetDeviceMuted {
-            dir,
-            id,
-            muted,
-            reply,
+        self.call("audio stopped before completing the command", |reply| {
+            Command::SetDeviceMuted {
+                dir,
+                id,
+                muted,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn set_default(&self, dir: Direction, id: DeviceId) -> Result<(), AudioError> {
-        self.call(|reply| Command::SetDefault { dir, id, reply })
-            .await?
+        self.call("audio stopped before completing the command", |reply| {
+            Command::SetDefault { dir, id, reply }
+        })
+        .await?
     }
 
     pub async fn set_app_volume(
@@ -111,11 +117,13 @@ impl crate::ServiceEndpoint<Audio> {
         app: AppId,
         percent: u32,
     ) -> Result<(), AudioError> {
-        self.call(|reply| Command::SetAppVolume {
-            dir,
-            app,
-            percent,
-            reply,
+        self.call("audio stopped before completing the command", |reply| {
+            Command::SetAppVolume {
+                dir,
+                app,
+                percent,
+                reply,
+            }
         })
         .await?
     }
@@ -126,11 +134,13 @@ impl crate::ServiceEndpoint<Audio> {
         app: AppId,
         muted: bool,
     ) -> Result<(), AudioError> {
-        self.call(|reply| Command::SetAppMuted {
-            dir,
-            app,
-            muted,
-            reply,
+        self.call("audio stopped before completing the command", |reply| {
+            Command::SetAppMuted {
+                dir,
+                app,
+                muted,
+                reply,
+            }
         })
         .await?
     }
@@ -141,11 +151,13 @@ impl crate::ServiceEndpoint<Audio> {
         app: AppId,
         to: DeviceId,
     ) -> Result<(), AudioError> {
-        self.call(|reply| Command::MoveApp {
-            dir,
-            app,
-            to,
-            reply,
+        self.call("audio stopped before completing the command", |reply| {
+            Command::MoveApp {
+                dir,
+                app,
+                to,
+                reply,
+            }
         })
         .await?
     }
@@ -159,10 +171,6 @@ impl Service for Audio {
     type Event = pulse::Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "audio stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

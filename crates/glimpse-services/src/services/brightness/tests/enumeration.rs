@@ -230,10 +230,13 @@ async fn reenumeration_preserves_pending_writes_while_devices_change() {
         }))
         .await;
     harness
-        .feed(Input::Event(Event::Enumerated(vec![
-            entry("added", "firmware", 30, 100, None),
-            entry("panel", "raw", 50, 100, None),
-        ])))
+        .feed(Input::Event(Event::Enumerated(
+            vec![
+                entry("added", "firmware", 30, 100, None),
+                entry("panel", "raw", 50, 100, None),
+            ]
+            .into(),
+        )))
         .await;
 
     let sources = harness.state.borrow().sources.clone();
@@ -270,9 +273,9 @@ async fn a_failed_write_after_reenumeration_rolls_back_to_the_confirmed_level() 
         }))
         .await;
     harness
-        .feed(Input::Event(Event::Enumerated(vec![entry(
-            "panel", "raw", 70, 100, None,
-        )])))
+        .feed(Input::Event(Event::Enumerated(
+            vec![entry("panel", "raw", 70, 100, None)].into(),
+        )))
         .await;
     assert_eq!(harness.state.borrow().sources[0].current, 80);
 
@@ -281,9 +284,9 @@ async fn a_failed_write_after_reenumeration_rolls_back_to_the_confirmed_level() 
     assert_eq!(harness.state.borrow().sources[0].current, 50);
 
     harness
-        .feed(Input::Event(Event::Enumerated(vec![entry(
-            "panel", "raw", 75, 100, None,
-        )])))
+        .feed(Input::Event(Event::Enumerated(
+            vec![entry("panel", "raw", 75, 100, None)].into(),
+        )))
         .await;
     assert_eq!(harness.state.borrow().sources[0].current, 75);
 }
@@ -309,7 +312,7 @@ async fn a_level_queued_for_a_removed_source_is_answered() {
         }))
         .await;
     harness
-        .feed(Input::Event(Event::Enumerated(Vec::new())))
+        .feed(Input::Event(Event::Enumerated(Vec::new().into())))
         .await;
 
     assert!(matches!(
@@ -317,4 +320,31 @@ async fn a_level_queued_for_a_removed_source_is_answered() {
         Err(CommandError::Unavailable(reason)) if reason.contains("went away")
     ));
     assert!(harness.state.borrow().sources.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_ddc_monitor_that_misses_its_probes_appears_once_it_answers() {
+    let mut harness = started(vec![entry("panel", "raw", 50, 100, None)], 0).await;
+    harness.backend.answer_late(
+        "card1-DP-2",
+        3,
+        entry("ddc:15", "ddc", 40, 100, Some("../../card1-DP-2")),
+    );
+    harness.enumerate().await;
+    assert_eq!(harness.state.borrow().sources.len(), 1);
+
+    harness
+        .live
+        .reconcile(&harness.ctx, harness.service.subscriptions());
+    let reprobed = tokio::time::timeout(std::time::Duration::from_secs(60), harness.inbox.recv())
+        .await
+        .expect("the unanswered connector is reprobed without another output event")
+        .expect("the inbox stays open");
+    harness.feed(reprobed).await;
+
+    let sources = harness.state.borrow().sources.clone();
+    assert_eq!(sources.len(), 2);
+    assert_eq!(sources[1].id, "ddc:15");
+    assert_eq!(sources[1].connector.as_deref(), Some("DP-2"));
+    assert_eq!(sources[1].current, 40);
 }

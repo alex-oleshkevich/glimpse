@@ -234,11 +234,15 @@ impl Component for AppletRuntime {
                 let group = IndicatorGroup::new();
                 group.connect_pressed({
                     let sender = sender.clone();
-                    move |_, button| sender.input(HostInput::Pressed { button })
+                    move |_, button| {
+                        let _ = sender.input_sender().send(HostInput::Pressed { button });
+                    }
                 });
                 group.connect_scrolled({
                     let sender = sender.clone();
-                    move |_, dx, dy| sender.input(HostInput::Scrolled { dx, dy })
+                    move |_, dx, dy| {
+                        let _ = sender.input_sender().send(HostInput::Scrolled { dx, dy });
+                    }
                 });
                 root.append(&group);
                 Some(group)
@@ -262,7 +266,9 @@ impl Component for AppletRuntime {
         action.connect_activate({
             let sender = sender.clone();
             move |action, parameter| match command(parameter) {
-                Some(input) => sender.input(input),
+                Some(input) => {
+                    let _ = sender.input_sender().send(input);
+                }
                 None => {
                     tracing::warn!(action = %action.name(), ?parameter, "unknown applet command")
                 }
@@ -338,6 +344,9 @@ impl Component for AppletRuntime {
     }
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
+        if self.owns() {
+            self.catcher.close();
+        }
         relm4::main_application().remove_action(&self.action.name());
     }
 }
@@ -429,7 +438,9 @@ impl AppletRuntime {
         let at = self.anchor().unwrap_or(0);
         self.catcher.open(&shown, at, {
             let sender = sender.clone();
-            move || sender.input(HostInput::PopoverDismissed)
+            move || {
+                let _ = sender.input_sender().send(HostInput::PopoverDismissed);
+            }
         });
         self.anchored = Some(at);
         self.shown = Some(shown);

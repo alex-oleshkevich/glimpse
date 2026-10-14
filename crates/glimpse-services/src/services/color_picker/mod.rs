@@ -66,12 +66,17 @@ pub type ColorPickerHandle = ServiceEndpoint<ColorPicker>;
 
 impl ServiceEndpoint<ColorPicker> {
     pub async fn pick(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Pick { reply }).await?
+        self.call("the color picker stopped while picking", |reply| {
+            Command::Pick { reply }
+        })
+        .await?
     }
 
     pub async fn copy(&self, id: u32, format: ColorFormat) -> Result<(), CommandError> {
-        self.call(|reply| Command::Copy { id, format, reply })
-            .await?
+        self.call("the color picker stopped while copying", |reply| {
+            Command::Copy { id, format, reply }
+        })
+        .await?
     }
 }
 
@@ -93,13 +98,6 @@ impl Service for ColorPicker {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = ();
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Pick { .. } => "the color picker stopped while picking",
-            Command::Copy { .. } => "the color picker stopped while copying",
-        }
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         ColorPickerState {
