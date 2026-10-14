@@ -3,7 +3,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{reconcile};
+use crate::reconcile;
 
 pub(crate) use device::RemovableDevice;
 

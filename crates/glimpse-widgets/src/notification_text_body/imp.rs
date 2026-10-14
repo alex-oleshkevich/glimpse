@@ -6,8 +6,7 @@ use gtk4::{
 
 use super::plain;
 use crate::{set_text, truncate};
-
-pub(crate) const BODY_MAX_CHARS: usize = 512;
+use glimpse_utils::markup::BODY_MAX_CHARS;
 
 #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
 #[properties(wrapper_type = super::NotificationTextBody)]
@@ -53,6 +52,7 @@ impl NotificationTextBody {
     }
 
     fn set_body_markup(&self, markup: Option<String>) {
+        let markup = markup.filter(|markup| !markup.trim().is_empty());
         if *self.markup.borrow() == markup {
             return;
         }
@@ -61,13 +61,12 @@ impl NotificationTextBody {
             self.write_body(None);
             return;
         };
-        let capped = truncate(&markup, BODY_MAX_CHARS);
-        if pango::parse_markup(&capped, '\0').is_err() {
+        if pango::parse_markup(&markup, '\0').is_err() {
             tracing::debug!("a notification body was refused by pango and reads as plain text");
-            self.write_body(Some(&plain(&capped)));
+            self.write_body(Some(&plain(&markup)));
             return;
         }
-        self.body.set_markup(&capped);
+        self.body.set_markup(&markup);
         self.body.set_visible(true);
         self.sync();
     }

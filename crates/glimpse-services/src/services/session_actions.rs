@@ -140,7 +140,11 @@ pub type SessionActionsHandle = ServiceEndpoint<SessionActions>;
 
 impl ServiceEndpoint<SessionActions> {
     pub async fn run(&self, action: Action) -> Result<(), CommandError> {
-        self.call(|reply| Command::Run { action, reply }).await?
+        self.call(
+            "session actions stopped before completing the command",
+            |reply| Command::Run { action, reply },
+        )
+        .await?
     }
 }
 
@@ -162,10 +166,6 @@ impl Service for SessionActions {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "session actions stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

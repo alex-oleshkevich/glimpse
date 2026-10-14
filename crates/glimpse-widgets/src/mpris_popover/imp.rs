@@ -19,6 +19,8 @@ pub struct MprisPopover {
     pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<PlayerList>,
+    #[template_child]
+    pub open_player: TemplateChild<ActionRow>,
     entered: RefCell<Option<(gtk4::gdk::Surface, glib::SignalHandlerId)>>,
 }
 

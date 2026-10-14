@@ -134,6 +134,7 @@ fn widgets() {
     toggle_disabled_accessibility_check();
     expander_row_checks::geometry();
     blur_checks::check();
+    display_checks::pause();
 }
 
 fn held_display_readout_check() {

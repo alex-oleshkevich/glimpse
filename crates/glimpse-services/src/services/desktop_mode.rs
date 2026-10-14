@@ -47,11 +47,14 @@ pub type DesktopModeHandle = ServiceEndpoint<DesktopMode>;
 
 impl ServiceEndpoint<DesktopMode> {
     pub async fn set_temporary(&self, mode: Mode) -> Result<(), CommandError> {
-        self.call(|reply| Command::Temporary(mode, reply)).await?
+        self.call("desktop mode stopped", |reply| {
+            Command::Temporary(mode, reply)
+        })
+        .await?
     }
 
     pub async fn resume(&self) -> Result<(), CommandError> {
-        self.call(Command::Resume).await?
+        self.call("desktop mode stopped", Command::Resume).await?
     }
 }
 
@@ -84,10 +87,6 @@ impl Service for DesktopMode {
     type Event = Event;
     type Dependencies = ModeDependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "desktop mode stopped"
-    }
 
     fn initial_state(config: &AutoDark) -> ModeStatus {
         ModeStatus {

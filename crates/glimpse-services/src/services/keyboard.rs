@@ -1,7 +1,5 @@
-use crate::services::cap;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::services::{CompositorWindows, WindowInfo};
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
     Compositor as Backend, CompositorError, Event as Change, KeyboardLayouts as BackendLayouts,
@@ -14,6 +12,7 @@ use crate::{
     context::Ctx,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint},
+    services::{CompositorWindows, WindowInfo, cap},
     subscription::Sub,
 };
 
@@ -61,7 +60,11 @@ pub type KeyboardHandle = ServiceEndpoint<Keyboard>;
 
 impl ServiceEndpoint<Keyboard> {
     pub async fn switch(&self, target: LayoutRef) -> Result<(), CommandError> {
-        self.call(|reply| Command::Switch { target, reply }).await?
+        self.call("keyboard service stopped", |reply| Command::Switch {
+            target,
+            reply,
+        })
+        .await?
     }
 }
 
@@ -117,10 +120,6 @@ impl Service for Keyboard {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "keyboard service stopped"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

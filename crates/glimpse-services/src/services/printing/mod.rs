@@ -151,19 +151,31 @@ pub type PrintingHandle = crate::ServiceEndpoint<Printing>;
 
 impl crate::ServiceEndpoint<Printing> {
     pub async fn cancel_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::CancelJob { id, reply }).await?
+        self.call("printing stopped before completing the command", |reply| {
+            Command::CancelJob { id, reply }
+        })
+        .await?
     }
 
     pub async fn pause_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::PauseJob { id, reply }).await?
+        self.call("printing stopped before completing the command", |reply| {
+            Command::PauseJob { id, reply }
+        })
+        .await?
     }
 
     pub async fn resume_job(&self, id: u32) -> Result<(), PrintingError> {
-        self.call(|reply| Command::ResumeJob { id, reply }).await?
+        self.call("printing stopped before completing the command", |reply| {
+            Command::ResumeJob { id, reply }
+        })
+        .await?
     }
 
     pub async fn refresh(&self) -> Result<(), PrintingError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("printing stopped before completing the command", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -175,10 +187,6 @@ impl Service for Printing {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "printing stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

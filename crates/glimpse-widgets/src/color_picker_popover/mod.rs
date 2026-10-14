@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Shade};
+use crate::Shade;
 
 glib::wrapper! {
     pub struct ColorPickerPopover(ObjectSubclass<imp::ColorPickerPopover>)

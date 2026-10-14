@@ -94,17 +94,19 @@ fn a_reply_reads_back_as_itself() {
 async fn hold_stays_until_the_clipboard_duty_ends_after_the_notification_closed() {
     let (clipboard_lost, clipboard) = oneshot::channel::<()>();
     let (notification_closed, notification) = oneshot::channel::<()>();
+    let (notification_done, done) = oneshot::channel();
     let held = tokio::spawn(until_done(
         Some(async {
             let _ = clipboard.await;
         }),
         Some(async {
             let _ = notification.await;
+            notification_done.send(()).expect("notification finished");
         }),
     ));
 
     notification_closed.send(()).expect("sent");
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    done.await.expect("notification finished");
     assert!(!held.is_finished());
 
     clipboard_lost.send(()).expect("sent");

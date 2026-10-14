@@ -16,9 +16,9 @@ fn header(width: u32, height: u32) -> Vec<u8> {
 
 #[test]
 fn a_folder_under_home_is_shown_from_the_tilde() {
-    let home = Path::new("/home/alex");
+    let home = Path::new("/home/user");
     assert_eq!(
-        home_relative(Path::new("/home/alex/Pictures/Screenshots"), home),
+        home_relative(Path::new("/home/user/Pictures/Screenshots"), home),
         "~/Pictures/Screenshots"
     );
     assert_eq!(home_relative(Path::new("/srv/shots"), home), "/srv/shots");
@@ -61,7 +61,7 @@ fn document(marks: Vec<(MarkId, Mark)>) -> Document {
 
 #[test]
 fn a_drag_writes_one_private_file_named_after_the_row_under_the_runtime_directory() {
-    let runtime = Path::new("/run/user/1000/glimpse");
+    let runtime = Path::new("/fixture/runtime/glimpse");
     let pid = std::process::id();
     let dir = runtime.join("shot").join(format!("drag-{pid}-7"));
     assert_eq!(
@@ -95,7 +95,7 @@ fn a_drag_writes_one_private_file_named_after_the_row_under_the_runtime_director
 
 #[test]
 fn a_drag_offers_the_file_and_the_png_bytes() {
-    let provider = drag_content(Path::new("/run/user/1000/glimpse/shot/x.png"), vec![1, 2]);
+    let provider = drag_content(Path::new("/fixture/runtime/glimpse/shot/x.png"), vec![1, 2]);
     let formats = provider.formats();
     assert!(formats.contain_mime_type("image/png"), "{formats}");
     assert!(

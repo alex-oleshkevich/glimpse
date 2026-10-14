@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use gettextrs::gettext;
 
-use crate::{InhibitorEntry};
+use crate::InhibitorEntry;
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)

@@ -68,10 +68,6 @@ pub trait Service: Sized + Send + 'static {
     type Dependencies: Send + 'static;
     type SubKey: Eq + Hash + Send + 'static;
 
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "service stopped before answering"
-    }
-
     fn initial_state(config: &Self::Config) -> Self::State;
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -123,15 +119,15 @@ impl<S: Service> ServiceEndpoint<S> {
 
     pub(crate) async fn call<T>(
         &self,
+        stopped: &'static str,
         make: impl FnOnce(oneshot::Sender<T>) -> S::Command,
     ) -> Result<T, CommandError> {
         let (reply, answer) = oneshot::channel();
         let command = make(reply);
-        let reason = S::command_stopped_reason(&command);
         self.command(command)?;
         answer
             .await
-            .map_err(|_| CommandError::Unavailable(reason.to_owned()))
+            .map_err(|_| CommandError::Unavailable(stopped.to_owned()))
     }
 
     pub(crate) fn command(&self, command: S::Command) -> Result<(), CommandError> {

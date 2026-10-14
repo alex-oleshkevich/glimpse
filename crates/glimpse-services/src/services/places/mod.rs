@@ -90,7 +90,10 @@ pub type PlacesHandle = crate::ServiceEndpoint<Places>;
 
 impl crate::ServiceEndpoint<Places> {
     pub async fn empty_trash(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::EmptyTrash { reply }).await?
+        self.call("places stopped while emptying the trash", |reply| {
+            Command::EmptyTrash { reply }
+        })
+        .await?
     }
 }
 
@@ -123,10 +126,6 @@ impl Service for Places {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "places stopped while emptying the trash"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

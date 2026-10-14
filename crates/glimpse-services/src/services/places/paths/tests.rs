@@ -1,7 +1,7 @@
 use super::*;
 
 fn home() -> PathBuf {
-    PathBuf::from("/home/alex")
+    PathBuf::from("/home/user")
 }
 
 #[test]
@@ -57,19 +57,19 @@ fn a_comment_and_a_blank_line_are_skipped() {
 #[test]
 fn a_bookmark_line_is_split_into_a_uri_an_optional_label_and_a_decoded_target() {
     let entries = parse_bookmarks(
-        "file:///home/alex/Downloads Downloads\n\
-             file:///home/alex/projects\n\
-             file:///home/alex/My%20Folder\n",
+        "file:///home/user/Downloads Downloads\n\
+             file:///home/user/projects\n\
+             file:///home/user/My%20Folder\n",
     );
 
     assert_eq!(entries.len(), 3);
     assert_eq!(entries[0].1.as_deref(), Some("Downloads"));
-    assert_eq!(entries[0].2, PathBuf::from("/home/alex/Downloads"));
+    assert_eq!(entries[0].2, PathBuf::from("/home/user/Downloads"));
     assert_eq!(entries[1].1, None, "a line with no label carries none");
-    assert_eq!(entries[1].2, PathBuf::from("/home/alex/projects"));
+    assert_eq!(entries[1].2, PathBuf::from("/home/user/projects"));
     assert_eq!(
         entries[2].2,
-        PathBuf::from("/home/alex/My Folder"),
+        PathBuf::from("/home/user/My Folder"),
         "a percent-encoded uri must be decoded"
     );
 }

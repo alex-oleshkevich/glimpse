@@ -97,14 +97,14 @@ fn inhibitors_strip_hostile_text() {
 #[test]
 fn a_window_count_does_not_clobber_logind_fields() {
     let mut state = SessionActionsState {
-        user: Some("alex".into()),
+        user: Some("sam".into()),
         hibernate: Capability::Available,
         ..Default::default()
     };
     apply_logind(
         &mut state,
         LogindSnapshot {
-            user: Some("alex".into()),
+            user: Some("sam".into()),
             signed_in_seconds: Some(12),
             inhibitors: Vec::new(),
             suspend: Capability::Available,
@@ -114,7 +114,7 @@ fn a_window_count_does_not_clobber_logind_fields() {
         },
     );
     state.windows = Some(4);
-    assert_eq!(state.user.as_deref(), Some("alex"));
+    assert_eq!(state.user.as_deref(), Some("sam"));
     assert_eq!(state.windows, Some(4));
     assert_eq!(state.hibernate, Capability::Hidden);
 }

@@ -23,6 +23,10 @@ impl KdeconnectPopover {
         glib::Object::new()
     }
 
+    pub fn settings(&self) -> ActionRow {
+        self.imp().settings.clone()
+    }
+
     pub fn set_devices(&self, devices: &[Device]) {
         let imp = self.imp();
         if imp.devices_data.borrow().as_slice() == devices {

@@ -233,23 +233,38 @@ pub type RemovableHandle = crate::ServiceEndpoint<Removable>;
 
 impl crate::ServiceEndpoint<Removable> {
     pub async fn mount(&self, id: VolumeId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Mount { id, reply }).await?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Mount { id, reply }
+        })
+        .await?
     }
 
     pub async fn unmount(&self, id: VolumeId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Unmount { id, reply }).await?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Unmount { id, reply }
+        })
+        .await?
     }
 
     pub async fn eject(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Eject { id, reply }).await?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Eject { id, reply }
+        })
+        .await?
     }
 
     pub async fn power_off(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::PowerOff { id, reply }).await?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::PowerOff { id, reply }
+        })
+        .await?
     }
 
     pub async fn remove(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Remove { id, reply }).await?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Remove { id, reply }
+        })
+        .await?
     }
 }
 
@@ -284,10 +299,6 @@ impl Service for Removable {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "removable stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

@@ -47,12 +47,18 @@ pub type HeartbeatHandle = ServiceEndpoint<Heartbeat>;
 
 impl ServiceEndpoint<Heartbeat> {
     pub async fn reset(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Reset { reply }).await?
+        self.call("`heartbeat` stopped before resetting", |reply| {
+            Command::Reset { reply }
+        })
+        .await?
     }
 
     pub async fn set_interval(&self, period_ms: u64) -> Result<HeartbeatInterval, CommandError> {
-        self.call(|reply| Command::SetInterval { period_ms, reply })
-            .await?
+        self.call(
+            "`heartbeat` stopped before changing its interval",
+            |reply| Command::SetInterval { period_ms, reply },
+        )
+        .await?
     }
 }
 
@@ -72,13 +78,6 @@ impl Service for Heartbeat {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Tick;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Reset { .. } => "`heartbeat` stopped before resetting",
-            Command::SetInterval { .. } => "`heartbeat` stopped before changing its interval",
-        }
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

@@ -47,6 +47,8 @@ pub struct KdeconnectPopover {
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub nearby_more: TemplateChild<ActionRow>,
+    #[template_child]
+    pub settings: TemplateChild<ActionRow>,
 
     pub devices_held: RefCell<Vec<(String, ExpanderRow)>>,
     pub devices_data: RefCell<Vec<Device>>,

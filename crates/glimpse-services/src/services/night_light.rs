@@ -52,6 +52,7 @@ pub struct NightLightState {
     pub target: u32,
     pub configured: Schedule,
     pub manual: bool,
+    pub paused_until: Option<DateTime<Utc>>,
 }
 
 impl NightLightState {
@@ -69,6 +70,7 @@ fn initial_state(config: &Config) -> NightLightState {
         target: config.temperature,
         configured: config.schedule,
         manual: false,
+        paused_until: None,
     }
 }
 
@@ -78,6 +80,12 @@ pub enum Event {
 }
 
 pub enum Command {
+    Pause {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Resume {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     SetSchedule {
         schedule: Schedule,
         reply: oneshot::Sender<Result<(), CommandError>>,
@@ -102,14 +110,33 @@ pub struct Dependencies {
 pub type NightLightHandle = ServiceEndpoint<NightLight>;
 
 impl ServiceEndpoint<NightLight> {
+    pub async fn pause(&self) -> Result<(), CommandError> {
+        self.call("night light stopped before pausing", |reply| {
+            Command::Pause { reply }
+        })
+        .await?
+    }
+
+    pub async fn resume(&self) -> Result<(), CommandError> {
+        self.call("night light stopped before resuming", |reply| {
+            Command::Resume { reply }
+        })
+        .await?
+    }
+
     pub async fn set_schedule(&self, schedule: Schedule) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetSchedule { schedule, reply })
-            .await?
+        self.call("night light stopped before accepting the mode", |reply| {
+            Command::SetSchedule { schedule, reply }
+        })
+        .await?
     }
 
     pub async fn set_temperature(&self, kelvin: Option<u32>) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetTemperature { kelvin, reply })
-            .await?
+        self.call(
+            "night light stopped before accepting the temperature",
+            |reply| Command::SetTemperature { kelvin, reply },
+        )
+        .await?
     }
 }
 
@@ -122,6 +149,7 @@ pub struct NightLight {
     manual: Option<(u32, SolarPhase)>,
     observed: Option<SolarStatus>,
     applied: Option<u32>,
+    paused_until: Option<DateTime<Utc>>,
 }
 
 impl Service for NightLight {
@@ -133,15 +161,6 @@ impl Service for NightLight {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::SetSchedule { .. } => "night light stopped before accepting the mode",
-            Command::SetTemperature { .. } => {
-                "night light stopped before accepting the temperature"
-            }
-        }
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         initial_state(config)
@@ -181,16 +200,60 @@ impl Service for NightLight {
             manual: None,
             observed,
             applied: None,
+            paused_until: None,
         }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+        self.handle_at(ctx, input, Utc::now()).await;
+    }
+
+    /// The outputs go back before the process does. A `SIGKILL` cannot run this, and the ramp then
+    /// outlives the process — that is the protocol, and the README says so rather than guarding it.
+    async fn stop(mut self, _ctx: &Ctx<Self>) {
+        if let Err(reason) = self.hand_back() {
+            tracing::warn!(
+                reason,
+                "the display was left at the night light's temperature"
+            );
+        }
+    }
+}
+
+impl NightLight {
+    async fn handle_at(&mut self, ctx: &Ctx<Self>, input: Input<Self>, now: DateTime<Utc>) {
         let mut pending = None;
         match input {
             Input::Event(Event::Solar(observed)) => self.observed = observed,
             Input::Event(Event::Tick) => {}
+            Input::Command(Command::Pause { reply }) => match self.boundary(now) {
+                Some((SolarPhase::Night, Some(deadline))) if deadline > now => {
+                    self.paused_until = Some(deadline);
+                    pending = Some(reply);
+                }
+                Some((SolarPhase::Day, _)) => {
+                    let _ = reply.send(Err(CommandError::Unsupported(
+                        "there is no active night to pause".to_owned(),
+                    )));
+                }
+                None if self.effective() == Schedule::Off => {
+                    let _ = reply.send(Err(CommandError::Unsupported(
+                        "there is no active night to pause".to_owned(),
+                    )));
+                }
+                _ => {
+                    let _ = reply.send(Err(CommandError::Unavailable(
+                        "the next night boundary is unavailable".to_owned(),
+                    )));
+                }
+            },
+            Input::Command(Command::Resume { reply }) => {
+                self.paused_until = None;
+                pending = Some(reply);
+            }
             Input::Command(Command::SetSchedule { schedule, reply }) => {
                 self.forced = Some(schedule);
+                self.paused_until = None;
                 self.manual = None;
                 pending = Some(reply);
             }
@@ -200,14 +263,15 @@ impl Service for NightLight {
                         "temperature must fall between {MIN_TEMPERATURE} and {DAY} kelvin"
                     ))));
                 }
-                Some(kelvin) => match self.boundary(Utc::now()) {
+                Some(kelvin) => match self.boundary(now) {
                     Some((phase, _)) => {
                         self.manual = Some((kelvin, phase));
+                        self.paused_until = None;
                         pending = Some(reply);
                     }
                     None => {
                         let error = if self.effective() == Schedule::Off {
-                            CommandError::InvalidArgument(
+                            CommandError::Unsupported(
                                 "there is nothing to override while the night light is off"
                                     .to_owned(),
                             )
@@ -226,27 +290,15 @@ impl Service for NightLight {
                 self.forced = None;
                 self.manual = None;
                 self.config = config;
+                self.paused_until = None;
             }
         }
-        self.evaluate(ctx, Utc::now()).await;
+        self.evaluate(ctx, now).await;
         if let Some(reply) = pending {
             let _ = reply.send(Ok(()));
         }
     }
 
-    /// The outputs go back before the process does. A `SIGKILL` cannot run this, and the ramp then
-    /// outlives the process — that is the protocol, and the README says so rather than guarding it.
-    async fn stop(mut self, _ctx: &Ctx<Self>) {
-        if let Err(reason) = self.hand_back() {
-            tracing::warn!(
-                reason,
-                "the display was left at the night light's temperature"
-            );
-        }
-    }
-}
-
-impl NightLight {
     fn cadence(&self, now: DateTime<Utc>) -> time::Duration {
         match self.boundary(now) {
             Some((_, Some(change))) if in_transition(change - now, self.config.transition) => {
@@ -266,8 +318,22 @@ impl NightLight {
     }
 
     fn settle(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
+        if self.paused_until.is_some_and(|deadline| deadline <= now) {
+            self.paused_until = None;
+            self.manual = None;
+        }
         if self.effective() == Schedule::Off {
             return self.release(ctx);
+        }
+        if self.paused_until.is_some() {
+            match self.gamma.apply(DAY) {
+                Ok(()) => {
+                    self.applied = Some(DAY);
+                    ctx.running();
+                }
+                Err(reason) => ctx.degraded(reason),
+            }
+            return;
         }
         let Some((phase, next_change)) = self.boundary(now) else {
             return ctx.degraded(self.missing());
@@ -343,6 +409,7 @@ impl NightLight {
             target: self.config.temperature,
             configured: self.config.schedule,
             manual: self.manual.is_some(),
+            paused_until: self.paused_until,
         });
     }
 }

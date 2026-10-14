@@ -105,4 +105,9 @@ pub(super) fn check() {
     scroll.set_value(scroll.upper() - scroll.page_size());
     assert!(scroll.value() > 0.0, "the lower controls remain scrollable");
     window.close();
+
+    let open_player = mpris.open_player();
+    assert!(!open_player.get_visible());
+    assert_eq!(column.last_child().as_ref(), Some(open_player.upcast_ref()));
+    assert_eq!(open_player.upcast_ref::<Row>().icon_name(), None);
 }

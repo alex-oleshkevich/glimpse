@@ -177,9 +177,11 @@ pub type BatteryHandle = ServiceEndpoint<Battery>;
 
 impl ServiceEndpoint<Battery> {
     pub async fn set_profile(&self, name: impl Into<String>) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetProfile {
-            name: name.into(),
-            reply,
+        self.call("battery stopped before setting the profile", |reply| {
+            Command::SetProfile {
+                name: name.into(),
+                reply,
+            }
         })
         .await?
     }
@@ -189,16 +191,22 @@ impl ServiceEndpoint<Battery> {
         path: impl Into<String>,
         enabled: bool,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::EnableChargeThreshold {
-            path: path.into(),
-            enabled,
-            reply,
-        })
+        self.call(
+            "battery stopped before changing the charge threshold",
+            |reply| Command::EnableChargeThreshold {
+                path: path.into(),
+                enabled,
+                reply,
+            },
+        )
         .await?
     }
 
     pub async fn history(&self) -> Result<Vec<HistoryPoint>, CommandError> {
-        self.call(|reply| Command::History { reply }).await?
+        self.call("battery stopped before fetching history", |reply| {
+            Command::History { reply }
+        })
+        .await?
     }
 }
 
@@ -210,16 +218,6 @@ impl Service for Battery {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::SetProfile { .. } => "battery stopped before setting the profile",
-            Command::EnableChargeThreshold { .. } => {
-                "battery stopped before changing the charge threshold"
-            }
-            Command::History { .. } => "battery stopped before fetching history",
-        }
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

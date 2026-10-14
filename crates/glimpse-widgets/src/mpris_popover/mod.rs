@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{NowPlaying, Player};
+use crate::{ActionRow, NowPlaying, Player};
 
 glib::wrapper! {
     pub struct MprisPopover(ObjectSubclass<imp::MprisPopover>)
@@ -26,6 +26,10 @@ impl MprisPopover {
     /// screen is its second reader — and nothing here reimplements a part of it.
     pub fn player(&self) -> NowPlaying {
         self.imp().player.clone()
+    }
+
+    pub fn open_player(&self) -> ActionRow {
+        self.imp().open_player.clone()
     }
 
     pub fn set_others(&self, players: Option<&[Player]>) {

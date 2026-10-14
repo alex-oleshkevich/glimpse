@@ -129,15 +129,15 @@ fn malformed_image_data_is_ignored() {
 
 #[test]
 fn only_a_file_directly_in_the_images_directory_is_ever_deleted() {
-    let dir = Path::new("/run/user/1000/glimpse/notifications/7");
+    let dir = Path::new("/fixture/runtime/glimpse/notifications/7");
     assert!(generated(
-        "/run/user/1000/glimpse/notifications/7/3-1.png",
+        "/fixture/runtime/glimpse/notifications/7/3-1.png",
         dir
     ));
     assert!(!generated(
-        "/run/user/1000/glimpse/notifications/7/../../../../home/u/.ssh/id_ed25519",
+        "/fixture/runtime/glimpse/notifications/7/../../../../home/u/.ssh/id_ed25519",
         dir
     ));
-    assert!(!generated("/run/user/1000/glimpse/notifications/7", dir));
+    assert!(!generated("/fixture/runtime/glimpse/notifications/7", dir));
     assert!(!generated("/home/u/picture.png", dir));
 }

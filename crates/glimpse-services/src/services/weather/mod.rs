@@ -1,4 +1,3 @@
-use crate::services::transport;
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, FixedOffset, Offset as _, Utc};
@@ -14,6 +13,7 @@ use crate::{
     context::Ctx,
     publisher::Publisher,
     service::{CommandError, Input, Service, ServiceEndpoint},
+    services::transport,
     subscription::Sub,
 };
 
@@ -148,11 +148,17 @@ pub type WeatherHandle = ServiceEndpoint<Weather>;
 
 impl ServiceEndpoint<Weather> {
     pub async fn watch(&self, place: WatchedPlace) -> Result<(), CommandError> {
-        self.call(|reply| Command::Watch { place, reply }).await?
+        self.call("weather stopped before accepting the place", |reply| {
+            Command::Watch { place, reply }
+        })
+        .await?
     }
 
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("weather stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -254,13 +260,6 @@ impl Service for Weather {
     type Event = Event;
     type Dependencies = WeatherDependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Watch { .. } => "weather stopped before accepting the place",
-            Command::Refresh { .. } => "weather stopped before refreshing",
-        }
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         initial_state(config)

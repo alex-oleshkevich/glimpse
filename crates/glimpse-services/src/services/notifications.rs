@@ -145,7 +145,7 @@ pub type NotificationsHandle = ServiceEndpoint<Notifications>;
 
 impl ServiceEndpoint<Notifications> {
     pub async fn post(&self, incoming: Incoming) -> Result<u32, CommandError> {
-        self.call(|reply| Command::Post {
+        self.call("notifications did not answer", |reply| Command::Post {
             incoming: Box::new(incoming),
             reply,
         })
@@ -153,23 +153,38 @@ impl ServiceEndpoint<Notifications> {
     }
 
     pub async fn dismiss(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Dismiss { id, reply }).await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::Dismiss { id, reply },
+        )
+        .await?
     }
 
     pub async fn expire(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Expire { id, reply }).await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::Expire { id, reply },
+        )
+        .await?
     }
 
     pub async fn remove(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Remove { id, reply }).await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::Remove { id, reply },
+        )
+        .await?
     }
 
     pub async fn activate(&self, id: u32, token: Option<String>) -> Result<(), CommandError> {
-        self.call(|reply| Command::Activate {
-            id,
-            token: valid_activation_token(token),
-            reply,
-        })
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::Activate {
+                id,
+                token: valid_activation_token(token),
+                reply,
+            },
+        )
         .await?
     }
 
@@ -179,26 +194,40 @@ impl ServiceEndpoint<Notifications> {
         action: String,
         token: Option<String>,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::InvokeAction {
-            id,
-            action,
-            token: valid_activation_token(token),
-            reply,
-        })
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::InvokeAction {
+                id,
+                action,
+                token: valid_activation_token(token),
+                reply,
+            },
+        )
         .await?
     }
 
     pub async fn clear_app(&self, app_id: String) -> Result<(), CommandError> {
-        self.call(|reply| Command::ClearApp { app_id, reply })
-            .await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::ClearApp { app_id, reply },
+        )
+        .await?
     }
 
     pub async fn clear_all(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::ClearAll { reply }).await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::ClearAll { reply },
+        )
+        .await?
     }
 
     pub async fn set_dnd(&self, dnd: DoNotDisturb) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetDnd { dnd, reply }).await?
+        self.call(
+            "notifications stopped before completing the command",
+            |reply| Command::SetDnd { dnd, reply },
+        )
+        .await?
     }
 }
 
@@ -231,13 +260,6 @@ impl Service for Notifications {
             until,
             Event::DoNotDisturbLapsed(until),
         )]
-    }
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Post { .. } => "notifications did not answer",
-            _ => "notifications stopped before completing the command",
-        }
     }
 
     fn initial_state(_: &Self::Config) -> Self::State {
@@ -1085,8 +1107,8 @@ fn generated(image: &str, dir: &Path) -> bool {
 
 fn images_dir() -> Option<PathBuf> {
     Some(
-        dirs::runtime_dir()?
-            .join("glimpse/notifications")
+        glimpse_config::runtime_dir()?
+            .join("notifications")
             .join(std::process::id().to_string()),
     )
 }

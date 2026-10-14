@@ -1,4 +1,3 @@
-use crate::services::cap;
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -15,7 +14,7 @@ use tokio::time;
 use zbus::message::Type;
 use zbus::{Connection, MatchRule, MessageStream};
 
-use crate::context::Ctx;
+use crate::{context::Ctx, services::cap};
 
 use super::{Config, Event, JobState, PrintJob, Printer, PrinterState, Printing, PrintingState};
 

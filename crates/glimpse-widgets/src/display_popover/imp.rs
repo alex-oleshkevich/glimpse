@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    BLANKED, CHANGED, ENABLE_REQUESTED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED,
+    BLANKED, CHANGED, ENABLE_REQUESTED, NIGHT_LIGHT_CHANGED, NIGHT_LIGHT_MOVED, NIGHT_LIGHT_PAUSED,
     NIGHT_LIGHT_SCHEDULED, NIGHT_LIGHT_TOGGLED, TEMPERATURE_MAX, TEMPERATURE_MIN,
 };
 
@@ -22,6 +22,8 @@ pub struct NightLight {
     pub schedule: String,
     pub fixed_hours: bool,
     pub serving: bool,
+    pub can_pause: bool,
+    pub paused_until: Option<String>,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -50,6 +52,8 @@ pub struct DisplayPopover {
     #[template_child]
     pub schedules: TemplateChild<ChoiceList>,
     #[template_child]
+    pub pause: TemplateChild<ActionRow>,
+    #[template_child]
     pub displays_section: TemplateChild<Section>,
     #[template_child]
     pub displays: TemplateChild<DisplayList>,
@@ -61,6 +65,7 @@ pub struct DisplayPopover {
     pub night_light_available: Cell<bool>,
     pub entries: RefCell<Vec<Display>>,
     pub output_power: Cell<bool>,
+    pub blank_screens: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -110,6 +115,9 @@ impl ObjectImpl for DisplayPopover {
                 glib::subclass::Signal::builder(NIGHT_LIGHT_SCHEDULED)
                     .param_types([String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder(NIGHT_LIGHT_PAUSED)
+                    .param_types([bool::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder(ENABLE_REQUESTED)
                     .param_types([String::static_type(), bool::static_type()])
                     .build(),
@@ -155,6 +163,7 @@ impl ObjectImpl for DisplayPopover {
             #[weak]
             popover,
             move |_, value| {
+                popover.clear_pause();
                 popover.show_temperature(value);
                 popover.emit_by_name::<()>(NIGHT_LIGHT_CHANGED, &[&value]);
             }
@@ -163,6 +172,7 @@ impl ObjectImpl for DisplayPopover {
             #[weak]
             popover,
             move |_, value| {
+                popover.clear_pause();
                 popover.show_temperature(value);
                 popover.emit_by_name::<()>(NIGHT_LIGHT_MOVED, &[&value]);
             }
@@ -171,6 +181,11 @@ impl ObjectImpl for DisplayPopover {
             #[weak]
             popover,
             move |_, index| popover.report_night_light_scheduled(index)
+        ));
+        self.pause.connect_activated(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.request_pause()
         ));
         self.displays.connect_enable_requested(glib::clone!(
             #[weak]

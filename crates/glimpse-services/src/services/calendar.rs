@@ -86,7 +86,10 @@ pub type CalendarHandle = ServiceEndpoint<Calendar>;
 
 impl ServiceEndpoint<Calendar> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("calendar stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 
     pub async fn set_range(
@@ -94,8 +97,10 @@ impl ServiceEndpoint<Calendar> {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::Range { from, to, reply })
-            .await?
+        self.call("calendar stopped before changing its range", |reply| {
+            Command::Range { from, to, reply }
+        })
+        .await?
     }
 }
 
@@ -234,13 +239,6 @@ impl Service for Calendar {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Refresh { .. } => "calendar stopped before refreshing",
-            Command::Range { .. } => "calendar stopped before changing its range",
-        }
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

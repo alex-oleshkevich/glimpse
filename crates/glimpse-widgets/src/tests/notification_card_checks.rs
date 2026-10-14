@@ -141,12 +141,12 @@ pub(super) fn check() {
     );
 
     item.set_body(Some(
-        "a".repeat(crate::notification_text_body::BODY_MAX_CHARS * 2)
+        "a".repeat(glimpse_utils::markup::BODY_MAX_CHARS * 2)
             .as_str(),
     ));
     assert_eq!(
         item_body.text().chars().count(),
-        crate::notification_text_body::BODY_MAX_CHARS
+        glimpse_utils::markup::BODY_MAX_CHARS
     );
 
     assert_eq!(item.urgency(), Urgency::Normal);
@@ -271,5 +271,18 @@ pub(super) fn check() {
     assert!(
         all_named(&item, "notification__action").is_empty() && !item_actions.get_visible(),
         "a notification with no actions leaves no strip behind"
+    );
+
+    let long_markup = format!("<b>{}</b>", "a".repeat(600));
+    item.set_body_markup(Some(long_markup.as_str()));
+    assert!(
+        item_body.uses_markup() && item_body.text().chars().count() == 600,
+        "a long valid markup body must keep its closing tag and render as markup"
+    );
+
+    item.set_body_markup(Some(""));
+    assert!(
+        !item_body.get_visible(),
+        "a body that sanitized to nothing leaves no blank line"
     );
 }

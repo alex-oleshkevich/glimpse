@@ -60,11 +60,18 @@ pub type RulerHandle = ServiceEndpoint<Ruler>;
 
 impl ServiceEndpoint<Ruler> {
     pub async fn measure(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Measure { reply }).await?
+        self.call("the ruler stopped while measuring", |reply| {
+            Command::Measure { reply }
+        })
+        .await?
     }
 
     pub async fn copy(&self, id: u32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Copy { id, reply }).await?
+        self.call("the ruler stopped while copying", |reply| Command::Copy {
+            id,
+            reply,
+        })
+        .await?
     }
 }
 
@@ -85,13 +92,6 @@ impl Service for Ruler {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = ();
-
-    fn command_stopped_reason(command: &Self::Command) -> &'static str {
-        match command {
-            Command::Measure { .. } => "the ruler stopped while measuring",
-            Command::Copy { .. } => "the ruler stopped while copying",
-        }
-    }
 
     fn initial_state(_config: &Self::Config) -> Self::State {
         RulerState {

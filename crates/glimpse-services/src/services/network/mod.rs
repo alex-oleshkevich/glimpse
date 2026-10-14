@@ -453,21 +453,31 @@ pub type NetworkHandle = crate::ServiceEndpoint<Network>;
 
 impl crate::ServiceEndpoint<Network> {
     pub async fn set_networking_enabled(&self, enabled: bool) -> Result<(), NetworkError> {
-        self.call(|reply| Command::SetNetworkingEnabled { enabled, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::SetNetworkingEnabled { enabled, reply }
+        })
+        .await?
     }
 
     pub async fn set_wifi_enabled(&self, enabled: bool) -> Result<(), NetworkError> {
-        self.call(|reply| Command::SetWifiEnabled { enabled, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::SetWifiEnabled { enabled, reply }
+        })
+        .await?
     }
 
     pub async fn start_scan(&self) -> Result<(), NetworkError> {
-        self.call(|reply| Command::StartScan { reply }).await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::StartScan { reply }
+        })
+        .await?
     }
 
     pub async fn stop_scan(&self) -> Result<(), NetworkError> {
-        self.call(|reply| Command::StopScan { reply }).await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::StopScan { reply }
+        })
+        .await?
     }
 
     pub async fn connect_access_point(
@@ -475,8 +485,10 @@ impl crate::ServiceEndpoint<Network> {
         id: NetworkId,
         secret: Option<Secret>,
     ) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectAccessPoint { id, secret, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::ConnectAccessPoint { id, secret, reply }
+        })
+        .await?
     }
 
     pub async fn connect_hidden(
@@ -485,31 +497,43 @@ impl crate::ServiceEndpoint<Network> {
         security: nm::Security,
         secret: Option<Secret>,
     ) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectHidden {
-            ssid,
-            security,
-            secret,
-            reply,
+        self.call("network stopped before completing the command", |reply| {
+            Command::ConnectHidden {
+                ssid,
+                security,
+                secret,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn connect_profile(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectProfile { id, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::ConnectProfile { id, reply }
+        })
+        .await?
     }
 
     pub async fn connect_device(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectDevice { id, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::ConnectDevice { id, reply }
+        })
+        .await?
     }
 
     pub async fn disconnect(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::Disconnect { id, reply }).await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::Disconnect { id, reply }
+        })
+        .await?
     }
 
     pub async fn forget(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::Forget { id, reply }).await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::Forget { id, reply }
+        })
+        .await?
     }
 
     pub async fn set_autoconnect(
@@ -517,26 +541,35 @@ impl crate::ServiceEndpoint<Network> {
         id: NetworkId,
         autoconnect: bool,
     ) -> Result<(), NetworkError> {
-        self.call(|reply| Command::SetAutoconnect {
-            id,
-            autoconnect,
-            reply,
+        self.call("network stopped before completing the command", |reply| {
+            Command::SetAutoconnect {
+                id,
+                autoconnect,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn answer_secret(&self, answer: Answer) -> Result<(), NetworkError> {
-        self.call(|reply| Command::AnswerSecret { answer, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::AnswerSecret { answer, reply }
+        })
+        .await?
     }
 
     pub async fn connect_vpn(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::ConnectVpn { id, reply }).await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::ConnectVpn { id, reply }
+        })
+        .await?
     }
 
     pub async fn disconnect_vpn(&self, id: NetworkId) -> Result<(), NetworkError> {
-        self.call(|reply| Command::DisconnectVpn { id, reply })
-            .await?
+        self.call("network stopped before completing the command", |reply| {
+            Command::DisconnectVpn { id, reply }
+        })
+        .await?
     }
 }
 
@@ -585,10 +618,6 @@ impl Service for Network {
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "network stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

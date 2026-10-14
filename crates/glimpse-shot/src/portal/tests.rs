@@ -344,6 +344,9 @@ trait ShotPortal {
         options: HashMap<&str, Value<'_>>,
     ) -> zbus::Result<Reply>;
 
+    #[zbus(property, name = "AvailableTargets")]
+    fn available_targets(&self) -> zbus::Result<u32>;
+
     #[zbus(property, name = "version")]
     fn version(&self) -> zbus::Result<u32>;
 }
@@ -359,6 +362,12 @@ fn flags<'a>(pairs: &'a [(&'a str, bool)]) -> HashMap<&'a str, Value<'a>> {
         .iter()
         .map(|(key, value)| (*key, Value::from(*value)))
         .collect()
+}
+
+fn targeted<'a>(target: Value<'a>, extra: &'a [(&'a str, bool)]) -> HashMap<&'a str, Value<'a>> {
+    let mut options = flags(extra);
+    options.insert("target", target);
+    options
 }
 
 fn handle(path: &str) -> ObjectPath<'static> {
@@ -571,7 +580,8 @@ async fn the_spawned_child_follows_the_decision_and_the_child_result_impl() {
     let proxy = ShotPortalProxy::new(&started.client)
         .await
         .expect("a proxy");
-    assert_eq!(proxy.version().await.expect("version"), 2);
+    assert_eq!(proxy.version().await.expect("version"), 3);
+    assert_eq!(proxy.available_targets().await.expect("targets"), 13);
 
     let raw = format!("<b>{}</b>", "é".repeat(300));
     started.fake.push(Script::Done {
@@ -690,6 +700,72 @@ async fn the_spawned_child_follows_the_decision_and_the_child_result_impl() {
         .expect("Screenshot");
     assert_eq!(response, OTHER);
     assert!(results.is_empty());
+
+    let silent = [("interactive", false), ("permission_store_checked", true)];
+    let stdout = result_stdout(output.to_str().expect("utf-8"));
+    for (n, (target, extra, want)) in [
+        (1u32, &silent[..], "capture"),
+        (1, &[][..], "--screen"),
+        (4, &silent[..], "--screen"),
+        (8, &silent[..], "capture"),
+        (
+            8,
+            &[("interactive", true), ("permission_store_checked", true)][..],
+            "capture",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        started.fake.push(Script::Done {
+            stdout: stdout.clone(),
+            code: 0,
+        });
+        let (response, _) = proxy
+            .screenshot(
+                &handle(&format!("/req/target{n}")),
+                "org.gimp.GIMP",
+                "",
+                targeted(Value::from(target), extra),
+            )
+            .await
+            .expect("Screenshot");
+        assert_eq!(response, SUCCESS);
+        let argv = started.fake.argv().pop().expect("argv");
+        assert_eq!(argv[1], OsString::from(want));
+        if target == 4 {
+            assert!(argv.contains(&OsString::from("--portal")));
+        }
+        if target == 8 {
+            assert_eq!(argv[2], OsString::from("--window"));
+            assert_eq!(argv[3], OsString::from("focused"));
+        }
+    }
+
+    let before = started.fake.argv().len();
+    let refused: [(Value<'static>, &[(&'static str, bool)]); 7] = [
+        (Value::from(2u32), &silent[..]),
+        (Value::from(3u32), &silent[..]),
+        (Value::from(0u32), &silent[..]),
+        (Value::from(16u32), &silent[..]),
+        (Value::from("1"), &silent[..]),
+        (Value::from(8u32), &[("interactive", true)][..]),
+        (Value::from(8u32), &[("interactive", false)][..]),
+    ];
+    for (n, (target, extra)) in refused.into_iter().enumerate() {
+        let (response, results) = proxy
+            .screenshot(
+                &handle(&format!("/req/refused{n}")),
+                "org.gimp.GIMP",
+                "",
+                targeted(target, extra),
+            )
+            .await
+            .expect("Screenshot");
+        assert_eq!(response, OTHER);
+        assert!(results.is_empty());
+    }
+    assert_eq!(started.fake.argv().len(), before);
 }
 
 #[test]
@@ -708,9 +784,19 @@ fn overlay_and_headless_commands_name_the_binaries() {
         ]
     );
     let output = Path::new("/tmp/shots/shot.png");
-    let headless = headless_command(output);
+    let headless = headless_command(output, false);
     assert_eq!(headless[1], OsString::from("capture"));
     assert_eq!(headless[5], output.as_os_str());
+    let window = headless_command(output, true);
+    assert_eq!(
+        &window[1..4],
+        &[
+            OsString::from("capture"),
+            OsString::from("--window"),
+            OsString::from("focused")
+        ]
+    );
+    assert_eq!(window[6], output.as_os_str());
     let picker = picker_command();
     assert_eq!(program_name(&picker), Some("glimpse-lens"));
     assert_eq!(

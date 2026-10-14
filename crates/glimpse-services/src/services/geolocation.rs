@@ -105,7 +105,10 @@ pub type GeolocationHandle = ServiceEndpoint<Geolocation>;
 
 impl ServiceEndpoint<Geolocation> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("`geolocation` stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -128,10 +131,6 @@ impl Service for Geolocation {
     type Event = Event;
     type Dependencies = GeolocationDependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "`geolocation` stopped before refreshing"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

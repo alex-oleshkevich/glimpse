@@ -1,4 +1,3 @@
-use crate::services::say;
 use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
@@ -8,6 +7,7 @@ use crate::{
     context::Ctx,
     publisher::Publisher,
     service::{Input, NoConfig, Service},
+    services::say,
     subscription::Sub,
 };
 

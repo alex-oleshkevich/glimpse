@@ -77,7 +77,7 @@ async fn a_failed_source_publishes_nothing_and_degrades_health() {
             Input::Event(Event::Network(Ok(vec![Place {
                 id: "share".to_owned(),
                 name: "share".to_owned(),
-                path: PathBuf::from("/run/user/1000/gvfs/share"),
+                path: PathBuf::from("/fixture/runtime/gvfs/share"),
                 kind: Kind::Network,
             }]))),
         )

@@ -134,8 +134,10 @@ pub type TrayHandle = crate::ServiceEndpoint<Tray>;
 
 impl crate::ServiceEndpoint<Tray> {
     pub async fn activate(&self, key: String, x: i32, y: i32) -> Result<(), CommandError> {
-        self.call(|reply| Command::Activate { key, x, y, reply })
-            .await?
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::Activate { key, x, y, reply }
+        })
+        .await?
     }
 
     pub async fn secondary_activate(
@@ -144,13 +146,17 @@ impl crate::ServiceEndpoint<Tray> {
         x: i32,
         y: i32,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::SecondaryActivate { key, x, y, reply })
-            .await?
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::SecondaryActivate { key, x, y, reply }
+        })
+        .await?
     }
 
     pub async fn context_menu(&self, key: String, x: i32, y: i32) -> Result<(), CommandError> {
-        self.call(|reply| Command::ContextMenu { key, x, y, reply })
-            .await?
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::ContextMenu { key, x, y, reply }
+        })
+        .await?
     }
 
     pub async fn scroll(
@@ -159,11 +165,13 @@ impl crate::ServiceEndpoint<Tray> {
         delta: i32,
         orientation: String,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::Scroll {
-            key,
-            delta,
-            orientation,
-            reply,
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::Scroll {
+                key,
+                delta,
+                orientation,
+                reply,
+            }
         })
         .await?
     }
@@ -171,7 +179,10 @@ impl crate::ServiceEndpoint<Tray> {
     /// Fetched on pointer-enter rather than on click: `AboutToShow` is where an application fills
     /// a menu in, and doing it on the click shows an empty one first.
     pub async fn menu(&self, key: String) -> Result<MenuNode, CommandError> {
-        self.call(|reply| Command::Menu { key, reply }).await?
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::Menu { key, reply }
+        })
+        .await?
     }
 
     pub async fn menu_event(
@@ -180,11 +191,13 @@ impl crate::ServiceEndpoint<Tray> {
         id: i32,
         event: String,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::MenuEvent {
-            key,
-            id,
-            event,
-            reply,
+        self.call("the tray stopped before completing the command", |reply| {
+            Command::MenuEvent {
+                key,
+                id,
+                event,
+                reply,
+            }
         })
         .await?
     }
@@ -198,10 +211,6 @@ impl Service for Tray {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "the tray stopped before completing the command"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

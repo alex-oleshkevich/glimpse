@@ -47,3 +47,4 @@ zbus.workspace = true
 [dev-dependencies]
 glimpse-dbus = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

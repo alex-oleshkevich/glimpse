@@ -103,7 +103,7 @@ fn mounted_volume() -> Interfaces {
             udisks2::FILESYSTEM1.to_owned(),
             properties(vec![(
                 "MountPoints",
-                owned_mount_points(&["/run/media/alex/DATA"]),
+                owned_mount_points(&["/run/media/user/DATA"]),
             )]),
         ),
     ])
@@ -293,7 +293,7 @@ async fn an_unmounted_volume_has_no_mount_and_a_mounted_one_carries_its_path() {
         .expect("the mounted volume");
     assert_eq!(
         mounted.mount.as_ref().map(|mount| mount.at.as_path()),
-        Some(std::path::Path::new("/run/media/alex/DATA"))
+        Some(std::path::Path::new("/run/media/user/DATA"))
     );
 
     let unmounted = published
@@ -505,6 +505,7 @@ async fn a_zero_capacity_interval_never_declares_the_subscription() {
 
 #[tokio::test]
 async fn capacity_sampling_runs_off_the_handler_and_reaches_the_mounted_volume() {
+    let dir = tempfile::tempdir().expect("temporary mount point");
     let cancel = CancellationToken::new();
     let (events, mut inbox) = tokio::sync::mpsc::channel(8);
     let (state, state_rx) = tokio::sync::watch::channel(RemovableState::default());
@@ -535,7 +536,7 @@ async fn capacity_sampling_runs_off_the_handler_and_reaches_the_mounted_volume()
                     udisks2::FILESYSTEM1.to_owned(),
                     properties(vec![(
                         "MountPoints",
-                        owned_mount_points(&[std::env::temp_dir().to_str().expect("utf8 path")]),
+                        owned_mount_points(&[dir.path().to_str().expect("utf8 path")]),
                     )]),
                 ),
             ]),
@@ -813,13 +814,13 @@ async fn the_finishing_step_follows_the_drive_capabilities() {
 #[test]
 fn filesystem_merge_preserves_absent_mount_points_and_clears_present_empty_ones() {
     let mut held = FilesystemProperties {
-        mount_points: Some(vec!["/run/media/alex/DATA".to_owned()]),
+        mount_points: Some(vec!["/run/media/user/DATA".to_owned()]),
         size: Some(1024),
     };
     merge_filesystem(&mut held, udisks2::decode_filesystem(&Properties::new()));
     assert_eq!(
         held.mount_points,
-        Some(vec!["/run/media/alex/DATA".to_owned()])
+        Some(vec!["/run/media/user/DATA".to_owned()])
     );
     let changed = properties(vec![("MountPoints", owned_mount_points(&[]))]);
     merge_filesystem(&mut held, udisks2::decode_filesystem(&changed));

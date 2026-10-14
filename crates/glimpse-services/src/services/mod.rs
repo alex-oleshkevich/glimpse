@@ -83,8 +83,8 @@ pub use bluetooth::{
 pub use brightness::{
     Backlight, Brightness, BrightnessHandle, BrightnessState, CompositeBacklight,
     Config as BrightnessConfig, DdcBacklight, Dependencies as BrightnessDependencies,
-    Entry as BacklightEntry, Kind as BrightnessKind, Source as BrightnessSource, SysfsBacklight,
-    UnavailableBacklight,
+    Entry as BacklightEntry, Enumeration as BacklightEnumeration, Kind as BrightnessKind,
+    Source as BrightnessSource, SysfsBacklight,
 };
 pub use calendar::{Calendar, CalendarHandle};
 pub use clipboard::{

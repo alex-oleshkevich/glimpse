@@ -140,4 +140,15 @@ fn kdeconnect_popover_widgets() {
         !imp.nearby.get_visible(),
         "no header until something is found"
     );
+
+    let settings = popover.settings();
+    assert!(settings.get_visible());
+    assert_eq!(
+        settings.upcast_ref::<Row>().title().as_deref(),
+        Some("KDE Connect settings")
+    );
+    assert_eq!(settings.upcast_ref::<Row>().icon_name(), None);
+    let column = imp.devices.parent().unwrap();
+    assert_eq!(column.last_child().as_ref(), Some(settings.upcast_ref()));
+    assert!(settings.is_ancestor(&imp.shell.body()));
 }

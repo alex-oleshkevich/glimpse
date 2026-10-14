@@ -1224,14 +1224,17 @@ mod fixtures {
 
         for popover in tagged::<DisplayPopover>(root, "one") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             popover.set_displays(std::slice::from_ref(&built_in));
         }
         for popover in tagged::<DisplayPopover>(root, "two") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             popover.set_displays(&[built_in.clone(), external.clone()]);
         }
         for popover in tagged::<DisplayPopover>(root, "disabled") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             let mut disabled = external.clone();
             disabled.enabled = false;
             popover.set_displays(&[built_in.clone(), disabled]);

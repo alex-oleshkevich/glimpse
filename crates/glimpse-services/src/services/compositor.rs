@@ -73,6 +73,8 @@ pub struct CompositorCapabilities {
     pub floating: bool,
     pub workspace_reorder: bool,
     pub output_power: bool,
+    #[serde(default)]
+    pub blank_screens: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -207,13 +209,18 @@ pub type CompositorHandle = ServiceEndpoint<Compositor>;
 
 impl ServiceEndpoint<Compositor> {
     pub async fn focus_workspace(&self, target: WorkspaceRef) -> Result<(), CommandError> {
-        self.call(|reply| Command::FocusWorkspace { target, reply })
-            .await?
+        self.call("compositor service stopped", |reply| {
+            Command::FocusWorkspace { target, reply }
+        })
+        .await?
     }
 
     pub async fn focus_window(&self, target: WindowRef) -> Result<(), CommandError> {
-        self.call(|reply| Command::FocusWindow { target, reply })
-            .await?
+        self.call("compositor service stopped", |reply| Command::FocusWindow {
+            target,
+            reply,
+        })
+        .await?
     }
 
     pub async fn focus_app(&self, pid: Option<i32>, names: &[&str]) -> Result<(), CommandError> {
@@ -237,8 +244,11 @@ impl ServiceEndpoint<Compositor> {
     }
 
     pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
-        self.call(|reply| Command::FocusOutput { connector, reply })
-            .await?
+        self.call("compositor service stopped", |reply| Command::FocusOutput {
+            connector,
+            reply,
+        })
+        .await?
     }
 
     pub async fn rename_workspace(
@@ -246,8 +256,10 @@ impl ServiceEndpoint<Compositor> {
         id: u64,
         name: Option<String>,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::RenameWorkspace { id, name, reply })
-            .await?
+        self.call("compositor service stopped", |reply| {
+            Command::RenameWorkspace { id, name, reply }
+        })
+        .await?
     }
 
     pub async fn move_workspace_to_output(
@@ -255,17 +267,21 @@ impl ServiceEndpoint<Compositor> {
         id: u64,
         connector: String,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::MoveWorkspaceToOutput {
-            id,
-            connector,
-            reply,
+        self.call("compositor service stopped", |reply| {
+            Command::MoveWorkspaceToOutput {
+                id,
+                connector,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn reorder_workspace(&self, id: u64, index: u8) -> Result<(), CommandError> {
-        self.call(|reply| Command::ReorderWorkspace { id, index, reply })
-            .await?
+        self.call("compositor service stopped", |reply| {
+            Command::ReorderWorkspace { id, index, reply }
+        })
+        .await?
     }
 
     pub async fn move_window_to_workspace(
@@ -273,17 +289,22 @@ impl ServiceEndpoint<Compositor> {
         window: u64,
         workspace: WorkspaceRef,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::MoveWindowToWorkspace {
-            window,
-            workspace,
-            reply,
+        self.call("compositor service stopped", |reply| {
+            Command::MoveWindowToWorkspace {
+                window,
+                workspace,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn close_window(&self, id: u64) -> Result<(), CommandError> {
-        self.call(|reply| Command::CloseWindow { id, reply })
-            .await?
+        self.call("compositor service stopped", |reply| Command::CloseWindow {
+            id,
+            reply,
+        })
+        .await?
     }
 
     pub async fn set_output_enabled(
@@ -291,22 +312,28 @@ impl ServiceEndpoint<Compositor> {
         connector: String,
         enabled: bool,
     ) -> Result<(), CommandError> {
-        self.call(|reply| Command::SetOutputEnabled {
-            connector,
-            enabled,
-            reply,
+        self.call("compositor service stopped", |reply| {
+            Command::SetOutputEnabled {
+                connector,
+                enabled,
+                reply,
+            }
         })
         .await?
     }
 
     pub async fn power_off_monitors(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::PowerOffMonitors { reply })
-            .await?
+        self.call("compositor service stopped", |reply| {
+            Command::PowerOffMonitors { reply }
+        })
+        .await?
     }
 
     pub async fn stop_screencast(&self, session_id: u64) -> Result<(), CommandError> {
-        self.call(|reply| Command::StopScreencast { session_id, reply })
-            .await?
+        self.call("compositor service stopped", |reply| {
+            Command::StopScreencast { session_id, reply }
+        })
+        .await?
     }
 }
 
@@ -342,10 +369,6 @@ impl Service for Compositor {
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "compositor service stopped"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -552,7 +575,7 @@ impl Compositor {
                 (outcome, reply)
             }
             Command::PowerOffMonitors { reply } => {
-                let outcome = if !self.capabilities.output_power {
+                let outcome = if !self.capabilities.blank_screens {
                     Err(CompositorError::Unsupported(
                         "this compositor cannot blank the displays",
                     ))
@@ -798,6 +821,7 @@ fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
         floating: capabilities.floating,
         workspace_reorder: capabilities.workspace_reorder,
         output_power: capabilities.output_power,
+        blank_screens: capabilities.blank_screens,
     }
 }
 

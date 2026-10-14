@@ -65,7 +65,8 @@ follower in sunset. Owner loss clears the observed phase and degrades automatic 
 schedules remain independent. The tick period lives in its own subscription key, so crossing a
 transition window rebuilds the timer at the new cadence while the ramp position still comes from the clock. Release is
 decided on the solar phase, not the computed value, since a ramp can round to `DAY` without meaning
-daylight — a manual override held at exactly `DAY` is the one exception.
+daylight — a manual override held at exactly `DAY` releases too. A pause holds neutral `DAY`
+until the existing night boundary; it never changes the manual temperature override.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals and
 charge-threshold details come from the real `BAT*` objects, since the composite omits them. `TimeTo*`
@@ -193,7 +194,9 @@ a reloaded applet. Placement and options changes go over its stdin without respa
 child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
 a row is stopped. The source resolves desktop entries and builds the sandbox off the async worker,
 spawns on that worker for PDEATHSIG in the entry's `Path`, or the desktop file's resolved directory
-without one, and Landlock-confines the child to its configured `sandbox`.
+without one, and Landlock-confines the child to its configured `sandbox`. The child inherits only
+stdio: zbus receives passed fds without close-on-exec, so another applet's pipe end would otherwise
+ride into it and that pipe would never reach EOF.
 A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unconfined` is set;
 PATH entries under the home directory receive no implicit grant. The host passes the applet's
 persistent state directory as `state` in `hello`. Stopping a child kills its

@@ -2,9 +2,6 @@ mod imp;
 
 use gtk4::glib;
 
-#[cfg(test)]
-pub(crate) use imp::BODY_MAX_CHARS;
-
 glib::wrapper! {
     pub struct NotificationTextBody(ObjectSubclass<imp::NotificationTextBody>)
         @extends gtk4::Widget,

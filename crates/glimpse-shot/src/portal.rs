@@ -27,6 +27,10 @@ static NEXT_APP: AtomicU64 = AtomicU64::new(0);
 const SUCCESS: u32 = 0;
 const CANCELLED: u32 = 1;
 const OTHER: u32 = 2;
+const TARGET_SCREEN: u32 = 1;
+const TARGET_AREA: u32 = 4;
+const TARGET_ACTIVE_WINDOW: u32 = 8;
+const AVAILABLE_TARGETS: u32 = TARGET_SCREEN | TARGET_AREA | TARGET_ACTIVE_WINDOW;
 const OPEN: u8 = 0;
 const CLOSED: u8 = 1;
 const REPLIED: u8 = 2;
@@ -122,6 +126,12 @@ fn option_flag(options: &HashMap<String, OwnedValue>, key: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn option_target(options: &HashMap<String, OwnedValue>) -> Option<u32> {
+    options
+        .get("target")
+        .map(|value| u32::try_from(value).unwrap_or(0))
+}
+
 fn app_label(app_id: &str) -> String {
     let cleaned = glimpse_utils::text::clean(app_id, APP_CAP);
     if cleaned.is_empty() {
@@ -158,15 +168,18 @@ fn overlay_command(label: &str) -> Vec<OsString> {
     ]
 }
 
-fn headless_command(output: &Path) -> Vec<OsString> {
-    vec![
-        executable("glimpse-shot").into(),
-        OsString::from("capture"),
-        OsString::from("--screen"),
+fn headless_command(output: &Path, window: bool) -> Vec<OsString> {
+    let mut argv = vec![executable("glimpse-shot").into(), OsString::from("capture")];
+    argv.push(OsString::from(if window { "--window" } else { "--screen" }));
+    if window {
+        argv.push(OsString::from("focused"));
+    }
+    argv.extend([
         OsString::from("--json"),
         OsString::from("-o"),
         output.as_os_str().to_os_string(),
-    ]
+    ]);
+    argv
 }
 
 fn picker_command() -> Vec<OsString> {
@@ -449,7 +462,12 @@ impl ScreenshotPortal {
 
     #[zbus(property, name = "version")]
     fn version(&self) -> u32 {
-        2
+        3
+    }
+
+    #[zbus(property, name = "AvailableTargets")]
+    fn available_targets(&self) -> u32 {
+        AVAILABLE_TARGETS
     }
 }
 
@@ -513,10 +531,26 @@ impl ScreenshotPortal {
         match kind {
             RequestKind::Color => Some(picker_command()),
             RequestKind::Shot => {
-                let decision = decide(
+                let target = option_target(options);
+                if target.is_some_and(|target| {
+                    target.count_ones() != 1 || target & AVAILABLE_TARGETS == 0
+                }) {
+                    return None;
+                }
+                let mut decision = decide(
                     option_flag(options, "interactive"),
                     option_flag(options, "permission_store_checked"),
                 );
+                if target == Some(TARGET_AREA) {
+                    decision = CaptureKind::Overlay;
+                }
+                let window = target == Some(TARGET_ACTIVE_WINDOW);
+                if window {
+                    if !option_flag(options, "permission_store_checked") {
+                        return None;
+                    }
+                    decision = CaptureKind::Headless;
+                }
                 let label = app_label(app_id);
                 match decision {
                     CaptureKind::Overlay => Some(overlay_command(&label)),
@@ -539,7 +573,7 @@ impl ScreenshotPortal {
                             );
                             return None;
                         }
-                        Some(headless_command(&output))
+                        Some(headless_command(&output, window))
                     }
                 }
             }

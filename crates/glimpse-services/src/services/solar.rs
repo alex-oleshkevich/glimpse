@@ -46,7 +46,10 @@ pub type SolarHandle = ServiceEndpoint<Solar>;
 
 impl ServiceEndpoint<Solar> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        self.call(|reply| Command::Refresh { reply }).await?
+        self.call("`solar` stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -67,10 +70,6 @@ impl Service for Solar {
     type Event = Event;
     type Dependencies = SolarDependencies;
     type SubKey = Watch;
-
-    fn command_stopped_reason(_command: &Self::Command) -> &'static str {
-        "`solar` stopped before refreshing"
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()

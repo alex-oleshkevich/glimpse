@@ -154,13 +154,17 @@ async fn introspection_and_the_typed_property_match_the_frozen_interface() {
     assert_eq!(
         &xml[start..end],
         r#"<interface name="me.aresa.Glimpse.NightLight1">
+    <method name="Pause">
+    </method>
+    <method name="Resume">
+    </method>
     <method name="SetSchedule">
       <arg name="schedule" type="s" direction="in"/>
     </method>
     <method name="SetTemperature">
       <arg name="kelvin" type="u" direction="in"/>
     </method>
-    <property name="Snapshot" type="(sbuubbssb)" access="read"/>
+    <property name="Snapshot" type="(sbuubbssbx)" access="read"/>
   </interface>"#
     );
 
@@ -176,6 +180,13 @@ async fn introspection_and_the_typed_property_match_the_frozen_interface() {
         "the document's own schedule survives the override, so the UI has something to \
              switch back to"
     );
+
+    for rejected in [proxy.pause().await, proxy.set_temperature(3000).await] {
+        assert!(
+            matches!(rejected, Err(zbus::Error::MethodError(name, _, _)) if name.as_str() == "me.aresa.Glimpse.NightLight1.Error.NotActive")
+        );
+    }
+    proxy.resume().await.expect("resume while off is harmless");
 
     proxy
         .set_schedule("sometimes")
@@ -270,4 +281,52 @@ async fn set_temperature_refuses_out_of_range_and_sets_the_manual_flag_in_range(
     provider.shutdown().await;
     cancel.cancel();
     let _ = night_task.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pause_and_resume_publish_the_existing_night_deadline_over_a_private_bus() {
+    let bus = PrivateBus::start();
+    let cancel = CancellationToken::new();
+    let deadline = "2100-01-01T00:00:00Z".parse().unwrap();
+    let (_solar, solar) = tokio::sync::watch::channel(Some(glimpse_services::SolarStatus {
+        phase: glimpse_services::SolarPhase::Night,
+        next_change: Some(deadline),
+    }));
+    let (mut runtime, handle) = ServiceRuntime::<NightLight>::new(
+        NightLightConfig::from(&glimpse_config::Config::default()),
+        Buses::unavailable("no backend bus in test"),
+        cancel.child_token(),
+    );
+    let gamma = FakeGamma::default();
+    let applied = gamma.clone();
+    let task = tokio::spawn(async move {
+        runtime
+            .run(NightLightDependencies {
+                solar,
+                gamma: Box::new(gamma),
+            })
+            .await
+    });
+    let provider = start(bus.connection().await, handle).await.unwrap();
+    let connection = bus.connection().await;
+    let proxy = NightLight1Proxy::builder(&connection)
+        .cache_properties(CacheProperties::No)
+        .build()
+        .await
+        .unwrap();
+    proxy.pause().await.unwrap();
+    let paused = proxy.snapshot().await.unwrap();
+    assert_eq!(paused.paused_until, deadline.timestamp());
+    assert_eq!(paused.temperature, 6500);
+    assert!(!paused.active);
+    assert!(paused.serving);
+    assert_eq!(applied.applied().last(), Some(&6500));
+    proxy.resume().await.unwrap();
+    let resumed = proxy.snapshot().await.unwrap();
+    assert_eq!(resumed.paused_until, 0);
+    assert_eq!(resumed.temperature, 4200);
+    assert!(resumed.active);
+    provider.shutdown().await;
+    cancel.cancel();
+    task.await.unwrap();
 }
