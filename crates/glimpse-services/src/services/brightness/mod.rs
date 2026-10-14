@@ -396,6 +396,9 @@ impl SysfsBacklight {
 impl Backlight for SysfsBacklight {
     fn enumerate(&self) -> BoxFuture<'_, Enumeration> {
         Box::pin(async move {
+            if self.buses.system_bus().is_err() {
+                return Enumeration::default();
+            }
             let mut entries = enumerate_sysfs().await;
             entries.extend(self.keyboard_entry().await);
             entries.into()
@@ -403,6 +406,9 @@ impl Backlight for SysfsBacklight {
     }
 
     fn read(&self, id: String) -> BoxFuture<'_, ReadOutcome> {
+        if self.buses.system_bus().is_err() {
+            return Box::pin(async { ReadOutcome::Gone });
+        }
         if id == KEYBOARD_ID {
             return Box::pin(async move { self.keyboard_outcome().await });
         }

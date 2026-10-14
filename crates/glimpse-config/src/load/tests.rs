@@ -58,3 +58,17 @@ fn semantic_problems_are_collected_after_merging_without_rejecting_the_document(
     }
     assert_eq!(problems.len(), 4);
 }
+
+#[test]
+fn an_out_of_range_night_light_temperature_is_clamped_without_dropping_the_document() {
+    let root = tempfile::tempdir().expect("temporary directory");
+    fs::write(
+        root.path().join(FILE_NAME),
+        "[night-light]\ntemperature = 9000\nschedule = \"off\"\n[screenshot]\nflash = false\n",
+    )
+    .expect("writes");
+    let config = load_from(root.path(), None, None).expect("an out-of-range temperature loads");
+    assert_eq!(config.night_light.temperature, crate::MAX_TEMPERATURE);
+    assert_eq!(config.night_light.schedule, crate::Schedule::Off);
+    assert!(!config.screenshot.flash);
+}

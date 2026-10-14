@@ -494,4 +494,4 @@ pub async fn applets_restart(id: String) -> Result<()> {
 }
 
 #[cfg(test)]
-mod inspect_tests;
+mod tests;

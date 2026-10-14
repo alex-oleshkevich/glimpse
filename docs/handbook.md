@@ -200,8 +200,10 @@ current `build.rs` never mentions — the give-away is that the missing name is 
 `build.rs` before believing anything is actually missing.
 
 `just click output=DP-2 x=1200 y=540 button=left` resolves output-relative coordinates through
-`niri msg -j outputs` and injects with `ydotool`; buttons are `left`, `middle`, `right`. `ydotool`
-cannot read the pointer position, so pass `restore_x`/`restore_y` in virtual-desktop coordinates
+`niri msg -j outputs` and injects through a `zwlr_virtual_pointer_v1` bound to that output
+(`glimpse-wayland`'s `click` example); buttons are `left`, `middle`, `right`. `ydotool` is not used:
+its `--absolute` is a relative move under pointer acceleration. The virtual pointer cannot read the
+pointer position, so pass `restore_x`/`restore_y` in virtual-desktop coordinates
 when the caller knows where to put it back.
 
 ### Live runs

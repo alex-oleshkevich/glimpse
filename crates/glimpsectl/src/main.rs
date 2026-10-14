@@ -41,6 +41,8 @@ async fn run(cli: Cli) -> Result<()> {
 
     match cli.command {
         Command::Sunset(SunsetCommand::Status) => commands::sunset_status(bus()?, cli.json).await,
+        Command::Sunset(SunsetCommand::Pause) => commands::sunset_pause(bus()?).await,
+        Command::Sunset(SunsetCommand::Resume) => commands::sunset_resume(bus()?).await,
         Command::Sunset(SunsetCommand::Mode { mode }) => commands::sunset_mode(bus()?, mode).await,
         Command::Sunset(SunsetCommand::Temperature { kelvin }) => {
             commands::sunset_temperature(bus()?, kelvin).await

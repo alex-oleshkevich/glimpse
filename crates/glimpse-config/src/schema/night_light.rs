@@ -29,14 +29,16 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = u32::deserialize(deserializer)?;
-    (MIN_TEMPERATURE..=MAX_TEMPERATURE)
-        .contains(&value)
-        .then_some(value)
-        .ok_or_else(|| {
-            serde::de::Error::custom(format!(
-                "must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE} kelvin"
-            ))
-        })
+    let clamped = value.clamp(MIN_TEMPERATURE, MAX_TEMPERATURE);
+    if clamped != value {
+        tracing::warn!(
+            problem = %format!(
+                "night-light.temperature {value} is outside {MIN_TEMPERATURE}..={MAX_TEMPERATURE} kelvin; using {clamped}"
+            ),
+            "configuration problem"
+        );
+    }
+    Ok(clamped)
 }
 
 fn clock<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>

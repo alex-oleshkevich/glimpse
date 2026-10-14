@@ -2,6 +2,7 @@
 Description=Glimpse desktop shell session
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
+After=graphical-session.target
 Wants=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service glimpse-idle.service glimpse-lock.service glimpse-desktop.service glimpse-settings-daemon.service
 PropagatesReloadTo=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service glimpse-idle.service glimpse-settings-daemon.service
 

@@ -113,6 +113,7 @@ impl Catcher {
         window.add_controller(press);
 
         let keys = gtk4::EventControllerKey::new();
+        keys.set_propagation_phase(gtk4::PropagationPhase::Capture);
         keys.connect_key_pressed({
             let catcher = Rc::downgrade(&catcher);
             move |_, key, _, _| {

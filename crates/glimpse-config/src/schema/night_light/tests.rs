@@ -72,8 +72,17 @@ fn temperature_bounds_match_the_emitted_schema() {
             toml::from_str(&format!("temperature = {value}")).expect("boundary loads");
         assert_eq!(parsed.temperature, value);
     }
-    for value in [MIN_TEMPERATURE - 1, MAX_TEMPERATURE + 1] {
-        assert!(toml::from_str::<NightLight>(&format!("temperature = {value}")).is_err());
+    for (value, clamped) in [
+        (0, MIN_TEMPERATURE),
+        (MIN_TEMPERATURE - 1, MIN_TEMPERATURE),
+        (MAX_TEMPERATURE + 1, MAX_TEMPERATURE),
+        (u32::MAX, MAX_TEMPERATURE),
+    ] {
+        let parsed: NightLight =
+            toml::from_str(&format!("temperature = {value}\nschedule = \"off\""))
+                .expect("an out-of-range temperature still loads");
+        assert_eq!(parsed.temperature, clamped);
+        assert_eq!(parsed.schedule, Schedule::Off);
     }
     let document: serde_json::Value =
         serde_json::from_str(&crate::json_schema_document()).expect("JSON");

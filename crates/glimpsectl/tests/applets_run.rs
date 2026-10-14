@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::os::fd::AsFd;
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{
@@ -269,6 +270,15 @@ impl Harness {
             .env("XDG_STATE_HOME", root.path().join("state"))
             .stdout(Stdio::piped())
             .stderr(fs::File::create(root.path().join("command.stderr"))?);
+        unsafe {
+            command.pre_exec(|| {
+                let flags = libc::CLOSE_RANGE_CLOEXEC as libc::c_int;
+                if libc::close_range(3, libc::c_uint::MAX, flags) < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
         let child = command.spawn()?;
         Ok(Self {
             _bus: bus,
@@ -284,7 +294,8 @@ impl Harness {
 
     async fn event(&mut self) -> Result<Event> {
         tokio::time::timeout(Duration::from_secs(8), self.events.recv())
-            .await?
+            .await
+            .context("no event within 8 s")?
             .context("event stream closed")
     }
 
@@ -365,7 +376,8 @@ impl Harness {
             }
             Ok::<_, anyhow::Error>(())
         })
-        .await??;
+        .await
+        .context("the command did not exit within 8 s")??;
         let mut output = self
             .command
             .take()
@@ -400,9 +412,9 @@ async fn attaches_without_installing_and_forwards_stderr() -> Result<()> {
         .await?;
     h.stderr_contains("applet started (pid ").await?;
     h.stderr_contains("applet ready").await?;
+    h.stderr_contains("applet-stderr").await?;
     let output = h.finish(libc::SIGTERM)?;
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("applet-stderr"));
     Ok(())
 }
 
@@ -576,6 +588,8 @@ async fn options_edit_calls_set_options_without_restarting() -> Result<()> {
     };
     h.hello(slot).await?;
     h.host.reply(slot).await?;
+    fs::write(h.applet.join("config.toml"), "")?;
+    tokio::time::sleep(Duration::from_millis(50)).await;
     fs::write(h.applet.join("config.toml"), "options = { two = 2 }\n")?;
     match h.event().await? {
         Event::Options(options) => assert_eq!(options, "{\"two\":2}"),

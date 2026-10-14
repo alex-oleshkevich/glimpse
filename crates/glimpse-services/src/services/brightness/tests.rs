@@ -158,12 +158,16 @@ async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
 }
 
 #[tokio::test]
-async fn sysfs_without_a_system_bus_enumerates_and_refuses_writes() {
+async fn sysfs_without_a_system_bus_lists_nothing_and_refuses_writes() {
     let backend = SysfsBacklight::new(glimpse_dbus::Buses::unavailable("no bus in tests"));
 
-    backend.enumerate().await;
+    let enumeration = backend.enumerate().await;
+    let read = backend.read("intel_backlight".to_owned()).await;
     let refused = backend.write("panel".to_owned(), 1).await;
 
+    assert!(enumeration.entries.is_empty());
+    assert!(enumeration.unanswered.is_empty());
+    assert!(matches!(read, ReadOutcome::Gone));
     assert!(refused.is_err());
 }
 

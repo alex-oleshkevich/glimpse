@@ -39,6 +39,7 @@ pub struct Configuration {
     pub files: Vec<PathBuf>,
     pub loads: bool,
     pub error: Option<String>,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -55,6 +56,16 @@ fn configuration(config: Option<PathBuf>) -> Configuration {
     Configuration {
         files: files.unwrap_or_default(),
         loads: loaded.is_ok(),
+        warnings: loaded
+            .as_ref()
+            .map(|config| {
+                config
+                    .validate()
+                    .into_iter()
+                    .map(|problem| problem.to_string())
+                    .collect()
+            })
+            .unwrap_or_default(),
         error: loaded.err().map(|error| error.to_string()),
     }
 }
@@ -67,6 +78,10 @@ impl Configuration {
                 .with_rows(self.files.iter().map(|file| [file.display().to_string()]))
                 .render(),
         );
+
+        let section = self.warnings.iter().fold(section, |section, warning| {
+            section.with(styled::warn(warning))
+        });
 
         match &self.error {
             None => section.with_note("the stack loads"),

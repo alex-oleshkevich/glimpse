@@ -132,3 +132,13 @@ fn panel_refusal_and_owner_loss_have_typed_codes() {
         Exit::Unreachable
     );
 }
+
+#[test]
+fn an_inactive_night_light_is_rejected() {
+    assert_eq!(
+        exit(&method_error(
+            "me.aresa.Glimpse.NightLight1.Error.NotActive"
+        )),
+        Exit::Rejected
+    );
+}
