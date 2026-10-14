@@ -19,10 +19,11 @@ pub struct SunsetServices {
 
 impl SunsetServices {
     /// The order is the whole of this function. Building a `ServiceRuntime` allocates channels and
-    /// nothing else, so the handles exist before anything has a side effect; the D-Bus object and
-    /// name are taken next, which is where a second copy of this binary fails; only then is gamma
-    /// control taken and the services actually started. A duplicate therefore never touches the
-    /// outputs the running one is holding.
+    /// nothing else, so the handles exist before anything has a side effect. The compositor is
+    /// reached before the D-Bus name is taken, so a session whose compositor is not up yet exits as
+    /// a failure systemd restarts, never as the clean stop a released `Type=dbus` name produces.
+    /// The name is where a second copy of this binary fails, and only the started service takes
+    /// gamma control of an output, so a duplicate never touches the outputs the running one holds.
     pub async fn start(document: &Config, initial: Result<(), String>) -> Result<Self> {
         let buses = Buses::connect().await;
         let session = buses
@@ -30,6 +31,12 @@ impl SunsetServices {
             .cloned()
             .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
             .context("the night light provider needs the session bus")?;
+
+        // The compositor is the one backend that must be there: without gamma control this process
+        // has nothing to do, and saying so at start beats degrading for ever.
+        let gamma = tokio::task::block_in_place(WaylandGamma::connect)
+            .map_err(anyhow::Error::msg)
+            .context("cannot take gamma control")?;
 
         let (night_pending, night_light) = Running::<NightLight>::build(document, buses);
 
@@ -51,12 +58,6 @@ impl SunsetServices {
         let provider = provider::start(session.clone(), night_light)
             .await
             .context("another glimpse-sunset already owns the night light")?;
-
-        // The compositor is the one backend that must be there: without gamma control this process
-        // has nothing to do, and saying so at start beats degrading for ever.
-        let gamma = tokio::task::block_in_place(WaylandGamma::connect)
-            .map_err(anyhow::Error::msg)
-            .context("cannot take gamma control")?;
 
         let solar = SettingsProvider::start(session);
         let night_service = night_pending.start(NightLightDependencies {

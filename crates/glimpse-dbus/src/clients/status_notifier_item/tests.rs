@@ -38,8 +38,8 @@ fn the_ayatana_shape_and_the_pixmap_shape_both_decode_from_what_each_sends() {
         &properties(vec![
             ("Id", Value::from("tray-icon")),
             ("Title", Value::from("walz")),
-            ("IconName", Value::from("/run/user/1000/tray-icon/x.png")),
-            ("IconThemePath", Value::from("/run/user/1000/tray-icon")),
+            ("IconName", Value::from("/fixture/tray-icon/x.png")),
+            ("IconThemePath", Value::from("/fixture/tray-icon")),
             ("XAyatanaLabel", Value::from("3")),
             (
                 "Menu",
@@ -52,7 +52,7 @@ fn the_ayatana_shape_and_the_pixmap_shape_both_decode_from_what_each_sends() {
     );
     assert_eq!(
         ayatana.icon_name.as_deref(),
-        Some("/run/user/1000/tray-icon/x.png"),
+        Some("/fixture/tray-icon/x.png"),
         "an absolute path in IconName survives the cap meant for a themed name"
     );
     assert_eq!(ayatana.label.as_deref(), Some("3"));

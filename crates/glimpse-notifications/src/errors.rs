@@ -16,6 +16,3 @@ impl From<Exit> for ExitCode {
 pub fn exit(_error: &anyhow::Error) -> Exit {
     Exit::Failed
 }
-
-#[cfg(test)]
-mod tests;

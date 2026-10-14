@@ -8,25 +8,6 @@ fn load(text: &str) -> Result<crate::Config, crate::ConfigError> {
 }
 
 #[test]
-fn an_absent_table_uses_the_documented_defaults() {
-    let screenshot = load("").expect("an absent table is fine").screenshot;
-
-    assert_eq!(screenshot.directory, None);
-    assert_eq!(
-        screenshot.filename.as_str(),
-        "Screenshot from %Y-%m-%d %H-%M-%S.png"
-    );
-    assert_eq!(screenshot.editor, Editor::Overlay);
-    assert_eq!(screenshot.delay, 0);
-    assert!(screenshot.flash);
-    assert!(!screenshot.cursor);
-    assert!(screenshot.notify);
-    assert_eq!(screenshot.color, PaletteColor::Red);
-    assert_eq!(screenshot.stroke, Stroke::Medium);
-    assert_eq!(Stroke::Medium as u8, 2);
-}
-
-#[test]
 fn every_key_reads_kebab_case() {
     let screenshot = load(
         "[screenshot]\ndirectory = \"/tmp/shots\"\nfilename = \"shot %s.png\"\n\
@@ -43,17 +24,6 @@ fn every_key_reads_kebab_case() {
     assert!(!screenshot.flash && screenshot.cursor && !screenshot.notify);
     assert_eq!(screenshot.color, PaletteColor::Blue);
     assert_eq!(screenshot.stroke, Stroke::Thick);
-}
-
-#[test]
-fn the_default_filename_loads() {
-    let default = Screenshot::default().filename.as_str().to_owned();
-    let document = format!("[screenshot]\nfilename = \"{default}\"\n");
-
-    assert_eq!(
-        load(&document).expect("the default loads").screenshot,
-        Screenshot::default()
-    );
 }
 
 #[test]

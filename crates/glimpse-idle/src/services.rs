@@ -144,13 +144,10 @@ impl IdleServices {
         })
     }
 
-    pub fn reconfigure(&self, document: &Config) {
-        if let Err(error) = self
-            .handle
-            .try_send(Event::ApplyConfig(document.idle.clone()))
-        {
-            tracing::warn!(%error, "failed to apply reloaded idle configuration");
-        }
+    pub async fn reconfigure(&self, document: &Config) {
+        self.handle
+            .send(Event::ApplyConfig(document.idle.clone()))
+            .await;
     }
 
     pub async fn report(&self, verdict: Result<(), String>) {

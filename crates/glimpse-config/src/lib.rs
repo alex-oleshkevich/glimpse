@@ -17,7 +17,7 @@ pub use load::{
 pub use schema::*;
 pub use theme::{
     DARK_STYLESHEET, DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET,
-    stylesheet, theme_dir_for, user_dark_stylesheet, user_stylesheet, watch_theme,
+    stylesheet, user_dark_stylesheet, user_stylesheet, watch_theme,
 };
 pub use watch::{Update, watch, watch_all, watch_config, watch_config_reporting};
 

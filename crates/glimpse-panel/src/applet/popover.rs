@@ -1,4 +1,15 @@
 use super::Opener;
+use futures_util::StreamExt;
+use glimpse_dbus::systemd1::Systemd1ManagerProxy;
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+use tokio::sync::OnceCell;
+use zbus::zvariant::Value;
+
+static MANAGER: OnceCell<Systemd1ManagerProxy<'static>> = OnceCell::const_new();
+static LAUNCH_SERIAL: AtomicU64 = AtomicU64::new(0);
+const JOB_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct Seat {
@@ -16,24 +27,139 @@ impl Seat {
 }
 
 pub fn run(command: &[String]) {
-    if let Err(error) = launch(command) {
-        tracing::warn!(program = command.first(), %error, "settings-command did not start");
-    }
+    let command = command.to_vec();
+    relm4::spawn_local(async move {
+        if let Err(error) = launch(&command).await {
+            tracing::warn!(program = command.first(), %error, "command did not start");
+        }
+    });
 }
 
-pub fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
-    if command.is_empty() {
+pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
+    let Some(program) = command.first() else {
         return Ok(());
+    };
+    let path = gtk4::glib::find_program_in_path(program)
+        .ok_or_else(|| gtk4::glib::Error::new(gtk4::glib::FileError::Noent, "program not found"))?;
+    let path = path.to_str().ok_or_else(|| {
+        gtk4::glib::Error::new(gtk4::glib::FileError::Inval, "program path is not UTF-8")
+    })?;
+    let token = activation_token();
+    let suffix = format!(
+        "{}-{}",
+        std::process::id(),
+        LAUNCH_SERIAL.fetch_add(1, Ordering::Relaxed)
+    );
+    let (unit, properties) = transient_unit(
+        command,
+        path,
+        &suffix,
+        [
+            token.as_ref().map(ToString::to_string),
+            std::env::var("WAYLAND_DISPLAY").ok(),
+            std::env::var("DISPLAY").ok(),
+        ],
+    );
+    let started = relm4::spawn(start(unit, properties))
+        .await
+        .unwrap_or_else(|error| Err(zbus::Error::Failure(error.to_string())));
+    match started {
+        Ok(result) => return finished(result.as_deref()),
+        Err(error) => {
+            tracing::debug!(program, %error, "cannot start transient service, spawning directly")
+        }
     }
     let launcher = gtk4::gio::SubprocessLauncher::new(gtk4::gio::SubprocessFlags::NONE);
     if !glimpse_utils::language_was_inherited() {
         launcher.unsetenv("LANGUAGE");
     }
-    if let Some(token) = activation_token() {
+    if let Some(token) = token {
         launcher.setenv("XDG_ACTIVATION_TOKEN", &token, true);
     }
     let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
     launcher.spawn(&argv).map(drop)
+}
+
+async fn manager() -> zbus::Result<Systemd1ManagerProxy<'static>> {
+    let bus = zbus::Connection::session().await?;
+    let manager = Systemd1ManagerProxy::new(&bus).await?;
+    manager.subscribe().await?;
+    Ok(manager)
+}
+
+async fn start(
+    unit: String,
+    properties: Vec<(&'static str, Value<'static>)>,
+) -> zbus::Result<Option<String>> {
+    let manager = MANAGER.get_or_try_init(manager).await?;
+    let mut removed = manager.receive_job_removed().await?;
+    let job = manager
+        .start_transient_unit(&unit, "fail", &properties, &[])
+        .await?;
+    let result = async {
+        while let Some(signal) = removed.next().await {
+            if let Ok(args) = signal.args()
+                && args.job == job
+            {
+                return Some(args.result);
+            }
+        }
+        None
+    };
+    Ok(tokio::time::timeout(JOB_TIMEOUT, result)
+        .await
+        .ok()
+        .flatten())
+}
+
+fn finished(result: Option<&str>) -> Result<(), gtk4::glib::Error> {
+    match result {
+        None | Some("done") => Ok(()),
+        Some(result) => Err(gtk4::glib::Error::new(
+            gtk4::glib::FileError::Failed,
+            &format!("the service ended with {result}"),
+        )),
+    }
+}
+
+fn transient_unit(
+    command: &[String],
+    path: &str,
+    suffix: &str,
+    environment: [Option<String>; 3],
+) -> (String, Vec<(&'static str, Value<'static>)>) {
+    let basename = Path::new(&command[0])
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("program");
+    let mut escaped = String::new();
+    for (index, byte) in basename.bytes().enumerate() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b':') || byte == b'.' && index > 0
+        {
+            escaped.push(char::from(byte));
+        } else {
+            escaped.push_str(&format!("\\x{byte:02x}"));
+        }
+    }
+    let environment: Vec<String> = ["XDG_ACTIVATION_TOKEN", "WAYLAND_DISPLAY", "DISPLAY"]
+        .into_iter()
+        .zip(environment)
+        .filter_map(|(name, value)| value.map(|value| format!("{name}={value}")))
+        .collect();
+    (
+        format!("app-glimpse-{escaped}-{suffix}.service"),
+        vec![
+            (
+                "ExecStart",
+                Value::from(vec![(path.to_owned(), command.to_vec(), false)]),
+            ),
+            ("Type", Value::from("exec")),
+            ("ExitType", Value::from("cgroup")),
+            ("Slice", Value::from("app.slice")),
+            ("CollectMode", Value::from("inactive-or-failed")),
+            ("Environment", Value::from(environment)),
+        ],
+    )
 }
 
 fn activation_token() -> Option<gtk4::glib::GString> {
@@ -47,13 +173,5 @@ fn activation_token() -> Option<gtk4::glib::GString> {
     (!token.is_empty()).then_some(token)
 }
 
-pub trait PopoverHandle {
-    fn widget(&self) -> gtk4::Widget;
-}
-
-impl<W: gtk4::prelude::IsA<gtk4::Widget> + Clone> PopoverHandle for W {
-    fn widget(&self) -> gtk4::Widget {
-        use gtk4::prelude::Cast as _;
-        self.clone().upcast()
-    }
-}
+#[cfg(test)]
+mod tests;

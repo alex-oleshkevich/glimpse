@@ -1,5 +1,4 @@
-use super::{focused_output, lock_started_on_lock, reports};
-use chrono::TimeZone;
+use super::{focused_output, reports};
 use glimpse_services::{CompositorOutputs, CompositorState, OutputInfo};
 use std::cell::RefCell;
 use tokio::sync::watch;
@@ -66,38 +65,5 @@ async fn reports_skip_the_placeholder_and_keep_a_value_published_before_subscrib
     assert!(
         seen.into_inner().is_empty(),
         "nothing published means nothing reported, so the network slot stays hidden"
-    );
-}
-
-#[test]
-fn an_unrequested_unlock_relock_keeps_the_original_since() {
-    let first = chrono::Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-    let later = chrono::Utc.timestamp_opt(1_700_000_060, 0).unwrap();
-
-    let locked = lock_started_on_lock(None, first);
-    assert_eq!(locked, Some(first));
-
-    let relocked = lock_started_on_lock(locked, later);
-    assert_eq!(
-        relocked,
-        Some(first),
-        "an unrequested-unlock relock never reaches Effect::Unlock, so the original since survives it"
-    );
-}
-
-#[test]
-fn an_authenticated_unlock_then_a_new_lock_resets_since() {
-    let first = chrono::Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-    let next = chrono::Utc.timestamp_opt(1_700_000_060, 0).unwrap();
-
-    let locked = lock_started_on_lock(None, first);
-    assert_eq!(locked, Some(first));
-
-    let cleared_by_effect_unlock = None;
-    let relocked = lock_started_on_lock(cleared_by_effect_unlock, next);
-    assert_eq!(
-        relocked,
-        Some(next),
-        "Effect::Unlock clears since; the next lock starts a fresh one"
     );
 }

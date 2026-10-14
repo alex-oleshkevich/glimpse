@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::services::{CompositorWindows, WindowInfo};
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
     Compositor as Backend, CompositorError, Event as Change, KeyboardLayouts as BackendLayouts,
@@ -12,7 +11,8 @@ use tokio::sync::oneshot;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
+    services::{CompositorWindows, WindowInfo, cap},
     subscription::Sub,
 };
 
@@ -56,28 +56,15 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct KeyboardHandle(ServiceEndpoint<Keyboard>);
+pub type KeyboardHandle = ServiceEndpoint<Keyboard>;
 
-impl KeyboardHandle {
-    pub fn snapshot(&self) -> KeyboardLayouts {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<KeyboardLayouts> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Keyboard> {
     pub async fn switch(&self, target: LayoutRef) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Switch { target, reply })?;
-        result
-            .await
-            .map_err(|_| CommandError::Unavailable("keyboard service stopped".to_owned()))?
+        self.call("keyboard service stopped", |reply| Command::Switch {
+            target,
+            reply,
+        })
+        .await?
     }
 }
 
@@ -129,15 +116,10 @@ impl Service for Keyboard {
 
     type Config = Config;
     type State = KeyboardLayouts;
-    type Handle = KeyboardHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        KeyboardHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -189,9 +171,9 @@ impl Service for Keyboard {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         tracing::debug!("starting keyboard service");
-        Ok(Self {
+        Self {
             backend: detect_compositor(),
             layouts: ctx.publisher(),
             compositor: dependencies.compositor,
@@ -200,7 +182,7 @@ impl Service for Keyboard {
             store: HashMap::new(),
             focused: None,
             attempt: 0,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -347,8 +329,8 @@ fn payload(layouts: &BackendLayouts, labels: &BTreeMap<String, String>) -> Keybo
         .zip(layouts.codes.iter())
         .take(n)
         .map(|(name, code)| KeyboardLayout {
-            code: cap(&badge(labels, code, name)),
-            name: cap(name),
+            code: cap(&badge(labels, code, name), NAME_CAP),
+            name: cap(name, NAME_CAP),
         })
         .collect::<Vec<_>>();
     let current = layouts
@@ -380,10 +362,6 @@ fn badge(labels: &BTreeMap<String, String>, code: &str, name: &str) -> String {
                 layout_code(code)
             }
         })
-}
-
-fn cap(text: &str) -> String {
-    text.chars().take(NAME_CAP).collect()
 }
 
 fn remember_key(remember: Remember, focused: Option<&WindowInfo>) -> Option<StoreKey> {

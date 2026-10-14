@@ -2,6 +2,7 @@
 Description=Glimpse night light
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
+After=glimpse-session.target
 StartLimitBurst=5
 StartLimitIntervalSec=60
 

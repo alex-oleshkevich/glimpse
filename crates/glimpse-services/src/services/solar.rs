@@ -13,7 +13,7 @@ use tokio::{
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint},
     subscription::Sub,
 };
 pub use glimpse_dbus::settings::{SolarPhase, SolarStatus};
@@ -42,32 +42,16 @@ pub struct SolarDependencies {
     pub geolocation: super::geolocation::GeolocationHandle,
 }
 
-#[derive(Clone)]
-pub struct SolarHandle(ServiceEndpoint<Solar>);
+pub type SolarHandle = ServiceEndpoint<Solar>;
 
-impl SolarHandle {
-    pub fn snapshot(&self) -> Option<SolarStatus> {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<Option<SolarStatus>> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Solar> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        let (reply, answer) = oneshot::channel();
-        self.0.command(Command::Refresh { reply })?;
-        answer.await.map_err(|_| {
-            CommandError::Unavailable("`solar` stopped before refreshing".to_owned())
-        })?
+        self.call("`solar` stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
-
-impl Solar {}
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
@@ -82,15 +66,10 @@ impl Service for Solar {
 
     type Config = NoConfig;
     type State = Option<SolarStatus>;
-    type Handle = SolarHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = SolarDependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        SolarHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -121,14 +100,14 @@ impl Service for Solar {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         ctx.degraded("no location yet");
-        Ok(Self {
+        Self {
             coordinates: None,
             next_change: None,
             status: ctx.publisher(),
             location: dependencies.geolocation.subscribe(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

@@ -48,7 +48,7 @@ pub struct KdeconnectPopover {
     #[template_child]
     pub nearby_more: TemplateChild<ActionRow>,
     #[template_child]
-    pub footer: TemplateChild<ActionRow>,
+    pub settings: TemplateChild<ActionRow>,
 
     pub devices_held: RefCell<Vec<(String, ExpanderRow)>>,
     pub devices_data: RefCell<Vec<Device>>,
@@ -84,20 +84,8 @@ impl ObjectImpl for KdeconnectPopover {
                 glib::subclass::Signal::builder("pair")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
-    }
-
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj();
-
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
     }
 
     fn dispose(&self) {

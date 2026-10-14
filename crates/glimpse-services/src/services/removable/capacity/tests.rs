@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn a_real_mount_point_yields_a_nonzero_total_with_available_no_greater_than_it() {
-    let sampled = sample(&std::env::temp_dir()).expect("statvfs succeeds on a real path");
+    let dir = tempfile::tempdir().expect("temporary mount point");
+    let sampled = sample(dir.path()).expect("statvfs succeeds on a real path");
 
     assert!(sampled.total > 0);
     assert!(sampled.available <= sampled.total);

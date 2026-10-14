@@ -40,21 +40,17 @@ pub trait Systemd1Manager {
     ) -> zbus::Result<Vec<Systemd1UnitEntry>>;
     fn get_unit_processes(&self, name: &str) -> zbus::Result<Vec<(String, u32, String)>>;
     fn kill_unit(&self, name: &str, whom: &str, signal: i32) -> zbus::Result<()>;
+    fn subscribe(&self) -> zbus::Result<()>;
+    #[zbus(signal)]
+    fn job_removed(
+        &self,
+        id: u32,
+        job: OwnedObjectPath,
+        unit: String,
+        result: String,
+    ) -> zbus::Result<()>;
     #[zbus(property(emits_changed_signal = "false"))]
     fn environment(&self) -> zbus::Result<Vec<String>>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.systemd1.Unit",
-    default_service = "org.freedesktop.systemd1"
-)]
-pub trait Systemd1Unit {
-    #[zbus(property(emits_changed_signal = "const"))]
-    fn id(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn active_state(&self) -> zbus::Result<String>;
-    #[zbus(property)]
-    fn sub_state(&self) -> zbus::Result<String>;
 }
 
 #[zbus::proxy(

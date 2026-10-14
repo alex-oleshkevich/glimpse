@@ -31,11 +31,15 @@ fn every_gesture_runs_its_own_program() {
     assert!(argv(&config, Pointer::Press(Button::Other(8))).is_empty());
 }
 
-#[test]
-fn an_unconfigured_gesture_runs_nothing() {
+#[tokio::test]
+async fn an_unconfigured_gesture_runs_nothing() {
     let config = CommandAppletConfig::default();
     assert!(argv(&config, Pointer::Press(Button::Left)).is_empty());
-    assert!(launch(argv(&config, Pointer::Press(Button::Left))).is_ok());
+    assert!(
+        launch(argv(&config, Pointer::Press(Button::Left)))
+            .await
+            .is_ok()
+    );
 }
 
 #[test]
@@ -77,7 +81,7 @@ async fn a_chip_with_neither_icon_nor_label_takes_no_room() {
         &glimpse_config::Config::default(),
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
-    let mut command = Command::start(services.notifications());
+    let mut command = Command::start(services.handles.notifications.clone());
     assert!(command.indicators().is_empty());
 
     command.label = Some("Shot".to_owned());
@@ -89,7 +93,7 @@ async fn a_chip_with_neither_icon_nor_label_takes_no_room() {
     services.shutdown().await;
 }
 
-#[test]
-fn a_launch_that_cannot_start_is_an_error() {
-    assert!(launch(&argv_of("glimpse-no-such-program")).is_err());
+#[tokio::test]
+async fn a_launch_that_cannot_start_is_an_error() {
+    assert!(launch(&argv_of("glimpse-no-such-program")).await.is_err());
 }

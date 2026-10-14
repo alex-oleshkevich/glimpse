@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use gettextrs::gettext;
 
-use crate::{InhibitorEntry, Row};
+use crate::InhibitorEntry;
 
 glib::wrapper! {
     pub struct IdlePopover(ObjectSubclass<imp::IdlePopover>)
@@ -48,12 +48,6 @@ impl IdlePopover {
         if imp.others.get_visible() == entries.is_empty() {
             imp.others.set_visible(!entries.is_empty());
         }
-    }
-
-    pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.upcast_ref::<Row>().set_title(label);
-        footer.set_visible(label.is_some());
     }
 
     /// The hold row names what a preset will replace — "Awake until 15:40" while a timed hold
@@ -110,14 +104,6 @@ impl IdlePopover {
             "release-requested",
             false,
             glib::closure_local!(move |popover: Self, id: u64| f(&popover, id)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
 }

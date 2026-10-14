@@ -9,7 +9,7 @@ use tokio::sync::oneshot;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint},
     subscription::Sub,
 };
 use serde::{Deserialize, Serialize};
@@ -73,6 +73,8 @@ pub struct CompositorCapabilities {
     pub floating: bool,
     pub workspace_reorder: bool,
     pub output_power: bool,
+    #[serde(default)]
+    pub blank_screens: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -203,32 +205,22 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct CompositorHandle(ServiceEndpoint<Compositor>);
+pub type CompositorHandle = ServiceEndpoint<Compositor>;
 
-impl CompositorHandle {
-    pub fn snapshot(&self) -> CompositorState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<CompositorState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Compositor> {
     pub async fn focus_workspace(&self, target: WorkspaceRef) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::FocusWorkspace { target, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::FocusWorkspace { target, reply }
+        })
+        .await?
     }
 
     pub async fn focus_window(&self, target: WindowRef) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::FocusWindow { target, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| Command::FocusWindow {
+            target,
+            reply,
+        })
+        .await?
     }
 
     pub async fn focus_app(&self, pid: Option<i32>, names: &[&str]) -> Result<(), CommandError> {
@@ -252,9 +244,11 @@ impl CompositorHandle {
     }
 
     pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::FocusOutput { connector, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| Command::FocusOutput {
+            connector,
+            reply,
+        })
+        .await?
     }
 
     pub async fn rename_workspace(
@@ -262,10 +256,10 @@ impl CompositorHandle {
         id: u64,
         name: Option<String>,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0
-            .command(Command::RenameWorkspace { id, name, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::RenameWorkspace { id, name, reply }
+        })
+        .await?
     }
 
     pub async fn move_workspace_to_output(
@@ -273,20 +267,21 @@ impl CompositorHandle {
         id: u64,
         connector: String,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::MoveWorkspaceToOutput {
-            id,
-            connector,
-            reply,
-        })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::MoveWorkspaceToOutput {
+                id,
+                connector,
+                reply,
+            }
+        })
+        .await?
     }
 
     pub async fn reorder_workspace(&self, id: u64, index: u8) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0
-            .command(Command::ReorderWorkspace { id, index, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::ReorderWorkspace { id, index, reply }
+        })
+        .await?
     }
 
     pub async fn move_window_to_workspace(
@@ -294,19 +289,22 @@ impl CompositorHandle {
         window: u64,
         workspace: WorkspaceRef,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::MoveWindowToWorkspace {
-            window,
-            workspace,
-            reply,
-        })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::MoveWindowToWorkspace {
+                window,
+                workspace,
+                reply,
+            }
+        })
+        .await?
     }
 
     pub async fn close_window(&self, id: u64) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::CloseWindow { id, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| Command::CloseWindow {
+            id,
+            reply,
+        })
+        .await?
     }
 
     pub async fn set_output_enabled(
@@ -314,31 +312,29 @@ impl CompositorHandle {
         connector: String,
         enabled: bool,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetOutputEnabled {
-            connector,
-            enabled,
-            reply,
-        })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::SetOutputEnabled {
+                connector,
+                enabled,
+                reply,
+            }
+        })
+        .await?
     }
 
     pub async fn power_off_monitors(&self) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::PowerOffMonitors { reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::PowerOffMonitors { reply }
+        })
+        .await?
     }
 
     pub async fn stop_screencast(&self, session_id: u64) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0
-            .command(Command::StopScreencast { session_id, reply })?;
-        result.await.map_err(|_| stopped())?
+        self.call("compositor service stopped", |reply| {
+            Command::StopScreencast { session_id, reply }
+        })
+        .await?
     }
-}
-
-fn stopped() -> CommandError {
-    CommandError::Unavailable("compositor service stopped".to_owned())
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -369,15 +365,10 @@ impl Service for Compositor {
 
     type Config = NoConfig;
     type State = CompositorState;
-    type Handle = CompositorHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        CompositorHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -421,11 +412,11 @@ impl Service for Compositor {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let backend = detect_compositor();
         tracing::debug!(compositor = backend.name(), "starting compositor service");
 
-        Ok(Self::with_backend(ctx, backend))
+        Self::with_backend(ctx, backend)
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -584,7 +575,7 @@ impl Compositor {
                 (outcome, reply)
             }
             Command::PowerOffMonitors { reply } => {
-                let outcome = if !self.capabilities.output_power {
+                let outcome = if !self.capabilities.blank_screens {
                     Err(CompositorError::Unsupported(
                         "this compositor cannot blank the displays",
                     ))
@@ -830,6 +821,7 @@ fn capabilities(capabilities: Capabilities) -> CompositorCapabilities {
         floating: capabilities.floating,
         workspace_reorder: capabilities.workspace_reorder,
         output_power: capabilities.output_power,
+        blank_screens: capabilities.blank_screens,
     }
 }
 

@@ -52,10 +52,6 @@ pub async fn follow(
 
     // The menu's own `Status` is `normal` or `notice` — the calm counterpart to the item's
     // `NeedsAttention`, and a different property on a different interface.
-    let first = Event::MenuStatus(
-        key.clone(),
-        menu.status().await.unwrap_or_default() == NOTICE,
-    );
     let statuses = menu.receive_status_changed().await.filter_map({
         let key = key.clone();
         move |changed| {
@@ -63,6 +59,10 @@ pub async fn follow(
             async move { Some(Event::MenuStatus(key, changed.get().await.ok()? == NOTICE)) }
         }
     });
+    let first = Event::MenuStatus(
+        key.clone(),
+        menu.status().await.unwrap_or_default() == NOTICE,
+    );
 
     let signals = stream::select(
         stream::select(Box::pin(layouts), Box::pin(statuses)),

@@ -71,10 +71,8 @@ impl ShotCapturePage {
             Some(index) if previous != "current" => (index + 1) as u32,
             _ => 0,
         };
-        imp.quiet.set(true);
         imp.screen.set_model(Some(&list));
         imp.screen.set_selected(selected);
-        imp.quiet.set(false);
         self.sync_rows();
     }
 
@@ -94,12 +92,10 @@ impl ShotCapturePage {
         let selected = previous
             .and_then(|id| windows.iter().position(|(window, _)| *window == id))
             .unwrap_or(0) as u32;
-        imp.quiet.set(true);
         imp.window.set_model(Some(&list));
         if !windows.is_empty() {
             imp.window.set_selected(selected);
         }
-        imp.quiet.set(false);
         self.sync_rows();
     }
 
@@ -154,28 +150,6 @@ impl ShotCapturePage {
         )
     }
 
-    pub fn connect_output_selected<F: Fn(&Self, String) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "output-selected",
-            false,
-            glib::closure_local!(move |page: Self, output: String| f(&page, output)),
-        )
-    }
-
-    pub fn connect_window_selected<F: Fn(&Self, u64) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "window-selected",
-            false,
-            glib::closure_local!(move |page: Self, id: u64| f(&page, id)),
-        )
-    }
-
     pub fn connect_delay_changed<F: Fn(&Self, u32) + 'static>(
         &self,
         f: F,
@@ -219,35 +193,6 @@ impl ShotCapturePage {
                 if let Some(mode) = page.imp().modes.active_name() {
                     page.emit_by_name::<()>("mode-changed", &[&mode.to_string()]);
                 }
-            }
-        ));
-        imp.screen.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = page)]
-            self,
-            move |_| {
-                if page.imp().quiet.get() {
-                    return;
-                }
-                let Some(name) =
-                    output_name(&page.imp().outputs.borrow(), page.imp().screen.selected())
-                else {
-                    return;
-                };
-                page.emit_by_name::<()>("output-selected", &[&name]);
-            }
-        ));
-        imp.window.connect_selected_notify(glib::clone!(
-            #[weak(rename_to = page)]
-            self,
-            move |_| {
-                if page.imp().quiet.get() {
-                    return;
-                }
-                let index = page.imp().window.selected() as usize;
-                let Some(id) = page.imp().windows.borrow().get(index).map(|(id, _)| *id) else {
-                    return;
-                };
-                page.emit_by_name::<()>("window-selected", &[&id]);
             }
         ));
         imp.delay.connect_value_notify(glib::clone!(

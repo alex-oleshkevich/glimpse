@@ -10,21 +10,18 @@ use std::{
 };
 
 use gettextrs::gettext;
-use glimpse_config::{Applet as AppletConfig, Position};
+use glimpse_config::Position;
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{
     Edge, ExecBarRequest as BarRequest, ExecHandle, ExecUserEvent as UserEvent, Orientation,
     Placement, Tree, Zone,
 };
-use glimpse_widgets::{ActionRow, IndicatorSpec, PopoverShell};
+use glimpse_widgets::{IndicatorSpec, PopoverShell};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::{
     applet::{
-        Applet, Ctx, Input, Pointer, Report,
-        footer::Footer,
-        popover::{PopoverHandle, Seat},
-        spawn_command, spawn_reported, wording,
+        Applet, Ctx, Input, Pointer, Report, popover::Seat, spawn_command, spawn_reported, wording,
     },
     components::panel,
 };
@@ -80,8 +77,6 @@ pub struct Exec {
     icons: HashMap<String, gio::Icon>,
     seq: Rc<RefCell<HashMap<dom::Key, u64>>>,
     dom: Option<dom::Dom>,
-    footer: Footer,
-    footer_row: glib::WeakRef<ActionRow>,
 }
 
 impl Exec {
@@ -118,8 +113,6 @@ impl Exec {
             icons: HashMap::new(),
             seq: Rc::new(RefCell::new(HashMap::new())),
             dom: None,
-            footer: Footer::default(),
-            footer_row: glib::WeakRef::new(),
         }
     }
 
@@ -170,7 +163,7 @@ impl Exec {
         }
         if let Some(dom) = &mut self.dom
             && (!dom.is_alive()
-                || ((!unchanged || generation_changed)
+                || ((!unchanged || generation_changed || dom.needs_redress())
                     && !dom.reconcile(&self.tree, self.generation)))
         {
             self.dom = None;
@@ -313,13 +306,6 @@ impl Applet for Exec {
         }
     }
 
-    fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        self.footer.configure(&config.common);
-        if let Some(row) = self.footer_row.upgrade() {
-            dress_footer(&row, &self.footer);
-        }
-    }
-
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
             Input::Woken => self.refresh(&ctx.opener()),
@@ -332,7 +318,7 @@ impl Applet for Exec {
         self.specs.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         render::first_child_of_kind(&self.tree, 0, |element| {
             matches!(element, glimpse_services::Element::Popover(_))
         })?;
@@ -354,21 +340,8 @@ impl Applet for Exec {
         let mut dom = dom::Dom::new(&shell, self.slot, dispatch, seat.opener(), self.seq.clone());
         dom.reconcile(&self.tree, self.generation);
         self.dom = Some(dom);
-        let row = ActionRow::new();
-        let footer = self.footer.clone();
-        row.connect_activated(move |_| footer.run());
-        dress_footer(&row, &self.footer);
-        shell.body().append(&row);
-        shell.body().set_visible(true);
-        self.footer_row.set(Some(&row));
-        Some(Box::new(shell))
+        Some(shell.upcast())
     }
-}
-
-fn dress_footer(row: &ActionRow, footer: &Footer) {
-    let label = footer.label();
-    row.set_property("title", label.as_deref());
-    row.set_visible(label.is_some());
 }
 
 #[cfg(test)]

@@ -3,7 +3,9 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, CommandAppletConfig};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_widgets::IndicatorSpec;
 use gtk4::prelude::*;
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use crate::applet::popover::launch;
@@ -19,7 +21,7 @@ pub struct Command {
     label: Option<String>,
     tooltip: Option<String>,
     report_icon: String,
-    reported: Option<(String, Instant)>,
+    reported: Rc<RefCell<Option<(String, Instant)>>>,
 }
 
 impl Applet for Command {
@@ -47,7 +49,7 @@ impl Applet for Command {
             return;
         };
         let command = argv(&self.config, *pointer).to_vec();
-        self.run(&command);
+        self.run(command);
     }
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
@@ -72,21 +74,13 @@ impl Command {
             label: None,
             tooltip: None,
             report_icon: FALLBACK_ICON.to_owned(),
-            reported: None,
+            reported: Rc::default(),
         }
     }
 
-    fn run(&mut self, command: &[String]) {
-        let Err(error) = launch(command) else {
-            return;
-        };
+    fn run(&mut self, command: Vec<String>) {
         let program = command.first().cloned().unwrap_or_default();
-        let now = Instant::now();
-        if quiet(self.reported.as_ref(), &program, now) {
-            tracing::debug!(program, %error, "command did not start again");
-            return;
-        }
-        self.reported = Some((program.clone(), now));
+        let reported = self.reported.clone();
         let report = Report {
             notifications: self.notifications.clone(),
             app_name: self.label.clone().unwrap_or_else(|| gettext("Command")),
@@ -94,7 +88,18 @@ impl Command {
             summary: gettext("Could not run a command"),
         };
         let body = gettext("{program} could not be started.").replace("{program}", &program);
-        relm4::spawn_local(report_failure("command.run", report, Some(body), error));
+        relm4::spawn_local(async move {
+            let Err(error) = launch(&command).await else {
+                return;
+            };
+            let now = Instant::now();
+            if quiet(reported.borrow().as_ref(), &program, now) {
+                tracing::debug!(program, %error, "command did not start again");
+                return;
+            }
+            *reported.borrow_mut() = Some((program, now));
+            report_failure("command.run", report, Some(body), error).await;
+        });
     }
 }
 

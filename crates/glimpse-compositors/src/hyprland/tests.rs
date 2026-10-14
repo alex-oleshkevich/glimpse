@@ -317,7 +317,7 @@ async fn a_window_s_rect_is_relative_to_its_own_monitors_origin_not_the_layout()
 }
 
 #[tokio::test]
-async fn power_off_monitors_dispatches_dpms_off() {
+async fn power_off_monitors_is_unavailable_and_sends_nothing() {
     let received: Arc<Mutex<Option<String>>> = Arc::default();
     let sink = received.clone();
     let server = FakeHyprland::spawn(
@@ -328,15 +328,10 @@ async fn power_off_monitors_dispatches_dpms_off() {
         Vec::new(),
     );
 
-    Hyprland::at(&server.dir)
-        .power_off_monitors()
-        .await
-        .expect("dispatched");
+    let outcome = Hyprland::at(&server.dir).power_off_monitors().await;
 
-    assert_eq!(
-        received.lock().expect("lock").as_deref(),
-        Some("dispatch dpms off")
-    );
+    assert!(matches!(outcome, Err(CompositorError::Unavailable(_))));
+    assert_eq!(received.lock().expect("lock").as_deref(), None);
 }
 
 #[test]

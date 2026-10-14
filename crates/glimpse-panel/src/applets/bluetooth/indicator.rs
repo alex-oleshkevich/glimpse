@@ -7,13 +7,12 @@ use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_services::{Answer, BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
 
 use glimpse_widgets::{BluetoothPopover, IndicatorSpec};
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 use render::Asked;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_command};
 
 use super::render;
@@ -23,7 +22,6 @@ pub struct Bluetooth {
     bluetooth: BluetoothHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     devices: usize,
     nearby: usize,
@@ -34,10 +32,6 @@ pub struct Bluetooth {
     shown: glib::WeakRef<BluetoothPopover>,
 }
 
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
-
 impl Applet for Bluetooth {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Bluetooth(cfg) = &config.kind else {
@@ -46,7 +40,7 @@ impl Applet for Bluetooth {
         self.devices = cfg.devices;
         self.nearby = cfg.nearby;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -72,7 +66,7 @@ impl Applet for Bluetooth {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = BluetoothPopover::new();
 
         shown.connect_powered({
@@ -262,14 +256,11 @@ impl Applet for Bluetooth {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.expanded.set((false, false));
         self.nearby_toggled.set(false);
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -351,7 +342,6 @@ impl Bluetooth {
             bluetooth,
             notifications,
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             devices: 6,
             nearby: 8,
@@ -385,7 +375,7 @@ impl Bluetooth {
         let hero = render::hero(&self.state);
         shown.set_adapter(&hero.title, hero.on, hero.settable);
         shown.set_controls_sensitive(hero.controls);
-        shown.set_footer(self.footer.label().as_deref());
+
         shown.set_prompt(render::prompt(&self.state).as_ref());
 
         let listing = render::entries(

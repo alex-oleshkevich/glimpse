@@ -171,7 +171,7 @@ ctl *ARGS:
 net-guard *ARGS:
     scripts/net-guard.sh "$@"
 
-[doc("click a point on a niri output with ydotool")]
+[doc("click a point on a niri output with a wlr virtual pointer")]
 click *ARGS:
     python3 scripts/click.py "$@"
 

@@ -1,4 +1,3 @@
-use super::select_seat_session_candidate;
 use super::{SessionCandidate, select_session_candidate};
 use zbus::zvariant::OwnedObjectPath;
 
@@ -41,33 +40,6 @@ fn select_session_candidate_ignores_other_users() {
     )];
 
     assert!(select_session_candidate(&candidates, 1000).is_none());
-}
-
-#[test]
-fn select_seat_session_candidate_skips_no_seat_sessions() {
-    let candidates = vec![
-        candidate("1", 1000, true, Some("user"), Some("wayland"), ""),
-        candidate("2", 1000, false, Some("user"), Some("tty"), "seat0"),
-    ];
-
-    assert_eq!(
-        select_seat_session_candidate(&candidates, 1000).map(|candidate| candidate.id.as_str()),
-        Some("2")
-    );
-}
-
-#[test]
-fn select_seat_session_candidate_returns_none_without_a_seat() {
-    let candidates = vec![candidate(
-        "1",
-        1000,
-        true,
-        Some("manager"),
-        Some("unspecified"),
-        "",
-    )];
-
-    assert!(select_seat_session_candidate(&candidates, 1000).is_none());
 }
 
 fn candidate(

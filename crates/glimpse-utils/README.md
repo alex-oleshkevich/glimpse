@@ -59,9 +59,11 @@ own copy for window titles rather than take a dependency on this crate to avoid 
 
 `sanitize_body(body)` turns a notification body into Pango markup: bounds the input, replaces bidi
 overrides and control characters with spaces (keeping `\n`, which `clean` would flatten), then runs
-`ammonia` with `tags(["b", "i", "u"])`, `link_rel(None)` and `strip_comments(true)`. The parse gate
-itself lives at the widget, in `glimpse-widgets`, since it needs Pango and this crate takes no GTK
-dependency.
+`ammonia` with `tags(["b", "i", "u", "br"])`, no generic attributes, `link_rel(None)` and
+`strip_comments(true)`. It then rewrites `<br>` to `\n` and keeps at most `BODY_MAX_LINES - 1` line
+breaks, turning the rest into spaces: a label's `lines` limit is per paragraph, so an unbounded `\n`
+count would make a card taller than the screen. The parse gate itself lives at the widget, in
+`glimpse-widgets`, since it needs Pango and this crate takes no GTK dependency.
 
 - **No `<a>` tag** — Pango has no anchor element, and a clickable attacker-controlled link in a
   surface the user did not deliberately open is a phishing affordance; link text survives, the URL

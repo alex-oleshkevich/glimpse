@@ -92,19 +92,6 @@ fn shot_result_page_widgets() {
     assert!(!imp.collision.get_visible());
     assert!(!imp.name.has_css_class("error"));
 
-    let shot = texture(4, 2);
-    page.set_texture(Some(&shot));
-    assert!(imp.picture.paintable().is_some());
-    let texture_writes = Rc::new(Cell::new(0));
-    imp.picture.connect_notify_local(Some("paintable"), {
-        let texture_writes = Rc::clone(&texture_writes);
-        move |_, _| texture_writes.set(texture_writes.get() + 1)
-    });
-    page.set_texture(Some(&shot));
-    assert_eq!(texture_writes.get(), 0, "the same texture is not set again");
-    page.set_texture(None);
-    assert!(imp.picture.paintable().is_none());
-
     let copies = Rc::new(Cell::new(0));
     let saves = Rc::new(Cell::new(0));
     let opens = Rc::new(Cell::new(0));

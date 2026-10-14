@@ -8,7 +8,7 @@ use futures_util::{Stream, StreamExt, future, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
 use glimpse_dbus::weather::GeoCoordinates;
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 use tokio::time::{sleep, timeout};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
@@ -16,7 +16,7 @@ use super::say;
 use crate::{
     context::{Ctx, SourceGuard},
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 use serde::{Deserialize, Serialize};
@@ -101,28 +101,14 @@ pub struct Geolocation {
     has_fix: bool,
 }
 
-#[derive(Clone)]
-pub struct GeolocationHandle(ServiceEndpoint<Geolocation>);
+pub type GeolocationHandle = ServiceEndpoint<Geolocation>;
 
-impl GeolocationHandle {
-    pub fn snapshot(&self) -> GeolocationStatus {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<GeolocationStatus> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Geolocation> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        let (reply, answer) = oneshot::channel();
-        self.0.command(Command::Refresh { reply })?;
-        answer.await.map_err(|_| {
-            CommandError::Unavailable("`geolocation` stopped before refreshing".to_owned())
-        })?
+        self.call("`geolocation` stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -141,15 +127,10 @@ impl Service for Geolocation {
 
     type Config = Config;
     type State = GeolocationStatus;
-    type Handle = GeolocationHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = GeolocationDependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        GeolocationHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -180,7 +161,7 @@ impl Service for Geolocation {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let last = match &dependencies.cache {
             Some(path) => load(path).await,
             None => None,
@@ -196,7 +177,7 @@ impl Service for Geolocation {
             has_fix: false,
         };
         service.apply(ctx, config.provider);
-        Ok(service)
+        service
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

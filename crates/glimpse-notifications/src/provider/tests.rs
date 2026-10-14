@@ -109,7 +109,7 @@ async fn introspection_and_typed_round_trip_match_the_frozen_interface() {
 
     provider.shutdown().await;
     cancel.cancel();
-    service_task.await.unwrap().unwrap();
+    service_task.await.unwrap();
 }
 
 #[test]

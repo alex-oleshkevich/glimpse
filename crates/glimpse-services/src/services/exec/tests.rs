@@ -18,7 +18,7 @@ use super::*;
 
 use crate::selection::FakeSelection;
 
-use crate::service::{ServiceRuntime, ServiceSender};
+use crate::service::ServiceRuntime;
 
 #[derive(Clone)]
 struct FakeCatalog(Arc<Mutex<Result<Entry, String>>>);
@@ -54,8 +54,12 @@ fn placement() -> Placement {
     }
 }
 
+thread_local! {
+    static SCRIPT_ROOT: tempfile::TempDir = tempfile::tempdir().expect("script root");
+}
+
 fn script(source: &str) -> (tempfile::TempDir, Entry, PathBuf) {
-    let dir = tempfile::tempdir().expect("tempdir");
+    let dir = SCRIPT_ROOT.with(|root| tempfile::tempdir_in(root.path()).expect("tempdir"));
     let path = dir.path().join("applet.sh");
     std::fs::write(&path, source).expect("script");
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("executable");
@@ -91,6 +95,7 @@ impl std::ops::DerefMut for TestConfig {
 }
 
 fn configured() -> TestConfig {
+    let script_root = SCRIPT_ROOT.with(|root| root.path().display().to_string());
     let state_dir = tempfile::tempdir().expect("state dir");
     let config = Config {
         state_base: Some(state_dir.path().to_path_buf()),
@@ -102,8 +107,8 @@ fn configured() -> TestConfig {
                 options: Map::from_iter([("color".to_owned(), Value::from("blue"))]),
                 env: BTreeMap::new(),
                 sandbox: glimpse_config::AppletSandbox {
-                    read: vec![std::env::temp_dir().display().to_string()],
-                    write: vec![std::env::temp_dir().display().to_string()],
+                    read: vec![script_root.clone()],
+                    write: vec![script_root],
                     ..Default::default()
                 },
             },
@@ -139,7 +144,7 @@ fn running(
     catalog: FakeCatalog,
 ) -> (
     ExecHandle,
-    ServiceSender<Exec>,
+    tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
@@ -152,7 +157,7 @@ fn running_with(
     catalog: Arc<dyn Catalog>,
 ) -> (
     ExecHandle,
-    ServiceSender<Exec>,
+    tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
@@ -185,7 +190,7 @@ fn running_with(
     };
     let task = tokio::spawn(async move {
         let _state_dir = state_dir;
-        let _ = runtime.run(deps).await;
+        runtime.run(deps).await;
     });
     (handle, sender, cancel, task, selection)
 }
@@ -293,31 +298,78 @@ async fn offer_and_attach(
         .expect("attach offer");
 }
 
-#[tokio::test]
-#[ignore = "runs for 61 seconds"]
-async fn child_survives_the_blocking_pool_retirement_window() {
-    let (_dir, entry, output) = script(
-        "#!/usr/bin/env python3\nimport os, sys, time\nopen(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nsys.stdin.readline()\ntime.sleep(70)\n",
-    );
-    let (handle, _sender, cancel, task, _selection) =
-        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
-    handle.attach(1, "test", placement()).await.expect("attach");
-    status(&handle, 1, |s| matches!(s, Status::Running)).await;
-    let pid: u32 = tokio::fs::read_to_string(format!("{}.pid", output.display()))
-        .await
-        .expect("pid")
-        .trim()
-        .parse()
-        .expect("numeric pid");
-    tokio::time::sleep(Duration::from_secs(61)).await;
-    assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
-    assert!(matches!(
-        handle.snapshot().slots.get(&1).map(|s| &s.status),
-        Some(Status::Running)
-    ));
-    handle.detach(1).await.expect("detach");
-    cancel.cancel();
-    let _ = task.await;
+#[test]
+fn child_survives_the_blocking_pool_retirement_window() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .thread_name("exec-retire")
+        .thread_keep_alive(Duration::from_millis(10))
+        .enable_all()
+        .build()
+        .expect("test runtime");
+    runtime.block_on(async {
+        let (_dir, entry, output) = script(
+            "#!/usr/bin/env python3\nimport os, sys\nopen(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\nprint('{\"t\":\"hello\",\"v\":1}', flush=True)\nfor line in sys.stdin:\n    with open(sys.argv[1], 'a') as output:\n        output.write(line)\n",
+        );
+        let (handle, _sender, cancel, task, _selection) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        handle.attach(1, "test", placement()).await.expect("attach");
+        status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        let pid: u32 = tokio::fs::read_to_string(format!("{}.pid", output.display()))
+            .await
+            .expect("pid")
+            .trim()
+            .parse()
+            .expect("numeric pid");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let threads = std::fs::read_dir("/proc/self/task")
+                    .expect("process threads")
+                    .map(|entry| entry.expect("thread entry"))
+                    .filter(|entry| {
+                        std::fs::read_to_string(entry.path().join("comm"))
+                            .is_ok_and(|name| name.trim() == "exec-retire")
+                    })
+                    .count();
+                if threads == 1 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.expect("blocking threads retired");
+        let stat = tokio::fs::read_to_string(format!("/proc/{pid}/stat"))
+            .await
+            .expect("child still exists");
+        assert_ne!(
+            stat.rsplit_once(") ")
+                .expect("process name ends")
+                .1
+                .split_whitespace()
+                .next(),
+            Some("Z"),
+            "the child must remain alive after the blocking threads retire"
+        );
+        handle
+            .send_event(UserEvent {
+                slot: 1,
+                generation: handle.snapshot().slots[&1].generation,
+                id: 4,
+                name: "retired".to_owned(),
+                args: Vec::new(),
+                seq: None,
+                gesture: true,
+            })
+            .await
+            .expect("send after retirement");
+        file_contains(&output, "\"name\":\"retired\"").await;
+        assert!(matches!(
+            handle.snapshot().slots.get(&1).map(|s| &s.status),
+            Some(Status::Running)
+        ));
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    });
 }
 
 mod attached;

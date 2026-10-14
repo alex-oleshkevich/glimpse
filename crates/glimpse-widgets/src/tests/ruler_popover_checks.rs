@@ -79,19 +79,4 @@ pub(super) fn check() {
         "an emptied history hides the section again, matching the approved board's empty state"
     );
     assert_eq!(children(&*ruler_imp.history_rows), 0);
-
-    ruler.set_footer(Some("Settings"));
-    assert!(ruler_imp.footer.get_visible());
-    assert_eq!(
-        ruler_imp.footer.upcast_ref::<Row>().title().as_deref(),
-        Some("Settings")
-    );
-
-    let footer_activated = Rc::new(Cell::new(false));
-    ruler.connect_footer_activated({
-        let footer_activated = Rc::clone(&footer_activated);
-        move |_| footer_activated.set(true)
-    });
-    ruler_imp.footer.activate();
-    assert!(footer_activated.get());
 }

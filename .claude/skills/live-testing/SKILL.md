@@ -99,9 +99,9 @@ not would lose the whole session to that command.
   ```
 
   `x` and `y` are logical coordinates relative to the named niri output. Run the same command
-  with `--dry-run` first to verify the output lookup and generated `ydotool` coordinates without
-  moving the pointer. A real click requires an already-running `ydotoold`; if it is inactive, say
-  so and do not start it unasked. The helper cannot query the previous pointer position, so use
+  with `--dry-run` first to verify the output lookup and the generated virtual-pointer command
+  without moving the pointer. The click goes through a `zwlr_virtual_pointer_v1` bound to the named
+  output, so it needs no daemon. The helper cannot query the previous pointer position, so use
   explicit virtual-desktop coordinates when a test must move the pointer back:
 
   ```bash

@@ -10,15 +10,14 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, PowerAppletConfig};
 use glimpse_dbus::idle::{IdleProviderError, IdleProviderHandle, IdleProviderState};
 use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_dbus::upower::ChargeState;
-use glimpse_services::{BatteryHandle, BatteryHistoryPoint, BatteryState, CommandError};
+use glimpse_services::{BatteryHandle, BatteryHistoryPoint, BatteryState};
 use glimpse_widgets::{IndicatorSpec, PowerPopover, Severity};
 use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
+use crate::applet::popover::Seat;
+use crate::applet::{Applet, Ctx, Input, Report, report_failure, tell, wording};
 use crate::applets::idle::keep_awake;
 
 pub struct Power {
@@ -29,7 +28,6 @@ pub struct Power {
     idle_state: IdleProviderState,
     settings: PowerAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     twelve: bool,
     spec: Vec<IndicatorSpec>,
     icon: Option<(String, gio::Icon)>,
@@ -63,7 +61,6 @@ impl Power {
             notifications,
             settings: PowerAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             twelve: false,
             spec: Vec::new(),
             icon: None,
@@ -190,7 +187,6 @@ impl Power {
             keep_awake::deadline(&self.idle_state.inhibitors, &self.idle_state.hold_expiries)
                 .map(|(_, seconds)| seconds),
         );
-        shown.set_footer(self.footer.label().as_deref());
     }
 }
 
@@ -202,7 +198,7 @@ impl Applet for Power {
         self.settings = settings.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
         self.twelve = config.regional.twelve_hour();
-        self.footer.configure(&config.common);
+
         ctx.interval(Duration::from_secs(60));
         self.refresh();
     }
@@ -217,7 +213,7 @@ impl Applet for Power {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = PowerPopover::new();
         self.history = Rc::new(RefCell::new(Vec::new()));
 
@@ -296,11 +292,17 @@ impl Applet for Power {
             };
             let battery = battery.clone();
             tell(
-                &notifications,
+                Report {
+                    notifications: notifications.clone(),
+                    app_name: gettext("Power"),
+                    icon: "battery-symbolic".to_owned(),
+                    summary: gettext("Could not change the power mode"),
+                },
                 opener.clone(),
                 "battery.set_profile",
-                gettext("Could not change the power mode"),
                 async move { battery.set_profile(name).await },
+                gettext("The battery service is unavailable."),
+                wording,
             );
         });
 
@@ -318,20 +320,23 @@ impl Applet for Power {
             };
             let battery = battery.clone();
             tell(
-                &notifications,
+                Report {
+                    notifications: notifications.clone(),
+                    app_name: gettext("Power"),
+                    icon: "battery-symbolic".to_owned(),
+                    summary: gettext("Could not change the charge limit"),
+                },
                 opener.clone(),
                 "battery.enable_charge_threshold",
-                gettext("Could not change the charge limit"),
                 async move { battery.enable_charge_threshold(path, enabled).await },
+                gettext("The battery service is unavailable."),
+                wording,
             );
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -355,30 +360,4 @@ fn hold_failure(notifications: &NotificationsProviderHandle) -> keep_awake::Fail
             report_failure(operation, report, Some(body), error).await;
         });
     })
-}
-
-fn tell<F, T>(
-    notifications: &NotificationsProviderHandle,
-    opener: Opener,
-    operation: &'static str,
-    summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
-    T: 'static,
-{
-    let report = Report {
-        notifications: notifications.clone(),
-        app_name: gettext("Power"),
-        icon: "battery-symbolic".to_owned(),
-        summary,
-    };
-    let unavailable = gettext("The battery service is unavailable.");
-    relm4::spawn_local(async move {
-        let Err(error) = future.await else {
-            return;
-        };
-        opener.wake();
-        report_failure(operation, report, wording(&error, &unavailable), error).await;
-    });
 }

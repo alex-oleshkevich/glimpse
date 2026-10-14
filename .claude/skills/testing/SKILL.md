@@ -85,8 +85,8 @@ HOME="$SCRATCH/home" glimpse-panel            # a fake home, when drop-ins are t
 every line an event that triggers another read — a closed loop at `DEBOUNCE` that looks exactly like
 a watcher retrying. Send the log somewhere else.
 
-`GLIMPSE_THEMES_DIR` and `GLIMPSE_THEME` redirect themes separately, because `theme_dir_for`
-resolves through `user_dir()` rather than through the configuration stack.
+`GLIMPSE_THEMES_DIR` and `GLIMPSE_THEME` redirect themes separately, because stylesheet resolution
+runs through `user_dir()` rather than through the configuration stack.
 
 ## The mutation check
 

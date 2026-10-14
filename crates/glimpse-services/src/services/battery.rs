@@ -14,9 +14,7 @@ use zbus::fdo::{DBusProxy, PropertiesProxy};
 use zbus::message::Type;
 use zbus::{MatchRule, MessageStream};
 
-use crate::{
-    CommandError, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint, ServiceError, Sub, say,
-};
+use crate::{CommandError, Ctx, Input, NoConfig, Publisher, Service, ServiceEndpoint, Sub, say};
 
 type Events = Pin<Box<dyn Stream<Item = Event> + Send>>;
 
@@ -175,31 +173,17 @@ pub struct Battery {
     contributed: Vec<Vec<Peripheral>>,
 }
 
-#[derive(Clone)]
-pub struct BatteryHandle(ServiceEndpoint<Battery>);
+pub type BatteryHandle = ServiceEndpoint<Battery>;
 
-impl BatteryHandle {
-    pub fn snapshot(&self) -> BatteryState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<BatteryState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Battery> {
     pub async fn set_profile(&self, name: impl Into<String>) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetProfile {
-            name: name.into(),
-            reply,
-        })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("battery stopped before setting the profile".to_owned())
-        })?
+        self.call("battery stopped before setting the profile", |reply| {
+            Command::SetProfile {
+                name: name.into(),
+                reply,
+            }
+        })
+        .await?
     }
 
     pub async fn enable_charge_threshold(
@@ -207,25 +191,22 @@ impl BatteryHandle {
         path: impl Into<String>,
         enabled: bool,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::EnableChargeThreshold {
-            path: path.into(),
-            enabled,
-            reply,
-        })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "battery stopped before changing the charge threshold".to_owned(),
-            )
-        })?
+        self.call(
+            "battery stopped before changing the charge threshold",
+            |reply| Command::EnableChargeThreshold {
+                path: path.into(),
+                enabled,
+                reply,
+            },
+        )
+        .await?
     }
 
     pub async fn history(&self) -> Result<Vec<HistoryPoint>, CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::History { reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("battery stopped before fetching history".to_owned())
-        })?
+        self.call("battery stopped before fetching history", |reply| {
+            Command::History { reply }
+        })
+        .await?
     }
 }
 
@@ -233,15 +214,10 @@ impl Service for Battery {
     const NAME: &'static str = "battery";
     type Config = NoConfig;
     type State = BatteryState;
-    type Handle = BatteryHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        BatteryHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -265,8 +241,8 @@ impl Service for Battery {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             contributed: vec![Vec::new(); dependencies.sources.len()],
             sources: dependencies.sources,
             state: ctx.publisher(),
@@ -276,7 +252,7 @@ impl Service for Battery {
                 devices: BTreeMap::new(),
             },
             profile: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

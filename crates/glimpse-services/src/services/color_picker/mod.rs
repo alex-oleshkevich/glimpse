@@ -4,14 +4,13 @@ mod picker;
 use std::sync::Arc;
 
 use glimpse_config::ColorFormat;
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 
 use crate::{
-    ServiceState,
     context::{Ctx, SourceGuard},
     publisher::Publisher,
     selection::{Offer, Selection},
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
 };
 
 use palette::Palette;
@@ -63,41 +62,21 @@ pub struct Dependencies {
     pub picker: Arc<dyn Picker>,
 }
 
-#[derive(Clone)]
-pub struct ColorPickerHandle(ServiceEndpoint<ColorPicker>);
+pub type ColorPickerHandle = ServiceEndpoint<ColorPicker>;
 
-impl ColorPickerHandle {
-    pub fn snapshot(&self) -> ColorPickerState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<ColorPickerState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<ColorPicker> {
     pub async fn pick(&self) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Pick { reply }, "picking").await
+        self.call("the color picker stopped while picking", |reply| {
+            Command::Pick { reply }
+        })
+        .await?
     }
 
     pub async fn copy(&self, id: u32, format: ColorFormat) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Copy { id, format, reply }, "copying")
-            .await
-    }
-
-    async fn ask(
-        &self,
-        build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-        doing: &str,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(build(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(format!("the color picker stopped while {doing}"))
-        })?
+        self.call("the color picker stopped while copying", |reply| {
+            Command::Copy { id, format, reply }
+        })
+        .await?
     }
 }
 
@@ -115,15 +94,10 @@ impl Service for ColorPicker {
 
     type Config = Config;
     type State = ColorPickerState;
-    type Handle = ColorPickerHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        ColorPickerHandle(endpoint)
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         ColorPickerState {
@@ -137,15 +111,15 @@ impl Service for ColorPicker {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: ctx.publisher(),
             selection: dependencies.selection,
             picker: dependencies.picker,
             palette: Palette::new(config.limit),
             config,
             pending: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

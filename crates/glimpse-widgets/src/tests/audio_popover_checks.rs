@@ -25,9 +25,6 @@ pub(super) fn check() {
             .has_css_class("audio-popover__header--muted")
     );
 
-    audio.set_footer(Some("Sound settings"));
-    assert!(audio.imp().footer.get_visible());
-
     let out_entries = vec![
         AudioEntry {
             id: "sink-1".to_owned(),
@@ -400,12 +397,4 @@ pub(super) fn check() {
     assert_eq!(*expanded.borrow(), ["apps"]);
     audio.set_more_apps(None);
     assert!(!audio.imp().more_apps.get_visible());
-
-    let footer_activated = Rc::new(Cell::new(0u32));
-    audio.connect_footer_activated({
-        let footer_activated = Rc::clone(&footer_activated);
-        move |_| footer_activated.set(footer_activated.get() + 1)
-    });
-    audio.imp().footer.emit_by_name::<()>("activated", &[]);
-    assert_eq!(footer_activated.get(), 1);
 }

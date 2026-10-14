@@ -6,7 +6,7 @@ async fn posting_without_an_exported_server_is_refused_rather_than_given_a_priva
 
     let refused = handle.post(incoming("glimpse", "Bluetooth")).await;
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     assert!(
         matches!(refused, Err(CommandError::Unavailable(_))),
@@ -35,7 +35,7 @@ async fn do_not_disturb_with_an_expiry_lapses_without_anyone_turning_it_off() {
 
     let latest = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     let dnd = latest.dnd.expect("do not disturb was published").dnd;
     assert!(!dnd.enabled);
@@ -66,7 +66,7 @@ async fn do_not_disturb_without_an_expiry_has_nothing_that_could_lapse() {
 
     let latest = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     assert!(
         enabled(&latest),
@@ -101,7 +101,7 @@ async fn a_spent_expiry_cannot_cancel_the_window_that_replaced_it() {
 
     let latest = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     let dnd = latest.dnd.expect("do not disturb was published").dnd;
     assert!(
@@ -129,5 +129,5 @@ async fn an_expiry_that_has_already_passed_lapses_rather_than_sticking() {
         .expect("an expiry in the past is due immediately");
 
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 }

@@ -17,20 +17,20 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use serde_json::{Map, Value};
-use tokio::sync::{mpsc, oneshot, watch};
+use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
 use crate::selection::{Offer as SelectionOffer, Selection};
 use crate::services::compositor::{CompositorHandle, CompositorState};
 use crate::services::mpris::{MprisHandle, MprisPlayers};
-use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, ServiceError, Sub};
+use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, Sub};
 
 pub use proxy::{BusProxy, PROXY_PROGRAM, ProxyDir};
 pub use sandbox::{exec_confine, exec_sandbox, exec_state_dir};
-pub use scope::{unit_name, unit_pattern};
+pub use scope::unit_pattern;
 pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
 
-pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
+pub use catalog::{Catalog, DesktopCatalog, Entry, expand};
 pub use tree::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
     CalendarProps, CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, ContainerProps,
@@ -266,26 +266,15 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct ExecHandle(ServiceEndpoint<Exec>);
+pub type ExecHandle = ServiceEndpoint<Exec>;
 
-impl ExecHandle {
-    pub fn snapshot(&self) -> ExecState {
-        self.0.snapshot()
-    }
-    pub fn subscribe(&self) -> watch::Receiver<ExecState> {
-        self.0.subscribe()
-    }
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Exec> {
     fn submit(
         &self,
         build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
     ) -> Pending {
         let (reply, answer) = oneshot::channel();
-        (self.0.command(build(reply)), answer)
+        (self.command(build(reply)), answer)
     }
 
     pub fn attach(
@@ -824,15 +813,11 @@ impl Service for Exec {
     const NAME: &'static str = "exec";
     type Config = Config;
     type State = ExecState;
-    type Handle = ExecHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = SubKey;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        ExecHandle(endpoint)
-    }
     fn initial_state(_: &Self::Config) -> Self::State {
         ExecState::default()
     }
@@ -934,9 +919,9 @@ impl Service for Exec {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         tokio::task::spawn_blocking(proxy::prune_dead);
-        Ok(Self {
+        Self {
             state: ctx.publisher(),
             config,
             dependencies,
@@ -948,7 +933,7 @@ impl Service for Exec {
             scope_warned: Arc::new(AtomicBool::new(false)),
             mpris: None,
             compositor: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

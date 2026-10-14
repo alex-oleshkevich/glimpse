@@ -84,9 +84,10 @@ fn output_power_is_mirrored_into_compositor_capabilities() {
         floating: false,
         workspace_reorder: true,
         output_power: true,
+        blank_screens: true,
     });
 
-    assert!(mapped.output_power);
+    assert!(mapped.output_power && mapped.blank_screens);
 }
 
 #[tokio::test]

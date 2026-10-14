@@ -1,25 +1,19 @@
 use crate::services::{SolarPhase, SolarStatus};
 use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
-use glimpse_config::Schedule;
+pub use glimpse_config::MAX_TEMPERATURE as DAY;
+use glimpse_config::{MIN_TEMPERATURE, Schedule};
 use tokio::{
     sync::{oneshot, watch},
     time,
 };
 
 use crate::{
-    ServiceState,
     context::Ctx,
     gamma::Gamma,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
-
-/// Neutral daylight. Nothing is applied at this temperature; it is the value both ramps return to,
-/// and the one the gamma curve is normalized against.
-pub const DAY: u32 = 6500;
-
-const MIN_MANUAL_TEMPERATURE: u32 = 1000;
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
@@ -58,6 +52,7 @@ pub struct NightLightState {
     pub target: u32,
     pub configured: Schedule,
     pub manual: bool,
+    pub paused_until: Option<DateTime<Utc>>,
 }
 
 impl NightLightState {
@@ -75,6 +70,7 @@ fn initial_state(config: &Config) -> NightLightState {
         target: config.temperature,
         configured: config.schedule,
         manual: false,
+        paused_until: None,
     }
 }
 
@@ -84,6 +80,12 @@ pub enum Event {
 }
 
 pub enum Command {
+    Pause {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Resume {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     SetSchedule {
         schedule: Schedule,
         reply: oneshot::Sender<Result<(), CommandError>>,
@@ -105,38 +107,36 @@ pub struct Dependencies {
     pub gamma: Box<dyn Gamma>,
 }
 
-#[derive(Clone)]
-pub struct NightLightHandle(ServiceEndpoint<NightLight>);
+pub type NightLightHandle = ServiceEndpoint<NightLight>;
 
-impl NightLightHandle {
-    pub fn snapshot(&self) -> NightLightState {
-        self.0.snapshot()
+impl ServiceEndpoint<NightLight> {
+    pub async fn pause(&self) -> Result<(), CommandError> {
+        self.call("night light stopped before pausing", |reply| {
+            Command::Pause { reply }
+        })
+        .await?
     }
 
-    pub fn subscribe(&self) -> watch::Receiver<NightLightState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
+    pub async fn resume(&self) -> Result<(), CommandError> {
+        self.call("night light stopped before resuming", |reply| {
+            Command::Resume { reply }
+        })
+        .await?
     }
 
     pub async fn set_schedule(&self, schedule: Schedule) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetSchedule { schedule, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("night light stopped before accepting the mode".to_owned())
-        })?
+        self.call("night light stopped before accepting the mode", |reply| {
+            Command::SetSchedule { schedule, reply }
+        })
+        .await?
     }
 
     pub async fn set_temperature(&self, kelvin: Option<u32>) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::SetTemperature { kelvin, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable(
-                "night light stopped before accepting the temperature".to_owned(),
-            )
-        })?
+        self.call(
+            "night light stopped before accepting the temperature",
+            |reply| Command::SetTemperature { kelvin, reply },
+        )
+        .await?
     }
 }
 
@@ -149,6 +149,7 @@ pub struct NightLight {
     manual: Option<(u32, SolarPhase)>,
     observed: Option<SolarStatus>,
     applied: Option<u32>,
+    paused_until: Option<DateTime<Utc>>,
 }
 
 impl Service for NightLight {
@@ -156,15 +157,10 @@ impl Service for NightLight {
 
     type Config = Config;
     type State = NightLightState;
-    type Handle = NightLightHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        NightLightHandle(endpoint)
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         initial_state(config)
@@ -193,9 +189,9 @@ impl Service for NightLight {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let observed = dependencies.solar.borrow().clone();
-        Ok(Self {
+        Self {
             state: ctx.publisher(),
             solar: dependencies.solar,
             gamma: dependencies.gamma,
@@ -204,54 +200,12 @@ impl Service for NightLight {
             manual: None,
             observed,
             applied: None,
-        })
+            paused_until: None,
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
-        let mut pending = None;
-        match input {
-            Input::Event(Event::Solar(observed)) => self.observed = observed,
-            Input::Event(Event::Tick) => {}
-            Input::Command(Command::SetSchedule { schedule, reply }) => {
-                self.forced = Some(schedule);
-                self.manual = None;
-                pending = Some(reply);
-            }
-            Input::Command(Command::SetTemperature { kelvin, reply }) => match kelvin {
-                Some(kelvin) if !(MIN_MANUAL_TEMPERATURE..=DAY).contains(&kelvin) => {
-                    let _ = reply.send(Err(CommandError::InvalidArgument(format!(
-                        "temperature must fall between {MIN_MANUAL_TEMPERATURE} and {DAY} kelvin"
-                    ))));
-                }
-                Some(kelvin) => match self.boundary(Utc::now()) {
-                    Some((phase, _)) => {
-                        self.manual = Some((kelvin, phase));
-                        pending = Some(reply);
-                    }
-                    None => {
-                        let reason = if self.effective() == Schedule::Off {
-                            "there is nothing to override while the night light is off"
-                        } else {
-                            self.missing()
-                        };
-                        let _ = reply.send(Err(CommandError::Unavailable(reason.to_owned())));
-                    }
-                },
-                None => {
-                    self.manual = None;
-                    pending = Some(reply);
-                }
-            },
-            Input::Config(config) => {
-                self.forced = None;
-                self.manual = None;
-                self.config = config;
-            }
-        }
-        self.evaluate(ctx, Utc::now()).await;
-        if let Some(reply) = pending {
-            let _ = reply.send(Ok(()));
-        }
+        self.handle_at(ctx, input, Utc::now()).await;
     }
 
     /// The outputs go back before the process does. A `SIGKILL` cannot run this, and the ramp then
@@ -267,6 +221,84 @@ impl Service for NightLight {
 }
 
 impl NightLight {
+    async fn handle_at(&mut self, ctx: &Ctx<Self>, input: Input<Self>, now: DateTime<Utc>) {
+        let mut pending = None;
+        match input {
+            Input::Event(Event::Solar(observed)) => self.observed = observed,
+            Input::Event(Event::Tick) => {}
+            Input::Command(Command::Pause { reply }) => match self.boundary(now) {
+                Some((SolarPhase::Night, Some(deadline))) if deadline > now => {
+                    self.paused_until = Some(deadline);
+                    pending = Some(reply);
+                }
+                Some((SolarPhase::Day, _)) => {
+                    let _ = reply.send(Err(CommandError::Unsupported(
+                        "there is no active night to pause".to_owned(),
+                    )));
+                }
+                None if self.effective() == Schedule::Off => {
+                    let _ = reply.send(Err(CommandError::Unsupported(
+                        "there is no active night to pause".to_owned(),
+                    )));
+                }
+                _ => {
+                    let _ = reply.send(Err(CommandError::Unavailable(
+                        "the next night boundary is unavailable".to_owned(),
+                    )));
+                }
+            },
+            Input::Command(Command::Resume { reply }) => {
+                self.paused_until = None;
+                pending = Some(reply);
+            }
+            Input::Command(Command::SetSchedule { schedule, reply }) => {
+                self.forced = Some(schedule);
+                self.paused_until = None;
+                self.manual = None;
+                pending = Some(reply);
+            }
+            Input::Command(Command::SetTemperature { kelvin, reply }) => match kelvin {
+                Some(kelvin) if !(MIN_TEMPERATURE..=DAY).contains(&kelvin) => {
+                    let _ = reply.send(Err(CommandError::InvalidArgument(format!(
+                        "temperature must fall between {MIN_TEMPERATURE} and {DAY} kelvin"
+                    ))));
+                }
+                Some(kelvin) => match self.boundary(now) {
+                    Some((phase, _)) => {
+                        self.manual = Some((kelvin, phase));
+                        self.paused_until = None;
+                        pending = Some(reply);
+                    }
+                    None => {
+                        let error = if self.effective() == Schedule::Off {
+                            CommandError::Unsupported(
+                                "there is nothing to override while the night light is off"
+                                    .to_owned(),
+                            )
+                        } else {
+                            CommandError::Unavailable(self.missing().to_owned())
+                        };
+                        let _ = reply.send(Err(error));
+                    }
+                },
+                None => {
+                    self.manual = None;
+                    pending = Some(reply);
+                }
+            },
+            Input::Config(config) => {
+                self.forced = None;
+                self.manual = None;
+                self.config = config;
+                self.paused_until = None;
+            }
+        }
+        self.evaluate(ctx, now).await;
+        if let Some(reply) = pending {
+            let _ = reply.send(Ok(()));
+        }
+    }
+
     fn cadence(&self, now: DateTime<Utc>) -> time::Duration {
         match self.boundary(now) {
             Some((_, Some(change))) if in_transition(change - now, self.config.transition) => {
@@ -286,8 +318,22 @@ impl NightLight {
     }
 
     fn settle(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
+        if self.paused_until.is_some_and(|deadline| deadline <= now) {
+            self.paused_until = None;
+            self.manual = None;
+        }
         if self.effective() == Schedule::Off {
             return self.release(ctx);
+        }
+        if self.paused_until.is_some() {
+            match self.gamma.apply(DAY) {
+                Ok(()) => {
+                    self.applied = Some(DAY);
+                    ctx.running();
+                }
+                Err(reason) => ctx.degraded(reason),
+            }
+            return;
         }
         let Some((phase, next_change)) = self.boundary(now) else {
             return ctx.degraded(self.missing());
@@ -363,6 +409,7 @@ impl NightLight {
             target: self.config.temperature,
             configured: self.config.schedule,
             manual: self.manual.is_some(),
+            paused_until: self.paused_until,
         });
     }
 }

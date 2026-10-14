@@ -186,77 +186,6 @@ fn reorder_keeps_widget_identity() {
 
 #[test]
 #[ignore = "needs a display"]
-fn settings_row_stays_last_after_body_renders() {
-    init();
-    let first = tree(vec![node(2, "row", json!({"title":"A"}), vec![])]);
-    let (shell, mut dom, _) = setup(&first);
-    let settings = ActionRow::new();
-    settings.set_property("title", Some("Settings"));
-    shell.body().append(&settings);
-    assert_eq!(
-        shell.body().last_child().as_ref(),
-        Some(settings.upcast_ref())
-    );
-
-    let next = first
-        .apply(vec![
-            Op::Insert {
-                parent: 1,
-                node: node(3, "row", json!({"title":"B"}), vec![]),
-                before: None,
-            },
-            Op::Insert {
-                parent: 1,
-                node: node(4, "row", json!({"title":"C"}), vec![]),
-                before: Some(2),
-            },
-            Op::Move {
-                parent: 1,
-                id: 3,
-                before: Some(4),
-            },
-        ])
-        .expect("body changes");
-    assert!(dom.reconcile(&next, 1));
-    assert_eq!(
-        shell.body().last_child().as_ref(),
-        Some(settings.upcast_ref())
-    );
-    assert_eq!(
-        settings.prev_sibling(),
-        Some(widget(&dom, 1, 2, ElementKind::Row))
-    );
-    assert_eq!(
-        shell.body().observe_children().n_items(),
-        4,
-        "all three body rows precede settings"
-    );
-
-    assert!(dom.reconcile(&next, 2));
-    assert_eq!(
-        shell.body().last_child().as_ref(),
-        Some(settings.upcast_ref())
-    );
-    assert_eq!(shell.body().observe_children().n_items(), 4);
-    assert_eq!(
-        settings.prev_sibling(),
-        Some(widget(&dom, 2, 2, ElementKind::Row))
-    );
-
-    assert!(dom.reconcile(&Tree::default(), 2));
-    assert_eq!(
-        shell.body().first_child().as_ref(),
-        Some(settings.upcast_ref())
-    );
-    assert_eq!(
-        shell.body().last_child().as_ref(),
-        Some(settings.upcast_ref())
-    );
-    assert!(shell.body().get_visible());
-}
-
-#[test]
-#[ignore = "needs a display"]
 fn set_dresses_only_touched_widget() {
     init();
     let first = tree(vec![
@@ -1235,6 +1164,83 @@ fn row_family_keeps_local_values_and_reports_shell_close() {
         .expect("stale open");
     assert!(dom.reconcile(&stale, 1));
     assert!(!open.open());
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn icon_only_toggle_has_an_accessible_name() {
+    init();
+    let first = tree(vec![node(
+        2,
+        "togglebutton",
+        json!({"icon": "media-playback-start-symbolic"}),
+        vec![],
+    )]);
+    let (_shell, mut dom, _) = setup(&first);
+    let toggle = widget(&dom, 1, 2, ElementKind::ToggleButton)
+        .downcast::<gtk4::ToggleButton>()
+        .expect("toggle");
+    assert!(gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+    let next = first
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"label": "Play"})).expect("props"),
+            seq: None,
+        }])
+        .expect("set");
+    assert!(dom.reconcile(&next, 1));
+    assert!(gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+    let empty = next
+        .apply(vec![Op::Set {
+            id: 2,
+            props: serde_json::from_value(json!({"label": null, "icon": null})).expect("props"),
+            seq: None,
+        }])
+        .expect("clear");
+    assert!(dom.reconcile(&empty, 1));
+    assert!(!gtk4::test_accessible_has_property(
+        &toggle,
+        gtk4::AccessibleProperty::Label
+    ));
+}
+
+#[test]
+#[ignore = "needs a display"]
+fn style_notifications_redress_unchanged_calendar_markers() {
+    init();
+    let first = tree(vec![node(
+        2,
+        "calendar",
+        json!({"events": [{"date": "2026-06-05", "colors": ["accent"]}]}),
+        vec![],
+    )]);
+    let (_shell, mut dom, events) = setup(&first);
+    let calendar = widget(&dom, 1, 2, ElementKind::Calendar)
+        .downcast::<Calendar>()
+        .expect("calendar");
+    let date = Ymd::new(2026, 6, 5);
+    for property in ["dark", "accent-color"] {
+        calendar.set_events(&[]);
+        assert!(dom.reconcile(&first, 1));
+        assert!(calendar.events(date).is_empty());
+        dom.style_manager.notify(property);
+        assert!(dom.needs_redress());
+        assert!(dom.reconcile(&first, 1));
+        assert_eq!(calendar.events(date), vec![tone_palette()[0]]);
+        assert!(!dom.needs_redress());
+        assert!(events.borrow().is_empty());
+    }
+    let dirty = dom.tones_dirty.clone();
+    let manager = dom.style_manager.clone();
+    drop(dom);
+    manager.notify("dark");
+    assert!(!dirty.get());
 }
 
 #[gtk4::test]

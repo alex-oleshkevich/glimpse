@@ -11,7 +11,6 @@ const DISMISSED: &str = "dismissed";
 const ACTION_INVOKED: &str = "action-invoked";
 const DND_TOGGLED: &str = "dnd-toggled";
 const CLEAR_ALL: &str = "clear-all";
-const FOOTER_ACTIVATED: &str = "footer-activated";
 const CLEAR_GROUP: &str = "clear-group";
 
 /// One application's notifications. `key` is what grouping is done on and is the sender's identity
@@ -224,10 +223,6 @@ impl NotificationsPopover {
         set_row(&self.imp().clear, label);
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_row(&self.imp().footer, label);
-    }
-
     pub fn connect_activated<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.forward_key(ACTIVATED, f)
     }
@@ -279,14 +274,6 @@ impl NotificationsPopover {
     pub fn connect_clear_all<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             CLEAR_ALL,
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            FOOTER_ACTIVATED,
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )

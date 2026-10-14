@@ -28,7 +28,7 @@ pub async fn settings_status(connection: &Connection, json_output: bool) -> Resu
     }
     Section::new("Settings")
         .with(
-            Table::new()
+            Table::default()
                 .with_row([
                     "location".into(),
                     coordinates.map_or_else(

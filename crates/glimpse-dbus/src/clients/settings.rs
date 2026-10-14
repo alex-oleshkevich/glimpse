@@ -207,6 +207,8 @@ async fn follow(
             return;
         }
     };
+    let mut retry_delay = super::RetryDelay::default();
+
     loop {
         let proxy = bounded(
             Settings1Proxy::builder(&connection)
@@ -215,11 +217,21 @@ async fn follow(
         )
         .await;
         let proxy = match proxy {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay.reset();
+                proxy
+            }
             Err(error) => {
                 publish(&updates, Err(error.to_string()));
                 publish(&locations, Ok(None));
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_SETTINGS_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;
@@ -269,17 +281,6 @@ async fn follow(
         publish(&updates, Err("settings owner changed".to_owned()));
         publish(&locations, Ok(None));
     }
-}
-
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    while let Some(owner) = owners.next().await {
-        if let Ok(args) = owner.args()
-            && args.new_owner().is_some()
-        {
-            return true;
-        }
-    }
-    false
 }
 
 #[cfg(test)]

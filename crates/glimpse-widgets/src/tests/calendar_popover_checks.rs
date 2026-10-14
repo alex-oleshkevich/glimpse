@@ -8,13 +8,6 @@ pub(super) fn check() {
         when: "09:00 · 1 h".to_owned(),
         ..Default::default()
     };
-    popover.set_footer(None);
-    assert!(
-        !popover.imp().footer.is_visible(),
-        "a footer with no label is a row that would do nothing when clicked"
-    );
-    popover.set_footer(Some("Open calendar"));
-    assert!(popover.imp().footer.is_visible());
 
     popover.set_zones(&[]);
     assert!(
@@ -84,11 +77,6 @@ pub(super) fn check() {
     assert_eq!(popover.shown_month(), (2027, 2));
 
     let next = NextEventPopover::new();
-
-    next.set_footer(None);
-    assert!(!next.imp().footer.get_visible());
-    next.set_footer(Some("Open calendar"));
-    assert!(next.imp().footer.get_visible());
 
     next.set_countdown(None);
     assert!(

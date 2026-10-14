@@ -529,6 +529,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
     let mut ready = false;
     let mut restart_at: Option<Instant> = None;
     let mut restart_reason: Option<String> = None;
+    let mut config_at: Option<Instant> = None;
     let mut changed_files: Vec<PathBuf> = Vec::new();
     let mut deferred = false;
     let mut reattach = false;
@@ -547,40 +548,40 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
             event = events_rx.recv(), if watch => {
                 if let Some(Ok(event)) = event {
                     let mut changed = false;
-                    let mut config_changed = false;
+                    let settled = Instant::now() + Duration::from_millis(300);
                     for path in event.paths {
-                        if applet_config == path { config_changed = true; }
+                        if applet_config == path { config_at = Some(config_at.map_or(settled, |at| at.max(settled))); }
                         else if if directory_target { watched(&path, &dir) } else { path == entry.path } {
                             changed = true;
                             changed_files.push(path);
                         }
                     }
-                    if config_changed {
-                        match settings(&applet_config, &id) {
-                            Ok(next) => {
-                                if next.options != current_settings.options {
-                                    match super::within(proxy.set_options(&link.handle, &serde_json::to_string(&next.options)?)).await {
-                                        Ok(()) => eprintln!("options updated"),
-                                        Err(error) => eprintln!("cannot update options: {error}"),
-                                    }
-                                }
-                                let source = directory_target.then_some(dir.as_path());
-                                if granted(&next, source) != granted(&current_settings, source) {
-                                    anyhow::bail!("service, launch or write grants changed; run again to apply them");
-                                }
-                                if next.sandbox != current_settings.sandbox {
-                                    changed = true;
-                                    restart_reason = Some("sandbox changed, restarting".to_owned());
-                                }
-                                current_settings = next;
-                            }
-                            Err(error) => eprintln!("{error:#}"),
-                        }
-                    }
                     if changed {
-                        let settled = Instant::now() + Duration::from_millis(300);
                         restart_at = Some(restart_at.map_or(settled, |at| at.max(settled)));
                     }
+                }
+            }
+            _ = async { if let Some(at) = config_at { tokio::time::sleep_until(at).await } else { std::future::pending().await } } => {
+                config_at = None;
+                match settings(&applet_config, &id) {
+                    Ok(next) => {
+                        if next.options != current_settings.options {
+                            match super::within(proxy.set_options(&link.handle, &serde_json::to_string(&next.options)?)).await {
+                                Ok(()) => eprintln!("options updated"),
+                                Err(error) => eprintln!("cannot update options: {error}"),
+                            }
+                        }
+                        let source = directory_target.then_some(dir.as_path());
+                        if granted(&next, source) != granted(&current_settings, source) {
+                            anyhow::bail!("service, launch or write grants changed; run again to apply them");
+                        }
+                        if next.sandbox != current_settings.sandbox {
+                            restart_reason = Some("sandbox changed, restarting".to_owned());
+                            restart_at.get_or_insert_with(Instant::now);
+                        }
+                        current_settings = next;
+                    }
+                    Err(error) => eprintln!("{error:#}"),
                 }
             }
             _ = async { if let Some(at) = restart_at { tokio::time::sleep_until(at).await } else { std::future::pending().await } } => {

@@ -70,3 +70,25 @@ fn several_backlights_are_ordered_by_type_preference() {
     let ids: Vec<&str> = records.iter().map(|record| record.id.as_str()).collect();
     assert_eq!(ids, vec!["firmware1", "platform1", "raw1"]);
 }
+
+#[tokio::test]
+async fn a_floor_at_a_device_maximum_is_reported_once_per_source() {
+    let mut harness = harness(
+        vec![
+            entry("coarse", "raw", 1, 1, None),
+            entry("fine", "raw", 50, 100, None),
+        ],
+        50,
+    )
+    .await;
+
+    assert_eq!(harness.service.inert, HashSet::from(["coarse".to_owned()]));
+    assert!(harness.service.newly_inert().is_empty());
+
+    harness.feed(Input::Config(Config { minimum: 0 })).await;
+    assert!(harness.service.inert.is_empty());
+
+    harness.service.minimum = 50;
+    assert_eq!(harness.service.newly_inert(), vec!["coarse".to_owned()]);
+    assert!(harness.service.newly_inert().is_empty());
+}

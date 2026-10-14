@@ -339,7 +339,7 @@ sleep 30
         .sandbox
         .read
         .push("/missing-glimpse-test".to_owned());
-    sender.reconfigure(updated);
+    sender.try_send(Input::Config(updated)).expect("queued");
     file_contains(&output, "xx").await;
     handle.detach(1).await.expect("detach");
     cancel.cancel();

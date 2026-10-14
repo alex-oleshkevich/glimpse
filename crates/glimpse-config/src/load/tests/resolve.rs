@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn the_runtime_dir_is_glimpse_under_the_sessions_runtime_dir() {
     assert_eq!(
-        runtime_dir_in(Some("/run/user/1000".into())),
-        Some(PathBuf::from("/run/user/1000/glimpse"))
+        runtime_dir_in(Some("/fixture/runtime".into())),
+        Some(PathBuf::from("/fixture/runtime/glimpse"))
     );
     assert_eq!(runtime_dir_in(None), None);
     assert_eq!(runtime_dir_in(Some("".into())), None);

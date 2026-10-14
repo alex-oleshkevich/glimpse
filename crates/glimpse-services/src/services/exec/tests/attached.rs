@@ -486,12 +486,17 @@ async fn offer_options_reach_running_attached_slot() {
     let second = next_generation(&handle, 1, first.generation).await;
     assert_eq!(second.tree.children(ROOT), [1]);
     assert_eq!(second.status, Status::Running);
-    sender.reconfigure(Config {
-        applets: BTreeMap::new(),
-        state_base: Some(base),
-        bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
-    });
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    sender
+        .try_send(Input::Config(Config {
+            applets: BTreeMap::new(),
+            state_base: Some(base),
+            bus_proxy: std::path::PathBuf::from(super::super::PROXY_PROGRAM),
+        }))
+        .expect("queued");
+    handle
+        .place(1, placement())
+        .await
+        .expect("configuration processed");
     assert_eq!(
         handle.snapshot().slots.get(&1).expect("slot").status,
         Status::Running
@@ -536,7 +541,10 @@ async fn attached_eof_is_terminal() {
     peer_reader.read_line(&mut line).await.expect("host hello");
     drop(peer_writer);
     let ended = status(&handle, 1, |s| matches!(s, Status::Ended)).await;
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    handle
+        .place(1, placement())
+        .await
+        .expect("terminal slot stays ended");
     assert_eq!(
         handle.snapshot().slots.get(&1).expect("slot").status,
         Status::Ended

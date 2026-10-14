@@ -101,14 +101,6 @@ pub trait Device1 {
     fn adapter(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
-#[zbus::proxy(interface = "org.bluez.Battery1", default_service = "org.bluez")]
-pub trait Battery1 {
-    #[zbus(property)]
-    fn percentage(&self) -> zbus::Result<u8>;
-    #[zbus(property)]
-    fn source(&self) -> zbus::Result<String>;
-}
-
 #[zbus::proxy(
     interface = "org.bluez.AgentManager1",
     default_service = "org.bluez",

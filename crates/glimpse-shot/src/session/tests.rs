@@ -50,8 +50,8 @@ fn drive(phase: Phase, events: Vec<Event>) -> Vec<(Phase, Vec<Effect>)> {
 
 #[test]
 fn a_screen_capture_saved_to_a_file_follows_the_machine() {
-    let path = PathBuf::from("/run/user/1000/shot.png");
-    let saved_as = PathBuf::from("/run/user/1000/shot (2).png");
+    let path = PathBuf::from("/fixture/shot.png");
+    let saved_as = PathBuf::from("/fixture/shot (2).png");
     let (phase, effects) = start(Target::CurrentScreen, None, HEADLESS);
     assert_eq!(effects, vec![Effect::Capture(Target::CurrentScreen)]);
     let trace = drive(

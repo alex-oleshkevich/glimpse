@@ -64,10 +64,6 @@ impl PlacesPopover {
         set_row(&self.imp().bookmarks_more, bookmarks);
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_row(&self.imp().footer, label);
-    }
-
     pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -104,14 +100,6 @@ impl PlacesPopover {
     pub fn connect_more<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "more",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )

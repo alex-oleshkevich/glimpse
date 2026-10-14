@@ -4,29 +4,21 @@ use glimpse_dbus::Buses;
 use glimpse_dbus::applet_host::AppletHostProxy;
 use glimpse_dbus::testing::PrivateBus;
 use std::fs;
-use std::sync::atomic::{AtomicU64, Ordering};
 
-static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
-
-fn desktop() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "glimpse-panel-attached-{}-{}",
-        std::process::id(),
-        NEXT_DIR.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("me.x.A.desktop");
+fn desktop() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("me.x.A.desktop");
     fs::write(
         &path,
         "[Desktop Entry]\nType=Application\nName=Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n",
     )
     .unwrap();
-    path
+    (dir, path)
 }
 
 #[test]
 fn validation_and_caps_reject_bad_attachments() {
-    let path = desktop();
+    let (_dir, path) = desktop();
     let path = path.to_str().unwrap();
     let layout = vec![vec!["DP-1".to_owned()]];
     let valid = || validate(path, 0, "", "", "{}", &layout).unwrap();
@@ -70,12 +62,11 @@ fn validation_and_caps_reject_bad_attachments() {
     assert!(registry.insert("last".to_owned(), valid()).is_err());
     assert!(registry.remove("dev-1").is_some());
     assert!(registry.insert("one".to_owned(), valid()).is_ok());
-    fs::remove_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
 }
 
 #[test]
 fn reconcile_keeps_unmapped_named_output_and_moves_default_output() {
-    let path = desktop();
+    let (_dir, path) = desktop();
     let layout = vec![vec!["DP-1".to_owned(), "HDMI-1".to_owned()]];
     let mut registry = AttachedRegistry::default();
     registry.set_layout(layout.clone(), vec![vec![]]);
@@ -133,7 +124,6 @@ fn reconcile_keeps_unmapped_named_output_and_moves_default_output() {
     assert_eq!(remapped[0].1, "me.x.A");
     assert_eq!(remapped[1].1, "me.x.A");
     assert!(visible_on(&registry.applets, &layout, 0, "HDMI-1").is_empty());
-    fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -151,7 +141,7 @@ async fn private_bus_checks_sender_and_delivers_fds() {
         &glimpse_config::Config::default(),
         Buses::unavailable("no bus in tests"),
     );
-    let exec = services.exec();
+    let exec = services.handles.exec.clone();
     let (input, receiver) = relm4::channel();
     export(&server, registry.clone(), exec.clone(), input).await;
     let name = glimpse_dbus::applet_host_name(&glimpse_dbus::panel_app_id());
@@ -167,7 +157,7 @@ async fn private_bus_checks_sender_and_delivers_fds() {
         .build()
         .await
         .unwrap();
-    let path = desktop();
+    let (_dir, path) = desktop();
     let (to_panel, _writer) = std::os::unix::net::UnixStream::pair().unwrap();
     let (_reader, from_panel) = std::os::unix::net::UnixStream::pair().unwrap();
     let handle = first
@@ -208,5 +198,4 @@ async fn private_bus_checks_sender_and_delivers_fds() {
     let error = first.set_options("unknown", "{}").await.unwrap_err();
     assert!(error.to_string().contains("AccessDenied"));
     services.shutdown().await;
-    fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

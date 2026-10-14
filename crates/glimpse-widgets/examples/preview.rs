@@ -832,7 +832,6 @@ mod fixtures {
         });
 
         popover.set_pages(&pages);
-        popover.set_footer(Some("Weather settings"));
     }
 
     struct Song {
@@ -1225,14 +1224,17 @@ mod fixtures {
 
         for popover in tagged::<DisplayPopover>(root, "one") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             popover.set_displays(std::slice::from_ref(&built_in));
         }
         for popover in tagged::<DisplayPopover>(root, "two") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             popover.set_displays(&[built_in.clone(), external.clone()]);
         }
         for popover in tagged::<DisplayPopover>(root, "disabled") {
             popover.set_output_power(true);
+            popover.set_blank_screens(true);
             let mut disabled = external.clone();
             disabled.enabled = false;
             popover.set_displays(&[built_in.clone(), disabled]);
@@ -1323,7 +1325,7 @@ mod fixtures {
         };
 
         popover.set_clear_label(Some("Clear all"));
-        popover.set_footer(Some("Notification settings"));
+
         let shown = Rc::new(RefCell::new(groups));
 
         let push = |popover: &NotificationsPopover, shown: &Rc<RefCell<Vec<Group>>>| {
@@ -1366,7 +1368,7 @@ mod fixtures {
                 eprintln!("popover: clear group {key}");
             }
         ));
-        popover.connect_footer_activated(|_| eprintln!("popover: settings"));
+
         popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
 
         let next = Rc::new(Cell::new(1_u64));
@@ -1708,13 +1710,10 @@ mod fixtures {
 
     mod lock {
         use super::{
-            DEMO, IndicatorSpec, Media, Notification, NowPlaying, POWER_OFF, REBOOT, SUSPEND,
-            SessionActionState, TransportAction, Urgency, collect, find, tagged, themed_icon,
+            DEMO, IndicatorSpec, Media, NowPlaying, POWER_OFF, REBOOT, SUSPEND, SessionActionState,
+            TransportAction, Urgency, collect, find, tagged, themed_icon,
         };
-        use glimpse_widgets::{
-            ChipGroup, LockStage, MessageKind, NotificationCard, NotificationList, PasswordPrompt,
-            Track,
-        };
+        use glimpse_widgets::{ChipGroup, LockStage, MessageKind, PasswordPrompt, Track};
         use gtk4::gdk;
         use gtk4::glib;
         use gtk4::prelude::*;
@@ -1747,8 +1746,6 @@ mod fixtures {
         struct Message {
             app: &'static str,
             icon: &'static str,
-            summary: String,
-            when: &'static str,
             urgency: Urgency,
         }
 
@@ -2106,29 +2103,21 @@ mod fixtures {
                 Message {
                     app: "Slack",
                     icon: "chat-message-new-symbolic",
-                    summary: "Maria: are we still on for the standup?".to_owned(),
-                    when: "2 min ago",
                     urgency: Urgency::Normal,
                 },
                 Message {
                     app: "Slack",
                     icon: "chat-message-new-symbolic",
-                    summary: "Deploy channel: build 2291 is green".to_owned(),
-                    when: "9 min ago",
                     urgency: Urgency::Normal,
                 },
                 Message {
                     app: "Mail",
                     icon: "mail-unread-symbolic",
-                    summary: "Invoice #2291 is ready".to_owned(),
-                    when: "14 min ago",
                     urgency: Urgency::Normal,
                 },
                 Message {
                     app: "Battery",
                     icon: "battery-caution-symbolic",
-                    summary: "Battery low: 9% remaining".to_owned(),
-                    when: "now",
                     urgency: Urgency::Critical,
                 },
             ]
@@ -2599,19 +2588,6 @@ mod fixtures {
         }
 
         fn notifications(root: &gtk4::Widget, state: &Rc<State>) -> Rc<dyn Fn()> {
-            let lists = tagged::<NotificationList>(root, "notifications");
-            let fixed: Vec<(NotificationList, Privacy)> = [
-                ("notifications_count", Privacy::Count),
-                ("notifications_apps", Privacy::Apps),
-                ("notifications_summaries", Privacy::Summaries),
-            ]
-            .into_iter()
-            .flat_map(|(case, privacy)| {
-                tagged::<NotificationList>(root, case)
-                    .into_iter()
-                    .map(move |list| (list, privacy))
-            })
-            .collect();
             let stages = collect::<LockStage>(root);
             let render: Rc<dyn Fn()> = Rc::new(glib::clone!(
                 #[strong]
@@ -2625,14 +2601,6 @@ mod fixtures {
                     };
                     for stage in &stages {
                         stage.chips().set_groups(&groups);
-                    }
-                    for list in &lists {
-                        fill(list, &messages, state.privacy.get());
-                        list.set_visible(up && !messages.is_empty());
-                    }
-                    for (list, privacy) in &fixed {
-                        fill(list, &messages, *privacy);
-                        list.set_visible(up && !messages.is_empty());
                     }
                 }
             ));
@@ -2663,8 +2631,6 @@ mod fixtures {
                         Message {
                             app: "Slack",
                             icon: "chat-message-new-symbolic",
-                            summary: format!("Maria: new message {n} while you were away"),
-                            when: "now",
                             urgency: Urgency::Normal,
                         },
                     );
@@ -2680,61 +2646,6 @@ mod fixtures {
                 });
             }
             render
-        }
-
-        fn fill(list: &NotificationList, messages: &[Message], privacy: Privacy) {
-            let mut ordered: Vec<&Message> = messages.iter().collect();
-            ordered.sort_by_key(|message| message.urgency != Urgency::Critical);
-            let cards = match privacy {
-                Privacy::Count if ordered.is_empty() => Vec::new(),
-                Privacy::Count => vec![card(
-                    "count",
-                    "Notifications",
-                    "preferences-system-notifications-symbolic",
-                    &count(ordered.len()),
-                    "",
-                    Urgency::Normal,
-                )],
-                Privacy::Apps => {
-                    let mut apps: Vec<(&str, &str, usize, &str, Urgency)> = Vec::new();
-                    for message in &ordered {
-                        match apps.iter_mut().find(|app| app.0 == message.app) {
-                            Some(app) => app.2 += 1,
-                            None => apps.push((
-                                message.app,
-                                message.icon,
-                                1,
-                                message.when,
-                                message.urgency,
-                            )),
-                        }
-                    }
-                    apps.into_iter()
-                        .map(|(app, icon, n, when, urgency)| {
-                            card(app, app, icon, &count(n), when, urgency)
-                        })
-                        .collect()
-                }
-                Privacy::Summaries => ordered
-                    .iter()
-                    .enumerate()
-                    .map(|(index, message)| {
-                        card(
-                            &format!("{}-{index}-{}", message.app, message.summary),
-                            message.app,
-                            message.icon,
-                            &message.summary,
-                            message.when,
-                            message.urgency,
-                        )
-                    })
-                    .collect(),
-            };
-            list.set_cap(Some(3));
-            list.set_notifications(&cards);
-            for row in collect::<NotificationCard>(list.upcast_ref()) {
-                row.set_controls_visible(false);
-            }
         }
 
         fn chip_groups(messages: &[Message], privacy: Privacy) -> Vec<ChipGroup> {
@@ -2764,34 +2675,6 @@ mod fixtures {
             apps.into_iter()
                 .map(|(app, icon, count)| group(app, app, icon, count))
                 .collect()
-        }
-
-        fn card(
-            key: &str,
-            app: &str,
-            icon: &str,
-            summary: &str,
-            when: &str,
-            urgency: Urgency,
-        ) -> Notification {
-            Notification {
-                key: key.to_owned(),
-                app_name: app.to_owned(),
-                summary: summary.to_owned(),
-                when: when.to_owned(),
-                icon: Some(themed_icon(icon)),
-                urgency,
-                unread: true,
-                activatable: false,
-                ..Notification::default()
-            }
-        }
-
-        fn count(n: usize) -> String {
-            match n {
-                1 => "1 new notification".to_owned(),
-                n => format!("{n} new notifications"),
-            }
         }
 
         fn media(root: &gtk4::Widget) {
@@ -3375,7 +3258,6 @@ mod fixtures {
             }
 
             popover.set_readings(&readings);
-            popover.set_footer(Some("System Monitor settings"));
         }
     }
 
@@ -4081,16 +3963,16 @@ mod fixtures {
 fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ColorList,
-        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, ForecastDay,
-        ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList,
-        KeyboardPopover, LockClock, LockStage, Notice, NotificationCard, NotificationChips,
-        NotificationHeader, NotificationImageBody, NotificationList, NotificationStack,
-        NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel, PasswordPrompt,
-        Placeholder, PlayerList, PlayerRow, PopoverShell, PrintingPopover, PrivacyPopover,
-        RangeBar, Readout, Scrubber, Section, SessionPopover, SessionSheet, ShotBanner,
-        ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar,
-        ShotWindowList, SourceList, StatusIsland, Swatch, SystemMonitorPopover, TooltipCard,
-        TrackCard, Transport, TrayStrip, WeatherPopover, WorkspaceNamePopover, WorldClock,
+        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, ForecastList,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LockClock,
+        LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
+        NotificationImageBody, NotificationStack, NotificationTextBody, NotificationsPopover,
+        NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList, PopoverShell,
+        PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber, Section, SessionPopover,
+        SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion,
+        ShotResultPage, ShotToolbar, ShotWindowList, SourceList, StatusIsland, Swatch,
+        SystemMonitorPopover, TrackCard, Transport, TrayStrip, WeatherPopover,
+        WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -4112,8 +3994,6 @@ fn ensure_types() {
         DisplayList::static_type(),
         DisplayPopover::static_type(),
         SourceList::static_type(),
-        ForecastDay::static_type(),
-        ForecastHour::static_type(),
         ForecastList::static_type(),
         ForecastStrip::static_type(),
         Notice::static_type(),
@@ -4121,13 +4001,11 @@ fn ensure_types() {
         NotificationHeader::static_type(),
         NotificationImageBody::static_type(),
         NotificationTextBody::static_type(),
-        NotificationList::static_type(),
         NotificationStack::static_type(),
         NotificationsPopover::static_type(),
         NowPlaying::static_type(),
         PasswordPrompt::static_type(),
         PlayerList::static_type(),
-        PlayerRow::static_type(),
         Scrubber::static_type(),
         Transport::static_type(),
         RangeBar::static_type(),
@@ -4145,7 +4023,6 @@ fn ensure_types() {
         Indicator::static_type(),
         IndicatorGroup::static_type(),
         TrayStrip::static_type(),
-        TooltipCard::static_type(),
         KeyboardPopover::static_type(),
         Placeholder::static_type(),
         InhibitorList::static_type(),

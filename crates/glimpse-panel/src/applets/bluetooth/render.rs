@@ -19,10 +19,10 @@ pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
 
     let devices = state
         .connected()
-        .map(|device| cap(&device.name))
+        .map(|device| glimpse_utils::clean(&device.name, NAME_CAP))
         .collect::<Vec<_>>()
         .join(", ");
-    let alias = cap(&adapter.alias);
+    let alias = glimpse_utils::clean(&adapter.alias, NAME_CAP);
     Some(crate::applets::tokens::render(
         format,
         |token| match token {
@@ -51,10 +51,6 @@ fn status(power: Power, discovering: bool, connected: usize) -> String {
             .replace("{count}", &count.to_string()),
         },
     }
-}
-
-pub fn cap(name: &str) -> String {
-    glimpse_utils::clean(name, NAME_CAP)
 }
 
 pub fn hero(state: &BluetoothState) -> Hero {
@@ -144,7 +140,10 @@ fn named(state: &BluetoothState, device: &DeviceId) -> String {
     state
         .name(device)
         .filter(|name| !name.is_empty())
-        .map_or_else(|| gettext("Unknown device"), cap)
+        .map_or_else(
+            || gettext("Unknown device"),
+            |name| glimpse_utils::clean(name, NAME_CAP),
+        )
 }
 
 fn pairing(state: &BluetoothState) -> Option<Ask> {
@@ -292,7 +291,7 @@ fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
 fn entry(device: &Device, place: Place) -> Entry {
     Entry {
         id: device.id.as_str().to_owned(),
-        title: cap(&device.name),
+        title: glimpse_utils::clean(&device.name, NAME_CAP),
         problem: problem(device),
         icon: icon(device.icon).to_owned(),
         place,

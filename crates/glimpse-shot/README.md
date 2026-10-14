@@ -104,7 +104,7 @@ GUI face, marks and earlier results kept. `OutputGone` hands the document to a w
 emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
-`Notifier`, `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
+`Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
 `Screens` on `glimpse-wayland` and the compositor snapshot, `Windows` as the ladder below,
 `Clipboard` through `hold`, `Files` with `create_new`, and `Clock`. An `Effected` for anything but
 the first pending effect is stale and ignored; an `OutputGone` while finishing is remembered and
@@ -158,9 +158,9 @@ the folder. No bus or notification server is a warning; the save already happene
 
 `glimpse-shot portal` is the xdg-desktop-portal backend, a tokio and zbus process. It takes the
 bus name `me.aresa.Glimpse.Shot.Portal` and then serves `org.freedesktop.impl.portal.Screenshot`
-version 2 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor` and `version`. D-Bus
-activation uses `glimpse-shot-portal.service`, which requires and stops with `glimpse-session.target`.
-It never constructs the app.
+version 3 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor`, `version` and
+`AvailableTargets` (screen, area, active window). D-Bus activation uses `glimpse-shot-portal.service`,
+which requires and stops with `glimpse-session.target`. It never constructs the app.
 
 Each call exports an `org.freedesktop.impl.portal.Request` at its handle. `Request.Close` SIGTERMs
 its child without replying. Overlay children use fresh GApplication IDs, so SIGTERM closes their
@@ -174,7 +174,10 @@ after a pending crop and Esc refuses. Other finish keys, controls and window pic
 so it never uses the clipboard or notifications. `parent_window` is ignored.
 `interactive=false` with `permission_store_checked=true` runs `glimpse-shot capture --screen
 --json -o PATH` under `[screenshot] directory`, creating it if needed. Child binaries come
-from beside this binary, then `PATH`; tokio captures stdout and kills dropped children.
+from beside this binary, then `PATH`; tokio captures stdout and kills dropped children. `target` 1
+follows that rule; 4 always opens the same overlay, so interactive targets 1 and 4 are identical.
+Target 8 runs `capture --window focused` with `permission_store_checked=true`, regardless of the
+`interactive` hint, and is refused without permission. Window (2) and invalid targets return 2.
 
 Exit 0 with a result path returns response 0 with a `file://` URI; exit 4 returns 1, and any
 other exit, signal or invalid result returns 2. `PickColor` runs `glimpse-lens --tool picker --json`:

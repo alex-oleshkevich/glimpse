@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 
 use super::emit;
-use crate::render::{Flow, print};
+use crate::render::{Flow, print, styled};
 
 pub fn config_show(override_path: Option<PathBuf>, json: bool) -> Result<()> {
     let config = glimpse_config::load(override_path.as_deref())?;
@@ -17,7 +17,12 @@ pub fn config_show(override_path: Option<PathBuf>, json: bool) -> Result<()> {
 }
 
 pub fn config_validate(override_path: Option<PathBuf>) -> Result<()> {
-    glimpse_config::load(override_path.as_deref())?;
+    let config = glimpse_config::load(override_path.as_deref())?;
+    for problem in config.validate() {
+        if let Flow::Stop = print(&styled::warn(&problem.to_string()))? {
+            break;
+        }
+    }
     Ok(())
 }
 

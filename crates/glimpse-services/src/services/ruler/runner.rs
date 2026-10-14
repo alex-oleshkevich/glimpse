@@ -2,8 +2,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::process::Stdio;
 
-use serde::Deserialize;
-
 use super::history::Measurement;
 
 const REASON: usize = 240;
@@ -23,34 +21,6 @@ impl ProcessRunner {
     pub fn new(program: impl Into<String>) -> Self {
         Self {
             program: program.into(),
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct Line {
-    from_x: u32,
-    from_y: u32,
-    to_x: u32,
-    to_y: u32,
-    dx: i64,
-    dy: i64,
-    distance: f64,
-    angle: f64,
-}
-
-impl From<Line> for Measurement {
-    fn from(line: Line) -> Self {
-        Self {
-            id: 0,
-            from_x: line.from_x,
-            from_y: line.from_y,
-            to_x: line.to_x,
-            to_y: line.to_y,
-            dx: line.dx,
-            dy: line.dy,
-            distance: line.distance,
-            angle: line.angle,
         }
     }
 }
@@ -81,8 +51,7 @@ fn answer(code: Option<i32>, stdout: &[u8], stderr: &[u8]) -> Result<Vec<Measure
             .split(|&byte| byte == b'\n')
             .filter(|segment| !segment.is_empty())
             .map(|segment| {
-                serde_json::from_slice::<Line>(segment)
-                    .map(Measurement::from)
+                serde_json::from_slice::<Measurement>(segment)
                     .map_err(|error| format!("the ruler printed something unreadable: {error}"))
             })
             .collect(),

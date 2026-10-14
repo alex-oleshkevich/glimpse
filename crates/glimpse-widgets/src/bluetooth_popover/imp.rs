@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{ActionRow, ExpanderRow, Fact, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, PopoverShell, Section};
 
 use super::BluetoothDevice;
 
@@ -28,23 +28,6 @@ pub struct Entry {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Line {
-    pub action: String,
-    pub title: String,
-    pub toggle: Option<bool>,
-    pub activates: bool,
-    pub busy: bool,
-    pub destructive: bool,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Details {
-    pub id: String,
-    pub facts: Vec<Fact>,
-    pub lines: Vec<Line>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Ask {
     pub key: String,
     pub device: String,
@@ -55,6 +38,8 @@ pub struct Ask {
     pub cancel: String,
     pub destructive: bool,
 }
+
+pub use crate::fact_list::{Details, Line};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/bluetooth_popover.ui")]
@@ -93,8 +78,6 @@ pub struct BluetoothPopover {
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub search: TemplateChild<ExpanderRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
@@ -148,7 +131,6 @@ impl ObjectImpl for BluetoothPopover {
                 glib::subclass::Signal::builder("answered")
                     .param_types([bool::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -186,11 +168,7 @@ impl ObjectImpl for BluetoothPopover {
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"nearby".to_owned()])
         ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
+
         self.prompt_cancel.connect_clicked(glib::clone!(
             #[weak]
             popover,

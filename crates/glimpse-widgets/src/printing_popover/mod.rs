@@ -54,22 +54,6 @@ impl PrintingPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.upcast_ref::<Row>().set_title(label);
-        if footer.get_visible() != label.is_some() {
-            footer.set_visible(label.is_some());
-        }
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
     pub fn connect_cancelled<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "cancelled",

@@ -4,6 +4,7 @@ use glimpse_config::{
     Config, DARK_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet, user_dark_stylesheet,
     user_stylesheet, watch_config, watch_theme,
 };
+use glimpse_widgets::color_scheme;
 use glimpse_widgets::{Sheets, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -138,14 +139,6 @@ impl SimpleComponent for App {
             .set_variant(&self.config.appearance.theme_variant);
         self.styles
             .set_animation_speed(self.config.appearance.animation_speed);
-    }
-}
-
-fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
-    match scheme {
-        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
-        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
-        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
     }
 }
 

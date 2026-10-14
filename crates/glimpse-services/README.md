@@ -15,7 +15,7 @@ required because a handle answers `snapshot()` before `run` is called — a defe
 an `Option` into every consumer. **`Running<S>` is one owned service — spawn, reconfigure, stop.** A
 dropped `Running` cancels its service, so no root writes its own `Drop`.
 
-**The unchanged-configuration gate belongs in `run`, never on `ServiceSender`** — see
+**The unchanged-configuration gate belongs in `run`, never on the sender** — see
 `.claude/rules/daemon.md`; a `try_send` onto a full inbox must not record a config that never
 arrived. Health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`, and
 **`Degraded` is a running service** that keeps publishing what it can, so a consumer must not dim its
@@ -31,7 +31,7 @@ Everything reaching a handler arrives from a source, and every source is one `ct
 | -------------------- | --------------- | --------------------------------------------------- |
 | `ctx.spawn`          | one event       | one unit of async work whose result is an event     |
 | `ctx.spawn_detached` | nothing         | work with no result to report                       |
-| `ctx.interval`       | an event a tick | polling, clocks; `at_interval` picks the first tick |
+| `ctx.interval`       | an event a tick | polling, clocks, starting immediately               |
 | `ctx.stream`         | many events     | a backend signal stream, a watch, a subscription    |
 | `Sub::watch`         | many events     | another service's typed state                       |
 
@@ -65,7 +65,8 @@ follower in sunset. Owner loss clears the observed phase and degrades automatic 
 schedules remain independent. The tick period lives in its own subscription key, so crossing a
 transition window rebuilds the timer at the new cadence while the ramp position still comes from the clock. Release is
 decided on the solar phase, not the computed value, since a ramp can round to `DAY` without meaning
-daylight — a manual override held at exactly `DAY` is the one exception.
+daylight — a manual override held at exactly `DAY` releases too. A pause holds neutral `DAY`
+until the existing night boundary; it never changes the manual temperature override.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals and
 charge-threshold details come from the real `BAT*` objects, since the composite omits them. `TimeTo*`
@@ -195,7 +196,9 @@ a reloaded applet. Placement and options changes go over its stdin without respa
 child retries on bounded backoff, and a running child whose catalog entry is missing on two checks in
 a row is stopped. The source resolves desktop entries and builds the sandbox off the async worker,
 spawns on that worker for PDEATHSIG in the entry's `Path`, or the desktop file's resolved directory
-without one, and Landlock-confines the child to its configured `sandbox`.
+without one, and Landlock-confines the child to its configured `sandbox`. The child inherits only
+stdio: zbus receives passed fds without close-on-exec, so another applet's pipe end would otherwise
+ride into it and that pipe would never reach EOF.
 A confined applet refuses to start on a kernel below Landlock ABI 10 unless `unconfined` is set;
 PATH entries under the home directory receive no implicit grant. The host passes the applet's
 persistent state directory as `state` in `hello`. Stopping a child kills its

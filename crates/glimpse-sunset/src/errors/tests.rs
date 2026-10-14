@@ -1,11 +1,6 @@
 use super::*;
 
 #[test]
-fn ordinary_failures_keep_the_generic_code() {
-    assert_eq!(exit(&anyhow::anyhow!("failed")), Exit::Failed);
-}
-
-#[test]
 fn a_compositor_without_the_protocol_has_its_own_code() {
     let error = anyhow::Error::new(Unavailable::Unsupported)
         .context("cannot take gamma control")

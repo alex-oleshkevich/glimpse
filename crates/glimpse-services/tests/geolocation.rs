@@ -168,7 +168,7 @@ async fn a_fix_arriving_releases_the_client_and_clears_in_use() {
     service.stop().await;
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::test]
 async fn a_cold_start_holds_its_client_and_says_it_is_waiting() {
     let bus = PrivateBus::start();
     let fake = FakeGeoClue::start(bus.connection().await).await.unwrap();
@@ -188,6 +188,7 @@ async fn a_cold_start_holds_its_client_and_says_it_is_waiting() {
         matches!(&health, ServiceState::Degraded { reason } if reason.contains("waiting")),
         "a location that has not arrived yet must say so: {health:?}"
     );
+    tokio::time::pause();
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert!(
         fake.in_use() && !fake.calls().contains(&Call::Stop(client.clone())),
@@ -195,6 +196,7 @@ async fn a_cold_start_holds_its_client_and_says_it_is_waiting() {
     );
     assert_eq!(handle.snapshot().coordinates, None);
 
+    tokio::time::resume();
     service.stop().await;
 }
 

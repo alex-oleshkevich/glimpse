@@ -228,7 +228,7 @@ fn print_rows(rows: &[AppletRow], json: bool) -> Result<()> {
         return emit(&rows);
     }
     render::print(
-        &Table::new()
+        &Table::default()
             .with_headers([
                 "OUTPUT",
                 "BAR",
@@ -263,7 +263,7 @@ fn print_watch_row(row: &AppletRow, json: bool) -> Result<render::Flow> {
     if json {
         render::print(&serde_json::to_string(row)?)
     } else {
-        render::print(&Table::new().with_row(cells(row)).render())
+        render::print(&Table::default().with_row(cells(row)).render())
     }
 }
 

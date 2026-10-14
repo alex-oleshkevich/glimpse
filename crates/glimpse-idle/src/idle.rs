@@ -97,6 +97,7 @@ impl Handle {
         let _ = self.command_tx.send(event).await;
     }
 
+    #[cfg(test)]
     pub fn try_send(&self, event: Event) -> Result<(), mpsc::error::TrySendError<Event>> {
         self.command_tx.try_send(event)
     }

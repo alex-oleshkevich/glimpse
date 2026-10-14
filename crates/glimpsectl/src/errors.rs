@@ -105,6 +105,7 @@ fn named(name: &str) -> Exit {
 
         "me.aresa.Glimpse.NightLight1.Error.InvalidSchedule"
         | "me.aresa.Glimpse.NightLight1.Error.InvalidTemperature"
+        | "me.aresa.Glimpse.NightLight1.Error.NotActive"
         | "me.aresa.Glimpse.Weather1.Error.InvalidPlace"
         | "me.aresa.Glimpse.Notifications1.Error.InvalidAction"
         | "me.aresa.Glimpse.Clipboard1.Error.NoSuchEntry"

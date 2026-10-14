@@ -12,10 +12,6 @@ pub const PRINTING: &str = "printer-printing-symbolic";
 
 pub const NAME_CAP: usize = 40;
 
-pub fn cap(text: &str) -> String {
-    glimpse_utils::clean(text, NAME_CAP)
-}
-
 pub fn chip(state: &PrintingState, show: PrintingShow) -> Option<&'static str> {
     if attention(state) {
         return Some(IDLE);
@@ -81,8 +77,8 @@ fn job_row(job: &PrintJob, pending: &HashSet<u32>) -> PrintingJob {
     let in_flight = pending.contains(&job.id);
     PrintingJob {
         id: job.id.to_string(),
-        name: cap(&job.name),
-        printer: cap(&job.printer_name),
+        name: glimpse_utils::clean(&job.name, NAME_CAP),
+        printer: glimpse_utils::clean(&job.printer_name, NAME_CAP),
         status: job_status(job),
         progress: job
             .pages_completed
@@ -105,7 +101,7 @@ fn cancellable(state: JobState) -> bool {
 
 fn job_status(job: &PrintJob) -> String {
     let status = state_name(job.state);
-    let reason = cap(&job.reason);
+    let reason = glimpse_utils::clean(&job.reason, NAME_CAP);
     match job.state {
         JobState::Held | JobState::Stopped | JobState::Aborted if !reason.is_empty() => {
             gettext("{status}: {reason}")
@@ -135,8 +131,8 @@ pub fn printers(state: &PrintingState) -> Vec<PrintingPrinter> {
 fn printer(printer: &ServicePrinter) -> PrintingPrinter {
     let problem = problem(printer);
     PrintingPrinter {
-        id: cap(&printer.name),
-        name: cap(&printer.name),
+        id: glimpse_utils::clean(&printer.name, NAME_CAP),
+        name: glimpse_utils::clean(&printer.name, NAME_CAP),
         facts: printer_facts(printer, problem.is_some()),
         problem: problem.unwrap_or_default(),
         network: is_network(&printer.device_uri),
@@ -144,8 +140,8 @@ fn printer(printer: &ServicePrinter) -> PrintingPrinter {
 }
 
 fn printer_facts(printer: &ServicePrinter, troubled: bool) -> Vec<Fact> {
-    let model = cap(&printer.make_model);
-    let location = cap(&printer.location);
+    let model = glimpse_utils::clean(&printer.make_model, NAME_CAP);
+    let location = glimpse_utils::clean(&printer.location, NAME_CAP);
     let busy = !troubled && printer.state != PrinterState::Idle;
     [
         (gettext("Model"), model),
@@ -167,7 +163,7 @@ fn printer_facts(printer: &ServicePrinter, troubled: bool) -> Vec<Fact> {
 
 fn problem(printer: &ServicePrinter) -> Option<String> {
     if !printer.state_message.is_empty() {
-        return Some(cap(&printer.state_message));
+        return Some(glimpse_utils::clean(&printer.state_message, NAME_CAP));
     }
     if !printer.accepting_jobs {
         return Some(gettext("Not accepting jobs"));
@@ -177,7 +173,7 @@ fn problem(printer: &ServicePrinter) -> Option<String> {
             printer
                 .state_reasons
                 .first()
-                .map(|reason| cap(reason))
+                .map(|reason| glimpse_utils::clean(reason, NAME_CAP))
                 .filter(|reason| !reason.is_empty())
                 .unwrap_or_else(|| gettext("Stopped")),
         ),

@@ -27,8 +27,6 @@ pub struct RulerPopover {
     pub history_section: TemplateChild<Section>,
     #[template_child]
     pub history_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub history_data: RefCell<Vec<HistoryEntry>>,
     pub history_held: RefCell<Vec<(u64, ActionRow)>>,
@@ -63,7 +61,6 @@ impl ObjectImpl for RulerPopover {
                     .param_types([u64::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("measure-requested").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -75,11 +72,6 @@ impl ObjectImpl for RulerPopover {
             #[weak]
             obj,
             move |_| obj.emit_by_name::<()>("measure-requested", &[])
-        ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            obj,
-            move |_| obj.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

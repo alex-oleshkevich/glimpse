@@ -12,7 +12,8 @@ use tokio::sync::{oneshot, watch};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
+    services::transport,
     subscription::Sub,
 };
 
@@ -143,36 +144,21 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct WeatherHandle(ServiceEndpoint<Weather>);
+pub type WeatherHandle = ServiceEndpoint<Weather>;
 
-impl WeatherHandle {
-    pub fn snapshot(&self) -> WeatherStatus {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<WeatherStatus> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Weather> {
     pub async fn watch(&self, place: WatchedPlace) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Watch { place, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("weather stopped before accepting the place".to_owned())
-        })?
+        self.call("weather stopped before accepting the place", |reply| {
+            Command::Watch { place, reply }
+        })
+        .await?
     }
 
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Refresh { reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("weather stopped before refreshing".to_owned())
-        })?
+        self.call("weather stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 }
 
@@ -270,15 +256,10 @@ impl Service for Weather {
 
     type Config = Config;
     type State = WeatherStatus;
-    type Handle = WeatherHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = WeatherDependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        WeatherHandle(endpoint)
-    }
 
     fn initial_state(config: &Self::Config) -> Self::State {
         initial_state(config)
@@ -326,7 +307,7 @@ impl Service for Weather {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let client = match reqwest::Client::builder()
             .timeout(TIMEOUT)
             .user_agent(AGENT)
@@ -353,7 +334,7 @@ impl Service for Weather {
         };
         service.report(ctx);
         service.publish();
-        Ok(service)
+        service
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -690,15 +671,6 @@ fn sanitized(alerts: &[WeatherAlert]) -> Vec<WeatherAlert> {
             expires_at: alert.expires_at,
         })
         .collect()
-}
-
-/// A transport failure must not carry the request: the query string holds the user's latitude and
-/// longitude, so a logged URL is a location leak.
-fn transport(error: reqwest::Error) -> String {
-    match error.is_timeout() {
-        true => "the request timed out".to_owned(),
-        false => error.without_url().to_string(),
-    }
 }
 
 async fn fetch_json<T: serde::de::DeserializeOwned>(

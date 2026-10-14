@@ -42,8 +42,8 @@ This crate touches no Wayland object: both backends are Unix sockets carrying te
 - **`Capabilities` carries only differences a caller acts on** — a flag holding the same value on
   every backend is documentation charging runtime rent. `workspace_reorder` is false under
   Hyprland, where a workspace's index *is* its identity, so a popover disables `Move up`/`Move down`
-  rather than omitting the rows. `output_power` is kept true on both even though Hyprland's
-  wake-on-input after `dpms off` may need an explicit power-on that niri does not.
+  rather than omitting the rows. `blank_screens` is false under Hyprland, whose `dpms off` does not
+  wake on input, so the blank row is omitted there while `output_power` stays true on both.
 - **`Unsupported` and `Unavailable` are different failures.** `Unsupported` means there is no
   compositor to ask, so every operation answers it and the daemon degrades rather than refusing to
   start. `Unavailable` means a compositor is running and cannot do this one thing, is knowable in

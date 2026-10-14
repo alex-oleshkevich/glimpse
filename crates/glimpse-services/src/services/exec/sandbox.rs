@@ -186,6 +186,7 @@ pub fn exec_state_dir(base: &Path, id: &str) -> Result<PathBuf, String> {
 }
 
 pub fn exec_confine(ruleset: Option<RawFd>, parent: rustix::process::Pid) -> std::io::Result<()> {
+    close_inherited_on_exec()?;
     rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::KILL))?;
     if rustix::process::getppid() != Some(parent) {
         return Err(rustix::io::Errno::SRCH.into());
@@ -197,6 +198,14 @@ pub fn exec_confine(ruleset: Option<RawFd>, parent: rustix::process::Pid) -> std
         if unsafe { libc::syscall(libc::SYS_landlock_restrict_self, fd, 0) } < 0 {
             return Err(std::io::Error::last_os_error());
         }
+    }
+    Ok(())
+}
+
+fn close_inherited_on_exec() -> std::io::Result<()> {
+    let flags = libc::CLOSE_RANGE_CLOEXEC as libc::c_int;
+    if unsafe { libc::close_range(3, libc::c_uint::MAX, flags) } < 0 {
+        return Err(std::io::Error::last_os_error());
     }
     Ok(())
 }

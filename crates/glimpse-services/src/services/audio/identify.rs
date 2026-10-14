@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::services::cap;
+
 use super::model::{App, AppId, DeviceId, NAME_CAP, Role, StreamRef};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,10 +32,12 @@ pub fn identify(
     client: Option<u32>,
     index: u32,
 ) -> Identity {
-    let name = cap(&resolve_name(props, client_props));
-    let icon_name = field(props, client_props, "application.icon_name").map(|value| cap(&value));
+    let name = cap(&resolve_name(props, client_props), NAME_CAP);
+    let icon_name =
+        field(props, client_props, "application.icon_name").map(|value| cap(&value, NAME_CAP));
     let app_id = field(props, client_props, "application.id");
-    let binary = field(props, client_props, "application.process.binary").map(|value| cap(&value));
+    let binary =
+        field(props, client_props, "application.process.binary").map(|value| cap(&value, NAME_CAP));
 
     let id = match &app_id {
         Some(app_id) => AppId::new(app_id.clone()),
@@ -213,10 +217,6 @@ fn sanitize(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_owned())
     }
-}
-
-fn cap(value: &str) -> String {
-    value.chars().take(NAME_CAP).collect()
 }
 
 #[cfg(test)]

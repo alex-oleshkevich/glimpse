@@ -23,8 +23,6 @@ pub struct SessionPopover {
     pub reboot: TemplateChild<ActionRow>,
     #[template_child]
     pub power_off: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 }
 
 #[glib::object_subclass]
@@ -55,7 +53,6 @@ impl ObjectImpl for SessionPopover {
                 glib::subclass::Signal::builder("action-requested")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -77,11 +74,6 @@ impl ObjectImpl for SessionPopover {
                 move |_| popover.emit_by_name::<()>("action-requested", &[&action])
             ));
         }
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
     }
 
     fn dispose(&self) {

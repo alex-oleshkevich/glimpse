@@ -90,16 +90,8 @@ impl FakeSelection {
         self.push(mime, data, false);
     }
 
-    pub fn capture_sensitive(&self, mime: &str, data: &[u8]) {
-        self.push(mime, data, true);
-    }
-
     pub fn unavailable(&self, reason: &str) {
         self.emit(SelectionEvent::Unavailable(reason.to_owned()));
-    }
-
-    pub fn watching(&self) {
-        self.emit(SelectionEvent::Watching);
     }
 
     pub fn offered(&self) -> Vec<Offer> {

@@ -51,8 +51,6 @@ pub struct RemovablePopover {
     pub devices_more: TemplateChild<ExpanderRow>,
     #[template_child]
     pub more_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub devices_data: RefCell<(Vec<Drive>, Vec<Drive>)>,
     pub more_held: RefCell<Vec<(String, RemovableDevice)>>,
@@ -93,7 +91,6 @@ impl ObjectImpl for RemovablePopover {
                 glib::subclass::Signal::builder("eject")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -110,11 +107,6 @@ impl ObjectImpl for RemovablePopover {
                     popover.emit_by_name::<()>("more", &[&open]);
                 }
             }
-        ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

@@ -19,7 +19,7 @@ pub(super) fn check() {
     let holds = Rc::new(RefCell::new(Vec::<bool>::new()));
     let requested = Rc::new(RefCell::new(Vec::<u32>::new()));
     let opens = Rc::new(Cell::new(0u32));
-    let footers = Rc::new(Cell::new(0u32));
+
     power.connect_profile_activated({
         let profiles = Rc::clone(&profiles);
         move |_, index| profiles.borrow_mut().push(index)
@@ -40,10 +40,6 @@ pub(super) fn check() {
         let opens = Rc::clone(&opens);
         move |_| opens.set(opens.get() + 1)
     });
-    power.connect_footer_activated({
-        let footers = Rc::clone(&footers);
-        move |_| footers.set(footers.get() + 1)
-    });
 
     let history = sample_history();
     fill_laptop(&power, &history);
@@ -52,7 +48,7 @@ pub(super) fn check() {
     assert!(holds.borrow().is_empty());
     assert!(requested.borrow().is_empty());
     assert_eq!(opens.get(), 0);
-    assert_eq!(footers.get(), 0);
+
     assert_laptop(&power, &history);
 
     let rows = children_of::<ToggleRow>(&*power.imp().profiles);
@@ -99,9 +95,6 @@ pub(super) fn check() {
     power.imp().hold.activate();
     assert_eq!(holds.borrow().as_slice(), &[false]);
     assert!(!power.imp().hold.active());
-
-    power.imp().footer.activate();
-    assert_eq!(footers.get(), 1);
 
     let history_head = child_named::<ActionRow>(&*power.imp().history, "expander-row__head");
     history_head.activate();
@@ -233,12 +226,6 @@ fn assert_laptop(power: &PowerPopover, history: &PowerHistory) {
     assert_eq!(devices[2].title().as_deref(), Some("Pixel 8"));
     assert_eq!(devices[2].tone(), RowTone::Warning);
     assert!(children_of::<ToggleRow>(&*power.imp().devices_box).is_empty());
-
-    assert!(power.imp().footer.get_visible());
-    assert_eq!(
-        face(&*power.imp().footer).title().as_deref(),
-        Some("Power Settings")
-    );
 }
 
 fn face(row: &impl IsA<Row>) -> &Row {
@@ -256,7 +243,6 @@ fn assert_desktop() {
     power.set_profiles(&profiles(), Some(1));
     power.set_devices(&devices());
     power.set_hold_active(false);
-    power.set_footer(Some("Power Settings"));
 
     assert!(!power.imp().readout.get_visible());
     assert!(!power.imp().notice.get_visible());
@@ -266,7 +252,7 @@ fn assert_desktop() {
     assert!(power.imp().profiles_section.get_visible());
     assert!(power.imp().keep.get_visible());
     assert!(power.imp().devices_section.get_visible());
-    assert!(power.imp().footer.get_visible());
+
     assert_eq!(
         power.imp().shell.icon_name().as_deref(),
         Some("power-profile-balanced-symbolic")
@@ -383,7 +369,6 @@ fn fill_laptop(power: &PowerPopover, history: &PowerHistory) {
     power.set_hold_active(true);
     power.set_hold_preset(Some(3_600));
     power.set_devices(&devices());
-    power.set_footer(Some("Power Settings"));
 }
 
 fn profiles() -> Vec<Choice> {

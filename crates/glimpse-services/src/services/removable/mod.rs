@@ -19,7 +19,7 @@ use failure::{Action, classify};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceError},
+    service::{CommandError, Input, Service},
     subscription::Sub,
 };
 
@@ -229,48 +229,42 @@ pub struct Removable {
     blocks: BTreeMap<String, BlockRecord>,
 }
 
-#[derive(Clone)]
-pub struct RemovableHandle(crate::ServiceEndpoint<Removable>);
+pub type RemovableHandle = crate::ServiceEndpoint<Removable>;
 
-impl RemovableHandle {
-    pub fn snapshot(&self) -> RemovableState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<RemovableState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl crate::ServiceEndpoint<Removable> {
     pub async fn mount(&self, id: VolumeId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Mount { id, reply }).await
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Mount { id, reply }
+        })
+        .await?
     }
 
     pub async fn unmount(&self, id: VolumeId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Unmount { id, reply }).await
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Unmount { id, reply }
+        })
+        .await?
     }
 
     pub async fn eject(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Eject { id, reply }).await
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Eject { id, reply }
+        })
+        .await?
     }
 
     pub async fn power_off(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::PowerOff { id, reply }).await
+        self.call("removable stopped before completing the command", |reply| {
+            Command::PowerOff { id, reply }
+        })
+        .await?
     }
 
     pub async fn remove(&self, id: DriveId) -> Result<(), RemovableError> {
-        self.call(|reply| Command::Remove { id, reply }).await
-    }
-
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), RemovableError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(command(reply))?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("removable stopped before completing the command".to_owned())
-        })?
+        self.call("removable stopped before completing the command", |reply| {
+            Command::Remove { id, reply }
+        })
+        .await?
     }
 }
 
@@ -301,15 +295,10 @@ impl Service for Removable {
     const NAME: &'static str = "removable";
     type Config = Config;
     type State = RemovableState;
-    type Handle = RemovableHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        RemovableHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -331,19 +320,15 @@ impl Service for Removable {
         subs
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        _: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, _: Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             config,
             generation: 0,
             adopted: false,
             drives: BTreeMap::new(),
             blocks: BTreeMap::new(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -695,7 +680,6 @@ impl Removable {
                 merge_filesystem(
                     held.filesystem
                         .get_or_insert_with(FilesystemProperties::default),
-                    properties,
                     decoded,
                 );
                 let now_mounted = held
@@ -941,10 +925,8 @@ fn merge_block(held: &mut BlockProperties, from: BlockProperties) {
     );
 }
 
-fn merge_filesystem(held: &mut FilesystemProperties, raw: &Properties, from: FilesystemProperties) {
-    if raw.contains_key("MountPoints") {
-        held.mount_points = from.mount_points;
-    }
+fn merge_filesystem(held: &mut FilesystemProperties, from: FilesystemProperties) {
+    keep(&mut held.mount_points, from.mount_points);
     keep(&mut held.size, from.size);
 }
 

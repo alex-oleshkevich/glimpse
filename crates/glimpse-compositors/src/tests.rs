@@ -61,4 +61,5 @@ fn the_two_backends_disagree_about_floating_and_about_reordering() {
         "a Hyprland workspace's index is its identity, so there is no position to change"
     );
     assert!(niri.output_power && hyprland.output_power);
+    assert!(niri.blank_screens && !hyprland.blank_screens);
 }

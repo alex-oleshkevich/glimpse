@@ -51,7 +51,7 @@ fn idle_targeting_record(id: u64) -> IdleInhibitorRecord {
 async fn settle() {
     tokio::time::sleep(Duration::from_millis(50)).await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn watch_registry_forwards_shared_registry_changes_into_the_actor() {
     let (shared_registry, any_idle_target_rx, _generation_rx) = SharedRegistry::new();
     let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(NoopRunner));
@@ -234,4 +234,48 @@ async fn emit_changes_refreshes_a_cached_health_property() {
 
     cancel.cancel();
     let _ = task.await;
+}
+
+#[tokio::test]
+async fn reconfigure_waits_for_a_full_queue_and_applies_the_newest_config() {
+    let bus = glimpse_dbus::testing::PrivateBus::start();
+    let connection = bus.connection().await;
+    let (registry, _, _) = SharedRegistry::new();
+    let idle1 = Exported::start(
+        connection,
+        GLIMPSE_IDLE_BUS_NAME,
+        GLIMPSE_IDLE_OBJECT_PATH,
+        Idle1Server::new(registry, None, Health::new().0),
+        std::future::pending::<()>(),
+    )
+    .await
+    .unwrap();
+    let (actor, handle) = Actor::new(one_listener_config(), false, Arc::new(NoopRunner));
+    while handle.try_send(Event::RegistryChanged(false)).is_ok() {}
+    let cancel = CancellationToken::new();
+    let mut services = IdleServices {
+        handle,
+        cancel: cancel.clone(),
+        tasks: vec![],
+        idle1,
+        actions: None,
+    };
+    let mut config = Config {
+        idle: one_listener_config(),
+        ..Config::default()
+    };
+    config.idle.profiles.ac.listeners[0].timeout = 20;
+    let mut pending = Box::pin(services.reconfigure(&config));
+    assert!(futures_util::poll!(&mut pending).is_pending());
+    let task = tokio::spawn(actor.run(cancel));
+    pending.await;
+    config.idle.profiles.ac.listeners[0].timeout = 30;
+    services.reconfigure(&config).await;
+    let mut state = services.handle.subscribe();
+    while state.borrow_and_update().listeners[0].timeout != 30 {
+        state.changed().await.unwrap();
+    }
+    assert_eq!(state.borrow().listeners[0].timeout, 30);
+    services.tasks.push(task);
+    services.shutdown().await;
 }

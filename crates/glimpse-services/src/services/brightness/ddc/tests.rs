@@ -80,7 +80,7 @@ fn a_disconnected_or_non_card_entry_is_skipped_without_touching_i2c() {
                 permission on those nodes (see the ddcutil udev rule); run under \
                 just test-crate-compositor"]
 fn enumerate_reads_a_real_ddc_monitor() {
-    let entries = enumerate_blocking();
+    let entries = enumerate_blocking().entries;
 
     assert!(
         !entries.is_empty(),
@@ -97,14 +97,14 @@ fn enumerate_reads_a_real_ddc_monitor() {
 
 #[test]
 fn a_silent_bus_on_a_connected_connector_is_unavailable_not_gone() {
-    let root = std::env::temp_dir().join(format!("glimpse-ddc-{}", std::process::id()));
+    let dir = tempfile::tempdir().expect("temporary connector root");
+    let root = dir.path();
     let connector = root.join("card1-DP-2");
     std::fs::create_dir_all(connector.join("i2c-15")).unwrap();
     std::fs::write(connector.join("i2c-15/name"), "AMDGPU DM aux hw bus 2").unwrap();
     std::fs::write(connector.join("status"), "connected\n").unwrap();
-    assert!(bus_is_connected(&root, 15));
-    assert!(!bus_is_connected(&root, 16));
+    assert!(bus_is_connected(root, 15));
+    assert!(!bus_is_connected(root, 16));
     std::fs::write(connector.join("status"), "disconnected\n").unwrap();
-    assert!(!bus_is_connected(&root, 15));
-    std::fs::remove_dir_all(&root).unwrap();
+    assert!(!bus_is_connected(root, 15));
 }

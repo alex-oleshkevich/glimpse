@@ -35,9 +35,7 @@ async fn started(dependencies: Dependencies) -> Harness {
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Network::start(&ctx, config, dependencies)
-        .await
-        .expect("the service starts");
+    let service = Network::start(&ctx, config, dependencies).await;
 
     Harness {
         service,

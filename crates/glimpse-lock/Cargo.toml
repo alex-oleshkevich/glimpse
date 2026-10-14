@@ -28,7 +28,6 @@ shadow-rs.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 zbus.workspace = true
 zeroize.workspace = true
 

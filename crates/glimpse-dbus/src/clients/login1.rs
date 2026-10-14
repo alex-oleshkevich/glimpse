@@ -105,24 +105,9 @@ pub fn select_session_candidate(
     candidates: &[SessionCandidate],
     uid: u32,
 ) -> Option<&SessionCandidate> {
-    select_session_candidate_impl(candidates, uid, false)
-}
-
-pub fn select_seat_session_candidate(
-    candidates: &[SessionCandidate],
-    uid: u32,
-) -> Option<&SessionCandidate> {
-    select_session_candidate_impl(candidates, uid, true)
-}
-
-fn select_session_candidate_impl(
-    candidates: &[SessionCandidate],
-    uid: u32,
-    require_seat: bool,
-) -> Option<&SessionCandidate> {
     let candidates = candidates
         .iter()
-        .filter(|candidate| candidate.uid == uid && (!require_seat || !candidate.seat.is_empty()))
+        .filter(|candidate| candidate.uid == uid)
         .collect::<Vec<_>>();
 
     select_best_session(candidates.iter().copied().filter(|candidate| {
@@ -148,7 +133,7 @@ pub async fn session_path(bus: &zbus::Connection) -> Result<OwnedObjectPath, Str
     let manager = Login1ManagerProxy::new(bus)
         .await
         .map_err(|error| error.to_string())?;
-    let uid = current_uid().map_err(|error| error.to_string())?;
+    let uid = current_uid();
     let mut candidates = Vec::new();
     for (id, candidate_uid, _, seat, path) in manager
         .list_sessions()
@@ -215,24 +200,8 @@ fn session_candidate_score(candidate: &SessionCandidate) -> u32 {
     score
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CurrentUidError {
-    #[error("read /proc/self/status")]
-    Read(#[from] std::io::Error),
-    #[error("no Uid field in /proc/self/status")]
-    Missing,
-    #[error("parse uid from /proc/self/status")]
-    Parse(#[from] std::num::ParseIntError),
-}
-
-pub fn current_uid() -> Result<u32, CurrentUidError> {
-    let status = std::fs::read_to_string("/proc/self/status")?;
-    let uid = status
-        .lines()
-        .find_map(|line| line.strip_prefix("Uid:"))
-        .and_then(|value| value.split_whitespace().next())
-        .ok_or(CurrentUidError::Missing)?;
-    Ok(uid.parse()?)
+pub fn current_uid() -> u32 {
+    rustix::process::getuid().as_raw()
 }
 
 #[cfg(test)]

@@ -1,4 +1,6 @@
+use crate::ServiceState;
 use glimpse_dbus::Buses;
+use tokio::sync::watch;
 
 use tokio::sync::mpsc;
 
@@ -80,8 +82,7 @@ async fn started(entries: Vec<Entry>, minimum: u8) -> Harness {
             backend: Arc::new(backend.clone()),
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,
@@ -115,7 +116,7 @@ fn method_error(name: &str) -> zbus::Error {
 #[tokio::test]
 #[ignore = "reads the live /sys/class/backlight and writes it back; run under just test-crate-compositor"]
 async fn enumerate_sysfs_reads_a_real_backlight() {
-    let entries = enumerate_sysfs().await;
+    let entries = enumerate_sysfs(Path::new(BACKLIGHT_ROOT)).await;
 
     assert!(!entries.is_empty(), "this host has no backlight to read");
     assert!(
@@ -126,10 +127,7 @@ async fn enumerate_sysfs_reads_a_real_backlight() {
     );
 
     let entry = entries.first().expect("at least one backlight entry");
-    let bus = zbus::Connection::system()
-        .await
-        .expect("a system bus connection");
-    let backend = SysfsBacklight::new(bus);
+    let backend = SysfsBacklight::new(glimpse_dbus::Buses::connect().await);
     backend
         .write(entry.id.clone(), entry.brightness)
         .await
@@ -157,6 +155,33 @@ async fn a_real_drm_change_event_reaches_the_hotplug_stream() {
         .expect("the udev monitor stream stayed open");
 
     assert!(matches!(event, Event::Enumerated(_)));
+}
+
+#[tokio::test]
+async fn sysfs_without_a_system_bus_lists_nothing_and_refuses_writes() {
+    let root = tempfile::tempdir().expect("temporary directory");
+    let device = root.path().join("intel_backlight");
+    std::fs::create_dir(&device).expect("creates");
+    for (file, value) in [
+        ("brightness", "40"),
+        ("max_brightness", "100"),
+        ("type", "raw"),
+    ] {
+        std::fs::write(device.join(file), value).expect("writes");
+    }
+    let backend = SysfsBacklight::at(
+        glimpse_dbus::Buses::unavailable("no bus in tests"),
+        root.path().to_owned(),
+    );
+
+    let enumeration = backend.enumerate().await;
+    let read = backend.read("intel_backlight".to_owned()).await;
+    let refused = backend.write("panel".to_owned(), 1).await;
+
+    assert!(enumeration.entries.is_empty());
+    assert!(enumeration.unanswered.is_empty());
+    assert!(matches!(read, ReadOutcome::Gone));
+    assert!(refused.is_err());
 }
 
 mod enumeration;

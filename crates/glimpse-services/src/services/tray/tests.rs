@@ -20,7 +20,7 @@ async fn tray() -> (
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let tray = Tray::start(&ctx, NoConfig, ()).await.expect("starts");
+    let tray = Tray::start(&ctx, NoConfig, ()).await;
     (tray, ctx, state_rx, health_rx)
 }
 

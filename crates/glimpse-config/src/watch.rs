@@ -54,7 +54,24 @@ pub fn watch_config_reporting(
     current: Config,
     failure: Option<String>,
 ) -> impl Stream<Item = Result<Option<Config>, String>> + Send + 'static {
-    let watched = watch_all(watch_dirs(config_path.as_deref())).filter_map(|update| async move {
+    let watch = Watch::new(watch_dirs(config_path.as_deref()));
+    let watched = stream::unfold(
+        (watch, config_path.clone()),
+        |(mut watch, path)| async move {
+            let update = watch.next().await?;
+            if matches!(update, Update::Changed(_) | Update::Rearmed) {
+                let dirs: Vec<PathBuf> = watch_dirs(path.as_deref())
+                    .into_iter()
+                    .map(absolute)
+                    .collect();
+                if dirs != watch.allowed {
+                    watch = Watch::new(dirs);
+                }
+            }
+            Some((update, (watch, path)))
+        },
+    )
+    .filter_map(|update| async move {
         match update {
             Update::Changed(paths)
                 if !paths.is_empty()
@@ -133,6 +150,9 @@ impl Reader {
                     let recovered = self.failure.take().is_some();
                     match loaded {
                         Some(config) => {
+                            for problem in config.validate() {
+                                tracing::warn!(%problem, "configuration problem");
+                            }
                             self.current = config.clone();
                             return Some(Ok(Some(config)));
                         }

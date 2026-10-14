@@ -77,10 +77,6 @@ impl<S: Service> Ctx<S> {
         self.state.clone()
     }
 
-    pub fn cancel(&self) -> CancellationToken {
-        self.cancel.child_token()
-    }
-
     /// One unit of asynchronous work whose result is one event. The task is handed a `Ctx` of its
     /// own, so it reaches the buses, the publishers and `degraded` without any of them being
     /// threaded through its arguments.
@@ -109,20 +105,7 @@ impl<S: Service> Ctx<S> {
         F: Fn(Ctx<S>) -> Fut + Send + 'static,
         Fut: Future<Output = S::Event> + Send + 'static,
     {
-        self.at_interval(time::Instant::now(), period, on_tick)
-    }
-
-    /// See [`Ctx::interval`]; this one starts at a chosen instant instead of immediately.
-    pub fn at_interval<F, Fut>(
-        &self,
-        start: time::Instant,
-        period: time::Duration,
-        on_tick: F,
-    ) -> SourceGuard
-    where
-        F: Fn(Ctx<S>) -> Fut + Send + 'static,
-        Fut: Future<Output = S::Event> + Send + 'static,
-    {
+        let start = time::Instant::now();
         self.stream(move |ctx| async move {
             let mut timer = time::interval_at(start, period);
             timer.set_missed_tick_behavior(time::MissedTickBehavior::Skip);

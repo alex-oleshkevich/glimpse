@@ -12,6 +12,7 @@ testing = []
 chrono.workspace = true
 futures-util.workspace = true
 glimpse-utils.workspace = true
+rustix.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -20,6 +21,7 @@ tracing.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 glimpse-dbus = { path = ".", features = ["testing"] }
 serde_json.workspace = true
 

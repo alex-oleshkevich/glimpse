@@ -48,8 +48,8 @@ fn clipboard_widgets() {
         "the header is read against the open panel and must recede with everything else"
     );
     assert!(
-        dimmed(clipboard.imp().clear.upcast_ref()) && dimmed(clipboard.imp().footer.upcast_ref()),
-        "a footer row that stays lit still looks pressable while a card asks a question"
+        dimmed(clipboard.imp().clear.upcast_ref()),
+        "the clear row recedes while a card asks a question"
     );
     assert!(
         opened.open() && !dimmed(opened.upcast_ref()),

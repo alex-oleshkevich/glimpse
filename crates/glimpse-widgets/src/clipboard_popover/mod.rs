@@ -71,10 +71,6 @@ impl ClipboardPopover {
         set_action_label(&self.imp().clear, label);
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
-
     pub fn connect_restored<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "restored",
@@ -131,14 +127,6 @@ impl ClipboardPopover {
     pub fn connect_cleared<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "cleared",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )

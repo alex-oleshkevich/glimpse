@@ -660,6 +660,7 @@ pub(super) fn check() {
         schedule: "schedule".to_owned(),
         fixed_hours: true,
         serving: true,
+        ..Default::default()
     }));
     assert!(brightness.imp().schedules.get_visible());
     let night_head = child_named::<ActionRow>(&*brightness.imp().night_light, "expander-row__head");
@@ -724,16 +725,6 @@ pub(super) fn check() {
         .emit_by_name::<()>("changed", &[&3400.0f64]);
     assert_eq!(*night_changed.borrow(), [3400.0]);
 
-    brightness.set_footer(Some("Display settings"));
-    assert!(brightness.imp().footer.get_visible());
-    let brightness_footer = Rc::new(Cell::new(0u32));
-    brightness.connect_footer_activated({
-        let brightness_footer = Rc::clone(&brightness_footer);
-        move |_| brightness_footer.set(brightness_footer.get() + 1)
-    });
-    brightness.imp().footer.emit_by_name::<()>("activated", &[]);
-    assert_eq!(brightness_footer.get(), 1);
-
     let display_popover = DisplayPopover::new();
     assert!(
         !display_popover.imp().displays_section.get_visible(),
@@ -741,6 +732,7 @@ pub(super) fn check() {
     );
 
     display_popover.set_output_power(true);
+    display_popover.set_blank_screens(true);
     display_popover.set_displays(&[built_in.clone(), external.clone()]);
     assert!(
         display_popover.imp().displays_section.get_visible(),
@@ -750,7 +742,7 @@ pub(super) fn check() {
     assert_eq!(popover_rows.len(), 2, "AC-9: both outputs list");
     assert!(
         display_popover.imp().blank.get_visible(),
-        "AC-9: the blank row is present when output power is supported"
+        "AC-9: the blank row is present when the compositor can blank the screens"
     );
     assert_eq!(
         display_popover
@@ -769,13 +761,19 @@ pub(super) fn check() {
              a knob that moved without the screen following it would be lying"
     );
 
-    let devices_renders_before = display_popover.imp().displays.imp().renders.get();
-    display_popover.set_output_power(false);
+    display_popover.set_blank_screens(false);
     assert!(
         !display_popover.imp().blank.get_visible(),
-        "AC-10: the blank row is absent entirely, not merely insensitive, when output power \
-             is unsupported"
+        "the blank row is absent entirely, not merely insensitive, when the compositor cannot \
+             blank the screens"
     );
+    assert!(
+        display_popover.imp().displays.imp().output_power.get(),
+        "a compositor that cannot blank the screens keeps its per-output switches"
+    );
+
+    let devices_renders_before = display_popover.imp().displays.imp().renders.get();
+    display_popover.set_output_power(false);
     assert_eq!(
         children_of::<ExpanderRow>(&*display_popover.imp().displays).len(),
         2,
@@ -794,6 +792,7 @@ pub(super) fn check() {
     );
 
     display_popover.set_output_power(true);
+    display_popover.set_blank_screens(true);
     display_popover.set_displays(std::slice::from_ref(&built_in));
     assert!(display_popover.imp().blank.get_visible());
 
@@ -827,9 +826,6 @@ pub(super) fn check() {
         .emit_by_name::<()>("activated", &[]);
     assert_eq!(blanked.get(), 1);
 
-    display_popover.set_footer(Some("Display settings"));
-    assert!(display_popover.imp().footer.get_visible());
-
     let open_head = head_of(&children_of::<ExpanderRow>(&*display_popover.imp().displays)[0]);
     open_head.emit_by_name::<()>("activated", &[]);
     assert!(
@@ -841,14 +837,10 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && display_popover
                 .imp()
-                .footer
-                .has_css_class(crate::drawer::RECEDED)
-            && display_popover
-                .imp()
                 .blank
                 .has_css_class(crate::drawer::RECEDED)
             && !open_head.has_css_class(crate::drawer::RECEDED),
-        "opening display details dims the header, the blank row and the footer, preserving \
+        "opening display details dims the header and the blank row, preserving \
              the open row"
     );
     open_head.emit_by_name::<()>("activated", &[]);
@@ -861,25 +853,10 @@ pub(super) fn check() {
             .has_css_class(crate::drawer::RECEDED)
             && !display_popover
                 .imp()
-                .footer
-                .has_css_class(crate::drawer::RECEDED)
-            && !display_popover
-                .imp()
                 .blank
                 .has_css_class(crate::drawer::RECEDED),
         "closing details restores the popover chrome"
     );
-
-    let popover_footer = Rc::new(Cell::new(0u32));
-    display_popover.connect_footer_activated({
-        let popover_footer = Rc::clone(&popover_footer);
-        move |_| popover_footer.set(popover_footer.get() + 1)
-    });
-    display_popover
-        .imp()
-        .footer
-        .emit_by_name::<()>("activated", &[]);
-    assert_eq!(popover_footer.get(), 1);
 
     laptop_fixture();
     desktop_fixture();
@@ -912,8 +889,10 @@ fn laptop_fixture() {
         schedule: "automatic".to_owned(),
         fixed_hours: true,
         serving: true,
+        ..Default::default()
     }));
     popover.set_output_power(true);
+    popover.set_blank_screens(true);
     popover.set_displays(std::slice::from_ref(&Display {
         connector: "eDP-1".to_owned(),
         label: "Built-in display".to_owned(),
@@ -921,7 +900,6 @@ fn laptop_fixture() {
         built_in: true,
         ..Display::default()
     }));
-    popover.set_footer(Some("Display settings"));
 
     let imp = popover.imp();
     assert!(imp.readout.get_visible());
@@ -932,7 +910,7 @@ fn laptop_fixture() {
     assert!(imp.night_light.get_visible());
     assert!(imp.displays_section.get_visible());
     assert!(imp.blank.get_visible());
-    assert!(imp.footer.get_visible());
+
     assert_eq!(
         imp.shell.icon_name().as_deref(),
         Some("display-brightness-symbolic")
@@ -960,7 +938,6 @@ fn laptop_fixture() {
         Some(imp.displays.upcast_ref()),
         "blank follows the display list"
     );
-    assert_ne!(imp.footer.parent(), imp.brightness.parent());
 }
 
 fn desktop_fixture() {
@@ -1009,7 +986,7 @@ fn signals_fire_once_per_action() {
     let scheduled = Rc::new(Cell::new(0u32));
     let enabled = Rc::new(Cell::new(0u32));
     let blanked = Rc::new(Cell::new(0u32));
-    let footer = Rc::new(Cell::new(0u32));
+
     popover.connect_changed({
         let changed = Rc::clone(&changed);
         move |_, _, _| changed.set(changed.get() + 1)
@@ -1038,10 +1015,6 @@ fn signals_fire_once_per_action() {
         let blanked = Rc::clone(&blanked);
         move |_| blanked.set(blanked.get() + 1)
     });
-    popover.connect_footer_activated({
-        let footer = Rc::clone(&footer);
-        move |_| footer.set(footer.get() + 1)
-    });
 
     popover.set_sources(&[
         Source {
@@ -1068,6 +1041,7 @@ fn signals_fire_once_per_action() {
         schedule: "automatic".to_owned(),
         fixed_hours: true,
         serving: true,
+        ..Default::default()
     }));
     popover.imp().enabled.set_active(true);
     popover.imp().temperature.set_value(2500.0);
@@ -1077,6 +1051,7 @@ fn signals_fire_once_per_action() {
         schedule: "schedule".to_owned(),
         fixed_hours: true,
         serving: true,
+        ..Default::default()
     }));
     popover.set_output_power(true);
     popover.set_displays(&[
@@ -1092,7 +1067,7 @@ fn signals_fire_once_per_action() {
             ..Display::default()
         },
     ]);
-    popover.set_footer(Some("Display settings"));
+
     let rows: Vec<ExpanderRow> = children_of(&*popover.imp().displays);
     let toggle = rows[0]
         .details()
@@ -1109,9 +1084,8 @@ fn signals_fire_once_per_action() {
             scheduled.get(),
             enabled.get(),
             blanked.get(),
-            footer.get(),
         ),
-        (0, 0, 0, 0, 0, 0, 0, 0),
+        (0, 0, 0, 0, 0, 0, 0),
         "setters emit nothing"
     );
 
@@ -1155,6 +1129,111 @@ fn signals_fire_once_per_action() {
 
     popover.imp().blank.emit_by_name::<()>("activated", &[]);
     assert_eq!(blanked.get(), 1);
-    popover.imp().footer.emit_by_name::<()>("activated", &[]);
-    assert_eq!(footer.get(), 1);
+}
+
+pub(super) fn pause() {
+    let popover = DisplayPopover::new();
+    let state = NightLight {
+        enabled: true,
+        temperature: 4200,
+        can_pause: true,
+        schedule: "automatic".to_owned(),
+        serving: true,
+        ..Default::default()
+    };
+    popover.set_night_light(Some(&state));
+    assert!(popover.imp().pause.get_visible());
+    assert_eq!(
+        popover.imp().pause.upcast_ref::<Row>().title().as_deref(),
+        Some("Pause until tomorrow")
+    );
+    assert_eq!(
+        popover.imp().night_light.details().last_child(),
+        Some(popover.imp().pause.clone().upcast())
+    );
+    assert!(
+        popover
+            .imp()
+            .pause
+            .upcast_ref::<Row>()
+            .icon_name()
+            .is_none()
+    );
+    let requests = Rc::new(RefCell::new(Vec::new()));
+    popover.connect_night_light_paused({
+        let requests = requests.clone();
+        move |_, paused| requests.borrow_mut().push(paused)
+    });
+    popover.imp().pause.emit_by_name::<()>("activated", &[]);
+    assert_eq!(*requests.borrow(), [true]);
+    assert_eq!(
+        popover.imp().pause.upcast_ref::<Row>().title().as_deref(),
+        Some("Resume")
+    );
+    assert_eq!(popover.imp().temperature.value(), 6500.0);
+    popover.set_night_light(Some(&NightLight {
+        temperature: 6500,
+        paused_until: Some("06:30".to_owned()),
+        ..state.clone()
+    }));
+    let facts: Vec<Row> = children_of(&*popover.imp().night_facts);
+    assert_eq!(
+        facts.last().unwrap().title().as_deref(),
+        Some("Paused until 06:30")
+    );
+    popover.imp().pause.emit_by_name::<()>("activated", &[]);
+    assert_eq!(*requests.borrow(), [true, false]);
+    assert!(
+        children_of::<Row>(&*popover.imp().night_facts)
+            .iter()
+            .all(|row| !row.title().unwrap_or_default().contains("Paused until"))
+    );
+    popover.set_night_light(Some(&NightLight {
+        can_pause: false,
+        temperature: 6500,
+        ..state.clone()
+    }));
+    assert!(!popover.imp().pause.get_visible());
+    popover.set_night_light(Some(&NightLight {
+        enabled: false,
+        ..state.clone()
+    }));
+    assert!(!popover.imp().pause.get_visible());
+    popover.set_night_light(Some(&NightLight {
+        paused_until: Some("06:30".to_owned()),
+        ..state.clone()
+    }));
+    popover
+        .imp()
+        .temperature
+        .emit_by_name::<()>("moved", &[&3000.0f64]);
+    assert_eq!(
+        popover.imp().pause.upcast_ref::<Row>().title().as_deref(),
+        Some("Pause until tomorrow")
+    );
+    assert!(
+        popover
+            .imp()
+            .night_light_state
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .paused_until
+            .is_none()
+    );
+    popover.set_night_light(Some(&NightLight {
+        paused_until: Some(String::new()),
+        ..state
+    }));
+    assert!(
+        children_of::<Row>(&*popover.imp().night_facts)
+            .iter()
+            .all(|row| !row.title().unwrap_or_default().contains("Paused until"))
+    );
+    assert_eq!(
+        popover.imp().pause.upcast_ref::<Row>().title().as_deref(),
+        Some("Resume")
+    );
+    popover.set_night_light(None);
+    assert!(!popover.imp().night_light.is_sensitive());
 }

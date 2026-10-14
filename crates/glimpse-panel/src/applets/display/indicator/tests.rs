@@ -28,10 +28,10 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
     let mut display = Display::start(
-        services.brightness.clone(),
-        services.night_light(),
-        services.compositor.clone(),
-        services.notifications(),
+        services.handles.brightness.clone(),
+        services.handles.night_light.clone(),
+        services.handles.compositor.clone(),
+        services.handles.notifications.clone(),
     );
     display.outputs = vec![output("DP-1", false)];
     display.night_light_seen = true;
@@ -58,4 +58,23 @@ async fn brightness_without_a_current_source_uses_the_output_tooltip() {
         render::tooltip(&display.outputs)
     );
     services.shutdown().await;
+}
+
+#[test]
+fn an_inactive_night_light_has_distinct_wording() {
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::NotActive("off".to_owned())).as_deref(),
+        Some("The night light is off.")
+    );
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::InvalidTemperature(
+            "invalid".to_owned()
+        ))
+        .as_deref(),
+        Some("That was not a valid value.")
+    );
+    assert_eq!(
+        night_light_wording(&NightLightProviderError::Unavailable("gone".to_owned())).as_deref(),
+        Some("The night light is not running.")
+    );
 }

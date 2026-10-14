@@ -99,7 +99,7 @@ async fn run_inner(
         mut backend,
     } = tokio::select! {
         _ = cancel.cancelled() => return Ok(()),
-        setup = with_timeout(setup_timeout, connect_blocking(display, idle.clone(), connecting)) => setup?,
+        setup = with_timeout(setup_timeout, connect_blocking(display, connecting)) => setup?,
     };
 
     tracing::info!("idle backend connected to ext-idle-notify-v1");
@@ -114,6 +114,7 @@ async fn run_inner(
 
     loop {
         event_queue.dispatch_pending(&mut backend)?;
+        forward(&idle, &mut backend.pending).await;
         conn.flush()?;
 
         tokio::select! {
@@ -145,19 +146,24 @@ async fn run_inner(
     }
 }
 
+async fn forward(idle: &idle::Handle, pending: &mut Vec<idle::Event>) {
+    for event in pending.drain(..) {
+        idle.send(event).await;
+    }
+}
+
 async fn connect_blocking(
     display: Option<String>,
-    idle: idle::Handle,
     connecting: &mut Option<JoinHandle<anyhow::Result<Setup>>>,
 ) -> anyhow::Result<Setup> {
     let handle = connecting
-        .get_or_insert_with(|| tokio::task::spawn_blocking(move || connect_sync(display, idle)));
+        .get_or_insert_with(|| tokio::task::spawn_blocking(move || connect_sync(display)));
     let result = handle.await;
     *connecting = None;
     result.map_err(|error| anyhow::anyhow!("wayland setup worker failed: {error}"))?
 }
 
-fn connect_sync(display: Option<String>, idle: idle::Handle) -> anyhow::Result<Setup> {
+fn connect_sync(display: Option<String>) -> anyhow::Result<Setup> {
     let conn = match display {
         Some(display) => {
             let runtime_dir = std::env::var_os("XDG_RUNTIME_DIR").unwrap_or_default();
@@ -172,7 +178,7 @@ fn connect_sync(display: Option<String>, idle: idle::Handle) -> anyhow::Result<S
     let notifier = globals.bind::<ExtIdleNotifierV1, _, _>(&qh, 1..=2, ())?;
     let seat = globals.bind::<wl_seat::WlSeat, _, _>(&qh, 1..=9, ())?;
     let mut backend = Backend {
-        idle,
+        pending: vec![],
         notifications: vec![],
         generation: None,
     };
@@ -200,7 +206,7 @@ where
 }
 
 struct Backend {
-    idle: idle::Handle,
+    pending: Vec<idle::Event>,
     notifications: Vec<ExtIdleNotificationV1>,
     generation: Option<u64>,
 }
@@ -292,9 +298,7 @@ impl Dispatch<ExtIdleNotificationV1, usize> for Backend {
             },
             _ => return,
         };
-        if let Err(error) = state.idle.try_send(event) {
-            tracing::warn!(listener, %error, "failed to forward idle backend event");
-        }
+        state.pending.push(event);
     }
 }
 

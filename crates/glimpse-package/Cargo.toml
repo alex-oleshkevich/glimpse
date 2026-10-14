@@ -195,4 +195,5 @@ pam = "*"
 ddcutil-i2c-udev-rules = "*"
 
 [dev-dependencies]
+tempfile.workspace = true
 toml.workspace = true

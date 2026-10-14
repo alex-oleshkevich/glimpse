@@ -1,15 +1,5 @@
 use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, BlurSurface, Position, Regional};
-use glimpse_dbus::{
-    idle::IdleProviderHandle, night_light::NightLightProviderHandle,
-    notifications::NotificationsProviderHandle, weather::WeatherProviderHandle,
-};
-use glimpse_services::{
-    AudioHandle, BatteryHandle, BluetoothHandle, BrightnessHandle, CalendarHandle, ClipboardHandle,
-    ColorPickerHandle, CompositorHandle, ExecHandle, HeartbeatHandle, KdeconnectHandle,
-    KeyboardHandle, MprisHandle, NetworkHandle, PlacesHandle, PrintingHandle, PrivacyHandle,
-    RemovableHandle, RulerHandle, SessionActionsHandle, SystemMonitorHandle, TrayHandle,
-};
 use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -100,32 +90,7 @@ pub struct Config {
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
     pub blur: Vec<BlurSurface>,
-    pub compositor: CompositorHandle,
-    pub keyboard: KeyboardHandle,
-    pub calendar: CalendarHandle,
-    pub mpris: MprisHandle,
-    pub heartbeat: HeartbeatHandle,
-    pub tray: TrayHandle,
-    pub bluetooth: BluetoothHandle,
-    pub network: NetworkHandle,
-    pub audio: AudioHandle,
-    pub brightness: BrightnessHandle,
-    pub night_light: NightLightProviderHandle,
-    pub notifications: NotificationsProviderHandle,
-    pub weather: WeatherProviderHandle,
-    pub idle: IdleProviderHandle,
-    pub color_picker: ColorPickerHandle,
-    pub session_actions: SessionActionsHandle,
-    pub battery: BatteryHandle,
-    pub clipboard: ClipboardHandle,
-    pub places: PlacesHandle,
-    pub printing: PrintingHandle,
-    pub removable: RemovableHandle,
-    pub kdeconnect: KdeconnectHandle,
-    pub privacy: PrivacyHandle,
-    pub system_monitor: SystemMonitorHandle,
-    pub ruler: RulerHandle,
-    pub exec: ExecHandle,
+    pub handles: crate::services::Handles,
     pub dialog: relm4::Sender<crate::app::AppInput>,
 }
 
@@ -345,32 +310,7 @@ impl Panel {
                             .and_then(|applet| {
                                 let Some(build) = applets::build(
                                     &applet,
-                                    &config.compositor,
-                                    &config.keyboard,
-                                    &config.calendar,
-                                    &config.mpris,
-                                    &config.heartbeat,
-                                    &config.tray,
-                                    &config.bluetooth,
-                                    &config.network,
-                                    &config.audio,
-                                    &config.brightness,
-                                    &config.night_light,
-                                    &config.notifications,
-                                    &config.weather,
-                                    &config.idle,
-                                    &config.color_picker,
-                                    &config.session_actions,
-                                    &config.battery,
-                                    &config.clipboard,
-                                    &config.places,
-                                    &config.printing,
-                                    &config.removable,
-                                    &config.kdeconnect,
-                                    &config.privacy,
-                                    &config.system_monitor,
-                                    &config.ruler,
-                                    &config.exec,
+                                    &config.handles,
                                     crate::applets::exec::placement(
                                         config.position,
                                         config.size,

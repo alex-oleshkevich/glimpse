@@ -7,11 +7,7 @@ use glimpse_widgets::{
     NetworkPlace as Place,
 };
 
-const LABEL_MAX_CHARS: usize = 32;
-
-pub fn cap(name: &str) -> String {
-    glimpse_utils::clean(name, LABEL_MAX_CHARS)
-}
+pub const LABEL_MAX_CHARS: usize = 32;
 
 pub fn status(state: &NetworkState) -> String {
     if !state.networking {
@@ -38,7 +34,7 @@ pub fn status(state: &NetworkState) -> String {
             let name = network
                 .ssid
                 .as_deref()
-                .map(cap)
+                .map(|name| glimpse_utils::clean(name, LABEL_MAX_CHARS))
                 .unwrap_or_else(|| gettext("Unnamed network"));
             match state.reaches_the_internet() {
                 true => name,
@@ -60,7 +56,10 @@ pub fn tooltip(state: &NetworkState, format: Option<&str>, metered: bool) -> Opt
             .push(gettext("Signal {percent}%").replace("{percent}", &network.strength.to_string()));
     }
     if let Some(vpn) = state.vpn.iter().find(|one| one.active) {
-        lines.push(gettext("VPN: {name}").replace("{name}", &cap(&vpn.name)));
+        lines.push(
+            gettext("VPN: {name}")
+                .replace("{name}", &glimpse_utils::clean(&vpn.name, LABEL_MAX_CHARS)),
+        );
     }
 
     let joined = lines.join("\n");
@@ -123,7 +122,7 @@ pub fn name_of(network: &Access) -> String {
     network
         .ssid
         .as_deref()
-        .map(cap)
+        .map(|name| glimpse_utils::clean(name, LABEL_MAX_CHARS))
         .unwrap_or_else(|| gettext("Unnamed network"))
 }
 
@@ -152,7 +151,7 @@ pub fn entries(
     for wired in &state.wired {
         rows.push(Entry {
             id: wired.id.as_str().to_owned(),
-            title: cap(&wired.name),
+            title: glimpse_utils::clean(&wired.name, LABEL_MAX_CHARS),
             icon: match wired.carrier {
                 true => "network-wired-symbolic".to_owned(),
                 false => "network-wired-disconnected-symbolic".to_owned(),
@@ -167,7 +166,7 @@ pub fn entries(
     for vpn in &state.vpn {
         rows.push(Entry {
             id: vpn.id.as_str().to_owned(),
-            title: cap(&vpn.name),
+            title: glimpse_utils::clean(&vpn.name, LABEL_MAX_CHARS),
             icon: match vpn.active {
                 true => "network-vpn-symbolic".to_owned(),
                 false => "network-vpn-disconnected-symbolic".to_owned(),

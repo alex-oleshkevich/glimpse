@@ -58,6 +58,7 @@ fn compositor_state_flattens_to_lists() {
                 floating: false,
                 workspace_reorder: false,
                 output_power: false,
+                blank_screens: false,
             },
         }),
         workspaces: Some(CompositorWorkspaces {

@@ -45,8 +45,6 @@ pub struct PrintingPopover {
     pub printers: TemplateChild<Section>,
     #[template_child]
     pub printer_rows: TemplateChild<gtk4::Box>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub job_data: RefCell<Vec<Job>>,
     pub printer_data: RefCell<Vec<Printer>>,
@@ -80,7 +78,6 @@ impl ObjectImpl for PrintingPopover {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
-                glib::subclass::Signal::builder("footer-activated").build(),
                 glib::subclass::Signal::builder("cancelled")
                     .param_types([String::static_type()])
                     .build(),
@@ -95,16 +92,6 @@ impl ObjectImpl for PrintingPopover {
                     .build(),
             ]
         })
-    }
-
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj().clone();
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
     }
 
     fn dispose(&self) {

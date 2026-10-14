@@ -87,7 +87,7 @@ impl Idle1Server {
                 zbus::fdo::Error::Failed(glimpse_utils::clean(&error.to_string(), REASON_CAP))
             })?;
 
-        let uid = current_uid_or_warn();
+        let uid = current_uid();
         let added_at_unix = unix_now();
         self.registry
             .mutate(move |registry| -> Result<(), String> {
@@ -144,16 +144,6 @@ fn spawn_auto_release(registry: Arc<SharedRegistry>, id: u64, seconds: u32) {
             .mutate(|registry| registry.release_record(id))
             .await;
     });
-}
-
-fn current_uid_or_warn() -> u32 {
-    match current_uid() {
-        Ok(uid) => uid,
-        Err(error) => {
-            tracing::warn!(%error, "cannot read the current uid; recording 0");
-            0
-        }
-    }
 }
 
 #[cfg(test)]

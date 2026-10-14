@@ -55,8 +55,7 @@ async fn harness_with(config: Config) -> Harness {
             geolocation: location,
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,

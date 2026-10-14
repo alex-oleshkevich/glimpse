@@ -93,6 +93,16 @@ pub enum SunsetCommand {
     Status,
 
     #[command(
+        about = "Hold neutral daylight until the current night ends",
+        long_about = "Hold neutral daylight until the current night ends. Refused during the day; \
+                      the pause is dropped when glimpse-sunset restarts."
+    )]
+    Pause,
+
+    #[command(about = "End a pause and follow the schedule again")]
+    Resume,
+
+    #[command(
         about = "Change the mode in force",
         long_about = "Change the mode in force. The document is not written: the mode lasts until \
                       `[night-light]` is edited or glimpse-sunset restarts."

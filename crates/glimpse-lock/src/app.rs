@@ -27,6 +27,7 @@ use glimpse_services::{
 use glimpse_widgets::SessionActionState;
 use glimpse_widgets::TransportAction;
 use glimpse_widgets::actions::ComponentActions;
+use glimpse_widgets::color_scheme;
 use glimpse_widgets::raster::{self, Raster};
 use glimpse_widgets::{Sheets, Styles};
 use gtk4::prelude::{
@@ -519,7 +520,7 @@ impl App {
                 tracing::info!(generation, "locking");
                 self.session_answers = session::Answers::default();
                 self.session = HashMap::new();
-                self.lock_started = lock_started_on_lock(self.lock_started, Utc::now());
+                self.lock_started.get_or_insert_with(Utc::now);
                 let report = sender.clone();
                 let session_report = sender.clone();
                 let track_report = sender.clone();
@@ -774,21 +775,6 @@ fn offscreen_renderer() -> Option<gsk::Renderer> {
             tracing::warn!("no renderer for the lock background blur; showing it sharp: {error}");
             None
         }
-    }
-}
-
-fn lock_started_on_lock(
-    current: Option<DateTime<Utc>>,
-    now: DateTime<Utc>,
-) -> Option<DateTime<Utc>> {
-    current.or(Some(now))
-}
-
-fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
-    match scheme {
-        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
-        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
-        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
     }
 }
 
@@ -1057,7 +1043,7 @@ fn watch_output(monitor: &gdk::Monitor, sender: &ComponentSender<App>) {
 fn spawn_display_name(sender: ComponentSender<App>) {
     relm4::spawn(async move {
         let fetch = async {
-            let uid = glimpse_dbus::login1::current_uid().map_err(|error| error.to_string())?;
+            let uid = glimpse_dbus::login1::current_uid();
             let bus = zbus::Connection::system()
                 .await
                 .map_err(|error| error.to_string())?;

@@ -17,15 +17,30 @@ pub async fn sunset_status(connection: &Connection, json: bool) -> Result<()> {
 
     Section::new("Night light")
         .with(
-            Table::new()
+            Table::default()
                 .with_row(["mode".to_owned(), mode(&snapshot)])
                 .with_row(["temperature".to_owned(), temperature(&snapshot)])
                 .with_row(["night target".to_owned(), kelvin(snapshot.target)])
                 .with_row(["applying".to_owned(), yes_no(snapshot.active).to_owned()])
+                .with_row(["paused until".to_owned(), paused_until(&snapshot)])
                 .with_row(["serving".to_owned(), serving(&snapshot)])
                 .render(),
         )
         .print()
+}
+
+pub async fn sunset_pause(connection: &Connection) -> Result<()> {
+    within(proxy::<NightLight1Proxy>(connection).await?.pause())
+        .await
+        .context("cannot pause the night light")?;
+    Ok(())
+}
+
+pub async fn sunset_resume(connection: &Connection) -> Result<()> {
+    within(proxy::<NightLight1Proxy>(connection).await?.resume())
+        .await
+        .context("cannot resume the night light")?;
+    Ok(())
 }
 
 pub async fn sunset_mode(connection: &Connection, mode: Mode) -> Result<()> {
@@ -84,6 +99,17 @@ pub fn serving(snapshot: &NightLightSnapshot) -> String {
             styled::key(&reason_or_absent(&safe(&snapshot.reason)))
         ),
     }
+}
+
+pub fn paused_until(snapshot: &NightLightSnapshot) -> String {
+    chrono::DateTime::from_timestamp(snapshot.paused_until, 0)
+        .filter(|_| snapshot.paused_until != 0)
+        .map(|time| {
+            time.with_timezone(&chrono::Local)
+                .format("%H:%M")
+                .to_string()
+        })
+        .unwrap_or_else(|| "no".to_owned())
 }
 
 fn kelvin(temperature: u32) -> String {

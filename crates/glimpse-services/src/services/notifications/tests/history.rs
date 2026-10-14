@@ -295,7 +295,7 @@ async fn invoking_a_non_resident_action_closes_it_into_history() {
         .expect("dismissed state");
     let latest = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     let list = latest.list.expect("a list was published");
     assert_eq!(list.notifications.len(), 1);
@@ -337,7 +337,7 @@ async fn bulk_clears_keep_a_request_still_waiting_for_an_answer() {
         .expect("cleared application");
     let after_app = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     for latest in [after_all, after_app] {
         let ids: Vec<u32> = latest
@@ -397,7 +397,7 @@ async fn a_timed_out_popup_removes_only_a_transient_record() {
     handle.expire(2).await.expect("expired ordinary");
     let latest = handle.snapshot();
     cancel.cancel();
-    running.await.expect("joined").expect("stopped");
+    running.await.expect("joined");
 
     let list = latest.list.expect("a list was published");
     let ids: Vec<u32> = list.notifications.iter().map(|record| record.id).collect();

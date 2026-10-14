@@ -219,7 +219,7 @@ fn a_hostile_app_name_is_capped_before_it_reaches_a_label() {
 #[test]
 fn a_hostile_device_name_is_capped_before_it_reaches_a_label() {
     let long = "Наушники ".repeat(20);
-    let shown = cap(&long, AUDIO_NAME_CAP);
+    let shown = glimpse_utils::clean(&long, AUDIO_NAME_CAP);
 
     assert!(shown.chars().count() <= AUDIO_NAME_CAP + 1);
     assert!(shown.ends_with('…'));

@@ -220,7 +220,7 @@ impl Observation {
 
 struct Live {
     observation: Arc<Observation>,
-    sender: crate::service::ServiceSender<Calendar>,
+    sender: tokio::sync::mpsc::Sender<Input<Calendar>>,
     cancel: CancellationToken,
     handle: tokio::task::JoinHandle<()>,
 }
@@ -263,7 +263,7 @@ impl Live {
         });
         let sender = runtime.sender();
         let handle = tokio::spawn(async move {
-            let _ = runtime.run(()).await;
+            runtime.run(()).await;
         });
 
         Self {

@@ -8,7 +8,7 @@ use futures_util::future::BoxFuture;
 use gettextrs::{gettext, pgettext};
 use gio_unix::DesktopAppInfo;
 use glimpse_dbus::freedesktop_notifications::FreedesktopNotificationsProxy;
-use glimpse_shot::ports::{Notice, Notifier};
+use glimpse_shot::ports::Notice;
 use gtk4::gio;
 use gtk4::gio::prelude::*;
 use tokio::sync::oneshot;
@@ -208,23 +208,8 @@ impl BusNotifier {
     fn release_grace(&self) {
         self.grace_release.notify_one();
     }
-}
 
-#[cfg(test)]
-type Returned = tokio::sync::watch::Sender<bool>;
-#[cfg(not(test))]
-type Returned = ();
-
-#[cfg(test)]
-struct GraceGate {
-    hold: bool,
-    release: Arc<tokio::sync::Notify>,
-}
-#[cfg(not(test))]
-struct GraceGate;
-
-impl Notifier for BusNotifier {
-    fn notify(&self, notice: Notice) -> Result<(), String> {
+    pub fn notify(&self, notice: Notice) -> Result<(), String> {
         let (tx, rx) = oneshot::channel();
         *self
             .done
@@ -256,7 +241,7 @@ impl Notifier for BusNotifier {
         Ok(())
     }
 
-    async fn closed(&self) {
+    pub async fn closed(&self) {
         let done = self
             .done
             .lock()
@@ -267,6 +252,19 @@ impl Notifier for BusNotifier {
         }
     }
 }
+
+#[cfg(test)]
+type Returned = tokio::sync::watch::Sender<bool>;
+#[cfg(not(test))]
+type Returned = ();
+
+#[cfg(test)]
+struct GraceGate {
+    hold: bool,
+    release: Arc<tokio::sync::Notify>,
+}
+#[cfg(not(test))]
+struct GraceGate;
 
 enum Heard {
     Token(String),
