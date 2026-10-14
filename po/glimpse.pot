@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-12 16:44+0200\n"
+"POT-Creation-Date: 2026-10-14 13:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2549,11 +2549,11 @@ msgstr ""
 msgid "Notifications are unavailable"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:36
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
 msgid "Nothing new"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:37
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
 msgid "You are all caught up."
 msgstr ""
 
@@ -3435,11 +3435,11 @@ msgid_plural "{count} notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:92
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
 msgid "Show notification popups while this is on"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:151
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:173
 msgid "Clear these notifications"
 msgstr ""
 
