@@ -1,11 +1,22 @@
 use glimpse_dbus::{gtk_actions::object_path, own_name, testing::PrivateBus};
-use std::{collections::HashMap, process::Stdio, time::Duration};
+use std::{
+    collections::HashMap,
+    process::Stdio,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use zbus::zvariant::{OwnedValue, Signature, Value};
 
 type Descriptions = HashMap<String, (bool, Signature, Vec<OwnedValue>)>;
 
-struct Actions(std::sync::atomic::AtomicBool);
+struct Actions {
+    first: AtomicBool,
+    calls: Arc<AtomicUsize>,
+}
 
 #[zbus::interface(name = "org.gtk.Actions")]
 impl Actions {
@@ -14,23 +25,26 @@ impl Actions {
         #[zbus(connection)] connection: &zbus::Connection,
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> Descriptions {
-        let first = self.0.swap(false, std::sync::atomic::Ordering::Relaxed);
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let first = self.first.swap(false, Ordering::SeqCst);
         if first {
-            connection
-                .emit_signal(
-                    None::<&str>,
-                    header.path().unwrap(),
-                    "org.gtk.Actions",
-                    "Changed",
-                    &(
-                        Vec::<String>::new(),
-                        HashMap::<String, bool>::new(),
-                        HashMap::<String, OwnedValue>::new(),
-                        Descriptions::new(),
-                    ),
-                )
-                .await
-                .unwrap();
+            for _ in 0..32 {
+                connection
+                    .emit_signal(
+                        None::<&str>,
+                        header.path().unwrap(),
+                        "org.gtk.Actions",
+                        "Changed",
+                        &(
+                            Vec::<String>::new(),
+                            HashMap::<String, bool>::new(),
+                            HashMap::<String, OwnedValue>::new(),
+                            Descriptions::new(),
+                        ),
+                    )
+                    .await
+                    .unwrap();
+            }
         }
         let bars: Vec<(u32, &str, &str)> = if first {
             Vec::new()
@@ -62,13 +76,20 @@ impl Actions {
 }
 
 #[tokio::test]
-async fn watch_observes_changes_during_initial_snapshot_and_discovers_owner_removal() {
+async fn watch_coalesces_initial_burst_and_discovers_owner_removal() {
     let bus = PrivateBus::start();
     let server = bus.connection().await;
     let app_id = "me.test.Panel";
+    let calls = Arc::new(AtomicUsize::new(0));
     server
         .object_server()
-        .at(object_path(app_id), Actions(true.into()))
+        .at(
+            object_path(app_id),
+            Actions {
+                first: true.into(),
+                calls: calls.clone(),
+            },
+        )
         .await
         .unwrap();
     own_name(&server, app_id).await.unwrap();
@@ -106,6 +127,12 @@ async fn watch_observes_changes_during_initial_snapshot_and_discovers_owner_remo
         serde_json::json!([{"index": 2, "connector": "DP-1", "position": "bottom"}])
     );
     assert_eq!(second[0]["applet_count"], 0);
+    assert!(
+        tokio::time::timeout(Duration::from_millis(150), lines.next_line())
+            .await
+            .is_err()
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
     server.release_name(app_id).await.unwrap();
     let removed: serde_json::Value = serde_json::from_str(
         &tokio::time::timeout(Duration::from_secs(5), lines.next_line())
@@ -129,7 +156,13 @@ async fn watch_observes_changes_during_initial_snapshot_and_discovers_owner_remo
     let next_app_id = "me.test.NextPanel";
     server
         .object_server()
-        .at(object_path(next_app_id), Actions(false.into()))
+        .at(
+            object_path(next_app_id),
+            Actions {
+                first: false.into(),
+                calls: Arc::default(),
+            },
+        )
         .await
         .unwrap();
     own_name(&server, "me.test.NextPanel.AppletHost")

@@ -39,6 +39,16 @@ async fn status_keeps_known_absent_versionless_and_weather_components_visible() 
     glimpse_dbus::own_name(&server, "me.aresa.GlimpseVersionOnly")
         .await
         .expect("the name");
+    for name in [
+        "me.aresa.GlimpsePanel",
+        "me.aresa.GlimpsePanel.AppletHost",
+        "me.aresa.GlimpseOrphan.AppletHost",
+    ] {
+        glimpse_dbus::own_name(&server, name).await.unwrap();
+    }
+    let _panel = serve(&server, "/me/aresa/GlimpsePanel", "4.5", Ok(()))
+        .await
+        .unwrap();
     let _idle = serve(&server, "/me/aresa/Glimpse/Idle", "1.2", Ok(()))
         .await
         .unwrap();
@@ -74,6 +84,11 @@ async fn status_keeps_known_absent_versionless_and_weather_components_visible() 
     assert!(json["ok"].is_null());
     assert!(json["message"].is_null());
     assert_eq!(idle.pid, Some(std::process::id()));
+    assert_eq!(
+        find("me.aresa.GlimpsePanel").version.as_deref(),
+        Some("4.5")
+    );
+    assert!(!rows.iter().any(|row| row.name.ends_with(".AppletHost")));
     assert_eq!(
         find(GLIMPSE_WEATHER_BUS_NAME).version.as_deref(),
         Some("9.9")

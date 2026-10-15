@@ -10,7 +10,7 @@ build = "build.rs"
 anstream.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["string"] }
 clap_complete.workspace = true
 colorchoice-clap.workspace = true
 chrono.workspace = true

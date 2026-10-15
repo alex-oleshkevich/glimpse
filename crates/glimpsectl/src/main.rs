@@ -1,7 +1,6 @@
 use std::process::ExitCode;
 
 use anyhow::{Context, Result};
-use clap::CommandFactory;
 use glimpse_utils::init_app_tracing;
 use glimpsectl::cli::*;
 use glimpsectl::errors::Exit;
@@ -202,7 +201,12 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Command::Completions { shell } => {
             let mut output = Vec::new();
-            clap_complete::generate(shell, &mut Cli::command(), "glimpsectl", &mut output);
+            clap_complete::generate(
+                shell,
+                &mut cli::completion_command(),
+                "glimpsectl",
+                &mut output,
+            );
             glimpsectl::render::print(String::from_utf8(output)?.trim_end())?;
             Ok(())
         }

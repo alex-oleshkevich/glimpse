@@ -281,10 +281,13 @@ pub async fn dev_panel(args: DevPanelArgs, config: Option<PathBuf>, json: bool) 
     let bus = super::within(zbus::Connection::session()).await?;
     let mut panel = OwnedPanel::start(args, config.as_deref(), &bus).await?;
     let result = async {
-        if json {
-            super::emit(&serde_json::json!({"app_id": panel.app_id}))?;
+        let output = if json {
+            serde_json::to_string_pretty(&serde_json::json!({"app_id": panel.app_id}))?
         } else {
-            println!("{}", panel.app_id);
+            panel.app_id.clone()
+        };
+        if let crate::render::Flow::Stop = crate::render::print(&output)? {
+            return Ok(());
         }
         loop {
             tokio::select! {

@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 
 fn clock(raw: &str) -> Result<NaiveTime, String> {
@@ -817,6 +817,32 @@ pub struct RunArgs {
     pub applet_config: Option<PathBuf>,
 }
 
+pub fn completion_command() -> clap::Command {
+    fn visible(command: &clap::Command) -> clap::Command {
+        let mut result = clap::Command::new(command.get_name().to_owned())
+            .args(
+                command
+                    .get_arguments()
+                    .filter(|arg| !arg.is_hide_set())
+                    .cloned(),
+            )
+            .subcommands(
+                command
+                    .get_subcommands()
+                    .filter(|subcommand| !subcommand.is_hide_set())
+                    .map(visible),
+            );
+        if let Some(about) = command.get_about() {
+            result = result.about(about.clone());
+        }
+        if let Some(version) = command.get_version() {
+            result = result.version(version.to_owned());
+        }
+        result
+    }
+    visible(&Cli::command())
+}
+
 pub fn parse() -> Cli {
     let arguments: Vec<_> = std::env::args_os().collect();
     Cli::try_parse_from(&arguments).unwrap_or_else(|error| {
@@ -888,7 +914,14 @@ impl Cli {
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        <Self as Parser>::try_parse_from(normalize_legacy(arguments))
+        let matches = Self::command().try_get_matches_from(normalize_legacy(arguments))?;
+        let explicit_config =
+            matches.value_source("config") == Some(clap::parser::ValueSource::CommandLine);
+        let mut cli = Self::from_arg_matches(&matches)?;
+        if matches!(cli.command, Command::Dev(DevCommand::Panel(_))) && !explicit_config {
+            cli.config.config = None;
+        }
+        Ok(cli)
     }
 
     pub fn deprecation(&self) -> Option<&'static str> {

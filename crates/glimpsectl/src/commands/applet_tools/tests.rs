@@ -44,6 +44,35 @@ fn installation_round_trips_escaped_paths_and_refuses_other_files() {
     assert!(uninstall("../escape", &applications).is_err());
 }
 
+#[test]
+fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = source(root.path());
+    let path = dir.join("config.toml");
+    fs::remove_file(&path).unwrap();
+    let defaults = settings(&dir, "org.example.Test").unwrap();
+    assert_eq!(defaults.applet, "org.example.Test");
+    assert!(defaults.env.is_empty() && defaults.options.is_empty());
+    let applications = root.path().join("applications");
+    let id = install(&dir, &applications).unwrap();
+    uninstall(&id, &applications).unwrap();
+    for invalid in [
+        "broken = [",
+        "unknown = true",
+        "applet = 'org.example.Other'",
+        "env = { NOTIFY_SOCKET = 'x' }",
+    ] {
+        fs::write(&path, invalid).unwrap();
+        assert!(settings(&dir, "org.example.Test").is_err(), "{invalid}");
+        assert!(install(&dir, &applications).is_err(), "{invalid}");
+        assert!(!applications.join("org.example.Test.desktop").exists());
+    }
+    fs::remove_file(&path).unwrap();
+    std::os::unix::fs::symlink(dir.join("missing.toml"), &path).unwrap();
+    assert!(settings(&dir, "org.example.Test").is_err());
+    assert!(install(&dir, &applications).is_err());
+}
+
 #[tokio::test]
 async fn bounded_wire_reader_rejects_oversized_and_invalid_messages() {
     let mut reader = BufReader::new(&b"{\"t\":\"hello\",\"v\":1}\n"[..]);

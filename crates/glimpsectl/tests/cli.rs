@@ -290,7 +290,52 @@ fn canonical_help_and_completions_need_no_bus() {
             Cli::try_parse_from(["glimpsectl", "completions", shell.to_string().as_str()]).unwrap();
         assert!(!cli.command.needs_session_bus());
         let mut output = Vec::new();
-        clap_complete::generate(shell, &mut Cli::command(), "glimpsectl", &mut output);
+        clap_complete::generate(
+            shell,
+            &mut glimpsectl::cli::completion_command(),
+            "glimpsectl",
+            &mut output,
+        );
         assert!(!output.is_empty());
+        let generated = std::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+            .args(["completions", shell.to_string().as_str()])
+            .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent")
+            .output()
+            .unwrap();
+        assert!(generated.status.success(), "{:?}", generated);
+        let generated = String::from_utf8(generated.stdout).unwrap();
+        for hidden in ["sunset", "session"] {
+            assert!(!generated.contains(hidden), "{shell}: {hidden}");
+        }
     }
+}
+
+#[test]
+fn completion_tree_keeps_every_visible_command_and_argument() {
+    fn compare(source: &clap::Command, completion: &clap::Command) {
+        let arguments: Vec<_> = source
+            .get_arguments()
+            .filter(|arg| !arg.is_hide_set())
+            .map(|arg| arg.get_id())
+            .collect();
+        assert_eq!(
+            arguments,
+            completion
+                .get_arguments()
+                .map(|arg| arg.get_id())
+                .collect::<Vec<_>>()
+        );
+        let commands: Vec<_> = source
+            .get_subcommands()
+            .filter(|command| !command.is_hide_set())
+            .collect();
+        assert_eq!(commands.len(), completion.get_subcommands().count());
+        for (source, completion) in commands.into_iter().zip(completion.get_subcommands()) {
+            assert_eq!(source.get_name(), completion.get_name());
+            compare(source, completion);
+        }
+    }
+    let command = glimpsectl::cli::completion_command();
+    compare(&Cli::command(), &command);
+    command.debug_assert();
 }

@@ -73,7 +73,7 @@ pub(super) async fn rows(connection: &Connection) -> Result<Vec<ComponentRow>> {
         owned
             .iter()
             .map(|name| name.as_str())
-            .filter(|name| name.starts_with("me.aresa.Glimpse"))
+            .filter(|name| name.starts_with("me.aresa.Glimpse") && !name.ends_with(".AppletHost"))
             .map(str::to_owned),
     );
     names.extend(super::panel::panel_names(connection).await?);

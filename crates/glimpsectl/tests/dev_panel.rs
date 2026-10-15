@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::os::fd::{FromRawFd, OwnedFd};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -234,5 +235,63 @@ GLib.MainLoop().run()
     );
     assert_eq!(unsafe { libc::kill(panel_pid, 0) }, -1);
     assert!(!Path::new(&config).exists());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn closed_dev_panel_stdout_stops_normally_and_cleans_owned_child_and_config() -> Result<()> {
+    for json in [false, true] {
+        let root = tempfile::tempdir()?;
+        let cli = setup(root.path(), "ready")?;
+        let bus = PrivateBus::start();
+        let mut descriptors = [-1; 2];
+        anyhow::ensure!(
+            unsafe { libc::pipe2(descriptors.as_mut_ptr(), libc::O_CLOEXEC) } == 0,
+            "cannot create stdout pipe"
+        );
+        let reader = unsafe { OwnedFd::from_raw_fd(descriptors[0]) };
+        let writer = unsafe { OwnedFd::from_raw_fd(descriptors[1]) };
+        drop(reader);
+        let mut command = Command::new(cli);
+        command.args(["dev", "panel"]);
+        if json {
+            command.arg("--json");
+        }
+        let mut child = Process(
+            command
+                .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
+                .env_remove("GLIMPSE_CONFIG_PATH")
+                .env("XDG_RUNTIME_DIR", root.path().join("runtime"))
+                .stdin(Stdio::null())
+                .stdout(Stdio::from(writer))
+                .stderr(fs::File::create(root.path().join("cli.stderr"))?)
+                .spawn()?,
+        );
+        let status = tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                if let Some(status) = child.0.try_wait()? {
+                    return Ok::<_, anyhow::Error>(status);
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await??;
+        assert!(
+            status.success(),
+            "json={json}: {}",
+            fs::read_to_string(root.path().join("cli.stderr"))?
+        );
+        let pid: i32 = fs::read_to_string(root.path().join("panel.pid"))?.parse()?;
+        let config = fs::read_to_string(root.path().join("panel.config"))?;
+        assert_eq!(
+            unsafe { libc::kill(pid, 0) },
+            -1,
+            "test panel survived closed stdout"
+        );
+        assert!(
+            !Path::new(&config).exists(),
+            "owned config survived closed stdout"
+        );
+    }
     Ok(())
 }

@@ -188,7 +188,7 @@ fn new_with_catalog(
     if json {
         super::emit(&serde_json::json!({"id": id, "path": dir}))?;
     } else {
-        println!("{id}");
+        crate::render::print(&id)?;
     }
     eprintln!(
         "Created {id} in {}\n\ncd {}\nnpm install\nglimpsectl applet run --dev --isolated .\n\n[applets.\"{id}\"]\napplet = \"{id}\"\nthen add it to a panel zone: center = [\"{id}\"]",

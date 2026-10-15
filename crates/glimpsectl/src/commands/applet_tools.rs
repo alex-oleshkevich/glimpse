@@ -128,7 +128,7 @@ async fn smoke(id: &str, entry: &ExecEntry, config: &ExecAppletConfig) -> Result
 pub async fn applet_check(args: CheckArgs, json: bool) -> Result<()> {
     let dir = args.dir.canonicalize()?;
     let (id, entry) = super::run::source(&dir)?;
-    let config = super::run::settings(&dir.join("config.toml"), &id)?;
+    let config = settings(&dir, &id)?;
     if args.run {
         eprintln!("Running an unconfined headless protocol smoke check.");
         let mut interrupt = signal(SignalKind::interrupt())?;
@@ -144,16 +144,29 @@ pub async fn applet_check(args: CheckArgs, json: bool) -> Result<()> {
     if json {
         super::emit(&serde_json::json!({"id": id, "valid": true, "protocol": args.run}))?;
     } else {
-        println!(
+        crate::render::print(&format!(
             "{id}: valid{}",
             if args.run {
                 ", protocol smoke passed"
             } else {
                 ""
             }
-        );
+        ))?;
     }
     Ok(())
+}
+
+fn settings(dir: &Path, id: &str) -> Result<ExecAppletConfig> {
+    let path = dir.join("config.toml");
+    match fs::symlink_metadata(&path) {
+        Ok(_) => super::run::settings(&path, id),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(ExecAppletConfig {
+            applet: id.to_owned(),
+            options: serde_json::Map::new(),
+            env: std::collections::BTreeMap::new(),
+        }),
+        Err(error) => Err(error).with_context(|| format!("cannot read {}", path.display())),
+    }
 }
 
 fn marked(path: &Path) -> Result<(String, fs::Metadata)> {
@@ -195,7 +208,7 @@ fn marked(path: &Path) -> Result<(String, fs::Metadata)> {
 fn install(dir: &Path, applications: &Path) -> Result<String> {
     let dir = dir.canonicalize()?;
     let (id, entry) = super::run::source(&dir)?;
-    super::run::settings(&dir.join("config.toml"), &id)?;
+    settings(&dir, &id)?;
     let desktop = glib::KeyFile::new();
     desktop.load_from_file(&entry.path, glib::KeyFileFlags::KEEP_TRANSLATIONS)?;
     desktop.set_string(
@@ -246,7 +259,7 @@ pub fn applet_install(dir: PathBuf, json: bool) -> Result<()> {
     if json {
         super::emit(&serde_json::json!({"id": id}))?;
     } else {
-        println!("{id}");
+        crate::render::print(&id)?;
     }
     eprintln!("Add [applets.\"{id}\"] with applet = \"{id}\", then add \"{id}\" to a panel zone.");
     Ok(())

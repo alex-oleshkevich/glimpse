@@ -279,21 +279,52 @@ fn removal_line(visible: &mut Vec<AppletRow>, action: &str, json: bool) -> Optio
     })
 }
 
-async fn applets(
-    connection: &Connection,
-    actions: &GtkActionsProxy<'_>,
-    app_id: &str,
-    watch: bool,
-    json: bool,
-) -> Result<()> {
+async fn applets(connection: &Connection, app_id: &str, watch: bool, json: bool) -> Result<()> {
     if !watch {
+        let actions = proxy(connection, app_id).await?;
         return print_rows(&rows(&within(actions.describe_all()).await?), json);
     }
-    let mut changes = Box::pin(within(actions.receive_changed()).await?);
     let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
     let mut owners =
         Box::pin(within(dbus.receive_name_owner_changed_with_args(&[(0, app_id)])).await?);
-    let mut visible = rows(&within(actions.describe_all()).await?);
+    let owner = within(dbus.get_name_owner(app_id.try_into()?)).await?;
+    let followed = owner.clone();
+    let mut lost = Box::pin(async move {
+        loop {
+            let Some(change) = std::future::poll_fn(|cx| owners.as_mut().poll_next(cx)).await
+            else {
+                return Err(Gone.into());
+            };
+            if change
+                .args()?
+                .old_owner()
+                .as_ref()
+                .is_some_and(|old| old.as_str() == followed.as_str())
+            {
+                return Err(Gone.into());
+            }
+        }
+    });
+    let actions = tokio::select! {
+        biased;
+        result = &mut lost => return result,
+        actions = within(GtkActionsProxy::builder(connection)
+            .destination(owner)?
+            .path(object_path(app_id))?
+            .cache_properties(CacheProperties::No)
+            .build()) => actions?,
+    };
+    let mut changes = tokio::select! {
+        biased;
+        result = &mut lost => return result,
+        changes = within(actions.receive_changed()) => Box::pin(changes?),
+    };
+    let descriptions = tokio::select! {
+        biased;
+        result = &mut lost => return result,
+        descriptions = within(actions.describe_all()) => descriptions?,
+    };
+    let mut visible = rows(&descriptions);
     for row in &visible {
         if let render::Flow::Stop = print_watch_row(row, json)? {
             return Ok(());
@@ -301,6 +332,8 @@ async fn applets(
     }
     loop {
         tokio::select! {
+            biased;
+            result = &mut lost => return result,
             change = std::future::poll_fn(|cx| changes.as_mut().poll_next(cx)) => {
                 let Some(change) = change else { return Err(Gone.into()) };
                 let args = change.args()?;
@@ -328,10 +361,6 @@ async fn applets(
                 }
                 sort(&mut visible);
             }
-            owner = std::future::poll_fn(|cx| owners.as_mut().poll_next(cx)) => {
-                let Some(owner) = owner else { return Err(Gone.into()) };
-                if owner.args()?.new_owner().is_none() { return Err(Gone.into()) }
-            }
         }
     }
 }
@@ -345,13 +374,11 @@ pub async fn panel(
     match command {
         PanelCommand::List { watch } => return panel_list(connection, watch, json).await,
         PanelCommand::Reload => return panel_reload(connection, app_id).await,
+        PanelCommand::Applets { watch } => return applets(connection, app_id, watch, json).await,
         _ => {}
     }
     let actions = proxy(connection, app_id).await?;
     let (action, parameters) = match command {
-        PanelCommand::Applets { watch } => {
-            return applets(connection, &actions, app_id, watch, json).await;
-        }
         PanelCommand::Popovers(PopoversCommand::Close) => ("close-popovers".to_owned(), Vec::new()),
         PanelCommand::Click {
             connector,
@@ -405,7 +432,9 @@ pub async fn panel(
                 vec![Value::from((verb, Value::from(0_u32)))],
             )
         }
-        PanelCommand::List { .. } | PanelCommand::Reload => unreachable!(),
+        PanelCommand::List { .. } | PanelCommand::Reload | PanelCommand::Applets { .. } => {
+            unreachable!()
+        }
     };
     within(actions.activate(&action, parameters, HashMap::new())).await
 }
@@ -443,11 +472,11 @@ pub async fn applet_live(
     command: AppletCommand,
     json: bool,
 ) -> Result<()> {
+    if let AppletCommand::List { watch, .. } = command {
+        return applets(connection, app_id, watch, json).await;
+    }
     let actions = proxy(connection, app_id).await?;
     let (target, verb, argument, steps) = match command {
-        AppletCommand::List { watch, .. } => {
-            return applets(connection, &actions, app_id, watch, json).await;
-        }
         AppletCommand::Inspect { target, .. } => {
             let rows = rows(&within(actions.describe_all()).await?);
             let row = resolve_live(&rows, &target)?;
@@ -749,6 +778,19 @@ async fn panel_list(connection: &Connection, watch: bool, json: bool) -> Result<
             }
         };
         if refresh {
+            for _ in 0..64 {
+                match std::future::poll_fn(|cx| {
+                    std::task::Poll::Ready(changes.as_mut().poll_next(cx))
+                })
+                .await
+                {
+                    std::task::Poll::Ready(Some(change)) => {
+                        change?;
+                    }
+                    std::task::Poll::Ready(None) => return Err(Gone.into()),
+                    std::task::Poll::Pending => break,
+                }
+            }
             visible = panel_rows(connection).await?;
             if let render::Flow::Stop = print_panels(&visible, json, true)? {
                 return Ok(());
