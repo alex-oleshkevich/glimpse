@@ -6,7 +6,10 @@ async fn the_session_applet_needs_the_dialog_host() {
         &glimpse_config::Config::default(),
         glimpse_dbus::Buses::unavailable("no bus in tests"),
     );
-    let config: AppletConfig = AppletKind::Session {}.into();
+    let config: AppletConfig = AppletKind::Session {
+        tooltip_format: None,
+    }
+    .into();
     let (dialog, _rx) = relm4::channel();
 
     assert!(

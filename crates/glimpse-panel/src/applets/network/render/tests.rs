@@ -52,7 +52,7 @@ fn metered_is_named_in_the_tooltip_and_never_on_the_chip() {
         ..connected(70)
     };
 
-    let tip = tooltip(&state, None, true).expect("a tooltip");
+    let tip = tooltip(&state, None).expect("a tooltip");
     assert!(tip.contains(&gettext("Metered connection")));
     assert_eq!(
         state.icon_name(),
@@ -60,8 +60,26 @@ fn metered_is_named_in_the_tooltip_and_never_on_the_chip() {
         "metered must not change the icon"
     );
 
-    let off = tooltip(&state, None, false).expect("a tooltip");
+    let off = tooltip(&state, Some("{connection}\n{signal}%")).expect("a tooltip");
     assert!(!off.contains(&gettext("Metered connection")));
+}
+
+#[test]
+fn a_format_places_metered_and_vpn_and_drops_their_lines_when_empty() {
+    let mut state = NetworkState {
+        metered: nm::Metered::GuessYes,
+        ..connected(70)
+    };
+    let format = "{connection}\n{metered}\n{vpn}";
+    let tip = tooltip(&state, Some(format)).expect("a tooltip");
+    assert_eq!(
+        tip,
+        format!("{}\n{}", status(&state), gettext("Metered connection"))
+    );
+
+    state.metered = nm::Metered::GuessNo;
+    let tip = tooltip(&state, Some(format)).expect("a tooltip");
+    assert_eq!(tip, status(&state));
 }
 
 #[test]
@@ -216,7 +234,7 @@ fn an_unmetered_guess_is_not_marked() {
         metered: nm::Metered::GuessNo,
         ..connected(70)
     };
-    let tip = tooltip(&state, None, true).expect("a tooltip");
+    let tip = tooltip(&state, None).expect("a tooltip");
     assert!(!tip.contains(&gettext("Metered connection")));
 }
 
@@ -226,7 +244,7 @@ fn a_hostile_ssid_is_capped_before_it_reaches_the_bar() {
     let mut state = connected(70);
     state.networks[0].ssid = Some(long);
 
-    let tip = tooltip(&state, None, false).expect("a tooltip");
+    let tip = tooltip(&state, None).expect("a tooltip");
     assert!(
         tip.chars().count() < 200,
         "got {} chars",
@@ -380,4 +398,12 @@ fn a_known_network_in_range_collapses_the_strangers() {
         .collect();
     assert_eq!(strangers.len(), 3);
     assert!(others.open, "pressing the header opens it");
+}
+
+#[test]
+fn the_default_tooltip_is_the_format_the_schema_documents() {
+    assert_eq!(
+        Some(default_tooltip().as_str()),
+        Some(glimpse_config::NETWORK_TOOLTIP)
+    );
 }

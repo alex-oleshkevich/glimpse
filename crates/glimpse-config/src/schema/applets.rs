@@ -4,14 +4,12 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
-/// One applet on a bar: the settings every applet understands, and the ones its own kind does.
+/// One applet on a bar and the settings its kind understands.
 /// The table name is the applet's name, and `extends` says which kind it is when the two differ —
 /// which is how one kind can appear more than once, as `[applets.clock-utc]` with
 /// `extends = "clock"`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Applet {
-    #[serde(flatten)]
-    pub common: Common,
     #[serde(flatten)]
     pub kind: Kind,
     /// The document's `[regional]` table, stamped on by whoever builds a running applet — for the
@@ -23,20 +21,11 @@ pub struct Applet {
     pub regional: super::Regional,
 }
 
-/// The settings every applet understands, whatever kind it is. They sit in the same table as the
-/// kind's own settings; nothing nests them.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Common {
-    /// What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,
-    /// `{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`
-    /// for next-event — the same way `label` already differs between them. A token with nothing
-    /// behind it renders as nothing. Unset means the applet shows no tooltip.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tooltip_format: Option<String>,
-}
-
 /// Which kind of applet this is, and the settings that kind alone understands.
+pub const NETWORK_TOOLTIP: &str = "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}";
+pub const PRINTING_TOOLTIP: &str = "{document}\n{printer}\n{pages}";
+pub const WEATHER_TOOLTIP: &str = "{place}\n{condition}, {temperature}, feels like {feels-like}";
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(
     tag = "extends",
@@ -46,7 +35,7 @@ pub struct Common {
 )]
 pub enum Kind {
     /// Output volume, with the default sink and per-application streams in its popover.
-    Audio {},
+    Audio(Audio),
     /// Battery, power mode, keep awake and peripheral batteries in its popover.
     Power(Power),
     /// Adapter state and paired devices.
@@ -55,7 +44,14 @@ pub enum Kind {
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
-    ColorPicker {},
+    /// Picks a color from the screen on right click; the popover keeps the picked colors.
+    ColorPicker {
+        /// What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen
+        /// in the popover.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[schemars(extend("default" = "{color}"))]
+        tooltip_format: Option<String>,
+    },
     /// A chip the user defines, running a program on a click or a scroll.
     Command(Box<Command>),
     /// Connected outputs, brightness and night light in one popover.
@@ -66,12 +62,24 @@ pub enum Kind {
     /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
     /// Idle inhibition, for keeping the screen awake.
-    Idle {},
+    Idle {
+        /// What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if
+        /// anything.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[schemars(extend("default" = "{status}"))]
+        tooltip_format: Option<String>,
+    },
     /// A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair
     /// in its popover. Needs `kdeconnectd` running; it is never started from here.
     Kdeconnect(Kdeconnect),
     /// The active keyboard layout, and switches between the configured ones.
-    Keyboard {},
+    Keyboard {
+        /// What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full
+        /// name.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[schemars(extend("default" = "{name}"))]
+        tooltip_format: Option<String>,
+    },
     /// The currently playing track, with transport controls in its popover.
     Mpris(Mpris),
     /// Connection state, with the available networks in its popover.
@@ -90,11 +98,22 @@ pub enum Kind {
     Privacy(Privacy),
     /// Removable drives, one row each, with open and eject in its popover.
     Removable(Removable),
-    Ruler {},
+    /// Measures a distance on screen on right click; the popover keeps recent measurements.
+    Ruler {
+        /// What the bar's tooltip reads. `{measurement}` is the last distance measured.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[schemars(extend("default" = "{measurement}"))]
+        tooltip_format: Option<String>,
+    },
     /// Log out, suspend, restart and shut down.
-    Session {},
-    /// Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples
-    /// nothing at all unless this kind is actually placed on a panel — see `placed_kinds`.
+    Session {
+        /// What the bar's tooltip reads. `{user}` is your user name.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[schemars(extend("default" = "Session"))]
+        tooltip_format: Option<String>,
+    },
+    /// Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the
+    /// applet is on a panel.
     SystemMonitor(SystemMonitor),
     /// The system tray: icons from applications that ask for one.
     Tray(Tray),
@@ -104,13 +123,19 @@ pub enum Kind {
     /// `sdk/examples/widget_demo`, for comparing built-in and exec rendering; not meant for a real bar.
     WidgetDemo {},
     /// The current workspace's name, renamed from its popover.
-    WorkspaceName {},
+    WorkspaceName {
+        /// What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and
+        /// `{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace
+        /// and its monitor.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tooltip_format: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Exec {
-    /// The desktop-file id, e.g. `me.example.Pomodoro`.
+    /// The desktop-file id, e.g. `me.aresa.GlimpseTodo` for the todo example.
     pub applet: String,
     /// Passed to the applet as written.
     #[serde(default)]
@@ -180,6 +205,9 @@ pub struct Tray {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct SystemMonitor {
+    /// What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// Chips shown on the bar, in order. Anything sampled but left out here still appears in the
     /// popover — this list is panel real estate, not visibility. A repeated chip collapses to its
     /// first occurrence.
@@ -190,12 +218,12 @@ pub struct SystemMonitor {
     /// temperature). An
     /// unrecognized token is left as literal text rather than silently emptied.
     pub chip_format: String,
-    /// Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns
-    /// `Severity::Warning`. Network and temperatures have no percentage and are never colored.
+    /// Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is
+    /// shown as a warning. Network and temperatures have no percentage and are never colored.
     #[schemars(range(min = 1, max = 100))]
     pub warn_percent: u8,
-    /// Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`
-    /// enum has no "Critical" variant — it is `Info`/`Warning`/`Error` only.
+    /// Percent at and above which a percentage reading is shown as critical. Must not be below
+    /// `warn-percent`.
     #[schemars(range(min = 1, max = 100))]
     pub critical_percent: u8,
 }
@@ -217,6 +245,7 @@ pub enum Chip {
 impl Default for SystemMonitor {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             chips: vec![Chip::Cpu, Chip::Ram],
             chip_format: "{name} {value}".to_owned(),
             warn_percent: 85,
@@ -232,6 +261,9 @@ impl Default for SystemMonitor {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Command {
+    /// What the bar's tooltip reads. Plain text. Unset shows no tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// A themed icon name, or the absolute path to an image. Prefer a `-symbolic` name, which
     /// follows the bar's color.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -266,6 +298,10 @@ pub struct Command {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clipboard {
+    /// What the bar's tooltip reads. `{count}` is the number of entries held. Unset shows no
+    /// tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the
     /// chip is an icon alone, which is what every applet does unless asked otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -286,6 +322,7 @@ pub struct Clipboard {
 impl Default for Clipboard {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             label_format: None,
             visible: 10,
             preview_chars: 72,
@@ -297,6 +334,12 @@ impl Default for Clipboard {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Notifications {
+    /// What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says
+    /// how many are waiting and whether do not disturb is on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
+    /// How the bar marks unread notifications: `icon-dot` adds a dot, `icon-counter` shows how many,
+    /// `icon-only` shows the bell alone.
     pub indicator_style: NotificationIndicatorStyle,
 }
 
@@ -312,7 +355,15 @@ pub enum NotificationIndicatorStyle {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Power {
+    /// What the bar's tooltip reads. `{percentage}`, `{state}` and `{remaining}`, the time left
+    /// until empty or full.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "{state} · {percentage}"))]
+    pub tooltip_format: Option<String>,
+    /// Whether the bar shows the battery icon, the label, or both.
     pub indicator_style: BatteryIndicatorStyle,
+    /// What the label shows. Placeholders are replaced by name: `{percentage}`, `{state}` and
+    /// `{remaining}`, the time left to empty or full.
     pub label_format: String,
 }
 
@@ -328,6 +379,7 @@ pub enum BatteryIndicatorStyle {
 impl Default for Power {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             indicator_style: BatteryIndicatorStyle::IconOnly,
             label_format: "{percentage}".to_owned(),
         }
@@ -339,6 +391,10 @@ impl Default for Power {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Kdeconnect {
+    /// What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as
+    /// `label-format`. Unset lists every paired device.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// Whether the bar shows the device icon, the label, or both.
     pub indicator_style: BatteryIndicatorStyle,
     /// What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and
@@ -357,6 +413,7 @@ pub struct Kdeconnect {
 impl Default for Kdeconnect {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             indicator_style: BatteryIndicatorStyle::IconText,
             label_format: "{battery}".to_owned(),
             device: None,
@@ -370,6 +427,9 @@ impl Default for Kdeconnect {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Mpris {
+    /// What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,
     /// `{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with
     /// nothing behind it renders as nothing.
@@ -378,10 +438,6 @@ pub struct Mpris {
     /// whatever is playing and are unbounded, and a bar that resizes as they change is worse than
     /// one that truncates.
     pub max_length: u8,
-    /// Whether the popover lists the players other than the one on the bar.
-    pub show_others: bool,
-    /// Whether the popover shows album art.
-    pub show_art: bool,
 }
 
 /// The network applet's own settings. Where the networks are scanned and listed is `[network]`;
@@ -389,23 +445,26 @@ pub struct Mpris {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Network {
+    /// What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads
+    /// Metered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`
+    /// the active VPN's name. A line whose tokens are all empty is left out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = NETWORK_TOOLTIP))]
+    pub tooltip_format: Option<String>,
     /// How many networks the popover lists before the rest go behind a "more networks" row. `0`
     /// lists every network in range.
     pub visible_networks: usize,
     /// Whether an active VPN gets a chip of its own beside the network chip. An indicator is an
     /// icon, and two states overlaid on one glyph are illegible at bar size.
     pub vpn_chip: bool,
-    /// Whether a metered connection is named in the tooltip. It is always marked on the row inside
-    /// the popover; this is only about the bar.
-    pub metered_in_tooltip: bool,
 }
 
 impl Default for Network {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             visible_networks: 8,
             vpn_chip: true,
-            metered_in_tooltip: true,
         }
     }
 }
@@ -413,10 +472,9 @@ impl Default for Network {
 impl Default for Mpris {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             label_format: "{title} — {artist}".to_owned(),
             max_length: 40,
-            show_others: true,
-            show_art: true,
         }
     }
 }
@@ -425,6 +483,10 @@ impl Default for Mpris {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
+    /// What the bar's tooltip reads. A `strftime` format, such as `%A, %-d %B %Y`. Unset shows no
+    /// tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.
     #[serde(alias = "format")]
     pub label_format: String,
@@ -445,6 +507,12 @@ pub struct Clock {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Bluetooth {
+    /// What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices
+    /// are connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's
+    /// name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "{status}"))]
+    pub tooltip_format: Option<String>,
     /// How many paired devices the popover lists before the rest go behind a drawer.
     pub devices: usize,
     /// How many nearby devices the popover lists while scanning.
@@ -454,6 +522,7 @@ pub struct Bluetooth {
 impl Default for Bluetooth {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             devices: 6,
             nearby: 8,
         }
@@ -464,13 +533,21 @@ impl Default for Bluetooth {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Places {
+    /// What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover
+    /// lists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "Places"))]
+    pub tooltip_format: Option<String>,
     /// How many bookmarks the popover lists before the rest go behind a drawer.
     pub bookmarks: usize,
 }
 
 impl Default for Places {
     fn default() -> Self {
-        Self { bookmarks: 8 }
+        Self {
+            tooltip_format: None,
+            bookmarks: 8,
+        }
     }
 }
 
@@ -479,6 +556,10 @@ impl Default for Places {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Removable {
+    /// What the bar's tooltip reads. `{drives}` and `{volumes}` are how many of each are attached.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "Removable"))]
+    pub tooltip_format: Option<String>,
     /// How many devices (drives, not their volumes) the popover lists before the rest go behind a
     /// drawer.
     pub volumes: usize,
@@ -486,7 +567,10 @@ pub struct Removable {
 
 impl Default for Removable {
     fn default() -> Self {
-        Self { volumes: 6 }
+        Self {
+            tooltip_format: None,
+            volumes: 6,
+        }
     }
 }
 
@@ -494,6 +578,12 @@ impl Default for Removable {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Printing {
+    /// What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the
+    /// printer, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only
+    /// while something is printing. A line whose tokens are all empty is left out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = PRINTING_TOOLTIP))]
+    pub tooltip_format: Option<String>,
     /// Print jobs listed in the popover before older ones are hidden.
     pub jobs: usize,
     /// When the bar shows the printing chip.
@@ -503,6 +593,7 @@ pub struct Printing {
 impl Default for Printing {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             jobs: 8,
             show: PrintingShow::default(),
         }
@@ -514,9 +605,9 @@ impl Default for Printing {
 #[serde(rename_all = "kebab-case")]
 pub enum PrintingShow {
     /// The chip stays on the bar whenever a printer exists, idle or not.
-    #[default]
     Always,
     /// The chip appears only while a print job is active or a printer needs attention.
+    #[default]
     Jobs,
 }
 
@@ -524,6 +615,9 @@ pub enum PrintingShow {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Privacy {
+    /// What the bar's tooltip reads. Plain text. Unset names what is in use and by which app.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// Whether the camera is shown when in use.
     pub show_camera: bool,
     /// Whether the microphone is shown when in use.
@@ -537,6 +631,7 @@ pub struct Privacy {
 impl Default for Privacy {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             show_camera: true,
             show_microphone: true,
             show_screencast: true,
@@ -545,11 +640,39 @@ impl Default for Privacy {
     }
 }
 
+/// Settings for the audio applet.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Audio {
+    /// What the bar's tooltip reads. `{volume}` is the volume in percent, or Muted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "{volume}"))]
+    pub tooltip_format: Option<String>,
+    /// How much one scroll notch on the speaker icon changes the volume, in percent, from 1 to 100.
+    #[serde(deserialize_with = "scroll_percent")]
+    #[schemars(range(min = 1, max = 100))]
+    pub scroll_step: u8,
+}
+
+impl Default for Audio {
+    fn default() -> Self {
+        Self {
+            tooltip_format: None,
+            scroll_step: 5,
+        }
+    }
+}
+
 /// Settings for the display applet. The floor a display can reach is `[brightness] minimum`;
 /// this is only how the bar and its popover behave.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Display {
+    /// What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its
+    /// brightness in percent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = "{name}: {brightness}%"))]
+    pub tooltip_format: Option<String>,
     /// How much a scroll notch on the chip moves the current display, in percent of its range.
     /// Converted to native units at the call site and rounded away from zero, so a notch always
     /// moves something even on a display with a small native range. Zero would leave the wheel
@@ -557,16 +680,13 @@ pub struct Display {
     #[serde(deserialize_with = "scroll_percent")]
     #[schemars(range(min = 1, max = 100))]
     pub scroll_step: u8,
-    /// Whether the keyboard's own backlight, where the machine has one, gets a fader in the
-    /// popover alongside the displays.
-    pub show_keyboard: bool,
 }
 
 impl Default for Display {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             scroll_step: 5,
-            show_keyboard: true,
         }
     }
 }
@@ -603,6 +723,11 @@ pub struct Timezone {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct NextEvent {
+    /// What the bar's tooltip reads. `{summary}` is the event's title, `{detail}` its location or
+    /// description, `{when}` when it starts and `{conflicts}` the events overlapping it. Unset
+    /// shows no tooltip.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tooltip_format: Option<String>,
     /// How long before an event starts it takes the bar, in minutes. Anything further out than
     /// this leaves the applet empty, which is what keeps a meeting two days away off a bar that
     /// has nothing to say about it. An event that has already started stays until it ends,
@@ -632,6 +757,10 @@ pub struct NextEvent {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Weather {
+    /// What the bar's tooltip reads. `{place}`, `{temperature}`, `{feels-like}` and `{condition}`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("default" = WEATHER_TOOLTIP))]
+    pub tooltip_format: Option<String>,
     /// Which place this applet shows.
     pub place: Place,
     /// What the bar and the popover call this place. Unset means a fixed place reads as the pair
@@ -782,6 +911,7 @@ impl Default for Place {
 impl Default for Weather {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             place: Place::default(),
             label: None,
             hours: 4,
@@ -793,6 +923,7 @@ impl Default for Weather {
 impl Default for NextEvent {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             within: 60,
             countdown: 60,
             horizon: 720,
@@ -805,6 +936,7 @@ impl Default for NextEvent {
 impl Default for Clock {
     fn default() -> Self {
         Self {
+            tooltip_format: None,
             label_format: "%a, %-d %b, %H:%M".to_owned(),
             timezone: None,
             week_numbers: true,
@@ -814,12 +946,9 @@ impl Default for Clock {
     }
 }
 
-const COMMON: [&str; 1] = ["tooltip-format"];
-
 impl From<Kind> for Applet {
     fn from(kind: Kind) -> Self {
         Self {
-            common: Common::default(),
             kind,
             regional: super::Regional::default(),
         }
@@ -869,7 +998,6 @@ where
 }
 
 fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> {
-    let common = take_common(&mut table)?;
     if !table.contains_key("extends") && is_desktop_id(name) {
         table.insert("extends".to_owned(), toml::Value::String("exec".to_owned()));
         table
@@ -880,9 +1008,7 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
             .entry("extends")
             .or_insert_with(|| toml::Value::String(name.to_owned()));
     }
-    let keys: Vec<String> = table.keys().cloned().collect();
-    let mut kind =
-        Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
+    let mut kind = Kind::deserialize(table)?;
     if let Kind::Exec(exec) = &kind
         && !is_desktop_id(&exec.applet)
     {
@@ -895,7 +1021,6 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     runnable(&kind)?;
     thresholds(&kind)?;
     Ok(Applet {
-        common,
         kind,
         regional: super::Regional::default(),
     })
@@ -1023,35 +1148,8 @@ fn names_a_program(key: &str, argv: &[String]) -> Result<(), toml::de::Error> {
     Ok(())
 }
 
-fn name_the_common_settings(error: toml::de::Error, keys: &[String]) -> toml::de::Error {
-    let message = error.to_string();
-    let message = message.trim_end();
-    let Some(field) = message
-        .strip_prefix("unknown field `")
-        .and_then(|rest| rest.split('`').next())
-    else {
-        return error;
-    };
-    if !keys.iter().any(|key| key == field) {
-        return error;
-    }
-    let common = COMMON.map(|key| format!("`{key}`")).join(", ");
-    toml::de::Error::custom(format!("{message}, or one of {common}"))
-}
-
-fn take_common(table: &mut toml::Table) -> Result<Common, toml::de::Error> {
-    let mut taken = toml::Table::new();
-    for key in COMMON {
-        if let Some(value) = table.remove(key) {
-            taken.insert(key.to_owned(), value);
-        }
-    }
-
-    Common::deserialize(taken)
-}
-
 pub fn schema(generator: &mut SchemaGenerator) -> Schema {
-    let aliased = with_common(generator);
+    let aliased = Kind::json_schema(generator);
     let mut properties = serde_json::Map::new();
     let mut desktop_id = None;
 
@@ -1105,31 +1203,40 @@ pub fn schema(generator: &mut SchemaGenerator) -> Schema {
     Schema::from(schema)
 }
 
-fn with_common(generator: &mut SchemaGenerator) -> Schema {
-    let shared = Common::json_schema(generator)
-        .get("properties")
-        .and_then(serde_json::Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-
-    let mut kinds = Kind::json_schema(generator);
-    if let Some(branches) = kinds
-        .get_mut("oneOf")
-        .and_then(serde_json::Value::as_array_mut)
-    {
-        for branch in branches {
-            let Some(properties) = branch
-                .get_mut("properties")
-                .and_then(serde_json::Value::as_object_mut)
-            else {
-                continue;
-            };
-            for (key, value) in &shared {
-                properties.insert(key.clone(), value.clone());
-            }
+impl Kind {
+    pub fn tooltip_format(&self) -> Option<&str> {
+        match self {
+            Self::Audio(kind) => kind.tooltip_format.as_deref(),
+            Self::Power(kind) => kind.tooltip_format.as_deref(),
+            Self::Bluetooth(kind) => kind.tooltip_format.as_deref(),
+            Self::Clipboard(kind) => kind.tooltip_format.as_deref(),
+            Self::Clock(kind) => kind.tooltip_format.as_deref(),
+            Self::Command(kind) => kind.tooltip_format.as_deref(),
+            Self::Display(kind) => kind.tooltip_format.as_deref(),
+            Self::Kdeconnect(kind) => kind.tooltip_format.as_deref(),
+            Self::Mpris(kind) => kind.tooltip_format.as_deref(),
+            Self::Network(kind) => kind.tooltip_format.as_deref(),
+            Self::NextEvent(kind) => kind.tooltip_format.as_deref(),
+            Self::Notifications(kind) => kind.tooltip_format.as_deref(),
+            Self::Places(kind) => kind.tooltip_format.as_deref(),
+            Self::Printing(kind) => kind.tooltip_format.as_deref(),
+            Self::Privacy(kind) => kind.tooltip_format.as_deref(),
+            Self::Removable(kind) => kind.tooltip_format.as_deref(),
+            Self::SystemMonitor(kind) => kind.tooltip_format.as_deref(),
+            Self::Weather(kind) => kind.tooltip_format.as_deref(),
+            Self::ColorPicker { tooltip_format }
+            | Self::Idle { tooltip_format }
+            | Self::Keyboard { tooltip_format }
+            | Self::Ruler { tooltip_format }
+            | Self::Session { tooltip_format }
+            | Self::WorkspaceName { tooltip_format } => tooltip_format.as_deref(),
+            Self::Exec(_)
+            | Self::Heartbeat {}
+            | Self::Pager(_)
+            | Self::Tray(_)
+            | Self::WidgetDemo {} => None,
         }
     }
-    kinds
 }
 
 #[cfg(test)]

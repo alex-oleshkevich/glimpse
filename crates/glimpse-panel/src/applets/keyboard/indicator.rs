@@ -20,10 +20,10 @@ pub struct Keyboard {
 
 impl Applet for Keyboard {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::Keyboard {} = &config.kind else {
+        let AppletKind::Keyboard { .. } = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

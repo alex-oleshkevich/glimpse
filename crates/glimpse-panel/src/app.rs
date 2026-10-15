@@ -794,6 +794,7 @@ fn reconcile_panels(
             let panel_cfg = panel::Config {
                 position: cfg.position,
                 size: cfg.size,
+                margin: cfg.margin,
                 monitor: monitor.clone(),
                 left: cfg.left.clone(),
                 center: cfg.center.clone(),

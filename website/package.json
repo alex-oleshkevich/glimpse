@@ -1,0 +1,21 @@
+{
+  "name": "glimpse-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/assets.mjs",
+    "lint": "node scripts/lint.mjs",
+    "dev": "npm run assets && vitepress dev",
+    "build": "npm run assets && npm run lint && vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "mermaid": "11.17.2",
+    "vitepress": "1.6.4",
+    "vitepress-plugin-llms": "1.14.0",
+    "vitepress-plugin-mermaid": "2.0.17"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}

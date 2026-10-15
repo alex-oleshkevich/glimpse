@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use glimpse_config::PrintingShow;
 use glimpse_services::{
     JobState, PrintJob, Printer as ServicePrinter, PrinterState, PrintingState,
@@ -42,26 +42,39 @@ pub fn attention(state: &PrintingState) -> bool {
 }
 
 pub fn tooltip(state: &PrintingState, format: Option<&str>, cap_count: usize) -> Option<String> {
-    if !state.jobs.iter().any(|job| job.state.is_active()) {
-        return None;
-    }
-    let shown = state.jobs.iter().take(cap_count).count();
-    let status = status_summary(shown);
-    let Some(format) = format else {
-        return Some(status);
+    let active: Vec<&PrintJob> = state
+        .jobs
+        .iter()
+        .filter(|job| job.state.is_active())
+        .collect();
+    let job = active
+        .iter()
+        .find(|job| job.state == JobState::Processing)
+        .or_else(|| active.first())?;
+    let count = active.len().min(cap_count).to_string();
+    let document = glimpse_utils::clean(&job.name, NAME_CAP);
+    let printer = glimpse_utils::clean(&job.printer_name, NAME_CAP);
+    let pages = match (job.pages_completed, job.pages_total) {
+        (Some(done), Some(total)) if total > 0 => gettext("page {done} of {total}")
+            .replace("{done}", &done.to_string())
+            .replace("{total}", &total.to_string()),
+        _ => String::new(),
     };
-    Some(crate::applets::tokens::render(
-        format,
+    let format = format.map(str::to_owned).unwrap_or_else(default_tooltip);
+    Some(crate::applets::tokens::render_lines(
+        &format,
         |token| match token {
-            "status" => Some(status.as_str()),
+            "count" => Some(count.as_str()),
+            "document" => Some(document.as_str()),
+            "printer" => Some(printer.as_str()),
+            "pages" => Some(pages.as_str()),
             _ => None,
         },
     ))
 }
 
-fn status_summary(shown: usize) -> String {
-    ngettext("{count} print job", "{count} print jobs", shown as u32)
-        .replace("{count}", &shown.to_string())
+pub fn default_tooltip() -> String {
+    gettext("{document}\n{printer}\n{pages}")
 }
 
 pub fn jobs(state: &PrintingState, cap_count: usize, pending: &HashSet<u32>) -> Vec<PrintingJob> {

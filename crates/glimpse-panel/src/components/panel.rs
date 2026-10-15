@@ -1,5 +1,5 @@
 use adw::gdk;
-use glimpse_config::{Applet as AppletConfig, BlurSurface, Position, Regional};
+use glimpse_config::{Applet as AppletConfig, BlurSurface, Margin, Position, Regional};
 use glimpse_widgets::blur;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -82,6 +82,7 @@ pub(crate) enum Zone {
 pub struct Config {
     pub position: Position,
     pub size: u32,
+    pub margin: Margin,
     pub monitor: gdk::Monitor,
     pub left: Vec<String>,
     pub center: Vec<String>,
@@ -231,14 +232,25 @@ impl Panel {
         if self.window.monitor().as_ref() != Some(&config.monitor) {
             self.window.set_monitor(Some(&config.monitor));
         }
-        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+        for (edge, margin) in [
+            (Edge::Top, config.margin.top),
+            (Edge::Bottom, config.margin.bottom),
+            (Edge::Left, config.margin.left),
+            (Edge::Right, config.margin.right),
+        ] {
             self.window.set_anchor(edge, anchors.contains(&edge));
+            self.window.set_margin(edge, pixels(margin));
         }
         self.bar.set_orientation(orientation);
         self.bar.set_thickness(config.size);
+        let inset = match orientation {
+            gtk::Orientation::Horizontal => config.margin.left,
+            _ => config.margin.top,
+        };
         self.catcher.reconfigure(
             &config.monitor,
             config.position,
+            pixels(inset),
             glimpse_config::blurs(&config.blur, BlurSurface::Popover),
         );
         blur::apply(
@@ -358,6 +370,10 @@ impl Panel {
         }
         self.applets = next;
     }
+}
+
+fn pixels(margin: u32) -> i32 {
+    i32::try_from(margin).unwrap_or(i32::MAX)
 }
 
 #[cfg(test)]

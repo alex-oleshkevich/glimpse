@@ -439,10 +439,18 @@ fn the_chip_reports_the_worst_alert_standing() {
 fn a_tooltip_substitutes_the_tokens_it_is_given() {
     assert_eq!(
         tooltip(
-            "{place}: {temperature}, feels like {feels_like} ({condition})",
+            "{place}: {temperature}, feels like {feels-like} ({condition})",
             "Vilnius",
             &current(Condition::LightRain)
         ),
         "Vilnius: 18°, feels like 16° (Light rain)"
+    );
+}
+
+#[test]
+fn the_default_tooltip_is_the_format_the_schema_documents() {
+    assert_eq!(
+        Some(default_tooltip().as_str()),
+        Some(glimpse_config::WEATHER_TOOLTIP)
     );
 }

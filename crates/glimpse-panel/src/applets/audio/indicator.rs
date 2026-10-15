@@ -22,13 +22,13 @@ use super::render;
 
 const ICON: &str = "audio-volume-high-symbolic";
 const APPS_SHOWN: usize = 6;
-const SCROLL_STEP: i32 = 5;
 
 pub struct Audio {
     state: AudioState,
     audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
+    scroll_step: i32,
     spec: Vec<IndicatorSpec>,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<AudioPopover>,
@@ -36,10 +36,11 @@ pub struct Audio {
 
 impl Applet for Audio {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::Audio {} = &config.kind else {
+        let AppletKind::Audio(settings) = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.scroll_step = i32::from(settings.scroll_step);
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }
@@ -433,8 +434,8 @@ impl Audio {
             return;
         };
         let step = match direction {
-            Direction::Up | Direction::Right => SCROLL_STEP,
-            Direction::Down | Direction::Left => -SCROLL_STEP,
+            Direction::Up | Direction::Right => self.scroll_step,
+            Direction::Down | Direction::Left => -self.scroll_step,
         };
         let target = (device.volume as i32 + step).clamp(0, 100) as u32;
         if target == device.volume {
@@ -480,6 +481,7 @@ impl Audio {
             audio,
             notifications,
             tooltip_format: None,
+            scroll_step: 5,
             spec: Vec::new(),
             expanded: Rc::new(Cell::new(false)),
             shown: glib::WeakRef::new(),

@@ -219,8 +219,6 @@ impl SimpleComponent for App {
         let machine = Lifecycle::new(Settings {
             standalone: init.standalone,
             refusal,
-            lock_on_request: init.config.power.lock_on_request,
-            lock_before_sleep: init.config.power.lock_before_sleep,
         });
 
         let (logind, notices) = if init.standalone {
@@ -348,14 +346,6 @@ impl SimpleComponent for App {
                         spawn_theme_watch(&self.config.appearance.theme, sender.clone());
                     self.reload_styles();
                 }
-                let power = &self.config.power;
-                self.step(
-                    Input::Configure {
-                        lock_on_request: power.lock_on_request,
-                        lock_before_sleep: power.lock_before_sleep,
-                    },
-                    &sender,
-                );
             }
             AppInput::ThemeChanged => self.reload_styles(),
             AppInput::Start {

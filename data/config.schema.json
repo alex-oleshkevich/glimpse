@@ -25,12 +25,21 @@
               "type": "string",
               "const": "audio"
             },
+            "scroll-step": {
+              "description": "How much one scroll notch on the speaker icon changes the volume, in percent, from 1 to 100.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 5,
+              "maximum": 100,
+              "minimum": 1
+            },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{volume}` is the volume in percent, or Muted.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{volume}"
             }
           },
           "additionalProperties": false,
@@ -59,11 +68,12 @@
               "minimum": 0
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices\nare connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's\nname.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{status}"
             }
           },
           "additionalProperties": false,
@@ -97,7 +107,7 @@
               "default": false
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{count}` is the number of entries held. Unset shows no\ntooltip.",
               "type": [
                 "string",
                 "null"
@@ -148,7 +158,7 @@
               }
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. A `strftime` format, such as `%A, %-d %B %Y`. Unset shows no\ntooltip.",
               "type": [
                 "string",
                 "null"
@@ -164,6 +174,7 @@
           "required": []
         },
         "color-picker": {
+          "description": "Picks a color from the screen on right click; the popover keeps the picked colors.",
           "type": "object",
           "properties": {
             "extends": {
@@ -171,11 +182,12 @@
               "const": "color-picker"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen\nin the popover.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{color}"
             }
           },
           "additionalProperties": false,
@@ -253,7 +265,7 @@
               }
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. Plain text. Unset shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -279,17 +291,13 @@
               "maximum": 100,
               "minimum": 1
             },
-            "show-keyboard": {
-              "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
-              "type": "boolean",
-              "default": true
-            },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its\nbrightness in percent.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{name}: {brightness}%"
             }
           },
           "additionalProperties": false,
@@ -300,7 +308,7 @@
           "type": "object",
           "properties": {
             "applet": {
-              "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
+              "description": "The desktop-file id, e.g. `me.aresa.GlimpseTodo` for the todo example.",
               "type": "string"
             },
             "env": {
@@ -320,13 +328,6 @@
               "type": "object",
               "additionalProperties": true,
               "default": {}
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -341,13 +342,6 @@
             "extends": {
               "type": "string",
               "const": "heartbeat"
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -362,11 +356,12 @@
               "const": "idle"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if\nanything.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{status}"
             }
           },
           "additionalProperties": false,
@@ -403,7 +398,7 @@
               "default": "{battery}"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as\n`label-format`. Unset lists every paired device.",
               "type": [
                 "string",
                 "null"
@@ -422,11 +417,12 @@
               "const": "keyboard"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full\nname.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{name}"
             }
           },
           "additionalProperties": false,
@@ -453,18 +449,8 @@
               "maximum": 255,
               "minimum": 0
             },
-            "show-art": {
-              "description": "Whether the popover shows album art.",
-              "type": "boolean",
-              "default": true
-            },
-            "show-others": {
-              "description": "Whether the popover lists the players other than the one on the bar.",
-              "type": "boolean",
-              "default": true
-            },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -482,17 +468,13 @@
               "type": "string",
               "const": "network"
             },
-            "metered-in-tooltip": {
-              "description": "Whether a metered connection is named in the tooltip. It is always marked on the row inside\nthe popover; this is only about the bar.",
-              "type": "boolean",
-              "default": true
-            },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads\nMetered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`\nthe active VPN's name. A line whose tokens are all empty is left out.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}"
             },
             "visible-networks": {
               "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
@@ -538,7 +520,7 @@
               "minimum": 0
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{summary}` is the event's title, `{detail}` its location or\ndescription, `{when}` when it starts and `{conflicts}` the events overlapping it. Unset\nshows no tooltip.",
               "type": [
                 "string",
                 "null"
@@ -571,11 +553,12 @@
               "const": "notifications"
             },
             "indicator-style": {
+              "description": "How the bar marks unread notifications: `icon-dot` adds a dot, `icon-counter` shows how many,\n`icon-only` shows the bell alone.",
               "$ref": "#/$defs/NotificationIndicatorStyle",
               "default": "icon-dot"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says\nhow many are waiting and whether do not disturb is on.",
               "type": [
                 "string",
                 "null"
@@ -620,13 +603,6 @@
               "$ref": "#/$defs/PagerShape",
               "default": "dots"
             },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
             "unfocused-label": {
               "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
               "type": [
@@ -661,11 +637,12 @@
               "const": "places"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover\nlists.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "Places"
             }
           },
           "additionalProperties": false,
@@ -680,19 +657,22 @@
               "const": "power"
             },
             "indicator-style": {
+              "description": "Whether the bar shows the battery icon, the label, or both.",
               "$ref": "#/$defs/BatteryIndicatorStyle",
               "default": "icon-only"
             },
             "label-format": {
+              "description": "What the label shows. Placeholders are replaced by name: `{percentage}`, `{state}` and\n`{remaining}`, the time left to empty or full.",
               "type": "string",
               "default": "{percentage}"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{percentage}`, `{state}` and `{remaining}`, the time left\nuntil empty or full.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{state} · {percentage}"
             }
           },
           "additionalProperties": false,
@@ -716,14 +696,15 @@
             "show": {
               "description": "When the bar shows the printing chip.",
               "$ref": "#/$defs/PrintingShow",
-              "default": "always"
+              "default": "jobs"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the\nprinter, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only\nwhile something is printing. A line whose tokens are all empty is left out.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{document}\n{printer}\n{pages}"
             }
           },
           "additionalProperties": false,
@@ -758,7 +739,7 @@
               "default": true
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. Plain text. Unset names what is in use and by which app.",
               "type": [
                 "string",
                 "null"
@@ -777,11 +758,12 @@
               "const": "removable"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{drives}` and `{volumes}` are how many of each are attached.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "Removable"
             },
             "volumes": {
               "description": "How many devices (drives, not their volumes) the popover lists before the rest go behind a\ndrawer.",
@@ -795,6 +777,7 @@
           "required": []
         },
         "ruler": {
+          "description": "Measures a distance on screen on right click; the popover keeps recent measurements.",
           "type": "object",
           "properties": {
             "extends": {
@@ -802,11 +785,12 @@
               "const": "ruler"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{measurement}` is the last distance measured.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{measurement}"
             }
           },
           "additionalProperties": false,
@@ -821,18 +805,19 @@
               "const": "session"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{user}` is your user name.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "Session"
             }
           },
           "additionalProperties": false,
           "required": []
         },
         "system-monitor": {
-          "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+          "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the\napplet is on a panel.",
           "type": "object",
           "properties": {
             "chip-format": {
@@ -852,7 +837,7 @@
               }
             },
             "critical-percent": {
-              "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+              "description": "Percent at and above which a percentage reading is shown as critical. Must not be below\n`warn-percent`.",
               "type": "integer",
               "format": "uint8",
               "default": 95,
@@ -864,14 +849,14 @@
               "const": "system-monitor"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "warn-percent": {
-              "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network and temperatures have no percentage and are never colored.",
+              "description": "Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is\nshown as a warning. Network and temperatures have no percentage and are never colored.",
               "type": "integer",
               "format": "uint8",
               "default": 85,
@@ -913,13 +898,6 @@
               "items": {
                 "type": "string"
               }
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -964,11 +942,12 @@
               }
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{place}`, `{temperature}`, `{feels-like}` and `{condition}`.",
               "type": [
                 "string",
                 "null"
-              ]
+              ],
+              "default": "{place}\n{condition}, {temperature}, feels like {feels-like}"
             }
           },
           "additionalProperties": false,
@@ -981,13 +960,6 @@
             "extends": {
               "type": "string",
               "const": "widget-demo"
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -1002,7 +974,7 @@
               "const": "workspace-name"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+              "description": "What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and\n`{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace\nand its monitor.",
               "type": [
                 "string",
                 "null"
@@ -1014,7 +986,6 @@
         }
       },
       "additionalProperties": {
-        "description": "Which kind of applet this is, and the settings that kind alone understands.",
         "oneOf": [
           {
             "description": "Output volume, with the default sink and per-application streams in its popover.",
@@ -1024,12 +995,21 @@
                 "type": "string",
                 "const": "audio"
               },
+              "scroll-step": {
+                "description": "How much one scroll notch on the speaker icon changes the volume, in percent, from 1 to 100.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 5,
+                "maximum": 100,
+                "minimum": 1
+              },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{volume}` is the volume in percent, or Muted.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{volume}"
               }
             },
             "additionalProperties": false,
@@ -1046,19 +1026,22 @@
                 "const": "power"
               },
               "indicator-style": {
+                "description": "Whether the bar shows the battery icon, the label, or both.",
                 "$ref": "#/$defs/BatteryIndicatorStyle",
                 "default": "icon-only"
               },
               "label-format": {
+                "description": "What the label shows. Placeholders are replaced by name: `{percentage}`, `{state}` and\n`{remaining}`, the time left to empty or full.",
                 "type": "string",
                 "default": "{percentage}"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{percentage}`, `{state}` and `{remaining}`, the time left\nuntil empty or full.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{state} · {percentage}"
               }
             },
             "additionalProperties": false,
@@ -1089,11 +1072,12 @@
                 "minimum": 0
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices\nare connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's\nname.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{status}"
               }
             },
             "additionalProperties": false,
@@ -1129,7 +1113,7 @@
                 "default": false
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{count}` is the number of entries held. Unset shows no\ntooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1182,7 +1166,7 @@
                 }
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. A `strftime` format, such as `%A, %-d %B %Y`. Unset shows no\ntooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1200,6 +1184,7 @@
             ]
           },
           {
+            "description": "Picks a color from the screen on right click; the popover keeps the picked colors.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1207,11 +1192,12 @@
                 "const": "color-picker"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen\nin the popover.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{color}"
               }
             },
             "additionalProperties": false,
@@ -1291,7 +1277,7 @@
                 }
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. Plain text. Unset shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1319,17 +1305,13 @@
                 "maximum": 100,
                 "minimum": 1
               },
-              "show-keyboard": {
-                "description": "Whether the keyboard's own backlight, where the machine has one, gets a fader in the\npopover alongside the displays.",
-                "type": "boolean",
-                "default": true
-              },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its\nbrightness in percent.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{name}: {brightness}%"
               }
             },
             "additionalProperties": false,
@@ -1342,7 +1324,7 @@
             "type": "object",
             "properties": {
               "applet": {
-                "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
+                "description": "The desktop-file id, e.g. `me.aresa.GlimpseTodo` for the todo example.",
                 "type": "string"
               },
               "env": {
@@ -1362,13 +1344,6 @@
                 "type": "object",
                 "additionalProperties": true,
                 "default": {}
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
             "additionalProperties": false,
@@ -1384,13 +1359,6 @@
               "extends": {
                 "type": "string",
                 "const": "heartbeat"
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
             "additionalProperties": false,
@@ -1407,11 +1375,12 @@
                 "const": "idle"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if\nanything.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{status}"
               }
             },
             "additionalProperties": false,
@@ -1450,7 +1419,7 @@
                 "default": "{battery}"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as\n`label-format`. Unset lists every paired device.",
                 "type": [
                   "string",
                   "null"
@@ -1471,11 +1440,12 @@
                 "const": "keyboard"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full\nname.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{name}"
               }
             },
             "additionalProperties": false,
@@ -1504,18 +1474,8 @@
                 "maximum": 255,
                 "minimum": 0
               },
-              "show-art": {
-                "description": "Whether the popover shows album art.",
-                "type": "boolean",
-                "default": true
-              },
-              "show-others": {
-                "description": "Whether the popover lists the players other than the one on the bar.",
-                "type": "boolean",
-                "default": true
-              },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1535,17 +1495,13 @@
                 "type": "string",
                 "const": "network"
               },
-              "metered-in-tooltip": {
-                "description": "Whether a metered connection is named in the tooltip. It is always marked on the row inside\nthe popover; this is only about the bar.",
-                "type": "boolean",
-                "default": true
-              },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads\nMetered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`\nthe active VPN's name. A line whose tokens are all empty is left out.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}"
               },
               "visible-networks": {
                 "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
@@ -1593,7 +1549,7 @@
                 "minimum": 0
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{summary}` is the event's title, `{detail}` its location or\ndescription, `{when}` when it starts and `{conflicts}` the events overlapping it. Unset\nshows no tooltip.",
                 "type": [
                   "string",
                   "null"
@@ -1628,11 +1584,12 @@
                 "const": "notifications"
               },
               "indicator-style": {
+                "description": "How the bar marks unread notifications: `icon-dot` adds a dot, `icon-counter` shows how many,\n`icon-only` shows the bell alone.",
                 "$ref": "#/$defs/NotificationIndicatorStyle",
                 "default": "icon-dot"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says\nhow many are waiting and whether do not disturb is on.",
                 "type": [
                   "string",
                   "null"
@@ -1679,13 +1636,6 @@
                 "$ref": "#/$defs/PagerShape",
                 "default": "dots"
               },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
               "unfocused-label": {
                 "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
                 "type": [
@@ -1722,11 +1672,12 @@
                 "const": "places"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover\nlists.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "Places"
               }
             },
             "additionalProperties": false,
@@ -1752,14 +1703,15 @@
               "show": {
                 "description": "When the bar shows the printing chip.",
                 "$ref": "#/$defs/PrintingShow",
-                "default": "always"
+                "default": "jobs"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the\nprinter, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only\nwhile something is printing. A line whose tokens are all empty is left out.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{document}\n{printer}\n{pages}"
               }
             },
             "additionalProperties": false,
@@ -1796,7 +1748,7 @@
                 "default": true
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. Plain text. Unset names what is in use and by which app.",
                 "type": [
                   "string",
                   "null"
@@ -1817,11 +1769,12 @@
                 "const": "removable"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{drives}` and `{volumes}` are how many of each are attached.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "Removable"
               },
               "volumes": {
                 "description": "How many devices (drives, not their volumes) the popover lists before the rest go behind a\ndrawer.",
@@ -1837,6 +1790,7 @@
             ]
           },
           {
+            "description": "Measures a distance on screen on right click; the popover keeps recent measurements.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1844,11 +1798,12 @@
                 "const": "ruler"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{measurement}` is the last distance measured.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{measurement}"
               }
             },
             "additionalProperties": false,
@@ -1865,11 +1820,12 @@
                 "const": "session"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{user}` is your user name.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "Session"
               }
             },
             "additionalProperties": false,
@@ -1878,7 +1834,7 @@
             ]
           },
           {
-            "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Its backing service samples\nnothing at all unless this kind is actually placed on a panel — see `placed_kinds`.",
+            "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the\napplet is on a panel.",
             "type": "object",
             "properties": {
               "chip-format": {
@@ -1898,7 +1854,7 @@
                 }
               },
               "critical-percent": {
-                "description": "Percent at and above which a reading turns `Severity::Error`. This codebase's `Severity`\nenum has no \"Critical\" variant — it is `Info`/`Warning`/`Error` only.",
+                "description": "Percent at and above which a percentage reading is shown as critical. Must not be below\n`warn-percent`.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 95,
@@ -1910,14 +1866,14 @@
                 "const": "system-monitor"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "warn-percent": {
-                "description": "Percent at and above which any percentage reading (CPU, RAM, swap, GPU usage/memory) turns\n`Severity::Warning`. Network and temperatures have no percentage and are never colored.",
+                "description": "Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is\nshown as a warning. Network and temperatures have no percentage and are never colored.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 85,
@@ -1961,13 +1917,6 @@
                 "items": {
                   "type": "string"
                 }
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
             "additionalProperties": false,
@@ -2014,11 +1963,12 @@
                 }
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{place}`, `{temperature}`, `{feels-like}` and `{condition}`.",
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "default": "{place}\n{condition}, {temperature}, feels like {feels-like}"
               }
             },
             "additionalProperties": false,
@@ -2033,13 +1983,6 @@
               "extends": {
                 "type": "string",
                 "const": "widget-demo"
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
             "additionalProperties": false,
@@ -2056,7 +1999,7 @@
                 "const": "workspace-name"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
+                "description": "What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and\n`{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace\nand its monitor.",
                 "type": [
                   "string",
                   "null"
@@ -2077,7 +2020,7 @@
           "type": "object",
           "properties": {
             "applet": {
-              "description": "The desktop-file id, e.g. `me.example.Pomodoro`.",
+              "description": "The desktop-file id, e.g. `me.aresa.GlimpseTodo` for the todo example.",
               "type": "string"
             },
             "env": {
@@ -2097,13 +2040,6 @@
               "type": "object",
               "additionalProperties": true,
               "default": {}
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager, `{summary}`, `{detail}`, `{when}` and `{conflicts}`\nfor next-event — the same way `label` already differs between them. A token with nothing\nbehind it renders as nothing. Unset means the applet shows no tooltip.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -2253,8 +2189,7 @@
       "$ref": "#/$defs/Network",
       "default": {
         "hide-unnamed": true,
-        "scan-timeout": 30,
-        "show-vpn": true
+        "scan-timeout": 30
       }
     },
     "night-light": {
@@ -2328,13 +2263,6 @@
       "default": {
         "network": true,
         "trash": true
-      }
-    },
-    "power": {
-      "$ref": "#/$defs/Power",
-      "default": {
-        "lock-before-sleep": true,
-        "lock-on-request": true
       }
     },
     "printing": {
@@ -2419,7 +2347,7 @@
       "type": "object",
       "properties": {
         "animation-speed": {
-          "description": "How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,\nand `0` turns animations off. Anything else below `0.1` is refused, because a fade that\nlong keeps the full-screen popover catcher swallowing clicks. The popover and notification fades and every CSS transition\nthat reads `--gl-duration` follow it; the wallpaper keeps its own `transition-ms`.",
+          "description": "How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,\nand `0` turns animations off. Anything else below `0.1` is refused, because a fade that\nslow leaves the panel ignoring clicks while it runs. The popover and notification fades and every CSS transition\nthat reads `--gl-duration` follow it; the wallpaper keeps its own `transition-ms`.",
           "type": "number",
           "format": "double",
           "default": 1.0,
@@ -2427,11 +2355,12 @@
           "minimum": 0.0
         },
         "auto-dark": {
+          "description": "What decides the desktop mode: `auto` turns dark at sunset and light at sunrise where you\nare, `system` follows the color scheme preference set elsewhere, for example in GNOME Settings.",
           "$ref": "#/$defs/AutoDark",
           "default": "auto"
         },
         "blur": {
-          "description": "Surfaces that blur whatever lies behind them, where the compositor offers\next-background-effect-v1 and GTK is 4.23.3 or newer; elsewhere they stay opaque. The\nstrength of the blur is the compositor's setting, not glimpse's. niri blurs a layer\nsurface in xray mode unless told otherwise, which shows the wallpaper rather than the\nwindows under a popover or a notification; `layer-rule { match\nnamespace=\"^glimpse-(popover|notifications)$\"; background-effect { xray false; } }` in the\nniri config changes that. `all` stands for `panel`, `popover` and `notification`.",
+          "description": "Which parts of glimpse blur what is behind them: `panel`, `popover`, `notification`, or\n`all`. Needs compositor support; without it they stay solid. Setup notes:\nhttps://alex-oleshkevich.github.io/glimpse/config/services/appearance#blur",
           "type": "array",
           "default": [],
           "items": {
@@ -2439,10 +2368,12 @@
           }
         },
         "color-scheme": {
+          "description": "Whether glimpse's own surfaces are light or dark. `auto` follows the desktop mode that\n`auto-dark` decides; `light` and `dark` hold glimpse in one scheme whatever the desktop does.",
           "$ref": "#/$defs/ColorScheme",
           "default": "auto"
         },
         "theme": {
+          "description": "The theme directory to load stylesheets from, looked up under `~/.config/glimpse/themes`\nfirst and the installed themes second.",
           "type": "string",
           "default": "adwaita"
         },
@@ -2482,6 +2413,7 @@
           "minimum": 1
         },
         "enabled": {
+          "description": "Whether the backdrop surface is created at all.",
           "type": "boolean",
           "default": true
         },
@@ -2579,7 +2511,7 @@
       "type": "object",
       "properties": {
         "ddc": {
-          "description": "Whether to probe external displays for DDC/CI brightness control over `/dev/i2c-*`. DDC/CI\nis protocol-mandated slow (tens of milliseconds per read or write) and not every monitor\nimplements it correctly, so this stays a document-level escape hatch rather than something\na user has to diagnose by unplugging a display.",
+          "description": "Whether glimpse controls the brightness of external monitors. Most monitors support it; turn\nit off if one reacts slowly, flickers or misbehaves when the brightness changes.",
           "type": "boolean",
           "default": true
         },
@@ -2676,10 +2608,12 @@
           "default": "%A, {day} %B"
         },
         "enabled": {
+          "description": "Whether the clock shows on the lock stage at all.",
           "type": "boolean",
           "default": true
         },
         "time-format": {
+          "description": "A `strftime` pattern for the time, e.g. `%H:%M` or `%-I:%M %p`.",
           "type": "string",
           "default": "%H:%M"
         }
@@ -2775,7 +2709,7 @@
       ]
     },
     "Geolocation": {
-      "description": "`manual` carries its coordinates in the table that selects it, so a provider without them cannot\nbe written down: serde refuses the document and names the key that is missing. The alternative —\ntwo loose `Option` fields — makes a half-filled table a runtime problem for every reader.",
+      "description": "Where you are, for sunset times and the local forecast. `geoclue` asks the system location\nservice; `manual` uses the `latitude` and `longitude` written beside it, which are then required.",
       "oneOf": [
         {
           "type": "object",
@@ -2837,10 +2771,12 @@
       "type": "object",
       "properties": {
         "enabled": {
+          "description": "Whether the idle timers run at all.",
           "type": "boolean",
           "default": true
         },
         "profiles": {
+          "description": "The listeners to run on AC power and on battery. The battery profile applies while UPower\nreports the machine on battery; without UPower the AC profile always applies.",
           "$ref": "#/$defs/Profiles",
           "default": {
             "ac": {
@@ -2879,6 +2815,7 @@
           }
         },
         "respect-inhibitors": {
+          "description": "Whether an app holding the screen awake, such as a video player or a browser playing a\nvideo, pauses the listeners. A listener's own `respect-inhibitors` overrides this.",
           "type": "boolean",
           "default": true
         }
@@ -2889,6 +2826,7 @@
       "type": "object",
       "properties": {
         "labels": {
+          "description": "The text the panel shows for a layout, keyed by the layout's code or full name, matched\nwithout regard to case: `{ \"English (US)\" = \"EN\", ua = \"УКР\" }`. Unlisted layouts show\ntheir code.",
           "type": "object",
           "additionalProperties": {
             "type": "string"
@@ -2896,6 +2834,7 @@
           "default": {}
         },
         "remember": {
+          "description": "Where a layout choice sticks: `window` gives each window its own layout, `app` shares one\nper application, and `global` keeps one layout for everything.",
           "$ref": "#/$defs/Remember",
           "default": "window"
         }
@@ -2906,20 +2845,24 @@
       "type": "object",
       "properties": {
         "on-idle": {
+          "description": "The shell command run when the timeout passes, e.g. `loginctl lock-session`.",
           "type": "string",
           "default": ""
         },
         "on-resume": {
+          "description": "The shell command run on the next input after `on-idle` ran. Empty runs nothing.",
           "type": "string",
           "default": ""
         },
         "respect-inhibitors": {
+          "description": "Overrides `[idle] respect-inhibitors` for this listener.",
           "type": [
             "boolean",
             "null"
           ]
         },
         "timeout": {
+          "description": "Seconds without input before `on-idle` runs. `0` disables the listener.",
           "type": "integer",
           "format": "uint64",
           "default": 0,
@@ -2932,6 +2875,7 @@
       "type": "object",
       "properties": {
         "background": {
+          "description": "The image and color behind the lock stage.",
           "$ref": "#/$defs/LockBackground",
           "default": {
             "blur-radius": 0,
@@ -2942,6 +2886,7 @@
           }
         },
         "clock": {
+          "description": "The large time and date on the lock stage.",
           "$ref": "#/$defs/Clock",
           "default": {
             "date-format": "%A, {day} %B",
@@ -2965,6 +2910,7 @@
           }
         },
         "pam-service": {
+          "description": "The PAM service that checks the password, read from `/etc/pam.d/<name>`.",
           "type": "string",
           "default": "glimpse-lock"
         },
@@ -3142,24 +3088,28 @@
       "type": "object",
       "properties": {
         "bottom": {
+          "description": "Pixels between the panel and the bottom screen edge.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
         "left": {
+          "description": "Pixels between the panel and the left screen edge.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
         "right": {
+          "description": "Pixels between the panel and the right screen edge.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
         "top": {
+          "description": "Pixels between the panel and the top screen edge.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
@@ -3185,7 +3135,7 @@
           "default": true
         },
         "ignore": {
-          "description": "Regular expressions matched against a player's bus-name suffix (`spotify`,\n`kdeconnect.mpris_desktop_1`) and its `Identity` (`Spotify`, `Firefox`). A player matching\nany of them is never shown. Patterns are unanchored and case-sensitive; write `(?i)` for\ncase-insensitive and `^…$` to anchor. A pattern that does not compile is skipped with a\nwarning and the rest keep working. `playerctld` and KDE Connect mirrors are already\nhandled without this.\n\nTo start from: `'^chromium'` hides every Chromium tab, whose bus names carry an instance\nnumber after the application (`chromium.instance4181`); `'(?i)firefox'` hides Firefox\nhowever it happens to capitalize its `Identity`; `'^mpv$'` hides exactly `mpv` and leaves\n`mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash\nreaches the regex instead of being read as a string escape:\n`ignore = ['^chromium', '(?i)firefox']`.",
+          "description": "Media players to keep off the bar. Write part of the player's name, as it appears in the\npopover: `ignore = ['Firefox', 'chromium']` hides Firefox and every Chromium window\nplaying sound. Upper and lower case must match the name; start an entry with `(?i)` to\nignore case, as in `'(?i)firefox'`. Use single quotes around each entry.",
           "type": "array",
           "default": [],
           "items": {
@@ -3209,11 +3159,6 @@
           "format": "uint64",
           "default": 30,
           "minimum": 0
-        },
-        "show-vpn": {
-          "description": "Whether to show the VPN section. It hides itself when no VPN profile is saved, so this is\nfor hiding one you have but do not want on the list.",
-          "type": "boolean",
-          "default": true
         }
       },
       "additionalProperties": false
@@ -3222,6 +3167,7 @@
       "type": "object",
       "properties": {
         "end-time": {
+          "description": "When the warm color ends under `schedule = \"schedule\"`, as `HH:MM` local time.",
           "type": [
             "string",
             "null"
@@ -3229,10 +3175,12 @@
           "pattern": "^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$"
         },
         "schedule": {
+          "description": "When the screen warms: `automatic` from sunset to sunrise where you are, `schedule`\nbetween `start-time` and `end-time`, `off` never.",
           "$ref": "#/$defs/Schedule",
           "default": "automatic"
         },
         "start-time": {
+          "description": "When the warm color starts under `schedule = \"schedule\"`, as `HH:MM` local time.",
           "type": [
             "string",
             "null"
@@ -3240,6 +3188,7 @@
           "pattern": "^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$"
         },
         "temperature": {
+          "description": "The color temperature at night, in kelvin. Lower is warmer; 6500 is the screen's own color.",
           "type": "integer",
           "format": "uint32",
           "default": 4200,
@@ -3247,6 +3196,7 @@
           "minimum": 1000
         },
         "transition-minutes": {
+          "description": "How many minutes the change between day and night color takes.",
           "type": "integer",
           "format": "uint32",
           "default": 15,
@@ -3278,14 +3228,17 @@
       "type": "object",
       "properties": {
         "edge": {
+          "description": "The corner or edge of the monitor popups stack from.",
           "$ref": "#/$defs/NotificationEdge",
           "default": "top-right"
         },
         "enabled": {
+          "description": "Whether new notifications pop up on screen. Turned off, they still go to the history.",
           "type": "boolean",
           "default": true
         },
         "hide-delay": {
+          "description": "Seconds a popup stays when the sending app leaves its lifetime to the shell, which most do.\nHovering a popup pauses the countdown.",
           "type": "integer",
           "format": "uint64",
           "default": 4,
@@ -3300,12 +3253,14 @@
           "minimum": 0
         },
         "max-items": {
+          "description": "How many popups show at once.",
           "type": "integer",
           "format": "uint32",
           "default": 6,
           "minimum": 1
         },
         "monitor": {
+          "description": "The connector name of the monitor popups appear on, e.g. `DP-1`. Unset, or naming a\nmonitor that is not connected, uses the focused monitor.",
           "type": [
             "string",
             "null"
@@ -3362,6 +3317,7 @@
       "type": "object",
       "properties": {
         "center": {
+          "description": "Applet names for the middle of the panel.",
           "type": "array",
           "default": [
             "clock",
@@ -3374,6 +3330,7 @@
           }
         },
         "left": {
+          "description": "Applet names for the start of the panel: the left end, or the top on a side panel.",
           "type": "array",
           "default": [
             "workspace-name",
@@ -3386,6 +3343,7 @@
           }
         },
         "margin": {
+          "description": "Space in pixels between the panel and the screen edges.",
           "$ref": "#/$defs/Margin",
           "default": {
             "bottom": 0,
@@ -3395,16 +3353,19 @@
           }
         },
         "monitor": {
+          "description": "The connector name of the one monitor this panel appears on, e.g. `eDP-1`. Unset puts a\ncopy of the panel on every monitor.",
           "type": [
             "string",
             "null"
           ]
         },
         "position": {
+          "description": "The screen edge the panel sits on.",
           "$ref": "#/$defs/Position",
           "default": "top"
         },
         "right": {
+          "description": "Applet names for the end of the panel: the right end, or the bottom on a side panel.",
           "type": "array",
           "default": [
             "next-event",
@@ -3427,6 +3388,7 @@
           }
         },
         "size": {
+          "description": "The panel's thickness in pixels: its height on a top or bottom edge, its width on a side.",
           "type": "integer",
           "format": "uint32",
           "default": 36,
@@ -3550,20 +3512,6 @@
         "bottom"
       ]
     },
-    "Power": {
-      "type": "object",
-      "properties": {
-        "lock-before-sleep": {
-          "type": "boolean",
-          "default": true
-        },
-        "lock-on-request": {
-          "type": "boolean",
-          "default": true
-        }
-      },
-      "additionalProperties": false
-    },
     "Printing": {
       "description": "The printing service: how often it polls CUPS for job state, and which server it polls.",
       "type": "object",
@@ -3611,6 +3559,7 @@
       "type": "object",
       "properties": {
         "listeners": {
+          "description": "Each listener runs a command once the session has been idle for its `timeout`. Setting this\nlist replaces the default listeners rather than adding to them.",
           "type": "array",
           "default": [],
           "items": {
@@ -3624,6 +3573,7 @@
       "type": "object",
       "properties": {
         "ac": {
+          "description": "The listeners used on AC power.",
           "$ref": "#/$defs/Profile",
           "default": {
             "listeners": [
@@ -3646,6 +3596,7 @@
           }
         },
         "battery": {
+          "description": "The listeners used on battery.",
           "$ref": "#/$defs/Profile",
           "default": {
             "listeners": [
@@ -3681,7 +3632,7 @@
       ]
     },
     "Regional": {
-      "description": "What language this session reads, and how it writes a time of day and a measurement. Every\nsetting here defaults to what the environment already says, so an empty table is the right\nanswer on a machine whose locale is set up.\n\nThe three keys are read by different owners: `glimpse-weather` resolves `units` and stamps the\nanswer onto every weather reading, while the panel, the lock screen and the wallpaper resolve\n`language` and `hour-format` for themselves. Nothing else in glimpse asks the environment\nthese questions.",
+      "description": "What language this session reads, and how it writes a time of day and a measurement. Every\nsetting here defaults to what the environment already says, so an empty table is the right\nanswer on a machine whose locale is set up.",
       "type": "object",
       "properties": {
         "hour-format": {
@@ -3690,7 +3641,7 @@
           "default": "locale"
         },
         "language": {
-          "description": "Which translation catalog the interface is drawn in, such as `ru`. Empty follows the\nenvironment, which is `LANGUAGE`, then `LC_MESSAGES`, then `LANG`. Naming one here sets\n`LANGUAGE` for the process, so it applies whether or not that locale has been generated.\n\nThis chooses the catalog and nothing else: weekday names, the twelve-hour question and the\nunit system keep following the environment, because a person reading a Russian interface in\nChicago still wants their own clock and their own thermometer.\n\nA change here takes effect when the binary next starts. A GTK template resolves its text as\neach widget is built, so re-reading it in a running process would leave what is already on\nscreen in the old language and everything opened afterwards in the new one.",
+          "description": "The language glimpse's text is shown in, such as `ru` for Russian. Empty uses your system\nlanguage. It changes only the words: dates, the clock and units still follow your system\nsettings. Takes effect the next time glimpse starts, for example when you log in.",
           "type": "string",
           "default": ""
         },
@@ -4006,7 +3957,7 @@
           ]
         },
         "outputs": {
-          "description": "Per-output overrides, matched against the connector `gdk::Monitor::connector()` returns\n(the same string `[[panels]].monitor` matches against). An output with no entry here\nrenders the values above. When two entries name the same connector, the first one wins.",
+          "description": "Per-output overrides, matched by connector name such as `DP-1` (the same name\n`[[panels]] monitor` takes). An output with no entry here\nrenders the values above. When two entries name the same connector, the first one wins.",
           "type": "array",
           "default": [],
           "items": {

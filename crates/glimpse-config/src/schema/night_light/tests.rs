@@ -105,8 +105,7 @@ fn a_temperature_the_range_cannot_hold_loads_clamped_and_is_reported_once() {
         std::fs::write(
             &path,
             format!(
-                "[night-light]\ntemperature = {written}\nschedule = \"off\"\ntransition-minutes = 3\n\
-                 [power]\nlock-before-sleep = false\n"
+                "[night-light]\ntemperature = {written}\nschedule = \"off\"\ntransition-minutes = 3\n"
             ),
         )
         .expect("writes");
@@ -115,7 +114,6 @@ fn a_temperature_the_range_cannot_hold_loads_clamped_and_is_reported_once() {
         assert_eq!(config.night_light.temperature, used, "{written}");
         assert_eq!(config.night_light.schedule, Schedule::Off, "{written}");
         assert_eq!(config.night_light.transition_minutes, 3, "{written}");
-        assert!(!config.power.lock_before_sleep, "{written}");
         let problems: Vec<String> = config.validate().iter().map(ToString::to_string).collect();
         assert_eq!(problems.len(), 1, "{written}: {problems:?}");
         assert!(

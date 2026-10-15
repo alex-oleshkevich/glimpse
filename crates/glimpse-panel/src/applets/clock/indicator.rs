@@ -37,7 +37,7 @@ impl Applet for Clock {
         };
         self.settings = clock.clone();
         self.twelve = config.regional.twelve_hour();
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.zone = clock
             .timezone

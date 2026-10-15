@@ -32,6 +32,7 @@ pub struct Catcher {
     side: Rc<Cell<Position>>,
     state: Cell<State>,
     center: Cell<i32>,
+    inset: Cell<i32>,
     dismissed: RefCell<Option<Box<dyn Fn()>>>,
     shields: RefCell<Vec<gtk4::Window>>,
 }
@@ -79,6 +80,7 @@ impl Catcher {
             side: side.clone(),
             state: Cell::default(),
             center: Cell::default(),
+            inset: Cell::default(),
             dismissed: RefCell::default(),
             shields: RefCell::default(),
         });
@@ -237,8 +239,15 @@ impl Catcher {
         horizontal(self.side.get())
     }
 
-    pub fn reconfigure(&self, monitor: &gtk4::gdk::Monitor, side: Position, blur: bool) {
+    pub fn reconfigure(
+        &self,
+        monitor: &gtk4::gdk::Monitor,
+        side: Position,
+        inset: i32,
+        blur: bool,
+    ) {
         glimpse_widgets::blur::apply(&self.popup, blur);
+        self.inset.set(inset);
         let moved = self.window.monitor().as_ref() != Some(monitor);
         if moved {
             self.window.set_monitor(Some(monitor));
@@ -337,7 +346,8 @@ impl Catcher {
             true => self.arrow.width(),
             false => self.arrow.height(),
         };
-        let (start, offset) = placement(self.center.get(), extent, room, arrow);
+        let center = self.center.get() + self.inset.get();
+        let (start, offset) = placement(center, extent, room, arrow);
         let lead = start.min(GUTTER);
         let trail = (room - start - extent).clamp(0, GUTTER);
         match self.horizontal() {

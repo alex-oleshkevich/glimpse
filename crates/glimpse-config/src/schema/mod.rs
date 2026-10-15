@@ -15,7 +15,6 @@ mod night_light;
 mod notifications;
 mod panels;
 mod places;
-mod power;
 mod printing;
 mod regional;
 mod removable;
@@ -32,16 +31,17 @@ use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, AutoDark, BlurSurface, ColorScheme, blurs};
 pub use applets::{
-    Applet, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig, Chip as SystemMonitorChip,
-    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
-    Common as AppletCommon, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
+    Applet, Audio as AudioAppletConfig, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig,
+    Chip as SystemMonitorChip, Clipboard as ClipboardAppletConfig, Clock as ClockConfig,
+    Command as CommandAppletConfig, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
     Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
-    NextEvent as NextEventConfig, NotificationIndicatorStyle,
-    Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
-    PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig, Power as PowerAppletConfig,
-    Printing as PrintingAppletConfig, PrintingShow, Privacy as PrivacyAppletConfig,
-    Removable as RemovableAppletConfig, SystemMonitor as SystemMonitorAppletConfig,
-    Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
+    NETWORK_TOOLTIP, NextEvent as NextEventConfig, NotificationIndicatorStyle,
+    Notifications as NotificationsAppletConfig, PRINTING_TOOLTIP, Pager as PagerConfig, PagerMode,
+    PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
+    Power as PowerAppletConfig, Printing as PrintingAppletConfig, PrintingShow,
+    Privacy as PrivacyAppletConfig, Removable as RemovableAppletConfig,
+    SystemMonitor as SystemMonitorAppletConfig, Timezone as ClockTimezone,
+    Tray as TrayAppletConfig, WEATHER_TOOLTIP, Weather as WeatherAppletConfig,
     exec_env_name_allowed, is_desktop_id, resolve_applet,
 };
 pub use bluetooth::Bluetooth;
@@ -62,7 +62,6 @@ pub use night_light::{CLOCK, MAX_TEMPERATURE, MIN_TEMPERATURE, NightLight, Sched
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use places::Places;
-pub use power::Power;
 pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
@@ -84,7 +83,6 @@ pub struct Config {
     pub night_light: NightLight,
     pub brightness: Brightness,
     pub idle: Idle,
-    pub power: Power,
     pub keyboard: Keyboard,
     pub calendar: Calendar,
     pub clipboard: Clipboard,
@@ -156,7 +154,6 @@ impl Default for Config {
             night_light: NightLight::default(),
             brightness: Brightness::default(),
             idle: Idle::default(),
-            power: Power::default(),
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
             clipboard: Clipboard::default(),

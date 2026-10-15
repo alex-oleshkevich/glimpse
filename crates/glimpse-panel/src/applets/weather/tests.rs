@@ -190,8 +190,9 @@ fn the_chip_reads_the_one_rounding_site_and_carries_a_symbolic_icon() {
     assert_eq!(chip.label.as_deref(), Some("18°"));
     assert!(chip.icon.is_some());
     assert_eq!(
-        chip.tooltip, None,
-        "an applet with no tooltip-format shows no tooltip"
+        chip.tooltip.as_deref(),
+        Some("Vilnius, LT\nLight rain, 18°, feels like 16°"),
+        "an applet with no tooltip-format shows the default one"
     );
 }
 

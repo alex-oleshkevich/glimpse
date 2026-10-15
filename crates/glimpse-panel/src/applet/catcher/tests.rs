@@ -135,7 +135,7 @@ pub(crate) fn only_the_body_sized_surface_is_blurred() {
         Position::Right,
     ] {
         let catcher = super::Catcher::new(Some(&monitor), side);
-        catcher.reconfigure(&monitor, side, true);
+        catcher.reconfigure(&monitor, side, 0, true);
         assert!(
             !catcher.window.has_css_class("blurred"),
             "{side:?}: a compositor blurs the whole surface carrying a blur region"

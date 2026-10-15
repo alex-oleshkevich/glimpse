@@ -122,10 +122,10 @@ fn copy(service: &ColorPickerHandle, report: Report, opener: Opener, id: u64, fo
 
 impl Applet for ColorPicker {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::ColorPicker {} = &config.kind else {
+        let AppletKind::ColorPicker { .. } = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

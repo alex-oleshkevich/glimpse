@@ -46,13 +46,7 @@ pub enum Phase {
 
 #[derive(Debug)]
 pub enum Input {
-    Start {
-        locked_hint: bool,
-    },
-    Configure {
-        lock_on_request: bool,
-        lock_before_sleep: bool,
-    },
+    Start { locked_hint: bool },
     LockRequested,
     UnlockRequested,
     PrepareForSleep(bool),
@@ -63,10 +57,7 @@ pub enum Input {
     Unpainted(u64),
     SleepDeadline(u64),
     Submit,
-    AuthFinished {
-        attempt: u64,
-        verdict: Verdict,
-    },
+    AuthFinished { attempt: u64, verdict: Verdict },
     AuthTimedOut(u64),
 }
 
@@ -89,8 +80,6 @@ pub enum Effect {
 pub struct Settings {
     pub standalone: bool,
     pub refusal: Option<Refusal>,
-    pub lock_on_request: bool,
-    pub lock_before_sleep: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,10 +149,6 @@ impl Lifecycle {
         let mut effects = Vec::new();
         match input {
             Input::Start { locked_hint } => self.start(locked_hint, &mut effects),
-            Input::Configure {
-                lock_on_request,
-                lock_before_sleep,
-            } => self.configure(lock_on_request, lock_before_sleep, &mut effects),
             Input::LockRequested => self.lock_requested(&mut effects),
             Input::UnlockRequested => {
                 tracing::info!("ignoring logind Unlock: only local authentication ends a lock");
@@ -221,30 +206,7 @@ impl Lifecycle {
         }
     }
 
-    fn configure(
-        &mut self,
-        lock_on_request: bool,
-        lock_before_sleep: bool,
-        effects: &mut Vec<Effect>,
-    ) {
-        self.settings.lock_on_request = lock_on_request;
-        if self.settings.lock_before_sleep == lock_before_sleep {
-            return;
-        }
-        self.settings.lock_before_sleep = lock_before_sleep;
-        if self.inhibits() {
-            effects.push(Effect::TakeInhibitor);
-        } else if !self.settings.standalone {
-            self.sleep = None;
-            effects.push(Effect::ReleaseInhibitor);
-        }
-    }
-
     fn lock_requested(&mut self, effects: &mut Vec<Effect>) {
-        if !self.settings.lock_on_request {
-            tracing::info!("ignoring logind Lock: [power] lock-on-request is off");
-            return;
-        }
         match self.phase {
             Phase::Idle => match self.settings.refusal {
                 Some(refusal) => {
@@ -259,7 +221,7 @@ impl Lifecycle {
     }
 
     fn prepare_for_sleep(&mut self, effects: &mut Vec<Effect>) {
-        if self.settings.standalone || !self.settings.lock_before_sleep {
+        if self.settings.standalone {
             return;
         }
         if let Some(refusal) = self.settings.refusal {
@@ -415,9 +377,7 @@ impl Lifecycle {
     }
 
     fn inhibits(&self) -> bool {
-        !self.settings.standalone
-            && self.settings.lock_before_sleep
-            && self.settings.refusal.is_none()
+        !self.settings.standalone && self.settings.refusal.is_none()
     }
 }
 

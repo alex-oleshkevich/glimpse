@@ -95,10 +95,10 @@ fn copy(service: &RulerHandle, report: Report, id: u64) {
 
 impl Applet for Ruler {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::Ruler {} = &config.kind else {
+        let AppletKind::Ruler { .. } = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

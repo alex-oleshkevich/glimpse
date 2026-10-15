@@ -1,9 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// `manual` carries its coordinates in the table that selects it, so a provider without them cannot
-/// be written down: serde refuses the document and names the key that is missing. The alternative —
-/// two loose `Option` fields — makes a half-filled table a runtime problem for every reader.
+/// Where you are, for sunset times and the local forecast. `geoclue` asks the system location
+/// service; `manual` uses the `latitude` and `longitude` written beside it, which are then required.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "provider", rename_all = "kebab-case")]
 pub enum Geolocation {

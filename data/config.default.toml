@@ -28,7 +28,6 @@ poll-idle = 30
 [network]
 scan-timeout = 30
 hide-unnamed = true
-show-vpn = true
 
 [night-light]
 schedule = "automatic"
@@ -67,10 +66,6 @@ on-resume = "glimpse-dpms on"
 timeout = 1800
 on-idle = "systemctl suspend"
 on-resume = ""
-
-[power]
-lock-before-sleep = true
-lock-on-request = true
 
 [keyboard]
 remember = "window"

@@ -1,6 +1,5 @@
 use super::{
-    BatteryIndicatorStyle, COMMON, Chip, Common, Kind, NotificationIndicatorStyle, Printing,
-    PrintingShow, Privacy,
+    BatteryIndicatorStyle, Chip, Kind, NotificationIndicatorStyle, Printing, PrintingShow, Privacy,
 };
 
 #[test]
@@ -16,31 +15,6 @@ fn exec_sandbox_table_is_refused_by_name() {
     .expect_err("the sandbox table no longer exists")
     .to_string();
     assert!(error.contains("sandbox"), "{error}");
-}
-
-#[test]
-fn every_common_setting_is_taken_off_the_table() {
-    let schema = schemars::schema_for!(Common);
-    let declared: Vec<String> = schema
-        .get("properties")
-        .and_then(serde_json::Value::as_object)
-        .expect("Common is an object")
-        .keys()
-        .cloned()
-        .collect();
-
-    for key in &declared {
-        assert!(
-            COMMON.contains(&key.as_str()),
-            "`{key}` is a common setting the splitter never removes, so it reaches the kind \
-                 and is refused as one of its own"
-        );
-    }
-    assert_eq!(
-        COMMON.len(),
-        declared.len(),
-        "the splitter removes a key no common setting declares"
-    );
 }
 
 #[test]
@@ -174,7 +148,10 @@ fn places_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
             .expect("the table loads");
     assert_eq!(
         configured.applets["pl"].kind,
-        Kind::Places(super::Places { bookmarks: 4 })
+        Kind::Places(super::Places {
+            bookmarks: 4,
+            tooltip_format: None
+        })
     );
 }
 
@@ -188,7 +165,10 @@ fn removable_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
             .expect("the table loads");
     assert_eq!(
         configured.applets["rm"].kind,
-        Kind::Removable(super::Removable { volumes: 4 })
+        Kind::Removable(super::Removable {
+            volumes: 4,
+            tooltip_format: None
+        })
     );
 }
 
@@ -205,6 +185,7 @@ fn kdeconnect_resolves_from_a_bare_name_and_reads_its_own_settings() {
     assert_eq!(
         configured.applets["phone"].kind,
         Kind::Kdeconnect(super::Kdeconnect {
+            tooltip_format: None,
             indicator_style: BatteryIndicatorStyle::IconOnly,
             label_format: "{name}".to_owned(),
             device: Some("Pixel 8".to_owned()),
@@ -229,6 +210,7 @@ fn bluetooth_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
     assert_eq!(
         configured.applets["bt"].kind,
         Kind::Bluetooth(super::Bluetooth {
+            tooltip_format: None,
             devices: 4,
             nearby: 8,
         })
@@ -391,7 +373,7 @@ fn printing_defaults_and_refuses_an_unknown_key() {
         panic!("the table names the printing applet");
     };
     assert_eq!(settings.jobs, 3);
-    assert_eq!(settings.show, PrintingShow::Always);
+    assert_eq!(settings.show, PrintingShow::Jobs);
 
     for (value, show) in [
         ("always", PrintingShow::Always),
@@ -438,7 +420,7 @@ fn display_instances_load_the_same_defaults() {
             .expect("display and a custom instance load");
     let expected = Kind::Display(super::Display {
         scroll_step: 5,
-        show_keyboard: true,
+        tooltip_format: None,
     });
     for name in ["display", "screen"] {
         assert_eq!(document.applets[name].kind, expected);
@@ -454,13 +436,12 @@ fn display_instances_load_the_same_defaults() {
 #[test]
 fn display_settings_parse_and_validate() {
     let document: crate::Config =
-        toml::from_str("[applets.display]\nscroll-step = 12\nshow-keyboard = false\n")
-            .expect("display settings load");
+        toml::from_str("[applets.display]\nscroll-step = 12\n").expect("display settings load");
     assert_eq!(
         document.applets["display"].kind,
         Kind::Display(super::Display {
             scroll_step: 12,
-            show_keyboard: false,
+            tooltip_format: None
         })
     );
     for value in [1, 100] {
@@ -471,7 +452,7 @@ fn display_settings_parse_and_validate() {
             document.applets["display"].kind,
             Kind::Display(super::Display {
                 scroll_step: value,
-                show_keyboard: true,
+                tooltip_format: None
             })
         );
     }

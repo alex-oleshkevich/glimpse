@@ -44,3 +44,18 @@ fn a_longer_token_is_not_eaten_by_a_shorter_one_it_contains() {
     assert_eq!(render("{name-or-index}", resolve), "long");
     assert_eq!(render("{name}", resolve), "short");
 }
+
+#[test]
+fn a_line_whose_tokens_are_all_empty_is_dropped() {
+    let values = |token: &str| match token {
+        "name" => Some("Home"),
+        "signal" => Some(""),
+        _ => None,
+    };
+    assert_eq!(
+        render_lines("{name}\nSignal {signal}%\nplain", values),
+        "Home\nplain"
+    );
+    assert_eq!(render_lines("{name} {signal}", values), "Home ");
+    assert_eq!(render_lines("{unknown}", values), "{unknown}");
+}

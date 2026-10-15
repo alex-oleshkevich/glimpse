@@ -7,8 +7,6 @@ const UNLOCKED: Verdict = Verdict::Unlock {
 const DAEMON: Settings = Settings {
     standalone: false,
     refusal: None,
-    lock_on_request: true,
-    lock_before_sleep: true,
 };
 
 fn started(settings: Settings, locked_hint: bool) -> (Lifecycle, Vec<Effect>) {

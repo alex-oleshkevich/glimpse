@@ -31,8 +31,7 @@ impl Applet for Command {
         };
         self.icon = settings.icon.as_deref().and_then(icon);
         self.label = settings.label.clone().filter(|label| !label.is_empty());
-        self.tooltip = config
-            .common
+        self.tooltip = settings
             .tooltip_format
             .clone()
             .filter(|tooltip| !tooltip.is_empty());

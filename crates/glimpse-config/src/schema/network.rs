@@ -11,9 +11,6 @@ pub struct Network {
     /// Whether to hide networks that broadcast no name. They cannot be joined by tapping them —
     /// a hidden network is reached by typing its name in — so a row for one is unactionable.
     pub hide_unnamed: bool,
-    /// Whether to show the VPN section. It hides itself when no VPN profile is saved, so this is
-    /// for hiding one you have but do not want on the list.
-    pub show_vpn: bool,
 }
 
 impl Default for Network {
@@ -21,7 +18,6 @@ impl Default for Network {
         Self {
             scan_timeout: 30,
             hide_unnamed: true,
-            show_vpn: true,
         }
     }
 }

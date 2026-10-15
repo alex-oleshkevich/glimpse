@@ -54,7 +54,7 @@ impl Applet for Mpris {
             return;
         };
         self.settings = settings.clone();
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
         self.pace(ctx);
         self.refresh();
     }
@@ -267,11 +267,7 @@ impl Mpris {
     /// Decoded once per path rather than once per tick, and only while the popover is the thing
     /// that would show it.
     fn load(&mut self) {
-        let wanted = self
-            .settings
-            .show_art
-            .then(|| self.current().and_then(|player| player.art.clone()))
-            .flatten();
+        let wanted = self.current().and_then(|player| player.art.clone());
 
         let Some(path) = wanted else {
             self.art = None;
@@ -341,11 +337,8 @@ impl Mpris {
         transport.set_can_repeat(player.repeat.is_some());
         transport.set_repeat(transport_repeat(repeat));
 
-        let others = self
-            .settings
-            .show_others
-            .then(|| popover::rows(&self.players, &self.icons))
-            .filter(|rows| !rows.is_empty());
+        let others =
+            Some(popover::rows(&self.players, &self.icons)).filter(|rows| !rows.is_empty());
         shown.set_others(others.as_deref());
         let open_player = shown.open_player();
         open_player.upcast_ref::<Row>().set_title(Some(

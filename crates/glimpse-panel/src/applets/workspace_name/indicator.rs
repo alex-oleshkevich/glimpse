@@ -34,11 +34,11 @@ pub struct WorkspaceName {
 
 impl Applet for WorkspaceName {
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::WorkspaceName {} = &config.kind else {
+        let AppletKind::WorkspaceName { .. } = &config.kind else {
             return;
         };
         self.output = ctx.output().map(str::to_owned);
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

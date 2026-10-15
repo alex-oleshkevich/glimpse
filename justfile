@@ -229,6 +229,31 @@ build-translations:
 check-strings:
     GLIMPSE_LANGUAGES="{{ languages }}" scripts/i18n-check.sh
 
+# ---------------------------------------------------------------- docs
+
+[doc("install the documentation site's npm dependencies")]
+[working-directory("website")]
+docs-install:
+    npm ci
+
+[doc("serve the documentation site with live reload")]
+[working-directory("website")]
+docs-dev:
+    npm run dev
+
+[doc("regenerate the command line reference in website/config/cli/ from each binary's --help")]
+docs-gen-cli:
+    GLIMPSE_DOCS_CLI="glimpsectl glimpse-shot glimpse-lens glimpse-lock" scripts/docs-gen-cli.sh
+
+[doc("capture every applet's popover, light and dark, into website/public/screenshots/applets/; needs a compositor and an empty workspace on OUTPUT")]
+docs-screenshots OUTPUT="eDP-1": (build-crate "glimpse-panel") (build-crate "glimpsectl")
+    GLIMPSE_DOCS_OUTPUT={{ quote(OUTPUT) }} GLIMPSE_DOCS_APPLETS="audio bluetooth network display power keyboard printing removable privacy idle session pager workspace-name places clock next-event weather mpris notifications system-monitor kdeconnect clipboard color-picker ruler" scripts/docs-screenshots.sh
+
+[doc("lint and build the documentation site into website/.vitepress/dist")]
+[working-directory("website")]
+docs-build:
+    npm run build
+
 # ---------------------------------------------------------------- package
 
 [doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]

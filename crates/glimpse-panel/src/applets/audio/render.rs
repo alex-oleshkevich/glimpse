@@ -64,14 +64,14 @@ pub fn overlay(state: &AudioState) -> Option<&'static str> {
 
 pub fn tooltip(state: &AudioState, format: Option<&str>) -> Option<String> {
     let output = state.default_output()?;
-    let status = output_status(output.volume, output.muted);
+    let volume = output_status(output.volume, output.muted);
     let Some(format) = format else {
-        return Some(status);
+        return Some(volume);
     };
     Some(crate::applets::tokens::render(
         format,
         |token| match token {
-            "status" => Some(status.as_str()),
+            "volume" => Some(volume.as_str()),
             _ => None,
         },
     ))

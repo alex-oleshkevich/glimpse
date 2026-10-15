@@ -141,7 +141,6 @@ pub struct Network {
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
     vpn_chip: bool,
-    metered_in_tooltip: bool,
     visible_networks: usize,
     spec: Vec<IndicatorSpec>,
     expanded: Rc<Cell<bool>>,
@@ -160,7 +159,6 @@ impl Network {
             notifications,
             tooltip_format: None,
             vpn_chip: true,
-            metered_in_tooltip: true,
             visible_networks: 8,
             spec: Vec::new(),
             expanded: Rc::new(Cell::new(false)),
@@ -304,11 +302,7 @@ impl Network {
         let Some(icon) = self.state.icon_name() else {
             return Vec::new();
         };
-        let tooltip = render::tooltip(
-            &self.state,
-            self.tooltip_format.as_deref(),
-            self.metered_in_tooltip,
-        );
+        let tooltip = render::tooltip(&self.state, self.tooltip_format.as_deref());
 
         let mut chips = vec![IndicatorSpec {
             icon: Some(themed(icon)),
@@ -335,8 +329,7 @@ impl Applet for Network {
         };
         self.visible_networks = cfg.visible_networks;
         self.vpn_chip = cfg.vpn_chip;
-        self.metered_in_tooltip = cfg.metered_in_tooltip;
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

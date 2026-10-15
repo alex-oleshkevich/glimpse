@@ -319,10 +319,7 @@ fn a_common_setting_sits_beside_the_kinds_own() {
         toml::from_str("[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\n")
             .expect("common and kind settings share one flat table");
 
-    assert_eq!(
-        parsed.applets["clock"].common.tooltip_format.as_deref(),
-        Some("%A")
-    );
+    assert_eq!(parsed.applets["clock"].kind.tooltip_format(), Some("%A"));
     let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
         panic!("the table names the clock");
     };

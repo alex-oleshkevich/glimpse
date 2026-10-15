@@ -111,7 +111,7 @@ pub fn build(
                 Box::new(weather::Weather::start(weather))
             }))
         }
-        AppletKind::Keyboard {} => {
+        AppletKind::Keyboard { .. } => {
             let keyboard = handles.keyboard.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(keyboard.subscribe());
@@ -145,7 +145,7 @@ pub fn build(
                 Box::new(network::Network::start(network, notifications))
             }))
         }
-        AppletKind::Audio {} => {
+        AppletKind::Audio(_) => {
             let audio = handles.audio.clone();
             let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {
@@ -170,14 +170,14 @@ pub fn build(
                 ))
             }))
         }
-        AppletKind::Idle {} => {
+        AppletKind::Idle { .. } => {
             let idle = handles.idle.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(idle.subscribe());
                 Box::new(idle::Idle::start(idle))
             }))
         }
-        AppletKind::Session {} => {
+        AppletKind::Session { .. } => {
             let session_actions = handles.session_actions.clone();
             let dialog = dialog.cloned()?;
             Some(Box::new(move |ctx| {
@@ -257,7 +257,7 @@ pub fn build(
                 ))
             }))
         }
-        AppletKind::ColorPicker {} => {
+        AppletKind::ColorPicker { .. } => {
             let color_picker = handles.color_picker.clone();
             let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {
@@ -268,7 +268,7 @@ pub fn build(
                 ))
             }))
         }
-        AppletKind::WorkspaceName {} => {
+        AppletKind::WorkspaceName { .. } => {
             let compositor = handles.compositor.clone();
             let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {
@@ -292,7 +292,7 @@ pub fn build(
                 Box::new(system_monitor::SystemMonitor::start(system_monitor))
             }))
         }
-        AppletKind::Ruler {} => {
+        AppletKind::Ruler { .. } => {
             let ruler = handles.ruler.clone();
             let notifications = handles.notifications.clone();
             Some(Box::new(move |ctx| {

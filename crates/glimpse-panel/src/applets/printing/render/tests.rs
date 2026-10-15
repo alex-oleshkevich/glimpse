@@ -94,11 +94,11 @@ fn the_tooltip_count_never_disagrees_with_what_the_popover_actually_shows() {
     let cap_count = 8;
 
     let popover_count = jobs(&state, cap_count, &no_pending()).len();
-    let told = tooltip(&state, None, cap_count).expect("active jobs exist");
+    let told = tooltip(&state, Some("{count}"), cap_count).expect("active jobs exist");
 
     assert_eq!(
         told,
-        format!("{popover_count} print jobs"),
+        popover_count.to_string(),
         "a chip claiming a different total than the popover it opens is a lie the popover \
              cannot correct, since it has no overflow row of its own"
     );
@@ -414,4 +414,26 @@ fn a_hostile_job_reason_is_capped() {
     let status = status_of(job);
     assert_eq!(status.chars().count(), "Held: ".len() + NAME_CAP + 1);
     assert!(status.ends_with('…'));
+}
+
+#[test]
+fn the_default_tooltip_names_the_document_printing_and_drops_unknown_pages() {
+    let mut printing = job_at(2, "office", JobState::Processing);
+    printing.name = "invoice.pdf".to_owned();
+    let state = PrintingState {
+        printers: Vec::new(),
+        jobs: vec![job_at(1, "office", JobState::Pending), printing],
+    };
+    assert_eq!(
+        tooltip(&state, None, 8).as_deref(),
+        Some("invoice.pdf\noffice")
+    );
+}
+
+#[test]
+fn the_default_tooltip_is_the_format_the_schema_documents() {
+    assert_eq!(
+        Some(default_tooltip().as_str()),
+        Some(glimpse_config::PRINTING_TOOLTIP)
+    );
 }

@@ -10,10 +10,8 @@ pub struct Brightness {
     #[serde(deserialize_with = "percent")]
     #[schemars(range(max = 100))]
     pub minimum: u8,
-    /// Whether to probe external displays for DDC/CI brightness control over `/dev/i2c-*`. DDC/CI
-    /// is protocol-mandated slow (tens of milliseconds per read or write) and not every monitor
-    /// implements it correctly, so this stays a document-level escape hatch rather than something
-    /// a user has to diagnose by unplugging a display.
+    /// Whether glimpse controls the brightness of external monitors. Most monitors support it; turn
+    /// it off if one reacts slowly, flickers or misbehaves when the brightness changes.
     pub ddc: bool,
 }
 

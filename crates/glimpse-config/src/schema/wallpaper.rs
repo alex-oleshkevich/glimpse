@@ -24,8 +24,8 @@ pub struct Wallpaper {
     #[schemars(range(min = 0, max = 5_000))]
     pub transition_ms: u32,
     pub backdrop: Backdrop,
-    /// Per-output overrides, matched against the connector `gdk::Monitor::connector()` returns
-    /// (the same string `[[panels]].monitor` matches against). An output with no entry here
+    /// Per-output overrides, matched by connector name such as `DP-1` (the same name
+    /// `[[panels]] monitor` takes). An output with no entry here
     /// renders the values above. When two entries name the same connector, the first one wins.
     pub outputs: Vec<WallpaperOutput>,
 }
@@ -133,6 +133,7 @@ pub enum Transition {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Backdrop {
+    /// Whether the backdrop surface is created at all.
     pub enabled: bool,
     /// Source image. Unset derives it from `[wallpaper] image`.
     #[serde(skip_serializing_if = "Option::is_none")]

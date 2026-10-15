@@ -45,7 +45,7 @@ impl Applet for Weather {
         self.watching = watching;
         self.settings = settings.clone();
         self.twelve = config.regional.twelve_hour();
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         ctx.interval(MINUTE);
         self.renew();
@@ -176,9 +176,11 @@ impl Weather {
             icon: Some(icon),
             label: Some(glimpse_dbus::weather::reading(current.temperature)),
             tooltip: self.trouble.clone().or_else(|| {
-                self.tooltip_format
-                    .as_deref()
-                    .map(|format| render::tooltip(format, &label, &current))
+                let format = self
+                    .tooltip_format
+                    .clone()
+                    .unwrap_or_else(render::default_tooltip);
+                Some(render::tooltip(&format, &label, &current))
             }),
             severity,
             ..Default::default()

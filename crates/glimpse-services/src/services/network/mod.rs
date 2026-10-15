@@ -250,7 +250,6 @@ impl NetworkState {
 pub struct Config {
     scan_timeout: Option<std::time::Duration>,
     hide_unnamed: bool,
-    show_vpn: bool,
 }
 
 impl From<&glimpse_config::Config> for Config {
@@ -259,7 +258,6 @@ impl From<&glimpse_config::Config> for Config {
             scan_timeout: (document.network.scan_timeout > 0)
                 .then(|| std::time::Duration::from_secs(document.network.scan_timeout)),
             hide_unnamed: document.network.hide_unnamed,
-            show_vpn: document.network.show_vpn,
         }
     }
 }
@@ -1202,8 +1200,7 @@ impl Network {
             .profiles
             .iter()
             .filter(|(_, profile)| {
-                self.config.show_vpn
-                    && matches!(profile.kind.as_deref(), Some("vpn") | Some("wireguard"))
+                matches!(profile.kind.as_deref(), Some("vpn") | Some("wireguard"))
             })
             .map(|(path, profile)| {
                 let active = self

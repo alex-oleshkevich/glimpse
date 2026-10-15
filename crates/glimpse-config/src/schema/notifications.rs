@@ -13,13 +13,20 @@ pub struct Notifications {
     /// Regex patterns matched against the application identity, application name, title and body.
     /// Matching notifications are not stored or published.
     pub suppress: Vec<String>,
+    /// Whether new notifications pop up on screen. Turned off, they still go to the history.
     pub enabled: bool,
+    /// The connector name of the monitor popups appear on, e.g. `DP-1`. Unset, or naming a
+    /// monitor that is not connected, uses the focused monitor.
     #[serde(deserialize_with = "optional_monitor")]
     pub monitor: Option<String>,
+    /// The corner or edge of the monitor popups stack from.
     pub edge: NotificationEdge,
+    /// Seconds a popup stays when the sending app leaves its lifetime to the shell, which most do.
+    /// Hovering a popup pauses the countdown.
     #[serde(deserialize_with = "hide_delay")]
     #[schemars(range(min = 1, max = 86400))]
     pub hide_delay: u64,
+    /// How many popups show at once.
     #[serde(deserialize_with = "positive_u32")]
     #[schemars(range(min = 1))]
     pub max_items: u32,

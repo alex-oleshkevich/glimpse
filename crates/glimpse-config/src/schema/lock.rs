@@ -8,10 +8,13 @@ use super::wallpaper::{Fit, blur_radius};
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Lock {
+    /// The PAM service that checks the password, read from `/etc/pam.d/<name>`.
     pub pam_service: String,
     /// `"focused"` follows the compositor's focused output; anything else is a connector name.
     pub prompt_output: String,
+    /// The image and color behind the lock stage.
     pub background: Background,
+    /// The large time and date on the lock stage.
     pub clock: Clock,
     /// The status island: weather, battery, keyboard layout, bluetooth and network.
     pub status: Section,
@@ -98,7 +101,9 @@ where
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
+    /// Whether the clock shows on the lock stage at all.
     pub enabled: bool,
+    /// A `strftime` pattern for the time, e.g. `%H:%M` or `%-I:%M %p`.
     pub time_format: String,
     /// `{day}` is the day of the month with its ordinal suffix, e.g. "3rd".
     pub date_format: String,

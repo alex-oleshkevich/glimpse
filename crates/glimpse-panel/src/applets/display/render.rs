@@ -57,7 +57,6 @@ pub fn current_display<'a>(
 pub fn ordered_sources<'a>(
     sources: &'a [BrightnessSource],
     focused: Option<&str>,
-    show_keyboard: bool,
     pinned: Option<&str>,
 ) -> Vec<&'a BrightnessSource> {
     let current = pinned
@@ -67,9 +66,6 @@ pub fn ordered_sources<'a>(
     ordered.extend(current);
     for source in sources {
         if current.is_some_and(|picked| picked.id == source.id) {
-            continue;
-        }
-        if source.kind == BrightnessKind::Keyboard && !show_keyboard {
             continue;
         }
         ordered.push(source);
@@ -108,7 +104,7 @@ pub fn brightness_tooltip(name: Option<&str>, percent: u32, format: Option<&str>
 
     if let Some(format) = format {
         return crate::applets::tokens::render(format, |token| match token {
-            "percent" => Some(percent_text.as_str()),
+            "brightness" => Some(percent_text.as_str()),
             "name" => name,
             _ => None,
         });

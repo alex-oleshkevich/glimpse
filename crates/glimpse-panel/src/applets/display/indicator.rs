@@ -57,8 +57,8 @@ impl Applet for Display {
         let AppletKind::Display(settings) = &config.kind else {
             return;
         };
-        self.settings = *settings;
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.settings = settings.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }
@@ -519,12 +519,7 @@ impl Display {
         let focused = self.focused_connector();
         let pinned = self.pinned.borrow();
         let sources = self.powered_sources();
-        let ordered = render::ordered_sources(
-            &sources,
-            focused,
-            self.settings.show_keyboard,
-            pinned.as_deref(),
-        );
+        let ordered = render::ordered_sources(&sources, focused, pinned.as_deref());
         let widget_sources: Vec<WidgetSource> = ordered
             .iter()
             .map(|source| WidgetSource {
