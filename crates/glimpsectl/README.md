@@ -11,7 +11,8 @@ glimpsectl weather refresh
 glimpsectl notifications list
 glimpsectl notifications dismiss 7
 glimpsectl notifications clear --app org.mozilla.firefox
-glimpsectl notifications dnd on
+glimpsectl notifications dnd toggle
+glimpsectl notifications dnd on --until 18:00
 glimpsectl clipboard list
 glimpsectl clipboard get 1287236412341234 > copied.png
 glimpsectl config show
@@ -73,9 +74,9 @@ says `(override)` so a reader is not sent looking for it in a file that does not
 terminal is worse than untrusted text reaching a label: an escape sequence repaints the screen.
 **Everything drawn goes through `render.rs`** — a single `print` handles `BrokenPipe` once rather
 than per command, and `Table` takes `[String; N]` rows so a mismatched row is a compile error.
-**`notifications dnd --until HH:MM` is the next time the clock reads that way**, sent as epoch
-microseconds since that is what the provider reads back (`0` means indefinite), and it is refused on
-`dnd off`, where there is nothing to lapse.
+**`notifications dnd on --until HH:MM` uses the next occurrence of that local time**, sent as
+epoch microseconds (`0` means indefinite). `--until` is accepted only with `on`.
+**`dnd toggle` reverses the current state and clears any expiry.**
 
 **`config` reads the layered stack from disk and opens no bus**, so it works when a provider will
 not start; validation problems exit 1. **`doctor` asks `NameHasOwner` before probing**, so inspection
