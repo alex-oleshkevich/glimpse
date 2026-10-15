@@ -78,7 +78,7 @@ ordered before `graphical-session.target` and `xdg-desktop-autostart.target` so 
 before autostart entries run.
 
 The full unit and name inventory is the reference page
-[Systemd units and D-Bus names](/developers/units).
+[Installed files](/developers/files).
 
 ## How they talk
 

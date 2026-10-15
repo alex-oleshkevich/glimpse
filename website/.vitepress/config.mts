@@ -19,7 +19,7 @@ const developers = [
     text: "Reference",
     items: [
       { text: "Applet protocol", link: "/developers/protocol" },
-      { text: "Systemd units and D-Bus names", link: "/developers/units" },
+      { text: "Installed files", link: "/developers/files" },
     ],
   },
   {
