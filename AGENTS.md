@@ -24,7 +24,7 @@ Details, reasons and measured facts live in `docs/` — read the relevant file b
 `_old/` and `var/glimpse2` are **reference only — never edit, build or copy from them**.
 
 Path-scoped rules load automatically (`.claude/rules/`); skills: `service`, `applet`, `widget`,
-`testing`, `live-testing`, `zbus`.
+`testing`, `live-testing`, `zbus`, `docs`.
 
 ## Hard rules
 

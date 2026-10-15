@@ -5,9 +5,9 @@ of the screen, notifications, the wallpaper and the lock screen. It is made for 
 managers, which are good at arranging windows but leave everything else up to you.
 
 <ThemeImage
-  light="/assets/applets-light.png"
-  dark="/assets/applets-dark.png"
-  alt="The calendar, weather, Bluetooth and network panels open side by side"
+  light="/screenshots/home/everyday-light.png"
+  dark="/screenshots/home/everyday-dark.png"
+  alt="The weather, Bluetooth, media player and notification panels open side by side"
 />
 
 ## Everything in one bar

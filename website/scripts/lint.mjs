@@ -11,6 +11,11 @@ const rules = [
   { pattern: /\b(niri|hyprland)\b/i, reason: "compositor name; say compositor, or use the compositor badge", prose: true },
   { pattern: /\[sandbox\]|\.sandbox\b|\blandlock\b|\bunconfined\s*=/i, reason: "removed sandbox setting" },
   {
+    pattern: /\b(no longer|formerly|deprecated|(added|removed|renamed|changed|introduced) in (version |v)?\d|since (version |v)?\d|(sdk|glimpse) v?\d+\.\d+)/i,
+    reason: "version history; describe only the current version",
+    prose: true,
+  },
+  {
     pattern: /\b(seamless(ly)?|robust|powerful|delve|leverag(e|es|ing)|utiliz(e|es|ing)|effortless(ly)?|cutting-edge|vibrant|showcas(e|es|ing)|testament|crucial|pivotal|tapestry|in today's)\b/i,
     reason: "filler word",
     prose: true,

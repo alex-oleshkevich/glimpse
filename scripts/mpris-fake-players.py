@@ -343,7 +343,7 @@ class PlayerInterface(ServiceInterface):
 # ---------- main loop ------------------------------------------------------- #
 
 
-async def run():
+async def run(plain: bool):
     sys.stdout.reconfigure(line_buffering=True)
     art_dir = Path("/tmp/glimpse-mpris-fake")
     art_dir.mkdir(exist_ok=True)
@@ -359,7 +359,8 @@ async def run():
         art_uri = art_path.as_uri()
 
         bus = await MessageBus().connect()
-        bus.export("/org/mpris/MediaPlayer2", RootInterface(fake.identity))
+        identity = fake.identity.removesuffix(" (Fake)") if plain else fake.identity
+        bus.export("/org/mpris/MediaPlayer2", RootInterface(identity))
         bus.export("/org/mpris/MediaPlayer2", PlayerInterface(fake, art_uri))
 
         well_known = f"org.mpris.MediaPlayer2.{fake.bus_suffix}"
@@ -394,6 +395,6 @@ async def run():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(run())
+        asyncio.run(run(plain="--plain-names" in sys.argv[1:]))
     except KeyboardInterrupt:
         pass

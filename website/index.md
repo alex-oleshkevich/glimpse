@@ -59,9 +59,13 @@ features:
 ---
 
 <div class="home-shot">
-  <ThemeImage
-    light="/assets/shell-light.png"
-    dark="/assets/shell-dark.png"
-    alt="The glimpse panel at the top of the screen, over the default wallpaper"
+  <DemoVideo
+    webm="/video/demo.webm"
+    mp4="/video/demo.mp4"
+    poster="/video/demo-poster.jpg"
+    light="/screenshots/home/collage-light.png"
+    dark="/screenshots/home/collage-dark.png"
+    alt="The glimpse bar with the calendar, weather, Bluetooth and Wi-Fi popovers open below it"
+    label="A short tour of the glimpse bar: the calendar, Wi-Fi, Bluetooth, sound, media and notification popovers open in turn, then the desktop switches to dark mode and the weather popover opens"
   />
 </div>

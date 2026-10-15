@@ -4,6 +4,7 @@ import AppletShot from "./components/AppletShot.vue";
 import AppletList from "./components/AppletList.vue";
 import Compositors from "./components/Compositors.vue";
 import ConfigTable from "./components/ConfigTable.vue";
+import DemoVideo from "./components/DemoVideo.vue";
 import ThemeImage from "./components/ThemeImage.vue";
 import "./style.css";
 
@@ -14,6 +15,7 @@ export default {
     app.component("AppletShot", AppletShot);
     app.component("Compositors", Compositors);
     app.component("ConfigTable", ConfigTable);
+    app.component("DemoVideo", DemoVideo);
     app.component("ThemeImage", ThemeImage);
   },
 } satisfies Theme;

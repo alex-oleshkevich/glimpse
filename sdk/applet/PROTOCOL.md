@@ -14,8 +14,7 @@ JSON, does not decode. A message with an unknown `t` is ignored.
 
 The applet speaks first. The host does not send anything until it has read `hello`.
 
-The only version is `1`, carried as `v` on both hellos. SDK 0.10 removed the `hero`, `footer`,
-`switchrow`, `fader`, `expander` and `progress` elements; each is now an unknown `type`.
+The only version is `1`, carried as `v` on both hellos.
 
 Object keys added by a newer peer are ignored. A commit is applied as a whole batch or
 not at all: if any operation in the batch is rejected, the tree does not change. The host

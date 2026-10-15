@@ -9,12 +9,6 @@ background. Bind them to keys, put them on a panel button, or run them from a te
 glimpse-shot takes a screenshot and lets you mark it up before you save or copy it: arrows,
 boxes, numbered steps, text, and blur over anything private.
 
-<ThemeImage
-  light="/screenshots/ecosystem/shot-editor.png"
-  dark="/screenshots/ecosystem/shot-editor.png"
-  alt="A Files window frozen in the glimpse-shot editor, with an oval, an arrow and a note pointing at a file, two numbered markers, blurred folder names, and the tool bar along the top"
-/>
-
 ### Take a screenshot
 
 | Run | To |

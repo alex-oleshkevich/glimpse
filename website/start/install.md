@@ -29,7 +29,8 @@ curl -fsSL https://raw.githubusercontent.com/alex-oleshkevich/glimpse/master/ins
 ```sh [From source]
 git clone https://github.com/alex-oleshkevich/glimpse
 cd glimpse
-just install
+just build-release build-translations
+sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 
 :::
@@ -68,10 +69,11 @@ night light and weather. Rebuild with `nixos-rebuild switch`.
 
 ### From source
 
-You need Rust 1.93 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler` and
-gettext, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PAM and udev.
-`just install` builds a release and copies it under `/usr` and `/etc`, so it needs write access to
-both. Set `PREFIX` to install somewhere else, or `DESTDIR` to stage the files for a package.
+You need Rust 1.93 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`, gettext
+and clang, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire,
+PAM and udev. The install copies files under `/usr` and `/etc`, so it needs root.
+[Build glimpse from source](/contribute/build) lists the packages for each distribution and the exact
+commands.
 
 ## Start the shell
 

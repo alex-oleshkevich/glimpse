@@ -245,9 +245,20 @@ docs-dev:
 docs-gen-cli:
     GLIMPSE_DOCS_CLI="glimpsectl glimpse-shot glimpse-lens glimpse-lock" scripts/docs-gen-cli.sh
 
-[doc("capture every applet's popover, light and dark, into website/public/screenshots/applets/; needs a compositor and an empty workspace on OUTPUT")]
-docs-screenshots OUTPUT="eDP-1": (build-crate "glimpse-panel") (build-crate "glimpsectl")
-    GLIMPSE_DOCS_OUTPUT={{ quote(OUTPUT) }} GLIMPSE_DOCS_APPLETS="audio bluetooth network display power keyboard printing removable privacy idle session pager workspace-name places clock next-event weather mpris notifications system-monitor kdeconnect clipboard color-picker ruler" scripts/docs-screenshots.sh
+[doc("capture the documentation screenshots in a sealed sandbox: nested niri, private buses, mocked services")]
+docs-screenshots: docs-sandbox-build
+    scripts/docs-screenshots.py
+
+[doc("record the home page demo video in the same sandbox into website/public/video")]
+docs-video: docs-sandbox-build
+    scripts/docs-screenshots.py --video
+
+[private]
+docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") fake-tray-build
+
+[doc("build the fake tray example the screenshots and fake-tray use")]
+fake-tray-build:
+    cargo build -q -p glimpse-dbus --features testing --example fake-tray
 
 [doc("lint and build the documentation site into website/.vitepress/dist")]
 [working-directory("website")]
