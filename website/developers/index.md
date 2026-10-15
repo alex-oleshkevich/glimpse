@@ -77,7 +77,7 @@ environments and try-restarts `xdg-desktop-portal.service`, so portal backend se
 ordered before `graphical-session.target` and `xdg-desktop-autostart.target` so the identity is in place
 before autostart entries run.
 
-The full unit and name inventory is the reference page
+Every file glimpse installs, units and bus names included, is listed on the reference page
 [Installed files](/developers/files).
 
 ## How they talk

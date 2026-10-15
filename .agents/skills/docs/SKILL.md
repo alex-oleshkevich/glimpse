@@ -89,7 +89,7 @@ after it is read in the source. If it cannot be confirmed, it is left out.
 | --- | --- |
 | Settings, defaults, ranges, descriptions | `data/config.schema.json`, `crates/glimpse-config/src/schema/` |
 | Commands and flags | `target/debug/<binary> --help`, the generated `website/config/cli/*.md` |
-| Units and bus names | `data/systemd/`, `data/dbus-1/services/` |
+| Installed files, units, bus names, portals, PAM, GeoClue | `scripts/install.sh`, `scripts/glimpse-paths.sh`, `data/`; every file there is on `/developers/files` |
 | Design rules | the crate `README.md` files |
 | Applet SDK and wire format | `sdk/applet/`, `crates/glimpse-services/src/services/exec/`, `crates/glimpse-panel/src/applets/exec/` |
 | UI strings the reader will see | the `_("…")` strings in the UI crates |
