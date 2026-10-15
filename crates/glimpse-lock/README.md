@@ -18,8 +18,7 @@ failure, not a cosmetic one.
 
 ## What it does
 
-Locks on logind `Session.Lock` (`[power] lock-on-request`), before sleep
-(`[power] lock-before-sleep`), and at start when `LockedHint` is already true. Creates one lock
+Locks on logind `Session.Lock`, before sleep, and at start when `LockedHint` is already true. Creates one lock
 surface per monitor, including one hotplugged while locked, before it can show anything, and treats
 the session as locked — setting `LockedHint` — only once the compositor sends `locked`.
 Authenticates through PAM service `[lock] pam-service` off the UI thread. Every surface carries a
@@ -127,8 +126,7 @@ exit, never by a timeout.
 ## Configuration
 
 `[lock]` (`pam-service`, `prompt-output`), `[lock.background]`, `[lock.clock]`, `[lock.session]`,
-`[lock.media]`, `[lock.notifications]`, `[lock.status]`, plus `[power] lock-before-sleep`/
-`lock-on-request` and `lock.css`; other binaries' tables are ignored, not validated. Reloaded
+`[lock.media]`, `[lock.notifications]`, `[lock.status]` and `lock.css`; other binaries' tables are ignored, not validated. Reloaded
 through `glimpse_config::watch_config`, and nothing in a reload can unlock. **`pam-service` is read
 once at start and a change to it is logged and ignored until restart** — a same-user process that
 could repoint it mid-lock could otherwise point PAM at a `pam_permit.so` stack and unlock the

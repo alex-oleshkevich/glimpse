@@ -26,7 +26,7 @@ SOURCE_ID = "local-test-events"
 def main() -> int:
     args = parse_args()
     target_dir = args.dir.expanduser().resolve()
-    target_path = target_dir / DEFAULT_FILE
+    target_path = target_dir / args.name
     config_path = args.config.expanduser() if args.config else default_config_path()
 
     if args.command == "clear":
@@ -195,6 +195,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_DIR,
         help=f"directory to write the .ics file into (default: {DEFAULT_DIR})",
+    )
+    parser.add_argument(
+        "--name",
+        default=DEFAULT_FILE,
+        help=f"file name inside --dir, so several events can coexist (default: {DEFAULT_FILE})",
     )
     parser.add_argument(
         "--config",

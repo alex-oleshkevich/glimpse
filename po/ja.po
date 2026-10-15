@@ -1,0 +1,3537 @@
+# Japanese translations for glimpse package.
+# Copyright (C) 2026 Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"PO-Revision-Date: 2026-10-15 15:14+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: crates/glimpse-lens/src/session.rs:281
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] "合計 {length}px、{count} 区間"
+
+#: crates/glimpse-lens/src/session.rs:294
+msgid "segment {length}px · {angle}°"
+msgstr "区間 {length}px · {angle}°"
+
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "パスワードが違います"
+
+#: crates/glimpse-lock/src/auth.rs:29
+msgid "Too many attempts"
+msgstr "試行回数が多すぎます"
+
+#: crates/glimpse-lock/src/auth.rs:30
+msgid "Can't verify passwords. Run glimpse-lock check."
+msgstr "パスワードを確認できません。glimpse-lock check を実行してください。"
+
+#: crates/glimpse-lock/src/auth.rs:31
+msgid "This account can't be unlocked here"
+msgstr "このアカウントはここではロック解除できません"
+
+#: crates/glimpse-lock/src/auth.rs:32
+msgid "Password change required"
+msgstr "パスワードの変更が必要です"
+
+#: crates/glimpse-lock/src/auth.rs:33
+msgid "Authentication timed out"
+msgstr "認証がタイムアウトしました"
+
+#: crates/glimpse-lock/src/auth.rs:34
+msgid "Authentication failed"
+msgstr "認証に失敗しました"
+
+#: crates/glimpse-lock/src/auth.rs:36
+msgid ""
+"Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), log in, and "
+"run glimpse-lock check."
+msgstr ""
+"パスワードを確認できません。テキストコンソール (Ctrl+Alt+F2) に切り替えてログインし、glimpse-lock check "
+"を実行してください。"
+
+#: crates/glimpse-lock/src/chips.rs:38
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
+#: crates/glimpse-widgets/src/notification_chips/imp.rs:28
+msgid "Notifications"
+msgstr "通知"
+
+#: crates/glimpse-lock/src/notify.rs:16
+msgid "Screen not locked"
+msgstr "画面はロックされていません"
+
+#: crates/glimpse-lock/src/notify.rs:17
+msgid "Suspending unlocked"
+msgstr "ロックせずにサスペンドします"
+
+#: crates/glimpse-lock/src/notify.rs:20
+msgid "Password expired"
+msgstr "パスワードの有効期限切れ"
+
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Your password has expired. Change it now with passwd."
+msgstr "パスワードの有効期限が切れています。passwd で今すぐ変更してください。"
+
+#: crates/glimpse-lock/src/notify.rs:27
+msgid ""
+"glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
+msgstr "このセッションでは glimpse-lock がパスワードを確認できません。glimpse-lock check を実行してください。"
+
+#: crates/glimpse-lock/src/notify.rs:29
+msgid "This compositor has no session lock."
+msgstr "このコンポジターはセッションロックに対応していません。"
+
+#: crates/glimpse-lock/src/notify.rs:30
+msgid "The compositor refused the lock."
+msgstr "コンポジターにロックを拒否されました。"
+
+#: crates/glimpse-lock/src/session.rs:47
+msgid "Couldn't suspend the system"
+msgstr "システムをサスペンドできませんでした"
+
+#: crates/glimpse-lock/src/session.rs:48
+msgid "Couldn't restart the system"
+msgstr "システムを再起動できませんでした"
+
+#: crates/glimpse-lock/src/session.rs:49
+msgid "Couldn't power off the system"
+msgstr "システムの電源を切れませんでした"
+
+#: crates/glimpse-lock/src/session.rs:136
+msgid "Blocked by {who}: {why}"
+msgstr "{who} がブロック中: {why}"
+
+#: crates/glimpse-notifications/src/app.rs:462
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+msgid "now"
+msgstr "今"
+
+#: crates/glimpse-panel/src/app.rs:387
+msgid "Bluetooth pairing"
+msgstr "Bluetooth ペアリング"
+
+#: crates/glimpse-panel/src/app.rs:429
+msgid "Network password"
+msgstr "ネットワークのパスワード"
+
+#: crates/glimpse-panel/src/app.rs:441
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:196
+#: crates/glimpse-shot/src/gui/result.rs:973
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: crates/glimpse-panel/src/app.rs:504
+#: crates/glimpse-panel/src/applets/session/mod.rs:87
+msgid "Session"
+msgstr "セッション"
+
+#: crates/glimpse-panel/src/app.rs:506
+msgid "Could not complete the session action"
+msgstr "セッション操作を完了できませんでした"
+
+#: crates/glimpse-panel/src/app.rs:508
+msgid "The session manager refused that action."
+msgstr "セッションマネージャーに拒否されました。"
+
+#: crates/glimpse-panel/src/app.rs:600
+msgid "this device"
+msgstr "このデバイス"
+
+#: crates/glimpse-panel/src/applet/mod.rs:163
+msgid "That change was refused."
+msgstr "その変更は拒否されました。"
+
+#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:153
+msgid "That is not supported."
+msgstr "サポートされていない操作です。"
+
+#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:282
+#: crates/glimpse-panel/src/applets/display/indicator.rs:389
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:154
+msgid "That could not be completed."
+msgstr "完了できませんでした。"
+
+#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:283
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
+#: crates/glimpse-panel/src/applets/display/indicator.rs:390
+#: crates/glimpse-panel/src/applets/display/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/render.rs:98
+#: crates/glimpse-panel/src/applets/power/mod.rs:355
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
+msgid "That did not work."
+msgstr "うまくいきませんでした。"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:80
+msgid "All day · day {day} of {days}"
+msgstr "終日 · {day}/{days} 日目"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:83
+msgid "All day"
+msgstr "終日"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:91
+msgid "{start} · until {weekday} {end}"
+msgstr "{start} · {weekday} {end} まで"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:98
+#: crates/glimpse-panel/src/applets/agenda.rs:130
+msgid "{start} · {length}"
+msgstr "{start} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "{start} · over"
+msgstr "{start} · 終了"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:107
+msgid "ended {length} ago"
+msgstr "{length} 前に終了"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:114
+msgid "now · ends in {length}"
+msgstr "進行中 · あと {length} で終了"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "now · ends {end}"
+msgstr "進行中 · {end} に終了"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:123
+msgid "starting now · {length}"
+msgstr "まもなく開始 · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:126
+msgid "in {until} · {length}"
+msgstr "{until} 後 · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:153
+msgid "Join Google Meet"
+msgstr "Google Meet に参加"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:154
+msgid "Join Zoom"
+msgstr "Zoom に参加"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:155
+msgid "Join Microsoft Teams"
+msgstr "Microsoft Teams に参加"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:156
+msgid "Join Webex"
+msgstr "Webex に参加"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:157
+msgid "Join meeting"
+msgstr "会議に参加"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:170
+msgid "Open event"
+msgstr "予定を開く"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/printing/render.rs:161
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/privacy/render.rs:73
+msgid "Location"
+msgstr "場所"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Calendar"
+msgstr "カレンダー"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
+msgid "Organizer"
+msgstr "主催者"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/next_event/render.rs:255
+msgid "Description"
+msgstr "説明"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:216
+msgid "{minutes} min"
+msgstr "{minutes} 分"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/power/render.rs:374
+msgid "{hours} h"
+msgstr "{hours} 時間"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
+msgid "{hours} h {minutes} min"
+msgstr "{hours} 時間 {minutes} 分"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:231
+msgid "{days} d"
+msgstr "{days} 日"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:232
+msgid "{days} d {hours} h"
+msgstr "{days} 日 {hours} 時間"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:88
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:152
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:449
+msgid "Could not change the volume"
+msgstr "音量を変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:110
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:170
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
+#: crates/glimpse-panel/src/applets/display/indicator.rs:379
+#: crates/glimpse-panel/src/applets/network/indicator.rs:482
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:95
+msgid "Could not change that setting"
+msgstr "その設定を変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:130
+msgid "Could not switch device"
+msgstr "デバイスを切り替えられませんでした"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:192
+msgid "Could not move the application"
+msgstr "アプリを移動できませんでした"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:231
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:250
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:12
+msgid "Sound"
+msgstr "サウンド"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+msgid "The audio server refused that."
+msgstr "オーディオサーバーに拒否されました。"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:272
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
+msgid "The audio server is unavailable."
+msgstr "オーディオサーバーを利用できません。"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
+#: crates/glimpse-panel/src/applets/display/indicator.rs:386
+#: crates/glimpse-panel/src/applets/display/indicator.rs:397
+msgid "That was not a valid value."
+msgstr "有効な値ではありません。"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:24
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
+msgid "Output"
+msgstr "出力"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+msgid "Input"
+msgstr "入力"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:285
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
+#: crates/glimpse-panel/src/applets/places/render.rs:49
+msgid "Show fewer"
+msgstr "表示を減らす"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:330
+msgid "{count} more app"
+msgid_plural "{count} more apps"
+msgstr[0] "他 {count} 個のアプリ"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:82
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
+msgid "Muted"
+msgstr "ミュート"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:84
+#: crates/glimpse-panel/src/applets/display/render.rs:117
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
+#: crates/glimpse-widgets/src/lib.rs:377
+msgid "{percent}%"
+msgstr "{percent}%"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:150
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:204
+msgid "Unknown application"
+msgstr "不明なアプリ"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:82
+msgid "Could not switch Bluetooth"
+msgstr "Bluetooth を切り替えられませんでした"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
+#: crates/glimpse-panel/src/applets/network/indicator.rs:404
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
+#: crates/glimpse-panel/src/applets/network/indicator.rs:420
+#: crates/glimpse-panel/src/applets/network/indicator.rs:524
+#: crates/glimpse-panel/src/applets/network/indicator.rs:535
+msgid "Could not connect"
+msgstr "接続できませんでした"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:185
+msgid "Could not pair"
+msgstr "ペアリングできませんでした"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:126
+#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+msgid "Could not disconnect"
+msgstr "切断できませんでした"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:137
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
+msgid "Could not remove the device"
+msgstr "デバイスを削除できませんでした"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:289
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
+msgid "Bluetooth is blocked"
+msgstr "Bluetooth はブロックされています"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:40
+msgid "Bluetooth is off"
+msgstr "Bluetooth はオフです"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:41
+msgid "Turning Bluetooth on"
+msgstr "Bluetooth をオンにしています"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:42
+msgid "Turning Bluetooth off"
+msgstr "Bluetooth をオフにしています"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:43
+msgid "Looking for devices"
+msgstr "デバイスを検索中"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:45
+msgid "No devices connected"
+msgstr "接続中のデバイスはありません"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:47
+msgid "{count} device connected"
+msgid_plural "{count} devices connected"
+msgstr[0] "{count} 台のデバイスが接続中"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:111
+msgid "Bluetooth is waiting for an answer"
+msgstr "Bluetooth が応答を待っています"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:125
+msgid ""
+"It will be disconnected, and this computer will stop connecting to it. To "
+"use it again you will have to pair it, with the device in pairing mode."
+msgstr ""
+"デバイスは切断され、このコンピューターからは接続しなくなります。再び使うには、デバイスをペアリングモードにしてペアリングし直す必要があります。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:128
+msgid ""
+"This computer will stop connecting to it, and it will not connect on its "
+"own. To use it again you will have to pair it, with the device in pairing "
+"mode."
+msgstr ""
+"このコンピューターからは接続しなくなり、デバイスからも自動では接続しません。再び使うには、デバイスをペアリングモードにしてペアリングし直す必要があります。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:133
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
+msgid "Forget"
+msgstr "削除"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:144
+msgid "Unknown device"
+msgstr "不明なデバイス"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:158
+msgid "Is this the code shown on the device?"
+msgstr "デバイスに表示されているコードと同じですか?"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:161
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
+msgid "Confirm"
+msgstr "確認"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+msgid "This device wants to pair with this computer."
+msgstr "このデバイスがこのコンピューターとのペアリングを求めています。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:171
+msgid "Allow"
+msgstr "許可"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:173
+msgid "Deny"
+msgstr "拒否"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
+msgid "Type this PIN on the device. It will not ask again."
+msgstr "この PIN をデバイスで入力してください。再入力は求められません。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:190
+msgid "Type this passkey on the device."
+msgstr "このパスキーをデバイスで入力してください。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
+msgid "{entered} of 6 entered"
+msgstr "6 桁中 {entered} 桁入力済み"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:264
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
+msgid "{count} more device"
+msgid_plural "{count} more devices"
+msgstr[0] "他 {count} 台のデバイス"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:305
+msgid "{level}%"
+msgstr "{level}%"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:312
+msgid "Blocked"
+msgstr "ブロック中"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+msgid "Pairing lost"
+msgstr "ペアリング情報が失われました"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+msgid "Pairing will not survive a restart"
+msgstr "再起動するとペアリングは失われます"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/render.rs:324
+msgid "Type"
+msgstr "種類"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/power/render.rs:111
+#: crates/glimpse-widgets/blueprints/power_popover.blp:41
+msgid "Battery"
+msgstr "バッテリー"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+msgid "Codec"
+msgstr "コーデック"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:340
+#: crates/glimpse-panel/src/applets/network/render.rs:243
+msgid "Disconnect"
+msgstr "切断"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:342
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
+#: crates/glimpse-panel/src/applets/network/indicator.rs:273
+#: crates/glimpse-panel/src/applets/network/indicator.rs:295
+#: crates/glimpse-panel/src/applets/network/render.rs:251
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
+msgid "Connect"
+msgstr "接続"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:344
+msgid "Pair"
+msgstr "ペアリング"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/network/render.rs:279
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+msgid "Connect automatically"
+msgstr "自動接続"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+msgid "Forget this device"
+msgstr "このデバイスを削除"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+msgid "The device is switched off or out of range."
+msgstr "デバイスの電源が切れているか、範囲外にあります。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+msgid "The device refused the connection."
+msgstr "デバイスが接続を拒否しました。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+msgid "The device offers nothing this computer can connect to."
+msgstr "このコンピューターから接続できる機能がデバイスにありません。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+msgid "The PIN or passkey did not match."
+msgstr "PIN またはパスキーが一致しませんでした。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+msgid "The device rejected the pairing. Put it in pairing mode and try again."
+msgstr "デバイスがペアリングを拒否しました。ペアリングモードにしてもう一度お試しください。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+msgid "The pairing timed out."
+msgstr "ペアリングがタイムアウトしました。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+msgid "The pairing was cancelled."
+msgstr "ペアリングがキャンセルされました。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+msgid ""
+"This panel could not register a pairing agent, so it cannot pair. Devices "
+"that are already paired still connect."
+msgstr "このパネルはペアリングエージェントを登録できなかったため、ペアリングできません。ペアリング済みのデバイスは引き続き接続できます。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+msgid "The device is busy, possibly connected to another device."
+msgstr "デバイスはビジー状態です。別のデバイスに接続中の可能性があります。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+msgid "Bluetooth is switched off."
+msgstr "Bluetooth はオフになっています。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+msgid "The device disconnected."
+msgstr "デバイスが切断されました。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+msgid "The pairing with this device is no longer valid."
+msgstr "このデバイスとのペアリングはもう有効ではありません。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+msgid ""
+"This computer could not open a connection to the device. Try again, or "
+"switch Bluetooth off and on."
+msgstr "デバイスに接続できませんでした。もう一度試すか、Bluetooth をオフにしてからオンにしてください。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+msgid "Bluetooth could not complete that."
+msgstr "Bluetooth で操作を完了できませんでした。"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+msgid "Headset"
+msgstr "ヘッドセット"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+msgid "Headphones"
+msgstr "ヘッドホン"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+msgid "Speaker"
+msgstr "スピーカー"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/display/render.rs:78
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
+msgid "Keyboard"
+msgstr "キーボード"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+msgid "Mouse"
+msgstr "マウス"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+msgid "Gamepad"
+msgstr "ゲームパッド"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+msgid "Tablet"
+msgstr "タブレット"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+msgid "Phone"
+msgstr "電話"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+msgid "Computer"
+msgstr "コンピューター"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-widgets/blueprints/display_popover.blp:12
+msgid "Display"
+msgstr "ディスプレイ"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+msgid "Printer"
+msgstr "プリンター"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+msgid "Device"
+msgstr "デバイス"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+msgid "Vendor codec"
+msgstr "ベンダーコーデック"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
+msgid "Image · {size}"
+msgstr "画像 · {size}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
+msgid "Size"
+msgstr "サイズ"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+msgid "Save as…"
+msgstr "名前を付けて保存…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+msgid "Open with…"
+msgstr "アプリで開く…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:192
+msgid "Site"
+msgstr "サイト"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:197
+msgid "Open in browser"
+msgstr "ブラウザーで開く"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
+msgid "Color"
+msgstr "色"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:209
+msgid "Copy as {format}"
+msgstr "{format} としてコピー"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+msgid "Path"
+msgstr "パス"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/render.rs:104
+#: crates/glimpse-widgets/blueprints/removable_device.blp:30
+msgid "Open"
+msgstr "開く"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+msgid "Lines"
+msgstr "行数"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+msgid "Send to device"
+msgstr "デバイスに送信"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
+msgid "Pin"
+msgstr "ピン留め"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
+msgid "Unpin"
+msgstr "ピン留めを外す"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
+#: crates/glimpse-panel/src/applets/places/render.rs:50
+#: crates/glimpse-panel/src/applets/removable/render.rs:47
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "他 {count} 件"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+msgid "Clear history"
+msgstr "履歴を消去"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:428
+msgid "Save image"
+msgstr "画像を保存"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:442
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:601
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:660
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:682
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:704
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
+msgid "Clipboard"
+msgstr "クリップボード"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
+msgid "Could not save the image"
+msgstr "画像を保存できませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
+msgid "Could not send that"
+msgstr "送信できませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
+msgid "KDE Connect is not running."
+msgstr "KDE Connect が起動していません。"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+msgid "That entry is no longer in the history."
+msgstr "その項目はもう履歴にありません。"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:603
+msgid "Could not copy that"
+msgstr "コピーできませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:613
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:644
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:667
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:689
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
+msgid "The clipboard is unavailable."
+msgstr "クリップボードを利用できません。"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:634
+msgid "Could not copy that entry"
+msgstr "その項目をコピーできませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:662
+msgid "Could not pin that entry"
+msgstr "その項目をピン留めできませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:684
+msgid "Could not forget that entry"
+msgstr "その項目を削除できませんでした"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:706
+msgid "Could not clear the history"
+msgstr "履歴を消去できませんでした"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:23
+msgid "Week {number}"
+msgstr "第 {number} 週"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-panel/src/applets/weather/render.rs:136
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "今日"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:31
+#: crates/glimpse-panel/src/applets/weather/render.rs:137
+#: crates/glimpse-widgets/src/world_clock/mod.rs:147
+msgid "Tomorrow"
+msgstr "明日"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:32
+#: crates/glimpse-widgets/src/world_clock/mod.rs:148
+msgid "Yesterday"
+msgstr "昨日"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
+msgid "Color picker"
+msgstr "カラーピッカー"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
+msgid "That color is no longer in the palette."
+msgstr "その色はもうパレットにありません。"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr "ピッカーを起動できないか、画面をキャプチャできないか、クリップボードにアクセスできませんでした。"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
+msgid "Could not pick a color"
+msgstr "色を取得できませんでした"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
+msgid "Could not copy that color"
+msgstr "その色をコピーできませんでした"
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
+msgid "Pick a color"
+msgstr "色を取得"
+
+#: crates/glimpse-panel/src/applets/command.rs:85
+msgid "Command"
+msgstr "コマンド"
+
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Could not run a command"
+msgstr "コマンドを実行できませんでした"
+
+#: crates/glimpse-panel/src/applets/command.rs:89
+msgid "{program} could not be started."
+msgstr "{program} を起動できませんでした。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:243
+#: crates/glimpse-panel/src/applets/display/indicator.rs:265
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
+#: crates/glimpse-widgets/blueprints/display_popover.blp:80
+msgid "Displays"
+msgstr "ディスプレイ"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:245
+msgid "Could not change that display"
+msgstr "そのディスプレイを変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:250
+#: crates/glimpse-panel/src/applets/display/indicator.rs:272
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+msgid "The compositor is unavailable."
+msgstr "コンポジターを利用できません。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:267
+msgid "Could not blank the screens"
+msgstr "画面を消灯できませんでした"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+msgid "Could not change the brightness"
+msgstr "明るさを変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:377
+#: crates/glimpse-widgets/blueprints/display_popover.blp:50
+msgid "Night light"
+msgstr "夜間モード"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:387
+msgid "The brightness service is unavailable."
+msgstr "明るさサービスを利用できません。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:396
+msgid "That was not a valid setting."
+msgstr "有効な設定ではありません。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:398
+msgid "The night light is off."
+msgstr "夜間モードはオフです。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:399
+msgid "The night light is not running."
+msgstr "夜間モードが動作していません。"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:400
+#: crates/glimpse-panel/src/applets/power/mod.rs:353
+msgid "That took too long."
+msgstr "時間がかかりすぎました。"
+
+#: crates/glimpse-panel/src/applets/display/render.rs:114
+msgid "{name}: {percent}%"
+msgstr "{name}: {percent}%"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
+msgid "Unsupported: {name}"
+msgstr "未対応: {name}"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:410
+msgid "This applet asked for an element glimpse does not render"
+msgstr "このアプレットは glimpse が対応していない要素を要求しました"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:94
+#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+msgid "External applet action failed."
+msgstr "外部アプレットの操作に失敗しました。"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+msgid "The file did not open."
+msgstr "ファイルを開けませんでした。"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+msgid "The link did not open."
+msgstr "リンクを開けませんでした。"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+msgid "The application did not start."
+msgstr "アプリを起動できませんでした。"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+msgid "External applet is not running."
+msgstr "外部アプレットが起動していません。"
+
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+msgid "Awake until {time}"
+msgstr "{time} までスリープしません"
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
+msgid "Idle"
+msgstr "アイドル"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:25
+#: crates/glimpse-panel/src/applets/idle/render.rs:53
+msgid "Idle daemon not running"
+msgstr "アイドルデーモンが起動していません"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:30
+#: crates/glimpse-panel/src/applets/idle/render.rs:56
+msgid "The compositor is not reporting idle time"
+msgstr "コンポジターがアイドル時間を通知していません"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:39
+msgid "{n} minute left"
+msgid_plural "{n} minutes left"
+msgstr[0] "残り {n} 分"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:42
+msgid "{hours} h {minutes} min left"
+msgstr "残り {hours} 時間 {minutes} 分"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:59
+msgid "Nothing preventing idle"
+msgstr "アイドルを妨げているものはありません"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
+msgid "Awake until you turn it off"
+msgstr "オフにするまでスリープしません"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:88
+msgid "{n} app preventing idle or sleep"
+msgid_plural "{n} apps preventing idle or sleep"
+msgstr[0] "{n} 個のアプリがアイドルまたはスリープを妨げています"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:93
+msgid "{n} app preventing idle"
+msgid_plural "{n} apps preventing idle"
+msgstr[0] "{n} 個のアプリがアイドルを妨げています"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
+msgid "Unknown"
+msgstr "不明"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr "たった今"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "{n} 分前"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "{n} 時間前"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
+msgid "(Flatpak via portal)"
+msgstr "(ポータル経由の Flatpak)"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
+msgid "(systemd-inhibit · pid {pid})"
+msgstr "(systemd-inhibit · pid {pid})"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
+msgid "Preventing idle"
+msgstr "アイドルを妨げています"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:202
+#: crates/glimpse-panel/src/config_alert.rs:110
+msgid "Glimpse"
+msgstr "Glimpse"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:208
+msgid "Manual hold"
+msgstr "手動で設定"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
+msgid "KDE Connect"
+msgstr "KDE Connect"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
+msgid "The device did not respond"
+msgstr "デバイスが応答しませんでした"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
+msgid "Send files"
+msgstr "ファイルを送信"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
+msgid "{percent}, charging"
+msgstr "{percent}、充電中"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
+msgid "Connected"
+msgstr "接続済み"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
+msgid "{name} wants to pair"
+msgstr "{name} がペアリングを求めています"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
+msgstr "未接続"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
+msgid "{name} · {state}"
+msgstr "{name} · {state}"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
+msgid "No paired devices"
+msgstr "ペアリング済みのデバイスはありません"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
+msgid "charging"
+msgstr "充電中"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
+msgid "Ring"
+msgstr "鳴らす"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
+msgid "Ping"
+msgstr "Ping"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
+msgid "Send clipboard"
+msgstr "クリップボードを送信"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
+msgid "Send files…"
+msgstr "ファイルを送信…"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
+msgid "Browse files"
+msgstr "ファイルを参照"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
+msgid "Open SMS"
+msgstr "SMS を開く"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
+msgid "Unpair"
+msgstr "ペアリングを解除"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
+msgid "Wants to pair"
+msgstr "ペアリングを求めています"
+
+#: crates/glimpse-panel/src/applets/mod.rs:51
+msgid "Built-in display"
+msgstr "内蔵ディスプレイ"
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:345
+msgid "Open {player}"
+msgstr "{player} を開く"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:32
+msgid "Playing"
+msgstr "再生中"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:33
+msgid "Paused"
+msgstr "一時停止中"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:34
+#: crates/glimpse-panel/src/applets/printing/render.rs:133
+#: crates/glimpse-panel/src/applets/printing/render.rs:191
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+msgid "Stopped"
+msgstr "停止中"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+msgid "None"
+msgstr "なし"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+msgid "WEP"
+msgstr "WEP"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+msgid "WPA & WPA2 Personal"
+msgstr "WPA および WPA2 パーソナル"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+msgid "WPA3 Personal"
+msgstr "WPA3 パーソナル"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:114
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
+msgid "Network"
+msgstr "ネットワーク"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:207
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+msgid "Hidden network"
+msgstr "非公開ネットワーク"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+msgid "Type the name the network broadcasts nothing about."
+msgstr "非公開ネットワークの名前を入力してください。"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+msgid "Continue"
+msgstr "続行"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+msgid "Choose how the network is secured, then type its password."
+msgstr "ネットワークのセキュリティ方式を選び、パスワードを入力してください。"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:271
+#: crates/glimpse-panel/src/applets/network/indicator.rs:289
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
+msgid "The network needs a password before this computer can join it."
+msgstr "このネットワークに接続するにはパスワードが必要です。"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+msgid "{network} refused that password. Check it and try again."
+msgstr "{network} にパスワードを拒否されました。確認してもう一度お試しください。"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
+msgid "Try again"
+msgstr "再試行"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:316
+msgid "VPN is connected"
+msgstr "VPN 接続中"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:366
+msgid "Could not switch Wi-Fi"
+msgstr "Wi-Fi を切り替えられませんでした"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:396
+msgid "Could not connect the VPN"
+msgstr "VPN に接続できませんでした"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:451
+msgid "Could not forget that network"
+msgstr "そのネットワークを削除できませんでした"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:459
+msgid "Could not disconnect the VPN"
+msgstr "VPN を切断できませんでした"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:549
+msgid "Could not send that password"
+msgstr "パスワードを送信できませんでした"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:14
+msgid "Networking is off"
+msgstr "ネットワークはオフです"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:19
+msgid "Connected by cable"
+msgstr "有線接続中"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:20
+msgid "Connected, no internet"
+msgstr "接続済み、インターネットなし"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:24
+msgid "No network adapter"
+msgstr "ネットワークアダプターがありません"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:27
+msgid "Wi-Fi is blocked by hardware"
+msgstr "Wi-Fi はハードウェアでブロックされています"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:30
+msgid "Wi-Fi is off"
+msgstr "Wi-Fi はオフです"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:38
+#: crates/glimpse-panel/src/applets/network/render.rs:128
+msgid "Unnamed network"
+msgstr "名前のないネットワーク"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:41
+msgid "{network}: connected, no internet"
+msgstr "{network}: 接続済み、インターネットなし"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:51
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:56
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:64
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:77
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
+msgid "Metered connection"
+msgstr "従量制課金接続"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:81
+msgid "Signal {signal}%"
+msgstr "信号 {signal}%"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:82
+msgid "VPN: {vpn}"
+msgstr "VPN: {vpn}"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:89
+msgid "That network needs a password."
+msgstr "そのネットワークにはパスワードが必要です。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:90
+msgid "The password was not accepted."
+msgstr "パスワードが受け付けられませんでした。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:91
+msgid "That network is no longer in range."
+msgstr "そのネットワークは範囲外です。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:92
+msgid "The connection timed out."
+msgstr "接続がタイムアウトしました。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:93
+msgid "The connection could not be configured."
+msgstr "接続を設定できませんでした。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:94
+msgid "The connection was dropped."
+msgstr "接続が切れました。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:95
+msgid "That network has been forgotten."
+msgstr "そのネットワークは削除済みです。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:96
+msgid "There is no network device to use."
+msgstr "使用できるネットワークデバイスがありません。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:97
+msgid "NetworkManager refused that."
+msgstr "NetworkManager に拒否されました。"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:109
+msgid "Enterprise"
+msgstr "エンタープライズ"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:110
+msgid "Open, encrypted"
+msgstr "オープン、暗号化"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:207
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+msgid "{count} more network"
+msgid_plural "{count} more networks"
+msgstr[0] "他 {count} 個のネットワーク"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:233
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+#: crates/glimpse-panel/src/applets/printing/render.rs:163
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+msgid "Status"
+msgstr "状態"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:235
+msgid "Metered"
+msgstr "従量制課金"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:239
+msgid "IP address"
+msgstr "IP アドレス"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:266
+msgid "Security"
+msgstr "セキュリティ"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:267
+msgid "Band"
+msgstr "周波数帯"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:294
+#: crates/glimpse-widgets/blueprints/network_row.blp:34
+msgid "Forget this network"
+msgstr "このネットワークを削除"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:306
+msgid "Cable unplugged"
+msgstr "ケーブル未接続"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:314
+msgid "Speed"
+msgstr "速度"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:315
+msgid "{speed} Mb/s"
+msgstr "{speed} Mb/s"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "ends in {value} {unit}"
+msgstr "あと {value} {unit} で終了"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
+msgid "in {value} {unit}"
+msgstr "{value} {unit} 後"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "min"
+msgstr "分"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
+msgid "min left"
+msgstr "分残り"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "h"
+msgstr "時間"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+msgid "d"
+msgstr "日"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:212
+msgid "Clashes with {events}"
+msgstr "{events} と重複"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:245
+msgid "Guests"
+msgstr "ゲスト"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:246
+msgid "{total} · {accepted} accepted"
+msgstr "{total} · {accepted} 人承諾"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+msgid "Tentative"
+msgstr "仮承諾"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:258
+msgid "Meeting"
+msgstr "会議"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:261
+msgid "Link"
+msgstr "リンク"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
+msgid "Conflicts"
+msgstr "重複"
+
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:211
+msgid "Clear all"
+msgstr "すべて消去"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+msgid "Do not disturb"
+msgstr "おやすみモード"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+msgid "{count} waiting, do not disturb is on"
+msgid_plural "{count} waiting, do not disturb is on"
+msgstr[0] "{count} 件が待機中、おやすみモードはオン"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+msgid "No new notifications"
+msgstr "新しい通知はありません"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:105
+msgid "{count} new notification"
+msgid_plural "{count} new notifications"
+msgstr[0] "{count} 件の新しい通知"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+msgid "{count}m"
+msgstr "{count}分"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+msgid "{count}h"
+msgstr "{count}時間"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+msgid "{count}d"
+msgstr "{count}日"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "空"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:221
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] "{count} 個のウィンドウ"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:76
+#: crates/glimpse-panel/src/applets/places/render.rs:20
+#: crates/glimpse-widgets/blueprints/places_popover.blp:12
+#: crates/glimpse-widgets/blueprints/places_popover.blp:24
+msgid "Places"
+msgstr "場所"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:78
+msgid "Could not empty the trash"
+msgstr "ゴミ箱を空にできませんでした"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:106
+msgid "Some items could not be deleted."
+msgstr "一部の項目を削除できませんでした。"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:297
+#: crates/glimpse-panel/src/applets/power/mod.rs:325
+#: crates/glimpse-panel/src/applets/power/mod.rs:346
+#: crates/glimpse-panel/src/applets/power/render.rs:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:12
+#: crates/glimpse-widgets/blueprints/status_island.blp:34
+#: crates/glimpse-widgets/blueprints/status_island.blp:37
+msgid "Power"
+msgstr "電源"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:299
+msgid "Could not change the power mode"
+msgstr "電源モードを変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:304
+#: crates/glimpse-panel/src/applets/power/mod.rs:332
+msgid "The battery service is unavailable."
+msgstr "バッテリーサービスを利用できません。"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:327
+msgid "Could not change the charge limit"
+msgstr "充電上限を変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:348
+msgid "Could not change keep awake"
+msgstr "スリープ防止を切り替えられませんでした"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:352
+msgid "The idle service is unavailable."
+msgstr "アイドルサービスを利用できません。"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:130
+msgid "Power draw"
+msgstr "消費電力"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:131
+msgid "{watts} W"
+msgstr "{watts} W"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:136
+msgid "Health"
+msgstr "状態"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:143
+msgid "Energy"
+msgstr "エネルギー"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:149
+msgid "Capacity when new"
+msgstr "新品時の容量"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:154
+msgid "Cycles"
+msgstr "サイクル"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:157
+msgid "Technology"
+msgstr "種類"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
+msgid "Model"
+msgstr "モデル"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
+msgid "Make"
+msgstr "メーカー"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:173
+msgid "Limit charge to {percent}%"
+msgstr "充電を {percent}% までに制限"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:220
+msgid "Until full"
+msgstr "満充電まで"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:223
+msgid "Remaining"
+msgstr "残り"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:232
+msgid "Since unplugged"
+msgstr "電源を抜いてから"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:309
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:454
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:467
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:535
+msgid "Now"
+msgstr "現在"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:327
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:440
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:519
+msgid "{time} · {percent}%"
+msgstr "{time} · {percent}%"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:359
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:787
+msgid "Kept awake"
+msgstr "スリープ防止中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:362
+msgid "Held by {app}"
+msgstr "{app} が保持中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:363
+msgid "Held by you"
+msgstr "自分で設定"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:372
+msgid "Less than a minute"
+msgstr "1 分未満"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:373
+msgid "{minutes} m"
+msgstr "{minutes} 分"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:375
+msgid "{hours} h {minutes} m"
+msgstr "{hours} 時間 {minutes} 分"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:383
+msgid "Charging"
+msgstr "充電中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:384
+msgid "Discharging"
+msgstr "放電中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:386
+msgid "Fully charged"
+msgstr "充電完了"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:387
+msgid "Not charging"
+msgstr "充電していません"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:402
+msgid "Power saver"
+msgstr "省電力"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:403
+msgid "Balanced"
+msgstr "バランス"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:404
+msgid "Performance"
+msgstr "パフォーマンス"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:412
+msgid "Unavailable: laptop on lap"
+msgstr "利用不可: 膝の上で使用中"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:413
+msgid "Unavailable: too hot"
+msgstr "利用不可: 高温"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:444
+msgid "Li-ion"
+msgstr "リチウムイオン"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:445
+msgid "Li-poly"
+msgstr "リチウムポリマー"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:446
+msgid "LiFePO4"
+msgstr "LiFePO4"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:447
+msgid "Lead acid"
+msgstr "鉛蓄電池"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:448
+msgid "NiCd"
+msgstr "NiCd"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:449
+msgid "NiMH"
+msgstr "NiMH"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:63
+msgid "Could not cancel the print job"
+msgstr "印刷ジョブをキャンセルできませんでした"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:70
+msgid "Could not pause the print job"
+msgstr "印刷ジョブを一時停止できませんでした"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:77
+msgid "Could not resume the print job"
+msgstr "印刷ジョブを再開できませんでした"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:84
+msgid "Could not retry the print job"
+msgstr "印刷ジョブを再試行できませんでした"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:112
+#: crates/glimpse-panel/src/applets/printing/render.rs:132
+#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:12
+msgid "Printing"
+msgstr "印刷"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:137
+msgid "The print server refused that."
+msgstr "プリントサーバーに拒否されました。"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:139
+msgid "The print server is unreachable."
+msgstr "プリントサーバーに接続できません。"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:58
+msgid "page {done} of {total}"
+msgstr "{done}/{total} ページ"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:77
+msgid ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+msgstr ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:120
+msgid "{status}: {reason}"
+msgstr "{status}: {reason}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:130
+msgid "Queued"
+msgstr "待機中"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:131
+msgid "Held"
+msgstr "保留中"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:134
+msgid "Completed"
+msgstr "完了"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:135
+msgid "Cancelled"
+msgstr "キャンセル済み"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:136
+msgid "Aborted"
+msgstr "中止"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:182
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+msgid "Not accepting jobs"
+msgstr "ジョブを受け付けていません"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:93
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:134
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:12
+msgid "Privacy"
+msgstr "プライバシー"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:136
+msgid "Could not stop that screen share"
+msgstr "その画面共有を停止できませんでした"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:151
+msgid "That share had already ended."
+msgstr "その共有はすでに終了しています。"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Camera"
+msgstr "カメラ"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+msgid "Microphone"
+msgstr "マイク"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:46
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:62
+#: data/me.aresa.Glimpse.Shot.desktop:18
+msgid "Screen"
+msgstr "画面"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:144
+msgid "Sharing {what}"
+msgstr "{what} を共有中"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:152
+msgid "muted"
+msgstr "ミュート"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:175
+msgid "a window"
+msgstr "ウィンドウ"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:78
+msgid "Could not open that drive"
+msgstr "そのドライブを開けませんでした"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:112
+msgid "Could not eject that drive"
+msgstr "そのドライブを取り出せませんでした"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:154
+#: crates/glimpse-panel/src/applets/removable/render.rs:27
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+msgid "Removable"
+msgstr "リムーバブル"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:115
+msgid "{available} free"
+msgstr "空き {available}"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:151
+#: crates/glimpse-widgets/blueprints/removable_device.blp:20
+msgid "Space"
+msgstr "容量"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:181
+msgid "In use by an app"
+msgstr "アプリが使用中"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:184
+msgid "No space left"
+msgstr "空き容量がありません"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:231
+msgid "That drive is not mounted."
+msgstr "そのドライブはマウントされていません。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:232
+msgid "The drive is busy with something else."
+msgstr "ドライブは別の処理で使用中です。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:233
+msgid "That drive is already mounted."
+msgstr "そのドライブはすでにマウントされています。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:234
+msgid "This computer is not authorized to do that."
+msgstr "この操作を行う権限がありません。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:235
+msgid "That is not supported for this drive."
+msgstr "このドライブでは対応していない操作です。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:236
+msgid "That option is not permitted."
+msgstr "そのオプションは許可されていません。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:237
+msgid "The drive did not respond in time."
+msgstr "ドライブが時間内に応答しませんでした。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:238
+msgid "That would wake a sleeping drive."
+msgstr "スリープ中のドライブを起動することになります。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:239
+msgid "The action was cancelled."
+msgstr "操作はキャンセルされました。"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:240
+msgid "The drive could not complete that."
+msgstr "ドライブで操作を完了できませんでした。"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
+msgid "Ruler"
+msgstr "定規"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
+msgid "The ruler could not start, capture the screen or reach the clipboard."
+msgstr "定規を起動できないか、画面をキャプチャできないか、クリップボードにアクセスできませんでした。"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
+msgid "Could not measure the screen"
+msgstr "画面を測定できませんでした"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
+msgid "Could not copy that measurement"
+msgstr "その測定値をコピーできませんでした"
+
+#: crates/glimpse-panel/src/applets/ruler/render.rs:25
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
+msgid "Measure the screen"
+msgstr "画面を測定"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by {who}"
+msgstr "{who} がブロック中"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:26
+msgid "Blocked by an active inhibitor."
+msgstr "有効な抑制ロックによりブロックされています。"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:62
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "サスペンド"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:61
+msgid "Suspend this session?"
+msgstr "このセッションをサスペンドしますか?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+msgid "Hibernate"
+msgstr "ハイバネート"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:66
+msgid "Hibernate this session?"
+msgstr "このセッションをハイバネートしますか?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
+msgid "Log out"
+msgstr "ログアウト"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:71
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr "現在のセッションを終了します。アプリが正常に終了しない可能性があります。"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr "再起動"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:76
+msgid "Restart this computer?"
+msgstr "このコンピューターを再起動しますか?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "シャットダウン"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:81
+msgid "Shut down this computer?"
+msgstr "このコンピューターをシャットダウンしますか?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:106
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] "{windows} 個のウィンドウがまだ開いています。"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:129
+msgid "Signed in today"
+msgstr "今日ログイン"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:131
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] "ログインから {days} 日"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
+msgid "CPU"
+msgstr "CPU"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
+msgid "RAM"
+msgstr "RAM"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
+msgid "Swap"
+msgstr "スワップ"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
+msgid "Net"
+msgstr "ネット"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
+msgid "GPU"
+msgstr "GPU"
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:295
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] "非表示の項目を {count} 個表示"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:193
+msgid "The weather provider is not serving this place."
+msgstr "天気プロバイダーはこの場所に対応していません。"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:219
+msgid "Here"
+msgstr "現在地"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:234
+#: crates/glimpse-panel/src/applets/weather/mod.rs:270
+msgid "No reading yet"
+msgstr "まだデータがありません"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:16
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
+msgid "Clear"
+msgstr "快晴"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:17
+msgid "Mainly clear"
+msgstr "晴れ"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:18
+msgid "Partly cloudy"
+msgstr "晴れ時々曇り"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:19
+msgid "Overcast"
+msgstr "曇り"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:20
+msgid "Fog"
+msgstr "霧"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:21
+msgid "Drizzle"
+msgstr "霧雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:22
+msgid "Freezing drizzle"
+msgstr "着氷性の霧雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:23
+msgid "Light rain"
+msgstr "小雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:24
+#: crates/glimpse-panel/src/applets/weather/render.rs:206
+msgid "Rain"
+msgstr "雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:25
+msgid "Heavy rain"
+msgstr "大雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:26
+msgid "Freezing rain"
+msgstr "着氷性の雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:27
+msgid "Light snow"
+msgstr "小雪"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:28
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
+msgid "Snow"
+msgstr "雪"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:29
+msgid "Heavy snow"
+msgstr "大雪"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:30
+msgid "Snow grains"
+msgstr "霧雪"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:31
+msgid "Sleet"
+msgstr "みぞれ"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:32
+msgid "Rain showers"
+msgstr "にわか雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:33
+msgid "Snow showers"
+msgstr "にわか雪"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:34
+msgid "Thunderstorm"
+msgstr "雷雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:35
+msgid "Thunderstorm with hail"
+msgstr "ひょうを伴う雷雨"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:84
+msgid "feels like {temperature}"
+msgstr "体感 {temperature}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:213
+msgid "{what} starting in {count} minute"
+msgid_plural "{what} starting in {count} minutes"
+msgstr[0] "{count} 分後から{what}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:223
+msgid "{what} starting in {count} hour"
+msgid_plural "{what} starting in {count} hours"
+msgstr[0] "{count} 時間後から{what}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:244
+msgid "°C"
+msgstr "°C"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:245
+msgid "°F"
+msgstr "°F"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:273
+msgctxt "wind"
+msgid "N"
+msgstr "北"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:274
+msgctxt "wind"
+msgid "NE"
+msgstr "北東"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:275
+msgctxt "wind"
+msgid "E"
+msgstr "東"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:276
+msgctxt "wind"
+msgid "SE"
+msgstr "南東"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:277
+msgctxt "wind"
+msgid "S"
+msgstr "南"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:278
+msgctxt "wind"
+msgid "SW"
+msgstr "南西"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
+msgctxt "wind"
+msgid "W"
+msgstr "西"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
+msgctxt "wind"
+msgid "NW"
+msgstr "北西"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:287
+msgid "km/h"
+msgstr "km/h"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:288
+msgid "mph"
+msgstr "mph"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
+msgid "{amount} mm"
+msgstr "{amount} mm"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:300
+msgid "{amount} in"
+msgstr "{amount} in"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:307
+msgid "Wind"
+msgstr "風"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:310
+msgid "Humidity"
+msgstr "湿度"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
+msgid "Precipitation"
+msgstr "降水量"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:321
+msgid "High"
+msgstr "最高"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:325
+msgid "Low"
+msgstr "最低"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:331
+msgid "Chance of rain"
+msgstr "降水確率"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:340
+msgid "Sunrise"
+msgstr "日の出"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:343
+msgid "Sunset"
+msgstr "日の入り"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
+msgid "Day length"
+msgstr "昼の長さ"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:392
+msgid ""
+"{place}\n"
+"{condition}, {temperature}, feels like {feels-like}"
+msgstr ""
+"{place}\n"
+"{condition}、{temperature}、体感 {feels-like}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
+msgid "Workspaces"
+msgstr "ワークスペース"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+msgid "Could not rename the workspace"
+msgstr "ワークスペースの名前を変更できませんでした"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:29
+msgid "Workspace {number}"
+msgstr "ワークスペース {number}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:56
+msgid "Already the name of {workspace}"
+msgstr "{workspace} で使われている名前です"
+
+#: crates/glimpse-panel/src/config_alert.rs:32
+msgid ""
+"Idle and night light are off until it is fixed; everything else uses its "
+"defaults."
+msgstr "修正されるまで、アイドルと夜間モードはオフになります。その他はデフォルト設定で動作します。"
+
+#: crates/glimpse-panel/src/config_alert.rs:38
+msgid ""
+"The last change was not applied; the previous configuration is still "
+"running."
+msgstr "最後の変更は適用されていません。以前の設定のまま動作しています。"
+
+#: crates/glimpse-panel/src/config_alert.rs:113
+msgid "Glimpse configuration has errors"
+msgstr "Glimpse の設定にエラーがあります"
+
+#: crates/glimpse-shot/src/errors.rs:52
+msgid "a screenshot is already being taken"
+msgstr "すでにスクリーンショットを撮影中です"
+
+#: crates/glimpse-shot/src/gui/app.rs:218
+msgid "_Open Image…"
+msgstr "画像を開く(_O)…"
+
+#: crates/glimpse-shot/src/gui/app.rs:220
+msgid "_Preferences"
+msgstr "設定(_P)"
+
+#: crates/glimpse-shot/src/gui/app.rs:221
+msgid "_Keyboard Shortcuts"
+msgstr "キーボードショートカット(_K)"
+
+#: crates/glimpse-shot/src/gui/app.rs:222
+msgid "_About Screenshot"
+msgstr "スクリーンショットについて(_A)"
+
+#: crates/glimpse-shot/src/gui/app.rs:372
+msgid "--portal needs a screen target"
+msgstr "--portal には画面の指定が必要です"
+
+#: crates/glimpse-shot/src/gui/app.rs:532
+#: crates/glimpse-shot/src/gui/app.rs:640
+#: crates/glimpse-shot/src/gui/app.rs:892
+#: crates/glimpse-shot/src/notify.rs:372
+#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
+#: data/me.aresa.Glimpse.Shot.desktop:3
+msgid "Screenshot"
+msgstr "スクリーンショット"
+
+#: crates/glimpse-shot/src/gui/app.rs:567
+msgid "The clipboard holds no image"
+msgstr "クリップボードに画像がありません"
+
+#: crates/glimpse-shot/src/gui/app.rs:764
+msgid "There is no window to capture"
+msgstr "キャプチャするウィンドウがありません"
+
+#: crates/glimpse-shot/src/gui/app.rs:834
+msgid "That window has closed"
+msgstr "そのウィンドウは閉じられました"
+
+#: crates/glimpse-shot/src/gui/app.rs:851
+msgid "PNG Images"
+msgstr "PNG 画像"
+
+#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+msgid "Open Image"
+msgstr "画像を開く"
+
+#: crates/glimpse-shot/src/gui/app.rs:969
+msgid "Untitled window"
+msgstr "無題のウィンドウ"
+
+#: crates/glimpse-shot/src/gui/app.rs:1078
+msgid "Screenshot failed"
+msgstr "スクリーンショットに失敗しました"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:385
+msgid "Waiting to take a screenshot"
+msgstr "スクリーンショットの撮影を待機中"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/result.rs:936
+msgid "Save Screenshot"
+msgstr "スクリーンショットを保存"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1641
+msgid "{size} · scaled {percent}%"
+msgstr "{size} · {percent}% に縮小"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1818
+msgid "Saved"
+msgstr "保存しました"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1819
+msgid "Copied"
+msgstr "コピーしました"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:90
+msgid "Pictures/Screenshots"
+msgstr "画像/Screenshots"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:108
+#: crates/glimpse-shot/src/gui/prefs.rs:127
+msgid "Saved as “{name}”"
+msgstr "「{name}」として保存しました"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:219
+#: crates/glimpse-shot/src/gui/result.rs:1088
+msgid "Copied to clipboard"
+msgstr "クリップボードにコピーしました"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
+msgid "Choose Folder"
+msgstr "フォルダーを選択"
+
+#: crates/glimpse-shot/src/gui/result.rs:734
+msgid "A screenshot has unsaved changes"
+msgstr "未保存の変更があるスクリーンショットがあります"
+
+#: crates/glimpse-shot/src/gui/result.rs:878
+msgid "A file name cannot be empty or contain “/”"
+msgstr "ファイル名を空にしたり「/」を含めたりすることはできません"
+
+#: crates/glimpse-shot/src/gui/result.rs:883
+msgid ""
+"There is no Pictures folder to save into; choose a folder in Preferences"
+msgstr "保存先の画像フォルダーがありません。設定でフォルダーを選択してください"
+
+#: crates/glimpse-shot/src/gui/result.rs:969
+msgid "Discard this screenshot?"
+msgstr "このスクリーンショットを破棄しますか?"
+
+#: crates/glimpse-shot/src/gui/result.rs:970
+msgid "It has not been saved or copied."
+msgstr "保存もコピーもされていません。"
+
+#: crates/glimpse-shot/src/gui/result.rs:974
+msgid "Discard"
+msgstr "破棄"
+
+#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+msgid "Save"
+msgstr "保存"
+
+#: crates/glimpse-shot/src/gui/result.rs:1137
+msgid "Saved “{name}”"
+msgstr "「{name}」を保存しました"
+
+#: crates/glimpse-shot/src/gui/result.rs:1145
+#: crates/glimpse-shot/src/notify.rs:499
+#: crates/glimpse-shot/src/notify/tests.rs:312
+msgid "Show in Folder"
+msgstr "フォルダーで表示"
+
+#: crates/glimpse-shot/src/notify.rs:485
+#: crates/glimpse-shot/src/notify/tests.rs:298
+msgid "Screenshot saved"
+msgstr "スクリーンショットを保存しました"
+
+#: crates/glimpse-shot/src/notify.rs:486
+#: crates/glimpse-shot/src/notify/tests.rs:331
+msgid "Screenshot copied"
+msgstr "スクリーンショットをコピーしました"
+
+#: crates/glimpse-shot/src/notify.rs:497
+#: crates/glimpse-shot/src/notify/tests.rs:310
+msgctxt "notification action"
+msgid "Open"
+msgstr "開く"
+
+#: crates/glimpse-shot/src/portal.rs:138
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:56
+msgid "An application"
+msgstr "アプリ"
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+msgid "Applications"
+msgstr "アプリ"
+
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
+msgid "Nearby devices"
+msgstr "近くのデバイス"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr "1 年分を表示"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr "前へ"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/track_card.blp:63
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr "次へ"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
+msgid "Some events on this day aren't shown."
+msgstr "この日の一部の予定は表示されていません。"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
+msgid "World clock"
+msgstr "世界時計"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:29
+msgid "Search clipboard"
+msgstr "クリップボードを検索"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:37
+msgid "Pinned"
+msgstr "ピン留め済み"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
+msgid "Recent"
+msgstr "最近"
+
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
+msgid "Palette"
+msgstr "パレット"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:31
+msgid "Brightness"
+msgstr "明るさ"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:57
+#: crates/glimpse-widgets/src/display_list/mod.rs:109
+msgid "Enabled"
+msgstr "有効"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:72
+#: crates/glimpse-widgets/src/display_popover/mod.rs:325
+msgid "Pause until tomorrow"
+msgstr "明日まで一時停止"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:89
+msgid "Blank the screens"
+msgstr "画面を消灯"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:16
+#: crates/glimpse-widgets/blueprints/power_popover.blp:73
+#: crates/glimpse-widgets/blueprints/power_popover.blp:80
+msgid "Keep awake"
+msgstr "スリープ防止"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:28
+#: crates/glimpse-widgets/blueprints/power_popover.blp:84
+#: crates/glimpse-widgets/src/idle_popover/mod.rs:59
+msgid "Keep awake for…"
+msgstr "スリープを防止する時間…"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/blueprints/power_popover.blp:88
+msgid "15 minutes"
+msgstr "15 分"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:37
+#: crates/glimpse-widgets/blueprints/power_popover.blp:93
+msgid "30 minutes"
+msgstr "30 分"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:42
+#: crates/glimpse-widgets/blueprints/power_popover.blp:98
+msgid "1 hour"
+msgstr "1 時間"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:47
+#: crates/glimpse-widgets/blueprints/power_popover.blp:103
+msgid "2 hours"
+msgstr "2 時間"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:108
+msgid "4 hours"
+msgstr "4 時間"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:58
+msgid "Kept awake by"
+msgstr "スリープを防止しているもの"
+
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
+msgid "KDE Connect settings"
+msgstr "KDE Connect の設定"
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
+msgid "Other players"
+msgstr "その他のプレーヤー"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
+msgid "Ethernet"
+msgstr "イーサネット"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
+msgid "VPN"
+msgstr "VPN"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
+msgid "Other networks"
+msgstr "その他のネットワーク"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
+msgid "Looking for networks…"
+msgstr "ネットワークを検索中…"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
+msgid "Connect to a hidden network…"
+msgstr "非公開ネットワークに接続…"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+msgid "Details"
+msgstr "詳細"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+msgid "Coming up"
+msgstr "今後の予定"
+
+#: crates/glimpse-widgets/blueprints/notification_header.blp:56
+#: crates/glimpse-widgets/src/notification_card/imp.rs:183
+msgid "Dismiss"
+msgstr "閉じる"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
+msgid "Notifications are unavailable"
+msgstr "通知を利用できません"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
+msgid "Nothing new"
+msgstr "新着なし"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
+msgid "You are all caught up."
+msgstr "すべて確認済みです。"
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+msgid "Password"
+msgstr "パスワード"
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:61
+msgid "Caps Lock is on"
+msgstr "Caps Lock がオンです"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:33
+msgid "Bookmarks"
+msgstr "ブックマーク"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:60
+#: crates/glimpse-widgets/blueprints/places_popover.blp:63
+msgid "Trash"
+msgstr "ゴミ箱"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:66
+msgid "Open the trash"
+msgstr "ゴミ箱を開く"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:70
+#: crates/glimpse-widgets/src/places_popover/mod.rs:176
+msgid "Empty the trash"
+msgstr "ゴミ箱を空にする"
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:16
+#: crates/glimpse-widgets/blueprints/track_card.blp:52
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:319
+msgid "Play"
+msgstr "再生"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:54
+msgid "History"
+msgstr "履歴"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:67
+msgid "Power mode"
+msgstr "電源モード"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:116
+msgid "Devices"
+msgstr "デバイス"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:24
+msgid "Print jobs"
+msgstr "印刷ジョブ"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:33
+msgid "Printers"
+msgstr "プリンター"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:24
+msgid "In use now"
+msgstr "使用中"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "Mute microphone"
+msgstr "マイクをミュート"
+
+#: crates/glimpse-widgets/blueprints/removable_device.blp:35
+msgid "Eject"
+msgstr "取り出す"
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr "シーク"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:12
+msgid "Lock"
+msgstr "ロック"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+msgid "Suspend…"
+msgstr "サスペンド…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
+msgid "Restart…"
+msgstr "再起動…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
+msgid "Power Off…"
+msgstr "電源オフ…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
+msgid "Suspend now?"
+msgstr "今すぐサスペンドしますか?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
+msgid "The screen stays locked when it wakes."
+msgstr "復帰時も画面はロックされたままです。"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
+msgid "Restart now?"
+msgstr "今すぐ再起動しますか?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
+msgid "Open sessions may lose unsaved work."
+msgstr "開いているセッションの未保存の作業が失われる可能性があります。"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
+msgid "Power off now?"
+msgstr "今すぐ電源を切りますか?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
+msgid "Power Off"
+msgstr "電源オフ"
+
+#: crates/glimpse-widgets/blueprints/shot_banner.blp:33
+msgid "Enter shares · Esc refuses"
+msgstr "Enter で共有 · Esc で拒否"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:22
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:111
+msgid "Main Menu"
+msgstr "メインメニュー"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:47
+msgid "Capture a Screen (S)"
+msgstr "画面をキャプチャ (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:69
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:85
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:129
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:75
+#: data/me.aresa.Glimpse.Shot.desktop:22
+msgid "Window"
+msgstr "ウィンドウ"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:70
+msgid "Capture a Window (W)"
+msgstr "ウィンドウをキャプチャ (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:92
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:108
+#: data/me.aresa.Glimpse.Shot.desktop:26
+msgid "Region"
+msgstr "範囲"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:93
+msgid "Capture a Region (R)"
+msgstr "範囲をキャプチャ (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "遅延"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
+msgid "Show Pointer"
+msgstr "ポインターを表示"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:166
+msgid "_Take Screenshot"
+msgstr "スクリーンショットを撮影(_T)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:168
+msgid "Take Screenshot (Enter)"
+msgstr "スクリーンショットを撮影 (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
+msgid "Cancel the screenshot"
+msgstr "スクリーンショットをキャンセル"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:204
+msgid "Preferences"
+msgstr "設定"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
+msgid "config.toml cannot be read, so nothing here can be saved"
+msgstr "config.toml を読み込めないため、ここでは何も保存できません"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
+msgid "Open File"
+msgstr "ファイルを開く"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:19
+msgid "Saving"
+msgstr "保存"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:22
+msgid "Folder"
+msgstr "フォルダー"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:39
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:78
+msgid "File Name"
+msgstr "ファイル名"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
+msgid "Behavior"
+msgstr "動作"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:69
+msgid "Annotate In"
+msgstr "注釈の編集先"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:70
+msgid "Where a Print capture opens"
+msgstr "Print キーでのキャプチャを開く場所"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:74
+msgid "Full-Screen Overlay"
+msgstr "全画面オーバーレイ"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:82
+msgid "Default Delay"
+msgstr "デフォルトの遅延"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
+msgid "Seconds before capturing"
+msgstr "キャプチャまでの秒数"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:97
+msgid "Flash on Capture"
+msgstr "キャプチャ時にフラッシュ"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:101
+msgid "Notify After Saving or Copying"
+msgstr "保存またはコピー後に通知"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:106
+msgid "Annotations"
+msgstr "注釈"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+msgid "Red"
+msgstr "赤"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+msgid "Yellow"
+msgstr "黄"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+msgid "Green"
+msgstr "緑"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+msgid "Blue"
+msgstr "青"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+msgid "White"
+msgstr "白"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:224
+msgid "Line Width"
+msgstr "線の太さ"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:233
+msgid "Thin"
+msgstr "細い"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:238
+msgid "Medium"
+msgstr "中"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:243
+msgid "Thick"
+msgstr "太い"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:209
+msgid "Keyboard Shortcuts"
+msgstr "キーボードショートカット"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:251
+msgid "Add these bindings to the niri configuration"
+msgstr "以下のキーバインドを niri の設定に追加してください"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:254
+msgid "Copy _Snippet"
+msgstr "スニペットをコピー(_S)"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:264
+msgid "Capture and Annotate"
+msgstr "キャプチャして注釈を付ける"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:274
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:19
+msgid "Capture a Window"
+msgstr "ウィンドウをキャプチャ"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:284
+msgid "Copy the Screen to the Clipboard"
+msgstr "画面をクリップボードにコピー"
+
+#: crates/glimpse-widgets/blueprints/shot_region.blp:24
+msgid "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
+msgstr "ドラッグで選択  ·  Space: 画面全体  ·  Esc: キャンセル"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:7
+msgid "_Save"
+msgstr "保存(_S)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:12
+msgid "Save _As…"
+msgstr "名前を付けて保存(_A)…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:18
+msgid "_Open With…"
+msgstr "アプリで開く(_O)…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:43
+msgid "New Screenshot (Ctrl+N)"
+msgstr "新しいスクリーンショット (Ctrl+N)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:93
+msgid "A file with this name exists. Saving adds “(2)”."
+msgstr "この名前のファイルが存在します。保存すると「(2)」が付きます。"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:118
+msgid "_Copy"
+msgstr "コピー(_C)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:120
+msgid "Copy to Clipboard (Ctrl+C)"
+msgstr "クリップボードにコピー (Ctrl+C)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:121
+msgid "Save or Open"
+msgstr "保存または開く"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+msgid "Undo (Ctrl+Z)"
+msgstr "元に戻す (Ctrl+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "やり直す (Ctrl+Shift+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+msgid "Pan (hold Space)"
+msgstr "パン (Space を押したまま)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+msgid "Best Fit (Ctrl+0)"
+msgstr "ウィンドウに合わせる (Ctrl+0)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+msgid "Actual Size (Ctrl+1)"
+msgstr "実際のサイズ (Ctrl+1)"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:6
+msgid "Capture"
+msgstr "キャプチャ"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:9
+msgid "Take Screenshot"
+msgstr "スクリーンショットを撮影"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:14
+msgid "Capture a Screen"
+msgstr "画面をキャプチャ"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:24
+msgid "Capture a Region"
+msgstr "範囲をキャプチャ"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:30
+msgid "Tools"
+msgstr "ツール"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:33
+msgid "Crop"
+msgstr "切り抜き"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:38
+msgid "Arrow"
+msgstr "矢印"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:43
+msgid "Line"
+msgstr "直線"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:48
+msgid "Freehand"
+msgstr "フリーハンド"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:53
+msgid "Highlighter"
+msgstr "蛍光ペン"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:58
+msgid "Rectangle"
+msgstr "四角形"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:63
+msgid "Filled Rectangle"
+msgstr "塗りつぶし四角形"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:68
+msgid "Oval"
+msgstr "楕円"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:73
+msgid "Number"
+msgstr "番号"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:78
+msgid "Text"
+msgstr "テキスト"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:83
+msgid "Blur"
+msgstr "ぼかし"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:93
+msgid "Thinner and Thicker Line"
+msgstr "線を細く・太く"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:99
+msgid "Editing"
+msgstr "編集"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:102
+msgid "Apply Crop or Finish Text"
+msgstr "切り抜きを適用またはテキストを確定"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "元に戻す"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
+msgid "Redo"
+msgstr "やり直す"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:117
+msgid "Delete Selection"
+msgstr "選択範囲を削除"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:122
+msgid "Cancel Crop or Text"
+msgstr "切り抜きまたはテキストをキャンセル"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:128
+msgid "Finishing"
+msgstr "仕上げ"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:131
+msgid "Copy and Close"
+msgstr "コピーして閉じる"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
+#: crates/glimpse-widgets/src/color_list/mod.rs:150
+msgid "Copy"
+msgstr "コピー"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:146
+msgid "Save As"
+msgstr "名前を付けて保存"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+msgid "Open in Window"
+msgstr "ウィンドウで開く"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:157
+msgid "View"
+msgstr "表示"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:160
+msgid "Best Fit"
+msgstr "ウィンドウに合わせる"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:165
+msgid "Actual Size"
+msgstr "実際のサイズ"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:170
+msgid "Zoom In"
+msgstr "拡大"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:175
+msgid "Zoom Out"
+msgstr "縮小"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:180
+msgid "Pan While Held"
+msgstr "押している間パン"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:186
+msgid "General"
+msgstr "全般"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
+msgid "New Screenshot"
+msgstr "新しいスクリーンショット"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:199
+msgid "Open Image from Clipboard"
+msgstr "クリップボードから画像を開く"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:214
+msgid "Close Window"
+msgstr "ウィンドウを閉じる"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:219
+msgid "Quit"
+msgstr "終了"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+msgid "Move Toolbar"
+msgstr "ツールバーを移動"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+msgid "Screen (S)"
+msgstr "画面 (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+msgid "Window (W)"
+msgstr "ウィンドウ (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+msgid "Crop (C)"
+msgstr "切り抜き (C)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+msgid "Arrow (A)"
+msgstr "矢印 (A)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+msgid "Line (L)"
+msgstr "直線 (L)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+msgid "Freehand (P)"
+msgstr "フリーハンド (P)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+msgid "Highlighter (H)"
+msgstr "蛍光ペン (H)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+msgid "Rectangle (R)"
+msgstr "四角形 (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+msgid "Filled Rectangle (F)"
+msgstr "塗りつぶし四角形 (F)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+msgid "Oval (O)"
+msgstr "楕円 (O)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+msgid "Number (N)"
+msgstr "番号 (N)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+msgid "Text (T)"
+msgstr "テキスト (T)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+msgid "Pixelate (B)"
+msgstr "モザイク (B)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
+msgid "Color (1–5)"
+msgstr "色 (1–5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+msgid "Red (1)"
+msgstr "赤 (1)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+msgid "Yellow (2)"
+msgstr "黄 (2)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+msgid "Green (3)"
+msgstr "緑 (3)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+msgid "Blue (4)"
+msgstr "青 (4)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+msgid "White (5)"
+msgstr "白 (5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+msgid "Thin line ([ and ])"
+msgstr "細い線 ([ と ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+msgid "Medium line ([ and ])"
+msgstr "中くらいの線 ([ と ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+msgid "Thick line ([ and ])"
+msgstr "太い線 ([ と ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+msgid "Apply Crop (Enter)"
+msgstr "切り抜きを適用 (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+msgid "Apply Crop"
+msgstr "切り抜きを適用"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+msgid "Copy and close (Enter)"
+msgstr "コピーして閉じる (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+msgid "More ways to finish"
+msgstr "その他の仕上げ方法"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+msgid "Cancel (Esc)"
+msgstr "キャンセル (Esc)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+msgid "Save As…"
+msgstr "名前を付けて保存…"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+msgid "Open With…"
+msgstr "アプリで開く…"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:17
+msgid "This workspace"
+msgstr "このワークスペース"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:33
+msgid "Other workspaces"
+msgstr "その他のワークスペース"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
+msgid "System Monitor"
+msgstr "システムモニター"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
+msgid "Memory"
+msgstr "メモリ"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
+msgid "Load average"
+msgstr "ロードアベレージ"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
+msgid "Uptime"
+msgstr "稼働時間"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
+msgid "CPU temperature"
+msgstr "CPU 温度"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
+msgid "GPU temperature"
+msgstr "GPU 温度"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr "シャッフル"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr "リピート"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
+msgid "Inactive warning row"
+msgstr "無効な警告行"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:83
+msgid "Device out of range"
+msgstr "デバイスが範囲外です"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:118
+msgid "Locked by the hardware switch"
+msgstr "ハードウェアスイッチでロックされています"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr "ミュート"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+msgid ""
+"Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr "暴風警報: 地域全体で最大 90 km/h の強い突風が予想されます"
+
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
+msgid "Name this workspace"
+msgstr "このワークスペースに名前を付ける"
+
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
+msgstr "ミュート解除"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
+msgid "OK"
+msgstr "OK"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:42
+msgid "Enter the PIN"
+msgstr "PIN を入力"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
+msgid "Type the PIN shown on {device}, then press OK."
+msgstr "{device} に表示されている PIN を入力し、OK を押してください。"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:47
+msgid "Enter the passkey"
+msgstr "パスキーを入力"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
+msgid "Type the passkey shown on {device}."
+msgstr "{device} に表示されているパスキーを入力してください。"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
+msgid "1 to 16 letters or digits"
+msgstr "1～16 文字の英数字"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+msgid "Up to 999999"
+msgstr "最大 999999"
+
+#: crates/glimpse-widgets/src/color_list/mod.rs:70
+msgid "{count} more color"
+msgid_plural "{count} more colors"
+msgstr[0] "他 {count} 色"
+
+#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
+msgid "Nothing picked yet"
+msgstr "まだ何も選択されていません"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
+msgid "The last enabled display can't be turned off"
+msgstr "唯一有効なディスプレイはオフにできません"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+msgid "Off"
+msgstr "オフ"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
+msgid "Mode"
+msgstr "モード"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
+msgid "Connector"
+msgstr "コネクター"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
+msgid "Serial"
+msgstr "シリアル"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
+msgid "Scale"
+msgstr "拡大率"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:179
+msgid "Position"
+msgstr "位置"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
+msgid "{width} × {height} · {hz} Hz"
+msgstr "{width} × {height} · {hz} Hz"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:208
+msgid "{x}, {y}"
+msgstr "{x}, {y}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:220
+msgid "Schedule"
+msgstr "スケジュール"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:225
+msgid "Paused until {time}"
+msgstr "{time} まで一時停止中"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:228
+msgid "Temperature"
+msgstr "色温度"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:278
+msgid "Not reaching any display"
+msgstr "どのディスプレイにも適用されていません"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:323
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+msgid "Resume"
+msgstr "再開"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:396
+msgid "Sunset to sunrise"
+msgstr "日の入りから日の出まで"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:398
+msgid "Fixed hours"
+msgstr "時間指定"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:404
+msgid "{kelvin} K"
+msgstr "{kelvin} K"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:103
+msgid "Release"
+msgstr "解除"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:128
+msgid "Reason"
+msgstr "理由"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:129
+msgid "Prevents"
+msgstr "抑止対象"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
+msgid "Shutdown"
+msgstr "シャットダウン"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
+msgid "Lid"
+msgstr "ふた"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:148
+msgid "Power key"
+msgstr "電源キー"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:149
+msgid "Suspend key"
+msgstr "サスペンドキー"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:150
+msgid "Hibernate key"
+msgstr "ハイバネートキー"
+
+#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+msgid "Pause"
+msgstr "一時停止"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
+msgid "That password did not work"
+msgstr "パスワードが正しくありません"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
+msgid "{network} refused it. Check it and try again."
+msgstr "{network} に拒否されました。確認してもう一度お試しください。"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
+msgid "Enter the password for {network}"
+msgstr "{network} のパスワードを入力してください"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:155
+msgid "Unread"
+msgstr "未読"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:181
+msgid "Dismiss {notification}"
+msgstr "{notification} を閉じる"
+
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:114
+msgid "{app}: {notifications}"
+msgstr "{app}: {notifications}"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+msgid "Collapse"
+msgstr "折りたたむ"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+msgid "{count} notification"
+msgid_plural "{count} notifications"
+msgstr[0] "{count} 件の通知"
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:88
+msgid "Show notification popups while this is on"
+msgstr "オンの間も通知のポップアップを表示"
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:172
+msgid "Clear these notifications"
+msgstr "これらの通知を消去"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:164
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} 個の項目"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:171
+msgid "Delete {n} item for good?"
+msgid_plural "Delete {n} items for good?"
+msgstr[0] "{n} 個の項目を完全に削除しますか?"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+msgid "Retry"
+msgstr "再試行"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+msgid "Page {current} of {total}"
+msgstr "{current}/{total} ページ"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+msgid "Stop sharing"
+msgstr "共有を停止"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+msgid "In use"
+msgstr "使用中"
+
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:60
+msgid "“{app}” asked for a screenshot"
+msgstr "「{app}」がスクリーンショットを要求しました"
+
+#: crates/glimpse-widgets/src/shot_capture_page/mod.rs:66
+msgid "Current Screen"
+msgstr "現在の画面"
+
+#: crates/glimpse-widgets/src/shot_countdown/mod.rs:29
+msgid "Capturing in {n}"
+msgstr "{n} 秒後にキャプチャ"
+
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:141
+msgid "captured when picked"
+msgstr "選択時にキャプチャ"
+
+#: crates/glimpse-widgets/src/workspace_section/mod.rs:73
+msgid "Focus workspace"
+msgstr "ワークスペースに移動"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
+msgid "No windows"
+msgstr "ウィンドウなし"
+
+#: data/me.aresa.Glimpse.Shot.desktop:4
+msgid "Take a screenshot, mark it up, save or copy it"
+msgstr "スクリーンショットを撮影し、注釈を付けて保存またはコピーします"
+
+#: data/me.aresa.Glimpse.Shot.desktop:12
+msgid "screenshot;capture;annotate;print screen;snip;grab;"
+msgstr ""
+"screenshot;capture;annotate;print screen;snip;grab;スクリーンショット;キャプチャ;画面写真;注釈;"
+
+#~ msgid "{count} print job"
+#~ msgid_plural "{count} print jobs"
+#~ msgstr[0] "{count} 件の印刷ジョブ"

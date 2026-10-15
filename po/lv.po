@@ -1,0 +1,3601 @@
+# Latvian translations for glimpse package.
+# Copyright (C) 2026 Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"PO-Revision-Date: 2026-10-15 15:14+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: lv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : 2);\n"
+
+#: crates/glimpse-lens/src/session.rs:281
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] "kopā {length}px, {count} segments"
+msgstr[1] "kopā {length}px, {count} segmenti"
+msgstr[2] "kopā {length}px, {count} segmentu"
+
+#: crates/glimpse-lens/src/session.rs:294
+msgid "segment {length}px · {angle}°"
+msgstr "segments {length}px · {angle}°"
+
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "Nepareiza parole"
+
+#: crates/glimpse-lock/src/auth.rs:29
+msgid "Too many attempts"
+msgstr "Pārāk daudz mēģinājumu"
+
+#: crates/glimpse-lock/src/auth.rs:30
+msgid "Can't verify passwords. Run glimpse-lock check."
+msgstr "Nevar pārbaudīt paroles. Palaidiet glimpse-lock check."
+
+#: crates/glimpse-lock/src/auth.rs:31
+msgid "This account can't be unlocked here"
+msgstr "Šo kontu šeit nevar atbloķēt"
+
+#: crates/glimpse-lock/src/auth.rs:32
+msgid "Password change required"
+msgstr "Nepieciešams nomainīt paroli"
+
+#: crates/glimpse-lock/src/auth.rs:33
+msgid "Authentication timed out"
+msgstr "Autentifikācijai iestājās noildze"
+
+#: crates/glimpse-lock/src/auth.rs:34
+msgid "Authentication failed"
+msgstr "Autentifikācija neizdevās"
+
+#: crates/glimpse-lock/src/auth.rs:36
+msgid ""
+"Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), log in, and "
+"run glimpse-lock check."
+msgstr ""
+"Nevar pārbaudīt paroles. Pārslēdzieties uz teksta konsoli (Ctrl+Alt+F2), "
+"piesakieties un palaidiet glimpse-lock check."
+
+#: crates/glimpse-lock/src/chips.rs:38
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
+#: crates/glimpse-widgets/src/notification_chips/imp.rs:28
+msgid "Notifications"
+msgstr "Paziņojumi"
+
+#: crates/glimpse-lock/src/notify.rs:16
+msgid "Screen not locked"
+msgstr "Ekrāns nav bloķēts"
+
+#: crates/glimpse-lock/src/notify.rs:17
+msgid "Suspending unlocked"
+msgstr "Iesnaudina bez bloķēšanas"
+
+#: crates/glimpse-lock/src/notify.rs:20
+msgid "Password expired"
+msgstr "Parolei beidzies derīgums"
+
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Your password has expired. Change it now with passwd."
+msgstr "Jūsu parolei ir beidzies derīgums. Nomainiet to tagad ar passwd."
+
+#: crates/glimpse-lock/src/notify.rs:27
+msgid ""
+"glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
+msgstr ""
+"glimpse-lock šajā sesijā nevar pārbaudīt paroles. Palaidiet glimpse-lock "
+"check."
+
+#: crates/glimpse-lock/src/notify.rs:29
+msgid "This compositor has no session lock."
+msgstr "Šim kompozitoram nav sesijas bloķēšanas."
+
+#: crates/glimpse-lock/src/notify.rs:30
+msgid "The compositor refused the lock."
+msgstr "Kompozitors atteica bloķēšanu."
+
+#: crates/glimpse-lock/src/session.rs:47
+msgid "Couldn't suspend the system"
+msgstr "Neizdevās iesnaudināt sistēmu"
+
+#: crates/glimpse-lock/src/session.rs:48
+msgid "Couldn't restart the system"
+msgstr "Neizdevās pārstartēt sistēmu"
+
+#: crates/glimpse-lock/src/session.rs:49
+msgid "Couldn't power off the system"
+msgstr "Neizdevās izslēgt sistēmu"
+
+#: crates/glimpse-lock/src/session.rs:136
+msgid "Blocked by {who}: {why}"
+msgstr "Bloķē {who}: {why}"
+
+#: crates/glimpse-notifications/src/app.rs:462
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+msgid "now"
+msgstr "tagad"
+
+#: crates/glimpse-panel/src/app.rs:387
+msgid "Bluetooth pairing"
+msgstr "Bluetooth sapārošana"
+
+#: crates/glimpse-panel/src/app.rs:429
+msgid "Network password"
+msgstr "Tīkla parole"
+
+#: crates/glimpse-panel/src/app.rs:441
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:196
+#: crates/glimpse-shot/src/gui/result.rs:973
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+msgid "Cancel"
+msgstr "Atcelt"
+
+#: crates/glimpse-panel/src/app.rs:504
+#: crates/glimpse-panel/src/applets/session/mod.rs:87
+msgid "Session"
+msgstr "Sesija"
+
+#: crates/glimpse-panel/src/app.rs:506
+msgid "Could not complete the session action"
+msgstr "Neizdevās pabeigt sesijas darbību"
+
+#: crates/glimpse-panel/src/app.rs:508
+msgid "The session manager refused that action."
+msgstr "Sesiju pārvaldnieks atteica šo darbību."
+
+#: crates/glimpse-panel/src/app.rs:600
+msgid "this device"
+msgstr "šī ierīce"
+
+#: crates/glimpse-panel/src/applet/mod.rs:163
+msgid "That change was refused."
+msgstr "Šīs izmaiņas tika atteiktas."
+
+#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:153
+msgid "That is not supported."
+msgstr "Tas netiek atbalstīts."
+
+#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:282
+#: crates/glimpse-panel/src/applets/display/indicator.rs:389
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:154
+msgid "That could not be completed."
+msgstr "To neizdevās pabeigt."
+
+#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:283
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
+#: crates/glimpse-panel/src/applets/display/indicator.rs:390
+#: crates/glimpse-panel/src/applets/display/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/render.rs:98
+#: crates/glimpse-panel/src/applets/power/mod.rs:355
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
+msgid "That did not work."
+msgstr "Tas neizdevās."
+
+#: crates/glimpse-panel/src/applets/agenda.rs:80
+msgid "All day · day {day} of {days}"
+msgstr "Visu dienu · {day}. diena no {days}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:83
+msgid "All day"
+msgstr "Visu dienu"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:91
+msgid "{start} · until {weekday} {end}"
+msgstr "{start} · līdz {weekday} {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:98
+#: crates/glimpse-panel/src/applets/agenda.rs:130
+msgid "{start} · {length}"
+msgstr "{start} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "{start} · over"
+msgstr "{start} · beidzies"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:107
+msgid "ended {length} ago"
+msgstr "beidzās pirms {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:114
+msgid "now · ends in {length}"
+msgstr "tagad · beigsies pēc {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "now · ends {end}"
+msgstr "tagad · līdz {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:123
+msgid "starting now · {length}"
+msgstr "sākas tagad · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:126
+msgid "in {until} · {length}"
+msgstr "pēc {until} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:153
+msgid "Join Google Meet"
+msgstr "Pievienoties Google Meet"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:154
+msgid "Join Zoom"
+msgstr "Pievienoties Zoom"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:155
+msgid "Join Microsoft Teams"
+msgstr "Pievienoties Microsoft Teams"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:156
+msgid "Join Webex"
+msgstr "Pievienoties Webex"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:157
+msgid "Join meeting"
+msgstr "Pievienoties sapulcei"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:170
+msgid "Open event"
+msgstr "Atvērt notikumu"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/printing/render.rs:161
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/privacy/render.rs:73
+msgid "Location"
+msgstr "Vieta"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Calendar"
+msgstr "Kalendārs"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
+msgid "Organizer"
+msgstr "Organizators"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/next_event/render.rs:255
+msgid "Description"
+msgstr "Apraksts"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:216
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/power/render.rs:374
+msgid "{hours} h"
+msgstr "{hours} h"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
+msgid "{hours} h {minutes} min"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:231
+msgid "{days} d"
+msgstr "{days} d"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:232
+msgid "{days} d {hours} h"
+msgstr "{days} d {hours} h"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:88
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:152
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:449
+msgid "Could not change the volume"
+msgstr "Neizdevās mainīt skaļumu"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:110
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:170
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
+#: crates/glimpse-panel/src/applets/display/indicator.rs:379
+#: crates/glimpse-panel/src/applets/network/indicator.rs:482
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:95
+msgid "Could not change that setting"
+msgstr "Neizdevās mainīt šo iestatījumu"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:130
+msgid "Could not switch device"
+msgstr "Neizdevās pārslēgt ierīci"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:192
+msgid "Could not move the application"
+msgstr "Neizdevās pārvietot lietotni"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:231
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:250
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:12
+msgid "Sound"
+msgstr "Skaņa"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+msgid "The audio server refused that."
+msgstr "Audio serveris to atteica."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:272
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
+msgid "The audio server is unavailable."
+msgstr "Audio serveris nav pieejams."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
+#: crates/glimpse-panel/src/applets/display/indicator.rs:386
+#: crates/glimpse-panel/src/applets/display/indicator.rs:397
+msgid "That was not a valid value."
+msgstr "Tā nebija derīga vērtība."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:24
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
+msgid "Output"
+msgstr "Izvade"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+msgid "Input"
+msgstr "Ievade"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:285
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
+#: crates/glimpse-panel/src/applets/places/render.rs:49
+msgid "Show fewer"
+msgstr "Rādīt mazāk"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:330
+msgid "{count} more app"
+msgid_plural "{count} more apps"
+msgstr[0] "Vēl {count} lietotne"
+msgstr[1] "Vēl {count} lietotnes"
+msgstr[2] "Vēl {count} lietotņu"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:82
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
+msgid "Muted"
+msgstr "Apklusināts"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:84
+#: crates/glimpse-panel/src/applets/display/render.rs:117
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
+#: crates/glimpse-widgets/src/lib.rs:377
+msgid "{percent}%"
+msgstr "{percent}%"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:150
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:204
+msgid "Unknown application"
+msgstr "Nezināma lietotne"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:82
+msgid "Could not switch Bluetooth"
+msgstr "Neizdevās pārslēgt Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
+#: crates/glimpse-panel/src/applets/network/indicator.rs:404
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
+#: crates/glimpse-panel/src/applets/network/indicator.rs:420
+#: crates/glimpse-panel/src/applets/network/indicator.rs:524
+#: crates/glimpse-panel/src/applets/network/indicator.rs:535
+msgid "Could not connect"
+msgstr "Neizdevās savienoties"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:185
+msgid "Could not pair"
+msgstr "Neizdevās sapārot"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:126
+#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+msgid "Could not disconnect"
+msgstr "Neizdevās atvienoties"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:137
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
+msgid "Could not remove the device"
+msgstr "Neizdevās noņemt ierīci"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:289
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
+msgid "Bluetooth is blocked"
+msgstr "Bluetooth ir bloķēts"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:40
+msgid "Bluetooth is off"
+msgstr "Bluetooth ir izslēgts"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:41
+msgid "Turning Bluetooth on"
+msgstr "Ieslēdz Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:42
+msgid "Turning Bluetooth off"
+msgstr "Izslēdz Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:43
+msgid "Looking for devices"
+msgstr "Meklē ierīces"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:45
+msgid "No devices connected"
+msgstr "Nav savienotu ierīču"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:47
+msgid "{count} device connected"
+msgid_plural "{count} devices connected"
+msgstr[0] "Savienota {count} ierīce"
+msgstr[1] "Savienotas {count} ierīces"
+msgstr[2] "Savienotas {count} ierīces"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:111
+msgid "Bluetooth is waiting for an answer"
+msgstr "Bluetooth gaida atbildi"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:125
+msgid ""
+"It will be disconnected, and this computer will stop connecting to it. To "
+"use it again you will have to pair it, with the device in pairing mode."
+msgstr ""
+"Ierīce tiks atvienota, un šis dators vairs ar to nesavienosies. Lai to atkal"
+" lietotu, ieslēdziet ierīcē sapārošanas režīmu un sapārojiet to no jauna."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:128
+msgid ""
+"This computer will stop connecting to it, and it will not connect on its "
+"own. To use it again you will have to pair it, with the device in pairing "
+"mode."
+msgstr ""
+"Šis dators vairs ar to nesavienosies, un pati ierīce arī nesavienosies. Lai "
+"to atkal lietotu, ieslēdziet ierīcē sapārošanas režīmu un sapārojiet to no "
+"jauna."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:133
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
+msgid "Forget"
+msgstr "Aizmirst"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:144
+msgid "Unknown device"
+msgstr "Nezināma ierīce"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:158
+msgid "Is this the code shown on the device?"
+msgstr "Vai šis ir ierīcē redzamais kods?"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:161
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
+msgid "Confirm"
+msgstr "Apstiprināt"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+msgid "This device wants to pair with this computer."
+msgstr "Šī ierīce vēlas sapāroties ar šo datoru."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:171
+msgid "Allow"
+msgstr "Atļaut"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:173
+msgid "Deny"
+msgstr "Liegt"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
+msgid "Type this PIN on the device. It will not ask again."
+msgstr "Ievadiet šo PIN ierīcē. Ierīce to vairs neprasīs."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:190
+msgid "Type this passkey on the device."
+msgstr "Ievadiet šo piekļuves atslēgu ierīcē."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
+msgid "{entered} of 6 entered"
+msgstr "Ievadīti {entered} no 6"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:264
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
+msgid "{count} more device"
+msgid_plural "{count} more devices"
+msgstr[0] "Vēl {count} ierīce"
+msgstr[1] "Vēl {count} ierīces"
+msgstr[2] "Vēl {count} ierīču"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:305
+msgid "{level}%"
+msgstr "{level}%"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:312
+msgid "Blocked"
+msgstr "Bloķēts"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+msgid "Pairing lost"
+msgstr "Sapārojums zaudēts"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+msgid "Pairing will not survive a restart"
+msgstr "Sapārojums nesaglabāsies pēc pārstartēšanas"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/render.rs:324
+msgid "Type"
+msgstr "Tips"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/power/render.rs:111
+#: crates/glimpse-widgets/blueprints/power_popover.blp:41
+msgid "Battery"
+msgstr "Akumulators"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+msgid "Codec"
+msgstr "Kodeks"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:340
+#: crates/glimpse-panel/src/applets/network/render.rs:243
+msgid "Disconnect"
+msgstr "Atvienot"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:342
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
+#: crates/glimpse-panel/src/applets/network/indicator.rs:273
+#: crates/glimpse-panel/src/applets/network/indicator.rs:295
+#: crates/glimpse-panel/src/applets/network/render.rs:251
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
+msgid "Connect"
+msgstr "Savienot"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:344
+msgid "Pair"
+msgstr "Sapārot"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/network/render.rs:279
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+msgid "Connect automatically"
+msgstr "Savienot automātiski"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+msgid "Forget this device"
+msgstr "Aizmirst šo ierīci"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+msgid "The device is switched off or out of range."
+msgstr "Ierīce ir izslēgta vai ārpus sniedzamības."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+msgid "The device refused the connection."
+msgstr "Ierīce atteica savienojumu."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+msgid "The device offers nothing this computer can connect to."
+msgstr "Ierīcei nav pakalpojumu, ko šis dators varētu izmantot."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+msgid "The PIN or passkey did not match."
+msgstr "PIN vai piekļuves atslēga nesakrita."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+msgid "The device rejected the pairing. Put it in pairing mode and try again."
+msgstr ""
+"Ierīce noraidīja sapārošanu. Ieslēdziet tajā sapārošanas režīmu un mēģiniet "
+"vēlreiz."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+msgid "The pairing timed out."
+msgstr "Sapārošanai iestājās noildze."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+msgid "The pairing was cancelled."
+msgstr "Sapārošana tika atcelta."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+msgid ""
+"This panel could not register a pairing agent, so it cannot pair. Devices "
+"that are already paired still connect."
+msgstr ""
+"Šis panelis nevarēja reģistrēt sapārošanas aģentu, tāpēc nevar sapārot. Jau "
+"sapārotās ierīces joprojām savienojas."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+msgid "The device is busy, possibly connected to another device."
+msgstr "Ierīce ir aizņemta, iespējams, savienota ar citu ierīci."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+msgid "Bluetooth is switched off."
+msgstr "Bluetooth ir izslēgts."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+msgid "The device disconnected."
+msgstr "Ierīce atvienojās."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+msgid "The pairing with this device is no longer valid."
+msgstr "Sapārojums ar šo ierīci vairs nav derīgs."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+msgid ""
+"This computer could not open a connection to the device. Try again, or "
+"switch Bluetooth off and on."
+msgstr ""
+"Šis dators nevarēja atvērt savienojumu ar ierīci. Mēģiniet vēlreiz vai "
+"izslēdziet un ieslēdziet Bluetooth."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+msgid "Bluetooth could not complete that."
+msgstr "Bluetooth to nevarēja pabeigt."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+msgid "Headset"
+msgstr "Austiņas ar mikrofonu"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+msgid "Headphones"
+msgstr "Austiņas"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+msgid "Speaker"
+msgstr "Skaļrunis"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/display/render.rs:78
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
+msgid "Keyboard"
+msgstr "Tastatūra"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+msgid "Mouse"
+msgstr "Pele"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+msgid "Gamepad"
+msgstr "Spēļu pults"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+msgid "Tablet"
+msgstr "Planšete"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+msgid "Phone"
+msgstr "Tālrunis"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+msgid "Computer"
+msgstr "Dators"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-widgets/blueprints/display_popover.blp:12
+msgid "Display"
+msgstr "Displejs"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+msgid "Printer"
+msgstr "Printeris"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+msgid "Device"
+msgstr "Ierīce"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+msgid "Vendor codec"
+msgstr "Ražotāja kodeks"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
+msgid "Image · {size}"
+msgstr "Attēls · {size}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
+msgid "Size"
+msgstr "Izmērs"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+msgid "Save as…"
+msgstr "Saglabāt kā…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+msgid "Open with…"
+msgstr "Atvērt ar…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:192
+msgid "Site"
+msgstr "Vietne"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:197
+msgid "Open in browser"
+msgstr "Atvērt pārlūkā"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
+msgid "Color"
+msgstr "Krāsa"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:209
+msgid "Copy as {format}"
+msgstr "Kopēt kā {format}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+msgid "Path"
+msgstr "Ceļš"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/render.rs:104
+#: crates/glimpse-widgets/blueprints/removable_device.blp:30
+msgid "Open"
+msgstr "Atvērt"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+msgid "Lines"
+msgstr "Rindas"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+msgid "Send to device"
+msgstr "Sūtīt uz ierīci"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
+msgid "Pin"
+msgstr "Piespraust"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
+msgid "Unpin"
+msgstr "Atspraust"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
+#: crates/glimpse-panel/src/applets/places/render.rs:50
+#: crates/glimpse-panel/src/applets/removable/render.rs:47
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "Vēl {count}"
+msgstr[1] "Vēl {count}"
+msgstr[2] "Vēl {count}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+msgid "Clear history"
+msgstr "Notīrīt vēsturi"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:428
+msgid "Save image"
+msgstr "Saglabāt attēlu"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:442
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:601
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:660
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:682
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:704
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
+msgid "Clipboard"
+msgstr "Starpliktuve"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
+msgid "Could not save the image"
+msgstr "Neizdevās saglabāt attēlu"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
+msgid "Could not send that"
+msgstr "Neizdevās to nosūtīt"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
+msgid "KDE Connect is not running."
+msgstr "KDE Connect nedarbojas."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+msgid "That entry is no longer in the history."
+msgstr "Šī ieraksta vairs nav vēsturē."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:603
+msgid "Could not copy that"
+msgstr "Neizdevās to nokopēt"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:613
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:644
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:667
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:689
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
+msgid "The clipboard is unavailable."
+msgstr "Starpliktuve nav pieejama."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:634
+msgid "Could not copy that entry"
+msgstr "Neizdevās nokopēt šo ierakstu"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:662
+msgid "Could not pin that entry"
+msgstr "Neizdevās piespraust šo ierakstu"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:684
+msgid "Could not forget that entry"
+msgstr "Neizdevās aizmirst šo ierakstu"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:706
+msgid "Could not clear the history"
+msgstr "Neizdevās notīrīt vēsturi"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:23
+msgid "Week {number}"
+msgstr "{number}. nedēļa"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-panel/src/applets/weather/render.rs:136
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "Šodien"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:31
+#: crates/glimpse-panel/src/applets/weather/render.rs:137
+#: crates/glimpse-widgets/src/world_clock/mod.rs:147
+msgid "Tomorrow"
+msgstr "Rīt"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:32
+#: crates/glimpse-widgets/src/world_clock/mod.rs:148
+msgid "Yesterday"
+msgstr "Vakar"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
+msgid "Color picker"
+msgstr "Krāsu pipete"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
+msgid "That color is no longer in the palette."
+msgstr "Šīs krāsas vairs nav paletē."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr "Pipete nevarēja palaisties, uzņemt ekrānu vai piekļūt starpliktuvei."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
+msgid "Could not pick a color"
+msgstr "Neizdevās paņemt krāsu"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
+msgid "Could not copy that color"
+msgstr "Neizdevās nokopēt šo krāsu"
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
+msgid "Pick a color"
+msgstr "Paņemt krāsu"
+
+#: crates/glimpse-panel/src/applets/command.rs:85
+msgid "Command"
+msgstr "Komanda"
+
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Could not run a command"
+msgstr "Neizdevās izpildīt komandu"
+
+#: crates/glimpse-panel/src/applets/command.rs:89
+msgid "{program} could not be started."
+msgstr "{program} nevarēja palaist."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:243
+#: crates/glimpse-panel/src/applets/display/indicator.rs:265
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
+#: crates/glimpse-widgets/blueprints/display_popover.blp:80
+msgid "Displays"
+msgstr "Displeji"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:245
+msgid "Could not change that display"
+msgstr "Neizdevās mainīt šo displeju"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:250
+#: crates/glimpse-panel/src/applets/display/indicator.rs:272
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+msgid "The compositor is unavailable."
+msgstr "Kompozitors nav pieejams."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:267
+msgid "Could not blank the screens"
+msgstr "Neizdevās aptumšot ekrānus"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+msgid "Could not change the brightness"
+msgstr "Neizdevās mainīt spilgtumu"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:377
+#: crates/glimpse-widgets/blueprints/display_popover.blp:50
+msgid "Night light"
+msgstr "Nakts gaisma"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:387
+msgid "The brightness service is unavailable."
+msgstr "Spilgtuma pakalpojums nav pieejams."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:396
+msgid "That was not a valid setting."
+msgstr "Tas nebija derīgs iestatījums."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:398
+msgid "The night light is off."
+msgstr "Nakts gaisma ir izslēgta."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:399
+msgid "The night light is not running."
+msgstr "Nakts gaisma nedarbojas."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:400
+#: crates/glimpse-panel/src/applets/power/mod.rs:353
+msgid "That took too long."
+msgstr "Tas ilga pārāk ilgi."
+
+#: crates/glimpse-panel/src/applets/display/render.rs:114
+msgid "{name}: {percent}%"
+msgstr "{name}: {percent}%"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
+msgid "Unsupported: {name}"
+msgstr "Neatbalstīts: {name}"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:410
+msgid "This applet asked for an element glimpse does not render"
+msgstr "Šī sīklietotne pieprasīja elementu, ko glimpse neattēlo"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:94
+#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+msgid "External applet action failed."
+msgstr "Ārējās sīklietotnes darbība neizdevās."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+msgid "The file did not open."
+msgstr "Failu neizdevās atvērt."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+msgid "The link did not open."
+msgstr "Saiti neizdevās atvērt."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+msgid "The application did not start."
+msgstr "Lietotni neizdevās palaist."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+msgid "External applet is not running."
+msgstr "Ārējā sīklietotne nedarbojas."
+
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+msgid "Awake until {time}"
+msgstr "Nomodā līdz {time}"
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
+msgid "Idle"
+msgstr "Dīkstāve"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:25
+#: crates/glimpse-panel/src/applets/idle/render.rs:53
+msgid "Idle daemon not running"
+msgstr "Dīkstāves dēmons nedarbojas"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:30
+#: crates/glimpse-panel/src/applets/idle/render.rs:56
+msgid "The compositor is not reporting idle time"
+msgstr "Kompozitors neziņo dīkstāves laiku"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:39
+msgid "{n} minute left"
+msgid_plural "{n} minutes left"
+msgstr[0] "Vēl {n} minūte"
+msgstr[1] "Vēl {n} minūtes"
+msgstr[2] "Vēl {n} minūšu"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:42
+msgid "{hours} h {minutes} min left"
+msgstr "Vēl {hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:59
+msgid "Nothing preventing idle"
+msgstr "Nekas neliedz dīkstāvi"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
+msgid "Awake until you turn it off"
+msgstr "Nomodā, līdz to izslēgsiet"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:88
+msgid "{n} app preventing idle or sleep"
+msgid_plural "{n} apps preventing idle or sleep"
+msgstr[0] "{n} lietotne liedz dīkstāvi vai iemigšanu"
+msgstr[1] "{n} lietotnes liedz dīkstāvi vai iemigšanu"
+msgstr[2] "{n} lietotņu liedz dīkstāvi vai iemigšanu"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:93
+msgid "{n} app preventing idle"
+msgid_plural "{n} apps preventing idle"
+msgstr[0] "{n} lietotne liedz dīkstāvi"
+msgstr[1] "{n} lietotnes liedz dīkstāvi"
+msgstr[2] "{n} lietotņu liedz dīkstāvi"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
+msgid "Unknown"
+msgstr "Nezināms"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr "tikko"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "pirms {n} minūtes"
+msgstr[1] "pirms {n} minūtēm"
+msgstr[2] "pirms {n} minūtēm"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "pirms {n} stundas"
+msgstr[1] "pirms {n} stundām"
+msgstr[2] "pirms {n} stundām"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
+msgid "(Flatpak via portal)"
+msgstr "(Flatpak caur portālu)"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
+msgid "(systemd-inhibit · pid {pid})"
+msgstr "(systemd-inhibit · pid {pid})"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
+msgid "Preventing idle"
+msgstr "Liedz dīkstāvi"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:202
+#: crates/glimpse-panel/src/config_alert.rs:110
+msgid "Glimpse"
+msgstr "Glimpse"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:208
+msgid "Manual hold"
+msgstr "Manuāla aizturēšana"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
+msgid "KDE Connect"
+msgstr "KDE Connect"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
+msgid "The device did not respond"
+msgstr "Ierīce neatbildēja"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
+msgid "Send files"
+msgstr "Sūtīt failus"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
+msgid "{percent}, charging"
+msgstr "{percent}, lādējas"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
+msgid "Connected"
+msgstr "Savienots"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
+msgid "{name} wants to pair"
+msgstr "{name} vēlas sapāroties"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
+msgstr "Nav savienots"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
+msgid "{name} · {state}"
+msgstr "{name} · {state}"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
+msgid "No paired devices"
+msgstr "Nav sapārotu ierīču"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
+msgid "charging"
+msgstr "lādējas"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
+msgid "Ring"
+msgstr "Zvanīt"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
+msgid "Ping"
+msgstr "Pingēt"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
+msgid "Send clipboard"
+msgstr "Sūtīt starpliktuves saturu"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
+msgid "Send files…"
+msgstr "Sūtīt failus…"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
+msgid "Browse files"
+msgstr "Pārlūkot failus"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
+msgid "Open SMS"
+msgstr "Atvērt SMS"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
+msgid "Unpair"
+msgstr "Atsaistīt"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
+msgid "Wants to pair"
+msgstr "Vēlas sapāroties"
+
+#: crates/glimpse-panel/src/applets/mod.rs:51
+msgid "Built-in display"
+msgstr "Iebūvētais displejs"
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:345
+msgid "Open {player}"
+msgstr "Atvērt {player}"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:32
+msgid "Playing"
+msgstr "Atskaņo"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:33
+msgid "Paused"
+msgstr "Pauzēts"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:34
+#: crates/glimpse-panel/src/applets/printing/render.rs:133
+#: crates/glimpse-panel/src/applets/printing/render.rs:191
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+msgid "Stopped"
+msgstr "Apturēts"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+msgid "None"
+msgstr "Nav"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+msgid "WEP"
+msgstr "WEP"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+msgid "WPA & WPA2 Personal"
+msgstr "WPA un WPA2 Personal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+msgid "WPA3 Personal"
+msgstr "WPA3 Personal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:114
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
+msgid "Network"
+msgstr "Tīkls"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:207
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+msgid "Hidden network"
+msgstr "Slēpts tīkls"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+msgid "Type the name the network broadcasts nothing about."
+msgstr "Ievadiet tīkla nosaukumu, jo tīkls to neizziņo."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+msgid "Continue"
+msgstr "Turpināt"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+msgid "Choose how the network is secured, then type its password."
+msgstr "Izvēlieties, kā tīkls ir aizsargāts, un ievadiet tā paroli."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:271
+#: crates/glimpse-panel/src/applets/network/indicator.rs:289
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
+msgid "The network needs a password before this computer can join it."
+msgstr "Lai šis dators varētu pievienoties tīklam, nepieciešama parole."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+msgid "{network} refused that password. Check it and try again."
+msgstr "{network} noraidīja šo paroli. Pārbaudiet to un mēģiniet vēlreiz."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
+msgid "Try again"
+msgstr "Mēģināt vēlreiz"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:316
+msgid "VPN is connected"
+msgstr "VPN ir savienots"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:366
+msgid "Could not switch Wi-Fi"
+msgstr "Neizdevās pārslēgt Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:396
+msgid "Could not connect the VPN"
+msgstr "Neizdevās savienot VPN"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:451
+msgid "Could not forget that network"
+msgstr "Neizdevās aizmirst šo tīklu"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:459
+msgid "Could not disconnect the VPN"
+msgstr "Neizdevās atvienot VPN"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:549
+msgid "Could not send that password"
+msgstr "Neizdevās nosūtīt šo paroli"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:14
+msgid "Networking is off"
+msgstr "Tīklošana ir izslēgta"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:19
+msgid "Connected by cable"
+msgstr "Savienots ar kabeli"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:20
+msgid "Connected, no internet"
+msgstr "Savienots, nav interneta"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:24
+msgid "No network adapter"
+msgstr "Nav tīkla adaptera"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:27
+msgid "Wi-Fi is blocked by hardware"
+msgstr "Wi-Fi bloķēts ar aparatūras slēdzi"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:30
+msgid "Wi-Fi is off"
+msgstr "Wi-Fi ir izslēgts"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:38
+#: crates/glimpse-panel/src/applets/network/render.rs:128
+msgid "Unnamed network"
+msgstr "Nenosaukts tīkls"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:41
+msgid "{network}: connected, no internet"
+msgstr "{network}: savienots, nav interneta"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:51
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:56
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:64
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:77
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
+msgid "Metered connection"
+msgstr "Uzskaitīts savienojums"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:81
+msgid "Signal {signal}%"
+msgstr "Signāls {signal}%"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:82
+msgid "VPN: {vpn}"
+msgstr "VPN: {vpn}"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:89
+msgid "That network needs a password."
+msgstr "Šim tīklam nepieciešama parole."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:90
+msgid "The password was not accepted."
+msgstr "Parole netika pieņemta."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:91
+msgid "That network is no longer in range."
+msgstr "Šis tīkls vairs nav sniedzamības zonā."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:92
+msgid "The connection timed out."
+msgstr "Savienojumam iestājās noildze."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:93
+msgid "The connection could not be configured."
+msgstr "Savienojumu neizdevās konfigurēt."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:94
+msgid "The connection was dropped."
+msgstr "Savienojums tika pārtraukts."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:95
+msgid "That network has been forgotten."
+msgstr "Šis tīkls ir aizmirsts."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:96
+msgid "There is no network device to use."
+msgstr "Nav izmantojamas tīkla ierīces."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:97
+msgid "NetworkManager refused that."
+msgstr "NetworkManager to atteica."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:109
+msgid "Enterprise"
+msgstr "Uzņēmuma"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:110
+msgid "Open, encrypted"
+msgstr "Atvērts, šifrēts"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:207
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+msgid "{count} more network"
+msgid_plural "{count} more networks"
+msgstr[0] "Vēl {count} tīkls"
+msgstr[1] "Vēl {count} tīkli"
+msgstr[2] "Vēl {count} tīklu"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:233
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+#: crates/glimpse-panel/src/applets/printing/render.rs:163
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+msgid "Status"
+msgstr "Statuss"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:235
+msgid "Metered"
+msgstr "Uzskaitīts"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:239
+msgid "IP address"
+msgstr "IP adrese"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:266
+msgid "Security"
+msgstr "Drošība"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:267
+msgid "Band"
+msgstr "Josla"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:294
+#: crates/glimpse-widgets/blueprints/network_row.blp:34
+msgid "Forget this network"
+msgstr "Aizmirst šo tīklu"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:306
+msgid "Cable unplugged"
+msgstr "Kabelis atvienots"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:314
+msgid "Speed"
+msgstr "Ātrums"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:315
+msgid "{speed} Mb/s"
+msgstr "{speed} Mb/s"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "ends in {value} {unit}"
+msgstr "beigsies pēc {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
+msgid "in {value} {unit}"
+msgstr "pēc {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "min"
+msgstr "min"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
+msgid "min left"
+msgstr "min atlikušas"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "h"
+msgstr "h"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+msgid "d"
+msgstr "d"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:212
+msgid "Clashes with {events}"
+msgstr "Pārklājas ar {events}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:245
+msgid "Guests"
+msgstr "Viesi"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:246
+msgid "{total} · {accepted} accepted"
+msgstr "{total} · pieņēmuši {accepted}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+msgid "Tentative"
+msgstr "Neapstiprināts"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:258
+msgid "Meeting"
+msgstr "Sapulce"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:261
+msgid "Link"
+msgstr "Saite"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
+msgid "Conflicts"
+msgstr "Konflikti"
+
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:211
+msgid "Clear all"
+msgstr "Notīrīt visu"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+msgid "Do not disturb"
+msgstr "Netraucēt"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+msgid "{count} waiting, do not disturb is on"
+msgid_plural "{count} waiting, do not disturb is on"
+msgstr[0] "Gaida {count}, ieslēgts režīms “Netraucēt”"
+msgstr[1] "Gaida {count}, ieslēgts režīms “Netraucēt”"
+msgstr[2] "Gaida {count}, ieslēgts režīms “Netraucēt”"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+msgid "No new notifications"
+msgstr "Nav jaunu paziņojumu"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:105
+msgid "{count} new notification"
+msgid_plural "{count} new notifications"
+msgstr[0] "{count} jauns paziņojums"
+msgstr[1] "{count} jauni paziņojumi"
+msgstr[2] "{count} jaunu paziņojumu"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+msgid "{count}m"
+msgstr "{count} min"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+msgid "{count}h"
+msgstr "{count} h"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+msgid "{count}d"
+msgstr "{count} d"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Tukšs"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:221
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] "{count} logs"
+msgstr[1] "{count} logi"
+msgstr[2] "{count} logu"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:76
+#: crates/glimpse-panel/src/applets/places/render.rs:20
+#: crates/glimpse-widgets/blueprints/places_popover.blp:12
+#: crates/glimpse-widgets/blueprints/places_popover.blp:24
+msgid "Places"
+msgstr "Vietas"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:78
+msgid "Could not empty the trash"
+msgstr "Neizdevās iztukšot miskasti"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:106
+msgid "Some items could not be deleted."
+msgstr "Dažus vienumus neizdevās izdzēst."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:297
+#: crates/glimpse-panel/src/applets/power/mod.rs:325
+#: crates/glimpse-panel/src/applets/power/mod.rs:346
+#: crates/glimpse-panel/src/applets/power/render.rs:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:12
+#: crates/glimpse-widgets/blueprints/status_island.blp:34
+#: crates/glimpse-widgets/blueprints/status_island.blp:37
+msgid "Power"
+msgstr "Barošana"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:299
+msgid "Could not change the power mode"
+msgstr "Neizdevās mainīt barošanas režīmu"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:304
+#: crates/glimpse-panel/src/applets/power/mod.rs:332
+msgid "The battery service is unavailable."
+msgstr "Akumulatora pakalpojums nav pieejams."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:327
+msgid "Could not change the charge limit"
+msgstr "Neizdevās mainīt uzlādes ierobežojumu"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:348
+msgid "Could not change keep awake"
+msgstr "Neizdevās mainīt nomoda režīmu"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:352
+msgid "The idle service is unavailable."
+msgstr "Dīkstāves pakalpojums nav pieejams."
+
+#: crates/glimpse-panel/src/applets/power/render.rs:130
+msgid "Power draw"
+msgstr "Patēriņš"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:131
+msgid "{watts} W"
+msgstr "{watts} W"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:136
+msgid "Health"
+msgstr "Stāvoklis"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:143
+msgid "Energy"
+msgstr "Enerģija"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:149
+msgid "Capacity when new"
+msgstr "Jauna akumulatora ietilpība"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:154
+msgid "Cycles"
+msgstr "Cikli"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:157
+msgid "Technology"
+msgstr "Tehnoloģija"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
+msgid "Model"
+msgstr "Modelis"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
+msgid "Make"
+msgstr "Ražotājs"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:173
+msgid "Limit charge to {percent}%"
+msgstr "Ierobežot uzlādi līdz {percent}%"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:220
+msgid "Until full"
+msgstr "Līdz pilnai uzlādei"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:223
+msgid "Remaining"
+msgstr "Atlicis"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:232
+msgid "Since unplugged"
+msgstr "Kopš atvienošanas"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:309
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:454
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:467
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:535
+msgid "Now"
+msgstr "Tagad"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:327
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:440
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:519
+msgid "{time} · {percent}%"
+msgstr "{time} · {percent}%"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:359
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:787
+msgid "Kept awake"
+msgstr "Uzturēts nomodā"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:362
+msgid "Held by {app}"
+msgstr "Aiztur {app}"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:363
+msgid "Held by you"
+msgstr "Jūsu aizturēts"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:372
+msgid "Less than a minute"
+msgstr "Mazāk par minūti"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:373
+msgid "{minutes} m"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:375
+msgid "{hours} h {minutes} m"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:383
+msgid "Charging"
+msgstr "Lādējas"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:384
+msgid "Discharging"
+msgstr "Izlādējas"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:386
+msgid "Fully charged"
+msgstr "Pilnībā uzlādēts"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:387
+msgid "Not charging"
+msgstr "Nelādējas"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:402
+msgid "Power saver"
+msgstr "Enerģijas taupīšana"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:403
+msgid "Balanced"
+msgstr "Līdzsvarots"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:404
+msgid "Performance"
+msgstr "Veiktspēja"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:412
+msgid "Unavailable: laptop on lap"
+msgstr "Nav pieejams: klēpjdators uz klēpja"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:413
+msgid "Unavailable: too hot"
+msgstr "Nav pieejams: pārāk karsts"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:444
+msgid "Li-ion"
+msgstr "Li-ion"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:445
+msgid "Li-poly"
+msgstr "Li-poly"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:446
+msgid "LiFePO4"
+msgstr "LiFePO4"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:447
+msgid "Lead acid"
+msgstr "Svina skābes"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:448
+msgid "NiCd"
+msgstr "NiCd"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:449
+msgid "NiMH"
+msgstr "NiMH"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:63
+msgid "Could not cancel the print job"
+msgstr "Neizdevās atcelt drukas darbu"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:70
+msgid "Could not pause the print job"
+msgstr "Neizdevās pauzēt drukas darbu"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:77
+msgid "Could not resume the print job"
+msgstr "Neizdevās atsākt drukas darbu"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:84
+msgid "Could not retry the print job"
+msgstr "Neizdevās atkārtot drukas darbu"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:112
+#: crates/glimpse-panel/src/applets/printing/render.rs:132
+#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:12
+msgid "Printing"
+msgstr "Drukāšana"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:137
+msgid "The print server refused that."
+msgstr "Drukas serveris to atteica."
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:139
+msgid "The print server is unreachable."
+msgstr "Drukas serveris nav sasniedzams."
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:58
+msgid "page {done} of {total}"
+msgstr "{done}. lappuse no {total}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:77
+msgid ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+msgstr ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:120
+msgid "{status}: {reason}"
+msgstr "{status}: {reason}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:130
+msgid "Queued"
+msgstr "Rindā"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:131
+msgid "Held"
+msgstr "Aizturēts"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:134
+msgid "Completed"
+msgstr "Pabeigts"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:135
+msgid "Cancelled"
+msgstr "Atcelts"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:136
+msgid "Aborted"
+msgstr "Pārtraukts"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:182
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+msgid "Not accepting jobs"
+msgstr "Nepieņem darbus"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:93
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:134
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:12
+msgid "Privacy"
+msgstr "Privātums"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:136
+msgid "Could not stop that screen share"
+msgstr "Neizdevās apturēt šo ekrāna kopīgošanu"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:151
+msgid "That share had already ended."
+msgstr "Šī kopīgošana jau bija beigusies."
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Camera"
+msgstr "Kamera"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+msgid "Microphone"
+msgstr "Mikrofons"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:46
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:62
+#: data/me.aresa.Glimpse.Shot.desktop:18
+msgid "Screen"
+msgstr "Ekrāns"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:144
+msgid "Sharing {what}"
+msgstr "Kopīgo: {what}"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:152
+msgid "muted"
+msgstr "apklusināts"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:175
+msgid "a window"
+msgstr "logs"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:78
+msgid "Could not open that drive"
+msgstr "Neizdevās atvērt šo disku"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:112
+msgid "Could not eject that drive"
+msgstr "Neizdevās izgrūst šo disku"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:154
+#: crates/glimpse-panel/src/applets/removable/render.rs:27
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+msgid "Removable"
+msgstr "Noņemams"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:115
+msgid "{available} free"
+msgstr "{available} brīvi"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:151
+#: crates/glimpse-widgets/blueprints/removable_device.blp:20
+msgid "Space"
+msgstr "Vieta"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:181
+msgid "In use by an app"
+msgstr "Izmanto lietotne"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:184
+msgid "No space left"
+msgstr "Nav brīvas vietas"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:231
+msgid "That drive is not mounted."
+msgstr "Šis disks nav piemontēts."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:232
+msgid "The drive is busy with something else."
+msgstr "Disks ir aizņemts ar ko citu."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:233
+msgid "That drive is already mounted."
+msgstr "Šis disks jau ir piemontēts."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:234
+msgid "This computer is not authorized to do that."
+msgstr "Šim datoram nav atļaujas to darīt."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:235
+msgid "That is not supported for this drive."
+msgstr "Šim diskam tas netiek atbalstīts."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:236
+msgid "That option is not permitted."
+msgstr "Šī opcija nav atļauta."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:237
+msgid "The drive did not respond in time."
+msgstr "Disks laikus neatbildēja."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:238
+msgid "That would wake a sleeping drive."
+msgstr "Tas pamodinātu guļošu disku."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:239
+msgid "The action was cancelled."
+msgstr "Darbība tika atcelta."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:240
+msgid "The drive could not complete that."
+msgstr "Disks to nevarēja pabeigt."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
+msgid "Ruler"
+msgstr "Lineāls"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
+msgid "The ruler could not start, capture the screen or reach the clipboard."
+msgstr "Lineāls nevarēja palaisties, uzņemt ekrānu vai piekļūt starpliktuvei."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
+msgid "Could not measure the screen"
+msgstr "Neizdevās izmērīt ekrānu"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
+msgid "Could not copy that measurement"
+msgstr "Neizdevās nokopēt šo mērījumu"
+
+#: crates/glimpse-panel/src/applets/ruler/render.rs:25
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
+msgid "Measure the screen"
+msgstr "Mērīt ekrānu"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by {who}"
+msgstr "Bloķē {who}"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:26
+msgid "Blocked by an active inhibitor."
+msgstr "Bloķē aktīvs aizturētājs."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:62
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "Iesnaudināt"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:61
+msgid "Suspend this session?"
+msgstr "Iesnaudināt šo sesiju?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+msgid "Hibernate"
+msgstr "Hibernēt"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:66
+msgid "Hibernate this session?"
+msgstr "Hibernēt šo sesiju?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
+msgid "Log out"
+msgstr "Izrakstīties"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:71
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr "Tas aizvērs pašreizējo sesiju. Lietotnes var neaizvērties korekti."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr "Pārstartēt"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:76
+msgid "Restart this computer?"
+msgstr "Pārstartēt šo datoru?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "Izslēgt"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:81
+msgid "Shut down this computer?"
+msgstr "Izslēgt šo datoru?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:106
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] "Joprojām darbojas {windows} atvērts logs."
+msgstr[1] "Joprojām darbojas {windows} atvērti logi."
+msgstr[2] "Joprojām darbojas {windows} atvērtu logu."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:129
+msgid "Signed in today"
+msgstr "Sesija sākta šodien"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:131
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] "Sesija ilgst {days} dienu"
+msgstr[1] "Sesija ilgst {days} dienas"
+msgstr[2] "Sesija ilgst {days} dienu"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
+msgid "CPU"
+msgstr "CPU"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
+msgid "RAM"
+msgstr "RAM"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
+msgid "Swap"
+msgstr "Mijmaiņa"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
+msgid "Net"
+msgstr "Tīkls"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
+msgid "GPU"
+msgstr "GPU"
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:295
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] "Rādīt {count} slēptu vienumu"
+msgstr[1] "Rādīt {count} slēptus vienumus"
+msgstr[2] "Rādīt {count} slēptu vienumu"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:193
+msgid "The weather provider is not serving this place."
+msgstr "Laikapstākļu nodrošinātājs šai vietai datus nesniedz."
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:219
+msgid "Here"
+msgstr "Šeit"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:234
+#: crates/glimpse-panel/src/applets/weather/mod.rs:270
+msgid "No reading yet"
+msgstr "Vēl nav rādījumu"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:16
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
+msgid "Clear"
+msgstr "Skaidrs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:17
+msgid "Mainly clear"
+msgstr "Pārsvarā skaidrs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:18
+msgid "Partly cloudy"
+msgstr "Daļēji mākoņains"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:19
+msgid "Overcast"
+msgstr "Apmācies"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:20
+msgid "Fog"
+msgstr "Migla"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:21
+msgid "Drizzle"
+msgstr "Smalks lietus"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:22
+msgid "Freezing drizzle"
+msgstr "Smalks lietus ar apledojumu"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:23
+msgid "Light rain"
+msgstr "Neliels lietus"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:24
+#: crates/glimpse-panel/src/applets/weather/render.rs:206
+msgid "Rain"
+msgstr "Lietus"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:25
+msgid "Heavy rain"
+msgstr "Stiprs lietus"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:26
+msgid "Freezing rain"
+msgstr "Lietus ar apledojumu"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:27
+msgid "Light snow"
+msgstr "Neliels sniegs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:28
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
+msgid "Snow"
+msgstr "Sniegs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:29
+msgid "Heavy snow"
+msgstr "Stiprs sniegs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:30
+msgid "Snow grains"
+msgstr "Sniega graudi"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:31
+msgid "Sleet"
+msgstr "Slapjš sniegs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:32
+msgid "Rain showers"
+msgstr "Lietusgāzes"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:33
+msgid "Snow showers"
+msgstr "Īslaicīgs sniegs"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:34
+msgid "Thunderstorm"
+msgstr "Pērkona negaiss"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:35
+msgid "Thunderstorm with hail"
+msgstr "Pērkona negaiss ar krusu"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:84
+msgid "feels like {temperature}"
+msgstr "jūtas kā {temperature}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:213
+msgid "{what} starting in {count} minute"
+msgid_plural "{what} starting in {count} minutes"
+msgstr[0] "{what} sāksies pēc {count} minūtes"
+msgstr[1] "{what} sāksies pēc {count} minūtēm"
+msgstr[2] "{what} sāksies pēc {count} minūtēm"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:223
+msgid "{what} starting in {count} hour"
+msgid_plural "{what} starting in {count} hours"
+msgstr[0] "{what} sāksies pēc {count} stundas"
+msgstr[1] "{what} sāksies pēc {count} stundām"
+msgstr[2] "{what} sāksies pēc {count} stundām"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:244
+msgid "°C"
+msgstr "°C"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:245
+msgid "°F"
+msgstr "°F"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:273
+msgctxt "wind"
+msgid "N"
+msgstr "Z"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:274
+msgctxt "wind"
+msgid "NE"
+msgstr "ZA"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:275
+msgctxt "wind"
+msgid "E"
+msgstr "A"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:276
+msgctxt "wind"
+msgid "SE"
+msgstr "DA"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:277
+msgctxt "wind"
+msgid "S"
+msgstr "D"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:278
+msgctxt "wind"
+msgid "SW"
+msgstr "DR"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
+msgctxt "wind"
+msgid "W"
+msgstr "R"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
+msgctxt "wind"
+msgid "NW"
+msgstr "ZR"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:287
+msgid "km/h"
+msgstr "km/h"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:288
+msgid "mph"
+msgstr "mph"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
+msgid "{amount} mm"
+msgstr "{amount} mm"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:300
+msgid "{amount} in"
+msgstr "{amount} in"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:307
+msgid "Wind"
+msgstr "Vējš"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:310
+msgid "Humidity"
+msgstr "Mitrums"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
+msgid "Precipitation"
+msgstr "Nokrišņi"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:321
+msgid "High"
+msgstr "Maks."
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:325
+msgid "Low"
+msgstr "Min."
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:331
+msgid "Chance of rain"
+msgstr "Lietus iespējamība"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:340
+msgid "Sunrise"
+msgstr "Saullēkts"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:343
+msgid "Sunset"
+msgstr "Saulriets"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
+msgid "Day length"
+msgstr "Dienas garums"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:392
+msgid ""
+"{place}\n"
+"{condition}, {temperature}, feels like {feels-like}"
+msgstr ""
+"{place}\n"
+"{condition}, {temperature}, jūtas kā {feels-like}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
+msgid "Workspaces"
+msgstr "Darbvietas"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+msgid "Could not rename the workspace"
+msgstr "Neizdevās pārdēvēt darbvietu"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:29
+msgid "Workspace {number}"
+msgstr "{number}. darbvieta"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:56
+msgid "Already the name of {workspace}"
+msgstr "Jau ir darbvietas {workspace} nosaukums"
+
+#: crates/glimpse-panel/src/config_alert.rs:32
+msgid ""
+"Idle and night light are off until it is fixed; everything else uses its "
+"defaults."
+msgstr ""
+"Dīkstāve un nakts gaisma ir izslēgtas, līdz kļūda tiks novērsta; viss "
+"pārējais izmanto noklusējuma vērtības."
+
+#: crates/glimpse-panel/src/config_alert.rs:38
+msgid ""
+"The last change was not applied; the previous configuration is still "
+"running."
+msgstr ""
+"Pēdējās izmaiņas netika lietotas; joprojām darbojas iepriekšējā "
+"konfigurācija."
+
+#: crates/glimpse-panel/src/config_alert.rs:113
+msgid "Glimpse configuration has errors"
+msgstr "Glimpse konfigurācijā ir kļūdas"
+
+#: crates/glimpse-shot/src/errors.rs:52
+msgid "a screenshot is already being taken"
+msgstr "ekrānuzņēmums jau tiek veidots"
+
+#: crates/glimpse-shot/src/gui/app.rs:218
+msgid "_Open Image…"
+msgstr "_Atvērt attēlu…"
+
+#: crates/glimpse-shot/src/gui/app.rs:220
+msgid "_Preferences"
+msgstr "_Iestatījumi"
+
+#: crates/glimpse-shot/src/gui/app.rs:221
+msgid "_Keyboard Shortcuts"
+msgstr "_Tastatūras īsinājumtaustiņi"
+
+#: crates/glimpse-shot/src/gui/app.rs:222
+msgid "_About Screenshot"
+msgstr "_Par lietotni Ekrānuzņēmums"
+
+#: crates/glimpse-shot/src/gui/app.rs:372
+msgid "--portal needs a screen target"
+msgstr "--portal mērķim jābūt ekrānam"
+
+#: crates/glimpse-shot/src/gui/app.rs:532
+#: crates/glimpse-shot/src/gui/app.rs:640
+#: crates/glimpse-shot/src/gui/app.rs:892
+#: crates/glimpse-shot/src/notify.rs:372
+#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
+#: data/me.aresa.Glimpse.Shot.desktop:3
+msgid "Screenshot"
+msgstr "Ekrānuzņēmums"
+
+#: crates/glimpse-shot/src/gui/app.rs:567
+msgid "The clipboard holds no image"
+msgstr "Starpliktuvē nav attēla"
+
+#: crates/glimpse-shot/src/gui/app.rs:764
+msgid "There is no window to capture"
+msgstr "Nav loga, ko uzņemt"
+
+#: crates/glimpse-shot/src/gui/app.rs:834
+msgid "That window has closed"
+msgstr "Šis logs ir aizvērts"
+
+#: crates/glimpse-shot/src/gui/app.rs:851
+msgid "PNG Images"
+msgstr "PNG attēli"
+
+#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+msgid "Open Image"
+msgstr "Atvērt attēlu"
+
+#: crates/glimpse-shot/src/gui/app.rs:969
+msgid "Untitled window"
+msgstr "Nenosaukts logs"
+
+#: crates/glimpse-shot/src/gui/app.rs:1078
+msgid "Screenshot failed"
+msgstr "Ekrānuzņēmums neizdevās"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:385
+msgid "Waiting to take a screenshot"
+msgstr "Gaida, lai uzņemtu ekrānuzņēmumu"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/result.rs:936
+msgid "Save Screenshot"
+msgstr "Saglabāt ekrānuzņēmumu"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1641
+msgid "{size} · scaled {percent}%"
+msgstr "{size} · mērogs {percent}%"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1818
+msgid "Saved"
+msgstr "Saglabāts"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1819
+msgid "Copied"
+msgstr "Nokopēts"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:90
+msgid "Pictures/Screenshots"
+msgstr "Attēli/Ekrānuzņēmumi"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:108
+#: crates/glimpse-shot/src/gui/prefs.rs:127
+msgid "Saved as “{name}”"
+msgstr "Saglabāts kā “{name}”"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:219
+#: crates/glimpse-shot/src/gui/result.rs:1088
+msgid "Copied to clipboard"
+msgstr "Nokopēts starpliktuvē"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
+msgid "Choose Folder"
+msgstr "Izvēlēties mapi"
+
+#: crates/glimpse-shot/src/gui/result.rs:734
+msgid "A screenshot has unsaved changes"
+msgstr "Ekrānuzņēmumam ir nesaglabātas izmaiņas"
+
+#: crates/glimpse-shot/src/gui/result.rs:878
+msgid "A file name cannot be empty or contain “/”"
+msgstr "Faila nosaukums nedrīkst būt tukšs vai saturēt “/”"
+
+#: crates/glimpse-shot/src/gui/result.rs:883
+msgid ""
+"There is no Pictures folder to save into; choose a folder in Preferences"
+msgstr "Nav mapes Attēli, kur saglabāt; izvēlieties mapi iestatījumos"
+
+#: crates/glimpse-shot/src/gui/result.rs:969
+msgid "Discard this screenshot?"
+msgstr "Atmest šo ekrānuzņēmumu?"
+
+#: crates/glimpse-shot/src/gui/result.rs:970
+msgid "It has not been saved or copied."
+msgstr "Tas nav ne saglabāts, ne nokopēts."
+
+#: crates/glimpse-shot/src/gui/result.rs:974
+msgid "Discard"
+msgstr "Atmest"
+
+#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+msgid "Save"
+msgstr "Saglabāt"
+
+#: crates/glimpse-shot/src/gui/result.rs:1137
+msgid "Saved “{name}”"
+msgstr "Saglabāts “{name}”"
+
+#: crates/glimpse-shot/src/gui/result.rs:1145
+#: crates/glimpse-shot/src/notify.rs:499
+#: crates/glimpse-shot/src/notify/tests.rs:312
+msgid "Show in Folder"
+msgstr "Rādīt mapē"
+
+#: crates/glimpse-shot/src/notify.rs:485
+#: crates/glimpse-shot/src/notify/tests.rs:298
+msgid "Screenshot saved"
+msgstr "Ekrānuzņēmums saglabāts"
+
+#: crates/glimpse-shot/src/notify.rs:486
+#: crates/glimpse-shot/src/notify/tests.rs:331
+msgid "Screenshot copied"
+msgstr "Ekrānuzņēmums nokopēts"
+
+#: crates/glimpse-shot/src/notify.rs:497
+#: crates/glimpse-shot/src/notify/tests.rs:310
+msgctxt "notification action"
+msgid "Open"
+msgstr "Atvērt"
+
+#: crates/glimpse-shot/src/portal.rs:138
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:56
+msgid "An application"
+msgstr "Kāda lietotne"
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+msgid "Applications"
+msgstr "Lietotnes"
+
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
+msgid "Nearby devices"
+msgstr "Tuvumā esošās ierīces"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr "Rādīt visu gadu"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr "Iepriekšējais"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/track_card.blp:63
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr "Nākamais"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
+msgid "Some events on this day aren't shown."
+msgstr "Daži šīs dienas notikumi netiek rādīti."
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
+msgid "World clock"
+msgstr "Pasaules pulkstenis"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:29
+msgid "Search clipboard"
+msgstr "Meklēt starpliktuvē"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:37
+msgid "Pinned"
+msgstr "Piespraustie"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
+msgid "Recent"
+msgstr "Nesenie"
+
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
+msgid "Palette"
+msgstr "Palete"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:31
+msgid "Brightness"
+msgstr "Spilgtums"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:57
+#: crates/glimpse-widgets/src/display_list/mod.rs:109
+msgid "Enabled"
+msgstr "Ieslēgts"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:72
+#: crates/glimpse-widgets/src/display_popover/mod.rs:325
+msgid "Pause until tomorrow"
+msgstr "Pauzēt līdz rītdienai"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:89
+msgid "Blank the screens"
+msgstr "Aptumšot ekrānus"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:16
+#: crates/glimpse-widgets/blueprints/power_popover.blp:73
+#: crates/glimpse-widgets/blueprints/power_popover.blp:80
+msgid "Keep awake"
+msgstr "Uzturēt nomodā"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:28
+#: crates/glimpse-widgets/blueprints/power_popover.blp:84
+#: crates/glimpse-widgets/src/idle_popover/mod.rs:59
+msgid "Keep awake for…"
+msgstr "Uzturēt nomodā…"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/blueprints/power_popover.blp:88
+msgid "15 minutes"
+msgstr "15 minūtes"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:37
+#: crates/glimpse-widgets/blueprints/power_popover.blp:93
+msgid "30 minutes"
+msgstr "30 minūtes"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:42
+#: crates/glimpse-widgets/blueprints/power_popover.blp:98
+msgid "1 hour"
+msgstr "1 stunda"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:47
+#: crates/glimpse-widgets/blueprints/power_popover.blp:103
+msgid "2 hours"
+msgstr "2 stundas"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:108
+msgid "4 hours"
+msgstr "4 stundas"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:58
+msgid "Kept awake by"
+msgstr "Nomodā uztur"
+
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
+msgid "KDE Connect settings"
+msgstr "KDE Connect iestatījumi"
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
+msgid "Other players"
+msgstr "Citi atskaņotāji"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
+msgid "Ethernet"
+msgstr "Ethernet"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
+msgid "VPN"
+msgstr "VPN"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
+msgid "Other networks"
+msgstr "Citi tīkli"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
+msgid "Looking for networks…"
+msgstr "Meklē tīklus…"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
+msgid "Connect to a hidden network…"
+msgstr "Savienoties ar slēptu tīklu…"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+msgid "Details"
+msgstr "Sīkāka informācija"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+msgid "Coming up"
+msgstr "Gaidāmie"
+
+#: crates/glimpse-widgets/blueprints/notification_header.blp:56
+#: crates/glimpse-widgets/src/notification_card/imp.rs:183
+msgid "Dismiss"
+msgstr "Aizvērt"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
+msgid "Notifications are unavailable"
+msgstr "Paziņojumi nav pieejami"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
+msgid "Nothing new"
+msgstr "Nekā jauna"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
+msgid "You are all caught up."
+msgstr "Viss ir izlasīts."
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+msgid "Password"
+msgstr "Parole"
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:61
+msgid "Caps Lock is on"
+msgstr "Ieslēgts Caps Lock"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:33
+msgid "Bookmarks"
+msgstr "Grāmatzīmes"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:60
+#: crates/glimpse-widgets/blueprints/places_popover.blp:63
+msgid "Trash"
+msgstr "Miskaste"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:66
+msgid "Open the trash"
+msgstr "Atvērt miskasti"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:70
+#: crates/glimpse-widgets/src/places_popover/mod.rs:176
+msgid "Empty the trash"
+msgstr "Iztukšot miskasti"
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:16
+#: crates/glimpse-widgets/blueprints/track_card.blp:52
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:319
+msgid "Play"
+msgstr "Atskaņot"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:54
+msgid "History"
+msgstr "Vēsture"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:67
+msgid "Power mode"
+msgstr "Barošanas režīms"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:116
+msgid "Devices"
+msgstr "Ierīces"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:24
+msgid "Print jobs"
+msgstr "Drukas darbi"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:33
+msgid "Printers"
+msgstr "Printeri"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:24
+msgid "In use now"
+msgstr "Pašlaik tiek izmantots"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "Mute microphone"
+msgstr "Apklusināt mikrofonu"
+
+#: crates/glimpse-widgets/blueprints/removable_device.blp:35
+msgid "Eject"
+msgstr "Izgrūst"
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr "Pārtīt"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:12
+msgid "Lock"
+msgstr "Bloķēt"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+msgid "Suspend…"
+msgstr "Iesnaudināt…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
+msgid "Restart…"
+msgstr "Pārstartēt…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
+msgid "Power Off…"
+msgstr "Izslēgt…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
+msgid "Suspend now?"
+msgstr "Iesnaudināt tagad?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
+msgid "The screen stays locked when it wakes."
+msgstr "Pēc pamošanās ekrāns paliks bloķēts."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
+msgid "Restart now?"
+msgstr "Pārstartēt tagad?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
+msgid "Open sessions may lose unsaved work."
+msgstr "Atvērtajās sesijās var pazust nesaglabātais darbs."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
+msgid "Power off now?"
+msgstr "Izslēgt tagad?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
+msgid "Power Off"
+msgstr "Izslēgt"
+
+#: crates/glimpse-widgets/blueprints/shot_banner.blp:33
+msgid "Enter shares · Esc refuses"
+msgstr "Enter kopīgo · Esc atsaka"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:22
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:111
+msgid "Main Menu"
+msgstr "Galvenā izvēlne"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:47
+msgid "Capture a Screen (S)"
+msgstr "Uzņemt ekrānu (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:69
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:85
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:129
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:75
+#: data/me.aresa.Glimpse.Shot.desktop:22
+msgid "Window"
+msgstr "Logs"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:70
+msgid "Capture a Window (W)"
+msgstr "Uzņemt logu (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:92
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:108
+#: data/me.aresa.Glimpse.Shot.desktop:26
+msgid "Region"
+msgstr "Apgabals"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:93
+msgid "Capture a Region (R)"
+msgstr "Uzņemt apgabalu (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "Aizture"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
+msgid "Show Pointer"
+msgstr "Rādīt rādītāju"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:166
+msgid "_Take Screenshot"
+msgstr "_Uzņemt ekrānuzņēmumu"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:168
+msgid "Take Screenshot (Enter)"
+msgstr "Uzņemt ekrānuzņēmumu (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
+msgid "Cancel the screenshot"
+msgstr "Atcelt ekrānuzņēmumu"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:204
+msgid "Preferences"
+msgstr "Iestatījumi"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
+msgid "config.toml cannot be read, so nothing here can be saved"
+msgstr "config.toml nevar nolasīt, tāpēc šeit neko nevar saglabāt"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
+msgid "Open File"
+msgstr "Atvērt failu"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:19
+msgid "Saving"
+msgstr "Saglabāšana"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:22
+msgid "Folder"
+msgstr "Mape"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:39
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:78
+msgid "File Name"
+msgstr "Faila nosaukums"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
+msgid "Behavior"
+msgstr "Uzvedība"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:69
+msgid "Annotate In"
+msgstr "Anotēšanas vieta"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:70
+msgid "Where a Print capture opens"
+msgstr "Kur atveras Print uzņēmums"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:74
+msgid "Full-Screen Overlay"
+msgstr "Pilnekrāna pārklājums"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:82
+msgid "Default Delay"
+msgstr "Noklusējuma aizture"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
+msgid "Seconds before capturing"
+msgstr "Sekundes pirms uzņemšanas"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:97
+msgid "Flash on Capture"
+msgstr "Zibsnis uzņemot"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:101
+msgid "Notify After Saving or Copying"
+msgstr "Paziņot pēc saglabāšanas vai kopēšanas"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:106
+msgid "Annotations"
+msgstr "Anotācijas"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+msgid "Red"
+msgstr "Sarkana"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+msgid "Yellow"
+msgstr "Dzeltena"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+msgid "Green"
+msgstr "Zaļa"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+msgid "Blue"
+msgstr "Zila"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+msgid "White"
+msgstr "Balta"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:224
+msgid "Line Width"
+msgstr "Līnijas platums"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:233
+msgid "Thin"
+msgstr "Tieva"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:238
+msgid "Medium"
+msgstr "Vidēja"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:243
+msgid "Thick"
+msgstr "Bieza"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:209
+msgid "Keyboard Shortcuts"
+msgstr "Tastatūras īsinājumtaustiņi"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:251
+msgid "Add these bindings to the niri configuration"
+msgstr "Pievienojiet šīs piesaistes niri konfigurācijai"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:254
+msgid "Copy _Snippet"
+msgstr "Kopēt _fragmentu"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:264
+msgid "Capture and Annotate"
+msgstr "Uzņemt un anotēt"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:274
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:19
+msgid "Capture a Window"
+msgstr "Uzņemt logu"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:284
+msgid "Copy the Screen to the Clipboard"
+msgstr "Kopēt ekrānu starpliktuvē"
+
+#: crates/glimpse-widgets/blueprints/shot_region.blp:24
+msgid "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
+msgstr "Velciet, lai atlasītu  ·  Atstarpe: viss ekrāns  ·  Esc: atcelt"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:7
+msgid "_Save"
+msgstr "_Saglabāt"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:12
+msgid "Save _As…"
+msgstr "Saglabāt _kā…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:18
+msgid "_Open With…"
+msgstr "_Atvērt ar…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:43
+msgid "New Screenshot (Ctrl+N)"
+msgstr "Jauns ekrānuzņēmums (Ctrl+N)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:93
+msgid "A file with this name exists. Saving adds “(2)”."
+msgstr "Fails ar šādu nosaukumu jau ir. Saglabājot tiks pievienots “(2)”."
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:118
+msgid "_Copy"
+msgstr "_Kopēt"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:120
+msgid "Copy to Clipboard (Ctrl+C)"
+msgstr "Kopēt starpliktuvē (Ctrl+C)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:121
+msgid "Save or Open"
+msgstr "Saglabāt vai atvērt"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+msgid "Undo (Ctrl+Z)"
+msgstr "Atsaukt (Ctrl+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "Atatsaukt (Ctrl+Shift+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+msgid "Pan (hold Space)"
+msgstr "Pārvietot skatu (turiet atstarpi)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+msgid "Best Fit (Ctrl+0)"
+msgstr "Ietilpināt (Ctrl+0)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+msgid "Actual Size (Ctrl+1)"
+msgstr "Faktiskais izmērs (Ctrl+1)"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:6
+msgid "Capture"
+msgstr "Uzņemšana"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:9
+msgid "Take Screenshot"
+msgstr "Uzņemt ekrānuzņēmumu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:14
+msgid "Capture a Screen"
+msgstr "Uzņemt ekrānu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:24
+msgid "Capture a Region"
+msgstr "Uzņemt apgabalu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:30
+msgid "Tools"
+msgstr "Rīki"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:33
+msgid "Crop"
+msgstr "Apgriezt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:38
+msgid "Arrow"
+msgstr "Bulta"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:43
+msgid "Line"
+msgstr "Līnija"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:48
+msgid "Freehand"
+msgstr "Brīvroka"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:53
+msgid "Highlighter"
+msgstr "Marķieris"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:58
+msgid "Rectangle"
+msgstr "Taisnstūris"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:63
+msgid "Filled Rectangle"
+msgstr "Aizpildīts taisnstūris"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:68
+msgid "Oval"
+msgstr "Ovāls"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:73
+msgid "Number"
+msgstr "Numurs"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:78
+msgid "Text"
+msgstr "Teksts"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:83
+msgid "Blur"
+msgstr "Izpludināt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:93
+msgid "Thinner and Thicker Line"
+msgstr "Tievāka un biezāka līnija"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:99
+msgid "Editing"
+msgstr "Rediģēšana"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:102
+msgid "Apply Crop or Finish Text"
+msgstr "Lietot apgriešanu vai pabeigt tekstu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "Atsaukt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
+msgid "Redo"
+msgstr "Atatsaukt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:117
+msgid "Delete Selection"
+msgstr "Dzēst atlasi"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:122
+msgid "Cancel Crop or Text"
+msgstr "Atcelt apgriešanu vai tekstu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:128
+msgid "Finishing"
+msgstr "Pabeigšana"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:131
+msgid "Copy and Close"
+msgstr "Kopēt un aizvērt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
+#: crates/glimpse-widgets/src/color_list/mod.rs:150
+msgid "Copy"
+msgstr "Kopēt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:146
+msgid "Save As"
+msgstr "Saglabāt kā"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+msgid "Open in Window"
+msgstr "Atvērt logā"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:157
+msgid "View"
+msgstr "Skats"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:160
+msgid "Best Fit"
+msgstr "Ietilpināt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:165
+msgid "Actual Size"
+msgstr "Faktiskais izmērs"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:170
+msgid "Zoom In"
+msgstr "Tuvināt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:175
+msgid "Zoom Out"
+msgstr "Tālināt"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:180
+msgid "Pan While Held"
+msgstr "Pārvietot skatu (turot)"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:186
+msgid "General"
+msgstr "Vispārīgi"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
+msgid "New Screenshot"
+msgstr "Jauns ekrānuzņēmums"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:199
+msgid "Open Image from Clipboard"
+msgstr "Atvērt attēlu no starpliktuves"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:214
+msgid "Close Window"
+msgstr "Aizvērt logu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:219
+msgid "Quit"
+msgstr "Iziet"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+msgid "Move Toolbar"
+msgstr "Pārvietot rīkjoslu"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+msgid "Screen (S)"
+msgstr "Ekrāns (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+msgid "Window (W)"
+msgstr "Logs (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+msgid "Crop (C)"
+msgstr "Apgriezt (C)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+msgid "Arrow (A)"
+msgstr "Bulta (A)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+msgid "Line (L)"
+msgstr "Līnija (L)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+msgid "Freehand (P)"
+msgstr "Brīvroka (P)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+msgid "Highlighter (H)"
+msgstr "Marķieris (H)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+msgid "Rectangle (R)"
+msgstr "Taisnstūris (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+msgid "Filled Rectangle (F)"
+msgstr "Aizpildīts taisnstūris (F)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+msgid "Oval (O)"
+msgstr "Ovāls (O)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+msgid "Number (N)"
+msgstr "Numurs (N)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+msgid "Text (T)"
+msgstr "Teksts (T)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+msgid "Pixelate (B)"
+msgstr "Pikselizēt (B)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
+msgid "Color (1–5)"
+msgstr "Krāsa (1–5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+msgid "Red (1)"
+msgstr "Sarkana (1)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+msgid "Yellow (2)"
+msgstr "Dzeltena (2)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+msgid "Green (3)"
+msgstr "Zaļa (3)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+msgid "Blue (4)"
+msgstr "Zila (4)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+msgid "White (5)"
+msgstr "Balta (5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+msgid "Thin line ([ and ])"
+msgstr "Tieva līnija ([ un ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+msgid "Medium line ([ and ])"
+msgstr "Vidēja līnija ([ un ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+msgid "Thick line ([ and ])"
+msgstr "Bieza līnija ([ un ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+msgid "Apply Crop (Enter)"
+msgstr "Lietot apgriešanu (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+msgid "Apply Crop"
+msgstr "Lietot apgriešanu"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+msgid "Copy and close (Enter)"
+msgstr "Kopēt un aizvērt (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+msgid "More ways to finish"
+msgstr "Citi pabeigšanas veidi"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+msgid "Cancel (Esc)"
+msgstr "Atcelt (Esc)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+msgid "Save As…"
+msgstr "Saglabāt kā…"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+msgid "Open With…"
+msgstr "Atvērt ar…"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:17
+msgid "This workspace"
+msgstr "Šī darbvieta"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:33
+msgid "Other workspaces"
+msgstr "Citas darbvietas"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
+msgid "System Monitor"
+msgstr "Sistēmas pārraugs"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
+msgid "Memory"
+msgstr "Atmiņa"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
+msgid "Load average"
+msgstr "Vidējā slodze"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
+msgid "Uptime"
+msgstr "Darbības laiks"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
+msgid "CPU temperature"
+msgstr "CPU temperatūra"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
+msgid "GPU temperature"
+msgstr "GPU temperatūra"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr "Jaukt"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr "Atkārtot"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
+msgid "Inactive warning row"
+msgstr "Neaktīva brīdinājuma rinda"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:83
+msgid "Device out of range"
+msgstr "Ierīce ārpus sniedzamības"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:118
+msgid "Locked by the hardware switch"
+msgstr "Bloķēts ar aparatūras slēdzi"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr "Apklusināt"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+msgid ""
+"Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr ""
+"Vētras brīdinājums: reģionā gaidītas spēcīgas vēja brāzmas līdz 90 km/h"
+
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
+msgid "Name this workspace"
+msgstr "Nosauciet šo darbvietu"
+
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
+msgstr "Ieslēgt skaņu"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
+msgid "OK"
+msgstr "Labi"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:42
+msgid "Enter the PIN"
+msgstr "Ievadiet PIN"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
+msgid "Type the PIN shown on {device}, then press OK."
+msgstr "Ievadiet ierīcē {device} redzamo PIN un nospiediet “Labi”."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:47
+msgid "Enter the passkey"
+msgstr "Ievadiet piekļuves atslēgu"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
+msgid "Type the passkey shown on {device}."
+msgstr "Ievadiet ierīcē {device} redzamo piekļuves atslēgu."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
+msgid "1 to 16 letters or digits"
+msgstr "No 1 līdz 16 burtiem vai cipariem"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+msgid "Up to 999999"
+msgstr "Līdz 999999"
+
+#: crates/glimpse-widgets/src/color_list/mod.rs:70
+msgid "{count} more color"
+msgid_plural "{count} more colors"
+msgstr[0] "Vēl {count} krāsa"
+msgstr[1] "Vēl {count} krāsas"
+msgstr[2] "Vēl {count} krāsu"
+
+#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
+msgid "Nothing picked yet"
+msgstr "Vēl nav paņemta neviena krāsa"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
+msgid "The last enabled display can't be turned off"
+msgstr "Pēdējo ieslēgto displeju nevar izslēgt"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+msgid "Off"
+msgstr "Izslēgts"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
+msgid "Mode"
+msgstr "Režīms"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
+msgid "Connector"
+msgstr "Savienotājs"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
+msgid "Serial"
+msgstr "Sērijas numurs"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
+msgid "Scale"
+msgstr "Mērogs"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:179
+msgid "Position"
+msgstr "Novietojums"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
+msgid "{width} × {height} · {hz} Hz"
+msgstr "{width} × {height} · {hz} Hz"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:208
+msgid "{x}, {y}"
+msgstr "{x}, {y}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:220
+msgid "Schedule"
+msgstr "Grafiks"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:225
+msgid "Paused until {time}"
+msgstr "Pauzēts līdz {time}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:228
+msgid "Temperature"
+msgstr "Temperatūra"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:278
+msgid "Not reaching any display"
+msgstr "Netiek lietota nevienam displejam"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:323
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+msgid "Resume"
+msgstr "Atsākt"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:396
+msgid "Sunset to sunrise"
+msgstr "No saulrieta līdz saullēktam"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:398
+msgid "Fixed hours"
+msgstr "Noteiktās stundās"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:404
+msgid "{kelvin} K"
+msgstr "{kelvin} K"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:103
+msgid "Release"
+msgstr "Atbrīvot"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:128
+msgid "Reason"
+msgstr "Iemesls"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:129
+msgid "Prevents"
+msgstr "Liedz"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
+msgid "Shutdown"
+msgstr "Izslēgšana"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
+msgid "Lid"
+msgstr "Vāks"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:148
+msgid "Power key"
+msgstr "Barošanas taustiņš"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:149
+msgid "Suspend key"
+msgstr "Iesnaudināšanas taustiņš"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:150
+msgid "Hibernate key"
+msgstr "Hibernēšanas taustiņš"
+
+#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+msgid "Pause"
+msgstr "Pauzēt"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
+msgid "That password did not work"
+msgstr "Šī parole nederēja"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
+msgid "{network} refused it. Check it and try again."
+msgstr "{network} to noraidīja. Pārbaudiet to un mēģiniet vēlreiz."
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
+msgid "Enter the password for {network}"
+msgstr "Ievadiet tīkla {network} paroli"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:155
+msgid "Unread"
+msgstr "Nelasīts"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:181
+msgid "Dismiss {notification}"
+msgstr "Aizvērt {notification}"
+
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:114
+msgid "{app}: {notifications}"
+msgstr "{app}: {notifications}"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+msgid "Collapse"
+msgstr "Sakļaut"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+msgid "{count} notification"
+msgid_plural "{count} notifications"
+msgstr[0] "{count} paziņojums"
+msgstr[1] "{count} paziņojumi"
+msgstr[2] "{count} paziņojumu"
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:88
+msgid "Show notification popups while this is on"
+msgstr "Rādīt paziņojumu uznirstošos logus, kamēr tas ir ieslēgts"
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:172
+msgid "Clear these notifications"
+msgstr "Notīrīt šos paziņojumus"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:164
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} vienums"
+msgstr[1] "{n} vienumi"
+msgstr[2] "{n} vienumu"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:171
+msgid "Delete {n} item for good?"
+msgid_plural "Delete {n} items for good?"
+msgstr[0] "Neatgriezeniski dzēst {n} vienumu?"
+msgstr[1] "Neatgriezeniski dzēst {n} vienumus?"
+msgstr[2] "Neatgriezeniski dzēst {n} vienumu?"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+msgid "Retry"
+msgstr "Mēģināt vēlreiz"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+msgid "Page {current} of {total}"
+msgstr "{current}. lappuse no {total}"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+msgid "Stop sharing"
+msgstr "Pārtraukt kopīgošanu"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+msgid "In use"
+msgstr "Tiek izmantots"
+
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:60
+msgid "“{app}” asked for a screenshot"
+msgstr "“{app}” pieprasīja ekrānuzņēmumu"
+
+#: crates/glimpse-widgets/src/shot_capture_page/mod.rs:66
+msgid "Current Screen"
+msgstr "Pašreizējais ekrāns"
+
+#: crates/glimpse-widgets/src/shot_countdown/mod.rs:29
+msgid "Capturing in {n}"
+msgstr "Uzņems pēc {n}"
+
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:141
+msgid "captured when picked"
+msgstr "uzņemts atlasot"
+
+#: crates/glimpse-widgets/src/workspace_section/mod.rs:73
+msgid "Focus workspace"
+msgstr "Pāriet uz darbvietu"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
+msgid "No windows"
+msgstr "Nav logu"
+
+#: data/me.aresa.Glimpse.Shot.desktop:4
+msgid "Take a screenshot, mark it up, save or copy it"
+msgstr "Uzņemiet ekrānuzņēmumu, anotējiet to, saglabājiet vai nokopējiet"
+
+#: data/me.aresa.Glimpse.Shot.desktop:12
+msgid "screenshot;capture;annotate;print screen;snip;grab;"
+msgstr ""
+"ekrānuzņēmums;uzņemt;anotēt;print screen;izgriezt;tvert;screenshot;capture;"
+
+#~ msgid "{count} print job"
+#~ msgid_plural "{count} print jobs"
+#~ msgstr[0] "{count} drukas darbs"
+#~ msgstr[1] "{count} drukas darbi"
+#~ msgstr[2] "{count} drukas darbu"

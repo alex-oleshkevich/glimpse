@@ -180,19 +180,6 @@ fn a_surface_added_while_locked_holds_the_sleep_until_it_paints() {
 }
 
 #[test]
-fn turning_lock_before_sleep_off_releases_the_inhibitor() {
-    let (mut machine, _) = started(DAEMON, false);
-    assert_eq!(
-        machine.handle(Input::Configure {
-            lock_on_request: true,
-            lock_before_sleep: false
-        }),
-        vec![Effect::ReleaseInhibitor]
-    );
-    assert_eq!(machine.handle(Input::PrepareForSleep(true)), vec![]);
-}
-
-#[test]
 fn a_current_locked_signal_outside_acquiring_changes_nothing() {
     let (mut machine, _) = started(DAEMON, false);
     machine.handle(Input::LockRequested);
@@ -215,25 +202,6 @@ fn a_current_locked_signal_outside_acquiring_changes_nothing() {
         machine.handle(Input::Unlocked(1)),
         vec![Effect::SetLockedHint(false), Effect::TakeInhibitor],
         "an unlock in progress still ends as requested"
-    );
-}
-
-#[test]
-fn lock_before_sleep_off_takes_and_holds_nothing() {
-    let settings = Settings {
-        lock_before_sleep: false,
-        ..DAEMON
-    };
-    let (mut machine, effects) = started(settings, false);
-    assert_eq!(effects, vec![]);
-    assert_eq!(machine.handle(Input::PrepareForSleep(true)), vec![]);
-    assert_eq!(machine.handle(Input::PrepareForSleep(false)), vec![]);
-    assert_eq!(
-        machine.handle(Input::Configure {
-            lock_on_request: true,
-            lock_before_sleep: true
-        }),
-        vec![Effect::TakeInhibitor]
     );
 }
 

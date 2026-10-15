@@ -1,0 +1,3605 @@
+# Czech translations for glimpse package.
+# Copyright (C) 2026 Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"PO-Revision-Date: 2026-10-15 15:14+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+#: crates/glimpse-lens/src/session.rs:281
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] "celkem {length} px, {count} úsek"
+msgstr[1] "celkem {length} px, {count} úseky"
+msgstr[2] "celkem {length} px, {count} úseků"
+
+#: crates/glimpse-lens/src/session.rs:294
+msgid "segment {length}px · {angle}°"
+msgstr "úsek {length} px · {angle}°"
+
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "Nesprávné heslo"
+
+#: crates/glimpse-lock/src/auth.rs:29
+msgid "Too many attempts"
+msgstr "Příliš mnoho pokusů"
+
+#: crates/glimpse-lock/src/auth.rs:30
+msgid "Can't verify passwords. Run glimpse-lock check."
+msgstr "Hesla nelze ověřit. Spusťte glimpse-lock check."
+
+#: crates/glimpse-lock/src/auth.rs:31
+msgid "This account can't be unlocked here"
+msgstr "Tento účet zde nelze odemknout"
+
+#: crates/glimpse-lock/src/auth.rs:32
+msgid "Password change required"
+msgstr "Je nutné změnit heslo"
+
+#: crates/glimpse-lock/src/auth.rs:33
+msgid "Authentication timed out"
+msgstr "Vypršel časový limit ověření"
+
+#: crates/glimpse-lock/src/auth.rs:34
+msgid "Authentication failed"
+msgstr "Ověření selhalo"
+
+#: crates/glimpse-lock/src/auth.rs:36
+msgid ""
+"Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), log in, and "
+"run glimpse-lock check."
+msgstr ""
+"Hesla nelze ověřit. Přepněte se do textové konzole (Ctrl+Alt+F2), přihlaste "
+"se a spusťte glimpse-lock check."
+
+#: crates/glimpse-lock/src/chips.rs:38
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
+#: crates/glimpse-widgets/src/notification_chips/imp.rs:28
+msgid "Notifications"
+msgstr "Oznámení"
+
+#: crates/glimpse-lock/src/notify.rs:16
+msgid "Screen not locked"
+msgstr "Obrazovka není zamčená"
+
+#: crates/glimpse-lock/src/notify.rs:17
+msgid "Suspending unlocked"
+msgstr "Uspání bez zamčení"
+
+#: crates/glimpse-lock/src/notify.rs:20
+msgid "Password expired"
+msgstr "Platnost hesla vypršela"
+
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Your password has expired. Change it now with passwd."
+msgstr "Platnost hesla vypršela. Změňte ho příkazem passwd."
+
+#: crates/glimpse-lock/src/notify.rs:27
+msgid ""
+"glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
+msgstr ""
+"glimpse-lock v této relaci nemůže ověřovat hesla. Spusťte glimpse-lock "
+"check."
+
+#: crates/glimpse-lock/src/notify.rs:29
+msgid "This compositor has no session lock."
+msgstr "Tento kompozitor nepodporuje zamykání relace."
+
+#: crates/glimpse-lock/src/notify.rs:30
+msgid "The compositor refused the lock."
+msgstr "Kompozitor zamčení odmítl."
+
+#: crates/glimpse-lock/src/session.rs:47
+msgid "Couldn't suspend the system"
+msgstr "Systém nelze uspat"
+
+#: crates/glimpse-lock/src/session.rs:48
+msgid "Couldn't restart the system"
+msgstr "Systém nelze restartovat"
+
+#: crates/glimpse-lock/src/session.rs:49
+msgid "Couldn't power off the system"
+msgstr "Systém nelze vypnout"
+
+#: crates/glimpse-lock/src/session.rs:136
+msgid "Blocked by {who}: {why}"
+msgstr "Blokováno aplikací {who}: {why}"
+
+#: crates/glimpse-notifications/src/app.rs:462
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+msgid "now"
+msgstr "nyní"
+
+#: crates/glimpse-panel/src/app.rs:387
+msgid "Bluetooth pairing"
+msgstr "Párování Bluetooth"
+
+#: crates/glimpse-panel/src/app.rs:429
+msgid "Network password"
+msgstr "Heslo sítě"
+
+#: crates/glimpse-panel/src/app.rs:441
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:196
+#: crates/glimpse-shot/src/gui/result.rs:973
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+msgid "Cancel"
+msgstr "Zrušit"
+
+#: crates/glimpse-panel/src/app.rs:504
+#: crates/glimpse-panel/src/applets/session/mod.rs:87
+msgid "Session"
+msgstr "Relace"
+
+#: crates/glimpse-panel/src/app.rs:506
+msgid "Could not complete the session action"
+msgstr "Akci relace nelze dokončit"
+
+#: crates/glimpse-panel/src/app.rs:508
+msgid "The session manager refused that action."
+msgstr "Správce relací tuto akci odmítl."
+
+#: crates/glimpse-panel/src/app.rs:600
+msgid "this device"
+msgstr "toto zařízení"
+
+#: crates/glimpse-panel/src/applet/mod.rs:163
+msgid "That change was refused."
+msgstr "Změna byla odmítnuta."
+
+#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:153
+msgid "That is not supported."
+msgstr "Není podporováno."
+
+#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:282
+#: crates/glimpse-panel/src/applets/display/indicator.rs:389
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:154
+msgid "That could not be completed."
+msgstr "Akci nelze dokončit."
+
+#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:283
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
+#: crates/glimpse-panel/src/applets/display/indicator.rs:390
+#: crates/glimpse-panel/src/applets/display/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/render.rs:98
+#: crates/glimpse-panel/src/applets/power/mod.rs:355
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
+msgid "That did not work."
+msgstr "Nepodařilo se."
+
+#: crates/glimpse-panel/src/applets/agenda.rs:80
+msgid "All day · day {day} of {days}"
+msgstr "Celý den · den {day} z {days}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:83
+msgid "All day"
+msgstr "Celý den"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:91
+msgid "{start} · until {weekday} {end}"
+msgstr "{start} · do {weekday} {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:98
+#: crates/glimpse-panel/src/applets/agenda.rs:130
+msgid "{start} · {length}"
+msgstr "{start} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "{start} · over"
+msgstr "{start} · skončilo"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:107
+msgid "ended {length} ago"
+msgstr "skončilo před {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:114
+msgid "now · ends in {length}"
+msgstr "nyní · končí za {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "now · ends {end}"
+msgstr "nyní · končí v {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:123
+msgid "starting now · {length}"
+msgstr "začíná nyní · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:126
+msgid "in {until} · {length}"
+msgstr "za {until} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:153
+msgid "Join Google Meet"
+msgstr "Připojit se přes Google Meet"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:154
+msgid "Join Zoom"
+msgstr "Připojit se přes Zoom"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:155
+msgid "Join Microsoft Teams"
+msgstr "Připojit se přes Microsoft Teams"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:156
+msgid "Join Webex"
+msgstr "Připojit se přes Webex"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:157
+msgid "Join meeting"
+msgstr "Připojit se ke schůzce"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:170
+msgid "Open event"
+msgstr "Otevřít událost"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/printing/render.rs:161
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/privacy/render.rs:73
+msgid "Location"
+msgstr "Místo"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Calendar"
+msgstr "Kalendář"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
+msgid "Organizer"
+msgstr "Organizátor"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/next_event/render.rs:255
+msgid "Description"
+msgstr "Popis"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:216
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/power/render.rs:374
+msgid "{hours} h"
+msgstr "{hours} h"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
+msgid "{hours} h {minutes} min"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:231
+msgid "{days} d"
+msgstr "{days} d"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:232
+msgid "{days} d {hours} h"
+msgstr "{days} d {hours} h"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:88
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:152
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:449
+msgid "Could not change the volume"
+msgstr "Hlasitost nelze změnit"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:110
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:170
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
+#: crates/glimpse-panel/src/applets/display/indicator.rs:379
+#: crates/glimpse-panel/src/applets/network/indicator.rs:482
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:95
+msgid "Could not change that setting"
+msgstr "Toto nastavení nelze změnit"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:130
+msgid "Could not switch device"
+msgstr "Zařízení nelze přepnout"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:192
+msgid "Could not move the application"
+msgstr "Aplikaci nelze přesunout"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:231
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:250
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:12
+msgid "Sound"
+msgstr "Zvuk"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+msgid "The audio server refused that."
+msgstr "Zvukový server to odmítl."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:272
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
+msgid "The audio server is unavailable."
+msgstr "Zvukový server není dostupný."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
+#: crates/glimpse-panel/src/applets/display/indicator.rs:386
+#: crates/glimpse-panel/src/applets/display/indicator.rs:397
+msgid "That was not a valid value."
+msgstr "Toto není platná hodnota."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:24
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
+msgid "Output"
+msgstr "Výstup"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+msgid "Input"
+msgstr "Vstup"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:285
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
+#: crates/glimpse-panel/src/applets/places/render.rs:49
+msgid "Show fewer"
+msgstr "Zobrazit méně"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:330
+msgid "{count} more app"
+msgid_plural "{count} more apps"
+msgstr[0] "{count} další aplikace"
+msgstr[1] "{count} další aplikace"
+msgstr[2] "{count} dalších aplikací"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:82
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
+msgid "Muted"
+msgstr "Ztlumeno"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:84
+#: crates/glimpse-panel/src/applets/display/render.rs:117
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
+#: crates/glimpse-widgets/src/lib.rs:377
+msgid "{percent}%"
+msgstr "{percent} %"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:150
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:204
+msgid "Unknown application"
+msgstr "Neznámá aplikace"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:82
+msgid "Could not switch Bluetooth"
+msgstr "Bluetooth nelze přepnout"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
+#: crates/glimpse-panel/src/applets/network/indicator.rs:404
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
+#: crates/glimpse-panel/src/applets/network/indicator.rs:420
+#: crates/glimpse-panel/src/applets/network/indicator.rs:524
+#: crates/glimpse-panel/src/applets/network/indicator.rs:535
+msgid "Could not connect"
+msgstr "Nelze se připojit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:185
+msgid "Could not pair"
+msgstr "Nelze spárovat"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:126
+#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+msgid "Could not disconnect"
+msgstr "Nelze odpojit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:137
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
+msgid "Could not remove the device"
+msgstr "Zařízení nelze odebrat"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:289
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
+msgid "Bluetooth is blocked"
+msgstr "Bluetooth je blokovaný"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:40
+msgid "Bluetooth is off"
+msgstr "Bluetooth je vypnutý"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:41
+msgid "Turning Bluetooth on"
+msgstr "Zapínání Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:42
+msgid "Turning Bluetooth off"
+msgstr "Vypínání Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:43
+msgid "Looking for devices"
+msgstr "Hledání zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:45
+msgid "No devices connected"
+msgstr "Žádná připojená zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:47
+msgid "{count} device connected"
+msgid_plural "{count} devices connected"
+msgstr[0] "{count} připojené zařízení"
+msgstr[1] "{count} připojená zařízení"
+msgstr[2] "{count} připojených zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:111
+msgid "Bluetooth is waiting for an answer"
+msgstr "Bluetooth čeká na odpověď"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:125
+msgid ""
+"It will be disconnected, and this computer will stop connecting to it. To "
+"use it again you will have to pair it, with the device in pairing mode."
+msgstr ""
+"Zařízení se odpojí a tento počítač se k němu přestane připojovat. Chcete-li "
+"ho znovu používat, přepněte ho do režimu párování a spárujte znovu."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:128
+msgid ""
+"This computer will stop connecting to it, and it will not connect on its "
+"own. To use it again you will have to pair it, with the device in pairing "
+"mode."
+msgstr ""
+"Tento počítač se k zařízení přestane připojovat a zařízení se samo "
+"nepřipojí. Chcete-li ho znovu používat, přepněte ho do režimu párování a "
+"spárujte znovu."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:133
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
+msgid "Forget"
+msgstr "Zapomenout"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:144
+msgid "Unknown device"
+msgstr "Neznámé zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:158
+msgid "Is this the code shown on the device?"
+msgstr "Zobrazuje zařízení tento kód?"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:161
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
+msgid "Confirm"
+msgstr "Potvrdit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+msgid "This device wants to pair with this computer."
+msgstr "Toto zařízení se chce spárovat s tímto počítačem."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:171
+msgid "Allow"
+msgstr "Povolit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:173
+msgid "Deny"
+msgstr "Zamítnout"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
+msgid "Type this PIN on the device. It will not ask again."
+msgstr "Zadejte tento PIN na zařízení. Podruhé se už nezeptá."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:190
+msgid "Type this passkey on the device."
+msgstr "Zadejte tento přístupový klíč na zařízení."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
+msgid "{entered} of 6 entered"
+msgstr "Zadáno {entered} ze 6"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:264
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
+msgid "{count} more device"
+msgid_plural "{count} more devices"
+msgstr[0] "{count} další zařízení"
+msgstr[1] "{count} další zařízení"
+msgstr[2] "{count} dalších zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:305
+msgid "{level}%"
+msgstr "{level} %"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:312
+msgid "Blocked"
+msgstr "Blokováno"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+msgid "Pairing lost"
+msgstr "Spárování ztraceno"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+msgid "Pairing will not survive a restart"
+msgstr "Spárování se po restartu ztratí"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/render.rs:324
+msgid "Type"
+msgstr "Typ"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/power/render.rs:111
+#: crates/glimpse-widgets/blueprints/power_popover.blp:41
+msgid "Battery"
+msgstr "Baterie"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+msgid "Codec"
+msgstr "Kodek"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:340
+#: crates/glimpse-panel/src/applets/network/render.rs:243
+msgid "Disconnect"
+msgstr "Odpojit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:342
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
+#: crates/glimpse-panel/src/applets/network/indicator.rs:273
+#: crates/glimpse-panel/src/applets/network/indicator.rs:295
+#: crates/glimpse-panel/src/applets/network/render.rs:251
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
+msgid "Connect"
+msgstr "Připojit"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:344
+msgid "Pair"
+msgstr "Spárovat"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/network/render.rs:279
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+msgid "Connect automatically"
+msgstr "Připojovat automaticky"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+msgid "Forget this device"
+msgstr "Zapomenout toto zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+msgid "The device is switched off or out of range."
+msgstr "Zařízení je vypnuté nebo mimo dosah."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+msgid "The device refused the connection."
+msgstr "Zařízení odmítlo připojení."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+msgid "The device offers nothing this computer can connect to."
+msgstr "Zařízení nenabízí nic, k čemu by se tento počítač mohl připojit."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+msgid "The PIN or passkey did not match."
+msgstr "PIN nebo přístupový klíč se neshoduje."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+msgid "The device rejected the pairing. Put it in pairing mode and try again."
+msgstr ""
+"Zařízení spárování odmítlo. Přepněte ho do režimu párování a zkuste to "
+"znovu."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+msgid "The pairing timed out."
+msgstr "Vypršel časový limit párování."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+msgid "The pairing was cancelled."
+msgstr "Párování bylo zrušeno."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+msgid ""
+"This panel could not register a pairing agent, so it cannot pair. Devices "
+"that are already paired still connect."
+msgstr ""
+"Tento panel nemohl zaregistrovat agenta pro párování, takže nemůže párovat. "
+"Spárovaná zařízení se připojují dál."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+msgid "The device is busy, possibly connected to another device."
+msgstr "Zařízení je zaneprázdněné, možná je připojené k jinému zařízení."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+msgid "Bluetooth is switched off."
+msgstr "Bluetooth je vypnutý."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+msgid "The device disconnected."
+msgstr "Zařízení se odpojilo."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+msgid "The pairing with this device is no longer valid."
+msgstr "Spárování s tímto zařízením již není platné."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+msgid ""
+"This computer could not open a connection to the device. Try again, or "
+"switch Bluetooth off and on."
+msgstr ""
+"Tento počítač nemohl navázat spojení se zařízením. Zkuste to znovu nebo "
+"Bluetooth vypněte a zapněte."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+msgid "Bluetooth could not complete that."
+msgstr "Bluetooth to nemohl dokončit."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+msgid "Headset"
+msgstr "Náhlavní souprava"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+msgid "Headphones"
+msgstr "Sluchátka"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+msgid "Speaker"
+msgstr "Reproduktor"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/display/render.rs:78
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
+msgid "Keyboard"
+msgstr "Klávesnice"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+msgid "Mouse"
+msgstr "Myš"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+msgid "Gamepad"
+msgstr "Herní ovladač"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+msgid "Tablet"
+msgstr "Tablet"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+msgid "Phone"
+msgstr "Telefon"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+msgid "Computer"
+msgstr "Počítač"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-widgets/blueprints/display_popover.blp:12
+msgid "Display"
+msgstr "Displej"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+msgid "Printer"
+msgstr "Tiskárna"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+msgid "Device"
+msgstr "Zařízení"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+msgid "Vendor codec"
+msgstr "Kodek výrobce"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
+msgid "Image · {size}"
+msgstr "Obrázek · {size}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
+msgid "Size"
+msgstr "Velikost"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+msgid "Save as…"
+msgstr "Uložit jako…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+msgid "Open with…"
+msgstr "Otevřít pomocí…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:192
+msgid "Site"
+msgstr "Web"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:197
+msgid "Open in browser"
+msgstr "Otevřít v prohlížeči"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
+msgid "Color"
+msgstr "Barva"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:209
+msgid "Copy as {format}"
+msgstr "Kopírovat jako {format}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+msgid "Path"
+msgstr "Cesta"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/render.rs:104
+#: crates/glimpse-widgets/blueprints/removable_device.blp:30
+msgid "Open"
+msgstr "Otevřít"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+msgid "Lines"
+msgstr "Řádky"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+msgid "Send to device"
+msgstr "Odeslat do zařízení"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
+msgid "Pin"
+msgstr "Připnout"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
+msgid "Unpin"
+msgstr "Odepnout"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
+#: crates/glimpse-panel/src/applets/places/render.rs:50
+#: crates/glimpse-panel/src/applets/removable/render.rs:47
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "{count} další"
+msgstr[1] "{count} další"
+msgstr[2] "{count} dalších"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+msgid "Clear history"
+msgstr "Vymazat historii"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:428
+msgid "Save image"
+msgstr "Uložit obrázek"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:442
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:601
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:660
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:682
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:704
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
+msgid "Clipboard"
+msgstr "Schránka"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
+msgid "Could not save the image"
+msgstr "Obrázek nelze uložit"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
+msgid "Could not send that"
+msgstr "Nelze odeslat"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
+msgid "KDE Connect is not running."
+msgstr "KDE Connect neběží."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+msgid "That entry is no longer in the history."
+msgstr "Tato položka již v historii není."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:603
+msgid "Could not copy that"
+msgstr "Nelze zkopírovat"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:613
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:644
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:667
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:689
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
+msgid "The clipboard is unavailable."
+msgstr "Schránka není dostupná."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:634
+msgid "Could not copy that entry"
+msgstr "Položku nelze zkopírovat"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:662
+msgid "Could not pin that entry"
+msgstr "Položku nelze připnout"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:684
+msgid "Could not forget that entry"
+msgstr "Položku nelze odstranit"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:706
+msgid "Could not clear the history"
+msgstr "Historii nelze vymazat"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:23
+msgid "Week {number}"
+msgstr "Týden {number}"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-panel/src/applets/weather/render.rs:136
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "Dnes"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:31
+#: crates/glimpse-panel/src/applets/weather/render.rs:137
+#: crates/glimpse-widgets/src/world_clock/mod.rs:147
+msgid "Tomorrow"
+msgstr "Zítra"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:32
+#: crates/glimpse-widgets/src/world_clock/mod.rs:148
+msgid "Yesterday"
+msgstr "Včera"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
+msgid "Color picker"
+msgstr "Výběr barvy"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
+msgid "That color is no longer in the palette."
+msgstr "Tato barva již v paletě není."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr ""
+"Výběr barvy se nespustil nebo nemohl zachytit obrazovku či otevřít schránku."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
+msgid "Could not pick a color"
+msgstr "Barvu nelze vybrat"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
+msgid "Could not copy that color"
+msgstr "Barvu nelze zkopírovat"
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
+msgid "Pick a color"
+msgstr "Vybrat barvu"
+
+#: crates/glimpse-panel/src/applets/command.rs:85
+msgid "Command"
+msgstr "Příkaz"
+
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Could not run a command"
+msgstr "Příkaz nelze spustit"
+
+#: crates/glimpse-panel/src/applets/command.rs:89
+msgid "{program} could not be started."
+msgstr "{program} nelze spustit."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:243
+#: crates/glimpse-panel/src/applets/display/indicator.rs:265
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
+#: crates/glimpse-widgets/blueprints/display_popover.blp:80
+msgid "Displays"
+msgstr "Displeje"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:245
+msgid "Could not change that display"
+msgstr "Displej nelze změnit"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:250
+#: crates/glimpse-panel/src/applets/display/indicator.rs:272
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+msgid "The compositor is unavailable."
+msgstr "Kompozitor není dostupný."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:267
+msgid "Could not blank the screens"
+msgstr "Obrazovky nelze zhasnout"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+msgid "Could not change the brightness"
+msgstr "Jas nelze změnit"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:377
+#: crates/glimpse-widgets/blueprints/display_popover.blp:50
+msgid "Night light"
+msgstr "Noční světlo"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:387
+msgid "The brightness service is unavailable."
+msgstr "Služba jasu není dostupná."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:396
+msgid "That was not a valid setting."
+msgstr "Toto není platné nastavení."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:398
+msgid "The night light is off."
+msgstr "Noční světlo je vypnuto."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:399
+msgid "The night light is not running."
+msgstr "Noční světlo neběží."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:400
+#: crates/glimpse-panel/src/applets/power/mod.rs:353
+msgid "That took too long."
+msgstr "Trvalo to příliš dlouho."
+
+#: crates/glimpse-panel/src/applets/display/render.rs:114
+msgid "{name}: {percent}%"
+msgstr "{name}: {percent} %"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
+msgid "Unsupported: {name}"
+msgstr "Nepodporováno: {name}"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:410
+msgid "This applet asked for an element glimpse does not render"
+msgstr "Tento aplet požádal o prvek, který glimpse nevykresluje"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:94
+#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+msgid "External applet action failed."
+msgstr "Akce externího apletu selhala."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+msgid "The file did not open."
+msgstr "Soubor se neotevřel."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+msgid "The link did not open."
+msgstr "Odkaz se neotevřel."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+msgid "The application did not start."
+msgstr "Aplikace se nespustila."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+msgid "External applet is not running."
+msgstr "Externí aplet neběží."
+
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+msgid "Awake until {time}"
+msgstr "Vzhůru do {time}"
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
+msgid "Idle"
+msgstr "Nečinnost"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:25
+#: crates/glimpse-panel/src/applets/idle/render.rs:53
+msgid "Idle daemon not running"
+msgstr "Služba nečinnosti neběží"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:30
+#: crates/glimpse-panel/src/applets/idle/render.rs:56
+msgid "The compositor is not reporting idle time"
+msgstr "Kompozitor nehlásí dobu nečinnosti"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:39
+msgid "{n} minute left"
+msgid_plural "{n} minutes left"
+msgstr[0] "Zbývá {n} minuta"
+msgstr[1] "Zbývají {n} minuty"
+msgstr[2] "Zbývá {n} minut"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:42
+msgid "{hours} h {minutes} min left"
+msgstr "Zbývá {hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:59
+msgid "Nothing preventing idle"
+msgstr "Nečinnosti nic nebrání"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
+msgid "Awake until you turn it off"
+msgstr "Vzhůru, dokud to nevypnete"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:88
+msgid "{n} app preventing idle or sleep"
+msgid_plural "{n} apps preventing idle or sleep"
+msgstr[0] "{n} aplikace brání nečinnosti nebo uspání"
+msgstr[1] "{n} aplikace brání nečinnosti nebo uspání"
+msgstr[2] "{n} aplikací brání nečinnosti nebo uspání"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:93
+msgid "{n} app preventing idle"
+msgid_plural "{n} apps preventing idle"
+msgstr[0] "{n} aplikace brání nečinnosti"
+msgstr[1] "{n} aplikace brání nečinnosti"
+msgstr[2] "{n} aplikací brání nečinnosti"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
+msgid "Unknown"
+msgstr "Neznámé"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr "právě teď"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "před {n} minutou"
+msgstr[1] "před {n} minutami"
+msgstr[2] "před {n} minutami"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "před {n} hodinou"
+msgstr[1] "před {n} hodinami"
+msgstr[2] "před {n} hodinami"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
+msgid "(Flatpak via portal)"
+msgstr "(Flatpak přes portál)"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
+msgid "(systemd-inhibit · pid {pid})"
+msgstr "(systemd-inhibit · pid {pid})"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
+msgid "Preventing idle"
+msgstr "Brání nečinnosti"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:202
+#: crates/glimpse-panel/src/config_alert.rs:110
+msgid "Glimpse"
+msgstr "Glimpse"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:208
+msgid "Manual hold"
+msgstr "Ruční blokování"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
+msgid "KDE Connect"
+msgstr "KDE Connect"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
+msgid "The device did not respond"
+msgstr "Zařízení neodpovědělo"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
+msgid "Send files"
+msgstr "Odeslat soubory"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
+msgid "{percent}, charging"
+msgstr "{percent}, nabíjí se"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
+msgid "Connected"
+msgstr "Připojeno"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
+msgid "{name} wants to pair"
+msgstr "{name} se chce spárovat"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
+msgstr "Nepřipojeno"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
+msgid "{name} · {state}"
+msgstr "{name} · {state}"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
+msgid "No paired devices"
+msgstr "Žádná spárovaná zařízení"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
+msgid "charging"
+msgstr "nabíjí se"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
+msgid "Ring"
+msgstr "Zazvonit"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
+msgid "Ping"
+msgstr "Ping"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
+msgid "Send clipboard"
+msgstr "Odeslat obsah schránky"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
+msgid "Send files…"
+msgstr "Odeslat soubory…"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
+msgid "Browse files"
+msgstr "Procházet soubory"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
+msgid "Open SMS"
+msgstr "Otevřít SMS"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
+msgid "Unpair"
+msgstr "Zrušit spárování"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
+msgid "Wants to pair"
+msgstr "Chce se spárovat"
+
+#: crates/glimpse-panel/src/applets/mod.rs:51
+msgid "Built-in display"
+msgstr "Vestavěný displej"
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:345
+msgid "Open {player}"
+msgstr "Otevřít {player}"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:32
+msgid "Playing"
+msgstr "Přehrává se"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:33
+msgid "Paused"
+msgstr "Pozastaveno"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:34
+#: crates/glimpse-panel/src/applets/printing/render.rs:133
+#: crates/glimpse-panel/src/applets/printing/render.rs:191
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+msgid "Stopped"
+msgstr "Zastaveno"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+msgid "None"
+msgstr "Žádné"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+msgid "WEP"
+msgstr "WEP"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+msgid "WPA & WPA2 Personal"
+msgstr "WPA a WPA2 Personal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+msgid "WPA3 Personal"
+msgstr "WPA3 Personal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:114
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
+msgid "Network"
+msgstr "Síť"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:207
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+msgid "Hidden network"
+msgstr "Skrytá síť"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+msgid "Type the name the network broadcasts nothing about."
+msgstr "Zadejte název sítě, který síť nevysílá."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+msgid "Continue"
+msgstr "Pokračovat"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+msgid "Choose how the network is secured, then type its password."
+msgstr "Zvolte, jak je síť zabezpečena, a pak zadejte její heslo."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:271
+#: crates/glimpse-panel/src/applets/network/indicator.rs:289
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
+msgid "The network needs a password before this computer can join it."
+msgstr "Pro připojení k síti je potřeba heslo."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+msgid "{network} refused that password. Check it and try again."
+msgstr "Síť {network} heslo odmítla. Zkontrolujte ho a zkuste to znovu."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
+msgid "Try again"
+msgstr "Zkusit znovu"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:316
+msgid "VPN is connected"
+msgstr "VPN je připojená"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:366
+msgid "Could not switch Wi-Fi"
+msgstr "Wi-Fi nelze přepnout"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:396
+msgid "Could not connect the VPN"
+msgstr "VPN nelze připojit"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:451
+msgid "Could not forget that network"
+msgstr "Tuto síť nelze zapomenout"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:459
+msgid "Could not disconnect the VPN"
+msgstr "VPN nelze odpojit"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:549
+msgid "Could not send that password"
+msgstr "Heslo nelze odeslat"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:14
+msgid "Networking is off"
+msgstr "Síť je vypnutá"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:19
+msgid "Connected by cable"
+msgstr "Připojeno kabelem"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:20
+msgid "Connected, no internet"
+msgstr "Připojeno, bez internetu"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:24
+msgid "No network adapter"
+msgstr "Žádný síťový adaptér"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:27
+msgid "Wi-Fi is blocked by hardware"
+msgstr "Wi-Fi je hardwarově blokovaná"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:30
+msgid "Wi-Fi is off"
+msgstr "Wi-Fi je vypnutá"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:38
+#: crates/glimpse-panel/src/applets/network/render.rs:128
+msgid "Unnamed network"
+msgstr "Nepojmenovaná síť"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:41
+msgid "{network}: connected, no internet"
+msgstr "{network}: připojeno, bez internetu"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:51
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:56
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:64
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:77
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
+msgid "Metered connection"
+msgstr "Měřené připojení"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:81
+msgid "Signal {signal}%"
+msgstr "Signál {signal} %"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:82
+msgid "VPN: {vpn}"
+msgstr "VPN: {vpn}"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:89
+msgid "That network needs a password."
+msgstr "Tato síť vyžaduje heslo."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:90
+msgid "The password was not accepted."
+msgstr "Heslo nebylo přijato."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:91
+msgid "That network is no longer in range."
+msgstr "Tato síť již není v dosahu."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:92
+msgid "The connection timed out."
+msgstr "Vypršel časový limit připojení."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:93
+msgid "The connection could not be configured."
+msgstr "Připojení nelze nastavit."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:94
+msgid "The connection was dropped."
+msgstr "Připojení bylo přerušeno."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:95
+msgid "That network has been forgotten."
+msgstr "Tato síť byla zapomenuta."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:96
+msgid "There is no network device to use."
+msgstr "Není k dispozici žádné síťové zařízení."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:97
+msgid "NetworkManager refused that."
+msgstr "NetworkManager to odmítl."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:109
+msgid "Enterprise"
+msgstr "Podniková"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:110
+msgid "Open, encrypted"
+msgstr "Otevřená, šifrovaná"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:207
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+msgid "{count} more network"
+msgid_plural "{count} more networks"
+msgstr[0] "{count} další síť"
+msgstr[1] "{count} další sítě"
+msgstr[2] "{count} dalších sítí"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:233
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+#: crates/glimpse-panel/src/applets/printing/render.rs:163
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+msgid "Status"
+msgstr "Stav"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:235
+msgid "Metered"
+msgstr "Měřené"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:239
+msgid "IP address"
+msgstr "IP adresa"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:266
+msgid "Security"
+msgstr "Zabezpečení"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:267
+msgid "Band"
+msgstr "Pásmo"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:294
+#: crates/glimpse-widgets/blueprints/network_row.blp:34
+msgid "Forget this network"
+msgstr "Zapomenout tuto síť"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:306
+msgid "Cable unplugged"
+msgstr "Kabel odpojen"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:314
+msgid "Speed"
+msgstr "Rychlost"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:315
+msgid "{speed} Mb/s"
+msgstr "{speed} Mb/s"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "ends in {value} {unit}"
+msgstr "končí za {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
+msgid "in {value} {unit}"
+msgstr "za {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "min"
+msgstr "min"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
+msgid "min left"
+msgstr "min zbývá"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "h"
+msgstr "h"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+msgid "d"
+msgstr "d"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:212
+msgid "Clashes with {events}"
+msgstr "Kolize: {events}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:245
+msgid "Guests"
+msgstr "Hosté"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:246
+msgid "{total} · {accepted} accepted"
+msgstr "{total} · {accepted} přijato"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+msgid "Tentative"
+msgstr "Předběžně"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:258
+msgid "Meeting"
+msgstr "Schůzka"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:261
+msgid "Link"
+msgstr "Odkaz"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
+msgid "Conflicts"
+msgstr "Konflikty"
+
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:211
+msgid "Clear all"
+msgstr "Vymazat vše"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+msgid "Do not disturb"
+msgstr "Nerušit"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+msgid "{count} waiting, do not disturb is on"
+msgid_plural "{count} waiting, do not disturb is on"
+msgstr[0] "{count} čeká, režim Nerušit je zapnutý"
+msgstr[1] "{count} čekají, režim Nerušit je zapnutý"
+msgstr[2] "{count} čeká, režim Nerušit je zapnutý"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+msgid "No new notifications"
+msgstr "Žádná nová oznámení"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:105
+msgid "{count} new notification"
+msgid_plural "{count} new notifications"
+msgstr[0] "{count} nové oznámení"
+msgstr[1] "{count} nová oznámení"
+msgstr[2] "{count} nových oznámení"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+msgid "{count}m"
+msgstr "{count} min"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+msgid "{count}h"
+msgstr "{count} h"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+msgid "{count}d"
+msgstr "{count} d"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Prázdné"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:221
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] "{count} okno"
+msgstr[1] "{count} okna"
+msgstr[2] "{count} oken"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:76
+#: crates/glimpse-panel/src/applets/places/render.rs:20
+#: crates/glimpse-widgets/blueprints/places_popover.blp:12
+#: crates/glimpse-widgets/blueprints/places_popover.blp:24
+msgid "Places"
+msgstr "Místa"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:78
+msgid "Could not empty the trash"
+msgstr "Koš nelze vyprázdnit"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:106
+msgid "Some items could not be deleted."
+msgstr "Některé položky nelze smazat."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:297
+#: crates/glimpse-panel/src/applets/power/mod.rs:325
+#: crates/glimpse-panel/src/applets/power/mod.rs:346
+#: crates/glimpse-panel/src/applets/power/render.rs:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:12
+#: crates/glimpse-widgets/blueprints/status_island.blp:34
+#: crates/glimpse-widgets/blueprints/status_island.blp:37
+msgid "Power"
+msgstr "Napájení"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:299
+msgid "Could not change the power mode"
+msgstr "Režim napájení nelze změnit"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:304
+#: crates/glimpse-panel/src/applets/power/mod.rs:332
+msgid "The battery service is unavailable."
+msgstr "Služba baterie není dostupná."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:327
+msgid "Could not change the charge limit"
+msgstr "Limit nabíjení nelze změnit"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:348
+msgid "Could not change keep awake"
+msgstr "Udržování vzhůru nelze změnit"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:352
+msgid "The idle service is unavailable."
+msgstr "Služba nečinnosti není dostupná."
+
+#: crates/glimpse-panel/src/applets/power/render.rs:130
+msgid "Power draw"
+msgstr "Odběr energie"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:131
+msgid "{watts} W"
+msgstr "{watts} W"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:136
+msgid "Health"
+msgstr "Kondice"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:143
+msgid "Energy"
+msgstr "Energie"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:149
+msgid "Capacity when new"
+msgstr "Původní kapacita"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:154
+msgid "Cycles"
+msgstr "Cykly"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:157
+msgid "Technology"
+msgstr "Technologie"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
+msgid "Model"
+msgstr "Model"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
+msgid "Make"
+msgstr "Výrobce"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:173
+msgid "Limit charge to {percent}%"
+msgstr "Omezit nabíjení na {percent} %"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:220
+msgid "Until full"
+msgstr "Do plného nabití"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:223
+msgid "Remaining"
+msgstr "Zbývá"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:232
+msgid "Since unplugged"
+msgstr "Od odpojení"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:309
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:454
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:467
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:535
+msgid "Now"
+msgstr "Nyní"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:327
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:440
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:519
+msgid "{time} · {percent}%"
+msgstr "{time} · {percent} %"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:359
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:787
+msgid "Kept awake"
+msgstr "Udržováno vzhůru"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:362
+msgid "Held by {app}"
+msgstr "Udržuje aplikace {app}"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:363
+msgid "Held by you"
+msgstr "Udržujete vy"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:372
+msgid "Less than a minute"
+msgstr "Méně než minuta"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:373
+msgid "{minutes} m"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:375
+msgid "{hours} h {minutes} m"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:383
+msgid "Charging"
+msgstr "Nabíjí se"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:384
+msgid "Discharging"
+msgstr "Vybíjí se"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:386
+msgid "Fully charged"
+msgstr "Plně nabito"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:387
+msgid "Not charging"
+msgstr "Nenabíjí se"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:402
+msgid "Power saver"
+msgstr "Úspora energie"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:403
+msgid "Balanced"
+msgstr "Vyvážený"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:404
+msgid "Performance"
+msgstr "Výkon"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:412
+msgid "Unavailable: laptop on lap"
+msgstr "Nedostupné: notebook na klíně"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:413
+msgid "Unavailable: too hot"
+msgstr "Nedostupné: příliš horko"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:444
+msgid "Li-ion"
+msgstr "Li-ion"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:445
+msgid "Li-poly"
+msgstr "Li-poly"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:446
+msgid "LiFePO4"
+msgstr "LiFePO4"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:447
+msgid "Lead acid"
+msgstr "Olověná"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:448
+msgid "NiCd"
+msgstr "NiCd"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:449
+msgid "NiMH"
+msgstr "NiMH"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:63
+msgid "Could not cancel the print job"
+msgstr "Tiskovou úlohu nelze zrušit"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:70
+msgid "Could not pause the print job"
+msgstr "Tiskovou úlohu nelze pozastavit"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:77
+msgid "Could not resume the print job"
+msgstr "Tiskovou úlohu nelze obnovit"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:84
+msgid "Could not retry the print job"
+msgstr "Tiskovou úlohu nelze zopakovat"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:112
+#: crates/glimpse-panel/src/applets/printing/render.rs:132
+#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:12
+msgid "Printing"
+msgstr "Tisk"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:137
+msgid "The print server refused that."
+msgstr "Tiskový server to odmítl."
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:139
+msgid "The print server is unreachable."
+msgstr "Tiskový server je nedostupný."
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:58
+msgid "page {done} of {total}"
+msgstr "strana {done} z {total}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:77
+msgid ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+msgstr ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:120
+msgid "{status}: {reason}"
+msgstr "{status}: {reason}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:130
+msgid "Queued"
+msgstr "Ve frontě"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:131
+msgid "Held"
+msgstr "Pozdrženo"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:134
+msgid "Completed"
+msgstr "Dokončeno"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:135
+msgid "Cancelled"
+msgstr "Zrušeno"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:136
+msgid "Aborted"
+msgstr "Přerušeno"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:182
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+msgid "Not accepting jobs"
+msgstr "Nepřijímá úlohy"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:93
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:134
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:12
+msgid "Privacy"
+msgstr "Soukromí"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:136
+msgid "Could not stop that screen share"
+msgstr "Sdílení obrazovky nelze zastavit"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:151
+msgid "That share had already ended."
+msgstr "Toto sdílení již skončilo."
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Camera"
+msgstr "Kamera"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+msgid "Microphone"
+msgstr "Mikrofon"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:46
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:62
+#: data/me.aresa.Glimpse.Shot.desktop:18
+msgid "Screen"
+msgstr "Obrazovka"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:144
+msgid "Sharing {what}"
+msgstr "Sdílení: {what}"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:152
+msgid "muted"
+msgstr "ztlumeno"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:175
+msgid "a window"
+msgstr "okno"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:78
+msgid "Could not open that drive"
+msgstr "Disk nelze otevřít"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:112
+msgid "Could not eject that drive"
+msgstr "Disk nelze vysunout"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:154
+#: crates/glimpse-panel/src/applets/removable/render.rs:27
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+msgid "Removable"
+msgstr "Vyměnitelné"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:115
+msgid "{available} free"
+msgstr "{available} volných"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:151
+#: crates/glimpse-widgets/blueprints/removable_device.blp:20
+msgid "Space"
+msgstr "Místo"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:181
+msgid "In use by an app"
+msgstr "Používá ho aplikace"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:184
+msgid "No space left"
+msgstr "Žádné volné místo"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:231
+msgid "That drive is not mounted."
+msgstr "Tento disk není připojen."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:232
+msgid "The drive is busy with something else."
+msgstr "Disk je právě zaneprázdněný."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:233
+msgid "That drive is already mounted."
+msgstr "Tento disk je již připojen."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:234
+msgid "This computer is not authorized to do that."
+msgstr "Tento počítač k tomu nemá oprávnění."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:235
+msgid "That is not supported for this drive."
+msgstr "Toto není pro tento disk podporováno."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:236
+msgid "That option is not permitted."
+msgstr "Tato volba není povolena."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:237
+msgid "The drive did not respond in time."
+msgstr "Disk neodpověděl včas."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:238
+msgid "That would wake a sleeping drive."
+msgstr "Tím by se probudil uspaný disk."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:239
+msgid "The action was cancelled."
+msgstr "Akce byla zrušena."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:240
+msgid "The drive could not complete that."
+msgstr "Disk to nemohl dokončit."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
+msgid "Ruler"
+msgstr "Pravítko"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
+msgid "The ruler could not start, capture the screen or reach the clipboard."
+msgstr ""
+"Pravítko se nespustilo nebo nemohlo zachytit obrazovku či otevřít schránku."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
+msgid "Could not measure the screen"
+msgstr "Obrazovku nelze změřit"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
+msgid "Could not copy that measurement"
+msgstr "Měření nelze zkopírovat"
+
+#: crates/glimpse-panel/src/applets/ruler/render.rs:25
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
+msgid "Measure the screen"
+msgstr "Změřit obrazovku"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by {who}"
+msgstr "Blokováno aplikací {who}"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:26
+msgid "Blocked by an active inhibitor."
+msgstr "Blokováno aktivním inhibitorem."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:62
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "Uspat"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:61
+msgid "Suspend this session?"
+msgstr "Uspat tuto relaci?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+msgid "Hibernate"
+msgstr "Hibernovat"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:66
+msgid "Hibernate this session?"
+msgstr "Hibernovat tuto relaci?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
+msgid "Log out"
+msgstr "Odhlásit se"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:71
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr "Aktuální relace se ukončí. Aplikace se nemusí ukončit správně."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr "Restartovat"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:76
+msgid "Restart this computer?"
+msgstr "Restartovat tento počítač?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "Vypnout"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:81
+msgid "Shut down this computer?"
+msgstr "Vypnout tento počítač?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:106
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] "Stále je otevřené {windows} okno."
+msgstr[1] "Stále jsou otevřená {windows} okna."
+msgstr[2] "Stále je otevřeno {windows} oken."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:129
+msgid "Signed in today"
+msgstr "Přihlášeno dnes"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:131
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] "Přihlášeno {days} den"
+msgstr[1] "Přihlášeno {days} dny"
+msgstr[2] "Přihlášeno {days} dní"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
+msgid "CPU"
+msgstr "CPU"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
+msgid "RAM"
+msgstr "RAM"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
+msgid "Swap"
+msgstr "Swap"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
+msgid "Net"
+msgstr "Síť"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
+msgid "GPU"
+msgstr "GPU"
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:295
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] "Zobrazit {count} skrytou položku"
+msgstr[1] "Zobrazit {count} skryté položky"
+msgstr[2] "Zobrazit {count} skrytých položek"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:193
+msgid "The weather provider is not serving this place."
+msgstr "Poskytovatel počasí pro toto místo nemá data."
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:219
+msgid "Here"
+msgstr "Zde"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:234
+#: crates/glimpse-panel/src/applets/weather/mod.rs:270
+msgid "No reading yet"
+msgstr "Zatím bez měření"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:16
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
+msgid "Clear"
+msgstr "Jasno"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:17
+msgid "Mainly clear"
+msgstr "Převážně jasno"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:18
+msgid "Partly cloudy"
+msgstr "Polojasno"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:19
+msgid "Overcast"
+msgstr "Zataženo"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:20
+msgid "Fog"
+msgstr "Mlha"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:21
+msgid "Drizzle"
+msgstr "Mrholení"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:22
+msgid "Freezing drizzle"
+msgstr "Mrznoucí mrholení"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:23
+msgid "Light rain"
+msgstr "Slabý déšť"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:24
+#: crates/glimpse-panel/src/applets/weather/render.rs:206
+msgid "Rain"
+msgstr "Déšť"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:25
+msgid "Heavy rain"
+msgstr "Silný déšť"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:26
+msgid "Freezing rain"
+msgstr "Mrznoucí déšť"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:27
+msgid "Light snow"
+msgstr "Slabé sněžení"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:28
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
+msgid "Snow"
+msgstr "Sněžení"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:29
+msgid "Heavy snow"
+msgstr "Silné sněžení"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:30
+msgid "Snow grains"
+msgstr "Sněhová zrna"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:31
+msgid "Sleet"
+msgstr "Déšť se sněhem"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:32
+msgid "Rain showers"
+msgstr "Dešťové přeháňky"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:33
+msgid "Snow showers"
+msgstr "Sněhové přeháňky"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:34
+msgid "Thunderstorm"
+msgstr "Bouřka"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:35
+msgid "Thunderstorm with hail"
+msgstr "Bouřka s krupobitím"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:84
+msgid "feels like {temperature}"
+msgstr "pocitově {temperature}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:213
+msgid "{what} starting in {count} minute"
+msgid_plural "{what} starting in {count} minutes"
+msgstr[0] "{what} začne za {count} minutu"
+msgstr[1] "{what} začne za {count} minuty"
+msgstr[2] "{what} začne za {count} minut"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:223
+msgid "{what} starting in {count} hour"
+msgid_plural "{what} starting in {count} hours"
+msgstr[0] "{what} začne za {count} hodinu"
+msgstr[1] "{what} začne za {count} hodiny"
+msgstr[2] "{what} začne za {count} hodin"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:244
+msgid "°C"
+msgstr "°C"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:245
+msgid "°F"
+msgstr "°F"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:273
+msgctxt "wind"
+msgid "N"
+msgstr "S"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:274
+msgctxt "wind"
+msgid "NE"
+msgstr "SV"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:275
+msgctxt "wind"
+msgid "E"
+msgstr "V"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:276
+msgctxt "wind"
+msgid "SE"
+msgstr "JV"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:277
+msgctxt "wind"
+msgid "S"
+msgstr "J"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:278
+msgctxt "wind"
+msgid "SW"
+msgstr "JZ"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
+msgctxt "wind"
+msgid "W"
+msgstr "Z"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
+msgctxt "wind"
+msgid "NW"
+msgstr "SZ"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:287
+msgid "km/h"
+msgstr "km/h"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:288
+msgid "mph"
+msgstr "mph"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
+msgid "{amount} mm"
+msgstr "{amount} mm"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:300
+msgid "{amount} in"
+msgstr "{amount} in"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:307
+msgid "Wind"
+msgstr "Vítr"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:310
+msgid "Humidity"
+msgstr "Vlhkost"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
+msgid "Precipitation"
+msgstr "Srážky"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:321
+msgid "High"
+msgstr "Max."
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:325
+msgid "Low"
+msgstr "Min."
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:331
+msgid "Chance of rain"
+msgstr "Pravděpodobnost deště"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:340
+msgid "Sunrise"
+msgstr "Východ slunce"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:343
+msgid "Sunset"
+msgstr "Západ slunce"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
+msgid "Day length"
+msgstr "Délka dne"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:392
+msgid ""
+"{place}\n"
+"{condition}, {temperature}, feels like {feels-like}"
+msgstr ""
+"{place}\n"
+"{condition}, {temperature}, pocitově {feels-like}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
+msgid "Workspaces"
+msgstr "Pracovní plochy"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+msgid "Could not rename the workspace"
+msgstr "Pracovní plochu nelze přejmenovat"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:29
+msgid "Workspace {number}"
+msgstr "Pracovní plocha {number}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:56
+msgid "Already the name of {workspace}"
+msgstr "Tento název už má {workspace}"
+
+#: crates/glimpse-panel/src/config_alert.rs:32
+msgid ""
+"Idle and night light are off until it is fixed; everything else uses its "
+"defaults."
+msgstr ""
+"Nečinnost a noční světlo jsou vypnuté, dokud se chyba neopraví; vše ostatní "
+"používá výchozí hodnoty."
+
+#: crates/glimpse-panel/src/config_alert.rs:38
+msgid ""
+"The last change was not applied; the previous configuration is still "
+"running."
+msgstr "Poslední změna nebyla použita; stále běží předchozí konfigurace."
+
+#: crates/glimpse-panel/src/config_alert.rs:113
+msgid "Glimpse configuration has errors"
+msgstr "Konfigurace Glimpse obsahuje chyby"
+
+#: crates/glimpse-shot/src/errors.rs:52
+msgid "a screenshot is already being taken"
+msgstr "snímek obrazovky se již pořizuje"
+
+#: crates/glimpse-shot/src/gui/app.rs:218
+msgid "_Open Image…"
+msgstr "_Otevřít obrázek…"
+
+#: crates/glimpse-shot/src/gui/app.rs:220
+msgid "_Preferences"
+msgstr "_Předvolby"
+
+#: crates/glimpse-shot/src/gui/app.rs:221
+msgid "_Keyboard Shortcuts"
+msgstr "_Klávesové zkratky"
+
+#: crates/glimpse-shot/src/gui/app.rs:222
+msgid "_About Screenshot"
+msgstr "O _aplikaci Snímek obrazovky"
+
+#: crates/glimpse-shot/src/gui/app.rs:372
+msgid "--portal needs a screen target"
+msgstr "--portal vyžaduje cílovou obrazovku"
+
+#: crates/glimpse-shot/src/gui/app.rs:532
+#: crates/glimpse-shot/src/gui/app.rs:640
+#: crates/glimpse-shot/src/gui/app.rs:892
+#: crates/glimpse-shot/src/notify.rs:372
+#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
+#: data/me.aresa.Glimpse.Shot.desktop:3
+msgid "Screenshot"
+msgstr "Snímek obrazovky"
+
+#: crates/glimpse-shot/src/gui/app.rs:567
+msgid "The clipboard holds no image"
+msgstr "Schránka neobsahuje žádný obrázek"
+
+#: crates/glimpse-shot/src/gui/app.rs:764
+msgid "There is no window to capture"
+msgstr "Není žádné okno k zachycení"
+
+#: crates/glimpse-shot/src/gui/app.rs:834
+msgid "That window has closed"
+msgstr "Okno bylo zavřeno"
+
+#: crates/glimpse-shot/src/gui/app.rs:851
+msgid "PNG Images"
+msgstr "Obrázky PNG"
+
+#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+msgid "Open Image"
+msgstr "Otevřít obrázek"
+
+#: crates/glimpse-shot/src/gui/app.rs:969
+msgid "Untitled window"
+msgstr "Okno bez názvu"
+
+#: crates/glimpse-shot/src/gui/app.rs:1078
+msgid "Screenshot failed"
+msgstr "Pořízení snímku selhalo"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:385
+msgid "Waiting to take a screenshot"
+msgstr "Čeká se na pořízení snímku obrazovky"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/result.rs:936
+msgid "Save Screenshot"
+msgstr "Uložit snímek obrazovky"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1641
+msgid "{size} · scaled {percent}%"
+msgstr "{size} · měřítko {percent} %"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1818
+msgid "Saved"
+msgstr "Uloženo"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1819
+msgid "Copied"
+msgstr "Zkopírováno"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:90
+msgid "Pictures/Screenshots"
+msgstr "Obrázky/Snímky obrazovky"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:108
+#: crates/glimpse-shot/src/gui/prefs.rs:127
+msgid "Saved as “{name}”"
+msgstr "Uloženo jako „{name}“"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:219
+#: crates/glimpse-shot/src/gui/result.rs:1088
+msgid "Copied to clipboard"
+msgstr "Zkopírováno do schránky"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
+msgid "Choose Folder"
+msgstr "Vybrat složku"
+
+#: crates/glimpse-shot/src/gui/result.rs:734
+msgid "A screenshot has unsaved changes"
+msgstr "Snímek obrazovky obsahuje neuložené změny"
+
+#: crates/glimpse-shot/src/gui/result.rs:878
+msgid "A file name cannot be empty or contain “/”"
+msgstr "Název souboru nesmí být prázdný ani obsahovat „/“"
+
+#: crates/glimpse-shot/src/gui/result.rs:883
+msgid ""
+"There is no Pictures folder to save into; choose a folder in Preferences"
+msgstr "Složka Obrázky neexistuje; vyberte složku pro ukládání v Předvolbách"
+
+#: crates/glimpse-shot/src/gui/result.rs:969
+msgid "Discard this screenshot?"
+msgstr "Zahodit tento snímek obrazovky?"
+
+#: crates/glimpse-shot/src/gui/result.rs:970
+msgid "It has not been saved or copied."
+msgstr "Nebyl uložen ani zkopírován."
+
+#: crates/glimpse-shot/src/gui/result.rs:974
+msgid "Discard"
+msgstr "Zahodit"
+
+#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+msgid "Save"
+msgstr "Uložit"
+
+#: crates/glimpse-shot/src/gui/result.rs:1137
+msgid "Saved “{name}”"
+msgstr "Uloženo „{name}“"
+
+#: crates/glimpse-shot/src/gui/result.rs:1145
+#: crates/glimpse-shot/src/notify.rs:499
+#: crates/glimpse-shot/src/notify/tests.rs:312
+msgid "Show in Folder"
+msgstr "Zobrazit ve složce"
+
+#: crates/glimpse-shot/src/notify.rs:485
+#: crates/glimpse-shot/src/notify/tests.rs:298
+msgid "Screenshot saved"
+msgstr "Snímek obrazovky uložen"
+
+#: crates/glimpse-shot/src/notify.rs:486
+#: crates/glimpse-shot/src/notify/tests.rs:331
+msgid "Screenshot copied"
+msgstr "Snímek obrazovky zkopírován"
+
+#: crates/glimpse-shot/src/notify.rs:497
+#: crates/glimpse-shot/src/notify/tests.rs:310
+msgctxt "notification action"
+msgid "Open"
+msgstr "Otevřít"
+
+#: crates/glimpse-shot/src/portal.rs:138
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:56
+msgid "An application"
+msgstr "Aplikace"
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+msgid "Applications"
+msgstr "Aplikace"
+
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
+msgid "Nearby devices"
+msgstr "Zařízení v okolí"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr "Zobrazit celý rok"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr "Předchozí"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/track_card.blp:63
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr "Další"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
+msgid "Some events on this day aren't shown."
+msgstr "Některé události tohoto dne nejsou zobrazeny."
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
+msgid "World clock"
+msgstr "Světový čas"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:29
+msgid "Search clipboard"
+msgstr "Hledat ve schránce"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:37
+msgid "Pinned"
+msgstr "Připnuté"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
+msgid "Recent"
+msgstr "Nedávné"
+
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
+msgid "Palette"
+msgstr "Paleta"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:31
+msgid "Brightness"
+msgstr "Jas"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:57
+#: crates/glimpse-widgets/src/display_list/mod.rs:109
+msgid "Enabled"
+msgstr "Zapnuto"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:72
+#: crates/glimpse-widgets/src/display_popover/mod.rs:325
+msgid "Pause until tomorrow"
+msgstr "Pozastavit do zítřka"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:89
+msgid "Blank the screens"
+msgstr "Zhasnout obrazovky"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:16
+#: crates/glimpse-widgets/blueprints/power_popover.blp:73
+#: crates/glimpse-widgets/blueprints/power_popover.blp:80
+msgid "Keep awake"
+msgstr "Udržovat vzhůru"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:28
+#: crates/glimpse-widgets/blueprints/power_popover.blp:84
+#: crates/glimpse-widgets/src/idle_popover/mod.rs:59
+msgid "Keep awake for…"
+msgstr "Udržovat vzhůru po dobu…"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/blueprints/power_popover.blp:88
+msgid "15 minutes"
+msgstr "15 minut"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:37
+#: crates/glimpse-widgets/blueprints/power_popover.blp:93
+msgid "30 minutes"
+msgstr "30 minut"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:42
+#: crates/glimpse-widgets/blueprints/power_popover.blp:98
+msgid "1 hour"
+msgstr "1 hodina"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:47
+#: crates/glimpse-widgets/blueprints/power_popover.blp:103
+msgid "2 hours"
+msgstr "2 hodiny"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:108
+msgid "4 hours"
+msgstr "4 hodiny"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:58
+msgid "Kept awake by"
+msgstr "Vzhůru udržuje"
+
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
+msgid "KDE Connect settings"
+msgstr "Nastavení KDE Connect"
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
+msgid "Other players"
+msgstr "Další přehrávače"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
+msgid "Ethernet"
+msgstr "Ethernet"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
+msgid "VPN"
+msgstr "VPN"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
+msgid "Other networks"
+msgstr "Další sítě"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
+msgid "Looking for networks…"
+msgstr "Hledání sítí…"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
+msgid "Connect to a hidden network…"
+msgstr "Připojit se ke skryté síti…"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+msgid "Details"
+msgstr "Podrobnosti"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+msgid "Coming up"
+msgstr "Nadcházející"
+
+#: crates/glimpse-widgets/blueprints/notification_header.blp:56
+#: crates/glimpse-widgets/src/notification_card/imp.rs:183
+msgid "Dismiss"
+msgstr "Zavřít"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
+msgid "Notifications are unavailable"
+msgstr "Oznámení nejsou dostupná"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
+msgid "Nothing new"
+msgstr "Nic nového"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
+msgid "You are all caught up."
+msgstr "Máte vše přečteno."
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+msgid "Password"
+msgstr "Heslo"
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:61
+msgid "Caps Lock is on"
+msgstr "Caps Lock je zapnutý"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:33
+msgid "Bookmarks"
+msgstr "Záložky"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:60
+#: crates/glimpse-widgets/blueprints/places_popover.blp:63
+msgid "Trash"
+msgstr "Koš"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:66
+msgid "Open the trash"
+msgstr "Otevřít koš"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:70
+#: crates/glimpse-widgets/src/places_popover/mod.rs:176
+msgid "Empty the trash"
+msgstr "Vyprázdnit koš"
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:16
+#: crates/glimpse-widgets/blueprints/track_card.blp:52
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:319
+msgid "Play"
+msgstr "Přehrát"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:54
+msgid "History"
+msgstr "Historie"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:67
+msgid "Power mode"
+msgstr "Režim napájení"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:116
+msgid "Devices"
+msgstr "Zařízení"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:24
+msgid "Print jobs"
+msgstr "Tiskové úlohy"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:33
+msgid "Printers"
+msgstr "Tiskárny"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:24
+msgid "In use now"
+msgstr "Právě se používá"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "Mute microphone"
+msgstr "Ztlumit mikrofon"
+
+#: crates/glimpse-widgets/blueprints/removable_device.blp:35
+msgid "Eject"
+msgstr "Vysunout"
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr "Posun"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:12
+msgid "Lock"
+msgstr "Zamknout"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+msgid "Suspend…"
+msgstr "Uspat…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
+msgid "Restart…"
+msgstr "Restartovat…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
+msgid "Power Off…"
+msgstr "Vypnout…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
+msgid "Suspend now?"
+msgstr "Uspat nyní?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
+msgid "The screen stays locked when it wakes."
+msgstr "Obrazovka zůstane po probuzení zamčená."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
+msgid "Restart now?"
+msgstr "Restartovat nyní?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
+msgid "Open sessions may lose unsaved work."
+msgstr "Neuložená práce v otevřených relacích se může ztratit."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
+msgid "Power off now?"
+msgstr "Vypnout nyní?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
+msgid "Power Off"
+msgstr "Vypnout"
+
+#: crates/glimpse-widgets/blueprints/shot_banner.blp:33
+msgid "Enter shares · Esc refuses"
+msgstr "Enter sdílí · Esc odmítne"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:22
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:111
+msgid "Main Menu"
+msgstr "Hlavní nabídka"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:47
+msgid "Capture a Screen (S)"
+msgstr "Zachytit obrazovku (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:69
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:85
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:129
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:75
+#: data/me.aresa.Glimpse.Shot.desktop:22
+msgid "Window"
+msgstr "Okno"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:70
+msgid "Capture a Window (W)"
+msgstr "Zachytit okno (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:92
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:108
+#: data/me.aresa.Glimpse.Shot.desktop:26
+msgid "Region"
+msgstr "Oblast"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:93
+msgid "Capture a Region (R)"
+msgstr "Zachytit oblast (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "Zpoždění"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
+msgid "Show Pointer"
+msgstr "Zobrazit ukazatel"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:166
+msgid "_Take Screenshot"
+msgstr "_Pořídit snímek obrazovky"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:168
+msgid "Take Screenshot (Enter)"
+msgstr "Pořídit snímek obrazovky (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
+msgid "Cancel the screenshot"
+msgstr "Zrušit snímek obrazovky"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:204
+msgid "Preferences"
+msgstr "Předvolby"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
+msgid "config.toml cannot be read, so nothing here can be saved"
+msgstr "Soubor config.toml nelze přečíst, proto nic nelze uložit"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
+msgid "Open File"
+msgstr "Otevřít soubor"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:19
+msgid "Saving"
+msgstr "Ukládání"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:22
+msgid "Folder"
+msgstr "Složka"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:39
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:78
+msgid "File Name"
+msgstr "Název souboru"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
+msgid "Behavior"
+msgstr "Chování"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:69
+msgid "Annotate In"
+msgstr "Anotovat v"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:70
+msgid "Where a Print capture opens"
+msgstr "Kde se otevře snímek pořízený klávesou Print"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:74
+msgid "Full-Screen Overlay"
+msgstr "Překryv přes celou obrazovku"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:82
+msgid "Default Delay"
+msgstr "Výchozí zpoždění"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
+msgid "Seconds before capturing"
+msgstr "Počet sekund před zachycením"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:97
+msgid "Flash on Capture"
+msgstr "Bliknout při zachycení"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:101
+msgid "Notify After Saving or Copying"
+msgstr "Upozornit po uložení nebo zkopírování"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:106
+msgid "Annotations"
+msgstr "Anotace"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+msgid "Red"
+msgstr "Červená"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+msgid "Yellow"
+msgstr "Žlutá"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+msgid "Green"
+msgstr "Zelená"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+msgid "Blue"
+msgstr "Modrá"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+msgid "White"
+msgstr "Bílá"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:224
+msgid "Line Width"
+msgstr "Tloušťka čáry"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:233
+msgid "Thin"
+msgstr "Tenká"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:238
+msgid "Medium"
+msgstr "Střední"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:243
+msgid "Thick"
+msgstr "Silná"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:209
+msgid "Keyboard Shortcuts"
+msgstr "Klávesové zkratky"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:251
+msgid "Add these bindings to the niri configuration"
+msgstr "Přidejte tyto zkratky do konfigurace niri"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:254
+msgid "Copy _Snippet"
+msgstr "Kopírovat _úryvek"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:264
+msgid "Capture and Annotate"
+msgstr "Zachytit a anotovat"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:274
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:19
+msgid "Capture a Window"
+msgstr "Zachytit okno"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:284
+msgid "Copy the Screen to the Clipboard"
+msgstr "Kopírovat obrazovku do schránky"
+
+#: crates/glimpse-widgets/blueprints/shot_region.blp:24
+msgid "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
+msgstr "Tažením vyberte  ·  Mezerník: celá obrazovka  ·  Esc: zrušit"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:7
+msgid "_Save"
+msgstr "_Uložit"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:12
+msgid "Save _As…"
+msgstr "Uložit _jako…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:18
+msgid "_Open With…"
+msgstr "_Otevřít pomocí…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:43
+msgid "New Screenshot (Ctrl+N)"
+msgstr "Nový snímek obrazovky (Ctrl+N)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:93
+msgid "A file with this name exists. Saving adds “(2)”."
+msgstr "Soubor s tímto názvem už existuje. Při uložení se přidá „(2)“."
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:118
+msgid "_Copy"
+msgstr "_Kopírovat"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:120
+msgid "Copy to Clipboard (Ctrl+C)"
+msgstr "Kopírovat do schránky (Ctrl+C)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:121
+msgid "Save or Open"
+msgstr "Uložit nebo otevřít"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+msgid "Undo (Ctrl+Z)"
+msgstr "Zpět (Ctrl+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "Znovu (Ctrl+Shift+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+msgid "Pan (hold Space)"
+msgstr "Posouvat (držte mezerník)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+msgid "Best Fit (Ctrl+0)"
+msgstr "Přizpůsobit (Ctrl+0)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+msgid "Actual Size (Ctrl+1)"
+msgstr "Skutečná velikost (Ctrl+1)"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:6
+msgid "Capture"
+msgstr "Zachycení"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:9
+msgid "Take Screenshot"
+msgstr "Pořídit snímek obrazovky"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:14
+msgid "Capture a Screen"
+msgstr "Zachytit obrazovku"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:24
+msgid "Capture a Region"
+msgstr "Zachytit oblast"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:30
+msgid "Tools"
+msgstr "Nástroje"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:33
+msgid "Crop"
+msgstr "Oříznout"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:38
+msgid "Arrow"
+msgstr "Šipka"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:43
+msgid "Line"
+msgstr "Čára"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:48
+msgid "Freehand"
+msgstr "Volné kreslení"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:53
+msgid "Highlighter"
+msgstr "Zvýrazňovač"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:58
+msgid "Rectangle"
+msgstr "Obdélník"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:63
+msgid "Filled Rectangle"
+msgstr "Vyplněný obdélník"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:68
+msgid "Oval"
+msgstr "Ovál"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:73
+msgid "Number"
+msgstr "Číslo"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:78
+msgid "Text"
+msgstr "Text"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:83
+msgid "Blur"
+msgstr "Rozmazání"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:93
+msgid "Thinner and Thicker Line"
+msgstr "Tenčí a silnější čára"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:99
+msgid "Editing"
+msgstr "Úpravy"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:102
+msgid "Apply Crop or Finish Text"
+msgstr "Použít oříznutí nebo dokončit text"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "Zpět"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
+msgid "Redo"
+msgstr "Znovu"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:117
+msgid "Delete Selection"
+msgstr "Smazat výběr"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:122
+msgid "Cancel Crop or Text"
+msgstr "Zrušit oříznutí nebo text"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:128
+msgid "Finishing"
+msgstr "Dokončení"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:131
+msgid "Copy and Close"
+msgstr "Kopírovat a zavřít"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
+#: crates/glimpse-widgets/src/color_list/mod.rs:150
+msgid "Copy"
+msgstr "Kopírovat"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:146
+msgid "Save As"
+msgstr "Uložit jako"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+msgid "Open in Window"
+msgstr "Otevřít v okně"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:157
+msgid "View"
+msgstr "Zobrazení"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:160
+msgid "Best Fit"
+msgstr "Přizpůsobit"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:165
+msgid "Actual Size"
+msgstr "Skutečná velikost"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:170
+msgid "Zoom In"
+msgstr "Přiblížit"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:175
+msgid "Zoom Out"
+msgstr "Oddálit"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:180
+msgid "Pan While Held"
+msgstr "Posouvat při držení"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:186
+msgid "General"
+msgstr "Obecné"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
+msgid "New Screenshot"
+msgstr "Nový snímek obrazovky"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:199
+msgid "Open Image from Clipboard"
+msgstr "Otevřít obrázek ze schránky"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:214
+msgid "Close Window"
+msgstr "Zavřít okno"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:219
+msgid "Quit"
+msgstr "Ukončit"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+msgid "Move Toolbar"
+msgstr "Přesunout panel nástrojů"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+msgid "Screen (S)"
+msgstr "Obrazovka (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+msgid "Window (W)"
+msgstr "Okno (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+msgid "Crop (C)"
+msgstr "Oříznout (C)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+msgid "Arrow (A)"
+msgstr "Šipka (A)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+msgid "Line (L)"
+msgstr "Čára (L)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+msgid "Freehand (P)"
+msgstr "Volné kreslení (P)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+msgid "Highlighter (H)"
+msgstr "Zvýrazňovač (H)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+msgid "Rectangle (R)"
+msgstr "Obdélník (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+msgid "Filled Rectangle (F)"
+msgstr "Vyplněný obdélník (F)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+msgid "Oval (O)"
+msgstr "Ovál (O)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+msgid "Number (N)"
+msgstr "Číslo (N)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+msgid "Text (T)"
+msgstr "Text (T)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+msgid "Pixelate (B)"
+msgstr "Pixelizace (B)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
+msgid "Color (1–5)"
+msgstr "Barva (1–5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+msgid "Red (1)"
+msgstr "Červená (1)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+msgid "Yellow (2)"
+msgstr "Žlutá (2)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+msgid "Green (3)"
+msgstr "Zelená (3)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+msgid "Blue (4)"
+msgstr "Modrá (4)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+msgid "White (5)"
+msgstr "Bílá (5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+msgid "Thin line ([ and ])"
+msgstr "Tenká čára ([ a ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+msgid "Medium line ([ and ])"
+msgstr "Střední čára ([ a ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+msgid "Thick line ([ and ])"
+msgstr "Silná čára ([ a ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+msgid "Apply Crop (Enter)"
+msgstr "Použít oříznutí (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+msgid "Apply Crop"
+msgstr "Použít oříznutí"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+msgid "Copy and close (Enter)"
+msgstr "Kopírovat a zavřít (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+msgid "More ways to finish"
+msgstr "Další způsoby dokončení"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+msgid "Cancel (Esc)"
+msgstr "Zrušit (Esc)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+msgid "Save As…"
+msgstr "Uložit jako…"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+msgid "Open With…"
+msgstr "Otevřít pomocí…"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:17
+msgid "This workspace"
+msgstr "Tato pracovní plocha"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:33
+msgid "Other workspaces"
+msgstr "Ostatní pracovní plochy"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
+msgid "System Monitor"
+msgstr "Sledování systému"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
+msgid "Memory"
+msgstr "Paměť"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
+msgid "Load average"
+msgstr "Průměrné zatížení"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
+msgid "Uptime"
+msgstr "Doba běhu"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
+msgid "CPU temperature"
+msgstr "Teplota CPU"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
+msgid "GPU temperature"
+msgstr "Teplota GPU"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr "Náhodně"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr "Opakovat"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
+msgid "Inactive warning row"
+msgstr "Neaktivní řádek varování"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:83
+msgid "Device out of range"
+msgstr "Zařízení mimo dosah"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:118
+msgid "Locked by the hardware switch"
+msgstr "Uzamčeno hardwarovým přepínačem"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr "Ztlumit"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+msgid ""
+"Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr ""
+"Varování před bouří: v celém regionu se očekávají silné nárazy větru až 90 "
+"km/h"
+
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
+msgid "Name this workspace"
+msgstr "Pojmenujte tuto pracovní plochu"
+
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
+msgstr "Zrušit ztlumení"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
+msgid "OK"
+msgstr "OK"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:42
+msgid "Enter the PIN"
+msgstr "Zadejte PIN"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
+msgid "Type the PIN shown on {device}, then press OK."
+msgstr "Zadejte PIN zobrazený na zařízení {device} a stiskněte OK."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:47
+msgid "Enter the passkey"
+msgstr "Zadejte přístupový klíč"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
+msgid "Type the passkey shown on {device}."
+msgstr "Zadejte přístupový klíč zobrazený na zařízení {device}."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
+msgid "1 to 16 letters or digits"
+msgstr "1 až 16 písmen nebo číslic"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+msgid "Up to 999999"
+msgstr "Nejvýše 999999"
+
+#: crates/glimpse-widgets/src/color_list/mod.rs:70
+msgid "{count} more color"
+msgid_plural "{count} more colors"
+msgstr[0] "{count} další barva"
+msgstr[1] "{count} další barvy"
+msgstr[2] "{count} dalších barev"
+
+#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
+msgid "Nothing picked yet"
+msgstr "Zatím nic nevybráno"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
+msgid "The last enabled display can't be turned off"
+msgstr "Poslední zapnutý displej nelze vypnout"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+msgid "Off"
+msgstr "Vypnuto"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
+msgid "Mode"
+msgstr "Režim"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
+msgid "Connector"
+msgstr "Konektor"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
+msgid "Serial"
+msgstr "Sériové číslo"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
+msgid "Scale"
+msgstr "Měřítko"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:179
+msgid "Position"
+msgstr "Poloha"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
+msgid "{width} × {height} · {hz} Hz"
+msgstr "{width} × {height} · {hz} Hz"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:208
+msgid "{x}, {y}"
+msgstr "{x}, {y}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:220
+msgid "Schedule"
+msgstr "Plán"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:225
+msgid "Paused until {time}"
+msgstr "Pozastaveno do {time}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:228
+msgid "Temperature"
+msgstr "Teplota"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:278
+msgid "Not reaching any display"
+msgstr "Nepůsobí na žádný displej"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:323
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+msgid "Resume"
+msgstr "Obnovit"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:396
+msgid "Sunset to sunrise"
+msgstr "Od západu do východu slunce"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:398
+msgid "Fixed hours"
+msgstr "Pevný čas"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:404
+msgid "{kelvin} K"
+msgstr "{kelvin} K"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:103
+msgid "Release"
+msgstr "Uvolnit"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:128
+msgid "Reason"
+msgstr "Důvod"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:129
+msgid "Prevents"
+msgstr "Brání"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
+msgid "Shutdown"
+msgstr "Vypnutí"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
+msgid "Lid"
+msgstr "Víko"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:148
+msgid "Power key"
+msgstr "Tlačítko napájení"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:149
+msgid "Suspend key"
+msgstr "Klávesa uspání"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:150
+msgid "Hibernate key"
+msgstr "Klávesa hibernace"
+
+#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+msgid "Pause"
+msgstr "Pozastavit"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
+msgid "That password did not work"
+msgstr "Heslo nefungovalo"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
+msgid "{network} refused it. Check it and try again."
+msgstr "Síť {network} heslo odmítla. Zkontrolujte ho a zkuste to znovu."
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
+msgid "Enter the password for {network}"
+msgstr "Zadejte heslo k síti {network}"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:155
+msgid "Unread"
+msgstr "Nepřečtené"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:181
+msgid "Dismiss {notification}"
+msgstr "Zavřít {notification}"
+
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:114
+msgid "{app}: {notifications}"
+msgstr "{app}: {notifications}"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+msgid "Collapse"
+msgstr "Sbalit"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+msgid "{count} notification"
+msgid_plural "{count} notifications"
+msgstr[0] "{count} oznámení"
+msgstr[1] "{count} oznámení"
+msgstr[2] "{count} oznámení"
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:88
+msgid "Show notification popups while this is on"
+msgstr "Zobrazovat vyskakovací oznámení i v tomto režimu"
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:172
+msgid "Clear these notifications"
+msgstr "Vymazat tato oznámení"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:164
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} položka"
+msgstr[1] "{n} položky"
+msgstr[2] "{n} položek"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:171
+msgid "Delete {n} item for good?"
+msgid_plural "Delete {n} items for good?"
+msgstr[0] "Trvale smazat {n} položku?"
+msgstr[1] "Trvale smazat {n} položky?"
+msgstr[2] "Trvale smazat {n} položek?"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+msgid "Retry"
+msgstr "Zkusit znovu"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+msgid "Page {current} of {total}"
+msgstr "Strana {current} z {total}"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+msgid "Stop sharing"
+msgstr "Zastavit sdílení"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+msgid "In use"
+msgstr "Používá se"
+
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:60
+msgid "“{app}” asked for a screenshot"
+msgstr "„{app}“ žádá o snímek obrazovky"
+
+#: crates/glimpse-widgets/src/shot_capture_page/mod.rs:66
+msgid "Current Screen"
+msgstr "Aktuální obrazovka"
+
+#: crates/glimpse-widgets/src/shot_countdown/mod.rs:29
+msgid "Capturing in {n}"
+msgstr "Snímek za {n}"
+
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:141
+msgid "captured when picked"
+msgstr "zachyceno při výběru"
+
+#: crates/glimpse-widgets/src/workspace_section/mod.rs:73
+msgid "Focus workspace"
+msgstr "Přepnout na pracovní plochu"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
+msgid "No windows"
+msgstr "Žádná okna"
+
+#: data/me.aresa.Glimpse.Shot.desktop:4
+msgid "Take a screenshot, mark it up, save or copy it"
+msgstr ""
+"Pořiďte snímek obrazovky, dokreslete do něj poznámky a uložte ho nebo "
+"zkopírujte"
+
+#: data/me.aresa.Glimpse.Shot.desktop:12
+msgid "screenshot;capture;annotate;print screen;snip;grab;"
+msgstr ""
+"screenshot;capture;annotate;print "
+"screen;snip;grab;snímek;obrazovka;zachytit;anotace;výstřižek;"
+
+#~ msgid "{count} print job"
+#~ msgid_plural "{count} print jobs"
+#~ msgstr[0] "{count} tisková úloha"
+#~ msgstr[1] "{count} tiskové úlohy"
+#~ msgstr[2] "{count} tiskových úloh"

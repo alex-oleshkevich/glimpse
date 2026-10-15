@@ -64,10 +64,10 @@ impl Session {
 
 impl Applet for Session {
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::Session {} = &config.kind else {
+        let AppletKind::Session { .. } = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

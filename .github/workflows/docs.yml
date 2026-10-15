@@ -1,0 +1,58 @@
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/docs.yml
+      - website/**
+      - data/config.schema.json
+      - docs/screenshots/**
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/docs.yml
+      - website/**
+      - data/config.schema.json
+      - docs/screenshots/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - uses: extractions/setup-just@v4
+      - run: just docs-install
+      - run: just docs-build
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

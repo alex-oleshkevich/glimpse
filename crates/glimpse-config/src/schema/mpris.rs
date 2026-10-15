@@ -7,19 +7,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Mpris {
-    /// Regular expressions matched against a player's bus-name suffix (`spotify`,
-    /// `kdeconnect.mpris_desktop_1`) and its `Identity` (`Spotify`, `Firefox`). A player matching
-    /// any of them is never shown. Patterns are unanchored and case-sensitive; write `(?i)` for
-    /// case-insensitive and `^…$` to anchor. A pattern that does not compile is skipped with a
-    /// warning and the rest keep working. `playerctld` and KDE Connect mirrors are already
-    /// handled without this.
-    ///
-    /// To start from: `'^chromium'` hides every Chromium tab, whose bus names carry an instance
-    /// number after the application (`chromium.instance4181`); `'(?i)firefox'` hides Firefox
-    /// however it happens to capitalize its `Identity`; `'^mpv$'` hides exactly `mpv` and leaves
-    /// `mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash
-    /// reaches the regex instead of being read as a string escape:
-    /// `ignore = ['^chromium', '(?i)firefox']`.
+    /// Media players to keep off the bar. Write part of the player's name, as it appears in the
+    /// popover: `ignore = ['Firefox', 'chromium']` hides Firefox and every Chromium window
+    /// playing sound. Upper and lower case must match the name; start an entry with `(?i)` to
+    /// ignore case, as in `'(?i)firefox'`. Use single quotes around each entry.
     pub ignore: Vec<String>,
     /// Whether artwork named by an `http` or `https` URL is downloaded. Players that name a local
     /// file are unaffected, and turning this off leaves those working. Downloads go to

@@ -6,25 +6,12 @@ use crate::environment;
 /// What language this session reads, and how it writes a time of day and a measurement. Every
 /// setting here defaults to what the environment already says, so an empty table is the right
 /// answer on a machine whose locale is set up.
-///
-/// The three keys are read by different owners: `glimpse-weather` resolves `units` and stamps the
-/// answer onto every weather reading, while the panel, the lock screen and the wallpaper resolve
-/// `language` and `hour-format` for themselves. Nothing else in glimpse asks the environment
-/// these questions.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Regional {
-    /// Which translation catalog the interface is drawn in, such as `ru`. Empty follows the
-    /// environment, which is `LANGUAGE`, then `LC_MESSAGES`, then `LANG`. Naming one here sets
-    /// `LANGUAGE` for the process, so it applies whether or not that locale has been generated.
-    ///
-    /// This chooses the catalog and nothing else: weekday names, the twelve-hour question and the
-    /// unit system keep following the environment, because a person reading a Russian interface in
-    /// Chicago still wants their own clock and their own thermometer.
-    ///
-    /// A change here takes effect when the binary next starts. A GTK template resolves its text as
-    /// each widget is built, so re-reading it in a running process would leave what is already on
-    /// screen in the old language and everything opened afterwards in the new one.
+    /// The language glimpse's text is shown in, such as `ru` for Russian. Empty uses your system
+    /// language. It changes only the words: dates, the clock and units still follow your system
+    /// settings. Takes effect the next time glimpse starts, for example when you log in.
     pub language: String,
     /// How a time of day reads wherever glimpse composes one itself — the world clock, the times
     /// inside event rows, sunrise and sunset. A `strftime` format you write yourself, such as the

@@ -196,7 +196,7 @@ impl Applet for Power {
             return;
         };
         self.settings = settings.clone();
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
         self.twelve = config.regional.twelve_hour();
 
         ctx.interval(Duration::from_secs(60));

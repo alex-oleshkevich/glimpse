@@ -1,0 +1,3587 @@
+# Portuguese translations for glimpse package.
+# Copyright (C) 2026 Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"PO-Revision-Date: 2026-10-15 15:14+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: crates/glimpse-lens/src/session.rs:281
+msgid "total {length}px, {count} segment"
+msgid_plural "total {length}px, {count} segments"
+msgstr[0] "total {length}px, {count} segmento"
+msgstr[1] "total {length}px, {count} segmentos"
+
+#: crates/glimpse-lens/src/session.rs:294
+msgid "segment {length}px · {angle}°"
+msgstr "segmento {length}px · {angle}°"
+
+#: crates/glimpse-lock/src/auth.rs:27
+msgid "Wrong password"
+msgstr "Palavra-passe errada"
+
+#: crates/glimpse-lock/src/auth.rs:29
+msgid "Too many attempts"
+msgstr "Demasiadas tentativas"
+
+#: crates/glimpse-lock/src/auth.rs:30
+msgid "Can't verify passwords. Run glimpse-lock check."
+msgstr "Não é possível verificar palavras-passe. Execute glimpse-lock check."
+
+#: crates/glimpse-lock/src/auth.rs:31
+msgid "This account can't be unlocked here"
+msgstr "Esta conta não pode ser desbloqueada aqui"
+
+#: crates/glimpse-lock/src/auth.rs:32
+msgid "Password change required"
+msgstr "É necessário alterar a palavra-passe"
+
+#: crates/glimpse-lock/src/auth.rs:33
+msgid "Authentication timed out"
+msgstr "A autenticação expirou"
+
+#: crates/glimpse-lock/src/auth.rs:34
+msgid "Authentication failed"
+msgstr "A autenticação falhou"
+
+#: crates/glimpse-lock/src/auth.rs:36
+msgid ""
+"Can't verify passwords. Switch to a text console (Ctrl+Alt+F2), log in, and "
+"run glimpse-lock check."
+msgstr ""
+"Não é possível verificar palavras-passe. Mude para uma consola de texto "
+"(Ctrl+Alt+F2), inicie sessão e execute glimpse-lock check."
+
+#: crates/glimpse-lock/src/chips.rs:38
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:12
+#: crates/glimpse-widgets/src/notification_chips/imp.rs:28
+msgid "Notifications"
+msgstr "Notificações"
+
+#: crates/glimpse-lock/src/notify.rs:16
+msgid "Screen not locked"
+msgstr "Ecrã não bloqueado"
+
+#: crates/glimpse-lock/src/notify.rs:17
+msgid "Suspending unlocked"
+msgstr "A suspender sem bloqueio"
+
+#: crates/glimpse-lock/src/notify.rs:20
+msgid "Password expired"
+msgstr "Palavra-passe expirada"
+
+#: crates/glimpse-lock/src/notify.rs:21
+msgid "Your password has expired. Change it now with passwd."
+msgstr "A sua palavra-passe expirou. Altere-a agora com passwd."
+
+#: crates/glimpse-lock/src/notify.rs:27
+msgid ""
+"glimpse-lock can't verify passwords in this session. Run glimpse-lock check."
+msgstr ""
+"O glimpse-lock não consegue verificar palavras-passe nesta sessão. Execute "
+"glimpse-lock check."
+
+#: crates/glimpse-lock/src/notify.rs:29
+msgid "This compositor has no session lock."
+msgstr "Este compositor não tem bloqueio de sessão."
+
+#: crates/glimpse-lock/src/notify.rs:30
+msgid "The compositor refused the lock."
+msgstr "O compositor recusou o bloqueio."
+
+#: crates/glimpse-lock/src/session.rs:47
+msgid "Couldn't suspend the system"
+msgstr "Não foi possível suspender o sistema"
+
+#: crates/glimpse-lock/src/session.rs:48
+msgid "Couldn't restart the system"
+msgstr "Não foi possível reiniciar o sistema"
+
+#: crates/glimpse-lock/src/session.rs:49
+msgid "Couldn't power off the system"
+msgstr "Não foi possível desligar o sistema"
+
+#: crates/glimpse-lock/src/session.rs:136
+msgid "Blocked by {who}: {why}"
+msgstr "Bloqueado por {who}: {why}"
+
+#: crates/glimpse-notifications/src/app.rs:462
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+msgid "now"
+msgstr "agora"
+
+#: crates/glimpse-panel/src/app.rs:387
+msgid "Bluetooth pairing"
+msgstr "Emparelhamento Bluetooth"
+
+#: crates/glimpse-panel/src/app.rs:429
+msgid "Network password"
+msgstr "Palavra-passe da rede"
+
+#: crates/glimpse-panel/src/app.rs:441
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:196
+#: crates/glimpse-shot/src/gui/result.rs:973
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:130
+#: crates/glimpse-widgets/blueprints/network_popover.blp:165
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:99
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:149
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:199
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:129
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: crates/glimpse-panel/src/app.rs:504
+#: crates/glimpse-panel/src/applets/session/mod.rs:87
+msgid "Session"
+msgstr "Sessão"
+
+#: crates/glimpse-panel/src/app.rs:506
+msgid "Could not complete the session action"
+msgstr "Não foi possível concluir a ação de sessão"
+
+#: crates/glimpse-panel/src/app.rs:508
+msgid "The session manager refused that action."
+msgstr "O gestor de sessão recusou essa ação."
+
+#: crates/glimpse-panel/src/app.rs:600
+msgid "this device"
+msgstr "este dispositivo"
+
+#: crates/glimpse-panel/src/applet/mod.rs:163
+msgid "That change was refused."
+msgstr "Essa alteração foi recusada."
+
+#: crates/glimpse-panel/src/applet/mod.rs:164
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:281
+#: crates/glimpse-panel/src/applets/display/indicator.rs:388
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:153
+msgid "That is not supported."
+msgstr "Não é suportado."
+
+#: crates/glimpse-panel/src/applet/mod.rs:165
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:282
+#: crates/glimpse-panel/src/applets/display/indicator.rs:389
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:154
+msgid "That could not be completed."
+msgstr "Não foi possível concluir isso."
+
+#: crates/glimpse-panel/src/applet/mod.rs:166
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:283
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
+#: crates/glimpse-panel/src/applets/display/indicator.rs:390
+#: crates/glimpse-panel/src/applets/display/indicator.rs:401
+#: crates/glimpse-panel/src/applets/network/render.rs:98
+#: crates/glimpse-panel/src/applets/power/mod.rs:355
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
+msgid "That did not work."
+msgstr "Isso não funcionou."
+
+#: crates/glimpse-panel/src/applets/agenda.rs:80
+msgid "All day · day {day} of {days}"
+msgstr "Todo o dia · dia {day} de {days}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:83
+msgid "All day"
+msgstr "Todo o dia"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:91
+msgid "{start} · until {weekday} {end}"
+msgstr "{start} · até {weekday} {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:98
+#: crates/glimpse-panel/src/applets/agenda.rs:130
+msgid "{start} · {length}"
+msgstr "{start} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "{start} · over"
+msgstr "{start} · terminado"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:107
+msgid "ended {length} ago"
+msgstr "terminou há {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:114
+msgid "now · ends in {length}"
+msgstr "agora · termina dentro de {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "now · ends {end}"
+msgstr "agora · termina às {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:123
+msgid "starting now · {length}"
+msgstr "a começar agora · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:126
+msgid "in {until} · {length}"
+msgstr "dentro de {until} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:153
+msgid "Join Google Meet"
+msgstr "Entrar no Google Meet"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:154
+msgid "Join Zoom"
+msgstr "Entrar no Zoom"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:155
+msgid "Join Microsoft Teams"
+msgstr "Entrar no Microsoft Teams"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:156
+msgid "Join Webex"
+msgstr "Entrar no Webex"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:157
+msgid "Join meeting"
+msgstr "Entrar na reunião"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:170
+msgid "Open event"
+msgstr "Abrir evento"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:190
+#: crates/glimpse-panel/src/applets/printing/render.rs:161
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:240
+#: crates/glimpse-panel/src/applets/privacy/render.rs:73
+msgid "Location"
+msgstr "Local"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:192
+#: crates/glimpse-panel/src/applets/next_event/render.rs:236
+msgid "Calendar"
+msgstr "Calendário"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:196
+#: crates/glimpse-panel/src/applets/next_event/render.rs:239
+msgid "Organizer"
+msgstr "Organizador"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:198
+#: crates/glimpse-panel/src/applets/next_event/render.rs:255
+msgid "Description"
+msgstr "Descrição"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:216
+msgid "{minutes} min"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:222
+#: crates/glimpse-panel/src/applets/power/render.rs:374
+msgid "{hours} h"
+msgstr "{hours} h"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:223
+#: crates/glimpse-panel/src/applets/weather/render.rs:265
+msgid "{hours} h {minutes} min"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:231
+msgid "{days} d"
+msgstr "{days} d"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:232
+msgid "{days} d {hours} h"
+msgstr "{days} d {hours} h"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:88
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:152
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:449
+msgid "Could not change the volume"
+msgstr "Não foi possível alterar o volume"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:110
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:170
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:468
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
+#: crates/glimpse-panel/src/applets/display/indicator.rs:379
+#: crates/glimpse-panel/src/applets/network/indicator.rs:482
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:95
+msgid "Could not change that setting"
+msgstr "Não foi possível alterar essa definição"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:130
+msgid "Could not switch device"
+msgstr "Não foi possível mudar de dispositivo"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:192
+msgid "Could not move the application"
+msgstr "Não foi possível mover a aplicação"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:231
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:250
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:12
+msgid "Sound"
+msgstr "Som"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+msgid "The audio server refused that."
+msgstr "O servidor de áudio recusou isso."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:272
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:280
+msgid "The audio server is unavailable."
+msgstr "O servidor de áudio não está disponível."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
+#: crates/glimpse-panel/src/applets/display/indicator.rs:386
+#: crates/glimpse-panel/src/applets/display/indicator.rs:397
+msgid "That was not a valid value."
+msgstr "Esse valor não é válido."
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:24
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:123
+msgid "Output"
+msgstr "Saída"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:50
+msgid "Input"
+msgstr "Entrada"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:285
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:296
+#: crates/glimpse-panel/src/applets/places/render.rs:49
+msgid "Show fewer"
+msgstr "Mostrar menos"
+
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:330
+msgid "{count} more app"
+msgid_plural "{count} more apps"
+msgstr[0] "mais {count} aplicação"
+msgstr[1] "mais {count} aplicações"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:82
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
+msgid "Muted"
+msgstr "Sem som"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:84
+#: crates/glimpse-panel/src/applets/display/render.rs:117
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
+#: crates/glimpse-widgets/src/lib.rs:377
+msgid "{percent}%"
+msgstr "{percent}%"
+
+#: crates/glimpse-panel/src/applets/audio/render.rs:150
+#: crates/glimpse-panel/src/applets/audio/render/tests.rs:204
+msgid "Unknown application"
+msgstr "Aplicação desconhecida"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:82
+msgid "Could not switch Bluetooth"
+msgstr "Não foi possível ligar ou desligar o Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
+#: crates/glimpse-panel/src/applets/network/indicator.rs:404
+#: crates/glimpse-panel/src/applets/network/indicator.rs:412
+#: crates/glimpse-panel/src/applets/network/indicator.rs:420
+#: crates/glimpse-panel/src/applets/network/indicator.rs:524
+#: crates/glimpse-panel/src/applets/network/indicator.rs:535
+msgid "Could not connect"
+msgstr "Não foi possível ligar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:114
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:185
+msgid "Could not pair"
+msgstr "Não foi possível emparelhar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:126
+#: crates/glimpse-panel/src/applets/network/indicator.rs:443
+msgid "Could not disconnect"
+msgstr "Não foi possível desligar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:137
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
+msgid "Could not remove the device"
+msgstr "Não foi possível remover o dispositivo"
+
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:289
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:314
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:61
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:16
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:39
+msgid "Bluetooth is blocked"
+msgstr "O Bluetooth está bloqueado"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:40
+msgid "Bluetooth is off"
+msgstr "O Bluetooth está desligado"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:41
+msgid "Turning Bluetooth on"
+msgstr "A ligar o Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:42
+msgid "Turning Bluetooth off"
+msgstr "A desligar o Bluetooth"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:43
+msgid "Looking for devices"
+msgstr "À procura de dispositivos"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:45
+msgid "No devices connected"
+msgstr "Nenhum dispositivo ligado"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:47
+msgid "{count} device connected"
+msgid_plural "{count} devices connected"
+msgstr[0] "{count} dispositivo ligado"
+msgstr[1] "{count} dispositivos ligados"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:111
+msgid "Bluetooth is waiting for an answer"
+msgstr "O Bluetooth está à espera de uma resposta"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:125
+msgid ""
+"It will be disconnected, and this computer will stop connecting to it. To "
+"use it again you will have to pair it, with the device in pairing mode."
+msgstr ""
+"Vai ser desligado e este computador deixa de se ligar a ele. Para o voltar a"
+" usar, terá de o emparelhar com o dispositivo em modo de emparelhamento."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:128
+msgid ""
+"This computer will stop connecting to it, and it will not connect on its "
+"own. To use it again you will have to pair it, with the device in pairing "
+"mode."
+msgstr ""
+"Este computador deixa de se ligar a ele e o dispositivo não se liga sozinho."
+" Para o voltar a usar, terá de o emparelhar com o dispositivo em modo de "
+"emparelhamento."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:133
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:288
+msgid "Forget"
+msgstr "Esquecer"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:144
+msgid "Unknown device"
+msgstr "Dispositivo desconhecido"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:158
+msgid "Is this the code shown on the device?"
+msgstr "Este é o código mostrado no dispositivo?"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:161
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:135
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:168
+msgid "This device wants to pair with this computer."
+msgstr "Este dispositivo quer emparelhar com este computador."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:171
+msgid "Allow"
+msgstr "Permitir"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:173
+msgid "Deny"
+msgstr "Recusar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:178
+msgid "Type this PIN on the device. It will not ask again."
+msgstr "Introduza este PIN no dispositivo. Não voltará a ser pedido."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:190
+msgid "Type this passkey on the device."
+msgstr "Introduza esta chave de acesso no dispositivo."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:192
+msgid "{entered} of 6 entered"
+msgstr "{entered} de 6 introduzidos"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:264
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:286
+msgid "{count} more device"
+msgid_plural "{count} more devices"
+msgstr[0] "mais {count} dispositivo"
+msgstr[1] "mais {count} dispositivos"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:305
+msgid "{level}%"
+msgstr "{level}%"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:312
+msgid "Blocked"
+msgstr "Bloqueado"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:315
+msgid "Pairing lost"
+msgstr "Emparelhamento perdido"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:318
+msgid "Pairing will not survive a restart"
+msgstr "O emparelhamento perde-se ao reiniciar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:325
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+#: crates/glimpse-panel/src/applets/network/render.rs:324
+msgid "Type"
+msgstr "Tipo"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
+#: crates/glimpse-panel/src/applets/power/render.rs:111
+#: crates/glimpse-widgets/blueprints/power_popover.blp:41
+msgid "Battery"
+msgstr "Bateria"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
+msgid "Codec"
+msgstr "Codec"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:340
+#: crates/glimpse-panel/src/applets/network/render.rs:243
+msgid "Disconnect"
+msgstr "Desligar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:342
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
+#: crates/glimpse-panel/src/applets/network/indicator.rs:273
+#: crates/glimpse-panel/src/applets/network/indicator.rs:295
+#: crates/glimpse-panel/src/applets/network/render.rs:251
+#: crates/glimpse-widgets/blueprints/network_popover.blp:169
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
+msgid "Connect"
+msgstr "Ligar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:344
+msgid "Pair"
+msgstr "Emparelhar"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/network/render.rs:279
+#: crates/glimpse-widgets/blueprints/network_row.blp:25
+msgid "Connect automatically"
+msgstr "Ligar automaticamente"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:364
+msgid "Forget this device"
+msgstr "Esquecer este dispositivo"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:380
+msgid "The device is switched off or out of range."
+msgstr "O dispositivo está desligado ou fora de alcance."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:381
+msgid "The device refused the connection."
+msgstr "O dispositivo recusou a ligação."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
+msgid "The device offers nothing this computer can connect to."
+msgstr "O dispositivo não oferece nada a que este computador se possa ligar."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+msgid "The PIN or passkey did not match."
+msgstr "O PIN ou a chave de acesso não coincidem."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+msgid "The device rejected the pairing. Put it in pairing mode and try again."
+msgstr ""
+"O dispositivo rejeitou o emparelhamento. Coloque-o em modo de emparelhamento"
+" e tente novamente."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+msgid "The pairing timed out."
+msgstr "O emparelhamento expirou."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+msgid "The pairing was cancelled."
+msgstr "O emparelhamento foi cancelado."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:390
+msgid ""
+"This panel could not register a pairing agent, so it cannot pair. Devices "
+"that are already paired still connect."
+msgstr ""
+"Este painel não conseguiu registar um agente de emparelhamento, por isso não"
+" pode emparelhar. Os dispositivos já emparelhados continuam a ligar-se."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:392
+msgid "The device is busy, possibly connected to another device."
+msgstr "O dispositivo está ocupado, possivelmente ligado a outro dispositivo."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:393
+msgid "Bluetooth is switched off."
+msgstr "O Bluetooth está desligado."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:394
+msgid "The device disconnected."
+msgstr "O dispositivo desligou-se."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:395
+msgid "The pairing with this device is no longer valid."
+msgstr "O emparelhamento com este dispositivo já não é válido."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:397
+msgid ""
+"This computer could not open a connection to the device. Try again, or "
+"switch Bluetooth off and on."
+msgstr ""
+"Este computador não conseguiu abrir uma ligação ao dispositivo. Tente "
+"novamente ou desligue e volte a ligar o Bluetooth."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:399
+msgid "Bluetooth could not complete that."
+msgstr "O Bluetooth não conseguiu concluir isso."
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:422
+msgid "Headset"
+msgstr "Auscultadores com microfone"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:423
+msgid "Headphones"
+msgstr "Auscultadores"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:424
+msgid "Speaker"
+msgstr "Altifalante"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:425
+#: crates/glimpse-panel/src/applets/display/render.rs:78
+#: crates/glimpse-panel/src/applets/display/render/tests.rs:195
+#: crates/glimpse-widgets/blueprints/keyboard_popover.blp:12
+msgid "Keyboard"
+msgstr "Teclado"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:426
+msgid "Mouse"
+msgstr "Rato"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:427
+msgid "Gamepad"
+msgstr "Comando de jogos"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:428
+msgid "Tablet"
+msgstr "Tablet"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:429
+msgid "Phone"
+msgstr "Telemóvel"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:430
+msgid "Computer"
+msgstr "Computador"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:431
+#: crates/glimpse-widgets/blueprints/display_popover.blp:12
+msgid "Display"
+msgstr "Ecrã"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:432
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:158
+msgid "Printer"
+msgstr "Impressora"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:433
+msgid "Device"
+msgstr "Dispositivo"
+
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:447
+msgid "Vendor codec"
+msgstr "Codec do fabricante"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:140
+msgid "Image · {size}"
+msgstr "Imagem · {size}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:142
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:178
+msgid "Size"
+msgstr "Tamanho"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:155
+msgid "Save as…"
+msgstr "Guardar como…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:156
+msgid "Open with…"
+msgstr "Abrir com…"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:192
+msgid "Site"
+msgstr "Site"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:197
+msgid "Open in browser"
+msgstr "Abrir no navegador"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:109
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:88
+msgid "Color"
+msgstr "Cor"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:209
+msgid "Copy as {format}"
+msgstr "Copiar como {format}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:217
+msgid "Path"
+msgstr "Caminho"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:219
+#: crates/glimpse-panel/src/applets/network/render.rs:104
+#: crates/glimpse-widgets/blueprints/removable_device.blp:30
+msgid "Open"
+msgstr "Abrir"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:223
+msgid "Lines"
+msgstr "Linhas"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:276
+msgid "Send to device"
+msgstr "Enviar para dispositivo"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:286
+msgid "Pin"
+msgstr "Afixar"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:287
+msgid "Unpin"
+msgstr "Desafixar"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
+#: crates/glimpse-panel/src/applets/places/render.rs:50
+#: crates/glimpse-panel/src/applets/removable/render.rs:47
+msgid "{count} more"
+msgid_plural "{count} more"
+msgstr[0] "mais {count}"
+msgstr[1] "mais {count}"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:308
+msgid "Clear history"
+msgstr "Limpar histórico"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:428
+msgid "Save image"
+msgstr "Guardar imagem"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:442
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:457
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:601
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:632
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:660
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:682
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:704
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:12
+msgid "Clipboard"
+msgstr "Área de transferência"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:444
+msgid "Could not save the image"
+msgstr "Não foi possível guardar a imagem"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:459
+msgid "Could not send that"
+msgstr "Não foi possível enviar isso"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
+msgid "KDE Connect is not running."
+msgstr "O KDE Connect não está em execução."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:503
+msgid "That entry is no longer in the history."
+msgstr "Essa entrada já não está no histórico."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:603
+msgid "Could not copy that"
+msgstr "Não foi possível copiar isso"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:613
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:644
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:667
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:689
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:711
+msgid "The clipboard is unavailable."
+msgstr "A área de transferência não está disponível."
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:634
+msgid "Could not copy that entry"
+msgstr "Não foi possível copiar essa entrada"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:662
+msgid "Could not pin that entry"
+msgstr "Não foi possível afixar essa entrada"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:684
+msgid "Could not forget that entry"
+msgstr "Não foi possível esquecer essa entrada"
+
+#: crates/glimpse-panel/src/applets/clipboard/indicator.rs:706
+msgid "Could not clear the history"
+msgstr "Não foi possível limpar o histórico"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:23
+msgid "Week {number}"
+msgstr "Semana {number}"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:30
+#: crates/glimpse-panel/src/applets/weather/render.rs:136
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "Hoje"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:31
+#: crates/glimpse-panel/src/applets/weather/render.rs:137
+#: crates/glimpse-widgets/src/world_clock/mod.rs:147
+msgid "Tomorrow"
+msgstr "Amanhã"
+
+#: crates/glimpse-panel/src/applets/clock/popover.rs:32
+#: crates/glimpse-widgets/src/world_clock/mod.rs:148
+msgid "Yesterday"
+msgstr "Ontem"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
+msgid "Color picker"
+msgstr "Seletor de cores"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
+msgid "That color is no longer in the palette."
+msgstr "Essa cor já não está na paleta."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
+msgid "The picker could not start, capture the screen or reach the clipboard."
+msgstr ""
+"O seletor não conseguiu iniciar, capturar o ecrã ou aceder à área de "
+"transferência."
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
+msgid "Could not pick a color"
+msgstr "Não foi possível escolher uma cor"
+
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
+#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
+msgid "Could not copy that color"
+msgstr "Não foi possível copiar essa cor"
+
+#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
+msgid "Pick a color"
+msgstr "Escolher uma cor"
+
+#: crates/glimpse-panel/src/applets/command.rs:85
+msgid "Command"
+msgstr "Comando"
+
+#: crates/glimpse-panel/src/applets/command.rs:87
+msgid "Could not run a command"
+msgstr "Não foi possível executar um comando"
+
+#: crates/glimpse-panel/src/applets/command.rs:89
+msgid "{program} could not be started."
+msgstr "Não foi possível iniciar {program}."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:243
+#: crates/glimpse-panel/src/applets/display/indicator.rs:265
+#: crates/glimpse-panel/src/applets/display/indicator.rs:363
+#: crates/glimpse-widgets/blueprints/display_popover.blp:80
+msgid "Displays"
+msgstr "Ecrãs"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:245
+msgid "Could not change that display"
+msgstr "Não foi possível alterar esse ecrã"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:250
+#: crates/glimpse-panel/src/applets/display/indicator.rs:272
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:152
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:216
+msgid "The compositor is unavailable."
+msgstr "O compositor não está disponível."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:267
+msgid "Could not blank the screens"
+msgstr "Não foi possível apagar os ecrãs"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:365
+msgid "Could not change the brightness"
+msgstr "Não foi possível alterar o brilho"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:377
+#: crates/glimpse-widgets/blueprints/display_popover.blp:50
+msgid "Night light"
+msgstr "Luz noturna"
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:387
+msgid "The brightness service is unavailable."
+msgstr "O serviço de brilho não está disponível."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:396
+msgid "That was not a valid setting."
+msgstr "Essa definição não é válida."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:398
+msgid "The night light is off."
+msgstr "A luz noturna está desligada."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:399
+msgid "The night light is not running."
+msgstr "A luz noturna não está em execução."
+
+#: crates/glimpse-panel/src/applets/display/indicator.rs:400
+#: crates/glimpse-panel/src/applets/power/mod.rs:353
+msgid "That took too long."
+msgstr "Isso demorou demasiado."
+
+#: crates/glimpse-panel/src/applets/display/render.rs:114
+msgid "{name}: {percent}%"
+msgstr "{name}: {percent}%"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1197
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:405
+msgid "Unsupported: {name}"
+msgstr "Não suportado: {name}"
+
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1202
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:410
+msgid "This applet asked for an element glimpse does not render"
+msgstr "Esta applet pediu um elemento que o glimpse não apresenta"
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:94
+#: crates/glimpse-panel/src/applets/exec/mod.rs:127
+msgid "External applet action failed."
+msgstr "A ação da applet externa falhou."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:204
+msgid "The file did not open."
+msgstr "O ficheiro não abriu."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:223
+msgid "The link did not open."
+msgstr "A ligação não abriu."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:247
+msgid "The application did not start."
+msgstr "A aplicação não iniciou."
+
+#: crates/glimpse-panel/src/applets/exec/mod.rs:281
+msgid "External applet is not running."
+msgstr "A applet externa não está em execução."
+
+#: crates/glimpse-panel/src/applets/idle/keep_awake.rs:13
+msgid "Awake until {time}"
+msgstr "Acordado até às {time}"
+
+#: crates/glimpse-panel/src/applets/idle/mod.rs:185
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:144
+msgid "Idle"
+msgstr "Inatividade"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:25
+#: crates/glimpse-panel/src/applets/idle/render.rs:53
+msgid "Idle daemon not running"
+msgstr "O serviço de inatividade não está em execução"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:30
+#: crates/glimpse-panel/src/applets/idle/render.rs:56
+msgid "The compositor is not reporting idle time"
+msgstr "O compositor não está a indicar o tempo de inatividade"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:39
+msgid "{n} minute left"
+msgid_plural "{n} minutes left"
+msgstr[0] "Falta {n} minuto"
+msgstr[1] "Faltam {n} minutos"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:42
+msgid "{hours} h {minutes} min left"
+msgstr "Faltam {hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:59
+msgid "Nothing preventing idle"
+msgstr "Nada impede a inatividade"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:73
+msgid "Awake until you turn it off"
+msgstr "Acordado até o desativar"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:88
+msgid "{n} app preventing idle or sleep"
+msgid_plural "{n} apps preventing idle or sleep"
+msgstr[0] "{n} aplicação a impedir a inatividade ou suspensão"
+msgstr[1] "{n} aplicações a impedir a inatividade ou suspensão"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:93
+msgid "{n} app preventing idle"
+msgid_plural "{n} apps preventing idle"
+msgstr[0] "{n} aplicação a impedir a inatividade"
+msgstr[1] "{n} aplicações a impedir a inatividade"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:129
+msgid "Unknown"
+msgstr "Desconhecido"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:136
+msgid "just now"
+msgstr "agora mesmo"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:139
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "há {n} minuto"
+msgstr[1] "há {n} minutos"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:143
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "há {n} hora"
+msgstr[1] "há {n} horas"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:148
+msgid "(Flatpak via portal)"
+msgstr "(Flatpak via portal)"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:150
+msgid "(systemd-inhibit · pid {pid})"
+msgstr "(systemd-inhibit · pid {pid})"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:159
+msgid "Preventing idle"
+msgstr "A impedir a inatividade"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:202
+#: crates/glimpse-panel/src/config_alert.rs:110
+msgid "Glimpse"
+msgstr "Glimpse"
+
+#: crates/glimpse-panel/src/applets/idle/render.rs:208
+msgid "Manual hold"
+msgstr "Ativado manualmente"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
+msgid "KDE Connect"
+msgstr "KDE Connect"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
+msgid "The device did not respond"
+msgstr "O dispositivo não respondeu"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
+msgid "Send files"
+msgstr "Enviar ficheiros"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
+msgid "{percent}, charging"
+msgstr "{percent}, a carregar"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
+msgid "Connected"
+msgstr "Ligado"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
+msgid "{name} wants to pair"
+msgstr "{name} quer emparelhar"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
+msgstr "Não ligado"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
+msgid "{name} · {state}"
+msgstr "{name} · {state}"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
+msgid "No paired devices"
+msgstr "Nenhum dispositivo emparelhado"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
+msgid "charging"
+msgstr "a carregar"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
+msgid "Ring"
+msgstr "Tocar"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
+msgid "Ping"
+msgstr "Ping"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
+msgid "Send clipboard"
+msgstr "Enviar área de transferência"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
+msgid "Send files…"
+msgstr "Enviar ficheiros…"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
+msgid "Browse files"
+msgstr "Explorar ficheiros"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
+msgid "Open SMS"
+msgstr "Abrir SMS"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
+msgid "Unpair"
+msgstr "Desemparelhar"
+
+#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
+msgid "Wants to pair"
+msgstr "Quer emparelhar"
+
+#: crates/glimpse-panel/src/applets/mod.rs:51
+msgid "Built-in display"
+msgstr "Ecrã integrado"
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:345
+msgid "Open {player}"
+msgstr "Abrir {player}"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:32
+msgid "Playing"
+msgstr "A reproduzir"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:33
+msgid "Paused"
+msgstr "Em pausa"
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:34
+#: crates/glimpse-panel/src/applets/printing/render.rs:133
+#: crates/glimpse-panel/src/applets/printing/render.rs:191
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:288
+msgid "Stopped"
+msgstr "Parado"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+msgid "None"
+msgstr "Nenhuma"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+msgid "WEP"
+msgstr "WEP"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+msgid "WPA & WPA2 Personal"
+msgstr "WPA e WPA2 Pessoal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+msgid "WPA3 Personal"
+msgstr "WPA3 Pessoal"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:114
+#: crates/glimpse-widgets/blueprints/places_popover.blp:51
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
+msgid "Network"
+msgstr "Rede"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:207
+#: crates/glimpse-widgets/blueprints/network_popover.blp:16
+#: crates/glimpse-widgets/blueprints/network_popover.blp:54
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:252
+msgid "Hidden network"
+msgstr "Rede oculta"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+msgid "Type the name the network broadcasts nothing about."
+msgstr "A rede não anuncia o nome. Introduza-o."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+msgid "Continue"
+msgstr "Continuar"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+msgid "Choose how the network is secured, then type its password."
+msgstr "Escolha como a rede está protegida e introduza a palavra-passe."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:271
+#: crates/glimpse-panel/src/applets/network/indicator.rs:289
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
+msgid "The network needs a password before this computer can join it."
+msgstr ""
+"A rede precisa de uma palavra-passe para que este computador se possa ligar."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+msgid "{network} refused that password. Check it and try again."
+msgstr "{network} recusou essa palavra-passe. Verifique-a e tente novamente."
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:294
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
+msgid "Try again"
+msgstr "Tentar novamente"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:316
+msgid "VPN is connected"
+msgstr "A VPN está ligada"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:366
+msgid "Could not switch Wi-Fi"
+msgstr "Não foi possível ligar ou desligar o Wi-Fi"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:396
+msgid "Could not connect the VPN"
+msgstr "Não foi possível ligar a VPN"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:451
+msgid "Could not forget that network"
+msgstr "Não foi possível esquecer essa rede"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:459
+msgid "Could not disconnect the VPN"
+msgstr "Não foi possível desligar a VPN"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:549
+msgid "Could not send that password"
+msgstr "Não foi possível enviar essa palavra-passe"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:14
+msgid "Networking is off"
+msgstr "A rede está desativada"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:19
+msgid "Connected by cable"
+msgstr "Ligado por cabo"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:20
+msgid "Connected, no internet"
+msgstr "Ligado, sem internet"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:24
+msgid "No network adapter"
+msgstr "Nenhum adaptador de rede"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:27
+msgid "Wi-Fi is blocked by hardware"
+msgstr "O Wi-Fi está bloqueado pelo hardware"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:30
+msgid "Wi-Fi is off"
+msgstr "O Wi-Fi está desligado"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:38
+#: crates/glimpse-panel/src/applets/network/render.rs:128
+msgid "Unnamed network"
+msgstr "Rede sem nome"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:41
+msgid "{network}: connected, no internet"
+msgstr "{network}: ligado, sem internet"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:51
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:56
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:64
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:77
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:238
+msgid "Metered connection"
+msgstr "Ligação limitada"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:81
+msgid "Signal {signal}%"
+msgstr "Sinal {signal}%"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:82
+msgid "VPN: {vpn}"
+msgstr "VPN: {vpn}"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:89
+msgid "That network needs a password."
+msgstr "Essa rede precisa de uma palavra-passe."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:90
+msgid "The password was not accepted."
+msgstr "A palavra-passe não foi aceite."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:91
+msgid "That network is no longer in range."
+msgstr "Essa rede já não está ao alcance."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:92
+msgid "The connection timed out."
+msgstr "A ligação expirou."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:93
+msgid "The connection could not be configured."
+msgstr "Não foi possível configurar a ligação."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:94
+msgid "The connection was dropped."
+msgstr "A ligação caiu."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:95
+msgid "That network has been forgotten."
+msgstr "Essa rede foi esquecida."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:96
+msgid "There is no network device to use."
+msgstr "Não há nenhum dispositivo de rede para usar."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:97
+msgid "NetworkManager refused that."
+msgstr "O NetworkManager recusou isso."
+
+#: crates/glimpse-panel/src/applets/network/render.rs:109
+msgid "Enterprise"
+msgstr "Empresarial"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:110
+msgid "Open, encrypted"
+msgstr "Aberta, cifrada"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:207
+#: crates/glimpse-panel/src/applets/network/render/tests.rs:291
+msgid "{count} more network"
+msgid_plural "{count} more networks"
+msgstr[0] "mais {count} rede"
+msgstr[1] "mais {count} redes"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:233
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+#: crates/glimpse-panel/src/applets/printing/render.rs:163
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:159
+msgid "Status"
+msgstr "Estado"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:235
+msgid "Metered"
+msgstr "Limitada"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:239
+msgid "IP address"
+msgstr "Endereço IP"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:266
+msgid "Security"
+msgstr "Segurança"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:267
+msgid "Band"
+msgstr "Banda"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:294
+#: crates/glimpse-widgets/blueprints/network_row.blp:34
+msgid "Forget this network"
+msgstr "Esquecer esta rede"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:306
+msgid "Cable unplugged"
+msgstr "Cabo desligado"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:314
+msgid "Speed"
+msgstr "Velocidade"
+
+#: crates/glimpse-panel/src/applets/network/render.rs:315
+msgid "{speed} Mb/s"
+msgstr "{speed} Mb/s"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "ends in {value} {unit}"
+msgstr "termina dentro de {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
+msgid "in {value} {unit}"
+msgstr "dentro de {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "min"
+msgstr "min"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
+msgid "min left"
+msgstr "min restantes"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "h"
+msgstr "h"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
+msgid "d"
+msgstr "d"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:212
+msgid "Clashes with {events}"
+msgstr "Sobrepõe-se a {events}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:245
+msgid "Guests"
+msgstr "Convidados"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:246
+msgid "{total} · {accepted} accepted"
+msgstr "{total} · {accepted} aceitaram"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:252
+msgid "Tentative"
+msgstr "Provisório"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:258
+msgid "Meeting"
+msgstr "Reunião"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:261
+msgid "Link"
+msgstr "Ligação"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:264
+msgid "Conflicts"
+msgstr "Conflitos"
+
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:211
+msgid "Clear all"
+msgstr "Limpar tudo"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+msgid "Do not disturb"
+msgstr "Não incomodar"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+msgid "{count} waiting, do not disturb is on"
+msgid_plural "{count} waiting, do not disturb is on"
+msgstr[0] "{count} em espera, modo Não incomodar ativo"
+msgstr[1] "{count} em espera, modo Não incomodar ativo"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+msgid "No new notifications"
+msgstr "Nenhuma notificação nova"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:105
+msgid "{count} new notification"
+msgid_plural "{count} new notifications"
+msgstr[0] "{count} notificação nova"
+msgstr[1] "{count} notificações novas"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+msgid "{count}m"
+msgstr "{count} min"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+msgid "{count}h"
+msgstr "{count} h"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+msgid "{count}d"
+msgstr "{count} d"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:220
+#: crates/glimpse-panel/src/applets/power/render.rs:385
+#: crates/glimpse-widgets/src/places_popover/mod.rs:163
+msgid "Empty"
+msgstr "Vazio"
+
+#: crates/glimpse-panel/src/applets/pager/mod.rs:221
+msgid "{count} window"
+msgid_plural "{count} windows"
+msgstr[0] "{count} janela"
+msgstr[1] "{count} janelas"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:76
+#: crates/glimpse-panel/src/applets/places/render.rs:20
+#: crates/glimpse-widgets/blueprints/places_popover.blp:12
+#: crates/glimpse-widgets/blueprints/places_popover.blp:24
+msgid "Places"
+msgstr "Locais"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:78
+msgid "Could not empty the trash"
+msgstr "Não foi possível esvaziar o lixo"
+
+#: crates/glimpse-panel/src/applets/places/indicator.rs:106
+msgid "Some items could not be deleted."
+msgstr "Não foi possível eliminar alguns itens."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:297
+#: crates/glimpse-panel/src/applets/power/mod.rs:325
+#: crates/glimpse-panel/src/applets/power/mod.rs:346
+#: crates/glimpse-panel/src/applets/power/render.rs:27
+#: crates/glimpse-widgets/blueprints/power_popover.blp:12
+#: crates/glimpse-widgets/blueprints/status_island.blp:34
+#: crates/glimpse-widgets/blueprints/status_island.blp:37
+msgid "Power"
+msgstr "Energia"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:299
+msgid "Could not change the power mode"
+msgstr "Não foi possível alterar o modo de energia"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:304
+#: crates/glimpse-panel/src/applets/power/mod.rs:332
+msgid "The battery service is unavailable."
+msgstr "O serviço de bateria não está disponível."
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:327
+msgid "Could not change the charge limit"
+msgstr "Não foi possível alterar o limite de carga"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:348
+msgid "Could not change keep awake"
+msgstr "Não foi possível alterar “Manter acordado”"
+
+#: crates/glimpse-panel/src/applets/power/mod.rs:352
+msgid "The idle service is unavailable."
+msgstr "O serviço de inatividade não está disponível."
+
+#: crates/glimpse-panel/src/applets/power/render.rs:130
+msgid "Power draw"
+msgstr "Consumo"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:131
+msgid "{watts} W"
+msgstr "{watts} W"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:136
+msgid "Health"
+msgstr "Saúde"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:143
+msgid "Energy"
+msgstr "Energia"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:149
+msgid "Capacity when new"
+msgstr "Capacidade original"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:154
+msgid "Cycles"
+msgstr "Ciclos"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:157
+msgid "Technology"
+msgstr "Tecnologia"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render.rs:160
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:239
+#: crates/glimpse-widgets/src/display_list/mod.rs:172
+msgid "Model"
+msgstr "Modelo"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:163
+#: crates/glimpse-widgets/src/display_list/mod.rs:169
+msgid "Make"
+msgstr "Fabricante"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:173
+msgid "Limit charge to {percent}%"
+msgstr "Limitar a carga a {percent}%"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:220
+msgid "Until full"
+msgstr "Até carregar"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:223
+msgid "Remaining"
+msgstr "Restante"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:232
+msgid "Since unplugged"
+msgstr "Desde que desligou da corrente"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:309
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:454
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:467
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:535
+msgid "Now"
+msgstr "Agora"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:327
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:440
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:519
+msgid "{time} · {percent}%"
+msgstr "{time} · {percent}%"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:359
+#: crates/glimpse-panel/src/applets/power/render/tests.rs:787
+msgid "Kept awake"
+msgstr "Mantido acordado"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:362
+msgid "Held by {app}"
+msgstr "Pedido por {app}"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:363
+msgid "Held by you"
+msgstr "Pedido por si"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:372
+msgid "Less than a minute"
+msgstr "Menos de um minuto"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:373
+msgid "{minutes} m"
+msgstr "{minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:375
+msgid "{hours} h {minutes} m"
+msgstr "{hours} h {minutes} min"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:383
+msgid "Charging"
+msgstr "A carregar"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:384
+msgid "Discharging"
+msgstr "A descarregar"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:386
+msgid "Fully charged"
+msgstr "Totalmente carregada"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:387
+msgid "Not charging"
+msgstr "Não está a carregar"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:402
+msgid "Power saver"
+msgstr "Poupança de energia"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:403
+msgid "Balanced"
+msgstr "Equilibrado"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:404
+msgid "Performance"
+msgstr "Desempenho"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:412
+msgid "Unavailable: laptop on lap"
+msgstr "Indisponível: portátil ao colo"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:413
+msgid "Unavailable: too hot"
+msgstr "Indisponível: demasiado quente"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:444
+msgid "Li-ion"
+msgstr "Iões de lítio"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:445
+msgid "Li-poly"
+msgstr "Polímero de lítio"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:446
+msgid "LiFePO4"
+msgstr "LiFePO4"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:447
+msgid "Lead acid"
+msgstr "Chumbo-ácido"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:448
+msgid "NiCd"
+msgstr "NiCd"
+
+#: crates/glimpse-panel/src/applets/power/render.rs:449
+msgid "NiMH"
+msgstr "NiMH"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:63
+msgid "Could not cancel the print job"
+msgstr "Não foi possível cancelar o trabalho de impressão"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:70
+msgid "Could not pause the print job"
+msgstr "Não foi possível pausar o trabalho de impressão"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:77
+msgid "Could not resume the print job"
+msgstr "Não foi possível retomar o trabalho de impressão"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:84
+msgid "Could not retry the print job"
+msgstr "Não foi possível repetir o trabalho de impressão"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:112
+#: crates/glimpse-panel/src/applets/printing/render.rs:132
+#: crates/glimpse-panel/src/applets/printing/render.rs:165
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:255
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:12
+msgid "Printing"
+msgstr "Impressão"
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:137
+msgid "The print server refused that."
+msgstr "O servidor de impressão recusou isso."
+
+#: crates/glimpse-panel/src/applets/printing/indicator.rs:139
+msgid "The print server is unreachable."
+msgstr "O servidor de impressão não está acessível."
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:58
+msgid "page {done} of {total}"
+msgstr "página {done} de {total}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:77
+msgid ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+msgstr ""
+"{document}\n"
+"{printer}\n"
+"{pages}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:120
+msgid "{status}: {reason}"
+msgstr "{status}: {reason}"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:130
+msgid "Queued"
+msgstr "Em fila"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:131
+msgid "Held"
+msgstr "Retido"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:134
+msgid "Completed"
+msgstr "Concluído"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:135
+msgid "Cancelled"
+msgstr "Cancelado"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:136
+msgid "Aborted"
+msgstr "Interrompido"
+
+#: crates/glimpse-panel/src/applets/printing/render.rs:182
+#: crates/glimpse-panel/src/applets/printing/render/tests.rs:283
+msgid "Not accepting jobs"
+msgstr "Não aceita trabalhos"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:93
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:134
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:12
+msgid "Privacy"
+msgstr "Privacidade"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:136
+msgid "Could not stop that screen share"
+msgstr "Não foi possível parar essa partilha de ecrã"
+
+#: crates/glimpse-panel/src/applets/privacy/indicator.rs:151
+msgid "That share had already ended."
+msgstr "Essa partilha já tinha terminado."
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:70
+msgid "Camera"
+msgstr "Câmara"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:71
+msgid "Microphone"
+msgstr "Microfone"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:72
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:46
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:62
+#: data/me.aresa.Glimpse.Shot.desktop:18
+msgid "Screen"
+msgstr "Ecrã"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:144
+msgid "Sharing {what}"
+msgstr "A partilhar {what}"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:152
+msgid "muted"
+msgstr "sem som"
+
+#: crates/glimpse-panel/src/applets/privacy/render.rs:175
+msgid "a window"
+msgstr "uma janela"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:78
+msgid "Could not open that drive"
+msgstr "Não foi possível abrir essa unidade"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:112
+msgid "Could not eject that drive"
+msgstr "Não foi possível ejetar essa unidade"
+
+#: crates/glimpse-panel/src/applets/removable/indicator.rs:154
+#: crates/glimpse-panel/src/applets/removable/render.rs:27
+#: crates/glimpse-widgets/blueprints/removable_popover.blp:12
+msgid "Removable"
+msgstr "Amovível"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:115
+msgid "{available} free"
+msgstr "{available} livres"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:151
+#: crates/glimpse-widgets/blueprints/removable_device.blp:20
+msgid "Space"
+msgstr "Espaço"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:181
+msgid "In use by an app"
+msgstr "Em uso por uma aplicação"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:184
+msgid "No space left"
+msgstr "Sem espaço livre"
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:231
+msgid "That drive is not mounted."
+msgstr "Essa unidade não está montada."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:232
+msgid "The drive is busy with something else."
+msgstr "A unidade está ocupada com outra coisa."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:233
+msgid "That drive is already mounted."
+msgstr "Essa unidade já está montada."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:234
+msgid "This computer is not authorized to do that."
+msgstr "Este computador não está autorizado a fazer isso."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:235
+msgid "That is not supported for this drive."
+msgstr "Isso não é suportado nesta unidade."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:236
+msgid "That option is not permitted."
+msgstr "Essa opção não é permitida."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:237
+msgid "The drive did not respond in time."
+msgstr "A unidade não respondeu a tempo."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:238
+msgid "That would wake a sleeping drive."
+msgstr "Isso acordaria uma unidade em repouso."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:239
+msgid "The action was cancelled."
+msgstr "A ação foi cancelada."
+
+#: crates/glimpse-panel/src/applets/removable/render.rs:240
+msgid "The drive could not complete that."
+msgstr "A unidade não conseguiu concluir isso."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
+msgid "Ruler"
+msgstr "Régua"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
+msgid "The ruler could not start, capture the screen or reach the clipboard."
+msgstr ""
+"A régua não conseguiu iniciar, capturar o ecrã ou aceder à área de "
+"transferência."
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
+msgid "Could not measure the screen"
+msgstr "Não foi possível medir o ecrã"
+
+#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
+msgid "Could not copy that measurement"
+msgstr "Não foi possível copiar essa medida"
+
+#: crates/glimpse-panel/src/applets/ruler/render.rs:25
+#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
+msgid "Measure the screen"
+msgstr "Medir o ecrã"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:24
+msgid "Blocked by {who}"
+msgstr "Bloqueado por {who}"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:26
+msgid "Blocked by an active inhibitor."
+msgstr "Bloqueado por um inibidor ativo."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:60
+#: crates/glimpse-panel/src/applets/session/render.rs:62
+#: crates/glimpse-widgets/blueprints/session_popover.blp:17
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:103
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:145
+msgid "Suspend"
+msgstr "Suspender"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:61
+msgid "Suspend this session?"
+msgstr "Suspender esta sessão?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:65
+#: crates/glimpse-panel/src/applets/session/render.rs:67
+#: crates/glimpse-widgets/blueprints/session_popover.blp:22
+msgid "Hibernate"
+msgstr "Hibernar"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:66
+msgid "Hibernate this session?"
+msgstr "Hibernar esta sessão?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:70
+#: crates/glimpse-panel/src/applets/session/render.rs:72
+#: crates/glimpse-widgets/blueprints/session_popover.blp:33
+msgid "Log out"
+msgstr "Terminar sessão"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:71
+msgid ""
+"This closes the current session. Applications may not shut down gracefully."
+msgstr ""
+"Isto fecha a sessão atual. As aplicações podem não terminar corretamente."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:75
+#: crates/glimpse-panel/src/applets/session/render.rs:77
+#: crates/glimpse-widgets/blueprints/session_popover.blp:38
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:153
+msgid "Restart"
+msgstr "Reiniciar"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:76
+msgid "Restart this computer?"
+msgstr "Reiniciar este computador?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:80
+#: crates/glimpse-panel/src/applets/session/render.rs:82
+#: crates/glimpse-widgets/blueprints/session_popover.blp:43
+msgid "Shut down"
+msgstr "Desligar"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:81
+msgid "Shut down this computer?"
+msgstr "Desligar este computador?"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:106
+msgid "{windows} open window is still running."
+msgid_plural "{windows} open windows are still running."
+msgstr[0] "Ainda há {windows} janela aberta."
+msgstr[1] "Ainda há {windows} janelas abertas."
+
+#: crates/glimpse-panel/src/applets/session/render.rs:129
+msgid "Signed in today"
+msgstr "Sessão iniciada hoje"
+
+#: crates/glimpse-panel/src/applets/session/render.rs:131
+msgid "Signed in for {days} day"
+msgid_plural "Signed in for {days} days"
+msgstr[0] "Sessão iniciada há {days} dia"
+msgstr[1] "Sessão iniciada há {days} dias"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
+msgid "CPU"
+msgstr "CPU"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
+msgid "RAM"
+msgstr "RAM"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
+msgid "Swap"
+msgstr "Swap"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
+msgid "Net"
+msgstr "Rede"
+
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
+#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
+msgid "GPU"
+msgstr "GPU"
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:295
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] "Mostrar {count} item oculto"
+msgstr[1] "Mostrar {count} itens ocultos"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:193
+msgid "The weather provider is not serving this place."
+msgstr "O fornecedor de meteorologia não tem dados para este local."
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:219
+msgid "Here"
+msgstr "Aqui"
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:234
+#: crates/glimpse-panel/src/applets/weather/mod.rs:270
+msgid "No reading yet"
+msgstr "Ainda sem dados"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:16
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:31
+msgid "Clear"
+msgstr "Limpo"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:17
+msgid "Mainly clear"
+msgstr "Maioritariamente limpo"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:18
+msgid "Partly cloudy"
+msgstr "Parcialmente nublado"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:19
+msgid "Overcast"
+msgstr "Encoberto"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:20
+msgid "Fog"
+msgstr "Nevoeiro"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:21
+msgid "Drizzle"
+msgstr "Chuvisco"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:22
+msgid "Freezing drizzle"
+msgstr "Chuvisco gelado"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:23
+msgid "Light rain"
+msgstr "Chuva fraca"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:24
+#: crates/glimpse-panel/src/applets/weather/render.rs:206
+msgid "Rain"
+msgstr "Chuva"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:25
+msgid "Heavy rain"
+msgstr "Chuva forte"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:26
+msgid "Freezing rain"
+msgstr "Chuva gelada"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:27
+msgid "Light snow"
+msgstr "Neve fraca"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:28
+#: crates/glimpse-panel/src/applets/weather/render.rs:205
+msgid "Snow"
+msgstr "Neve"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:29
+msgid "Heavy snow"
+msgstr "Neve forte"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:30
+msgid "Snow grains"
+msgstr "Grãos de neve"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:31
+msgid "Sleet"
+msgstr "Água-neve"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:32
+msgid "Rain showers"
+msgstr "Aguaceiros"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:33
+msgid "Snow showers"
+msgstr "Aguaceiros de neve"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:34
+msgid "Thunderstorm"
+msgstr "Trovoada"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:35
+msgid "Thunderstorm with hail"
+msgstr "Trovoada com granizo"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:84
+msgid "feels like {temperature}"
+msgstr "sensação de {temperature}"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:213
+msgid "{what} starting in {count} minute"
+msgid_plural "{what} starting in {count} minutes"
+msgstr[0] "{what} começa dentro de {count} minuto"
+msgstr[1] "{what} começa dentro de {count} minutos"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:223
+msgid "{what} starting in {count} hour"
+msgid_plural "{what} starting in {count} hours"
+msgstr[0] "{what} começa dentro de {count} hora"
+msgstr[1] "{what} começa dentro de {count} horas"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:244
+msgid "°C"
+msgstr "°C"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:245
+msgid "°F"
+msgstr "°F"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:273
+msgctxt "wind"
+msgid "N"
+msgstr "N"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:274
+msgctxt "wind"
+msgid "NE"
+msgstr "NE"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:275
+msgctxt "wind"
+msgid "E"
+msgstr "E"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:276
+msgctxt "wind"
+msgid "SE"
+msgstr "SE"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:277
+msgctxt "wind"
+msgid "S"
+msgstr "S"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:278
+msgctxt "wind"
+msgid "SW"
+msgstr "SO"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:279
+msgctxt "wind"
+msgid "W"
+msgstr "O"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:280
+msgctxt "wind"
+msgid "NW"
+msgstr "NO"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:287
+msgid "km/h"
+msgstr "km/h"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:288
+msgid "mph"
+msgstr "mph"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
+msgid "{amount} mm"
+msgstr "{amount} mm"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:300
+msgid "{amount} in"
+msgstr "{amount} pol"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:307
+msgid "Wind"
+msgstr "Vento"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:310
+msgid "Humidity"
+msgstr "Humidade"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
+msgid "Precipitation"
+msgstr "Precipitação"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:321
+msgid "High"
+msgstr "Máxima"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:325
+msgid "Low"
+msgstr "Mínima"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:331
+msgid "Chance of rain"
+msgstr "Probabilidade de chuva"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:340
+msgid "Sunrise"
+msgstr "Nascer do sol"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:343
+msgid "Sunset"
+msgstr "Pôr do sol"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
+msgid "Day length"
+msgstr "Duração do dia"
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:392
+msgid ""
+"{place}\n"
+"{condition}, {temperature}, feels like {feels-like}"
+msgstr ""
+"{place}\n"
+"{condition}, {temperature}, sensação de {feels-like}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:212
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:11
+msgid "Workspaces"
+msgstr "Áreas de trabalho"
+
+#: crates/glimpse-panel/src/applets/workspace_name/indicator.rs:214
+msgid "Could not rename the workspace"
+msgstr "Não foi possível mudar o nome da área de trabalho"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:29
+msgid "Workspace {number}"
+msgstr "Área de trabalho {number}"
+
+#: crates/glimpse-panel/src/applets/workspace_name/render.rs:56
+msgid "Already the name of {workspace}"
+msgstr "Já é o nome de {workspace}"
+
+#: crates/glimpse-panel/src/config_alert.rs:32
+msgid ""
+"Idle and night light are off until it is fixed; everything else uses its "
+"defaults."
+msgstr ""
+"A inatividade e a luz noturna ficam desativadas até o erro ser corrigido; "
+"tudo o resto usa as predefinições."
+
+#: crates/glimpse-panel/src/config_alert.rs:38
+msgid ""
+"The last change was not applied; the previous configuration is still "
+"running."
+msgstr ""
+"A última alteração não foi aplicada; a configuração anterior continua ativa."
+
+#: crates/glimpse-panel/src/config_alert.rs:113
+msgid "Glimpse configuration has errors"
+msgstr "A configuração do Glimpse tem erros"
+
+#: crates/glimpse-shot/src/errors.rs:52
+msgid "a screenshot is already being taken"
+msgstr "já está a ser tirada uma captura de ecrã"
+
+#: crates/glimpse-shot/src/gui/app.rs:218
+msgid "_Open Image…"
+msgstr "_Abrir imagem…"
+
+#: crates/glimpse-shot/src/gui/app.rs:220
+msgid "_Preferences"
+msgstr "_Preferências"
+
+#: crates/glimpse-shot/src/gui/app.rs:221
+msgid "_Keyboard Shortcuts"
+msgstr "_Atalhos de teclado"
+
+#: crates/glimpse-shot/src/gui/app.rs:222
+msgid "_About Screenshot"
+msgstr "_Acerca da Captura de ecrã"
+
+#: crates/glimpse-shot/src/gui/app.rs:372
+msgid "--portal needs a screen target"
+msgstr "--portal precisa de um ecrã como alvo"
+
+#: crates/glimpse-shot/src/gui/app.rs:532
+#: crates/glimpse-shot/src/gui/app.rs:640
+#: crates/glimpse-shot/src/gui/app.rs:892
+#: crates/glimpse-shot/src/notify.rs:372
+#: crates/glimpse-shot/src/notify/tests.rs:296
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:58
+#: data/me.aresa.Glimpse.Shot.desktop:3
+msgid "Screenshot"
+msgstr "Captura de ecrã"
+
+#: crates/glimpse-shot/src/gui/app.rs:567
+msgid "The clipboard holds no image"
+msgstr "A área de transferência não contém nenhuma imagem"
+
+#: crates/glimpse-shot/src/gui/app.rs:764
+msgid "There is no window to capture"
+msgstr "Não há nenhuma janela para capturar"
+
+#: crates/glimpse-shot/src/gui/app.rs:834
+msgid "That window has closed"
+msgstr "Essa janela foi fechada"
+
+#: crates/glimpse-shot/src/gui/app.rs:851
+msgid "PNG Images"
+msgstr "Imagens PNG"
+
+#: crates/glimpse-shot/src/gui/app.rs:856
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:194
+msgid "Open Image"
+msgstr "Abrir imagem"
+
+#: crates/glimpse-shot/src/gui/app.rs:969
+msgid "Untitled window"
+msgstr "Janela sem título"
+
+#: crates/glimpse-shot/src/gui/app.rs:1078
+msgid "Screenshot failed"
+msgstr "A captura de ecrã falhou"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:385
+msgid "Waiting to take a screenshot"
+msgstr "À espera para tirar uma captura de ecrã"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1083
+#: crates/glimpse-shot/src/gui/result.rs:936
+msgid "Save Screenshot"
+msgstr "Guardar captura de ecrã"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1641
+msgid "{size} · scaled {percent}%"
+msgstr "{size} · escala de {percent}%"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1818
+msgid "Saved"
+msgstr "Guardado"
+
+#: crates/glimpse-shot/src/gui/overlay.rs:1819
+msgid "Copied"
+msgstr "Copiado"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:90
+msgid "Pictures/Screenshots"
+msgstr "Imagens/Capturas de ecrã"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:108
+#: crates/glimpse-shot/src/gui/prefs.rs:127
+msgid "Saved as “{name}”"
+msgstr "Guardado como “{name}”"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:219
+#: crates/glimpse-shot/src/gui/result.rs:1088
+msgid "Copied to clipboard"
+msgstr "Copiado para a área de transferência"
+
+#: crates/glimpse-shot/src/gui/prefs.rs:301
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:29
+msgid "Choose Folder"
+msgstr "Escolher pasta"
+
+#: crates/glimpse-shot/src/gui/result.rs:734
+msgid "A screenshot has unsaved changes"
+msgstr "Uma captura de ecrã tem alterações não guardadas"
+
+#: crates/glimpse-shot/src/gui/result.rs:878
+msgid "A file name cannot be empty or contain “/”"
+msgstr "Um nome de ficheiro não pode estar vazio nem conter “/”"
+
+#: crates/glimpse-shot/src/gui/result.rs:883
+msgid ""
+"There is no Pictures folder to save into; choose a folder in Preferences"
+msgstr ""
+"Não existe uma pasta Imagens onde guardar; escolha uma pasta nas "
+"Preferências"
+
+#: crates/glimpse-shot/src/gui/result.rs:969
+msgid "Discard this screenshot?"
+msgstr "Descartar esta captura de ecrã?"
+
+#: crates/glimpse-shot/src/gui/result.rs:970
+msgid "It has not been saved or copied."
+msgstr "Ainda não foi guardada nem copiada."
+
+#: crates/glimpse-shot/src/gui/result.rs:974
+msgid "Discard"
+msgstr "Descartar"
+
+#: crates/glimpse-shot/src/gui/result.rs:975
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:141
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:501
+msgid "Save"
+msgstr "Guardar"
+
+#: crates/glimpse-shot/src/gui/result.rs:1137
+msgid "Saved “{name}”"
+msgstr "“{name}” guardado"
+
+#: crates/glimpse-shot/src/gui/result.rs:1145
+#: crates/glimpse-shot/src/notify.rs:499
+#: crates/glimpse-shot/src/notify/tests.rs:312
+msgid "Show in Folder"
+msgstr "Mostrar na pasta"
+
+#: crates/glimpse-shot/src/notify.rs:485
+#: crates/glimpse-shot/src/notify/tests.rs:298
+msgid "Screenshot saved"
+msgstr "Captura de ecrã guardada"
+
+#: crates/glimpse-shot/src/notify.rs:486
+#: crates/glimpse-shot/src/notify/tests.rs:331
+msgid "Screenshot copied"
+msgstr "Captura de ecrã copiada"
+
+#: crates/glimpse-shot/src/notify.rs:497
+#: crates/glimpse-shot/src/notify/tests.rs:310
+msgctxt "notification action"
+msgid "Open"
+msgstr "Abrir"
+
+#: crates/glimpse-shot/src/portal.rs:138
+#: crates/glimpse-shot/src/portal/tests.rs:41
+#: crates/glimpse-shot/src/portal/tests.rs:42
+#: crates/glimpse-shot/src/portal/tests.rs:636
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:56
+msgid "An application"
+msgstr "Uma aplicação"
+
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:76
+msgid "Applications"
+msgstr "Aplicações"
+
+#: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
+msgid "Nearby devices"
+msgstr "Dispositivos próximos"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr "Mostrar o ano inteiro"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr "Anterior"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/track_card.blp:63
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr "Seguinte"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:34
+msgid "Some events on this day aren't shown."
+msgstr "Alguns eventos deste dia não são mostrados."
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:46
+msgid "World clock"
+msgstr "Relógio mundial"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:29
+msgid "Search clipboard"
+msgstr "Pesquisar na área de transferência"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:37
+msgid "Pinned"
+msgstr "Afixados"
+
+#: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
+msgid "Recent"
+msgstr "Recentes"
+
+#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
+msgid "Palette"
+msgstr "Paleta"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:31
+msgid "Brightness"
+msgstr "Brilho"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:57
+#: crates/glimpse-widgets/src/display_list/mod.rs:109
+msgid "Enabled"
+msgstr "Ativado"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:72
+#: crates/glimpse-widgets/src/display_popover/mod.rs:325
+msgid "Pause until tomorrow"
+msgstr "Pausar até amanhã"
+
+#: crates/glimpse-widgets/blueprints/display_popover.blp:89
+msgid "Blank the screens"
+msgstr "Apagar os ecrãs"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:16
+#: crates/glimpse-widgets/blueprints/power_popover.blp:73
+#: crates/glimpse-widgets/blueprints/power_popover.blp:80
+msgid "Keep awake"
+msgstr "Manter acordado"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:28
+#: crates/glimpse-widgets/blueprints/power_popover.blp:84
+#: crates/glimpse-widgets/src/idle_popover/mod.rs:59
+msgid "Keep awake for…"
+msgstr "Manter acordado durante…"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:32
+#: crates/glimpse-widgets/blueprints/power_popover.blp:88
+msgid "15 minutes"
+msgstr "15 minutos"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:37
+#: crates/glimpse-widgets/blueprints/power_popover.blp:93
+msgid "30 minutes"
+msgstr "30 minutos"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:42
+#: crates/glimpse-widgets/blueprints/power_popover.blp:98
+msgid "1 hour"
+msgstr "1 hora"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:47
+#: crates/glimpse-widgets/blueprints/power_popover.blp:103
+msgid "2 hours"
+msgstr "2 horas"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:52
+#: crates/glimpse-widgets/blueprints/power_popover.blp:108
+msgid "4 hours"
+msgstr "4 horas"
+
+#: crates/glimpse-widgets/blueprints/idle_popover.blp:58
+msgid "Kept awake by"
+msgstr "Mantido acordado por"
+
+#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
+msgid "KDE Connect settings"
+msgstr "Definições do KDE Connect"
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
+msgid "Other players"
+msgstr "Outros leitores"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:36
+msgid "Ethernet"
+msgstr "Ethernet"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:45
+msgid "VPN"
+msgstr "VPN"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:66
+msgid "Other networks"
+msgstr "Outras redes"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:85
+msgid "Looking for networks…"
+msgstr "À procura de redes…"
+
+#: crates/glimpse-widgets/blueprints/network_popover.blp:99
+msgid "Connect to a hidden network…"
+msgstr "Ligar a uma rede oculta…"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:38
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:130
+msgid "Details"
+msgstr "Detalhes"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:47
+msgid "Coming up"
+msgstr "A seguir"
+
+#: crates/glimpse-widgets/blueprints/notification_header.blp:56
+#: crates/glimpse-widgets/src/notification_card/imp.rs:183
+msgid "Dismiss"
+msgstr "Fechar"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:26
+msgid "Notifications are unavailable"
+msgstr "As notificações não estão disponíveis"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:40
+msgid "Nothing new"
+msgstr "Nada de novo"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:41
+msgid "You are all caught up."
+msgstr "Está tudo em dia."
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:27
+msgid "Password"
+msgstr "Palavra-passe"
+
+#: crates/glimpse-widgets/blueprints/password_prompt.blp:61
+msgid "Caps Lock is on"
+msgstr "O Caps Lock está ativo"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:33
+msgid "Bookmarks"
+msgstr "Marcadores"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:60
+#: crates/glimpse-widgets/blueprints/places_popover.blp:63
+msgid "Trash"
+msgstr "Lixo"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:66
+msgid "Open the trash"
+msgstr "Abrir o lixo"
+
+#: crates/glimpse-widgets/blueprints/places_popover.blp:70
+#: crates/glimpse-widgets/src/places_popover/mod.rs:176
+msgid "Empty the trash"
+msgstr "Esvaziar o lixo"
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:16
+#: crates/glimpse-widgets/blueprints/track_card.blp:52
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:319
+msgid "Play"
+msgstr "Reproduzir"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:54
+msgid "History"
+msgstr "Histórico"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:67
+msgid "Power mode"
+msgstr "Modo de energia"
+
+#: crates/glimpse-widgets/blueprints/power_popover.blp:116
+msgid "Devices"
+msgstr "Dispositivos"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:24
+msgid "Print jobs"
+msgstr "Trabalhos de impressão"
+
+#: crates/glimpse-widgets/blueprints/printing_popover.blp:33
+msgid "Printers"
+msgstr "Impressoras"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:24
+msgid "In use now"
+msgstr "Em uso agora"
+
+#: crates/glimpse-widgets/blueprints/privacy_popover.blp:33
+msgid "Mute microphone"
+msgstr "Silenciar microfone"
+
+#: crates/glimpse-widgets/blueprints/removable_device.blp:35
+msgid "Eject"
+msgstr "Ejetar"
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr "Posição"
+
+#: crates/glimpse-widgets/blueprints/session_popover.blp:12
+msgid "Lock"
+msgstr "Bloquear"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:34
+msgid "Suspend…"
+msgstr "Suspender…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:40
+msgid "Restart…"
+msgstr "Reiniciar…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:46
+msgid "Power Off…"
+msgstr "Desligar…"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:75
+msgid "Suspend now?"
+msgstr "Suspender agora?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:84
+msgid "The screen stays locked when it wakes."
+msgstr "O ecrã continua bloqueado ao acordar."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:125
+msgid "Restart now?"
+msgstr "Reiniciar agora?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:134
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:184
+msgid "Open sessions may lose unsaved work."
+msgstr "As sessões abertas podem perder trabalho não guardado."
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:175
+msgid "Power off now?"
+msgstr "Desligar agora?"
+
+#: crates/glimpse-widgets/blueprints/session_sheet.blp:203
+msgid "Power Off"
+msgstr "Desligar"
+
+#: crates/glimpse-widgets/blueprints/shot_banner.blp:33
+msgid "Enter shares · Esc refuses"
+msgstr "Enter partilha · Esc recusa"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:22
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:111
+msgid "Main Menu"
+msgstr "Menu principal"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:47
+msgid "Capture a Screen (S)"
+msgstr "Capturar um ecrã (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:69
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:85
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:129
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:75
+#: data/me.aresa.Glimpse.Shot.desktop:22
+msgid "Window"
+msgstr "Janela"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:70
+msgid "Capture a Window (W)"
+msgstr "Capturar uma janela (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:92
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:108
+#: data/me.aresa.Glimpse.Shot.desktop:26
+msgid "Region"
+msgstr "Região"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:93
+msgid "Capture a Region (R)"
+msgstr "Capturar uma região (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:145
+msgid "Delay"
+msgstr "Atraso"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:155
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:93
+msgid "Show Pointer"
+msgstr "Mostrar ponteiro"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:166
+msgid "_Take Screenshot"
+msgstr "_Tirar captura de ecrã"
+
+#: crates/glimpse-widgets/blueprints/shot_capture_page.blp:168
+msgid "Take Screenshot (Enter)"
+msgstr "Tirar captura de ecrã (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_countdown.blp:26
+msgid "Cancel the screenshot"
+msgstr "Cancelar a captura de ecrã"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:5
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:204
+msgid "Preferences"
+msgstr "Preferências"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:9
+msgid "config.toml cannot be read, so nothing here can be saved"
+msgstr ""
+"Não é possível ler o config.toml, pelo que não é possível guardar nada aqui"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:10
+msgid "Open File"
+msgstr "Abrir ficheiro"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:19
+msgid "Saving"
+msgstr "Guardar"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:22
+msgid "Folder"
+msgstr "Pasta"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:39
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:78
+msgid "File Name"
+msgstr "Nome do ficheiro"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:66
+msgid "Behavior"
+msgstr "Comportamento"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:69
+msgid "Annotate In"
+msgstr "Anotar em"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:70
+msgid "Where a Print capture opens"
+msgstr "Onde abrem as capturas da tecla Print"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:74
+msgid "Full-Screen Overlay"
+msgstr "Sobreposição em ecrã inteiro"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:82
+msgid "Default Delay"
+msgstr "Atraso predefinido"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:83
+msgid "Seconds before capturing"
+msgstr "Segundos antes de capturar"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:97
+msgid "Flash on Capture"
+msgstr "Piscar ao capturar"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:101
+msgid "Notify After Saving or Copying"
+msgstr "Notificar após guardar ou copiar"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:106
+msgid "Annotations"
+msgstr "Anotações"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:117
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:122
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:251
+msgid "Red"
+msgstr "Vermelho"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:138
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:143
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:271
+msgid "Yellow"
+msgstr "Amarelo"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:159
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:164
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:291
+msgid "Green"
+msgstr "Verde"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:180
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:185
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:311
+msgid "Blue"
+msgstr "Azul"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:201
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:206
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:331
+msgid "White"
+msgstr "Branco"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:224
+msgid "Line Width"
+msgstr "Espessura da linha"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:233
+msgid "Thin"
+msgstr "Fina"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:238
+msgid "Medium"
+msgstr "Média"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:243
+msgid "Thick"
+msgstr "Grossa"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:250
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:209
+msgid "Keyboard Shortcuts"
+msgstr "Atalhos de teclado"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:251
+msgid "Add these bindings to the niri configuration"
+msgstr "Adicione estes atalhos à configuração do niri"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:254
+msgid "Copy _Snippet"
+msgstr "Copiar _excerto"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:264
+msgid "Capture and Annotate"
+msgstr "Capturar e anotar"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:274
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:19
+msgid "Capture a Window"
+msgstr "Capturar uma janela"
+
+#: crates/glimpse-widgets/blueprints/shot_preferences.blp:284
+msgid "Copy the Screen to the Clipboard"
+msgstr "Copiar o ecrã para a área de transferência"
+
+#: crates/glimpse-widgets/blueprints/shot_region.blp:24
+msgid "Drag to select  ·  Space: whole screen  ·  Esc: cancel"
+msgstr "Arraste para selecionar  ·  Espaço: ecrã inteiro  ·  Esc: cancelar"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:7
+msgid "_Save"
+msgstr "_Guardar"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:12
+msgid "Save _As…"
+msgstr "Guardar _como…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:18
+msgid "_Open With…"
+msgstr "_Abrir com…"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:43
+msgid "New Screenshot (Ctrl+N)"
+msgstr "Nova captura de ecrã (Ctrl+N)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:93
+msgid "A file with this name exists. Saving adds “(2)”."
+msgstr "Já existe um ficheiro com este nome. Ao guardar, é adicionado “(2)”."
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:118
+msgid "_Copy"
+msgstr "_Copiar"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:120
+msgid "Copy to Clipboard (Ctrl+C)"
+msgstr "Copiar para a área de transferência (Ctrl+C)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:121
+msgid "Save or Open"
+msgstr "Guardar ou abrir"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:157
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:437
+msgid "Undo (Ctrl+Z)"
+msgstr "Desfazer (Ctrl+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:167
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:451
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "Refazer (Ctrl+Shift+Z)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:191
+msgid "Pan (hold Space)"
+msgstr "Deslocar (manter Espaço)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:209
+msgid "Best Fit (Ctrl+0)"
+msgstr "Melhor ajuste (Ctrl+0)"
+
+#: crates/glimpse-widgets/blueprints/shot_result_page.blp:215
+msgid "Actual Size (Ctrl+1)"
+msgstr "Tamanho real (Ctrl+1)"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:6
+msgid "Capture"
+msgstr "Capturar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:9
+msgid "Take Screenshot"
+msgstr "Tirar captura de ecrã"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:14
+msgid "Capture a Screen"
+msgstr "Capturar um ecrã"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:24
+msgid "Capture a Region"
+msgstr "Capturar uma região"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:30
+msgid "Tools"
+msgstr "Ferramentas"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:33
+msgid "Crop"
+msgstr "Recortar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:38
+msgid "Arrow"
+msgstr "Seta"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:43
+msgid "Line"
+msgstr "Linha"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:48
+msgid "Freehand"
+msgstr "Mão livre"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:53
+msgid "Highlighter"
+msgstr "Marcador"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:58
+msgid "Rectangle"
+msgstr "Retângulo"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:63
+msgid "Filled Rectangle"
+msgstr "Retângulo preenchido"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:68
+msgid "Oval"
+msgstr "Oval"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:73
+msgid "Number"
+msgstr "Número"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:78
+msgid "Text"
+msgstr "Texto"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:83
+msgid "Blur"
+msgstr "Desfocar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:93
+msgid "Thinner and Thicker Line"
+msgstr "Linha mais fina e mais grossa"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:99
+msgid "Editing"
+msgstr "Edição"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:102
+msgid "Apply Crop or Finish Text"
+msgstr "Aplicar recorte ou terminar texto"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:107
+msgid "Undo"
+msgstr "Desfazer"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:112
+msgid "Redo"
+msgstr "Refazer"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:117
+msgid "Delete Selection"
+msgstr "Eliminar seleção"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:122
+msgid "Cancel Crop or Text"
+msgstr "Cancelar recorte ou texto"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:128
+msgid "Finishing"
+msgstr "Finalização"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:131
+msgid "Copy and Close"
+msgstr "Copiar e fechar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
+#: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
+#: crates/glimpse-widgets/src/color_list/mod.rs:150
+msgid "Copy"
+msgstr "Copiar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:146
+msgid "Save As"
+msgstr "Guardar como"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:151
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:521
+msgid "Open in Window"
+msgstr "Abrir numa janela"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:157
+msgid "View"
+msgstr "Ver"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:160
+msgid "Best Fit"
+msgstr "Melhor ajuste"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:165
+msgid "Actual Size"
+msgstr "Tamanho real"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:170
+msgid "Zoom In"
+msgstr "Ampliar"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:175
+msgid "Zoom Out"
+msgstr "Reduzir"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:180
+msgid "Pan While Held"
+msgstr "Deslocar enquanto premido"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:186
+msgid "General"
+msgstr "Geral"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:189
+msgid "New Screenshot"
+msgstr "Nova captura de ecrã"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:199
+msgid "Open Image from Clipboard"
+msgstr "Abrir imagem da área de transferência"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:214
+msgid "Close Window"
+msgstr "Fechar janela"
+
+#: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:219
+msgid "Quit"
+msgstr "Sair"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:20
+msgid "Move Toolbar"
+msgstr "Mover barra de ferramentas"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:32
+msgid "Screen (S)"
+msgstr "Ecrã (S)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:46
+msgid "Window (W)"
+msgstr "Janela (W)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:68
+msgid "Crop (C)"
+msgstr "Recortar (C)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:81
+msgid "Arrow (A)"
+msgstr "Seta (A)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:96
+msgid "Line (L)"
+msgstr "Linha (L)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:108
+msgid "Freehand (P)"
+msgstr "Mão livre (P)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:120
+msgid "Highlighter (H)"
+msgstr "Marcador (H)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:132
+msgid "Rectangle (R)"
+msgstr "Retângulo (R)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:146
+msgid "Filled Rectangle (F)"
+msgstr "Retângulo preenchido (F)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:160
+msgid "Oval (O)"
+msgstr "Oval (O)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:174
+msgid "Number (N)"
+msgstr "Número (N)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:188
+msgid "Text (T)"
+msgstr "Texto (T)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:202
+msgid "Pixelate (B)"
+msgstr "Pixelizar (B)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:221
+msgid "Color (1–5)"
+msgstr "Cor (1–5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:247
+msgid "Red (1)"
+msgstr "Vermelho (1)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:267
+msgid "Yellow (2)"
+msgstr "Amarelo (2)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:287
+msgid "Green (3)"
+msgstr "Verde (3)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:307
+msgid "Blue (4)"
+msgstr "Azul (4)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:327
+msgid "White (5)"
+msgstr "Branco (5)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:362
+msgid "Thin line ([ and ])"
+msgstr "Linha fina ([ e ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:378
+msgid "Medium line ([ and ])"
+msgstr "Linha média ([ e ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:394
+msgid "Thick line ([ and ])"
+msgstr "Linha grossa ([ e ])"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:410
+msgid "Apply Crop (Enter)"
+msgstr "Aplicar recorte (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:420
+msgid "Apply Crop"
+msgstr "Aplicar recorte"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:472
+msgid "Copy and close (Enter)"
+msgstr "Copiar e fechar (Enter)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:473
+msgid "More ways to finish"
+msgstr "Mais formas de terminar"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:483
+msgid "Cancel (Esc)"
+msgstr "Cancelar (Esc)"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:508
+msgid "Save As…"
+msgstr "Guardar como…"
+
+#: crates/glimpse-widgets/blueprints/shot_toolbar.blp:515
+msgid "Open With…"
+msgstr "Abrir com…"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:17
+msgid "This workspace"
+msgstr "Esta área de trabalho"
+
+#: crates/glimpse-widgets/blueprints/shot_window_list.blp:33
+msgid "Other workspaces"
+msgstr "Outras áreas de trabalho"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
+msgid "System Monitor"
+msgstr "Monitor do sistema"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
+msgid "Memory"
+msgstr "Memória"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
+msgid "Load average"
+msgstr "Carga média"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
+msgid "Uptime"
+msgstr "Tempo ativo"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
+msgid "CPU temperature"
+msgstr "Temperatura da CPU"
+
+#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
+msgid "GPU temperature"
+msgstr "Temperatura da GPU"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr "Aleatório"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr "Repetir"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:80
+msgid "Inactive warning row"
+msgstr "Linha de aviso inativa"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:83
+msgid "Device out of range"
+msgstr "Dispositivo fora de alcance"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:118
+msgid "Locked by the hardware switch"
+msgstr "Bloqueado pelo interruptor de hardware"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
+msgid "Mute"
+msgstr "Silenciar"
+
+#: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:233
+msgid ""
+"Storm warning: strong wind gusts up to 90 km/h expected across the region"
+msgstr ""
+"Aviso de tempestade: esperam-se rajadas de vento fortes até 90 km/h em toda "
+"a região"
+
+#: crates/glimpse-widgets/blueprints/workspace_name_popover.blp:28
+msgid "Name this workspace"
+msgstr "Dar nome a esta área de trabalho"
+
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
+msgid "Unmute"
+msgstr "Ativar som"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:90
+msgid "OK"
+msgstr "OK"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:42
+msgid "Enter the PIN"
+msgstr "Introduza o PIN"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:43
+msgid "Type the PIN shown on {device}, then press OK."
+msgstr "Introduza o PIN mostrado em {device} e prima OK."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:47
+msgid "Enter the passkey"
+msgstr "Introduza a chave de acesso"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:48
+msgid "Type the passkey shown on {device}."
+msgstr "Introduza a chave de acesso mostrada em {device}."
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:58
+msgid "1 to 16 letters or digits"
+msgstr "1 a 16 letras ou dígitos"
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
+msgid "Up to 999999"
+msgstr "Até 999999"
+
+#: crates/glimpse-widgets/src/color_list/mod.rs:70
+msgid "{count} more color"
+msgid_plural "{count} more colors"
+msgstr[0] "mais {count} cor"
+msgstr[1] "mais {count} cores"
+
+#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
+msgid "Nothing picked yet"
+msgstr "Ainda nada escolhido"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:138
+msgid "The last enabled display can't be turned off"
+msgstr "O último ecrã ativo não pode ser desligado"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:162
+msgid "Off"
+msgstr "Desligado"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:163
+msgid "Mode"
+msgstr "Modo"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:166
+msgid "Connector"
+msgstr "Conector"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:175
+msgid "Serial"
+msgstr "Número de série"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:178
+msgid "Scale"
+msgstr "Escala"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:179
+msgid "Position"
+msgstr "Posição"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:190
+msgid "{width} × {height} · {hz} Hz"
+msgstr "{width} × {height} · {hz} Hz"
+
+#: crates/glimpse-widgets/src/display_list/mod.rs:208
+msgid "{x}, {y}"
+msgstr "{x}, {y}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:220
+msgid "Schedule"
+msgstr "Agendamento"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:225
+msgid "Paused until {time}"
+msgstr "Em pausa até às {time}"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:228
+msgid "Temperature"
+msgstr "Temperatura"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:278
+msgid "Not reaching any display"
+msgstr "Não aplicada a nenhum ecrã"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:323
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:127
+msgid "Resume"
+msgstr "Retomar"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:396
+msgid "Sunset to sunrise"
+msgstr "Do pôr ao nascer do sol"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:398
+msgid "Fixed hours"
+msgstr "Horário fixo"
+
+#: crates/glimpse-widgets/src/display_popover/mod.rs:404
+msgid "{kelvin} K"
+msgstr "{kelvin} K"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:103
+msgid "Release"
+msgstr "Libertar"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:128
+msgid "Reason"
+msgstr "Motivo"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:129
+msgid "Prevents"
+msgstr "Impede"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:146
+msgid "Shutdown"
+msgstr "Encerramento"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:147
+msgid "Lid"
+msgstr "Tampa"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:148
+msgid "Power key"
+msgstr "Tecla de energia"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:149
+msgid "Suspend key"
+msgstr "Tecla de suspensão"
+
+#: crates/glimpse-widgets/src/inhibitor_list/mod.rs:150
+msgid "Hibernate key"
+msgstr "Tecla de hibernação"
+
+#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:126
+msgid "Pause"
+msgstr "Pausa"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
+msgid "That password did not work"
+msgstr "Essa palavra-passe não funcionou"
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
+msgid "{network} refused it. Check it and try again."
+msgstr "{network} recusou-a. Verifique-a e tente novamente."
+
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
+msgid "Enter the password for {network}"
+msgstr "Introduza a palavra-passe de {network}"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:155
+msgid "Unread"
+msgstr "Não lidas"
+
+#: crates/glimpse-widgets/src/notification_card/imp.rs:181
+msgid "Dismiss {notification}"
+msgstr "Fechar {notification}"
+
+#: crates/glimpse-widgets/src/notification_chips/mod.rs:114
+msgid "{app}: {notifications}"
+msgstr "{app}: {notifications}"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:239
+msgid "Collapse"
+msgstr "Recolher"
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:491
+msgid "{count} notification"
+msgid_plural "{count} notifications"
+msgstr[0] "{count} notificação"
+msgstr[1] "{count} notificações"
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:88
+msgid "Show notification popups while this is on"
+msgstr "Mostrar janelas de notificação enquanto estiver ativo"
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:172
+msgid "Clear these notifications"
+msgstr "Limpar estas notificações"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:164
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} item"
+msgstr[1] "{n} itens"
+
+#: crates/glimpse-widgets/src/places_popover/mod.rs:171
+msgid "Delete {n} item for good?"
+msgid_plural "Delete {n} items for good?"
+msgstr[0] "Eliminar {n} item definitivamente?"
+msgstr[1] "Eliminar {n} itens definitivamente?"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:128
+msgid "Retry"
+msgstr "Tentar novamente"
+
+#: crates/glimpse-widgets/src/printing_popover/mod.rs:218
+msgid "Page {current} of {total}"
+msgstr "Página {current} de {total}"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:94
+msgid "Stop sharing"
+msgstr "Parar partilha"
+
+#: crates/glimpse-widgets/src/privacy_popover/mod.rs:131
+msgid "In use"
+msgstr "Em uso"
+
+#: crates/glimpse-widgets/src/shot_banner/mod.rs:60
+msgid "“{app}” asked for a screenshot"
+msgstr "“{app}” pediu uma captura de ecrã"
+
+#: crates/glimpse-widgets/src/shot_capture_page/mod.rs:66
+msgid "Current Screen"
+msgstr "Ecrã atual"
+
+#: crates/glimpse-widgets/src/shot_countdown/mod.rs:29
+msgid "Capturing in {n}"
+msgstr "A capturar dentro de {n}"
+
+#: crates/glimpse-widgets/src/shot_window_list/mod.rs:141
+msgid "captured when picked"
+msgstr "capturado ao escolher"
+
+#: crates/glimpse-widgets/src/workspace_section/mod.rs:73
+msgid "Focus workspace"
+msgstr "Ir para a área de trabalho"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
+msgid "No windows"
+msgstr "Sem janelas"
+
+#: data/me.aresa.Glimpse.Shot.desktop:4
+msgid "Take a screenshot, mark it up, save or copy it"
+msgstr "Tire uma captura de ecrã, anote-a, guarde-a ou copie-a"
+
+#: data/me.aresa.Glimpse.Shot.desktop:12
+msgid "screenshot;capture;annotate;print screen;snip;grab;"
+msgstr ""
+"captura de ecrã;capturar;anotar;print "
+"screen;recorte;screenshot;capture;annotate;snip;grab;"
+
+#~ msgid "{count} print job"
+#~ msgid_plural "{count} print jobs"
+#~ msgstr[0] "{count} trabalho de impressão"
+#~ msgstr[1] "{count} trabalhos de impressão"

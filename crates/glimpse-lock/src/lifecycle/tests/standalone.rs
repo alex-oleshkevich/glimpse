@@ -48,7 +48,6 @@ fn standalone_with_a_failed_probe_refuses_and_exits() {
     let settings = Settings {
         standalone: true,
         refusal: Some(Refusal::CantVerify),
-        ..DAEMON
     };
     let (_, effects) = started(settings, false);
     assert_eq!(

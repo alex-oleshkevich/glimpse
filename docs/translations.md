@@ -42,4 +42,4 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
 - **`var/` is not extracted.** Its examples carry `_()` markers so they read like the real thing,
   but they never ship.
 - **A new language is three edits:** `po/LINGUAS`, a new `po/<lang>.po`, and one asset line in
-  *each* of the two lists in `crates/glimpse-package/Cargo.toml`.
+  *each* of the three lists in `crates/glimpse-package/Cargo.toml` (deb, rpm and the openSUSE variant).

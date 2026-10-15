@@ -45,41 +45,43 @@ pub fn status(state: &NetworkState) -> String {
     }
 }
 
-pub fn tooltip(state: &NetworkState, format: Option<&str>, metered: bool) -> Option<String> {
-    let mut lines = vec![status(state)];
-
-    if metered && state.metered.marked() {
-        lines.push(gettext("Metered connection"));
-    }
-    if let Some(network) = state.connected() {
-        lines
-            .push(gettext("Signal {percent}%").replace("{percent}", &network.strength.to_string()));
-    }
-    if let Some(vpn) = state.vpn.iter().find(|one| one.active) {
-        lines.push(
-            gettext("VPN: {name}")
-                .replace("{name}", &glimpse_utils::clean(&vpn.name, LABEL_MAX_CHARS)),
-        );
-    }
-
-    let joined = lines.join("\n");
-    let Some(format) = format else {
-        return Some(joined);
+pub fn tooltip(state: &NetworkState, format: Option<&str>) -> Option<String> {
+    let connection = status(state);
+    let metered = match state.metered.marked() {
+        true => gettext("Metered connection"),
+        false => String::new(),
     };
-
-    let plain = status(state);
     let signal = state
         .connected()
         .map(|network| network.strength.to_string())
         .unwrap_or_default();
-    Some(crate::applets::tokens::render(
-        format,
+    let vpn = state
+        .vpn
+        .iter()
+        .find(|one| one.active)
+        .map(|vpn| glimpse_utils::clean(&vpn.name, LABEL_MAX_CHARS))
+        .unwrap_or_default();
+    let format = format.map(str::to_owned).unwrap_or_else(default_tooltip);
+    Some(crate::applets::tokens::render_lines(
+        &format,
         |token| match token {
-            "status" => Some(plain.as_str()),
+            "connection" => Some(connection.as_str()),
+            "metered" => Some(metered.as_str()),
             "signal" => Some(signal.as_str()),
+            "vpn" => Some(vpn.as_str()),
             _ => None,
         },
     ))
+}
+
+pub fn default_tooltip() -> String {
+    [
+        "{connection}".to_owned(),
+        "{metered}".to_owned(),
+        gettext("Signal {signal}%"),
+        gettext("VPN: {vpn}"),
+    ]
+    .join("\n")
 }
 
 pub fn wording(failure: NetworkFailure) -> Option<String> {

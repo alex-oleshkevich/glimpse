@@ -14,18 +14,6 @@ fn a_lock_request_creates_surfaces_and_sets_the_hint_only_after_locked() {
 }
 
 #[test]
-fn a_lock_request_is_ignored_when_lock_on_request_is_off() {
-    let (mut machine, _) = started(
-        Settings {
-            lock_on_request: false,
-            ..DAEMON
-        },
-        false,
-    );
-    assert_eq!(machine.handle(Input::LockRequested), vec![]);
-}
-
-#[test]
 fn a_submit_while_acquiring_is_discarded_with_its_submitter() {
     let (mut machine, _) = started(DAEMON, false);
     machine.handle(Input::LockRequested);

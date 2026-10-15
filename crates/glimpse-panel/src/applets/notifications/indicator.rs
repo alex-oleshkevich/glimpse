@@ -47,7 +47,7 @@ impl Applet for Notifications {
             return;
         };
         self.indicator_style = settings.indicator_style;
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         ctx.interval(MINUTE);
         self.refresh();

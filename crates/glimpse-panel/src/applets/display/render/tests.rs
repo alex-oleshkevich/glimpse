@@ -141,7 +141,7 @@ fn ordered_sources_puts_the_current_display_first() {
         source("dp2", BrightnessKind::Display, Some("DP-2")),
         source("keyboard", BrightnessKind::Keyboard, None),
     ];
-    let ordered = ordered_sources(&sources, Some("DP-2"), true, None);
+    let ordered = ordered_sources(&sources, Some("DP-2"), None);
     assert_eq!(
         ordered
             .iter()
@@ -152,23 +152,12 @@ fn ordered_sources_puts_the_current_display_first() {
 }
 
 #[test]
-fn ordered_sources_drops_the_keyboard_when_it_is_configured_off() {
-    let sources = vec![
-        source("dp1", BrightnessKind::Display, Some("DP-1")),
-        source("keyboard", BrightnessKind::Keyboard, None),
-    ];
-    let ordered = ordered_sources(&sources, None, false, None);
-    assert_eq!(ordered.len(), 1);
-    assert_eq!(ordered[0].id, "dp1");
-}
-
-#[test]
 fn ordered_sources_keeps_a_pinned_source_first_even_after_focus_moves() {
     let sources = vec![
         source("dp1", BrightnessKind::Display, Some("DP-1")),
         source("dp2", BrightnessKind::Display, Some("DP-2")),
     ];
-    let ordered = ordered_sources(&sources, Some("DP-2"), true, Some("dp1"));
+    let ordered = ordered_sources(&sources, Some("DP-2"), Some("dp1"));
     assert_eq!(
         ordered[0].id, "dp1",
         "a source pinned when the popover opened must stay the primary fader even though \
@@ -180,7 +169,7 @@ fn ordered_sources_keeps_a_pinned_source_first_even_after_focus_moves() {
 #[test]
 fn ordered_sources_falls_back_to_the_ladder_when_the_pinned_source_is_gone() {
     let sources = vec![source("dp1", BrightnessKind::Display, Some("DP-1"))];
-    let ordered = ordered_sources(&sources, None, true, Some("unplugged"));
+    let ordered = ordered_sources(&sources, None, Some("unplugged"));
     assert_eq!(
         ordered[0].id, "dp1",
         "a pinned source that has since disappeared must not leave the primary fader empty"

@@ -29,10 +29,10 @@ pub struct Idle {
 
 impl Applet for Idle {
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
-        let AppletKind::Idle {} = &config.kind else {
+        let AppletKind::Idle { .. } = &config.kind else {
             return;
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
         self.twelve = config.regional.twelve_hour();
 
         ctx.interval(MINUTE);

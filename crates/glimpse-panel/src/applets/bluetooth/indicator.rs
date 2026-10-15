@@ -39,7 +39,7 @@ impl Applet for Bluetooth {
         };
         self.devices = cfg.devices;
         self.nearby = cfg.nearby;
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

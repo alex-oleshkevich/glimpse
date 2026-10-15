@@ -30,7 +30,7 @@ impl Applet for SystemMonitor {
         self.chip_format = cfg.chip_format.clone();
         self.warn_percent = cfg.warn_percent;
         self.critical_percent = cfg.critical_percent;
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
 
         self.refresh();
     }

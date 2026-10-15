@@ -319,10 +319,7 @@ fn a_common_setting_sits_beside_the_kinds_own() {
         toml::from_str("[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\n")
             .expect("common and kind settings share one flat table");
 
-    assert_eq!(
-        parsed.applets["clock"].common.tooltip_format.as_deref(),
-        Some("%A")
-    );
+    assert_eq!(parsed.applets["clock"].kind.tooltip_format(), Some("%A"));
     let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
         panic!("the table names the clock");
     };
@@ -564,4 +561,11 @@ fn a_setting_no_applet_declares_is_refused() {
         error.contains("applets.clock"),
         "it names the table: {error}"
     );
+}
+
+#[test]
+fn a_power_table_from_an_older_file_still_loads() {
+    let parsed: crate::Config = toml::from_str("[power]\nlock-on-request = false\n")
+        .expect("the locking settings are gone, but a file naming them still loads");
+    assert_eq!(parsed.panels, crate::Config::default().panels);
 }

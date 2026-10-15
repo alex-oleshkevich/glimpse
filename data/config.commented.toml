@@ -43,7 +43,6 @@
 [network]
 # scan-timeout = 30
 # hide-unnamed = true
-# show-vpn = true
 
 [night-light]
 # schedule = "automatic"
@@ -82,10 +81,6 @@
 # timeout = 1800
 # on-idle = "systemctl suspend"
 # on-resume = ""
-
-[power]
-# lock-before-sleep = true
-# lock-on-request = true
 
 [keyboard]
 # remember = "window"
@@ -255,8 +250,6 @@
 # extends = "mpris"
 # label-format = "{title} — {artist}"
 # max-length = 40
-# show-others = true
-# show-art = true
 
 # [applets.clock]
 # extends = "clock"
@@ -314,7 +307,7 @@
 # [applets.printing]
 # extends = "printing"
 # jobs = 8
-# show = "always"
+# show = "jobs"
 
 # [applets.bluetooth]
 # extends = "bluetooth"
@@ -325,15 +318,14 @@
 # extends = "network"
 # visible-networks = 8
 # vpn-chip = true
-# metered-in-tooltip = true
 
 # [applets.display]
 # extends = "display"
 # scroll-step = 5
-# show-keyboard = true
 
 # [applets.audio]
 # extends = "audio"
+# scroll-step = 5
 
 # [applets.idle]
 # extends = "idle"

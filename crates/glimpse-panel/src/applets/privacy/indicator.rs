@@ -46,7 +46,7 @@ impl Applet for Privacy {
             screencast: cfg.show_screencast,
             location: cfg.show_location,
         };
-        self.tooltip_format = config.common.tooltip_format.clone();
+        self.tooltip_format = config.kind.tooltip_format().map(str::to_owned);
         self.pace(ctx);
         self.refresh(&ctx.opener());
     }

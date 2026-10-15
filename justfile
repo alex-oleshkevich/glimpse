@@ -229,6 +229,42 @@ build-translations:
 check-strings:
     GLIMPSE_LANGUAGES="{{ languages }}" scripts/i18n-check.sh
 
+# ---------------------------------------------------------------- docs
+
+[doc("install the documentation site's npm dependencies")]
+[working-directory("website")]
+docs-install:
+    npm ci
+
+[doc("serve the documentation site with live reload")]
+[working-directory("website")]
+docs-dev:
+    npm run dev
+
+[doc("regenerate the command line reference in website/config/cli/ from each binary's --help")]
+docs-gen-cli:
+    GLIMPSE_DOCS_CLI="glimpsectl glimpse-shot glimpse-lens glimpse-lock" scripts/docs-gen-cli.sh
+
+[doc("capture the documentation screenshots in a sealed sandbox: nested niri, private buses, mocked services")]
+docs-screenshots: docs-sandbox-build
+    scripts/docs-screenshots.py
+
+[doc("record the home page demo video in the same sandbox into website/public/video")]
+docs-video: docs-sandbox-build
+    scripts/docs-screenshots.py --video
+
+[private]
+docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") fake-tray-build
+
+[doc("build the fake tray example the screenshots and fake-tray use")]
+fake-tray-build:
+    cargo build -q -p glimpse-dbus --features testing --example fake-tray
+
+[doc("lint and build the documentation site into website/.vitepress/dist")]
+[working-directory("website")]
+docs-build:
+    npm run build
+
 # ---------------------------------------------------------------- package
 
 [doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]

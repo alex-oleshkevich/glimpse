@@ -388,6 +388,10 @@ pub fn pages(place: &PlaceWeather, units: UnitSystem, cap: u8, twelve: bool) -> 
     pages
 }
 
+pub fn default_tooltip() -> String {
+    gettext("{place}\n{condition}, {temperature}, feels like {feels-like}")
+}
+
 pub fn tooltip(format: &str, place: &str, current: &CurrentWeather) -> String {
     let feels = current
         .apparent_temperature
@@ -397,7 +401,7 @@ pub fn tooltip(format: &str, place: &str, current: &CurrentWeather) -> String {
     format
         .replace("{place}", place)
         .replace("{temperature}", &reading(current.temperature))
-        .replace("{feels_like}", &feels)
+        .replace("{feels-like}", &feels)
         .replace(
             "{condition}",
             &wording(current.condition).unwrap_or_default(),
