@@ -1,37 +1,58 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use glimpse_dbus::idle::{GLIMPSE_IDLE_BUS_NAME, HealthKind, Idle1Proxy};
 use glimpse_dbus::night_light::{GLIMPSE_NIGHT_LIGHT_BUS_NAME, NightLight1Proxy};
 use glimpse_dbus::notifications::{GLIMPSE_NOTIFICATIONS_BUS_NAME, Notifications1Proxy};
+use glimpse_dbus::settings::{
+    GLIMPSE_SETTINGS_BUS_NAME, Settings1Proxy, decode_geolocation, decode_mode, decode_solar,
+};
 use glimpse_dbus::weather::{GLIMPSE_WEATHER_BUS_NAME, Weather1Proxy};
 use serde::Serialize;
 use zbus::Connection;
 
-use super::{emit, has_owner, proxy, safe, within};
+use super::{emit, safe, within};
 use crate::errors::Exit;
 use crate::render::{self, Section, Table, styled};
 
 pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
-    let session = Connection::session().await;
+    let session = within(Connection::session()).await;
     let configuration = configuration(config);
     let providers = providers(&session).await;
+    let components = match &session {
+        Ok(connection) => super::status::rows(connection).await,
+        Err(error) => Err(anyhow::anyhow!(error.to_string())),
+    };
+    let failed = !configuration.loads
+        || !configuration.warnings.is_empty()
+        || providers
+            .iter()
+            .any(|provider| !provider.running || !provider.serving)
+        || components.is_err();
+    let components = components.unwrap_or_else(|_| super::status::absent_rows());
 
     if json {
-        return emit(&Diagnosis {
+        emit(&Diagnosis {
             configuration: &configuration,
             providers: &providers,
-        });
+            components: &components,
+        })?;
+    } else {
+        configuration.section().print()?;
+        render::print("")?;
+        providers_section(&providers, &session).print()?;
+        render::print("")?;
+        super::status::print(&components, false)?;
     }
-
-    configuration.section().print()?;
-    render::print("")?;
-    providers_section(&providers, &session).print()
+    anyhow::ensure!(!failed, "diagnostic checks failed");
+    Ok(())
 }
 
 #[derive(Serialize)]
 struct Diagnosis<'a> {
     configuration: &'a Configuration,
     providers: &'a [Provider],
+    components: &'a [super::status::ComponentRow],
 }
 
 #[derive(Serialize)]
@@ -93,27 +114,40 @@ impl Configuration {
     }
 }
 
-async fn providers(session: &Result<Connection, zbus::Error>) -> Vec<Provider> {
+async fn providers(session: &Result<Connection>) -> Vec<Provider> {
     let Ok(connection) = session else {
-        return Vec::new();
+        return [
+            GLIMPSE_NIGHT_LIGHT_BUS_NAME,
+            GLIMPSE_WEATHER_BUS_NAME,
+            GLIMPSE_NOTIFICATIONS_BUS_NAME,
+            GLIMPSE_SETTINGS_BUS_NAME,
+            GLIMPSE_IDLE_BUS_NAME,
+        ]
+        .into_iter()
+        .map(|name| Provider::absent(name, "cannot reach the session bus".into()))
+        .collect();
     };
     let probes = tokio::join!(
-        probe(
-            connection,
-            GLIMPSE_NIGHT_LIGHT_BUS_NAME,
-            night_light(connection),
-        ),
-        probe(connection, GLIMPSE_WEATHER_BUS_NAME, weather(connection)),
-        probe(
-            connection,
-            GLIMPSE_NOTIFICATIONS_BUS_NAME,
-            notifications(connection),
-        ),
+        probe(connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME, |owner| {
+            night_light(connection, owner)
+        },),
+        probe(connection, GLIMPSE_WEATHER_BUS_NAME, |owner| weather(
+            connection, owner
+        )),
+        probe(connection, GLIMPSE_NOTIFICATIONS_BUS_NAME, |owner| {
+            notifications(connection, owner)
+        },),
+        probe(connection, GLIMPSE_SETTINGS_BUS_NAME, |owner| settings(
+            connection, owner
+        )),
+        probe(connection, GLIMPSE_IDLE_BUS_NAME, |owner| idle(
+            connection, owner
+        )),
     );
-    vec![probes.0, probes.1, probes.2]
+    vec![probes.0, probes.1, probes.2, probes.3, probes.4]
 }
 
-fn providers_section(providers: &[Provider], session: &Result<Connection, zbus::Error>) -> Section {
+fn providers_section(providers: &[Provider], session: &Result<Connection>) -> Section {
     if let Err(error) = session {
         return Section::new("Providers")
             .with(styled::bad(&error.to_string()))
@@ -167,17 +201,21 @@ impl Provider {
     }
 }
 
-async fn probe(
-    connection: &Connection,
-    name: &'static str,
-    ask: impl Future<Output = Result<(bool, String)>>,
-) -> Provider {
-    match has_owner(connection, name).await {
-        Ok(true) => {}
-        Ok(false) => return Provider::absent(name, "nobody owns the name".to_owned()),
-        Err(error) => return Provider::absent(name, error.to_string()),
+async fn probe<F, R>(connection: &Connection, name: &'static str, ask: F) -> Provider
+where
+    F: FnOnce(zbus::names::OwnedUniqueName) -> R,
+    R: Future<Output = Result<(bool, String)>>,
+{
+    let owner = async {
+        let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+        within(dbus.get_name_owner(name.try_into()?)).await
     }
-    match ask.await {
+    .await;
+    let owner = match owner {
+        Ok(owner) => owner,
+        Err(error) => return Provider::absent(name, error.to_string()),
+    };
+    match ask(owner).await {
         Ok((serving, reason)) => Provider::answered(name, serving, safe(&reason)),
         Err(error) => {
             let detail = safe(&error.to_string());
@@ -189,19 +227,111 @@ async fn probe(
     }
 }
 
-async fn night_light(connection: &Connection) -> Result<(bool, String)> {
-    let snapshot = within(proxy::<NightLight1Proxy>(connection).await?.snapshot()).await?;
+async fn owned_proxy<'a, P>(
+    connection: &'a Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<P>
+where
+    P: From<zbus::Proxy<'a>> + zbus::proxy::Defaults,
+{
+    within(
+        zbus::proxy::Builder::<P>::new(connection)
+            .destination(owner)?
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build(),
+    )
+    .await
+}
+
+async fn night_light(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let snapshot = within(
+        owned_proxy::<NightLight1Proxy>(connection, owner)
+            .await?
+            .snapshot(),
+    )
+    .await?;
     Ok((snapshot.serving, snapshot.reason))
 }
 
-async fn weather(connection: &Connection) -> Result<(bool, String)> {
-    let (available, _stale, reason, ..) =
-        within(proxy::<Weather1Proxy>(connection).await?.snapshot()).await?;
+async fn weather(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let (available, _stale, reason, ..) = within(
+        owned_proxy::<Weather1Proxy>(connection, owner)
+            .await?
+            .snapshot(),
+    )
+    .await?;
     Ok((available, reason))
 }
 
-async fn notifications(connection: &Connection) -> Result<(bool, String)> {
-    let (_, _, serving, reason) =
-        within(proxy::<Notifications1Proxy>(connection).await?.snapshot()).await?;
+async fn notifications(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let (_, _, serving, reason) = within(
+        owned_proxy::<Notifications1Proxy>(connection, owner)
+            .await?
+            .snapshot(),
+    )
+    .await?;
     Ok((serving, reason))
+}
+
+async fn settings(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let settings = owned_proxy::<Settings1Proxy>(connection, owner).await?;
+    let (mode, location, solar) = within(async {
+        tokio::try_join!(settings.mode(), settings.geolocation(), settings.solar())
+    })
+    .await?;
+    decode_mode(mode.clone()).map_err(anyhow::Error::msg)?;
+    decode_geolocation(location).map_err(anyhow::Error::msg)?;
+    decode_solar(solar).map_err(anyhow::Error::msg)?;
+    Ok((mode.0, mode.5))
+}
+
+async fn idle(
+    connection: &Connection,
+    owner: zbus::names::OwnedUniqueName,
+) -> Result<(bool, String)> {
+    let idle = owned_proxy::<Idle1Proxy>(connection, owner).await?;
+    let (_, health) = within(async { tokio::try_join!(idle.inhibitors(), idle.health()) }).await?;
+    let backends = [
+        health.screen_saver,
+        health.portal,
+        health.login1,
+        health.wayland,
+    ];
+    let degraded = backends
+        .iter()
+        .filter(|backend| backend.kind == HealthKind::Degraded)
+        .collect::<Vec<_>>();
+    if !degraded.is_empty() {
+        return Ok((
+            false,
+            degraded
+                .iter()
+                .map(|backend| safe(&backend.message))
+                .collect::<Vec<_>>()
+                .join("; "),
+        ));
+    }
+    let ready = backends
+        .iter()
+        .any(|backend| backend.kind == HealthKind::Ready);
+    Ok((
+        ready,
+        if ready {
+            String::new()
+        } else {
+            "no idle inhibition backend is ready".into()
+        },
+    ))
 }

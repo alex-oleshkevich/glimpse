@@ -264,6 +264,10 @@ pub enum Command {
         handle: String,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
+    DevTree {
+        handle: String,
+        reply: oneshot::Sender<Result<Value, CommandError>>,
+    },
     DevDetach {
         handle: String,
         reply: oneshot::Sender<Result<(), CommandError>>,
@@ -348,6 +352,22 @@ impl ServiceEndpoint<Exec> {
             handle: handle.to_owned(),
             reply,
         }))
+    }
+    pub fn dev_tree(
+        &self,
+        handle: &str,
+    ) -> impl Future<Output = Result<Value, CommandError>> + Send + 'static + use<> {
+        let (reply, answer) = oneshot::channel();
+        let sent = self.command(Command::DevTree {
+            handle: handle.to_owned(),
+            reply,
+        });
+        async move {
+            sent?;
+            answer.await.map_err(|_| {
+                CommandError::Unavailable("`exec` stopped before answering".to_owned())
+            })?
+        }
     }
     pub fn detach_dev(
         &self,
@@ -1111,6 +1131,17 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown applet".to_owned()))
                 };
+                let _ = reply.send(result);
+            }
+            Input::Command(Command::DevTree { handle, reply }) => {
+                let result = self
+                    .taken_dev
+                    .get(&handle)
+                    .and_then(|slot| self.slots.get(slot))
+                    .map(|slot| slot.public.tree.snapshot())
+                    .ok_or_else(|| {
+                        CommandError::InvalidArgument("applet is pending or unknown".to_owned())
+                    });
                 let _ = reply.send(result);
             }
             Input::Command(Command::DevDetach { handle, reply }) => {

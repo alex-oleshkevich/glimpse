@@ -17,12 +17,26 @@ pub fn config_show(override_path: Option<PathBuf>, json: bool) -> Result<()> {
 }
 
 pub fn config_validate(override_path: Option<PathBuf>) -> Result<()> {
+    config_validate_output(override_path, false)
+}
+
+pub fn config_validate_output(override_path: Option<PathBuf>, json: bool) -> Result<()> {
     let config = glimpse_config::load(override_path.as_deref())?;
-    for problem in config.validate() {
-        if let Flow::Stop = print(&styled::warn(&problem.to_string()))? {
-            break;
+    let problems: Vec<String> = config
+        .validate()
+        .into_iter()
+        .map(|problem| problem.to_string())
+        .collect();
+    if json {
+        emit(&serde_json::json!({"valid": problems.is_empty(), "problems": problems}))?;
+    } else {
+        for problem in &problems {
+            if let Flow::Stop = print(&styled::warn(problem))? {
+                break;
+            }
         }
     }
+    anyhow::ensure!(problems.is_empty(), "configuration validation failed");
     Ok(())
 }
 

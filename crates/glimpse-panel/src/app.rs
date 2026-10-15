@@ -2,6 +2,7 @@ use adw::gdk::{self, prelude::*};
 use adw::prelude::{AdwDialogExt, AlertDialogExt};
 use futures_util::StreamExt;
 use gettextrs::gettext;
+use glib::prelude::ToVariant;
 use gtk4::gio;
 use gtk4::prelude::{ActionMapExt, GtkWindowExt, WidgetExt};
 use std::{collections::HashMap, path::PathBuf};
@@ -111,6 +112,7 @@ pub struct App {
     secret: Option<(SecretDialog, glib::SignalHandlerId)>,
     problems: Problems,
     actions: ComponentActions,
+    bars: gio::SimpleAction,
     alert: Option<watch::Sender<Option<String>>>,
 }
 
@@ -162,6 +164,14 @@ impl SimpleComponent for App {
             let _ = input.send(AppInput::ClosePopovers);
         });
         relm4::main_application().add_action(&action);
+        let bars = gio::SimpleAction::new_stateful(
+            "bars",
+            None,
+            &Vec::<(u32, String, String)>::new().to_variant(),
+        );
+        bars.set_enabled(false);
+        bars.connect_change_state(|_, _| {});
+        relm4::main_application().add_action(&bars);
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let attached = SharedRegistry::default();
@@ -180,6 +190,7 @@ impl SimpleComponent for App {
             secret: None,
             problems,
             actions,
+            bars,
             alert: None,
         };
         model.reload_styles();
@@ -292,6 +303,10 @@ impl SimpleComponent for App {
             &self.attached,
             sender.input_sender().clone(),
         );
+        self.bars.set_state(&bars_state(
+            &self.config,
+            self.panels.iter().map(|panel| &panel.key),
+        ));
         if export
             && let Some(connection) = self
                 .services
@@ -700,6 +715,25 @@ struct Key {
 struct PanelState {
     pub key: Key,
     pub controller: Controller<components::panel::Panel>,
+}
+
+fn bars_state<'a>(config: &Config, keys: impl Iterator<Item = &'a Key>) -> glib::Variant {
+    keys.filter_map(|key| {
+        let panel = config.panels.get(key.index)?;
+        let position = match panel.position {
+            glimpse_config::Position::Top => "top",
+            glimpse_config::Position::Bottom => "bottom",
+            glimpse_config::Position::Left => "left",
+            glimpse_config::Position::Right => "right",
+        };
+        Some((
+            u32::try_from(key.index).ok()?,
+            key.monitor.clone(),
+            position.to_owned(),
+        ))
+    })
+    .collect::<Vec<_>>()
+    .to_variant()
 }
 
 fn reconcile_panels(

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
 use glimpse_config::{ExecAppletConfig, exec_env_name_allowed, is_desktop_id};
-use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name, panel_app_id};
+use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name};
 use glimpse_services::{DesktopCatalog, ExecEntry};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::signal::unix::{SignalKind, signal};
@@ -24,7 +24,7 @@ struct HostTarget<'a> {
     zone: &'a str,
 }
 
-fn source(dir: &Path) -> Result<(String, ExecEntry)> {
+pub(super) fn source(dir: &Path) -> Result<(String, ExecEntry)> {
     let mut desktops = fs::read_dir(dir)?
         .filter_map(|item| item.ok().map(|item| item.path()))
         .filter(|path| path.extension().is_some_and(|ext| ext == "desktop"));
@@ -47,7 +47,7 @@ fn source(dir: &Path) -> Result<(String, ExecEntry)> {
     Ok((id, entry))
 }
 
-fn settings(path: &Path, id: &str) -> Result<ExecAppletConfig> {
+pub(super) fn settings(path: &Path, id: &str) -> Result<ExecAppletConfig> {
     let raw =
         fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
     let mut table: toml::Table =
@@ -139,7 +139,7 @@ async fn attach(
     Ok(handle)
 }
 
-pub async fn applets_run(args: RunArgs) -> Result<()> {
+pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Result<()> {
     let RunArgs {
         target,
         dev: watch,
@@ -148,6 +148,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         zone,
         env: flags,
         applet_config,
+        isolated,
     } = args;
     let directory_target = Path::new(&target).is_dir();
     let (id, mut entry, dir) = if directory_target {
@@ -242,19 +243,37 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
     let zone = zone.map_or("", Zone::as_str);
-    let name = applet_host_name(&panel_app_id());
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    let mut terminate = signal(SignalKind::terminate())?;
+    let mut hangup = signal(SignalKind::hangup())?;
+    let bus = super::within(zbus::Connection::session())
+        .await
+        .context("cannot reach the session bus")?;
+    let mut isolated_panel = if isolated {
+        Some(
+            super::dev::OwnedPanel::start(
+                crate::cli::DevPanelArgs {
+                    app_id: None,
+                    output: (!output.is_empty()).then(|| output.clone()),
+                    edge: crate::cli::Position::Bottom,
+                    applets: Vec::new(),
+                },
+                None,
+                &bus,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+    let result = async {
+    let name = applet_host_name(isolated_panel.as_ref().map_or(panel_app_id, |panel| panel.app_id.as_str()));
     let host = HostTarget {
         name: &name,
         panel,
         output: &output,
         zone,
     };
-    let mut interrupt = signal(SignalKind::interrupt())?;
-    let mut terminate = signal(SignalKind::terminate())?;
-    let mut hangup = signal(SignalKind::hangup())?;
-    let bus = zbus::Connection::session()
-        .await
-        .context("cannot reach the session bus")?;
     ensure!(
         super::has_owner(&bus, &name).await?,
         "no panel is running: {name} is not on the session bus"
@@ -291,16 +310,28 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
     let mut config_at: Option<Instant> = None;
     let mut changed_files: Vec<PathBuf> = Vec::new();
     let mut reattach = false;
-    println!("Running {id}. Press Ctrl-C to stop.");
+    eprintln!("Running {id}. Press Ctrl-C to stop; r restarts, t prints the current tree.");
+    if json { super::emit(&serde_json::json!({"id": id, "handle": handle, "panel": isolated_panel.as_ref().map_or(panel_app_id, |panel| panel.app_id.as_str())}))?; }
 
     loop {
         tokio::select! {
             _ = interrupt.recv() => break,
             _ = terminate.recv() => break,
             _ = hangup.recv() => break,
+            _ = tokio::time::sleep(Duration::from_millis(100)), if isolated_panel.is_some() => {
+                if let Some(panel) = isolated_panel.as_mut() { ensure!(!panel.exited()?, "development panel exited"); }
+            }
             command = commands.recv(), if tty => {
                 match command {
                     Some(line) if line.trim() == "r" => restart_at = Some(Instant::now()),
+                    Some(line) if line.trim() == "t" => {
+                        if let Some(handle) = handle.as_deref() {
+                            match super::within(proxy.tree(handle)).await {
+                                Ok(tree) => { if let crate::render::Flow::Stop = crate::render::print(&tree)? { break; } },
+                                Err(error) => eprintln!("cannot inspect tree: {error}"),
+                            }
+                        }
+                    }
                     None => tty = false,
                     _ => {}
                 }
@@ -378,7 +409,17 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
             .await
             .with_context(|| format!("cannot detach {handle}"))?;
     }
-    Ok(())
+        Ok(())
+    }.await;
+    if let Some(panel) = isolated_panel.as_mut()
+        && let Err(cleanup) = panel.shutdown().await
+    {
+        if result.is_ok() {
+            return Err(cleanup);
+        }
+        eprintln!("cannot clean up development panel applets: {cleanup:#}");
+    }
+    result
 }
 
 #[cfg(test)]

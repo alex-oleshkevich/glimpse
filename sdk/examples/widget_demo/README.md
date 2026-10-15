@@ -14,5 +14,5 @@ From this directory:
 
 ```
 npm install
-glimpsectl applets run --dev .
+glimpsectl applet run --dev .
 ```

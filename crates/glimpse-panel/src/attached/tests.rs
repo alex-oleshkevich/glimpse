@@ -190,9 +190,11 @@ async fn private_bus_owns_handles_and_detaches_a_vanished_sender() {
     for error in [
         stranger.set_options(&handle, "{}").await.unwrap_err(),
         stranger.restart(&handle).await.unwrap_err(),
+        stranger.tree(&handle).await.unwrap_err(),
         stranger.detach(&handle).await.unwrap_err(),
         owner.set_options("unknown", "{}").await.unwrap_err(),
         owner.restart("unknown").await.unwrap_err(),
+        owner.tree("unknown").await.unwrap_err(),
         owner.detach("unknown").await.unwrap_err(),
     ] {
         assert!(error.to_string().contains("AccessDenied"));
@@ -201,6 +203,14 @@ async fn private_bus_owns_handles_and_detaches_a_vanished_sender() {
     owner.set_options(&handle, "{\"a\":1}").await.unwrap();
     assert!(owner.set_options(&handle, "[1]").await.is_err());
     owner.restart(&handle).await.unwrap();
+    assert!(
+        owner
+            .tree(&handle)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("pending")
+    );
     owner.detach(&handle).await.unwrap();
     assert!(exec.snapshot().dev.is_empty());
     assert!(matches!(receiver.recv().await, Some(AppInput::Detached)));

@@ -5,7 +5,9 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 ## Contents
 
 - `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
-- `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches
+- `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches;
+  the read-only GTK `bars` action carries `a(uss)` entries of config index, connector and edge for
+  every mapped bar, including empty ones
 - `services.rs` — the panel-local composition root and its explicit service dependencies
 - `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
 - `components/panel.rs` — bar window, zones, applet reconciliation

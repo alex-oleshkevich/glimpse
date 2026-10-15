@@ -811,6 +811,22 @@ impl Default for Tree {
 }
 
 impl Tree {
+    pub fn snapshot(&self) -> Value {
+        fn snapshot(tree: &Tree, id: u32) -> Value {
+            let Some(node) = tree.node(id) else {
+                return Value::Null;
+            };
+            serde_json::json!({
+                "id": id,
+                "type": node.element.kind().name(),
+                "props": node.raw,
+                "seq": node.seq,
+                "children": node.children.iter().map(|id| snapshot(tree, *id)).collect::<Vec<_>>()
+            })
+        }
+        snapshot(self, ROOT)
+    }
+
     pub fn apply(&self, ops: Vec<Op>) -> Result<Tree, Violation> {
         if ops.len() > MAX_OPS {
             return Err(Violation::TooManyOps);

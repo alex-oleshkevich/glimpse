@@ -1,5 +1,6 @@
 use shadow_rs::shadow;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 use chrono::NaiveTime;
@@ -35,14 +36,27 @@ pub struct Cli {
     )]
     pub json: bool,
 
+    #[arg(
+        long = "panel",
+        global = true,
+        env = "GLIMPSE_PANEL_APP_ID",
+        default_value = "me.aresa.GlimpsePanel",
+        value_name = "APP_ID",
+        help = "Panel D-Bus application ID"
+    )]
+    pub panel_app_id: String,
+
     #[command(subcommand)]
     pub command: Command,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[command(subcommand, about = "The night light")]
+    #[command(subcommand, hide = true)]
     Sunset(SunsetCommand),
+
+    #[command(subcommand, about = "The night light")]
+    NightLight(NightLightCommand),
 
     #[command(subcommand, about = "Idle inhibitors and manual holds")]
     Idle(IdleCommand),
@@ -50,11 +64,14 @@ pub enum Command {
     #[command(subcommand, about = "Current conditions and the forecast")]
     Weather(WeatherCommand),
 
-    #[command(
-        subcommand,
-        about = "Location, solar phase and desktop light/dark mode"
-    )]
+    #[command(subcommand, hide = true)]
     Settings(SettingsCommand),
+
+    #[command(subcommand, about = "Desktop light/dark mode")]
+    Appearance(AppearanceCommand),
+
+    #[command(subcommand, about = "Current location and solar phase")]
+    Geolocation(GeolocationCommand),
 
     #[command(subcommand, about = "The notification store")]
     Notifications(NotificationsCommand),
@@ -65,8 +82,20 @@ pub enum Command {
     #[command(subcommand, about = "Inspect the configuration stack")]
     Config(ConfigCommand),
 
-    #[command(subcommand, about = "Inspect and control external applets")]
+    #[command(subcommand, hide = true)]
     Applets(AppletsCommand),
+
+    #[command(subcommand, about = "Inspect, control and develop applets")]
+    Applet(AppletCommand),
+
+    #[command(subcommand, about = "Panel development tools")]
+    Dev(DevCommand),
+
+    #[command(about = "Generate shell completions")]
+    Completions {
+        #[arg(value_enum, help = "Shell to generate completions for")]
+        shell: clap_complete::Shell,
+    },
 
     #[command(about = "Show running glimpse components")]
     Status,
@@ -85,6 +114,53 @@ pub enum Command {
 pub enum SessionCommand {
     #[command(hide = true, about = "Declare glimpse:niri as the current desktop")]
     Declare,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum NightLightCommand {
+    #[command(about = "Print the current schedule and temperature")]
+    Status {
+        #[arg(long, help = "Follow status changes")]
+        watch: bool,
+    },
+    #[command(about = "Hold neutral daylight until the current night ends")]
+    Pause,
+    #[command(about = "Follow the schedule again")]
+    Resume,
+    #[command(about = "Temporarily select a schedule")]
+    Schedule {
+        #[arg(help = "Schedule to run")]
+        mode: Mode,
+    },
+    #[command(about = "Set or clear a temperature override")]
+    Temperature {
+        #[arg(value_parser = clap::value_parser!(u32).range(1..), required_unless_present = "clear", conflicts_with = "clear", help = "Temperature in Kelvin")]
+        kelvin: Option<u32>,
+        #[arg(long, help = "Clear the temperature override")]
+        clear: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum AppearanceCommand {
+    #[command(about = "Print desktop mode status")]
+    Status {
+        #[arg(long, help = "Follow status changes")]
+        watch: bool,
+    },
+    #[command(about = "Temporarily select light or dark mode")]
+    Set {
+        #[arg(help = "Desktop mode")]
+        mode: DesktopMode,
+    },
+    #[command(about = "Follow the configured mode policy")]
+    Resume,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum GeolocationCommand {
+    #[command(about = "Print location and solar phase")]
+    Status,
 }
 
 #[derive(Debug, Subcommand)]
@@ -141,7 +217,10 @@ pub fn temperature(raw: &str) -> Result<u32, String> {
 #[derive(Debug, Subcommand)]
 pub enum IdleCommand {
     #[command(about = "Print every inhibitor and the health of each source")]
-    Status,
+    Status {
+        #[arg(long, help = "Follow inhibitor changes")]
+        watch: bool,
+    },
 
     #[command(
         about = "Hold off idle and suspend while this command runs",
@@ -157,6 +236,8 @@ pub enum IdleCommand {
             help = "End the hold after this long: 90, 90s, 15m or 2h"
         )]
         lapse: Option<u32>,
+        #[arg(last = true, value_name = "CMD", num_args = 1.., help = "Command to run while holding the inhibitor")]
+        command: Vec<String>,
     },
 
     #[command(about = "Release a releasable inhibitor")]
@@ -248,9 +329,35 @@ impl From<DesktopMode> for glimpse_dbus::settings::Mode {
 #[derive(Debug, Subcommand)]
 pub enum NotificationsCommand {
     #[command(about = "Print the notifications the store holds")]
-    List,
+    List {
+        #[arg(long, help = "Follow notification changes")]
+        watch: bool,
+    },
 
-    #[command(about = "Dismiss one notification")]
+    #[command(about = "Send a notification")]
+    Send(NotificationSendArgs),
+
+    #[command(about = "Remove a stored notification")]
+    Remove {
+        #[arg(help = "Notification ID")]
+        id: u32,
+    },
+
+    #[command(about = "Activate a notification's default action")]
+    Activate {
+        #[arg(help = "Notification ID")]
+        id: u32,
+    },
+
+    #[command(about = "Invoke a notification action")]
+    Action {
+        #[arg(help = "Notification ID")]
+        id: u32,
+        #[arg(help = "Action key")]
+        key: String,
+    },
+
+    #[command(about = "Mark a notification read and drop its popup")]
     Dismiss {
         #[arg(value_name = "ID", help = "The notification's id, as `list` prints it")]
         id: u32,
@@ -285,6 +392,45 @@ pub enum NotificationsCommand {
     },
 }
 
+#[derive(Debug, Args)]
+pub struct NotificationSendArgs {
+    #[arg(help = "Notification summary")]
+    pub summary: String,
+    #[arg(long, default_value = "", help = "Notification body")]
+    pub body: String,
+    #[arg(long, default_value = "glimpsectl", help = "Sending application name")]
+    pub app_name: String,
+    #[arg(long, default_value = "", help = "Icon name or path")]
+    pub icon: String,
+    #[arg(long, help = "Image path")]
+    pub image: Option<String>,
+    #[arg(long, default_value = "normal", help = "Notification urgency")]
+    pub urgency: NotificationUrgency,
+    #[arg(long, value_name = "KEY=LABEL", help = "Add an action")]
+    pub action: Vec<String>,
+    #[arg(long, default_value_t = 0, help = "Replace this notification ID")]
+    pub replace: u32,
+    #[arg(long, default_value_t = -1, allow_hyphen_values = true, help = "Expiry in milliseconds; -1 uses the server default")]
+    pub expire: i32,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum NotificationUrgency {
+    Low,
+    Normal,
+    Critical,
+}
+
+impl NotificationUrgency {
+    pub fn as_u8(self) -> u8 {
+        match self {
+            Self::Low => 0,
+            Self::Normal => 1,
+            Self::Critical => 2,
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum ClipboardCommand {
     #[command(about = "Print the history, newest first")]
@@ -302,8 +448,11 @@ pub enum ClipboardCommand {
     #[command(about = "Let a pinned entry be evicted again")]
     Unpin(EntryTarget),
 
-    #[command(about = "Remove one entry from the history")]
+    #[command(hide = true)]
     Forget(EntryTarget),
+
+    #[command(about = "Remove one entry from the history")]
+    Remove(EntryTarget),
 
     #[command(about = "Remove every entry that is not pinned")]
     Clear,
@@ -357,6 +506,115 @@ pub enum AppletsCommand {
     Run(RunArgs),
 }
 
+#[derive(Debug, Subcommand)]
+pub enum AppletCommand {
+    #[command(about = "List live applets or the installed catalog")]
+    List {
+        #[arg(
+            long,
+            conflicts_with = "installed",
+            help = "Follow live applet changes"
+        )]
+        watch: bool,
+        #[arg(long, help = "List installed external applets")]
+        installed: bool,
+    },
+    #[command(about = "Inspect a live applet or installed desktop entry")]
+    Inspect {
+        #[command(flatten)]
+        target: AppletTarget,
+        #[arg(long, conflicts_with_all = ["output", "edge"], help = "Inspect the installed desktop entry")]
+        installed: bool,
+    },
+    #[command(about = "Click an applet")]
+    Click {
+        #[command(flatten)]
+        target: AppletTarget,
+        #[arg(long, default_value = "left", value_parser = button, help = "Mouse button: left, middle, right, or a number")]
+        button: u32,
+    },
+    #[command(about = "Scroll an applet")]
+    Scroll {
+        #[command(flatten)]
+        target: AppletTarget,
+        #[arg(help = "Scroll direction")]
+        direction: Direction,
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..), help = "Number of scroll notches")]
+        steps: u32,
+    },
+    #[command(about = "Open an applet's popover")]
+    Open(AppletTarget),
+    #[command(about = "Close an applet's popover")]
+    Close(AppletTarget),
+    #[command(about = "Toggle an applet's popover")]
+    Toggle(AppletTarget),
+    #[command(about = "Restart the applet's systemd services")]
+    Restart {
+        #[arg(help = "Applet desktop-file ID")]
+        id: String,
+    },
+    #[command(about = "Create an external applet")]
+    New(NewAppletArgs),
+    #[command(about = "Run an applet in the panel until Ctrl-C")]
+    Run(RunArgs),
+    #[command(about = "Validate an external applet")]
+    Check(CheckArgs),
+    #[command(about = "Install a desktop entry for an external applet")]
+    Install {
+        #[arg(default_value = ".", help = "Applet source directory")]
+        dir: PathBuf,
+    },
+    #[command(about = "Remove a desktop entry installed by glimpsectl")]
+    Uninstall {
+        #[arg(help = "Applet desktop-file ID")]
+        id: String,
+    },
+}
+
+#[derive(Debug, Args)]
+pub struct AppletTarget {
+    #[arg(value_name = "NAME", help = "Applet name, as list prints it")]
+    pub name: String,
+    #[arg(long, help = "Output connector")]
+    pub output: Option<String>,
+    #[arg(long, help = "Panel edge")]
+    pub edge: Option<Position>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum DevCommand {
+    #[command(about = "Start an isolated panel in the foreground")]
+    Panel(DevPanelArgs),
+    #[command(about = "Close all popovers on the selected panel")]
+    ClosePopovers,
+}
+
+#[derive(Debug, Args)]
+pub struct DevPanelArgs {
+    #[arg(long, help = "Fresh test-panel application ID")]
+    pub app_id: Option<String>,
+    #[arg(long, help = "Output connector")]
+    pub output: Option<String>,
+    #[arg(long, default_value = "bottom", help = "Panel edge")]
+    pub edge: Position,
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Applets to place on the test panel"
+    )]
+    pub applets: Vec<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct CheckArgs {
+    #[arg(default_value = ".", help = "Applet source directory")]
+    pub dir: PathBuf,
+    #[arg(long, help = "Run a headless protocol smoke check")]
+    pub run: bool,
+    #[arg(long, default_value_t = 5, value_parser = clap::value_parser!(u64).range(1..), help = "Protocol smoke deadline in seconds")]
+    pub timeout: u64,
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 #[value(rename_all = "lower")]
 pub enum Zone {
@@ -377,26 +635,27 @@ impl Zone {
 
 #[derive(Debug, Args)]
 pub struct PanelArgs {
-    #[arg(
-        long,
-        global = true,
-        env = "GLIMPSE_PANEL_APP_ID",
-        default_value = "me.aresa.GlimpsePanel",
-        help = "Panel D-Bus application ID"
-    )]
-    pub app_id: String,
+    #[arg(long, global = true, hide = true, help = "Panel D-Bus application ID")]
+    pub app_id: Option<String>,
     #[command(subcommand)]
     pub command: PanelCommand,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum PanelCommand {
-    #[command(about = "List the panel's applets")]
+    #[command(about = "List running panel instances")]
+    List {
+        #[arg(long, help = "Follow running panel instances")]
+        watch: bool,
+    },
+    #[command(about = "Reload the selected panel")]
+    Reload,
+    #[command(hide = true)]
     Applets {
         #[arg(long, help = "Print applet changes until the panel exits")]
         watch: bool,
     },
-    #[command(about = "Click an applet")]
+    #[command(hide = true)]
     Click {
         #[arg(help = "Output connector")]
         connector: String,
@@ -407,7 +666,7 @@ pub enum PanelCommand {
         #[arg(long, help = "Panel edge")]
         position: Option<Position>,
     },
-    #[command(about = "Scroll an applet")]
+    #[command(hide = true)]
     Scroll {
         #[arg(help = "Output connector")]
         connector: String,
@@ -420,20 +679,20 @@ pub enum PanelCommand {
         #[arg(long, help = "Panel edge")]
         position: Option<Position>,
     },
-    #[command(subcommand, about = "Control one applet's popover")]
+    #[command(subcommand, hide = true)]
     Popover(PopoverCommand),
-    #[command(subcommand, about = "Control all panel popovers")]
+    #[command(subcommand, hide = true)]
     Popovers(PopoversCommand),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum PopoverCommand {
     #[command(about = "Open the applet's popover")]
-    Open(AppletTarget),
+    Open(LegacyAppletTarget),
     #[command(about = "Close the applet's popover")]
-    Close(AppletTarget),
+    Close(LegacyAppletTarget),
     #[command(about = "Open it when closed, close it when open")]
-    Toggle(AppletTarget),
+    Toggle(LegacyAppletTarget),
 }
 
 #[derive(Debug, Subcommand)]
@@ -442,7 +701,7 @@ pub enum PopoversCommand {
 }
 
 #[derive(Debug, Args)]
-pub struct AppletTarget {
+pub struct LegacyAppletTarget {
     #[arg(help = "Output connector")]
     pub connector: String,
     #[arg(help = "Applet name")]
@@ -527,8 +786,15 @@ pub struct RunArgs {
     pub target: String,
     #[arg(long, help = "Restart the applet when its files or config change")]
     pub dev: bool,
-    #[arg(long, default_value_t = 0, help = "Configured panel index")]
+    #[arg(
+        long = "bar",
+        id = "bar",
+        default_value_t = 0,
+        help = "Configured panel index"
+    )]
     pub panel: u32,
+    #[arg(long, help = "Start and own a fresh test panel")]
+    pub isolated: bool,
     #[arg(
         long,
         default_value = "",
@@ -552,27 +818,182 @@ pub struct RunArgs {
 }
 
 pub fn parse() -> Cli {
-    Cli::parse()
+    let arguments: Vec<_> = std::env::args_os().collect();
+    Cli::try_parse_from(&arguments).unwrap_or_else(|error| {
+        if error.exit_code() == 2
+            && arguments
+                .iter()
+                .take_while(|argument| *argument != "--")
+                .any(|argument| argument == "--json")
+        {
+            let _ = error.print();
+            anstream::eprintln!(
+                "{}",
+                serde_json::json!({"error": error.to_string(), "exit": 2})
+            );
+            std::process::exit(2);
+        }
+        error.exit()
+    })
 }
 
 #[derive(Debug, Args)]
 pub struct NewAppletArgs {
-    #[arg(long)]
+    #[arg(long, help = "Applet desktop-file ID")]
     pub id: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Applet display name")]
     pub name: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Applet description")]
     pub description: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Applet icon name")]
     pub icon: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Destination directory")]
     pub dir: Option<PathBuf>,
-    #[arg(long)]
+    #[arg(long, help = "Accept defaults without prompting")]
     pub yes: bool,
 }
 
 impl Command {
     pub fn needs_session_bus(&self) -> bool {
-        !matches!(self, Self::Config(_) | Self::Doctor | Self::Applets(_))
+        !matches!(
+            self,
+            Self::Config(_)
+                | Self::Doctor
+                | Self::Applets(_)
+                | Self::Completions { .. }
+                | Self::Dev(DevCommand::Panel(_))
+                | Self::Applet(
+                    AppletCommand::New(_)
+                        | AppletCommand::Run(_)
+                        | AppletCommand::Check(_)
+                        | AppletCommand::Install { .. }
+                        | AppletCommand::Uninstall { .. }
+                        | AppletCommand::Restart { .. }
+                        | AppletCommand::List {
+                            installed: true,
+                            ..
+                        }
+                        | AppletCommand::Inspect {
+                            installed: true,
+                            ..
+                        }
+                )
+        )
     }
+}
+
+impl Cli {
+    pub fn try_parse_from<I, T>(arguments: I) -> Result<Self, clap::Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        <Self as Parser>::try_parse_from(normalize_legacy(arguments))
+    }
+
+    pub fn deprecation(&self) -> Option<&'static str> {
+        match &self.command {
+            Command::Sunset(_) => Some("sunset is deprecated; use night-light"),
+            Command::Settings(_) => Some("settings is deprecated; use appearance or geolocation"),
+            Command::Applets(_) => Some("applets is deprecated; use applet"),
+            Command::Clipboard(ClipboardCommand::Forget(_)) => {
+                Some("clipboard forget is deprecated; use clipboard remove")
+            }
+            Command::Panel(args)
+                if args.app_id.is_some()
+                    || !matches!(
+                        args.command,
+                        PanelCommand::List { .. } | PanelCommand::Reload
+                    ) =>
+            {
+                Some(
+                    "legacy panel syntax is deprecated; use applet or dev close-popovers, and global --panel",
+                )
+            }
+            _ => None,
+        }
+    }
+}
+
+fn command_index(arguments: &[OsString], mut index: usize) -> Option<usize> {
+    while let Some(argument) = arguments.get(index).and_then(|value| value.to_str()) {
+        if argument == "--" {
+            return None;
+        }
+        if matches!(
+            argument,
+            "--panel" | "--config" | "-c" | "--color" | "--log" | "--log-format"
+        ) {
+            index += 2;
+        } else if argument.starts_with('-') {
+            index += 1;
+        } else {
+            return Some(index);
+        }
+    }
+    None
+}
+
+fn normalize_legacy<I, T>(arguments: I) -> Vec<OsString>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString>,
+{
+    let mut arguments: Vec<OsString> = arguments.into_iter().map(Into::into).collect();
+    let Some(noun) = command_index(&arguments, 1) else {
+        return arguments;
+    };
+    if arguments[noun] != "applets" {
+        return arguments;
+    }
+    let Some(verb) = command_index(&arguments, noun + 1) else {
+        return arguments;
+    };
+    if arguments[verb] != "run" {
+        return arguments;
+    }
+    let mut index = verb + 1;
+    while index < arguments.len() {
+        let Some(argument) = arguments[index].to_str() else {
+            index += 1;
+            continue;
+        };
+        if argument == "--" {
+            break;
+        }
+        if argument == "--panel"
+            && arguments
+                .get(index + 1)
+                .and_then(|value| value.to_str())
+                .is_some_and(|value| {
+                    !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
+                })
+        {
+            arguments[index] = "--bar".into();
+            index += 2;
+        } else if let Some(value) = argument.strip_prefix("--panel=") {
+            if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
+                arguments[index] = format!("--bar={value}").into();
+            }
+            index += 1;
+        } else if matches!(
+            argument,
+            "--panel"
+                | "--bar"
+                | "--output"
+                | "--zone"
+                | "--env"
+                | "--applet-config"
+                | "--config"
+                | "-c"
+                | "--color"
+                | "--log"
+                | "--log-format"
+        ) {
+            index += 2;
+        } else {
+            index += 1;
+        }
+    }
+    arguments
 }

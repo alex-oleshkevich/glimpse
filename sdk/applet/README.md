@@ -22,12 +22,12 @@ await run(
 ## Start
 
 ```
-glimpsectl applets new
+glimpsectl applet new
 cd <dir> && npm install
-glimpsectl applets run --dev .
+glimpsectl applet run --dev .
 ```
 
-`applets new` writes `index.tsx`, `package.json`, `tsconfig.json`, `config.toml`, `README.md`
+`applet new` writes `index.tsx`, `package.json`, `tsconfig.json`, `config.toml`, `README.md`
 and the desktop entry. The entry runs `node --run start`, which bundles everything into
 `build/applet.mjs` and starts it.
 
@@ -57,4 +57,4 @@ Import `render` from `glimpse-sdk/testing` to run an applet with an in-memory ho
 `tree()` returns the current root node and `requests()` lists host requests. `click(id)`
 activates an ActionRow or clicks a Button; `setOptions(options)` and `setPopoverOpen(open)` send
 host messages. Call `close()` before rendering another applet. The test host checks the shape
-of each commit, not the panel's nesting and size rules; `glimpsectl applets run --dev` enforces those.
+of each commit, not the panel's nesting and size rules; `glimpsectl applet run --dev` enforces those.

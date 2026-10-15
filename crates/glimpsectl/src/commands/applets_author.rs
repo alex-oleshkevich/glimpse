@@ -9,7 +9,6 @@ use glimpse_services::DesktopCatalog;
 use minijinja::{AutoEscape, Environment, UndefinedBehavior, context};
 
 use crate::cli::NewAppletArgs;
-use crate::render::Section;
 
 fn prompt(
     flag: &str,
@@ -76,19 +75,31 @@ fn desktop_value(value: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn applets_new(args: NewAppletArgs) -> Result<()> {
+pub fn applets_new(args: NewAppletArgs, json: bool) -> Result<()> {
     let installed = DesktopCatalog.installed();
     let template = env::var_os("GLIMPSE_TS_SDK_TEMPLATE_DIR")
         .map_or_else(|| Path::new(DATA_DIR).join("sdk/template"), PathBuf::from);
-    applets_new_with_catalog(args, &template, |id| {
-        installed.iter().any(|(name, _)| name == id)
-    })
+    new_with_catalog(
+        args,
+        &template,
+        |id| installed.iter().any(|(name, _)| name == id),
+        json,
+    )
 }
 
 pub fn applets_new_with_catalog(
     args: NewAppletArgs,
     template: &Path,
     installed: impl Fn(&str) -> bool,
+) -> Result<()> {
+    new_with_catalog(args, template, installed, false)
+}
+
+fn new_with_catalog(
+    args: NewAppletArgs,
+    template: &Path,
+    installed: impl Fn(&str) -> bool,
+    json: bool,
 ) -> Result<()> {
     let id = prompt("id", "Applet id", args.id, None, args.yes, |id| {
         ensure!(is_desktop_id(id), "expected a desktop-file id");
@@ -174,16 +185,15 @@ pub fn applets_new_with_catalog(
         .and_then(|cwd| dir.strip_prefix(cwd).ok().map(Path::to_path_buf))
         .filter(|relative| !relative.as_os_str().is_empty())
         .unwrap_or_else(|| dir.clone());
-    println!("Created {id} in {}\n", shown.display());
-    Section::new("next")
-        .with(format!(
-            "cd {}\nnpm install\nglimpsectl applets run --dev .",
-            shown.display()
-        ))
-        .print()?;
-    println!();
-    Section::new("config.toml")
-        .with(format!("[applets.\"{id}\"]\napplet = \"{id}\""))
-        .with_note(&format!("then add it to a panel zone: center = [\"{id}\"]"))
-        .print()
+    if json {
+        super::emit(&serde_json::json!({"id": id, "path": dir}))?;
+    } else {
+        println!("{id}");
+    }
+    eprintln!(
+        "Created {id} in {}\n\ncd {}\nnpm install\nglimpsectl applet run --dev --isolated .\n\n[applets.\"{id}\"]\napplet = \"{id}\"\nthen add it to a panel zone: center = [\"{id}\"]",
+        shown.display(),
+        shown.display()
+    );
+    Ok(())
 }

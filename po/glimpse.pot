@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-15 13:31+0200\n"
+"POT-Creation-Date: 2026-10-15 15:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -118,15 +118,15 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:372
+#: crates/glimpse-panel/src/app.rs:387
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:414
+#: crates/glimpse-panel/src/app.rs:429
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:426
+#: crates/glimpse-panel/src/app.rs:441
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:135
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:163
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:183
@@ -143,20 +143,20 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:489
+#: crates/glimpse-panel/src/app.rs:504
 #: crates/glimpse-panel/src/applets/session/mod.rs:87
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:491
+#: crates/glimpse-panel/src/app.rs:506
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:493
+#: crates/glimpse-panel/src/app.rs:508
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:585
+#: crates/glimpse-panel/src/app.rs:600
 msgid "this device"
 msgstr ""
 

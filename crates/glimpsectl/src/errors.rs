@@ -49,9 +49,20 @@ impl std::error::Error for Refused {}
 #[derive(Debug)]
 pub struct Gone;
 
+#[derive(Debug)]
+pub struct ChildExit(pub u8);
+
+impl std::fmt::Display for ChildExit {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "command exited with status {}", self.0)
+    }
+}
+
+impl std::error::Error for ChildExit {}
+
 impl std::fmt::Display for Gone {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("the panel lost its bus owner")
+        formatter.write_str("the followed component lost its bus owner")
     }
 }
 
@@ -94,6 +105,17 @@ pub fn message(error: &anyhow::Error) -> String {
 }
 
 fn named(name: &str) -> Exit {
+    if name.starts_with("me.aresa.Glimpse.") && name.ends_with(".Unavailable") {
+        return Exit::Unreachable;
+    }
+    if name.starts_with("me.aresa.Glimpse.")
+        && (name.ends_with(".LimitExceeded")
+            || name.ends_with(".NotSupported")
+            || name.ends_with(".NoSuchNotification")
+            || name.ends_with(".InvalidArgs"))
+    {
+        return Exit::Rejected;
+    }
     match name {
         "org.freedesktop.DBus.Error.ServiceUnknown"
         | "org.freedesktop.DBus.Error.NameHasNoOwner"
@@ -110,6 +132,9 @@ fn named(name: &str) -> Exit {
         | "me.aresa.Glimpse.Notifications1.Error.InvalidAction"
         | "me.aresa.Glimpse.Clipboard1.Error.NoSuchEntry"
         | "org.freedesktop.DBus.Error.InvalidArgs"
+        | "org.freedesktop.DBus.Error.LimitsExceeded"
+        | "org.freedesktop.DBus.Error.NotSupported"
+        | "org.freedesktop.DBus.Error.AccessDenied"
         | "org.freedesktop.DBus.Error.UnknownMethod"
         | "org.freedesktop.DBus.Error.UnknownObject"
         | "org.freedesktop.DBus.Error.UnknownInterface" => Exit::Rejected,

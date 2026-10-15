@@ -1,11 +1,11 @@
 # Applet protocol
 
 The panel is the host. It starts every exec applet as a systemd user unit, including one that
-`glimpsectl applets run` attaches. The applet connects once to the unix socket named
+`glimpsectl applet run` attaches. The applet connects once to the unix socket named
 by `GLIMPSE_APPLET_SOCKET`; both directions carry UTF-8 NDJSON on that one connection: one JSON
 object per line, separated by `\n`. Stdio carries the same stream in tests. The host also
 accepts a trailing `\r`. Stderr is not part of the protocol; it goes to the journal, or to the
-terminal of the `glimpsectl applets run` that attached the applet.
+terminal of the `glimpsectl applet run` that attached the applet.
 
 Each line is at most 1 MiB (1,048,576 bytes), not counting the newline. A longer line is
 rejected. A single JSON value nests at most 128 levels; a deeper tree is built across

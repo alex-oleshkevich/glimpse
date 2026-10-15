@@ -54,3 +54,41 @@ fn session_dialog_accepts_only_the_destructive_response() {
     assert!(!session_accepted("close"));
     assert!(session_accepted("accept"));
 }
+
+#[test]
+fn bar_wire_retains_empty_surfaces_and_their_configured_indices() {
+    let mut config = Config::default();
+    let mut empty = glimpse_config::Panel::default();
+    empty.left.clear();
+    empty.center.clear();
+    empty.right.clear();
+    empty.position = glimpse_config::Position::Left;
+    config.panels = vec![glimpse_config::Panel::default(), empty];
+    let keys = [
+        Key {
+            index: 1,
+            monitor: "DP-2".into(),
+        },
+        Key {
+            index: 1,
+            monitor: "DP-1".into(),
+        },
+    ];
+    let state = bars_state(&config, keys.iter());
+    assert_eq!(state.type_().as_str(), "a(uss)");
+    assert_eq!(
+        state.get::<Vec<(u32, String, String)>>().unwrap(),
+        [
+            (1, "DP-2".into(), "left".into()),
+            (1, "DP-1".into(), "left".into())
+        ]
+    );
+    let empty = bars_state(&config, std::iter::empty());
+    assert_eq!(empty.type_().as_str(), "a(uss)");
+    assert!(
+        empty
+            .get::<Vec<(u32, String, String)>>()
+            .unwrap()
+            .is_empty()
+    );
+}

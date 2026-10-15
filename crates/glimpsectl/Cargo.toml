@@ -11,12 +11,15 @@ anstream.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 colorchoice-clap.workspace = true
 chrono.workspace = true
 glimpse-config.workspace = true
 glimpse-dbus.workspace = true
 glimpse-services.workspace = true
 glimpse-utils.workspace = true
+glib.workspace = true
+libc.workspace = true
 minijinja.workspace = true
 notify.workspace = true
 serde.workspace = true
@@ -29,7 +32,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 glimpse-dbus = { workspace = true, features = ["testing"] }
-libc.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 

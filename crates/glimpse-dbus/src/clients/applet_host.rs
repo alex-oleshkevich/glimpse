@@ -28,6 +28,8 @@ pub trait AppletHost {
 
     fn restart(&self, handle: &str) -> zbus::Result<()>;
 
+    fn tree(&self, handle: &str) -> zbus::Result<String>;
+
     fn detach(&self, handle: &str) -> zbus::Result<()>;
 
     fn set_options(&self, handle: &str, options_json: &str) -> zbus::Result<()>;

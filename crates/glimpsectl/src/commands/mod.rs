@@ -1,7 +1,9 @@
+pub mod applet_tools;
 pub mod applets;
 pub mod applets_author;
 pub mod clipboard;
 pub mod config;
+pub mod dev;
 pub mod doctor;
 pub mod idle;
 pub mod notifications;
@@ -11,6 +13,7 @@ pub mod session;
 pub mod settings;
 pub mod status;
 pub mod sunset;
+mod watch;
 pub mod weather;
 
 pub use applets::{applets_inspect, applets_list, applets_restart};

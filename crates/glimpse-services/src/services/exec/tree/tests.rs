@@ -13,6 +13,54 @@ use crate::services::exec::wire::{FromApplet, Op, WireNode};
 
 const HELLO: &str = include_str!("../../../../../../sdk/applet/fixtures/hello.ndjson");
 
+#[test]
+fn snapshot_preserves_properties_order_and_updates() {
+    let tree = Tree::default()
+        .apply(vec![insert(
+            ROOT,
+            wire(
+                1,
+                "indicator",
+                json!({"icon": "test", "tooltip": "first"}),
+                Vec::new(),
+            ),
+            None,
+        )])
+        .unwrap();
+    let first = tree.snapshot();
+    assert_eq!(first["children"][0]["props"]["tooltip"], "first");
+    assert_eq!(first["children"][0]["type"], "indicator");
+    let tree = tree
+        .apply(vec![Op::Set {
+            id: 1,
+            props: props(json!({"tooltip": "second"})),
+            seq: Some(4),
+        }])
+        .unwrap();
+    let next = tree.snapshot();
+    assert_eq!(next["children"][0]["props"]["tooltip"], "second");
+    assert_eq!(next["children"][0]["seq"], 4);
+    assert_eq!(tree.snapshot(), next);
+    assert_eq!(first["children"][0]["props"]["tooltip"], "first");
+    let fixture = lines(HELLO)
+        .find(|line| line.contains("\"commit\""))
+        .unwrap();
+    let FromApplet::Commit { ops } = serde_json::from_str(fixture).unwrap() else {
+        panic!("commit")
+    };
+    let fixture = Tree::default().apply(ops).unwrap().snapshot();
+    assert_eq!(fixture["children"][0]["id"], 1);
+    assert_eq!(fixture["children"][1]["id"], 2);
+    assert_eq!(
+        fixture["children"][1]["children"][0]["children"][0]["id"],
+        4
+    );
+    assert_eq!(
+        fixture["children"][1]["children"][0]["children"][1]["props"]["title"],
+        "Ship applets"
+    );
+}
+
 const OPS: &str = include_str!("../../../../../../sdk/applet/fixtures/ops.ndjson");
 
 const UNKNOWN: &str =

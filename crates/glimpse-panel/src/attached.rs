@@ -461,6 +461,21 @@ impl AppletHost {
             .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
     }
 
+    async fn tree(
+        &self,
+        handle: &str,
+        #[zbus(header)] header: zbus::message::Header<'_>,
+    ) -> zbus::fdo::Result<String> {
+        let sender = header.sender().map(ToString::to_string).unwrap_or_default();
+        let dev_key = self.owned(handle, &sender)?;
+        let tree = self
+            .exec
+            .dev_tree(&dev_key)
+            .await
+            .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))?;
+        serde_json::to_string(&tree).map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
+    }
+
     async fn detach(
         &self,
         handle: &str,

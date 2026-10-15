@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser};
+use clap::CommandFactory;
 use glimpsectl::cli::{
     AppletsCommand, Cli, Command, ConfigCommand, Mode, SunsetCommand, duration, temperature,
 };
@@ -113,4 +113,184 @@ fn a_duration_reads_bare_seconds_and_the_three_units() {
     assert!(duration("5d").is_err());
     assert!(duration("m").is_err());
     assert!(duration("9999999h").is_err());
+}
+
+#[test]
+fn canonical_commands_and_legacy_adapters_have_distinct_semantics() {
+    use glimpsectl::cli::{AppearanceCommand, AppletCommand, ClipboardCommand, NightLightCommand};
+    assert!(matches!(
+        Cli::try_parse_from(["glimpsectl", "applet", "list"])
+            .unwrap()
+            .command,
+        Command::Applet(AppletCommand::List {
+            installed: false,
+            ..
+        })
+    ));
+    let old = Cli::try_parse_from(["glimpsectl", "applets", "list"]).unwrap();
+    assert!(old.deprecation().is_some());
+    assert!(matches!(
+        old.command,
+        Command::Applets(AppletsCommand::List)
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["glimpsectl", "appearance", "set", "dark"])
+            .unwrap()
+            .command,
+        Command::Appearance(AppearanceCommand::Set { .. })
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["glimpsectl", "night-light", "temperature", "--clear"])
+            .unwrap()
+            .command,
+        Command::NightLight(NightLightCommand::Temperature { clear: true, .. })
+    ));
+    assert!(Cli::try_parse_from(["glimpsectl", "night-light", "temperature", "0"]).is_err());
+    assert!(
+        Cli::try_parse_from([
+            "glimpsectl",
+            "night-light",
+            "temperature",
+            "4000",
+            "--clear"
+        ])
+        .is_err()
+    );
+    let old = Cli::try_parse_from(["glimpsectl", "clipboard", "forget", "1"]).unwrap();
+    assert!(old.deprecation().is_some());
+    assert!(matches!(
+        old.command,
+        Command::Clipboard(ClipboardCommand::Forget(_))
+    ));
+    assert!(
+        Cli::try_parse_from(["glimpsectl", "clipboard", "remove", "1"])
+            .unwrap()
+            .deprecation()
+            .is_none()
+    );
+}
+
+#[test]
+fn global_panel_and_legacy_numeric_panel_do_not_conflict() {
+    for args in [
+        vec![
+            "--panel",
+            "me.test.Panel",
+            "applets",
+            "run",
+            ".",
+            "--panel",
+            "2",
+        ],
+        vec![
+            "applets",
+            "run",
+            ".",
+            "--panel=2",
+            "--panel",
+            "me.test.Panel",
+        ],
+        vec!["applets", "--panel", "me.test.Panel", "run", "--panel", "2"],
+    ] {
+        let cli = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap();
+        assert_eq!(cli.panel_app_id, "me.test.Panel");
+        assert!(
+            matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.panel == 2)
+        );
+    }
+    let cli = Cli::try_parse_from([
+        "glimpsectl",
+        "applet",
+        "run",
+        "--bar",
+        "2",
+        "--panel",
+        "me.test.Panel",
+    ])
+    .unwrap();
+    assert_eq!(cli.panel_app_id, "me.test.Panel");
+    assert!(
+        Cli::try_parse_from(["glimpsectl", "applets", "run", "--panel", "999999999999999"])
+            .is_err()
+    );
+}
+
+#[test]
+fn compatibility_normalization_respects_values_and_double_dash() {
+    let cli =
+        Cli::try_parse_from(["glimpsectl", "applets", "run", "--applet-config=--panel=2"]).unwrap();
+    assert!(
+        matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.applet_config == Some("--panel=2".into()) && args.panel == 0)
+    );
+    let cli = Cli::try_parse_from(["glimpsectl", "applets", "run", "--", "--panel=2"]).unwrap();
+    assert!(
+        matches!(cli.command, Command::Applets(AppletsCommand::Run(args)) if args.target == "--panel=2" && args.panel == 0)
+    );
+}
+
+#[test]
+fn all_retained_old_paths_parse_and_warn() {
+    for args in [
+        vec!["sunset", "mode", "automatic"],
+        vec!["sunset", "temperature", "clear"],
+        vec!["settings", "status"],
+        vec!["settings", "mode", "dark"],
+        vec!["settings", "resume"],
+        vec!["applets", "new", "--yes"],
+        vec!["applets", "inspect", "me.test.Applet"],
+        vec!["applets", "restart", "me.test.Applet"],
+        vec!["panel", "--app-id", "me.test.Panel", "applets"],
+        vec!["panel", "click", "DP-1", "clock"],
+        vec!["panel", "scroll", "DP-1", "clock", "down"],
+        vec!["panel", "popover", "open", "DP-1", "clock"],
+        vec!["panel", "popovers", "close"],
+    ] {
+        let cli = Cli::try_parse_from(["glimpsectl"].into_iter().chain(args)).unwrap();
+        assert!(cli.deprecation().is_some());
+    }
+}
+
+#[test]
+fn canonical_help_and_completions_need_no_bus() {
+    let mut command = Cli::command();
+    let help = command.render_help().to_string();
+    for noun in [
+        "night-light",
+        "appearance",
+        "geolocation",
+        "applet",
+        "dev",
+        "completions",
+    ] {
+        assert!(help.contains(noun), "{help}");
+    }
+    for hidden in [
+        "sunset",
+        "settings",
+        "applets",
+        "screenshot",
+        "audio",
+        "brightness",
+        "media",
+        "logs",
+        "restart",
+    ] {
+        assert!(
+            !command
+                .get_subcommands()
+                .any(|subcommand| subcommand.get_name() == hidden && !subcommand.is_hide_set())
+        );
+    }
+    for shell in [
+        clap_complete::Shell::Bash,
+        clap_complete::Shell::Fish,
+        clap_complete::Shell::Zsh,
+    ] {
+        let cli =
+            Cli::try_parse_from(["glimpsectl", "completions", shell.to_string().as_str()]).unwrap();
+        assert!(!cli.command.needs_session_bus());
+        let mut output = Vec::new();
+        clap_complete::generate(shell, &mut Cli::command(), "glimpsectl", &mut output);
+        assert!(!output.is_empty());
+    }
 }

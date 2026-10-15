@@ -231,7 +231,7 @@ fn an_applet_status_omits_what_it_does_not_have() {
         lookup::<String>(&variant, "position").as_deref(),
         Some("left")
     );
-    assert_eq!(lookup::<String>(&variant, "zone").as_deref(), Some("end"));
+    assert_eq!(lookup::<String>(&variant, "zone").as_deref(), Some("right"));
     assert_eq!(lookup::<u32>(&variant, "index"), Some(2));
     assert_eq!(
         lookup::<String>(&variant, "name").as_deref(),

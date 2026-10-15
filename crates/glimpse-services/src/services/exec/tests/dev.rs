@@ -3,6 +3,66 @@ use super::*;
 const PID_LOOP: &str = "open(sys.argv[1], 'a').write(str(os.getpid()) + '\\n')\nsend('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    open(sys.argv[1] + '.in', 'a').write(line)\n";
 
 #[tokio::test]
+async fn dev_tree_requires_a_taken_key_and_tracks_restart() {
+    let (_dir, entry, _output) = script(
+        "import json\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator','props':{'tooltip':str(os.getpid())}}}]}))\nfor line in r:\n    pass\n",
+    );
+    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry.clone())))));
+    let key = handle
+        .attach_dev("test", dev_request(dev_entry(&entry)))
+        .await
+        .unwrap();
+    assert!(handle.dev_tree(&key).await.is_err());
+    assert!(handle.dev_tree("test").await.is_err());
+    handle.attach(1, "test", placement()).await.unwrap();
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let mut states = handle.subscribe();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if states.borrow().slots[&1].tree.node(1).is_some() {
+                break;
+            }
+            states.changed().await.unwrap();
+        }
+    })
+    .await
+    .unwrap();
+    let first = handle.dev_tree(&key).await.unwrap();
+    assert_eq!(first, handle.snapshot().slots[&1].tree.snapshot());
+    assert!(first["children"][0]["props"]["tooltip"].as_str().is_some());
+    handle.restart_dev(&key).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let current = handle.snapshot().slots[&1].tree.snapshot();
+            if let Some(pid) = current["children"][0]["props"]["tooltip"].as_str()
+                && Some(pid) != first["children"][0]["props"]["tooltip"].as_str()
+            {
+                break;
+            }
+            states.changed().await.unwrap();
+        }
+    })
+    .await
+    .unwrap();
+    let restarted = handle.dev_tree(&key).await.unwrap();
+    assert!(
+        restarted["children"][0]["props"]["tooltip"]
+            .as_str()
+            .is_some()
+    );
+    assert_ne!(
+        restarted["children"][0]["props"]["tooltip"],
+        first["children"][0]["props"]["tooltip"]
+    );
+    handle.detach_dev(&key).await.unwrap();
+    assert!(handle.dev_tree(&key).await.is_err());
+    handle.detach(1).await.unwrap();
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn dev_takes_over_and_detach_returns_the_configured_applet() {
     let (_dir, entry, output) = script(PID_LOOP);
     let (_dev_dir, dev, dev_output) = script(PID_LOOP);

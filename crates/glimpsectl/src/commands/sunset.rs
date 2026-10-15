@@ -15,18 +15,48 @@ pub async fn sunset_status(connection: &Connection, json: bool) -> Result<()> {
         return emit(&snapshot);
     }
 
+    crate::render::print(&status_text(&snapshot))?;
+    Ok(())
+}
+
+fn status_text(snapshot: &NightLightSnapshot) -> String {
     Section::new("Night light")
         .with(
             Table::default()
-                .with_row(["mode".to_owned(), mode(&snapshot)])
-                .with_row(["temperature".to_owned(), temperature(&snapshot)])
+                .with_row(["mode".to_owned(), mode(snapshot)])
+                .with_row(["temperature".to_owned(), temperature(snapshot)])
                 .with_row(["night target".to_owned(), kelvin(snapshot.target)])
                 .with_row(["applying".to_owned(), yes_no(snapshot.active).to_owned()])
-                .with_row(["paused until".to_owned(), paused_until(&snapshot)])
-                .with_row(["serving".to_owned(), serving(&snapshot)])
+                .with_row(["paused until".to_owned(), paused_until(snapshot)])
+                .with_row(["serving".to_owned(), serving(snapshot)])
                 .render(),
         )
-        .print()
+        .render()
+}
+
+pub async fn sunset_watch(connection: &Connection, json: bool) -> Result<()> {
+    super::watch::watch(
+        connection,
+        glimpse_dbus::night_light::GLIMPSE_NIGHT_LIGHT_BUS_NAME,
+        glimpse_dbus::night_light::GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
+        "me.aresa.Glimpse.NightLight1",
+        |owner| async move {
+            let proxy = within(
+                NightLight1Proxy::builder(connection)
+                    .destination(owner)?
+                    .cache_properties(zbus::proxy::CacheProperties::No)
+                    .build(),
+            )
+            .await?;
+            let snapshot = within(proxy.snapshot()).await?;
+            if json {
+                Ok(serde_json::to_string(&snapshot)?)
+            } else {
+                Ok(status_text(&snapshot))
+            }
+        },
+    )
+    .await
 }
 
 pub async fn sunset_pause(connection: &Connection) -> Result<()> {

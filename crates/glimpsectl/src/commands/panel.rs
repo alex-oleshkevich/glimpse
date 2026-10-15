@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use anyhow::Result;
 use glimpse_dbus::gtk_actions::{GtkActionsProxy, object_path};
@@ -9,7 +9,9 @@ use zbus::proxy::CacheProperties;
 use zbus::zvariant::{OwnedValue, Value};
 
 use super::{emit, safe, within, yes_no};
-use crate::cli::{PanelCommand, PopoverCommand, PopoversCommand, Position};
+use crate::cli::{
+    AppletCommand, AppletTarget, PanelCommand, PopoverCommand, PopoversCommand, Position,
+};
 use crate::errors::{Gone, Refused};
 use crate::render::{self, Table};
 
@@ -102,9 +104,9 @@ fn decode(action: &str, value: &OwnedValue) -> Option<AppletRow> {
 
 fn sort(rows: &mut [AppletRow]) {
     let zone = |zone: &str| match zone {
-        "start" => 0,
+        "left" => 0,
         "center" => 1,
-        "end" => 2,
+        "right" => 2,
         _ => 3,
     };
     rows.sort_by(|a, b| {
@@ -340,6 +342,11 @@ pub async fn panel(
     command: PanelCommand,
     json: bool,
 ) -> Result<()> {
+    match command {
+        PanelCommand::List { watch } => return panel_list(connection, watch, json).await,
+        PanelCommand::Reload => return panel_reload(connection, app_id).await,
+        _ => {}
+    }
     let actions = proxy(connection, app_id).await?;
     let (action, parameters) = match command {
         PanelCommand::Applets { watch } => {
@@ -398,8 +405,370 @@ pub async fn panel(
                 vec![Value::from((verb, Value::from(0_u32)))],
             )
         }
+        PanelCommand::List { .. } | PanelCommand::Reload => unreachable!(),
     };
     within(actions.activate(&action, parameters, HashMap::new())).await
+}
+
+fn resolve_live<'a>(
+    rows: &'a [AppletRow],
+    target: &AppletTarget,
+) -> Result<&'a AppletRow, Refused> {
+    let mut matching = rows.iter().filter(|row| {
+        row.name == target.name
+            && target
+                .output
+                .as_ref()
+                .is_none_or(|output| row.connector == *output)
+            && target.edge.is_none_or(|edge| row.position == edge)
+    });
+    let row = matching.next().ok_or_else(|| {
+        Refused(format!(
+            "no matching applet `{}`; use applet list",
+            target.name
+        ))
+    })?;
+    if matching.next().is_some() {
+        return Err(Refused(format!(
+            "applet `{}` is ambiguous; pass --output and --edge",
+            target.name
+        )));
+    }
+    Ok(row)
+}
+
+pub async fn applet_live(
+    connection: &Connection,
+    app_id: &str,
+    command: AppletCommand,
+    json: bool,
+) -> Result<()> {
+    let actions = proxy(connection, app_id).await?;
+    let (target, verb, argument, steps) = match command {
+        AppletCommand::List { watch, .. } => {
+            return applets(connection, &actions, app_id, watch, json).await;
+        }
+        AppletCommand::Inspect { target, .. } => {
+            let rows = rows(&within(actions.describe_all()).await?);
+            let row = resolve_live(&rows, &target)?;
+            return if json {
+                emit(row)
+            } else {
+                print_rows(std::slice::from_ref(row), false)
+            };
+        }
+        AppletCommand::Click { target, button } => (target, "click", Value::from(button), 1),
+        AppletCommand::Scroll {
+            target,
+            direction,
+            steps,
+        } => (target, "scroll", Value::from(direction.delta()), steps),
+        AppletCommand::Open(target) => (target, "open", Value::from(0_u32), 1),
+        AppletCommand::Close(target) => (target, "close", Value::from(0_u32), 1),
+        AppletCommand::Toggle(target) => (target, "toggle", Value::from(0_u32), 1),
+        _ => return Err(Refused("expected a live applet command".into()).into()),
+    };
+    let rows = rows(&within(actions.describe_all()).await?);
+    let row = resolve_live(&rows, &target)?;
+    if row.own_view && matches!(verb, "click" | "scroll") {
+        return Err(Refused(format!(
+            "{} takes input per item; use applet open",
+            target.name
+        ))
+        .into());
+    }
+    for _ in 0..steps {
+        within(actions.activate(
+            &row.action,
+            vec![Value::from((verb, argument.clone()))],
+            HashMap::new(),
+        ))
+        .await?;
+    }
+    Ok(())
+}
+
+pub(super) async fn panel_names(connection: &Connection) -> Result<Vec<String>> {
+    let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+    let owned = within(dbus.list_names()).await?;
+    let mut panels = BTreeSet::new();
+    for name in &owned {
+        if let Some(name) = name.as_str().strip_suffix(".AppletHost")
+            && owned.iter().any(|owned| owned.as_str() == name)
+        {
+            panels.insert(name.to_owned());
+        }
+        if name.as_str() == "me.aresa.GlimpsePanel" {
+            panels.insert(name.to_string());
+        }
+    }
+    Ok(panels.into_iter().collect())
+}
+
+#[derive(Serialize)]
+struct PanelRow {
+    app_id: String,
+    #[serde(skip)]
+    owner: String,
+    pid: Option<u32>,
+    unit: Option<String>,
+    version: Option<String>,
+    config: Option<(bool, String)>,
+    bars: Option<Vec<BarRow>>,
+    applet_count: Option<usize>,
+    applet_host: bool,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct BarRow {
+    index: u32,
+    connector: String,
+    position: Position,
+}
+
+fn decode_bars(descriptions: &Descriptions) -> Option<Vec<BarRow>> {
+    let state = descriptions.get("bars")?.2.first()?.clone();
+    Vec::<(u32, String, String)>::try_from(state)
+        .ok()?
+        .into_iter()
+        .map(|(index, connector, position)| {
+            Some(BarRow {
+                index,
+                connector: safe(&connector),
+                position: position.parse().ok()?,
+            })
+        })
+        .collect()
+}
+
+async fn panel_row(
+    connection: &Connection,
+    dbus: &zbus::fdo::DBusProxy<'_>,
+    app_id: String,
+    owner: zbus::names::OwnedUniqueName,
+    manager: Option<&glimpse_dbus::systemd1::Systemd1ManagerProxy<'_>>,
+) -> Result<PanelRow> {
+    use glimpse_dbus::systemd1::Systemd1UnitProxy;
+    let pid = within(dbus.get_connection_unix_process_id(owner.as_str().try_into()?))
+        .await
+        .ok();
+    let unit = async {
+        let manager = manager?;
+        let path = within(manager.get_unit_by_pid(pid?)).await.ok()?;
+        let unit = within(
+            Systemd1UnitProxy::builder(connection)
+                .destination(manager.inner().destination().as_str().to_owned())
+                .ok()?
+                .path(path)
+                .ok()?
+                .cache_properties(CacheProperties::No)
+                .build(),
+        )
+        .await
+        .ok()?;
+        within(unit.id()).await.ok()
+    }
+    .await;
+    let descriptions = async {
+        let actions = within(
+            GtkActionsProxy::builder(connection)
+                .destination(owner.clone())
+                .ok()?
+                .path(object_path(&app_id))
+                .ok()?
+                .cache_properties(CacheProperties::No)
+                .build(),
+        )
+        .await
+        .ok()?;
+        within(actions.describe_all()).await.ok()
+    }
+    .await;
+    let version = descriptions
+        .as_ref()
+        .and_then(|descriptions| descriptions.get("version"))
+        .and_then(|(_, _, state)| state.first())
+        .and_then(|value| String::try_from(value.clone()).ok())
+        .map(|value| safe(&value));
+    let config = descriptions
+        .as_ref()
+        .and_then(|descriptions| descriptions.get("config-status"))
+        .and_then(|(_, _, state)| state.first())
+        .and_then(|value| zbus::zvariant::Structure::try_from(value.clone()).ok())
+        .and_then(|value| <(bool, String)>::try_from(value).ok())
+        .map(|(ok, message)| (ok, safe(&message)));
+    let bars = descriptions.as_ref().and_then(decode_bars);
+    let applet_count = descriptions
+        .as_ref()
+        .map(|descriptions| rows(descriptions).len());
+    let host = glimpse_dbus::applet_host::applet_host_name(&app_id);
+    let host = within(dbus.get_name_owner(host.as_str().try_into()?))
+        .await
+        .ok();
+    let applet_host = match (pid, host) {
+        (Some(pid), Some(host)) => {
+            within(dbus.get_connection_unix_process_id(host.as_str().try_into()?))
+                .await
+                .is_ok_and(|host_pid| host_pid == pid)
+        }
+        _ => false,
+    };
+    Ok(PanelRow {
+        app_id,
+        owner: owner.to_string(),
+        pid,
+        unit,
+        version,
+        config,
+        bars,
+        applet_count,
+        applet_host,
+    })
+}
+
+async fn panel_rows(connection: &Connection) -> Result<Vec<PanelRow>> {
+    use glimpse_dbus::systemd1::Systemd1ManagerProxy;
+    let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+    let manager = match within(dbus.get_name_owner("org.freedesktop.systemd1".try_into()?)).await {
+        Ok(owner) => within(
+            Systemd1ManagerProxy::builder(connection)
+                .destination(owner)?
+                .cache_properties(CacheProperties::No)
+                .build(),
+        )
+        .await
+        .ok(),
+        Err(_) => None,
+    };
+    let mut result = Vec::new();
+    for app_id in panel_names(connection).await? {
+        let Ok(owner) = within(dbus.get_name_owner(app_id.as_str().try_into()?)).await else {
+            continue;
+        };
+        result.push(panel_row(connection, &dbus, app_id, owner, manager.as_ref()).await?);
+    }
+    Ok(result)
+}
+
+fn print_panels(rows: &[PanelRow], json: bool, watch: bool) -> Result<render::Flow> {
+    if json {
+        return render::print(&if watch {
+            serde_json::to_string(rows)?
+        } else {
+            serde_json::to_string_pretty(rows)?
+        });
+    }
+    render::print(
+        &Table::default()
+            .with_headers([
+                "APP ID", "PID", "UNIT", "VERSION", "CONFIG", "BARS", "APPLETS", "HOST",
+            ])
+            .with_empty("no panels")
+            .with_rows(rows.iter().map(|row| {
+                [
+                    safe(&row.app_id),
+                    row.pid
+                        .map(|value| value.to_string())
+                        .unwrap_or_else(|| "-".into()),
+                    row.unit.as_deref().map(safe).unwrap_or_else(|| "-".into()),
+                    row.version.clone().unwrap_or_else(|| "unknown".into()),
+                    row.config
+                        .as_ref()
+                        .map(|(ok, message)| {
+                            if *ok {
+                                "ok".into()
+                            } else {
+                                format!("rejected: {message}")
+                            }
+                        })
+                        .unwrap_or_else(|| "unknown".into()),
+                    row.bars
+                        .as_ref()
+                        .map(|bars| {
+                            bars.iter()
+                                .map(|bar| {
+                                    format!("{}:{}:{}", bar.index, bar.connector, bar.position)
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_else(|| "unknown".into()),
+                    row.applet_count
+                        .map(|count| count.to_string())
+                        .unwrap_or_else(|| "unknown".into()),
+                    yes_no(row.applet_host).into(),
+                ]
+            }))
+            .render(),
+    )
+}
+
+async fn panel_list(connection: &Connection, watch: bool, json: bool) -> Result<()> {
+    let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+    if !watch {
+        print_panels(&panel_rows(connection).await?, json, false)?;
+        return Ok(());
+    }
+    let mut owners = Box::pin(within(dbus.receive_name_owner_changed()).await?);
+    let rule = zbus::MatchRule::builder()
+        .msg_type(zbus::message::Type::Signal)
+        .interface("org.gtk.Actions")?
+        .member("Changed")?
+        .build();
+    let mut changes = Box::pin(
+        within(zbus::MessageStream::for_match_rule(
+            rule,
+            connection,
+            Some(64),
+        ))
+        .await?,
+    );
+    let mut visible = panel_rows(connection).await?;
+    if let render::Flow::Stop = print_panels(&visible, json, true)? {
+        return Ok(());
+    }
+    loop {
+        let refresh = tokio::select! {
+            change = std::future::poll_fn(|cx| changes.as_mut().poll_next(cx)) => {
+                let Some(change) = change else { return Err(Gone.into()); };
+                let change = change?;
+                let header = change.header();
+                visible.iter().any(|row| header.sender().is_some_and(|sender| sender.as_str() == row.owner) && header.path().is_some_and(|path| path.as_str() == object_path(&row.app_id)))
+            }
+            owner = std::future::poll_fn(|cx| owners.as_mut().poll_next(cx)) => {
+                let Some(owner) = owner else { return Err(Gone.into()); };
+                let args = owner.args()?;
+                let name = args.name().as_str();
+                name.ends_with(".AppletHost")
+                    || name == "me.aresa.GlimpsePanel"
+                    || visible.iter().any(|row| row.app_id == name)
+                    || (!name.starts_with(':')
+                        && within(dbus.list_names()).await?.iter().any(|host| {
+                            host.as_str().strip_suffix(".AppletHost") == Some(name)
+                        }))
+            }
+        };
+        if refresh {
+            visible = panel_rows(connection).await?;
+            if let render::Flow::Stop = print_panels(&visible, json, true)? {
+                return Ok(());
+            }
+        }
+    }
+}
+
+async fn panel_reload(connection: &Connection, app_id: &str) -> Result<()> {
+    let dbus = within(zbus::fdo::DBusProxy::new(connection)).await?;
+    let owner = within(dbus.get_name_owner(app_id.try_into()?)).await?;
+    let pid = within(dbus.get_connection_unix_process_id(owner.as_str().try_into()?)).await?;
+    let pid = i32::try_from(pid).map_err(|_| Refused("panel PID is out of range".into()))?;
+    if pid <= 0 {
+        return Err(Refused("invalid panel PID".into()).into());
+    }
+    if unsafe { libc::kill(pid, libc::SIGHUP) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

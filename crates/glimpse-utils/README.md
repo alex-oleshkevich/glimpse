@@ -77,7 +77,7 @@ count would make a card taller than the screen. The parse gate itself lives at t
 ## Rules
 
 - **Logs go to stderr, writer set explicitly** — `tracing_subscriber::fmt()` defaults to stdout,
-  which is data; `glimpsectl get --json | jq` breaks the moment a `WARN` lands ahead of the payload.
+  which is data; `glimpsectl status --json | jq` breaks the moment a `WARN` lands ahead of the payload.
 - **Color is resolved, not detected, and set before `init_app_tracing`.** It asks `anstream` about
   stderr specifically, honoring `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` with no detection
   of its own; call `write_global()` first, since a `fmt` subscriber fixes its ANSI setting when built

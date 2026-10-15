@@ -21,7 +21,7 @@ impl VersionOnly {
 }
 
 #[tokio::test]
-async fn status_reads_only_served_components() {
+async fn status_keeps_known_absent_versionless_and_weather_components_visible() {
     let bus = PrivateBus::start();
     let server = bus.connection().await;
     glimpse_dbus::own_name(&server, "me.aresa.Glimpse.Idle")
@@ -55,30 +55,96 @@ async fn status_reads_only_served_components() {
         .unwrap();
     let client = bus.connection().await;
     let rows = rows(&client).await.unwrap();
-    assert_eq!(rows.len(), 3);
-    assert_eq!(rows[0].name, "me.aresa.Glimpse.Idle");
+    let find = |name| rows.iter().find(|row| row.name == name).unwrap();
+    let idle = find("me.aresa.Glimpse.Idle");
     assert_eq!(
-        (
-            rows[0].version.as_str(),
-            rows[0].ok,
-            rows[0].message.as_deref()
-        ),
-        ("1.2", Some(true), Some(""))
+        (idle.version.as_deref(), idle.ok, idle.message.as_deref()),
+        (Some("1.2"), Some(true), Some(""))
     );
-    assert_eq!(rows[1].name, "me.aresa.GlimpseLock");
+    let lock = find("me.aresa.GlimpseLock");
     assert_eq!(
-        (
-            rows[1].version.as_str(),
-            rows[1].ok,
-            rows[1].message.as_deref()
-        ),
-        ("2.3", Some(false), Some("bad"))
+        (lock.version.as_deref(), lock.ok, lock.message.as_deref()),
+        (Some("2.3"), Some(false), Some("bad"))
     );
-    assert_eq!(rows[2].name, "me.aresa.GlimpseVersionOnly");
-    assert_eq!(rows[2].version, "3.4");
-    assert_eq!(rows[2].ok, None);
-    assert_eq!(rows[2].message, None);
-    let json = serde_json::to_value(&rows[2]).unwrap();
+    let version_only = find("me.aresa.GlimpseVersionOnly");
+    assert_eq!(version_only.version.as_deref(), Some("3.4"));
+    assert_eq!(version_only.ok, None);
+    assert_eq!(version_only.message, None);
+    let json = serde_json::to_value(version_only).unwrap();
     assert!(json["ok"].is_null());
     assert!(json["message"].is_null());
+    assert_eq!(idle.pid, Some(std::process::id()));
+    assert_eq!(
+        find(GLIMPSE_WEATHER_BUS_NAME).version.as_deref(),
+        Some("9.9")
+    );
+    let versionless = find("me.aresa.GlimpseEmpty");
+    assert!(versionless.running);
+    assert_eq!(versionless.version, None);
+    let absent = find(GLIMPSE_SETTINGS_BUS_NAME);
+    assert!(!absent.running);
+    assert_eq!(absent.pid, None);
+    assert_eq!(absent.unit, None);
+    assert_eq!(absent.state, None);
+    assert_eq!(absent.version, None);
+    assert!(serde_json::to_value(&rows).unwrap().is_array());
+}
+
+struct Manager;
+
+#[zbus::interface(name = "org.freedesktop.systemd1.Manager")]
+impl Manager {
+    #[zbus(name = "GetUnitByPID")]
+    fn get_unit_by_pid(&self, pid: u32) -> zbus::zvariant::OwnedObjectPath {
+        assert_eq!(pid, std::process::id());
+        "/org/freedesktop/systemd1/unit/panel".try_into().unwrap()
+    }
+}
+
+struct Unit;
+
+#[zbus::interface(name = "org.freedesktop.systemd1.Unit")]
+impl Unit {
+    #[zbus(property)]
+    fn id(&self) -> &str {
+        "custom-panel.service"
+    }
+
+    #[zbus(property)]
+    fn active_state(&self) -> &str {
+        "active"
+    }
+}
+
+#[tokio::test]
+async fn custom_panels_share_discovery_and_resolve_actual_pid_unit_and_state() {
+    let bus = PrivateBus::start();
+    let server = bus.connection().await;
+    for name in [
+        "org.example.CustomPanel",
+        "org.example.CustomPanel.AppletHost",
+        "org.freedesktop.systemd1",
+    ] {
+        glimpse_dbus::own_name(&server, name).await.unwrap();
+    }
+    server
+        .object_server()
+        .at("/org/freedesktop/systemd1", Manager)
+        .await
+        .unwrap();
+    server
+        .object_server()
+        .at("/org/freedesktop/systemd1/unit/panel", Unit)
+        .await
+        .unwrap();
+    let client = bus.connection().await;
+    let rows = rows(&client).await.unwrap();
+    let panel = rows
+        .iter()
+        .find(|row| row.name == "org.example.CustomPanel")
+        .unwrap();
+    assert_eq!(panel.pid, Some(std::process::id()));
+    assert_eq!(panel.unit.as_deref(), Some("custom-panel.service"));
+    assert_eq!(panel.state.as_deref(), Some("active"));
+    assert_eq!(panel.version, None);
 }

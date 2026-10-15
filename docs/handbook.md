@@ -39,7 +39,7 @@ glimpse/
 | `glimpse-lock`          | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`        | night-light service                                                               |
 | `glimpse-lens`          | frozen magnifier CLI with color picker and ruler modes                         |
-| `glimpsectl`            | CLI and TUI                                                                       |
+| `glimpsectl`            | typed CLI for providers, panel control and applet development                       |
 | `glimpse-package`       | the suite's `.deb`/`.rpm` manifest; no code                                       |
 
 ## Stack

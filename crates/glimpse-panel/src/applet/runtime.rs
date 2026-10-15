@@ -128,9 +128,9 @@ impl AppletStatus {
             Position::Right => "right",
         };
         let zone = match self.slot.zone {
-            Zone::Start => "start",
+            Zone::Start => "left",
             Zone::Center => "center",
-            Zone::End => "end",
+            Zone::End => "right",
         };
         dict.insert_value("connector", &self.slot.connector.to_variant());
         dict.insert_value("position", &position.to_variant());

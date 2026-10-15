@@ -1,11 +1,9 @@
 use std::process::ExitCode;
 
 use anyhow::{Context, Result};
+use clap::CommandFactory;
 use glimpse_utils::init_app_tracing;
-use glimpsectl::cli::{
-    AppletsCommand, Cli, ClipboardCommand, Command, ConfigCommand, IdleCommand,
-    NotificationsCommand, SessionCommand, SettingsCommand, SunsetCommand, WeatherCommand,
-};
+use glimpsectl::cli::*;
 use glimpsectl::errors::Exit;
 use glimpsectl::{cli, commands, errors};
 
@@ -14,12 +12,23 @@ async fn main() -> ExitCode {
     let cli = cli::parse();
     cli.color.write_global();
     init_app_tracing(&cli.log.log, cli.log.log_format);
+    if let Some(warning) = cli.deprecation() {
+        anstream::eprintln!("glimpsectl: {warning}");
+    }
+    let json = cli.json;
 
     match run(cli).await {
         Ok(()) => Exit::Ok.into(),
         Err(error) => {
-            anstream::eprintln!("glimpsectl: {}", errors::message(&error));
-            errors::exit(&error).into()
+            let code = error
+                .downcast_ref::<errors::ChildExit>()
+                .map_or_else(|| errors::exit(&error) as u8, |exit| exit.0);
+            let message = errors::message(&error);
+            anstream::eprintln!("glimpsectl: {message}");
+            if json {
+                anstream::eprintln!("{}", serde_json::json!({"error": message, "exit": code}));
+            }
+            ExitCode::from(code)
         }
     }
 }
@@ -27,7 +36,7 @@ async fn main() -> ExitCode {
 async fn run(cli: Cli) -> Result<()> {
     let session = match cli.command.needs_session_bus() {
         true => Some(
-            zbus::Connection::session()
+            commands::within(zbus::Connection::session())
                 .await
                 .context("cannot reach the session bus")?,
         ),
@@ -47,9 +56,28 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Sunset(SunsetCommand::Temperature { kelvin }) => {
             commands::sunset_temperature(bus()?, kelvin).await
         }
-        Command::Idle(IdleCommand::Status) => commands::idle_status(bus()?, cli.json).await,
-        Command::Idle(IdleCommand::Inhibit { lapse }) => {
-            commands::idle_inhibit(bus()?, lapse).await
+        Command::NightLight(command) => match command {
+            NightLightCommand::Status { watch: false } => {
+                commands::sunset_status(bus()?, cli.json).await
+            }
+            NightLightCommand::Status { watch: true } => {
+                commands::sunset::sunset_watch(bus()?, cli.json).await
+            }
+            NightLightCommand::Pause => commands::sunset_pause(bus()?).await,
+            NightLightCommand::Resume => commands::sunset_resume(bus()?).await,
+            NightLightCommand::Schedule { mode } => commands::sunset_mode(bus()?, mode).await,
+            NightLightCommand::Temperature { kelvin, .. } => {
+                commands::sunset_temperature(bus()?, kelvin.unwrap_or(0)).await
+            }
+        },
+        Command::Idle(IdleCommand::Status { watch: false }) => {
+            commands::idle_status(bus()?, cli.json).await
+        }
+        Command::Idle(IdleCommand::Status { watch: true }) => {
+            commands::idle::idle_watch(bus()?, cli.json).await
+        }
+        Command::Idle(IdleCommand::Inhibit { lapse, command }) => {
+            commands::idle::idle_inhibit_child(bus()?, lapse, &command, cli.json).await
         }
         Command::Idle(IdleCommand::Release { id }) => commands::idle_release(bus()?, id).await,
         Command::Weather(WeatherCommand::Status) => {
@@ -63,8 +91,36 @@ async fn run(cli: Cli) -> Result<()> {
             commands::settings_mode(bus()?, mode).await
         }
         Command::Settings(SettingsCommand::Resume) => commands::settings_resume(bus()?).await,
-        Command::Notifications(NotificationsCommand::List) => {
+        Command::Appearance(command) => match command {
+            AppearanceCommand::Status { watch: false } => {
+                commands::settings::appearance_status(bus()?, cli.json).await
+            }
+            AppearanceCommand::Status { watch: true } => {
+                commands::settings::appearance_watch(bus()?, cli.json).await
+            }
+            AppearanceCommand::Set { mode } => commands::settings_mode(bus()?, mode).await,
+            AppearanceCommand::Resume => commands::settings_resume(bus()?).await,
+        },
+        Command::Geolocation(GeolocationCommand::Status) => {
+            commands::settings::geolocation_status(bus()?, cli.json).await
+        }
+        Command::Notifications(NotificationsCommand::List { watch: false }) => {
             commands::notifications_list(bus()?, cli.json).await
+        }
+        Command::Notifications(NotificationsCommand::List { watch: true }) => {
+            commands::notifications::notifications_list_watch(bus()?, cli.json).await
+        }
+        Command::Notifications(NotificationsCommand::Send(args)) => {
+            commands::notifications::notifications_send(bus()?, &args, cli.json).await
+        }
+        Command::Notifications(NotificationsCommand::Remove { id }) => {
+            commands::notifications::notifications_remove(bus()?, id).await
+        }
+        Command::Notifications(NotificationsCommand::Activate { id }) => {
+            commands::notifications::notifications_activate(bus()?, id).await
+        }
+        Command::Notifications(NotificationsCommand::Action { id, key }) => {
+            commands::notifications::notifications_action(bus()?, id, &key).await
         }
         Command::Notifications(NotificationsCommand::Dismiss { id }) => {
             commands::notifications_dismiss(bus()?, id).await
@@ -79,7 +135,7 @@ async fn run(cli: Cli) -> Result<()> {
             commands::clipboard_list(bus()?, cli.json).await
         }
         Command::Clipboard(ClipboardCommand::Get(entry)) => {
-            commands::clipboard_get(bus()?, entry.id).await
+            commands::clipboard::clipboard_get_output(bus()?, entry.id, cli.json).await
         }
         Command::Clipboard(ClipboardCommand::Copy(entry)) => {
             commands::clipboard_copy(bus()?, entry.id).await
@@ -90,26 +146,76 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Clipboard(ClipboardCommand::Unpin(entry)) => {
             commands::clipboard_pin(bus()?, entry.id, false).await
         }
-        Command::Clipboard(ClipboardCommand::Forget(entry)) => {
+        Command::Clipboard(ClipboardCommand::Forget(entry) | ClipboardCommand::Remove(entry)) => {
             commands::clipboard_forget(bus()?, entry.id).await
         }
         Command::Clipboard(ClipboardCommand::Clear) => commands::clipboard_clear(bus()?).await,
         Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config, cli.json),
         Command::Config(ConfigCommand::Validate { path }) => {
-            commands::config_validate(path.or(cli.config.config))
+            commands::config::config_validate_output(path.or(cli.config.config), cli.json)
         }
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config.config, cli.json),
         Command::Applets(AppletsCommand::List) => {
             commands::applets_list(cli.config.config, cli.json).await
         }
-        Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args),
+        Command::Applets(AppletsCommand::New(args)) => commands::applets_new(args, cli.json),
         Command::Applets(AppletsCommand::Inspect { id }) => {
             commands::applets_inspect(cli.config.config, id, cli.json).await
         }
         Command::Applets(AppletsCommand::Restart { id }) => commands::applets_restart(id).await,
-        Command::Applets(AppletsCommand::Run(args)) => commands::applets_run(args).await,
+        Command::Applets(AppletsCommand::Run(args)) => {
+            commands::applets_run(args, &cli.panel_app_id, cli.json).await
+        }
+        Command::Applet(command) => match command {
+            AppletCommand::List {
+                installed: true, ..
+            } => commands::applets_list(cli.config.config, cli.json).await,
+            AppletCommand::Inspect {
+                target,
+                installed: true,
+            } => commands::applets_inspect(cli.config.config, target.name, cli.json).await,
+            AppletCommand::New(args) => commands::applets_new(args, cli.json),
+            AppletCommand::Run(args) => {
+                commands::applets_run(args, &cli.panel_app_id, cli.json).await
+            }
+            AppletCommand::Restart { id } => commands::applets_restart(id).await,
+            AppletCommand::Check(args) => {
+                commands::applet_tools::applet_check(args, cli.json).await
+            }
+            AppletCommand::Install { dir } => commands::applet_tools::applet_install(dir, cli.json),
+            AppletCommand::Uninstall { id } => commands::applet_tools::applet_uninstall(id),
+            command => {
+                commands::panel::applet_live(bus()?, &cli.panel_app_id, command, cli.json).await
+            }
+        },
+        Command::Dev(DevCommand::Panel(args)) => {
+            commands::dev::dev_panel(args, cli.config.config, cli.json).await
+        }
+        Command::Dev(DevCommand::ClosePopovers) => {
+            commands::panel(
+                bus()?,
+                &cli.panel_app_id,
+                PanelCommand::Popovers(PopoversCommand::Close),
+                cli.json,
+            )
+            .await
+        }
+        Command::Completions { shell } => {
+            let mut output = Vec::new();
+            clap_complete::generate(shell, &mut Cli::command(), "glimpsectl", &mut output);
+            glimpsectl::render::print(String::from_utf8(output)?.trim_end())?;
+            Ok(())
+        }
         Command::Status => commands::status(bus()?, cli.json).await,
-        Command::Panel(args) => commands::panel(bus()?, &args.app_id, args.command, cli.json).await,
+        Command::Panel(args) => {
+            commands::panel(
+                bus()?,
+                args.app_id.as_deref().unwrap_or(&cli.panel_app_id),
+                args.command,
+                cli.json,
+            )
+            .await
+        }
         Command::Doctor => commands::doctor(cli.config.config, cli.json).await,
         Command::Session(SessionCommand::Declare) => commands::session_declare(bus()?).await,
     }

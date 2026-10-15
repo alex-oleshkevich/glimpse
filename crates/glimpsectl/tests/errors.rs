@@ -62,14 +62,39 @@ fn an_absent_name_is_unreachable_however_zbus_wraps_it() {
 }
 
 #[test]
-fn an_unlisted_name_and_a_plain_error_are_both_one() {
+fn a_limit_is_rejected_and_a_plain_error_is_one() {
     assert_eq!(
         exit(&method_error(
             "me.aresa.Glimpse.Weather1.Error.LimitExceeded"
         )),
-        Exit::Failed
+        Exit::Rejected
     );
     assert_eq!(exit(&anyhow::anyhow!("something else")), Exit::Failed);
+}
+
+#[test]
+fn provider_unavailability_and_standard_refusals_survive_context() {
+    for name in [
+        "me.aresa.Glimpse.NightLight1.Error.Unavailable",
+        "me.aresa.Glimpse.Weather1.Error.Unavailable",
+        "me.aresa.Glimpse.Notifications1.Error.Unavailable",
+        "me.aresa.Glimpse.Idle1.Error.Unavailable",
+    ] {
+        assert_eq!(
+            exit(&method_error(name).context("reading status")),
+            Exit::Unreachable
+        );
+    }
+    for name in [
+        "org.freedesktop.DBus.Error.LimitsExceeded",
+        "org.freedesktop.DBus.Error.NotSupported",
+        "org.freedesktop.DBus.Error.AccessDenied",
+    ] {
+        assert_eq!(
+            exit(&method_error(name).context("sending command")),
+            Exit::Rejected
+        );
+    }
 }
 
 #[test]

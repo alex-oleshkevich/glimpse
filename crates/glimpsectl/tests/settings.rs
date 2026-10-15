@@ -72,6 +72,14 @@ async fn settings_commands_read_status_send_modes_and_report_a_missing_provider(
     settings_status(&client, false).await.unwrap();
     interface.get_mut().await.0.3 = 99;
     assert!(settings_status(&client, true).await.is_err());
+    assert!(
+        glimpsectl::commands::settings::appearance_status(&client, true)
+            .await
+            .is_err()
+    );
+    glimpsectl::commands::settings::geolocation_status(&client, true)
+        .await
+        .unwrap();
     server
         .release_name(GLIMPSE_SETTINGS_BUS_NAME)
         .await

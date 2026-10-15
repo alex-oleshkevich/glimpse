@@ -30,9 +30,16 @@ pub async fn clipboard_list(connection: &Connection, json: bool) -> Result<()> {
 }
 
 pub async fn clipboard_get(connection: &Connection, id: u64) -> Result<()> {
-    let (_, bytes) = within(proxy::<Clipboard1Proxy>(connection).await?.get(id))
+    clipboard_get_output(connection, id, false).await
+}
+
+pub async fn clipboard_get_output(connection: &Connection, id: u64, json: bool) -> Result<()> {
+    let (mime, bytes) = within(proxy::<Clipboard1Proxy>(connection).await?.get(id))
         .await
         .with_context(|| format!("cannot read clipboard entry {id}"))?;
+    if json {
+        return emit(&serde_json::json!({"id": id, "mime": mime, "data": bytes}));
+    }
     let mut stdout = io::stdout().lock();
     match stdout.write_all(&bytes).and_then(|()| stdout.flush()) {
         Err(error) if error.kind() != io::ErrorKind::BrokenPipe => Err(error.into()),

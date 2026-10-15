@@ -24,6 +24,8 @@ pub trait Systemd1Manager {
     fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
     fn try_restart_unit(&self, name: &str, mode: &str) -> zbus::Result<OwnedObjectPath>;
     fn get_unit(&self, name: &str) -> zbus::Result<OwnedObjectPath>;
+    #[zbus(name = "GetUnitByPID")]
+    fn get_unit_by_pid(&self, pid: u32) -> zbus::Result<OwnedObjectPath>;
     fn list_units_by_names(&self, names: &[&str]) -> zbus::Result<Vec<Systemd1UnitEntry>>;
     fn set_environment(&self, assignments: &[&str]) -> zbus::Result<()>;
     fn start_transient_unit(

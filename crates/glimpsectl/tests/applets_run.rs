@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::fd::AsFd;
+use std::os::fd::FromRawFd;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -118,6 +119,7 @@ enum Event {
     Restart(String),
     Detach(String),
     Options(String, String),
+    Tree(String),
 }
 
 #[derive(Clone)]
@@ -126,6 +128,25 @@ struct Host {
     attached: Arc<AtomicUsize>,
     refuse_attach: Arc<AtomicBool>,
     fail_restart: Arc<AtomicBool>,
+}
+
+fn host_tree() -> String {
+    let mut tree = glimpse_services::Tree::default();
+    for id in 1..=150 {
+        tree = tree
+            .apply(vec![glimpse_services::Op::Insert {
+                parent: id - 1,
+                node: glimpse_services::WireNode {
+                    id,
+                    kind: if id == 1 { "popover" } else { "box" }.to_owned(),
+                    props: serde_json::Map::new(),
+                    children: Vec::new(),
+                },
+                before: None,
+            }])
+            .unwrap();
+    }
+    tree.snapshot().to_string()
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.AppletHost1")]
@@ -172,6 +193,11 @@ impl Host {
             return Err(zbus::fdo::Error::Failed("unknown handle".to_owned()));
         }
         Ok(())
+    }
+
+    async fn tree(&self, handle: &str) -> zbus::fdo::Result<String> {
+        let _ = self.tx.send(Event::Tree(handle.to_owned()));
+        Ok(host_tree())
     }
 
     async fn detach(&self, handle: &str) -> zbus::fdo::Result<()> {
@@ -388,6 +414,92 @@ impl Drop for Harness {
             let _ = child.wait();
         }
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn terminal_tree_command_reads_the_current_host_tree() -> Result<()> {
+    let bus = Bus::start()?;
+    let connection = zbus::connection::Builder::address(bus.address.as_str())?
+        .build()
+        .await?;
+    let (tx, mut events) = mpsc::unbounded_channel();
+    let host = Host {
+        tx,
+        attached: Arc::new(AtomicUsize::new(0)),
+        refuse_attach: Arc::new(AtomicBool::new(false)),
+        fail_restart: Arc::new(AtomicBool::new(false)),
+    };
+    connection
+        .object_server()
+        .at(APPLET_HOST_PATH, host)
+        .await?;
+    own_name(&connection, &applet_host_name("org.example.TreePanel")).await?;
+    let root = tempfile::tempdir()?;
+    fs::write(
+        root.path().join(format!("{ID}.desktop")),
+        "[Desktop Entry]\nType=Application\nName=Tree Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n",
+    )?;
+    fs::write(root.path().join("config.toml"), "")?;
+    let mut master = -1;
+    let mut slave = -1;
+    ensure!(
+        unsafe {
+            libc::openpty(
+                &mut master,
+                &mut slave,
+                std::ptr::null_mut(),
+                std::ptr::null(),
+                std::ptr::null(),
+            )
+        } == 0,
+        "cannot create terminal"
+    );
+    let mut input = unsafe { fs::File::from_raw_fd(master) };
+    let stdin = unsafe { fs::File::from_raw_fd(slave) };
+    let mut child = Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+        .args(["--panel", "org.example.TreePanel", "applet", "run"])
+        .arg(root.path())
+        .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
+        .stdin(stdin)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let result = async {
+        let event = tokio::time::timeout(Duration::from_secs(8), events.recv())
+            .await?
+            .context("no attachment")?;
+        let Event::Attach { handle, .. } = event else {
+            anyhow::bail!("expected attachment")
+        };
+        input.write_all(b"t\n")?;
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(8), events.recv())
+                .await?
+                .context("no tree request")?,
+            Event::Tree(handle.clone())
+        );
+        unsafe {
+            libc::kill(child.id() as i32, libc::SIGTERM);
+        }
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(8), events.recv())
+                .await?
+                .context("no detach")?,
+            Event::Detach(handle)
+        );
+        Ok::<_, anyhow::Error>(())
+    }
+    .await;
+    if result.is_err() {
+        let _ = child.kill();
+    }
+    let output = child.wait_with_output()?;
+    result?;
+    assert!(output.status.success());
+    let expected = host_tree();
+    assert!(serde_json::from_str::<serde_json::Value>(&expected).is_err());
+    assert_eq!(String::from_utf8(output.stdout)?, format!("{expected}\n"));
+    Ok(())
 }
 
 #[tokio::test]
