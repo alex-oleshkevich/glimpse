@@ -53,6 +53,26 @@ test("testing host renders, dispatches, updates, and closes", async () => {
   await assert.rejects(view.click(row.id), /closed/);
 });
 
+test("generic events deliver control arguments and reject missing handlers", async () => {
+  const received: unknown[][] = [];
+  const view = await render(createElement("popover", null,
+    createElement("togglerow", { active: true, onToggle: (...args: unknown[]) => received.push(args) }),
+    createElement("choicelist", { choices: [{ label: "A" }], onSelect: (...args: unknown[]) => received.push(args) }),
+  ));
+  const children = (view.tree() as { children: Array<{ children: Array<{ id: number }> }> }).children[0].children;
+  try {
+    await view.event(children[0].id, "onToggle", [false]);
+    await view.event(children[1].id, "onSelect", [0]);
+    assert.deepEqual(received, [[false], [0]]);
+    await assert.rejects(view.event(-1, "onToggle", [true]), /no onToggle handler/);
+    await assert.rejects(view.event(children[0].id, "onSelect", [0]), /no onSelect handler/);
+    await assert.rejects(view.event(children[0].id, "active"), /no active handler/);
+  } finally {
+    await view.close();
+  }
+  await assert.rejects(view.event(children[0].id, "onToggle", [true]), /closed/);
+});
+
 test("services reach hooks and commands reach the host", async () => {
   function App() {
     const players = useMpris();

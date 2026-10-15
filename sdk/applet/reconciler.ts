@@ -755,7 +755,7 @@ export function socketIo(path: string): Io {
   const input = new PassThrough();
   socket.pipe(input);
   socket.on("error", (error: NodeJS.ErrnoException) => {
-    const gone = error.code === "ENOENT" || error.code === "ECONNREFUSED";
+    const gone = ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET"].includes(error.code ?? "");
     if (!gone) console.error(error);
     input.end();
     process.exit(gone ? 0 : 1);

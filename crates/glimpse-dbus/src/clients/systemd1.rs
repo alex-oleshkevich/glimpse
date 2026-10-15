@@ -82,7 +82,7 @@ pub trait Systemd1Service {
     fn result(&self) -> zbus::Result<String>;
     #[zbus(property, name = "NRestarts")]
     fn n_restarts(&self) -> zbus::Result<u32>;
-    #[zbus(property)]
+    #[zbus(property(emits_changed_signal = "false"))]
     fn memory_current(&self) -> zbus::Result<u64>;
 }
 

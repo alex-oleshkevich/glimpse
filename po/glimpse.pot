@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-14 13:14+0200\n"
+"POT-Creation-Date: 2026-10-15 13:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -118,15 +118,15 @@ msgstr ""
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:403
+#: crates/glimpse-panel/src/app.rs:384
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:447
+#: crates/glimpse-panel/src/app.rs:428
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:460
+#: crates/glimpse-panel/src/app.rs:441
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:139
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:164
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:184
@@ -143,20 +143,20 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:526
+#: crates/glimpse-panel/src/app.rs:507
 #: crates/glimpse-panel/src/applets/session/mod.rs:91
 msgid "Session"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:528
+#: crates/glimpse-panel/src/app.rs:509
 msgid "Could not complete the session action"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:530
+#: crates/glimpse-panel/src/app.rs:511
 msgid "The session manager refused that action."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:629
+#: crates/glimpse-panel/src/app.rs:610
 msgid "this device"
 msgstr ""
 
@@ -935,13 +935,13 @@ msgstr ""
 msgid "{name}: {percent}%"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1182
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:478
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1169
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:476
 msgid "Unsupported: {name}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/dom.rs:1187
-#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:483
+#: crates/glimpse-panel/src/applets/exec/dom.rs:1174
+#: crates/glimpse-panel/src/applets/exec/dom/tests.rs:481
 msgid "This applet asked for an element glimpse does not render"
 msgstr ""
 
@@ -950,19 +950,19 @@ msgstr ""
 msgid "External applet action failed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:212
+#: crates/glimpse-panel/src/applets/exec/mod.rs:211
 msgid "The file did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:231
+#: crates/glimpse-panel/src/applets/exec/mod.rs:230
 msgid "The link did not open."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:255
+#: crates/glimpse-panel/src/applets/exec/mod.rs:254
 msgid "The application did not start."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/exec/mod.rs:290
+#: crates/glimpse-panel/src/applets/exec/mod.rs:288
 msgid "External applet is not running."
 msgstr ""
 

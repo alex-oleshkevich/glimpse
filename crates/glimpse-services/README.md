@@ -190,19 +190,19 @@ resource, and always the case for location**, since GeoClue has no per-client at
 no commands at all.
 
 **exec** — **the service never forks**: each start is a transient systemd user unit
-`app-glimpse-<panel>-<applet>-<slot>-<n>.service` started through the injected `Launcher`, and
+`app-glimpse-<panel>-<applet>-<slot>-<pid>-<n>.service` started through the injected `Launcher`, and
 systemd owns the process, its restart curve, cgroup, `MemoryMax` and logs. Applets run unconfined
 with the panel's environment; there is no sandbox. Each slot listens on its own socket under the
 runtime dir, named in `GLIMPSE_APPLET_SOCKET`, and serves one connection at a time; the applet speaks
 first with `Hello`, and every `Hello` resets its tree and advances the generation, so stale UI events
-cannot reach a reloaded applet. A takeover keeps the last tree until the next hello and commit.
-`argv[0]` resolves against the panel's `PATH`, because systemd ignores it; the working directory is
+cannot reach a reloaded applet.
+`argv[0]` resolves against the merged environment's `PATH`; the working directory is
 the entry's `Path`, or the desktop file's directory. Placement and options changes go over the
 socket without a restart; a changed entry or `env` stops the unit and starts the next `<n>`. Every
-start sweeps the panel's leftover units and the sockets of dead panels; a clean stop stops each unit,
+panel startup sweeps leftover units and the sockets of dead panels; a clean stop stops each unit,
 and a crashed panel closes the sockets so applets exit on EOF. Without the systemd user manager every
 slot fails with a reason and the panel keeps running. A dev slot from AppletHost takes over the
-same-id slot, never restarts, and writes stderr to the caller. The host passes the applet's state
+same-id slot, has no automatic restart, and writes stderr to the caller. The host passes the applet's state
 directory as `state` in `hello`. Notifications are capped at one per second, MPRIS and compositor
 calls at ten; a URI must pass the scheme allowlist, and the panel refuses an executable file or a
 launcher type. Lines past the rate cap are read later, never fatal; invalid JSON, oversized lines,

@@ -17,6 +17,7 @@ export type Rendered = {
   tree(): unknown;
   requests(): Array<Record<string, unknown>>;
   click(id: number): Promise<void>;
+  event(id: number, name: string, args?: unknown[]): Promise<void>;
   setOptions(options: Record<string, unknown>): Promise<void>;
   setPopoverOpen(open: boolean): Promise<void>;
   setService(name: string, value: unknown): Promise<void>;
@@ -204,6 +205,14 @@ export async function render(
         return Promise.reject(new Error(`node ${id} has no ${handler ?? "click"} handler`));
       }
       return send({ t: "event", id, name: handler, args: [], seq: null });
+    },
+    event(id, name, args = []) {
+      if (closed) return Promise.reject(new Error("rendered session is closed"));
+      const node = nodes.get(id);
+      if (!node || !name.startsWith("on") || node.props[name] !== true) {
+        return Promise.reject(new Error(`node ${id} has no ${name} handler`));
+      }
+      return send({ t: "event", id, name, args, seq: null });
     },
     setOptions: (options) => send({ t: "options", options }),
     setPopoverOpen: (open) => send({ t: "popover", open }),

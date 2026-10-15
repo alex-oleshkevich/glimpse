@@ -37,7 +37,12 @@ fn validation_and_caps_reject_bad_attachments() {
     };
     let insert = |registry: &mut AttachedRegistry, sender: &str, index: usize| {
         let valid = numbered(index);
-        registry.insert(sender.to_owned(), valid.desktop_id.clone(), valid)
+        registry.insert(
+            sender.to_owned(),
+            valid.desktop_id.clone(),
+            CancellationToken::new(),
+            valid,
+        )
     };
     assert_eq!(valid().output, "");
     assert!(validate(path, 99, "", "", "{}", &layout).is_err());
@@ -68,7 +73,9 @@ fn validation_and_caps_reject_bad_attachments() {
         layout.clone(),
         vec![vec![("me.x.A".to_owned(), Zone::Center)]],
     );
-    for index in 0..8 {
+    let first = insert(&mut registry, "one", 0).unwrap();
+    assert_eq!(first, "me.x.A0#1");
+    for index in 1..8 {
         insert(&mut registry, "one", index).unwrap();
     }
     assert_eq!(registry.applets[0].zone, Zone::Right);
@@ -77,7 +84,11 @@ fn validation_and_caps_reject_bad_attachments() {
         insert(&mut registry, &format!("other-{index}"), 10 + index).unwrap();
     }
     assert!(insert(&mut registry, "last", 20).is_err());
-    assert!(registry.remove("me.x.A0").is_some());
+    assert!(registry.remove("me.x.A0").is_none());
+    let stop = registry.applets[0].stop.clone();
+    assert!(registry.remove(&first).is_some());
+    assert!(stop.is_cancelled());
+    assert!(registry.remove(&first).is_none());
     assert!(insert(&mut registry, "one", 8).is_ok());
     assert!(insert(&mut registry, "one", 8).is_err());
     let mut configured = AttachedRegistry::default();
@@ -87,7 +98,12 @@ fn validation_and_caps_reject_bad_attachments() {
     );
     let valid = valid();
     configured
-        .insert("one".to_owned(), valid.desktop_id.clone(), valid)
+        .insert(
+            "one".to_owned(),
+            valid.desktop_id.clone(),
+            CancellationToken::new(),
+            valid,
+        )
         .unwrap();
     assert_eq!(configured.applets[0].zone, Zone::Center);
     fs::remove_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
@@ -102,7 +118,12 @@ fn reconcile_keeps_unmapped_named_output_and_moves_default_output() {
     let attach = |registry: &mut AttachedRegistry, sender: &str, id: &str, output: &str| {
         let mut valid = validate(path.to_str().unwrap(), 0, output, "", "{}", &layout).unwrap();
         valid.desktop_id = id.to_owned();
-        registry.insert(sender.to_owned(), id.to_owned(), valid)
+        registry.insert(
+            sender.to_owned(),
+            id.to_owned(),
+            CancellationToken::new(),
+            valid,
+        )
     };
     attach(&mut registry, "named", "me.x.A", "DP-1").unwrap();
     attach(&mut registry, "default", "me.x.B", "").unwrap();
@@ -167,7 +188,7 @@ async fn private_bus_owns_handles_and_detaches_a_vanished_sender() {
         .attach(path, 0, "", "", "{}", env.clone(), Fd::from(&stderr))
         .await
         .unwrap();
-    assert_eq!(handle, "me.x.A");
+    assert!(handle.starts_with("me.x.A#"));
     assert!(matches!(receiver.recv().await, Some(AppInput::Attached)));
     assert!(exec.snapshot().dev.contains("me.x.A"));
     let error = stranger
@@ -192,11 +213,55 @@ async fn private_bus_owns_handles_and_detaches_a_vanished_sender() {
     owner.restart(&handle).await.unwrap();
     owner.detach(&handle).await.unwrap();
     assert!(exec.snapshot().dev.is_empty());
-    assert!(matches!(
-        receiver.recv().await,
-        Some(AppInput::Detached(detached)) if detached == "me.x.A"
-    ));
+    assert!(matches!(receiver.recv().await, Some(AppInput::Detached)));
     assert!(registry.lock().unwrap().applets.is_empty());
+    assert!(
+        owner
+            .detach(&handle)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("AccessDenied")
+    );
+    let bad_env = std::collections::HashMap::from([("NOTIFY_SOCKET", "x")]);
+    let error = owner
+        .attach(path, 0, "", "", "{}", bad_env, Fd::from(&stderr))
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("NOTIFY_SOCKET"));
+    assert!(registry.lock().unwrap().applets.is_empty());
+
+    let first = owner
+        .attach(path, 0, "", "", "{}", env.clone(), Fd::from(&stderr))
+        .await
+        .unwrap();
+    assert!(matches!(receiver.recv().await, Some(AppInput::Attached)));
+    owner.detach(&first).await.unwrap();
+    let second = owner
+        .attach(path, 0, "", "", "{}", env.clone(), Fd::from(&stderr))
+        .await
+        .unwrap();
+    assert_ne!(first, second);
+    assert!(matches!(receiver.recv().await, Some(AppInput::Detached)));
+    assert!(matches!(receiver.recv().await, Some(AppInput::Attached)));
+    assert!(
+        owner
+            .restart(&first)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("AccessDenied")
+    );
+    {
+        let registry = registry.lock().unwrap();
+        assert_eq!(registry.applets.len(), 1);
+        assert_eq!(registry.applets[0].handle, second);
+    }
+    assert!(exec.snapshot().dev.contains("me.x.A"));
+    owner.restart(&second).await.unwrap();
+    owner.detach(&second).await.unwrap();
+    assert!(matches!(receiver.recv().await, Some(AppInput::Detached)));
+    assert!(exec.snapshot().dev.is_empty());
 
     let doomed = bus.connection().await;
     let transient = proxy(doomed.clone()).await;
@@ -211,7 +276,8 @@ async fn private_bus_owns_handles_and_detaches_a_vanished_sender() {
     let detached = tokio::time::timeout(std::time::Duration::from_secs(10), receiver.recv())
         .await
         .unwrap();
-    assert!(matches!(detached, Some(AppInput::Detached(detached)) if detached == "me.x.A"));
+    assert!(matches!(detached, Some(AppInput::Detached)));
+    assert!(registry.lock().unwrap().applets.is_empty());
     assert!(exec.snapshot().dev.is_empty());
     services.shutdown().await;
     fs::remove_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();

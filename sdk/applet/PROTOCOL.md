@@ -1,11 +1,11 @@
 # Applet protocol
 
-The panel is the host. An exec applet runs as a systemd user unit, or `glimpsectl applets run --dev`
-starts it and relays the protocol to the panel. The applet connects once to the unix socket named
+The panel is the host. It starts every exec applet as a systemd user unit, including one that
+`glimpsectl applets run` attaches. The applet connects once to the unix socket named
 by `GLIMPSE_APPLET_SOCKET`; both directions carry UTF-8 NDJSON on that one connection: one JSON
 object per line, separated by `\n`. Stdio carries the same stream in tests. The host also
-accepts a trailing `\r`. Stderr is not part of the protocol; the panel logs it at most 50
-lines a second, each line up to 4 KiB, while `glimpsectl applets run --dev` sends it to the terminal.
+accepts a trailing `\r`. Stderr is not part of the protocol; it goes to the journal, or to the
+terminal of the `glimpsectl applets run` that attached the applet.
 
 Each line is at most 1 MiB (1,048,576 bytes), not counting the newline. A longer line is
 rejected. A single JSON value nests at most 128 levels; a deeper tree is built across
@@ -198,8 +198,8 @@ the node cap and the child cap are checked before the copy replaces the live tre
 | `uri` | string |
 
 Only `http`, `https`, `mailto` and `file` URIs of at most 2,048 bytes are opened; any other
-is dropped. A `file` URI opens the resolved path, and not when it resolves into the applet's state
-directory, is executable, or is a type that starts a program: a desktop
+is dropped. A `file` URI opens the resolved path when it is a directory, or a regular file that is
+neither executable nor a type that starts a program: a desktop
 entry, a script, a binary, an installer or an archive that runs.
 
 ### `launch`

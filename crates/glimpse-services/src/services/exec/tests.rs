@@ -59,6 +59,55 @@ impl Launcher for FailingLauncher {
     }
 }
 
+#[derive(Default)]
+struct ControlledLauncher {
+    process: Arc<ProcessLauncher>,
+    unavailable: std::sync::atomic::AtomicBool,
+    reset_calls: std::sync::atomic::AtomicU32,
+    sweep_started: Arc<tokio::sync::Notify>,
+    sweep_release: Arc<tokio::sync::Notify>,
+}
+
+impl Launcher for ControlledLauncher {
+    fn start(&self, spec: UnitSpec) -> BoxFuture<'static, Result<(), String>> {
+        if self.unavailable.load(std::sync::atomic::Ordering::Relaxed) {
+            Box::pin(async { Err(NEEDS_SYSTEMD.to_owned()) })
+        } else {
+            self.process.start(spec)
+        }
+    }
+
+    fn stop(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.process.stop(name)
+    }
+
+    fn kill(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.process.kill(name)
+    }
+
+    fn reset_failed(&self, name: &str) -> BoxFuture<'static, ()> {
+        self.reset_calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.process.reset_failed(name)
+    }
+
+    fn watch(&self, name: &str) -> BoxStream<'static, UnitState> {
+        self.process.watch(name)
+    }
+
+    fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
+        let process = Arc::clone(&self.process);
+        let prefix = prefix.to_owned();
+        let started = Arc::clone(&self.sweep_started);
+        let release = Arc::clone(&self.sweep_release);
+        Box::pin(async move {
+            started.notify_one();
+            release.notified().await;
+            process.sweep(&prefix).await;
+        })
+    }
+}
+
 fn placement() -> Placement {
     Placement {
         output: Some("DP-1".to_owned()),

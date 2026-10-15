@@ -4,12 +4,14 @@ use super::*;
 fn only_applets_seen_running_can_end() {
     let mut registry = AttachedRegistry::default();
     registry.applets.push(crate::attached::AttachedApplet {
-        handle: "me.x.A".to_owned(),
+        handle: "me.x.A#1".to_owned(),
         sender: ":1.1".to_owned(),
         desktop_id: "me.x.A".to_owned(),
+        dev_key: "me.x.A".to_owned(),
         panel: 0,
         output: String::new(),
         zone: glimpse_services::Zone::Right,
+        stop: tokio_util::sync::CancellationToken::new(),
     });
     let mut state = ExecState::default();
     let mut seen = std::collections::BTreeSet::new();
@@ -17,7 +19,33 @@ fn only_applets_seen_running_can_end() {
     state.dev.insert("me.x.A".to_owned());
     assert!(ended_dev(&state, &registry, &mut seen).is_empty());
     state.dev.clear();
-    assert_eq!(ended_dev(&state, &registry, &mut seen), ["me.x.A"]);
+    assert_eq!(ended_dev(&state, &registry, &mut seen), ["me.x.A#1"]);
+}
+
+#[test]
+fn a_reattached_applet_is_not_ended_by_its_predecessor() {
+    let applet = |handle: &str| crate::attached::AttachedApplet {
+        handle: handle.to_owned(),
+        sender: ":1.1".to_owned(),
+        desktop_id: "me.x.A".to_owned(),
+        dev_key: "me.x.A".to_owned(),
+        panel: 0,
+        output: String::new(),
+        zone: glimpse_services::Zone::Right,
+        stop: tokio_util::sync::CancellationToken::new(),
+    };
+    let mut registry = AttachedRegistry::default();
+    registry.applets.push(applet("me.x.A#1"));
+    let mut state = ExecState::default();
+    state.dev.insert("me.x.A".to_owned());
+    let mut seen = std::collections::BTreeSet::new();
+    assert!(ended_dev(&state, &registry, &mut seen).is_empty());
+    registry.applets.clear();
+    registry.applets.push(applet("me.x.A#2"));
+    assert!(ended_dev(&state, &registry, &mut seen).is_empty());
+    assert_eq!(seen.iter().collect::<Vec<_>>(), ["me.x.A#2"]);
+    state.dev.clear();
+    assert_eq!(ended_dev(&state, &registry, &mut seen), ["me.x.A#2"]);
 }
 
 #[test]

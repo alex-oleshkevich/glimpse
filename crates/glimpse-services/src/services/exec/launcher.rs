@@ -41,8 +41,9 @@ pub fn escape(component: &str) -> String {
 }
 
 pub fn unit_name(panel: &str, applet: &str, slot: u64, n: u64) -> String {
+    let pid = std::process::id();
     format!(
-        "app-glimpse-{}-{}-{slot}-{n}.service",
+        "app-glimpse-{}-{}-{slot}-{pid}-{n}.service",
         escape(panel),
         escape(applet)
     )
@@ -50,27 +51,6 @@ pub fn unit_name(panel: &str, applet: &str, slot: u64, n: u64) -> String {
 
 pub fn sweep_prefix(panel: &str) -> String {
     format!("app-glimpse-{}-", escape(panel))
-}
-
-const ENV_DENIED: [&str; 5] = [
-    "INVOCATION_ID",
-    "JOURNAL_STREAM",
-    "NOTIFY_SOCKET",
-    "MANAGERPID",
-    "SYSTEMD_EXEC_PID",
-];
-
-fn env_allowed(name: &str) -> bool {
-    !ENV_DENIED.contains(&name)
-        && !name.starts_with("LISTEN_")
-        && !name.starts_with("WATCHDOG_")
-        && name
-            .chars()
-            .next()
-            .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
-        && name
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 fn set_env(env: &mut Vec<(String, String)>, name: String, value: String) {
@@ -91,7 +71,7 @@ pub fn build_env(
 ) -> Vec<(String, String)> {
     let mut env = Vec::new();
     for (name, value) in panel_env {
-        if env_allowed(&name) {
+        if glimpse_config::exec_env_name_allowed(&name) {
             set_env(&mut env, name, value);
         }
     }
@@ -101,7 +81,7 @@ pub fn build_env(
         socket.display().to_string(),
     );
     for (name, value) in config_env {
-        if env_allowed(name) {
+        if glimpse_config::exec_env_name_allowed(name) {
             set_env(&mut env, name.clone(), value.clone());
         }
     }
@@ -149,19 +129,20 @@ pub fn build_spec(
     let Some(program) = argv.first().cloned() else {
         return Err("empty argv".to_owned());
     };
-    let path_env = panel_environment
+    let env = build_env(panel_environment, socket, config_env);
+    let path_env = env
         .iter()
         .find(|(key, _)| key == "PATH")
-        .map(|(_, value)| value.clone());
-    let resolved = resolve_program(&program, path_env.as_deref())
-        .ok_or_else(|| format!("{program} not found"))?;
+        .map(|(_, value)| value.as_str());
+    let resolved =
+        resolve_program(&program, path_env).ok_or_else(|| format!("{program} not found"))?;
     argv[0] = resolved;
     Ok(UnitSpec {
         name,
         description,
         argv,
         cwd,
-        env: build_env(panel_environment, socket, config_env),
+        env,
         restart,
         stderr,
     })
@@ -300,7 +281,10 @@ impl Launcher for SystemdLauncher {
     fn watch(&self, name: &str) -> BoxStream<'static, UnitState> {
         let connection = self.inner.connection.clone();
         let name = name.to_owned();
-        Box::pin(async_stream(name, connection))
+        Box::pin(futures_util::stream::unfold(
+            Watch::new(name, connection),
+            |mut watch| async move { watch.next().await.map(|state| (state, watch)) },
+        ))
     }
 
     fn sweep(&self, prefix: &str) -> BoxFuture<'static, ()> {
@@ -310,7 +294,7 @@ impl Launcher for SystemdLauncher {
             let Ok(manager) = inner.manager().await else {
                 return;
             };
-            let pattern = format!("{}*", prefix.replace('\\', "\\\\"));
+            let pattern = format!("{prefix}*");
             let Ok(units) = manager.list_units_by_patterns(&[], &[&pattern]).await else {
                 return;
             };
@@ -319,18 +303,6 @@ impl Launcher for SystemdLauncher {
             }
         })
     }
-}
-
-fn async_stream(
-    name: String,
-    connection: Option<zbus::Connection>,
-) -> impl futures_util::Stream<Item = UnitState> + Send + 'static {
-    use futures_util::{StreamExt, stream};
-    stream::once(async move { (name, connection) }).flat_map(|(name, connection)| {
-        stream::unfold(Watch::new(name, connection), |mut watch| async move {
-            watch.next().await.map(|state| (state, watch))
-        })
-    })
 }
 
 enum Change {

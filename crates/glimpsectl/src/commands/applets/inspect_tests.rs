@@ -19,14 +19,17 @@ fn config_formats_empty_and_placed_applets() {
 fn unit_names_parse_back_to_applet_and_slot() {
     assert_eq!(
         parse_unit(
-            "app-glimpse-me.aresa.GlimpsePanel-me.example.My\\x2dClock-left\\x2d0-3.service"
+            "app-glimpse-me.aresa.GlimpsePanel-me.example.My\\x2dClock-left\\x2d0-4242-3.service"
         ),
         Some(("me.example.My-Clock".to_owned(), "left-0".to_owned()))
     );
-    assert_eq!(parse_unit("app-glimpse-a-b-c-x.service"), None);
-    assert_eq!(parse_unit("app-glimpse-a-b-c-1.scope"), None);
-    assert_eq!(parse_unit("app-glimpse-a-b-1.service"), None);
-    assert_eq!(parse_unit("other-a-b-c-1.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-1-x.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-x-1.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c--1.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-1-1.scope"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-1.service"), None);
+    assert_eq!(parse_unit("app-glimpse-a-b-c-1-2-3.service"), None);
+    assert_eq!(parse_unit("other-a-b-c-1-1.service"), None);
 }
 
 #[test]

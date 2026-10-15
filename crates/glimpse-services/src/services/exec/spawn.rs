@@ -184,10 +184,10 @@ impl SlotStream {
     }
 
     async fn accept(&mut self) -> Option<Event> {
-        if self.listener.is_none() {
+        let Some(listener) = self.listener.as_ref() else {
             self.done = true;
             return None;
-        }
+        };
         enum Next {
             Stop,
             Unit(UnitState),
@@ -195,7 +195,6 @@ impl SlotStream {
         }
         let stop = self.stop.clone();
         let mut watch = self.watch.take();
-        let listener = self.listener.as_ref();
         let result = tokio::select! {
             biased;
             _ = stop.cancelled() => Next::Stop,
@@ -205,12 +204,7 @@ impl SlotStream {
                     None => std::future::pending().await,
                 }
             } => Next::Unit(state),
-            accepted = async {
-                match listener {
-                    Some(listener) => listener.accept().await,
-                    None => std::future::pending().await,
-                }
-            } => Next::Accepted(accepted),
+            accepted = listener.accept() => Next::Accepted(accepted),
         };
         self.watch = watch;
         match result {
@@ -264,20 +258,16 @@ impl SlotStream {
             Extra,
             Line(Option<Result<String, tokio_util::codec::LinesCodecError>>),
         }
-        self.reader.as_ref()?;
+        let reader = self.reader.as_mut()?;
         let stop = self.stop.clone();
         let connection = self.connection.clone();
         let mut watch = self.watch.take();
         let listener = self.listener.as_ref();
-        let Some(reader) = self.reader.as_mut() else {
-            self.watch = watch;
-            return None;
-        };
         let result = tokio::select! {
             biased;
-            line = reader.next() => Read::Line(line),
             _ = stop.cancelled() => Read::Stop,
             _ = connection.cancelled() => Read::Connection,
+            line = reader.next() => Read::Line(line),
             state = async {
                 match watch.as_mut() {
                     Some(watch) => watch.next().await.unwrap_or(UnitState::Gone),
@@ -314,12 +304,10 @@ impl SlotStream {
                 self.misbehave(reason).await
             }
             Read::Line(None) => {
-                let spoke = self.spoke;
                 self.disconnect();
                 Some(Event::Disconnected {
                     slot: self.slot,
                     spawn: self.spawn,
-                    spoke,
                 })
             }
             Read::Line(Some(Err(error))) => self.misbehave(format!("invalid line: {error}")).await,
@@ -511,7 +499,6 @@ impl SlotStream {
         Some(Event::Exited {
             slot: self.slot,
             spawn: self.spawn,
-            spoke: false,
             reason,
             resolved: self.resolved.clone(),
         })

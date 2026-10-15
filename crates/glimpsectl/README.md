@@ -66,7 +66,7 @@ but reports `serving = false` or fails to reply, both `degraded` with the reason
 running `app-glimpse-*.service` units when a bus is there, and report `runtime: unavailable` when it is not. `list --json`
 returns `{runtime, applets}`; each refused row keeps its reason in `refused`, separate from `name`.
 `inspect --json` marks a vanished runtime unit unavailable without losing its peers. `inspect` shows `MainPID`, `MemoryCurrent`, `NRestarts` and `ActiveEnterTimestamp` per unit. `restart`
-requires a running unit and sends each one `SIGTERM` to its main process so systemd restarts it.
+requires a running unit and asks systemd to restart it, including development units.
 
 **Every call to a provider is bounded, because zbus does not bound one for you** — a peer that owns
 its name and never replies leaves `Proxy::call` awaiting forever, so each request goes through

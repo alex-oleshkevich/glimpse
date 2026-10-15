@@ -73,7 +73,7 @@ pub enum AppInput {
     ServicesReady(PanelServices),
     ThemeChanged,
     Attached,
-    Detached(String),
+    Detached,
 }
 
 impl std::fmt::Debug for AppInput {
@@ -92,7 +92,7 @@ impl std::fmt::Debug for AppInput {
             AppInput::ServicesReady(_) => "ServicesReady",
             AppInput::ThemeChanged => "ThemeChanged",
             AppInput::Attached => "Attached",
-            AppInput::Detached(_) => "Detached",
+            AppInput::Detached => "Detached",
         })
     }
 }
@@ -252,12 +252,7 @@ impl SimpleComponent for App {
                 self.services = Some(services);
                 export = true;
             }
-            AppInput::Attached => {}
-            AppInput::Detached(handle) => {
-                if let Ok(mut registry) = self.attached.lock() {
-                    registry.remove(&handle);
-                }
-            }
+            AppInput::Attached | AppInput::Detached => {}
             AppInput::BluetoothPrompt(pairing) => {
                 if let Some(services) = &self.services {
                     if pairing.is_some() {
@@ -638,11 +633,17 @@ fn spawn_exec_watch(
         loop {
             let ended = {
                 let state = states.borrow_and_update();
-                let Ok(registry) = registry.lock() else { break };
-                ended_dev(&state, &registry, &mut seen)
+                let Ok(mut registry) = registry.lock() else {
+                    break;
+                };
+                let ended = ended_dev(&state, &registry, &mut seen);
+                for handle in &ended {
+                    registry.remove(handle);
+                }
+                !ended.is_empty()
             };
-            for handle in ended {
-                sender.input(AppInput::Detached(handle));
+            if ended {
+                sender.input(AppInput::Detached);
             }
             if states.changed().await.is_err() {
                 break;
@@ -660,7 +661,7 @@ fn ended_dev(
         registry
             .applets
             .iter()
-            .filter(|applet| state.dev.contains(&applet.handle))
+            .filter(|applet| state.dev.contains(&applet.dev_key))
             .map(|applet| applet.handle.clone()),
     );
     seen.retain(|handle| {
@@ -672,7 +673,7 @@ fn ended_dev(
     registry
         .applets
         .iter()
-        .filter(|applet| seen.contains(&applet.handle) && !state.dev.contains(&applet.handle))
+        .filter(|applet| seen.contains(&applet.handle) && !state.dev.contains(&applet.dev_key))
         .map(|applet| applet.handle.clone())
         .collect()
 }

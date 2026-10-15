@@ -4,7 +4,10 @@ use super::*;
 fn unit_naming_escapes_panel_and_applet() {
     assert_eq!(
         unit_name("me.aresa.GlimpsePanel-test", "me.example.My-Applet", 3, 7),
-        "app-glimpse-me.aresa.GlimpsePanel\\x2dtest-me.example.My\\x2dApplet-3-7.service"
+        format!(
+            "app-glimpse-me.aresa.GlimpsePanel\\x2dtest-me.example.My\\x2dApplet-3-{}-7.service",
+            std::process::id()
+        )
     );
     assert_eq!(
         sweep_prefix("me.aresa.GlimpsePanel-test"),
@@ -119,6 +122,34 @@ fn spec_building_resolves_argv0_or_fails() {
 }
 
 #[test]
+fn spec_building_uses_the_configured_path_without_a_panel_path() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().expect("program dir");
+    let program = dir.path().join("configured-applet");
+    std::fs::write(&program, "#!/bin/sh\n").expect("program");
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).expect("executable");
+    let path = dir.path().display().to_string();
+    let spec = build_spec(
+        "app-glimpse-x.service".to_owned(),
+        "Test".to_owned(),
+        vec!["configured-applet".to_owned()],
+        None,
+        Vec::new(),
+        Path::new("/run/glimpse/a.sock"),
+        &BTreeMap::from([("PATH".to_owned(), path.clone())]),
+        true,
+        None,
+    )
+    .expect("configured PATH resolves the executable");
+    assert_eq!(spec.argv, vec![program.display().to_string()]);
+    assert_eq!(
+        spec.env.iter().find(|(key, _)| key == "PATH"),
+        Some(&("PATH".to_owned(), path))
+    );
+}
+
+#[test]
 fn unit_properties_carry_the_restart_curve() {
     let spec = UnitSpec {
         name: "app-glimpse-x.service".to_owned(),
@@ -138,7 +169,21 @@ fn unit_properties_carry_the_restart_curve() {
     };
     assert!(get("Restart").is_some_and(|v| v.contains("on-failure")));
     assert!(get("RestartUSec").is_some_and(|v| v.contains("1000000")));
+    assert_eq!(
+        props
+            .iter()
+            .find(|(key, _)| *key == "RestartSteps")
+            .map(|(_, value)| value),
+        Some(&zbus::zvariant::Value::from(6u32))
+    );
     assert!(get("RestartMaxDelayUSec").is_some_and(|v| v.contains("60000000")));
+    assert_eq!(
+        props
+            .iter()
+            .find(|(key, _)| *key == "StartLimitIntervalUSec")
+            .map(|(_, value)| value),
+        Some(&zbus::zvariant::Value::from(0u64))
+    );
     assert!(get("MemoryMax").is_some_and(|v| v.contains("268435456")));
     assert!(get("WorkingDirectory").is_some_and(|v| v.contains("/tmp")));
     assert!(get("Environment").is_some_and(|v| v.contains("FOO=1")));
@@ -171,4 +216,64 @@ async fn missing_connection_needs_the_user_manager() {
         launcher.start(spec).await.err().as_deref(),
         Some("needs the systemd user manager")
     );
+}
+
+#[tokio::test]
+#[ignore = "needs the systemd user manager"]
+async fn sweep_matches_escaped_panel_ids_and_preserves_other_panels() {
+    let connection = zbus::Connection::session().await.expect("session bus");
+    let manager = Systemd1ManagerProxy::new(&connection)
+        .await
+        .expect("manager");
+    let launcher = SystemdLauncher::new(Some(connection.clone()));
+    let panel = format!("me.aresa.Sweep-Test{}", std::process::id());
+    let name = unit_name(&panel, "me.example.Test", 1, 1);
+    let other = unit_name(&format!("{panel}-other"), "me.example.Test", 1, 1);
+    for name in [&name, &other] {
+        launcher
+            .start(UnitSpec {
+                name: name.clone(),
+                description: "Sweep test".to_owned(),
+                argv: vec!["/usr/bin/sleep".to_owned(), "30".to_owned()],
+                cwd: None,
+                env: Vec::new(),
+                restart: false,
+                stderr: None,
+            })
+            .await
+            .expect("start test unit");
+    }
+    let other_unit = Systemd1UnitProxy::builder(&connection)
+        .path(manager.get_unit(&other).await.expect("other unit"))
+        .expect("unit path")
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
+        .expect("unit proxy");
+    let started = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !other_unit
+            .active_state()
+            .await
+            .is_ok_and(|state| state == "active")
+        {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    launcher.sweep(&sweep_prefix(&panel)).await;
+    let swept = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while manager.get_unit(&name).await.is_ok() {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    let preserved = other_unit
+        .active_state()
+        .await
+        .is_ok_and(|state| state == "active");
+    launcher.stop(&name).await;
+    launcher.stop(&other).await;
+    assert!(started.is_ok(), "other panel's unit must start");
+    assert!(swept.is_ok(), "escaped panel prefix must match its unit");
+    assert!(preserved, "another panel's unit must remain running");
 }

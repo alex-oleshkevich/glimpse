@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::os::fd::AsFd;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -7,6 +7,7 @@ use futures_util::StreamExt;
 use glimpse_dbus::applet_host::APPLET_HOST_PATH;
 use glimpse_services::{DesktopCatalog, Edge, ExecDevRequest, ExecEntry, ExecHandle, Zone};
 use serde_json::{Map, Value};
+use tokio_util::sync::CancellationToken;
 use zbus::zvariant::Fd;
 
 use crate::app::AppInput;
@@ -16,9 +17,11 @@ pub struct AttachedApplet {
     pub handle: String,
     pub sender: String,
     pub desktop_id: String,
+    pub dev_key: String,
     pub panel: usize,
     pub output: String,
     pub zone: Zone,
+    pub stop: CancellationToken,
 }
 
 #[derive(Default)]
@@ -27,6 +30,7 @@ pub struct AttachedRegistry {
     layout: Vec<Vec<String>>,
     configured: Vec<Vec<(String, Zone)>>,
     edges: Vec<Edge>,
+    attachments: u64,
 }
 
 pub type SharedRegistry = Arc<Mutex<AttachedRegistry>>;
@@ -133,7 +137,7 @@ impl AttachedRegistry {
         if self
             .applets
             .iter()
-            .any(|applet| applet.handle == valid.desktop_id)
+            .any(|applet| applet.desktop_id == valid.desktop_id)
         {
             return Err(format!("{} is already attached", valid.desktop_id));
         }
@@ -152,8 +156,16 @@ impl AttachedRegistry {
         Ok(())
     }
 
-    fn insert(&mut self, sender: String, handle: String, valid: Validated) -> Result<(), String> {
+    fn insert(
+        &mut self,
+        sender: String,
+        dev_key: String,
+        stop: CancellationToken,
+        valid: Validated,
+    ) -> Result<String, String> {
         self.admit(&sender, &valid)?;
+        self.attachments += 1;
+        let handle = format!("{}#{}", valid.desktop_id, self.attachments);
         let zone = valid.zone.unwrap_or_else(|| {
             self.configured
                 .get(valid.panel)
@@ -161,22 +173,26 @@ impl AttachedRegistry {
                 .map_or(Zone::Right, |(_, zone)| *zone)
         });
         self.applets.push(AttachedApplet {
-            handle,
+            handle: handle.clone(),
             sender,
             desktop_id: valid.desktop_id,
+            dev_key,
             panel: valid.panel,
             output: valid.output,
             zone,
+            stop,
         });
-        Ok(())
+        Ok(handle)
     }
 
     pub fn remove(&mut self, handle: &str) -> Option<AttachedApplet> {
-        let index = self
-            .applets
-            .iter()
-            .position(|applet| applet.handle == handle)?;
+        self.take(|applet| applet.handle == handle)
+    }
+
+    fn take(&mut self, matches: impl Fn(&AttachedApplet) -> bool) -> Option<AttachedApplet> {
+        let index = self.applets.iter().position(matches)?;
         let applet = self.applets.remove(index);
+        applet.stop.cancel();
         tracing::info!(handle = %applet.handle, applet_id = %applet.desktop_id, "attached applet removed");
         Some(applet)
     }
@@ -231,90 +247,94 @@ pub struct AppletHost {
     pub registry: SharedRegistry,
     pub exec: ExecHandle,
     pub input: relm4::Sender<AppInput>,
-    watching: Arc<Mutex<HashSet<String>>>,
 }
 
 impl AppletHost {
-    fn owned(&self, handle: &str, sender: &str) -> zbus::fdo::Result<()> {
-        let owns = self
-            .registry
+    fn owned(&self, handle: &str, sender: &str) -> zbus::fdo::Result<String> {
+        self.registry
             .lock()
             .map_err(poisoned)?
             .applets
             .iter()
-            .any(|applet| applet.handle == handle && applet.sender == sender);
-        if owns {
-            Ok(())
-        } else {
-            Err(zbus::fdo::Error::AccessDenied(
-                "unknown handle or sender".to_owned(),
-            ))
-        }
+            .find(|applet| applet.handle == handle && applet.sender == sender)
+            .map(|applet| applet.dev_key.clone())
+            .ok_or_else(unknown_handle)
     }
 
-    fn watch_sender(&self, connection: &zbus::Connection, sender: &str) {
-        if !self
-            .watching
-            .lock()
-            .is_ok_and(|mut watching| watching.insert(sender.to_owned()))
-        {
-            return;
-        }
-        let connection = connection.clone();
-        let sender = sender.to_owned();
+    fn watch_vanish(&self, vanish: Vanish, handle: String, stop: CancellationToken) {
         let registry = self.registry.clone();
         let exec = self.exec.clone();
         let input = self.input.clone();
-        let watching = self.watching.clone();
         relm4::spawn(async move {
-            wait_for_vanish(&connection, &sender).await;
-            let handles: Vec<String> = registry.lock().map_or_else(
-                |_| Vec::new(),
-                |registry| {
-                    registry
-                        .applets
-                        .iter()
-                        .filter(|applet| applet.sender == sender)
-                        .map(|applet| applet.handle.clone())
-                        .collect()
-                },
-            );
-            for handle in handles {
-                if let Err(error) = exec.detach_dev(&handle).await {
-                    tracing::debug!(%error, %handle, "detach after sender vanished");
-                }
-                if let Ok(mut registry) = registry.lock() {
-                    registry.remove(&handle);
-                }
-                let _ = input.send(AppInput::Detached(handle));
+            tokio::select! {
+                () = stop.cancelled() => return,
+                () = vanish.wait() => {}
             }
-            if let Ok(mut watching) = watching.lock() {
-                watching.remove(&sender);
+            let taken = registry
+                .lock()
+                .ok()
+                .and_then(|mut registry| registry.remove(&handle));
+            let Some(applet) = taken else { return };
+            if let Err(error) = exec.detach_dev(&applet.dev_key).await {
+                tracing::debug!(%error, %handle, "detach after sender vanished");
             }
+            let _ = input.send(AppInput::Detached);
         });
     }
 }
 
-async fn wait_for_vanish(connection: &zbus::Connection, sender: &str) {
-    let Ok(name) = zbus::names::BusName::try_from(sender.to_owned()) else {
-        return;
-    };
-    let Ok(dbus) = zbus::fdo::DBusProxy::new(connection).await else {
-        return;
-    };
-    let Ok(mut changes) = dbus
-        .receive_name_owner_changed_with_args(&[(0, sender)])
-        .await
-    else {
-        return;
-    };
-    if !dbus.name_has_owner(name).await.unwrap_or(false) {
-        return;
+struct Vanish {
+    dbus: zbus::fdo::DBusProxy<'static>,
+    changes: zbus::fdo::NameOwnerChangedStream,
+    name: zbus::names::BusName<'static>,
+}
+
+impl Vanish {
+    async fn subscribe(connection: &zbus::Connection, sender: &str) -> zbus::fdo::Result<Self> {
+        let name = zbus::names::BusName::try_from(sender.to_owned())
+            .map_err(|error| zbus::fdo::Error::InvalidArgs(error.to_string()))?;
+        let unwatchable = |error: zbus::Error| {
+            zbus::fdo::Error::Failed(format!("cannot watch {sender}: {error}"))
+        };
+        let dbus = zbus::fdo::DBusProxy::new(connection)
+            .await
+            .map_err(unwatchable)?;
+        let changes = dbus
+            .receive_name_owner_changed_with_args(&[(0, sender)])
+            .await
+            .map_err(unwatchable)?;
+        Ok(Self {
+            dbus,
+            changes,
+            name,
+        })
     }
-    while let Some(change) = changes.next().await {
-        if change.args().is_ok_and(|args| args.new_owner().is_none()) {
+
+    async fn wait(mut self) {
+        if !self.dbus.name_has_owner(self.name).await.unwrap_or(true) {
             return;
         }
+        while let Some(change) = self.changes.next().await {
+            if change.args().is_ok_and(|args| args.new_owner().is_none()) {
+                return;
+            }
+        }
+    }
+}
+
+fn unknown_handle() -> zbus::fdo::Error {
+    zbus::fdo::Error::AccessDenied("unknown handle or sender".to_owned())
+}
+
+fn check_env(env: &HashMap<String, String>) -> zbus::fdo::Result<()> {
+    match env
+        .keys()
+        .find(|name| !glimpse_config::exec_env_name_allowed(name))
+    {
+        Some(name) => Err(zbus::fdo::Error::InvalidArgs(format!(
+            "env name is not allowed: {name:?}"
+        ))),
+        None => Ok(()),
     }
 }
 
@@ -340,6 +360,7 @@ impl AppletHost {
             .unwrap_or("");
         let result: zbus::fdo::Result<String> = async {
             check_options_size(options_json)?;
+            check_env(&env)?;
             let stderr = stderr
                 .as_fd()
                 .try_clone_to_owned()
@@ -380,24 +401,37 @@ impl AppletHost {
                 env: env.into_iter().collect(),
                 stderr: Some(stderr),
             };
-            let handle = self
+            let vanish = Vanish::subscribe(connection, &sender).await?;
+            let dev_key = self
                 .exec
                 .attach_dev(&valid.desktop_id, request)
                 .await
                 .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))?;
+            let stop = CancellationToken::new();
             let inserted = self.registry.lock().map_err(poisoned)?.insert(
                 sender.clone(),
-                handle.clone(),
+                dev_key.clone(),
+                stop.clone(),
                 valid,
             );
-            if let Err(reason) = inserted {
-                let _ = self.exec.detach_dev(&handle).await;
-                return Err(zbus::fdo::Error::InvalidArgs(reason));
-            }
-            self.watch_sender(connection, &sender);
+            let handle = match inserted {
+                Ok(handle) => handle,
+                Err(reason) => {
+                    let _ = self.exec.detach_dev(&dev_key).await;
+                    return Err(zbus::fdo::Error::InvalidArgs(reason));
+                }
+            };
+            self.watch_vanish(vanish, handle.clone(), stop);
             if self.input.send(AppInput::Attached).is_err() {
-                let _ = self.exec.detach_dev(&handle).await;
-                self.registry.lock().map_err(poisoned)?.remove(&handle);
+                if self
+                    .registry
+                    .lock()
+                    .map_err(poisoned)?
+                    .remove(&handle)
+                    .is_some()
+                {
+                    let _ = self.exec.detach_dev(&dev_key).await;
+                }
                 return Err(zbus::fdo::Error::Failed("panel is stopping".to_owned()));
             }
             Ok(handle)
@@ -420,9 +454,9 @@ impl AppletHost {
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> zbus::fdo::Result<()> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        self.owned(handle, &sender)?;
+        let dev_key = self.owned(handle, &sender)?;
         self.exec
-            .restart_dev(handle)
+            .restart_dev(&dev_key)
             .await
             .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
     }
@@ -433,14 +467,18 @@ impl AppletHost {
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> zbus::fdo::Result<()> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        self.owned(handle, &sender)?;
+        let applet = self
+            .registry
+            .lock()
+            .map_err(poisoned)?
+            .take(|applet| applet.handle == handle && applet.sender == sender)
+            .ok_or_else(unknown_handle)?;
         let result = self
             .exec
-            .detach_dev(handle)
+            .detach_dev(&applet.dev_key)
             .await
             .map_err(|error| zbus::fdo::Error::Failed(error.to_string()));
-        self.registry.lock().map_err(poisoned)?.remove(handle);
-        let _ = self.input.send(AppInput::Detached(handle.to_owned()));
+        let _ = self.input.send(AppInput::Detached);
         result
     }
 
@@ -452,7 +490,7 @@ impl AppletHost {
     ) -> zbus::fdo::Result<()> {
         check_options_size(options_json)?;
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
-        self.owned(handle, &sender)?;
+        let dev_key = self.owned(handle, &sender)?;
         let options = match serde_json::from_str(options_json)
             .map_err(|error| zbus::fdo::Error::InvalidArgs(error.to_string()))?
         {
@@ -464,7 +502,7 @@ impl AppletHost {
             }
         };
         self.exec
-            .dev_set_options(handle, options)
+            .dev_set_options(&dev_key, options)
             .await
             .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
     }
@@ -488,7 +526,6 @@ pub async fn export(
                 registry,
                 exec,
                 input,
-                watching: Arc::default(),
             },
         )
         .await

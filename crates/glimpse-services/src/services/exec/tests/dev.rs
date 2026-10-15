@@ -51,7 +51,10 @@ async fn dev_restart_after_a_crash_starts_it_again() {
         .await
         .expect("dev attach");
     let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
-    status(&handle, 1, |s| matches!(s, Status::Ended)).await;
+    status(&handle, 1, |s| {
+        matches!(s, Status::Ended | Status::Failed(_))
+    })
+    .await;
     handle
         .restart_dev(&dev_handle)
         .await
@@ -65,6 +68,57 @@ async fn dev_restart_after_a_crash_starts_it_again() {
     handle.detach(1).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
+}
+
+#[tokio::test]
+async fn dev_reconnects_after_eof_and_unit_exit_is_terminal() {
+    for fail in [false, true] {
+        let (_dir, entry, _output) = script(LOOP);
+        let (_dev_dir, dev, output) = script(
+            "import json, time\nopen(sys.argv[1], 'w').write(str(os.getpid()))\nsend('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    if json.loads(line).get('t') == 'event':\n        break\nr.close()\n_sock.close()\nwhile not os.path.exists(sys.argv[1] + '.resume'):\n    time.sleep(0.01)\n_sock = socket.socket(socket.AF_UNIX)\n_sock.connect(os.environ['GLIMPSE_APPLET_SOCKET'])\nr = _sock.makefile('r', encoding='utf-8')\nsend('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    pass\n",
+        );
+        let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+            running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+        let dev_handle = handle
+            .attach_dev("test", dev_request(dev_entry(&dev)))
+            .await
+            .expect("dev attach");
+        handle.attach(1, "test", placement()).await.expect("attach");
+        let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+        let pid = file_contains(&output, "").await;
+        let units = launcher.started();
+        handle
+            .send_event(UserEvent {
+                slot: 1,
+                generation: first.generation,
+                id: 1,
+                name: "reconnect".to_owned(),
+                args: Vec::new(),
+                seq: None,
+            })
+            .await
+            .expect("disconnect event");
+        status(&handle, 1, |s| matches!(s, Status::Restarting { .. })).await;
+        tokio::fs::write(output.with_extension("resume"), "")
+            .await
+            .expect("allow reconnect");
+        let resumed = next_generation(&handle, 1, first.generation).await;
+        assert_eq!(resumed.title, "Dev applet");
+        assert_eq!(launcher.started(), units);
+        if fail {
+            launcher.kill(&units[0]).await;
+            status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+        } else {
+            launcher.stop(&units[0]).await;
+            status(&handle, 1, |s| matches!(s, Status::Ended)).await;
+        }
+        pid_gone(&pid).await;
+        assert_eq!(launcher.started(), units);
+        handle.detach_dev(&dev_handle).await.expect("dev detach");
+        handle.detach(1).await.expect("detach");
+        cancel.cancel();
+        let _ = task.await;
+    }
 }
 
 #[tokio::test]

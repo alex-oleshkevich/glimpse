@@ -22,6 +22,66 @@ struct Bus {
     address: String,
 }
 
+struct Manager(mpsc::UnboundedSender<(String, String)>);
+
+#[zbus::interface(name = "org.freedesktop.systemd1.Manager")]
+impl Manager {
+    fn list_units_by_patterns(
+        &self,
+        _states: Vec<String>,
+        _patterns: Vec<String>,
+    ) -> Vec<glimpse_dbus::systemd1::Systemd1UnitEntry> {
+        vec![(
+            "app-glimpse-panel-org.example.DevTest-1-4242-1.service".to_owned(),
+            "Dev Test".to_owned(),
+            "loaded".to_owned(),
+            "active".to_owned(),
+            "running".to_owned(),
+            String::new(),
+            "/org/freedesktop/systemd1/unit/test".try_into().unwrap(),
+            0,
+            String::new(),
+            "/".try_into().unwrap(),
+        )]
+    }
+
+    fn restart_unit(&self, name: String, mode: String) -> zbus::zvariant::OwnedObjectPath {
+        self.0.send((name, mode)).unwrap();
+        "/org/freedesktop/systemd1/job/1".try_into().unwrap()
+    }
+}
+
+#[tokio::test]
+async fn restart_explicitly_restarts_the_systemd_unit() -> Result<()> {
+    let bus = Bus::start()?;
+    let connection = zbus::connection::Builder::address(bus.address.as_str())?
+        .build()
+        .await?;
+    let (tx, mut events) = mpsc::unbounded_channel();
+    connection
+        .object_server()
+        .at("/org/freedesktop/systemd1", Manager(tx))
+        .await?;
+    own_name(&connection, "org.freedesktop.systemd1").await?;
+    let output = tokio::time::timeout(
+        Duration::from_secs(8),
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+            .args(["applets", "restart", ID])
+            .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
+            .output(),
+    )
+    .await??;
+    ensure!(output.status.success(), "{output:?}");
+    assert_eq!(
+        events.try_recv()?,
+        (
+            "app-glimpse-panel-org.example.DevTest-1-4242-1.service".to_owned(),
+            "replace".to_owned()
+        )
+    );
+    Ok(())
+}
+
 impl Bus {
     fn start() -> Result<Self> {
         let mut daemon = Command::new("dbus-daemon")
@@ -405,11 +465,51 @@ async fn a_failed_restart_attaches_again() -> Result<()> {
     let handle = h.attach().await?;
     h.host.fail_restart.store(true, Ordering::SeqCst);
     fs::write(h.applet.join("source.ts"), "changed")?;
-    assert_eq!(h.event().await?, Event::Restart(handle));
+    assert_eq!(h.event().await?, Event::Restart(handle.clone()));
+    assert_eq!(h.event().await?, Event::Detach(handle));
     let next = h.attach().await?;
     assert_eq!(next, "dev-1");
     h.stderr_contains("cannot restart dev-0").await?;
     h.stop("dev-1").await
+}
+
+#[tokio::test]
+async fn a_failed_reattach_keeps_the_session_running() -> Result<()> {
+    let mut h = Harness::dev("env = { A = \"1\" }\n", &[]).await?;
+    let handle = h.attach().await?;
+    h.host.refuse_attach.store(true, Ordering::SeqCst);
+    fs::write(h.applet.join("config.toml"), "env = { A = \"2\" }\n")?;
+    assert_eq!(h.event().await?, Event::Detach(handle));
+    h.stderr_contains("waiting for the next change").await?;
+    assert!(
+        h.command
+            .as_mut()
+            .context("command stopped")?
+            .try_wait()?
+            .is_none()
+    );
+    h.host.refuse_attach.store(false, Ordering::SeqCst);
+    fs::write(h.applet.join("source.ts"), "changed")?;
+    let next = h.attach().await?;
+    assert_eq!(next, "dev-1");
+    h.stop(&next).await
+}
+
+#[tokio::test]
+async fn a_reserved_env_flag_is_refused() -> Result<()> {
+    let mut h = Harness::start(Setup {
+        extra: &["--env", "NOTIFY_SOCKET=/x"],
+        ..Setup::default()
+    })
+    .await?;
+    let output = h.output_after_exit().await?;
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("--env name is not allowed: \"NOTIFY_SOCKET\"")
+    );
+    assert!(h.events.try_recv().is_err());
+    Ok(())
 }
 
 #[tokio::test]

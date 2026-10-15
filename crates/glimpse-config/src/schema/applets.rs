@@ -136,9 +136,30 @@ impl Exec {
     }
 }
 
+const EXEC_ENV_DENIED: [&str; 5] = [
+    "INVOCATION_ID",
+    "JOURNAL_STREAM",
+    "NOTIFY_SOCKET",
+    "MANAGERPID",
+    "SYSTEMD_EXEC_PID",
+];
+
+pub fn exec_env_name_allowed(name: &str) -> bool {
+    !EXEC_ENV_DENIED.contains(&name)
+        && !name.starts_with("LISTEN_")
+        && !name.starts_with("WATCHDOG_")
+        && name
+            .chars()
+            .next()
+            .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
 fn validate_env(env: &BTreeMap<String, String>) -> Result<(), String> {
     for (name, value) in env {
-        if name.is_empty() || name.contains('=') || name.contains('\0') {
+        if !exec_env_name_allowed(name) {
             return Err(format!("env name is invalid: {name:?}"));
         }
         if value.contains('\0') {

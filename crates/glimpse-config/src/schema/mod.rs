@@ -43,7 +43,7 @@ pub use applets::{
     Printing as PrintingAppletConfig, PrintingShow, Privacy as PrivacyAppletConfig,
     Removable as RemovableAppletConfig, SystemMonitor as SystemMonitorAppletConfig,
     Timezone as ClockTimezone, Tray as TrayAppletConfig, Weather as WeatherAppletConfig,
-    is_desktop_id, resolve_applet,
+    exec_env_name_allowed, is_desktop_id, resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;

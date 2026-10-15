@@ -186,13 +186,12 @@ pub fn parse_unit(name: &str) -> Option<(String, String)> {
     let body = name
         .strip_prefix("app-glimpse-")?
         .strip_suffix(".service")?;
-    let mut parts = body.split('-');
-    let (_panel, applet, slot, count) =
-        (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
-    if parts.next().is_some()
-        || count.is_empty()
-        || !count.bytes().all(|byte| byte.is_ascii_digit())
-    {
+    let parts: Vec<&str> = body.split('-').collect();
+    let [_panel, applet, slot, pid, count] = parts[..] else {
+        return None;
+    };
+    let decimal = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+    if !decimal(pid) || !decimal(count) {
         return None;
     }
     Some((unescape(applet), unescape(slot)))
@@ -482,7 +481,7 @@ pub async fn applets_restart(id: String) -> Result<()> {
     let units = applet_units(&manager, &id).await?;
     anyhow::ensure!(!units.is_empty(), "no running units for {id}");
     for (unit, _) in units {
-        within(manager.kill_unit(&unit.0, "main", 15)).await?;
+        within(manager.restart_unit(&unit.0, "replace")).await?;
     }
     Ok(())
 }

@@ -200,7 +200,6 @@ pub enum Event {
     Disconnected {
         slot: u64,
         spawn: u64,
-        spoke: bool,
     },
     Misbehaved {
         slot: u64,
@@ -215,7 +214,6 @@ pub enum Event {
     Exited {
         slot: u64,
         spawn: u64,
-        spoke: bool,
         reason: String,
         resolved: Option<Entry>,
     },
@@ -443,10 +441,10 @@ struct Slot {
     placement: Placement,
     applet_id: String,
     env: BTreeMap<String, String>,
-    state: Option<PathBuf>,
     entry: Option<Entry>,
     dev: Option<DevSpec>,
     catalog_refused: bool,
+    launch_failed: bool,
     options: Map<String, Value>,
     spawn: u64,
     unit: String,
@@ -459,8 +457,6 @@ struct Slot {
     calls: (Instant, u32),
     last_failed_reason: Option<String>,
     serial: u64,
-    failed_at: Option<Instant>,
-    failures: u32,
     catalog_misses: u32,
     resolving: bool,
     running_since: Option<Instant>,
@@ -504,11 +500,6 @@ impl Exec {
         self.next_spawn += 1;
         let applet_id = self.desktop_id(&applet);
         let unit = self.next_unit(&applet_id, slot_id);
-        let state = self
-            .config
-            .state_base
-            .as_ref()
-            .map(|base| base.join("applets").join(&applet_id));
         Slot {
             origin: Origin::Dev,
             public: SlotState {
@@ -523,13 +514,13 @@ impl Exec {
             placement,
             applet_id,
             env: request.env,
-            state,
             entry: Some(request.entry.clone()),
             dev: Some(DevSpec {
                 entry: request.entry,
                 stderr: request.stderr.map(Arc::new),
             }),
             catalog_refused: false,
+            launch_failed: false,
             options: request.options,
             spawn: self.next_spawn,
             unit,
@@ -542,8 +533,6 @@ impl Exec {
             calls: (Instant::now(), 0),
             last_failed_reason: None,
             serial: 0,
-            failed_at: None,
-            failures: 0,
             catalog_misses: 0,
             resolving: false,
             running_since: None,
@@ -564,13 +553,7 @@ impl Exec {
             slot.applet_id = config.applet.clone();
             slot.env = config.env.clone();
             slot.options = config.options.clone();
-            slot.state = self
-                .config
-                .state_base
-                .as_ref()
-                .map(|base| base.join("applets").join(&config.applet));
             slot.entry = None;
-            slot.failures = 0;
             slot.last_failed_reason = None;
             self.restart_slot(id);
         } else {
@@ -617,7 +600,7 @@ impl Exec {
             slot.public.tree = Arc::new(Tree::default());
             slot.entry = slot.dev.as_ref().map(|dev| dev.entry.clone());
             slot.catalog_refused = false;
-            slot.failed_at = None;
+            slot.launch_failed = false;
             slot.running_since = None;
             slot.reset_done = false;
         }
@@ -965,15 +948,11 @@ impl Service for Exec {
         config: Self::Config,
         dependencies: Self::Dependencies,
     ) -> Result<Self, ServiceError> {
-        let launcher = Arc::clone(&dependencies.launcher);
         let prefix = launcher::sweep_prefix(&config.panel);
-        let sockets = config.sockets_dir();
-        ctx.spawn_detached(move |_ctx| async move {
-            if let Some(dir) = sockets {
-                let _ = tokio::task::spawn_blocking(move || prune_dead_sockets(&dir)).await;
-            }
-            launcher.sweep(&prefix).await;
-        });
+        if let Some(dir) = config.sockets_dir() {
+            let _ = tokio::task::spawn_blocking(move || prune_dead_sockets(&dir)).await;
+        }
+        dependencies.launcher.sweep(&prefix).await;
         Ok(Self {
             state: ctx.publisher(),
             config,
@@ -1045,11 +1024,6 @@ impl Service for Exec {
                     }
                     _ => None,
                 };
-                let state = self
-                    .config
-                    .state_base
-                    .as_ref()
-                    .map(|base| base.join("applets").join(&applet_id));
                 self.next_spawn += 1;
                 let unit = self.next_unit(&applet_id, slot);
                 self.slots.insert(
@@ -1068,10 +1042,10 @@ impl Service for Exec {
                         placement,
                         applet_id,
                         env,
-                        state,
                         entry: None,
                         dev: None,
                         catalog_refused: false,
+                        launch_failed: false,
                         options,
                         spawn: self.next_spawn,
                         unit,
@@ -1084,8 +1058,6 @@ impl Service for Exec {
                         calls: (Instant::now(), 0),
                         last_failed_reason,
                         serial: 0,
-                        failed_at: None,
-                        failures: 0,
                         catalog_misses: 0,
                         resolving: false,
                         running_since: None,
@@ -1122,11 +1094,6 @@ impl Service for Exec {
                         tracing::info!(applet = %id, slot = slot_id, output = ?slot.placement.output, "applet taken over by a dev slot");
                         slot.origin = Origin::Dev;
                         slot.applet_id = id.clone();
-                        slot.state = self
-                            .config
-                            .state_base
-                            .as_ref()
-                            .map(|base| base.join("applets").join(&id));
                         slot.env = request.env;
                         slot.dev = Some(DevSpec {
                             entry: request.entry.clone(),
@@ -1136,9 +1103,7 @@ impl Service for Exec {
                         slot.options = request.options;
                         slot.public.title = request.entry.name;
                         slot.public.icon = request.entry.icon;
-                        slot.failures = 0;
                         slot.last_failed_reason = None;
-                        slot.failed_at = None;
                         slot.catalog_refused = false;
                         slot.resolving = false;
                     }
@@ -1282,6 +1247,7 @@ impl Service for Exec {
                     state.public.title = entry.name.clone();
                     state.public.icon = entry.icon.clone();
                     state.entry = Some(entry);
+                    state.launch_failed = false;
                 }
             }
             Input::Event(Event::Connected { slot, spawn, link }) => {
@@ -1306,7 +1272,6 @@ impl Service for Exec {
                     state.running_since = Some(Instant::now());
                     state.reset_done = false;
                     state.last_failed_reason = None;
-                    state.failures = 0;
                     Self::send(
                         state,
                         Outgoing::Hello {
@@ -1356,22 +1321,20 @@ impl Service for Exec {
                     self.request(slot, request, ctx);
                 }
             }
-            Input::Event(Event::Disconnected { slot, spawn, .. })
+            Input::Event(Event::Disconnected { slot, spawn })
             | Input::Event(Event::Misbehaved { slot, spawn, .. }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
                     state.public.tree = Arc::new(Tree::default());
                     state.running_since = None;
-                    state.public.status = match state.origin {
-                        Origin::Dev => Status::Ended,
-                        Origin::Spawned
-                            if self.config.applets.contains_key(&state.public.applet) =>
-                        {
-                            Status::Restarting {
-                                attempt: state.restarts,
-                            }
+                    state.public.status = if state.origin == Origin::Dev
+                        || self.config.applets.contains_key(&state.public.applet)
+                    {
+                        Status::Restarting {
+                            attempt: state.restarts,
                         }
-                        Origin::Spawned => Status::Failed("not configured".to_owned()),
+                    } else {
+                        Status::Failed("not configured".to_owned())
                     };
                 }
             }
@@ -1395,8 +1358,6 @@ impl Service for Exec {
                             current.link = None;
                             current.running_since = None;
                             current.last_failed_reason = Some(result.clone());
-                            current.failures = current.failures.saturating_add(1);
-                            current.failed_at = Some(Instant::now());
                             current.public.status = Status::Failed(result);
                         }
                         UnitState::Gone => {
@@ -1404,7 +1365,7 @@ impl Service for Exec {
                             current.running_since = None;
                             if matches!(
                                 current.public.status,
-                                Status::Starting | Status::Restarting { .. }
+                                Status::Starting | Status::Running | Status::Restarting { .. }
                             ) {
                                 current.public.status = Status::Ended;
                             }
@@ -1417,10 +1378,10 @@ impl Service for Exec {
                 spawn,
                 reason,
                 resolved,
-                ..
             }) => {
                 if let Some(state) = self.slots.get_mut(&slot).filter(|s| s.spawn == spawn) {
                     state.link = None;
+                    state.launch_failed = true;
                     if let Some(entry) = resolved {
                         state.entry = Some(entry);
                     }
@@ -1434,8 +1395,6 @@ impl Service for Exec {
                             tracing::warn!(applet = %state.public.applet, %reason, "applet failed");
                         }
                         state.last_failed_reason = Some(reason.clone());
-                        state.failures = state.failures.saturating_add(1);
-                        state.failed_at = Some(Instant::now());
                         state.public.status = Status::Failed(reason);
                     }
                 }
@@ -1522,7 +1481,6 @@ impl Service for Exec {
                     state.public.tree = Arc::new(Tree::default());
                     state.last_failed_reason = Some(reason.clone());
                     state.catalog_refused = true;
-                    state.failed_at = Some(Instant::now());
                     state.public.status = Status::Failed(reason.clone());
                 } else if let Some(state) = self.slots.get(&slot)
                     && state.spawn == spawn
@@ -1531,7 +1489,9 @@ impl Service for Exec {
                 {
                     match resolved {
                         Some(Ok(entry))
-                            if state.catalog_refused || state.entry.as_ref() != Some(&entry) =>
+                            if state.launch_failed
+                                || state.catalog_refused
+                                || state.entry.as_ref() != Some(&entry) =>
                         {
                             self.restart_slot(slot)
                         }
@@ -1554,10 +1514,6 @@ impl Service for Exec {
                         Some(applet) if applet.applet != slot.applet_id => {
                             slot.applet_id = applet.applet.clone();
                             slot.env = applet.env.clone();
-                            slot.state = config
-                                .state_base
-                                .as_ref()
-                                .map(|base| base.join("applets").join(&applet.applet));
                             slot.options = applet.options.clone();
                             respawn.push(id);
                         }

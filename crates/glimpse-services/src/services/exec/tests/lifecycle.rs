@@ -318,6 +318,137 @@ async fn unresolvable_program_fails_the_slot() {
 }
 
 #[tokio::test]
+async fn reset_failed_ignores_stale_duplicate_and_detached_generations() {
+    let (_dir, entry, _output) = script(LOOP);
+    let launcher = Arc::new(ControlledLauncher::default());
+    launcher.sweep_release.notify_one();
+    let (handle, sender, cancel, task, _selection, _launcher) = running_with(
+        configured(),
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let running = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    sender
+        .send(Input::Event(Event::ResetFailed {
+            slot: 1,
+            generation: running.generation.saturating_sub(1),
+        }))
+        .await
+        .expect("stale reset");
+    handle
+        .place(1, placement())
+        .await
+        .expect("stale reset handled");
+    tokio::task::yield_now().await;
+    assert_eq!(
+        launcher
+            .reset_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    for _ in 0..2 {
+        sender
+            .send(Input::Event(Event::ResetFailed {
+                slot: 1,
+                generation: running.generation,
+            }))
+            .await
+            .expect("current reset");
+    }
+    handle.place(1, placement()).await.expect("resets handled");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while launcher
+            .reset_calls
+            .load(std::sync::atomic::Ordering::Relaxed)
+            == 0
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("reset called");
+    assert_eq!(
+        launcher
+            .reset_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    handle.detach(1).await.expect("detach");
+    sender
+        .send(Input::Event(Event::ResetFailed {
+            slot: 1,
+            generation: running.generation,
+        }))
+        .await
+        .expect("detached reset");
+    handle.detach(1).await.expect("detached reset handled");
+    tokio::task::yield_now().await;
+    assert_eq!(
+        launcher
+            .reset_calls
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn startup_sweep_finishes_before_a_queued_attach() {
+    let (_dir, entry, _output) = script(LOOP);
+    let launcher = Arc::new(ControlledLauncher::default());
+    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+        configured(),
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
+    );
+    tokio::time::timeout(Duration::from_secs(5), launcher.sweep_started.notified())
+        .await
+        .expect("sweep started");
+    let mut attach = Box::pin(handle.attach(1, "test", placement()));
+    assert!(futures_util::poll!(attach.as_mut()).is_pending());
+    tokio::task::yield_now().await;
+    assert!(futures_util::poll!(attach.as_mut()).is_pending());
+    assert!(launcher.process.started().is_empty());
+    launcher.sweep_release.notify_one();
+    tokio::time::timeout(Duration::from_secs(5), attach)
+        .await
+        .expect("attach answered after sweep")
+        .expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    assert_eq!(launcher.process.started().len(), 1);
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn retry_recovers_a_launch_failure_without_a_catalog_change() {
+    let (_dir, entry, _output) = script(LOOP);
+    let launcher = Arc::new(ControlledLauncher::default());
+    launcher
+        .unavailable
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    launcher.sweep_release.notify_one();
+    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+        configured(),
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
+    );
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
+    launcher
+        .unavailable
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    assert_eq!(launcher.process.started().len(), 1);
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn start_sweeps_the_panels_units_and_prunes_dead_sockets() {
     let (_dir, entry, _output) = script(LOOP);
     let test = configured();

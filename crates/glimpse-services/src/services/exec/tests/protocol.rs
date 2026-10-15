@@ -122,8 +122,9 @@ async fn rejects_bad_lines_trees_and_flood_without_stopping_sibling() {
 
 #[tokio::test]
 async fn full_queue_kills_child() {
-    let (_dir, entry, _output) =
-        script("import time\nsend('{\"t\":\"hello\",\"v\":1}')\ntime.sleep(30)\n");
+    let (_dir, entry, _output) = script(
+        "send('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nwhile True:\n    send('{\"t\":\"commit\",\"ops\":[]}')\n",
+    );
     let ((handle, _sender, cancel, task, _selection, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
@@ -146,6 +147,58 @@ async fn full_queue_kills_child() {
     handle.detach(1).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
+}
+
+#[tokio::test]
+async fn connection_cancellation_precedes_buffered_commits() {
+    use futures_util::StreamExt;
+    use tokio::io::AsyncWriteExt;
+
+    let (_dir, entry, _output) =
+        raw_script("#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n");
+    let test = configured();
+    let socket = test.config.socket_path(1);
+    let launcher = Arc::new(ProcessLauncher::new());
+    let source = spawn::source(
+        Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
+        spawn::SourceArgs {
+            slot: 1,
+            spawn: 1,
+            id: "me.example.Test".to_owned(),
+            env: BTreeMap::new(),
+            state_base: test.config.state_base.clone(),
+            entry: None,
+            cwd: None,
+            restart: false,
+            stderr: None,
+            unit: launcher::unit_name(&test.config.panel, "me.example.Test", 1, 1),
+            socket: socket.clone(),
+            launcher: Arc::clone(&launcher) as Arc<dyn Launcher>,
+            stop: CancellationToken::new(),
+        },
+    )
+    .await;
+    futures_util::pin_mut!(source);
+    assert!(matches!(source.next().await, Some(Event::Started { .. })));
+    let mut client = tokio::net::UnixStream::connect(socket)
+        .await
+        .expect("connect");
+    client
+        .write_all(b"{\"t\":\"hello\",\"v\":1}\n{\"t\":\"commit\",\"ops\":[]}\n")
+        .await
+        .expect("buffered messages");
+    let Some(Event::Connected { link, .. }) = source.next().await else {
+        panic!("connection accepted");
+    };
+    assert!(matches!(source.next().await, Some(Event::Hello { .. })));
+    link.queue_full
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    link.stop.cancel();
+    assert!(matches!(
+        source.next().await,
+        Some(Event::Misbehaved { reason, .. }) if reason == "not reading its socket"
+    ));
+    assert_eq!(launcher.kill_count(), 1);
 }
 
 #[tokio::test]

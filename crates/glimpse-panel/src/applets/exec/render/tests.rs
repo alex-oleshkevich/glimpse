@@ -121,7 +121,7 @@ fn files_that_run_programs_stay_closed() {
     assert!(openable(root.as_path()).is_ok());
     assert_eq!(openable(&link).map(|(path, _)| path), Ok(canonical));
     let disguised = root.as_path().join("notes");
-    let mut elf = b"\x7fELF\x02\x01\x01".to_vec();
+    let mut elf = b"\x7f\x45LF\x02\x01\x01".to_vec();
     elf.resize(64, 0);
     std::fs::write(&disguised, elf).expect("disguised");
     assert_eq!(openable(&disguised), Err("launches programs"));

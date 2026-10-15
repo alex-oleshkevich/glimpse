@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
-use glimpse_config::{ExecAppletConfig, is_desktop_id};
+use glimpse_config::{ExecAppletConfig, exec_env_name_allowed, is_desktop_id};
 use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name, panel_app_id};
 use glimpse_services::{DesktopCatalog, ExecEntry};
 use notify::{EventKind, RecursiveMode, Watcher};
@@ -234,7 +234,10 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         .into_iter()
         .map(|item| {
             let (key, value) = item.split_once('=').context("--env expects KEY=VALUE")?;
-            ensure!(!key.is_empty(), "--env key is empty");
+            ensure!(
+                exec_env_name_allowed(key),
+                "--env name is not allowed: {key:?}"
+            );
             Ok((key.to_owned(), value.to_owned()))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -260,7 +263,7 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
         .destination(name.clone())?
         .build()
         .await?;
-    let mut handle = attach(&proxy, &host, &entry, &current_settings, &flags).await?;
+    let mut handle = Some(attach(&proxy, &host, &entry, &current_settings, &flags).await?);
     let mut tty = io::stdin().is_terminal();
     let (command_tx, mut commands) = mpsc::unbounded_channel();
     if tty {
@@ -316,8 +319,8 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
                     if config_changed {
                         match settings(&applet_config, &id) {
                             Ok(next) => {
-                                if next.options != current_settings.options {
-                                    match super::within(proxy.set_options(&handle, &serde_json::to_string(&next.options)?)).await {
+                                if let Some(handle) = handle.as_deref().filter(|_| next.options != current_settings.options) {
+                                    match super::within(proxy.set_options(handle, &serde_json::to_string(&next.options)?)).await {
                                         Ok(()) => eprintln!("options updated"),
                                         Err(error) => eprintln!("cannot update options: {error}"),
                                     }
@@ -351,20 +354,29 @@ pub async fn applets_run(args: RunArgs) -> Result<()> {
                             continue;
                         }
                     }
-                    if let Err(error) = super::within(proxy.detach(&handle)).await {
-                        eprintln!("cannot detach {handle}: {error}");
+                } else if let Some(current) = handle.as_deref() {
+                    match super::within(proxy.restart(current)).await {
+                        Ok(()) => continue,
+                        Err(error) => eprintln!("cannot restart {current}: {error}; attaching again"),
                     }
-                    handle = attach(&proxy, &host, &entry, &current_settings, &flags).await?;
-                } else if let Err(error) = super::within(proxy.restart(&handle)).await {
-                    eprintln!("cannot restart {handle}: {error}; attaching again");
-                    handle = attach(&proxy, &host, &entry, &current_settings, &flags).await?;
+                }
+                if let Some(handle) = handle.take()
+                    && let Err(error) = super::within(proxy.detach(&handle)).await
+                {
+                    eprintln!("cannot detach {handle}: {error}");
+                }
+                match attach(&proxy, &host, &entry, &current_settings, &flags).await {
+                    Ok(next) => handle = Some(next),
+                    Err(error) => eprintln!("{error:#}; waiting for the next change"),
                 }
             }
         }
     }
-    super::within(proxy.detach(&handle))
-        .await
-        .with_context(|| format!("cannot detach {handle}"))?;
+    if let Some(handle) = handle {
+        super::within(proxy.detach(&handle))
+            .await
+            .with_context(|| format!("cannot detach {handle}"))?;
+    }
     Ok(())
 }
 

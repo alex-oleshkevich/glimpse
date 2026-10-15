@@ -1,8 +1,8 @@
 # glimpse-sdk
 
 Write a [glimpse](https://github.com/alex-oleshkevich/glimpse) panel applet in React. The applet is
-a Node program: the panel starts it, and the SDK speaks the panel's NDJSON protocol on
-stdin and stdout.
+a Node program: the panel starts it, and the SDK speaks the panel's NDJSON protocol on the
+unix socket named by `GLIMPSE_APPLET_SOCKET`, or on stdin and stdout when that is unset.
 
 ```tsx
 import { Indicator, Popover, Row, run, Section } from "glimpse-sdk";
@@ -44,7 +44,7 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
   `useAppletName` and `useStateDir`. `useStateDir` returns the applet's private, persistent
   directory.
 - Host requests: `notify`, `copy`, `openUri`, `launch` and `closePopover`.
-- Services, each behind its own grant: `useMpris` with `mpris.*`, `useCompositor` with
+- Services: `useMpris` with `mpris.*`, `useCompositor` with
   `compositor.*`. `positionNow` advances a playing track's position.
 
 An exec applet runs unconfined as a systemd user unit and has the user's full session.

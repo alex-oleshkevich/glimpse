@@ -936,6 +936,45 @@ standardIo().writeLine(JSON.stringify({ t: "commit", ops: [{ op: "set", text: "x
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  await t.test("socket io exits 0 when the panel drops the connection", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
+    const socketPath = path.join(dir, "d.sock");
+    const server = net.createServer();
+    server.listen(socketPath);
+    await once(server, "listening");
+    const connect = net.Socket.prototype.connect;
+    try {
+      for (const code of ["EPIPE", "ECONNRESET"]) {
+        let socket: net.Socket | undefined;
+        net.Socket.prototype.connect = function (
+          this: net.Socket,
+          ...args: Parameters<typeof connect>
+        ) {
+          socket = this;
+          return connect.apply(this, args);
+        } as typeof connect;
+        const accepted = once(server, "connection") as Promise<[net.Socket]>;
+        const exit = mockExit(false);
+        try {
+          const running = session(createElement(Indicator), socketIo(socketPath));
+          net.Socket.prototype.connect = connect;
+          const [peer] = await accepted;
+          socket!.emit("error", Object.assign(new Error(code), { code }));
+          await running;
+          socket!.destroy();
+          peer.destroy();
+        } finally {
+          exit.restore();
+        }
+        assert(exit.code() === 0, `${code}: exit ${exit.code()}`);
+      }
+    } finally {
+      net.Socket.prototype.connect = connect;
+      server.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   await t.test("run uses the socket when GLIMPSE_APPLET_SOCKET is set", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sock-"));
     const socketPath = path.join(dir, "r.sock");

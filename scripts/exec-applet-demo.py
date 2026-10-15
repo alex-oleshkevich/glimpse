@@ -1,14 +1,38 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import select
 import signal
+import socket
 import sys
 import time
 
+incoming = sys.stdin
+outgoing = sys.stdout
+
+
+def connect():
+    global incoming, outgoing
+    path = os.environ.get("GLIMPSE_APPLET_SOCKET")
+    if not path:
+        return True
+    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        connection.connect(path)
+    except (FileNotFoundError, ConnectionRefusedError):
+        return False
+    incoming = connection.makefile("r", encoding="utf-8", newline="\n")
+    outgoing = connection.makefile("w", encoding="utf-8", newline="\n")
+    return True
+
+
+def write(text):
+    print(text, file=outgoing, flush=True)
+
 
 def send(message):
-    print(json.dumps(message, separators=(",", ":")), flush=True)
+    write(json.dumps(message, separators=(",", ":")))
 
 
 def node(id, kind, props=None, children=None):
@@ -21,20 +45,19 @@ def context_text(placement, options):
 
 def initial_commit(name, placement, options):
     rows = [
-        node(5, "row", {"title": "Notify", "onActivate": True}),
-        node(6, "row", {"title": "Copy text", "onActivate": True}),
-        node(7, "row", {"title": "Open glimpse repo", "onActivate": True}),
-        node(8, "row", {"title": "Lock screen", "onActivate": True}),
-        node(9, "row", {"title": "Close popover", "onActivate": True}),
-        node(10, "switchrow", {"title": "Enabled", "active": False, "onToggle": True}),
-        node(11, "fader", {"value": 0.5, "maximum": 1.0, "onChange": True}),
+        node(5, "actionrow", {"title": "Notify", "onActivate": True}),
+        node(6, "actionrow", {"title": "Copy text", "onActivate": True}),
+        node(7, "actionrow", {"title": "Open glimpse repo", "onActivate": True}),
+        node(8, "actionrow", {"title": "Launch missing app (error)", "onActivate": True}),
+        node(9, "actionrow", {"title": "Close popover", "onActivate": True}),
+        node(10, "togglerow", {"title": "Enabled", "active": False, "onToggle": True}),
+        node(11, "sliderrow", {"title": "Level", "value": 0.5, "max": 1.0, "onChange": True}),
         node(12, "entry", {"placeholder": "Type here", "value": "", "onChange": True, "onSubmit": True}),
     ]
-    indicator = node(1, "indicator", {"icon": "applications-science-symbolic", "badge": "0", "onPress": True})
-    popover = node(2, "popover", children=[
-        node(3, "hero", {"title": "Exec demo", "subtitle": name}),
+    indicator = node(1, "indicator", {"icon": "applications-science-symbolic", "badge": "0", "tooltip": "Exec demo: right-click to count, left-click to open", "onPress": True})
+    popover = node(2, "popover", {"title": "Exec demo", "subtitle": name}, children=[
         node(4, "section", children=[node(13, "label", {"text": context_text(placement, options)}), *rows]),
-        node(14, "footer", children=[node(15, "button", {"text": "Notify", "onClick": True})]),
+        node(14, "box", children=[node(15, "button", {"text": "Notify", "onClick": True})]),
     ])
     return {"t": "commit", "ops": [
         {"op": "insert", "parent": 0, "node": indicator, "before": None},
@@ -79,13 +102,104 @@ def self_test():
         assert op["before"] is None
         check_node(op["node"])
 
-    for count in (100, 300):
+    for count in (4, 100, 300):
         dense = many_nodes_commit(count)
         sections = dense["ops"][1]["node"]["children"]
         assert 3 + len(sections) + sum(len(section["children"]) for section in sections) == count
         assert all(len(section["children"]) <= 200 for section in sections)
         for op in dense["ops"]:
             check_node(op["node"])
+
+    socket_self_test()
+
+
+def socket_self_test():
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    hello = {"t": "hello", "v": 1, "name": "Demo", "state": "/tmp", "options": {}, "placement": {"position": "bottom", "output": "test"}}
+    command = [sys.executable, str(Path(__file__).resolve())]
+    with tempfile.TemporaryDirectory(prefix="glimpse-demo-") as directory:
+        path = str(Path(directory) / "applet.sock")
+        env = {**os.environ, "GLIMPSE_APPLET_SOCKET": path}
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+            listener.bind(path)
+            listener.listen()
+            listener.settimeout(3)
+            for mode in (None, "garbage", "huge-line", "flood", "no-read", "exit-before-hello", "crash-after", "many-nodes", "churn", "bad-host-hello"):
+                args = [] if mode in (None, "bad-host-hello") else ["--mode", mode]
+                if mode == "crash-after":
+                    args.append("0.05")
+                process = subprocess.Popen(command + args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    connection, _ = listener.accept()
+                    with connection:
+                        connection.settimeout(3)
+                        with connection.makefile("rw", encoding="utf-8", newline="\n") as stream:
+                            if mode == "exit-before-hello":
+                                assert stream.readline() == ""
+                                assert process.wait(timeout=3) == 3
+                                continue
+                            assert json.loads(stream.readline()) == {"t": "hello", "v": 1}
+                            stream.write(json.dumps({**hello, "v": 2} if mode == "bad-host-hello" else hello) + "\n")
+                            stream.flush()
+                            if mode == "bad-host-hello":
+                                assert stream.readline() == ""
+                                assert process.wait(timeout=3) == 1
+                                continue
+                            if mode == "garbage":
+                                assert stream.readline() == "not json\n"
+                            elif mode == "huge-line":
+                                assert len(stream.readline()) == 2 * 1024 * 1024 + 1
+                            elif mode == "flood":
+                                assert all(json.loads(stream.readline()) == {"t": "commit", "ops": []} for _ in range(500))
+                            else:
+                                commit = json.loads(stream.readline())
+                                assert commit["t"] == "commit"
+                                if mode == "no-read":
+                                    assert json.loads(stream.readline()) == {"t": "commit", "ops": []}
+                                    process.terminate()
+                                elif mode == "crash-after":
+                                    assert stream.readline() == ""
+                                    assert process.wait(timeout=3) == 1
+                                elif mode == "churn":
+                                    assert json.loads(stream.readline())["ops"][0]["props"] == {"text": "Tick 1"}
+                                elif mode is None:
+                                    assert commit == initial_commit("Demo", hello["placement"], {})
+                                    cases = [
+                                        ({"id": 1, "name": "onPress", "args": [3]}, {"t": "commit", "ops": [{"op": "set", "id": 1, "props": {"badge": "1"}}]}),
+                                        ({"id": 5, "name": "onActivate"}, {"t": "notify", "summary": "Exec demo", "body": "Notification requested"}),
+                                        ({"id": 6, "name": "onActivate"}, {"t": "copy", "text": "Exec demo"}),
+                                        ({"id": 7, "name": "onActivate"}, {"t": "open-uri", "uri": "https://github.com/alex-oleshkevich/glimpse"}),
+                                        ({"id": 8, "name": "onActivate"}, {"t": "launch", "id": "org.example.GlimpseExecDemo.Missing.desktop"}),
+                                        ({"id": 9, "name": "onActivate"}, {"t": "close-popover"}),
+                                        ({"id": 15, "name": "onClick"}, {"t": "notify", "summary": "Exec demo", "body": "Footer clicked"}),
+                                    ]
+                                    for id, name, value in ((10, "onToggle", True), (11, "onChange", 0.75), (12, "onChange", "hello"), (12, "onSubmit", "hello")):
+                                        cases.append(({"id": id, "name": name, "args": [value], "seq": 7}, {"t": "commit", "ops": [{"op": "set", "id": id, "props": {"active" if id == 10 else "value": value}, "seq": 7}]}))
+                                    for event, expected in cases:
+                                        stream.write(json.dumps({"t": "event", **event}) + "\n")
+                                        stream.flush()
+                                        assert json.loads(stream.readline()) == expected
+                                    for message in ({"t": "options", "options": {"example": True}}, {"t": "placement", "placement": {"position": "top", "output": "other"}}):
+                                        hello.update({key: value for key, value in message.items() if key != "t"})
+                                        stream.write(json.dumps(message) + "\n")
+                                        stream.flush()
+                                        assert json.loads(stream.readline())["ops"][0]["props"] == {"text": context_text(hello["placement"], hello["options"])}
+                        connection.shutdown(socket.SHUT_RDWR)
+                    if mode not in ("no-read", "crash-after"):
+                        assert process.wait(timeout=3) == 0
+                    assert process.stdout.read() == b""
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait(timeout=3)
+                    process.stdout.close()
+                    process.stderr.close()
+        for path in (str(Path(directory) / "missing.sock"), path):
+            result = subprocess.run(command, env={**env, "GLIMPSE_APPLET_SOCKET": path}, capture_output=True, timeout=3)
+            assert result.returncode == 0 and not result.stdout and not result.stderr
 
 
 def handle_event(message, clicks):
@@ -100,8 +214,8 @@ def handle_event(message, clicks):
         requests = {
             5: {"t": "notify", "summary": "Exec demo", "body": "Notification requested"},
             6: {"t": "copy", "text": "Exec demo"},
-            7: {"t": "open-uri", "uri": "https://github.com/"},
-            8: {"t": "session", "action": "lock"},
+            7: {"t": "open-uri", "uri": "https://github.com/alex-oleshkevich/glimpse"},
+            8: {"t": "launch", "id": "org.example.GlimpseExecDemo.Missing.desktop"},
             9: {"t": "close-popover"},
             15: {"t": "notify", "summary": "Exec demo", "body": "Footer clicked"},
         }
@@ -120,7 +234,7 @@ def run(mode, crash_after, nodes):
     if mode == "exit-before-hello":
         return 3
     send({"t": "hello", "v": 1})
-    line = sys.stdin.readline()
+    line = incoming.readline()
     if not line:
         return 0
     hello = json.loads(line)
@@ -130,14 +244,14 @@ def run(mode, crash_after, nodes):
     options = hello["options"]
     placement = hello["placement"]
     if mode == "garbage":
-        print("not json", flush=True)
+        write("not json")
         return 0
     if mode == "huge-line":
-        print("x" * (2 * 1024 * 1024), flush=True)
+        write("x" * (2 * 1024 * 1024))
         return 0
     if mode == "many-nodes":
         send(many_nodes_commit(nodes))
-        for _ in sys.stdin:
+        for _ in incoming:
             pass
         return 0
     if mode == "flood":
@@ -155,11 +269,11 @@ def run(mode, crash_after, nodes):
     clicks = 0
     tick = 0
     while True:
-        if mode == "churn" and not select.select([sys.stdin], [], [], 0.1)[0]:
+        if mode == "churn" and not select.select([incoming], [], [], 0.1)[0]:
             tick += 1
             send({"t": "commit", "ops": [{"op": "set", "id": 13, "props": {"text": f"Tick {tick}"}}]})
             continue
-        line = sys.stdin.readline()
+        line = incoming.readline()
         if not line:
             return 0
         message = json.loads(line)
@@ -194,7 +308,12 @@ def main():
     if args.self_test:
         self_test()
         return 0
-    return run(args.mode, args.seconds, args.nodes)
+    if not connect():
+        return 0
+    try:
+        return run(args.mode, args.seconds, args.nodes)
+    except (BrokenPipeError, ConnectionResetError):
+        return 0
 
 
 if __name__ == "__main__":
