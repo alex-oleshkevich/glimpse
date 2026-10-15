@@ -101,6 +101,9 @@ pub struct Config {
     #[serde(deserialize_with = "applets::deserialize")]
     #[schemars(schema_with = "applets::schema")]
     pub applets: BTreeMap<String, Applet>,
+    #[serde(rename = "power", skip_serializing)]
+    #[schemars(skip)]
+    pub retired_power: toml::Table,
 }
 
 impl Config {
@@ -170,6 +173,7 @@ impl Default for Config {
             system_monitor: SystemMonitor::default(),
             panels: vec![Panel::default()],
             applets: BTreeMap::new(),
+            retired_power: toml::Table::new(),
         }
     }
 }

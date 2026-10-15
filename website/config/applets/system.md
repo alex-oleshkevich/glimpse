@@ -10,15 +10,21 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.audio" describe />
 
+<AppletShot name="audio" />
+
 ## bluetooth
 
 <ConfigTable path="applets.bluetooth" describe />
+
+<AppletShot name="bluetooth" />
 
 <ConfigTable path="bluetooth" describe />
 
 ## network
 
 <ConfigTable path="applets.network" describe />
+
+<AppletShot name="network" />
 
 <ConfigTable path="network" describe />
 
@@ -28,11 +34,15 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.display" describe />
 
+<AppletShot name="display" />
+
 <ConfigTable path="brightness" describe />
 
 ## power
 
 <ConfigTable path="applets.power" describe />
+
+<AppletShot name="power" />
 
 ## keyboard
 
@@ -40,11 +50,15 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.keyboard" describe />
 
+<AppletShot name="keyboard" />
+
 <ConfigTable path="keyboard" describe />
 
 ## printing
 
 <ConfigTable path="applets.printing" describe />
+
+<AppletShot name="printing" />
 
 <ConfigTable path="printing" describe />
 
@@ -52,16 +66,24 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.removable" describe />
 
+<AppletShot name="removable" />
+
 <ConfigTable path="removable" describe />
 
 ## privacy
 
 <ConfigTable path="applets.privacy" describe />
 
+<AppletShot name="privacy" />
+
 ## idle
 
 <ConfigTable path="applets.idle" describe />
 
+<AppletShot name="idle" />
+
 ## session
 
 <ConfigTable path="applets.session" describe />
+
+<AppletShot name="session" />

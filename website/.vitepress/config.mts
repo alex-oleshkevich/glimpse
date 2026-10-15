@@ -26,6 +26,7 @@ export default withMermaid(
       nav: [
         { text: "Get started", link: "/start/", activeMatch: "^/start/" },
         { text: "Configuration", link: "/config/", activeMatch: "^/config/" },
+        { text: "Ecosystem", link: "/ecosystem/", activeMatch: "^/ecosystem/" },
       ],
       sidebar: {
         "/start/": [

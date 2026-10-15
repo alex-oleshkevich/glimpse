@@ -562,3 +562,10 @@ fn a_setting_no_applet_declares_is_refused() {
         "it names the table: {error}"
     );
 }
+
+#[test]
+fn a_power_table_from_an_older_file_still_loads() {
+    let parsed: crate::Config = toml::from_str("[power]\nlock-on-request = false\n")
+        .expect("the locking settings are gone, but a file naming them still loads");
+    assert_eq!(parsed.panels, crate::Config::default().panels);
+}

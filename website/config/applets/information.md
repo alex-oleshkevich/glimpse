@@ -10,15 +10,21 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.clock" describe />
 
+<AppletShot name="clock" />
+
 <ConfigTable path="calendar" describe />
 
 ## next-event
 
 <ConfigTable path="applets.next-event" describe />
 
+<AppletShot name="next-event" />
+
 ## weather
 
 <ConfigTable path="applets.weather" describe />
+
+<AppletShot name="weather" />
 
 <ConfigTable path="weather" describe />
 
@@ -26,18 +32,26 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.mpris" describe />
 
+<AppletShot name="mpris" />
+
 <ConfigTable path="mpris" describe />
 
 ## notifications
 
 <ConfigTable path="applets.notifications" describe />
 
+<AppletShot name="notifications" />
+
 ## system-monitor
 
 <ConfigTable path="applets.system-monitor" describe />
+
+<AppletShot name="system-monitor" />
 
 <ConfigTable path="system-monitor" describe />
 
 ## kdeconnect
 
 <ConfigTable path="applets.kdeconnect" describe />
+
+<AppletShot name="kdeconnect" />

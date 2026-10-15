@@ -422,7 +422,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--auto", metavar="SEC", type=float, default=0,
                     help="auto-advance every SEC seconds instead of waiting for Enter")
+    ap.add_argument("--scenario", metavar="N", type=int, default=1,
+                    help="start on scenario N instead of the first")
+    ap.add_argument("--hold", action="store_true",
+                    help="stay on the starting scenario until stopped, ignoring stdin")
     args = ap.parse_args()
+    _idx = (args.scenario - 1) % len(SCENARIOS)
 
     port = int(os.environ.get("GLIMPSE_MOCK_PORT", "16631"))
     server = HTTPServer(("127.0.0.1", port), IppHandler)
@@ -435,7 +440,9 @@ def main():
         print(f"  Press {BOLD}Enter{RESET} to advance scenario, {BOLD}Ctrl-C{RESET} to stop.")
 
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    _show(0)
+    _show(_idx)
+    if args.hold:
+        threading.Event().wait()
 
     try:
         if args.auto:

@@ -12,18 +12,26 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.pager" describe />
 
+<AppletShot name="pager" />
+
 ## workspace-name
 
 <Compositors />
 
 <ConfigTable path="applets.workspace-name" describe />
 
+<AppletShot name="workspace-name" />
+
 ## tray
 
 <ConfigTable path="applets.tray" describe />
 
+<AppletShot name="tray" />
+
 ## places
 
 <ConfigTable path="applets.places" describe />
+
+<AppletShot name="places" />
 
 <ConfigTable path="places" describe />

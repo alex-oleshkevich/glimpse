@@ -48,3 +48,4 @@ options = { title = "Work" }
 ```
 
 <ConfigTable path="applets.exec" describe />
+

@@ -12,7 +12,7 @@ boxes, numbered steps, text, and blur over anything private.
 <ThemeImage
   light="/screenshots/ecosystem/shot-editor.png"
   dark="/screenshots/ecosystem/shot-editor.png"
-  alt="A frozen screen in the glimpse-shot editor, with an arrow, a numbered marker, a text note and a blurred area, and the tool bar at the bottom"
+  alt="A Files window frozen in the glimpse-shot editor, with an oval, an arrow and a note pointing at a file, two numbered markers, blurred folder names, and the tool bar along the top"
 />
 
 ### Take a screenshot
@@ -23,13 +23,13 @@ boxes, numbered steps, text, and blur over anything private.
 | `glimpse-shot --region` | drag a rectangle, then mark it up |
 | `glimpse-shot --window` | pick a window, then mark it up |
 | `glimpse-shot --screen --delay 5` | wait five seconds first, for menus and tooltips |
-| `glimpse-shot` | open the screenshot app, with its history |
+| `glimpse-shot` | open the screenshot app and choose what to capture |
 
 The screen freezes the moment you run it, so whatever was on screen stays put while you work.
 
 ### Mark it up
 
-Pick a tool from the bar at the bottom, or press its letter:
+Pick a tool from the bar at the top, or press its letter:
 
 | Key | Tool |
 | --- | --- |
@@ -56,7 +56,7 @@ Pick a tool from the bar at the bottom, or press its letter:
 | <kbd>Ctrl</kbd>+<kbd>E</kbd> | keep working on it in a normal window |
 | <kbd>Esc</kbd> | close without saving |
 
-Screenshots go to `~/Pictures/Screenshots` unless you choose another folder in the app's
+Screenshots go to the Screenshots folder inside your Pictures folder unless you choose another folder in the app's
 preferences or in [`[screenshot]`](/config/services/screenshots). A notification lets you open the
 picture or show it in your file manager.
 

@@ -48,7 +48,7 @@ show = "always"
 EOF
 
     app_id="me.aresa.Glimpse.DocsShots$RANDOM$RANDOM"
-    env -u GLIMPSE_CONFIG_PATH GLIMPSE_PANEL_APP_ID="$app_id" \
+    env -u GLIMPSE_CONFIG_PATH LANGUAGE=en LC_ALL=en_US.UTF-8 GLIMPSE_PANEL_APP_ID="$app_id" \
         "$panel" --config "$scratch/config/config.toml" > "$scratch/panel-$scheme.log" 2>&1 &
     pid=$!
     sleep 6

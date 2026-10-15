@@ -25,10 +25,10 @@ defineProps<{ light: string; dark: string; alt: string }>();
 .theme-image__dark {
   display: none;
 }
-:global(.dark) .theme-image__light {
+.dark .theme-image__light {
   display: none;
 }
-:global(.dark) .theme-image__dark {
+.dark .theme-image__dark {
   display: block;
 }
 figcaption {

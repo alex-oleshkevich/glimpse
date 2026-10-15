@@ -10,16 +10,22 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.clipboard" describe />
 
+<AppletShot name="clipboard" />
+
 <ConfigTable path="clipboard" describe />
 
 ## color-picker
 
 <ConfigTable path="applets.color-picker" describe />
 
+<AppletShot name="color-picker" />
+
 <ConfigTable path="color-picker" describe />
 
 ## ruler
 
 <ConfigTable path="applets.ruler" describe />
+
+<AppletShot name="ruler" />
 
 <ConfigTable path="ruler" describe />

@@ -1,5 +1,6 @@
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
+import AppletShot from "./components/AppletShot.vue";
 import AppletList from "./components/AppletList.vue";
 import Compositors from "./components/Compositors.vue";
 import ConfigTable from "./components/ConfigTable.vue";
@@ -10,6 +11,7 @@ export default {
   extends: DefaultTheme,
   enhanceApp({ app }) {
     app.component("AppletList", AppletList);
+    app.component("AppletShot", AppletShot);
     app.component("Compositors", Compositors);
     app.component("ConfigTable", ConfigTable);
     app.component("ThemeImage", ThemeImage);
