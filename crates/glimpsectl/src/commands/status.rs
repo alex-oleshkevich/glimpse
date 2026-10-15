@@ -70,7 +70,7 @@ fn print(rows: &[ComponentRow], json: bool) -> Result<()> {
         return emit(&rows);
     }
     crate::render::print(
-        &Table::new()
+        &Table::default()
             .with_headers(["COMPONENT", "VERSION", "CONFIG"])
             .with_empty("no components")
             .with_rows(rows.iter().map(|row| {

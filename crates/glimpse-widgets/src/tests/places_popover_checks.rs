@@ -152,14 +152,4 @@ fn places_popover_widgets() {
     popover.set_overflow(Some("3 more"));
     imp.bookmarks_more.activate();
     assert!(more.get());
-
-    let footer_activated = Rc::new(Cell::new(false));
-    popover.connect_footer_activated({
-        let footer_activated = Rc::clone(&footer_activated);
-        move |_| footer_activated.set(true)
-    });
-    popover.set_footer(Some("Open file manager"));
-    assert!(imp.footer.get_visible());
-    imp.footer.activate();
-    assert!(footer_activated.get());
 }

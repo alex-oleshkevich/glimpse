@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
-use glimpse_shot::ports::{Notice, Notifier};
+use glimpse_shot::ports::Notice;
 use glimpse_utils::init_translations;
 use glimpse_wayland::selection::{Entry, Owned};
 use serde::{Deserialize, Serialize};
@@ -135,7 +135,7 @@ fn serve(entries: Vec<Entry>) -> Result<Owned> {
         .context("the clipboard was not taken")
 }
 
-pub(crate) async fn notified(notifier: &impl Notifier, notice: Notice) {
+pub(crate) async fn notified(notifier: &crate::notify::BusNotifier, notice: Notice) {
     if let Err(reason) = notifier.notify(notice) {
         tracing::warn!("cannot post the notification: {reason}");
         return;

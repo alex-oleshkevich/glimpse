@@ -1,6 +1,6 @@
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use gtk4::glib;
 
@@ -57,14 +57,6 @@ fn only_the_prompt_that_submitted_and_is_still_interactive_reaches_pam() {
     );
 }
 
-fn pump(context: &glib::MainContext, for_: Duration) {
-    let until = Instant::now() + for_;
-    while Instant::now() < until {
-        while context.iteration(false) {}
-        std::thread::sleep(Duration::from_millis(1));
-    }
-}
-
 #[test]
 fn the_clock_timer_is_only_ever_armed_once() {
     let context = glib::MainContext::default();
@@ -78,15 +70,19 @@ fn the_clock_timer_is_only_ever_armed_once() {
         move || fired.set(fired.get() + 1)
     };
 
-    timer.arm(Duration::from_millis(5), count(&fired));
-    timer.arm(Duration::from_millis(5), count(&fired));
-    pump(&context, Duration::from_millis(60));
+    timer.arm(Duration::ZERO, count(&fired));
+    timer.arm(Duration::ZERO, count(&fired));
+    while context.pending() {
+        context.iteration(false);
+    }
     assert_eq!(fired.get(), 1, "re-arming replaces the pending timer");
 
     timer.fired();
-    timer.arm(Duration::from_millis(5), count(&fired));
+    timer.arm(Duration::ZERO, count(&fired));
     timer.cancel();
-    pump(&context, Duration::from_millis(60));
+    while context.pending() {
+        context.iteration(false);
+    }
     assert_eq!(fired.get(), 1, "a cancelled timer never fires");
 }
 

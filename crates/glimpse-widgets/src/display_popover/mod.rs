@@ -3,7 +3,7 @@ mod imp;
 use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Choice, Fact, Row, Source, none_if_empty};
+use crate::{Choice, Fact, Source, none_if_empty};
 
 pub use imp::NightLight;
 
@@ -11,17 +11,17 @@ const CHANGED: &str = "changed";
 const NIGHT_LIGHT_TOGGLED: &str = "night-light-toggled";
 const NIGHT_LIGHT_CHANGED: &str = "night-light-changed";
 const NIGHT_LIGHT_MOVED: &str = "night-light-moved";
+const NIGHT_LIGHT_PAUSED: &str = "night-light-paused";
 const NIGHT_LIGHT_SCHEDULED: &str = "night-light-scheduled";
 const ENABLE_REQUESTED: &str = "enable-requested";
 const BLANKED: &str = "blanked";
-const FOOTER_ACTIVATED: &str = "footer-activated";
 const AUTOMATIC: &str = "automatic";
 const HOURS: &str = "schedule";
 const BRIGHTNESS_ICON: &str = "display-brightness-symbolic";
 const DISPLAY_ICON: &str = "video-display-symbolic";
 
-const TEMPERATURE_MIN: f64 = 1000.0;
-const TEMPERATURE_MAX: f64 = 6500.0;
+const TEMPERATURE_MIN: f64 = glimpse_config::MIN_TEMPERATURE as f64;
+const TEMPERATURE_MAX: f64 = glimpse_config::MAX_TEMPERATURE as f64;
 
 glib::wrapper! {
     pub struct DisplayPopover(ObjectSubclass<imp::DisplayPopover>)
@@ -92,15 +92,13 @@ impl DisplayPopover {
         self.render_displays();
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
+    pub fn set_blank_screens(&self, supported: bool) {
         let imp = self.imp();
-        let label = label.and_then(|label| none_if_empty(label));
-        let row = imp.footer.upcast_ref::<Row>();
-        if row.title().as_deref() == label && imp.footer.get_visible() == label.is_some() {
+        if imp.blank_screens.get() == supported {
             return;
         }
-        row.set_title(label);
-        imp.footer.set_visible(label.is_some());
+        imp.blank_screens.set(supported);
+        self.render_displays();
     }
 
     pub fn connect_changed<F: Fn(&Self, &str, f64) + 'static>(
@@ -160,6 +158,17 @@ impl DisplayPopover {
         )
     }
 
+    pub fn connect_night_light_paused<F: Fn(&Self, bool) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            NIGHT_LIGHT_PAUSED,
+            false,
+            glib::closure_local!(move |popover: Self, paused: bool| f(&popover, paused)),
+        )
+    }
+
     pub fn connect_enable_requested<F: Fn(&Self, &str, bool) + 'static>(
         &self,
         f: F,
@@ -176,14 +185,6 @@ impl DisplayPopover {
     pub fn connect_blanked<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             BLANKED,
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            FOOTER_ACTIVATED,
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )
@@ -217,9 +218,15 @@ impl DisplayPopover {
             })
             .flatten()
             .map(|(_, label)| Fact::new(gettext("Schedule"), label));
+        let paused = state
+            .paused_until
+            .as_deref()
+            .filter(|time| !time.is_empty())
+            .map(|time| Fact::new(gettext("Paused until {time}").replace("{time}", time), ""));
         let facts: Vec<Fact> = schedule
             .into_iter()
             .chain([Fact::new(gettext("Temperature"), kelvin)])
+            .chain(paused)
             .collect();
         crate::set_facts(&imp.night_facts, &facts);
     }
@@ -294,7 +301,57 @@ impl DisplayPopover {
         imp.schedules
             .set_selected(current.map(|index| index as u32));
         imp.temperature.set_sensitive(state.enabled);
+        self.render_pause();
         self.sync_brightness();
+    }
+
+    fn render_pause(&self) {
+        let imp = self.imp();
+        let (paused, visible) = {
+            let state = imp.night_light_state.borrow();
+            let paused = state
+                .as_ref()
+                .is_some_and(|state| state.paused_until.is_some());
+            let visible = paused
+                || state
+                    .as_ref()
+                    .is_some_and(|state| state.enabled && state.can_pause);
+            (paused, visible)
+        };
+        imp.pause.set_visible(visible);
+        let title = if paused {
+            gettext("Resume")
+        } else {
+            gettext("Pause until tomorrow")
+        };
+        imp.pause
+            .upcast_ref::<crate::Row>()
+            .set_title(Some(title.as_str()));
+    }
+
+    pub(crate) fn clear_pause(&self) {
+        if let Some(state) = self.imp().night_light_state.borrow_mut().as_mut() {
+            state.paused_until = None;
+        }
+        self.render_pause();
+    }
+
+    fn request_pause(&self) {
+        let imp = self.imp();
+        let Some(mut state) = imp.night_light_state.borrow().clone() else {
+            return;
+        };
+        let paused = state.paused_until.is_none();
+        if paused && (!state.enabled || !state.can_pause) {
+            return;
+        }
+        state.paused_until = paused.then(String::new);
+        if paused {
+            state.temperature = glimpse_config::MAX_TEMPERATURE;
+        }
+        imp.night_light_state.replace(Some(state));
+        self.render_night_light();
+        self.emit_by_name::<()>(NIGHT_LIGHT_PAUSED, &[&paused]);
     }
 
     fn render_displays(&self) {
@@ -304,7 +361,8 @@ impl DisplayPopover {
         imp.displays_section.set_visible(!displays.is_empty());
         imp.displays.set_output_power(power);
         imp.displays.set_displays(&displays);
-        imp.blank.set_visible(power && !displays.is_empty());
+        imp.blank
+            .set_visible(imp.blank_screens.get() && !displays.is_empty());
     }
 
     fn sync_brightness(&self) {

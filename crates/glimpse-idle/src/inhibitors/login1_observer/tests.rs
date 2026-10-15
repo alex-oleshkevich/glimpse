@@ -1,7 +1,7 @@
 use super::*;
 
 fn entry(what: &str, who: &str, why: &str, mode: &str, pid: u32) -> Login1InhibitorEntry {
-    (what.into(), who.into(), why.into(), mode.into(), 1000, pid)
+    (what.into(), who.into(), why.into(), mode.into(), 4242, pid)
 }
 #[test]
 fn diff_detects_additions_excluding_own_pid() {
@@ -115,7 +115,7 @@ fn entry_to_record_carries_pid_uid_and_targets_and_never_allows_release() {
     assert_eq!(record.bus_name, "");
     assert_eq!(record.source.kind, glimpse_dbus::idle::SourceKind::Login1);
     assert_eq!(record.source.pid, 1234);
-    assert_eq!(record.source.uid, 1000);
+    assert_eq!(record.source.uid, 4242);
     assert_eq!(record.source.mode, Login1Mode::Block);
 }
 #[test]

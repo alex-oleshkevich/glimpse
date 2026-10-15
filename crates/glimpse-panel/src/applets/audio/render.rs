@@ -148,12 +148,8 @@ fn desktop_icon(id: &str) -> Option<String> {
 pub(crate) fn app_name(app: &AudioApp) -> String {
     match app.name.is_empty() {
         true => gettext("Unknown application"),
-        false => cap(&app.name, AUDIO_NAME_CAP),
+        false => glimpse_utils::clean(&app.name, AUDIO_NAME_CAP),
     }
-}
-
-pub fn cap(text: &str, chars: usize) -> String {
-    glimpse_utils::clean(text, chars)
 }
 
 #[cfg(test)]

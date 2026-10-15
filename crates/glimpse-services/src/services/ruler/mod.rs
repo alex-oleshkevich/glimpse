@@ -3,14 +3,13 @@ mod runner;
 
 use std::sync::Arc;
 
-use tokio::sync::{oneshot, watch};
+use tokio::sync::oneshot;
 
 use crate::{
-    ServiceState,
     context::{Ctx, SourceGuard},
     publisher::Publisher,
     selection::{Offer, Selection},
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
 };
 
 use history::History;
@@ -57,42 +56,22 @@ pub struct Dependencies {
     pub runner: Arc<dyn Runner>,
 }
 
-#[derive(Clone)]
-pub struct RulerHandle(ServiceEndpoint<Ruler>);
+pub type RulerHandle = ServiceEndpoint<Ruler>;
 
-impl RulerHandle {
-    pub fn snapshot(&self) -> RulerState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<RulerState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Ruler> {
     pub async fn measure(&self) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Measure { reply }, "measuring")
-            .await
+        self.call("the ruler stopped while measuring", |reply| {
+            Command::Measure { reply }
+        })
+        .await?
     }
 
     pub async fn copy(&self, id: u32) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Copy { id, reply }, "copying")
-            .await
-    }
-
-    async fn ask(
-        &self,
-        build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
-        doing: &str,
-    ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(build(reply))?;
-        result
-            .await
-            .map_err(|_| CommandError::Unavailable(format!("the ruler stopped while {doing}")))?
+        self.call("the ruler stopped while copying", |reply| Command::Copy {
+            id,
+            reply,
+        })
+        .await?
     }
 }
 
@@ -109,15 +88,10 @@ impl Service for Ruler {
 
     type Config = Config;
     type State = RulerState;
-    type Handle = RulerHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = ();
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        RulerHandle(endpoint)
-    }
 
     fn initial_state(_config: &Self::Config) -> Self::State {
         RulerState {
@@ -130,14 +104,14 @@ impl Service for Ruler {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             state: ctx.publisher(),
             selection: dependencies.selection,
             runner: dependencies.runner,
             history: History::new(config.limit),
             pending: None,
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

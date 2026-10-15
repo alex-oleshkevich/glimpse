@@ -1,11 +1,8 @@
 use std::cell::RefCell;
-use std::sync::OnceLock;
 
-use gtk4::{
-    AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
-};
+use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 
-use crate::{ActionRow, MeterRow, PopoverShell, Row, Section};
+use crate::{MeterRow, PopoverShell, Row, Section};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Meter {
@@ -66,8 +63,6 @@ pub struct SystemMonitorPopover {
     pub cpu_temp: TemplateChild<Row>,
     #[template_child]
     pub gpu_temp: TemplateChild<Row>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub readings: RefCell<Readings>,
     pub disks_held: RefCell<Vec<(String, MeterRow)>>,
@@ -90,22 +85,6 @@ impl ObjectSubclass for SystemMonitorPopover {
 }
 
 impl ObjectImpl for SystemMonitorPopover {
-    fn signals() -> &'static [glib::subclass::Signal] {
-        static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
-        SIGNALS.get_or_init(|| vec![glib::subclass::Signal::builder("footer-activated").build()])
-    }
-
-    fn constructed(&self) {
-        self.parent_constructed();
-        let popover = self.obj();
-
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
-        ));
-    }
-
     fn dispose(&self) {
         self.dispose_template();
     }

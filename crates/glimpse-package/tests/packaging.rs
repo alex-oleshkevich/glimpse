@@ -258,20 +258,8 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 }
 
 #[test]
-fn binary_tarball_includes_idle_portal_assets() {
+fn idle_portal_routing_assets_reach_every_package() {
     let root = workspace_root();
-    let script = fs::read_to_string(root.join("scripts/package-binary.sh"))
-        .expect("binary packaging script");
-
-    assert!(script.contains("data/portals/*.portal"));
-    assert!(
-        script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/portals/$(basename \"$f\")\"")
-    );
-    assert!(script.contains("data/portals/*-portals.conf"));
-    assert!(script.contains("\"$pkgroot/etc/xdg-desktop-portal/$(basename \"$f\")\""));
-    assert!(!script.contains("\"$pkgroot/usr/share/xdg-desktop-portal/$(basename \"$f\")\""));
-    assert!(script.contains("\"$pkgroot/usr/share/glimpse/portals/$(basename \"$f\")\""));
-
     assert!(root.join("data/portals/glimpse.portal").is_file());
     let manifest = manifest(&root);
     for conf in ["glimpse-portals.conf", "niri-portals.conf"] {
@@ -440,67 +428,26 @@ fn every_workspace_binary_is_built_and_reaches_every_package() {
 }
 
 #[test]
-fn notification_provider_binary_is_packaged_with_its_local_services() {
+fn weather_provider_is_not_started_by_the_session_target() {
     let root = workspace_root();
-    let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))
-        .expect("notifications manifest");
-    assert!(
-        !manifest.contains("glimpse-panel"),
-        "a provider that depends on the panel is not standalone"
-    );
-    assert!(manifest.contains("glimpse-services.workspace = true"));
-    assert!(manifest.contains("glimpse-dbus.workspace = true"));
-
-    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
-        .expect("package manifest");
-    assert_eq!(
-        package
-            .matches("target/release/glimpse-notifications")
-            .count(),
-        3
-    );
-    let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
-    let binaries_line = binaries
-        .lines()
-        .find(|line| line.starts_with("binaries :="))
-        .expect("justfile has a binaries list");
-    assert!(binaries_line.contains("glimpse-notifications"));
-}
-
-#[test]
-fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start() {
-    let root = workspace_root();
-    let manifest = fs::read_to_string(root.join("crates/glimpse-weather/Cargo.toml"))
-        .expect("weather manifest");
-    assert!(
-        !manifest.contains("glimpse-panel"),
-        "a provider that depends on the panel is not standalone"
-    );
-    assert!(manifest.contains("glimpse-services.workspace = true"));
-    assert!(manifest.contains("glimpse-dbus.workspace = true"));
-
-    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
-        .expect("package manifest");
-    assert_eq!(package.matches("target/release/glimpse-weather").count(), 3);
-
-    let unit = fs::read_to_string(root.join("data/systemd/glimpse-weather.service"))
-        .expect("weather unit");
-    assert!(unit.contains("Type=dbus"));
-    assert!(unit.contains("BusName=me.aresa.Glimpse.Weather"));
-    assert!(!unit.contains("glimpsed.service"));
-
-    let activation =
-        fs::read_to_string(root.join("data/dbus-1/services/me.aresa.Glimpse.Weather.service"))
-            .expect("weather activation");
-    assert!(activation.contains("SystemdService=glimpse-weather.service"));
-
-    let uninstall =
-        fs::read_to_string(root.join("scripts/uninstall.sh")).expect("uninstall script");
-    assert!(uninstall.contains("me.aresa.Glimpse.Weather.service"));
-
     let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
         .expect("session target");
     assert!(!target.contains("glimpse-weather.service"));
+}
+
+#[test]
+fn notification_and_weather_providers_are_standalone() {
+    let root = workspace_root();
+    for provider in ["glimpse-notifications", "glimpse-weather"] {
+        let manifest = fs::read_to_string(root.join("crates").join(provider).join("Cargo.toml"))
+            .expect(provider);
+        assert!(
+            !manifest.contains("glimpse-panel"),
+            "{provider} depends on the panel, so it is not standalone"
+        );
+        assert!(manifest.contains("glimpse-services.workspace = true"));
+        assert!(manifest.contains("glimpse-dbus.workspace = true"));
+    }
 }
 
 #[test]
@@ -666,4 +613,83 @@ fn the_seeded_user_config_is_the_commented_copy_and_not_the_defaults() {
 
     assert!(install.contains("install -m644 data/config.commented.toml \"$config\""));
     assert!(!install.contains("install -m644 data/config.default.toml \"$config\""));
+}
+
+#[test]
+fn binary_portal_routing_preserves_the_compositors_share_directory() {
+    let root = workspace_root();
+    let dir = tempfile::tempdir().unwrap();
+    let scratch = dir.path();
+    let script = fs::read_to_string(root.join("scripts/package-binary.sh")).unwrap();
+    let routing = script
+        .lines()
+        .skip_while(|line| !line.starts_with("for f in data/portals/"))
+        .take_while(|line| !line.starts_with("for f in data/pam.d/"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(!routing.is_empty());
+    let output = std::process::Command::new("bash")
+        .args(["-euc", &routing])
+        .env("pkgroot", scratch)
+        .current_dir(&root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let share = scratch.join("usr/share/xdg-desktop-portal");
+    for entry in fs::read_dir(root.join("data/portals")).unwrap() {
+        let name = entry.unwrap().file_name();
+        if name.to_string_lossy().ends_with("-portals.conf") {
+            assert!(scratch.join("etc/xdg-desktop-portal").join(&name).is_file());
+            assert!(!share.join(&name).exists());
+            assert!(
+                scratch
+                    .join("usr/share/glimpse/portals")
+                    .join(&name)
+                    .is_file()
+            );
+        }
+    }
+    assert!(share.join("portals/glimpse.portal").is_file());
+}
+
+#[test]
+fn weather_activation_names_agree_and_uninstall_removes_the_chain() {
+    let root = workspace_root();
+    let unit_name = "glimpse-weather.service";
+    let unit = fs::read_to_string(root.join("data/systemd").join(unit_name)).unwrap();
+    let value = |body: &str, key: &str| {
+        body.lines()
+            .find_map(|line| line.strip_prefix(key))
+            .unwrap()
+            .to_owned()
+    };
+    assert_eq!(value(&unit, "Type="), "dbus");
+    let bus_name = value(&unit, "BusName=");
+    let activation_name = format!("{bus_name}.service");
+    let activation =
+        fs::read_to_string(root.join("data/dbus-1/services").join(&activation_name)).unwrap();
+    assert_eq!(value(&activation, "Name="), bus_name);
+    assert_eq!(value(&activation, "SystemdService="), unit_name);
+    assert_eq!(value(&activation, "Exec="), value(&unit, "ExecStart="));
+    let dir = tempfile::tempdir().unwrap();
+    let scratch = dir.path();
+    let unit_path = scratch.join("usr/lib/systemd/user").join(unit_name);
+    let activation_path = scratch
+        .join("usr/share/dbus-1/services")
+        .join(activation_name);
+    for path in [&unit_path, &activation_path] {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, "fixture").unwrap();
+    }
+    let output = std::process::Command::new("bash")
+        .arg(root.join("scripts/uninstall.sh"))
+        .env("DESTDIR", scratch)
+        .env("PREFIX", "/usr")
+        .env("GLIMPSE_BINARIES", "glimpse-weather")
+        .current_dir(&root)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(!unit_path.exists());
+    assert!(!activation_path.exists());
 }

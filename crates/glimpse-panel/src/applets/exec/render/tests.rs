@@ -96,9 +96,8 @@ fn tree_maps_every_chip_field_and_drops_bad_icons_and_dots() {
 #[test]
 fn files_that_run_programs_stay_closed() {
     use std::os::unix::fs::PermissionsExt;
-    let root = std::env::temp_dir().join(format!("glimpse-open-file-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
-    std::fs::create_dir_all(&root).expect("dir");
+    let dir = tempfile::tempdir().expect("dir");
+    let root = dir.path().to_path_buf();
     let state = root.join("state");
     std::fs::create_dir(&state).expect("state");
     let outside = root.as_path().join("notes.txt");
@@ -129,5 +128,4 @@ fn files_that_run_programs_stay_closed() {
     assert_eq!(openable(&script), Err("launches programs"));
     assert_eq!(openable(&desktop), Err("launches programs"));
     assert_eq!(openable(&root.as_path().join("missing")), Err("missing"));
-    std::fs::remove_dir_all(&root).expect("cleanup");
 }

@@ -39,6 +39,7 @@ pub struct Configuration {
     pub files: Vec<PathBuf>,
     pub loads: bool,
     pub error: Option<String>,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -55,6 +56,16 @@ fn configuration(config: Option<PathBuf>) -> Configuration {
     Configuration {
         files: files.unwrap_or_default(),
         loads: loaded.is_ok(),
+        warnings: loaded
+            .as_ref()
+            .map(|config| {
+                config
+                    .validate()
+                    .into_iter()
+                    .map(|problem| problem.to_string())
+                    .collect()
+            })
+            .unwrap_or_default(),
         error: loaded.err().map(|error| error.to_string()),
     }
 }
@@ -62,11 +73,15 @@ fn configuration(config: Option<PathBuf>) -> Configuration {
 impl Configuration {
     pub fn section(&self) -> Section {
         let section = Section::new("Configuration").with(
-            Table::new()
+            Table::default()
                 .with_empty("no configuration file, so every default applies")
                 .with_rows(self.files.iter().map(|file| [file.display().to_string()]))
                 .render(),
         );
+
+        let section = self.warnings.iter().fold(section, |section, warning| {
+            section.with(styled::warn(warning))
+        });
 
         match &self.error {
             None => section.with_note("the stack loads"),
@@ -106,7 +121,7 @@ fn providers_section(providers: &[Provider], session: &Result<Connection, zbus::
     }
 
     let section = Section::new("Providers").with(
-        Table::new()
+        Table::default()
             .with_headers(["PROVIDER", "STATE", "DETAIL"])
             .with_rows(providers.iter().map(Provider::row))
             .render(),

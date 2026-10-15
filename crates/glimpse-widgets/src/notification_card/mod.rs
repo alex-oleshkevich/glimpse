@@ -4,7 +4,7 @@ use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 
 pub use imp::Urgency;
 
-use crate::truncate;
+use crate::{none_if_empty, truncate};
 
 const LABEL_MAX_CHARS: usize = 32;
 const ACTIONS_MAX: usize = 3;
@@ -12,6 +12,29 @@ const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
 const ACTION_INVOKED: &str = "action-invoked";
 const ACTIVATABLE: &str = "notification--activatable";
+const NO_PROGRESS: f64 = -1.0;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Body {
+    Plain(String),
+    Markup(String),
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Notification {
+    pub key: String,
+    pub app_name: String,
+    pub summary: String,
+    pub body: Option<Body>,
+    pub when: String,
+    pub icon: Option<gio::Icon>,
+    pub image: Option<gdk::Texture>,
+    pub urgency: Urgency,
+    pub actions: Vec<Action>,
+    pub progress: Option<f64>,
+    pub unread: bool,
+    pub activatable: bool,
+}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Action {
@@ -67,8 +90,23 @@ impl NotificationCard {
         crate::set_css_class(self, ACTIVATABLE, activatable);
     }
 
-    pub fn set_notification(&self, notification: &crate::Notification) {
-        crate::notification_list::dress(self, notification);
+    pub fn set_notification(&self, notification: &Notification) {
+        self.set_app_name(none_if_empty(&notification.app_name));
+        self.set_summary(none_if_empty(&notification.summary));
+        self.set_when(none_if_empty(&notification.when));
+        self.set_app_icon(notification.icon.as_ref());
+        self.set_image(notification.image.as_ref());
+        self.set_urgency(notification.urgency);
+        self.set_unread(notification.unread);
+        self.set_progress(notification.progress.unwrap_or(NO_PROGRESS));
+        self.set_actions(&notification.actions);
+        self.set_activatable(notification.activatable);
+
+        match notification.body.as_ref() {
+            Some(Body::Markup(markup)) => self.set_body_markup(Some(markup.as_str())),
+            Some(Body::Plain(text)) => self.set_body(Some(text.as_str())),
+            None => self.set_body(None::<&str>),
+        }
     }
 
     pub fn set_controls_visible(&self, visible: bool) {

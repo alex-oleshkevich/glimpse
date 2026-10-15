@@ -87,3 +87,34 @@ fn a_body_past_the_cap_is_bounded_by_characters_and_not_by_bytes() {
 
     assert_eq!(sanitize_body(&long).chars().count(), BODY_MAX_CHARS);
 }
+
+#[test]
+fn a_br_tag_is_a_line_break() {
+    assert_eq!(
+        sanitize_body("one<br/>two<BR>three<br />four"),
+        "one\ntwo\nthree four"
+    );
+}
+
+#[test]
+fn sanitizing_twice_changes_nothing() {
+    let once = sanitize_body("<b>Alice</b>&nbsp;AT&T<br/>5 < 10");
+
+    assert_eq!(sanitize_body(&once), once);
+}
+
+#[test]
+fn line_breaks_past_the_body_line_limit_become_spaces() {
+    let body = sanitize_body(&"x\n".repeat(1024));
+    assert_eq!(body.matches('\n').count(), BODY_MAX_LINES - 1);
+    assert_eq!(
+        sanitize_body(&"x<br>".repeat(8)).matches('\n').count(),
+        BODY_MAX_LINES - 1
+    );
+    assert_eq!(sanitize_body(&body), body);
+}
+
+#[test]
+fn generic_attributes_are_stripped_from_kept_tags() {
+    assert_eq!(sanitize_body(r#"<b lang="en" title="t">x</b>"#), "<b>x</b>");
+}

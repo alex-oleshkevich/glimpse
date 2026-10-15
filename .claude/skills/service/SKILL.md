@@ -21,32 +21,36 @@ pub struct Weather {
     location: LocationHandle,
 }
 
-#[derive(Clone)]
-pub struct WeatherHandle(ServiceEndpoint<Weather>);
+pub type WeatherHandle = ServiceEndpoint<Weather>;
+
+impl ServiceEndpoint<Weather> {
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        self.call("weather stopped before refreshing", |reply| Command::Refresh { reply }).await?
+    }
+}
 
 impl Service for Weather {
     const NAME: &'static str = "weather";
     type Config = Config;
     type State = WeatherState;
-    type Handle = WeatherHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle { WeatherHandle(endpoint) }
+    fn initial_state(config: &Self::Config) -> Self::State { ... }
     fn subscriptions(&self) -> Vec<Sub<Self>> { ... }
 
     async fn start(ctx: &Ctx<Self>, config: Self::Config, deps: Self::Dependencies)
-        -> Result<Self, ServiceError> { ... }
+        -> Self { ... }
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) { ... }
 }
 ```
 
-`ServiceRuntime::new(initial, buses, cancel)` returns `(runtime, handle)`. The handle gives a
+`ServiceRuntime::new(config, buses, cancel)` returns `(runtime, handle)`. The handle gives a
 complete current snapshot, a `watch::Receiver` for changes, a health receiver, and the service's
-typed command methods. `ServiceEndpoint` is the small common implementation behind concrete
-handles; consumers should never need a generic command or string key.
+typed command methods. Concrete handles are aliases of `ServiceEndpoint<S>` with specialized
+methods; consumers should never need a generic command or string key.
 
 `Input<S>` is `Event(S::Event)`, `Command(S::Command)`, or `Config(S::Config)`. One inbox keeps
 commands and resulting backend events ordered. Command variants carry their own typed
@@ -111,7 +115,7 @@ not repeated here. Neither is capping hostile text off a backend — that is a c
 ## Definition of done
 
 - Every service has a concrete cloneable handle with `snapshot`, `subscribe`, `health`, and typed
-  command methods where needed. `ServiceRuntime::new` receives a complete initial state.
+  command methods where needed. `ServiceRuntime::new` derives the initial state from its config.
 - State and command types are typed Rust models. Contract structs may remain in
   `glimpse-dbus` while a provider decodes them off the bus; their serialization derives do not make
   them wire topics.

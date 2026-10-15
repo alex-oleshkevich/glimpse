@@ -36,14 +36,4 @@ pub(super) fn check() {
 
     keyboard.set_layouts(&[layout("English (US)", true)]);
     assert_eq!(keyboard.imp().rows.observe_children().n_items(), 1);
-
-    keyboard.set_footer(Some("Settings"));
-    assert!(keyboard.imp().footer.get_visible());
-    let footer_activated = Rc::new(Cell::new(false));
-    keyboard.connect_footer_activated({
-        let footer_activated = Rc::clone(&footer_activated);
-        move |_| footer_activated.set(true)
-    });
-    keyboard.imp().footer.activate();
-    assert!(footer_activated.get());
 }

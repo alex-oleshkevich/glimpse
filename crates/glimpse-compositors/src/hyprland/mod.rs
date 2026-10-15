@@ -25,6 +25,7 @@ pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: true,
     workspace_reorder: false,
     output_power: true,
+    blank_screens: false,
 };
 
 const CONTROL_SOCKET: &str = ".socket.sock";
@@ -217,7 +218,7 @@ impl Hyprland {
     }
 
     pub(crate) async fn power_off_monitors(&self) -> Result<(), CompositorError> {
-        self.dispatch("dispatch dpms off").await
+        Err(CompositorError::Unavailable("blank the screens"))
     }
 
     pub(crate) async fn stop_screencast(&self, _session_id: u64) -> Result<(), CompositorError> {

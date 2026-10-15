@@ -141,12 +141,14 @@ fn kdeconnect_popover_widgets() {
         "no header until something is found"
     );
 
-    popover.set_footer(Some("KDE Connect settings"));
-    let footer = Rc::new(Cell::new(false));
-    popover.connect_footer_activated({
-        let footer = Rc::clone(&footer);
-        move |_| footer.set(true)
-    });
-    imp.footer.emit_by_name::<()>("activated", &[]);
-    assert!(footer.get());
+    let settings = popover.settings();
+    assert!(settings.get_visible());
+    assert_eq!(
+        settings.upcast_ref::<Row>().title().as_deref(),
+        Some("KDE Connect settings")
+    );
+    assert_eq!(settings.upcast_ref::<Row>().icon_name(), None);
+    let column = imp.devices.parent().unwrap();
+    assert_eq!(column.last_child().as_ref(), Some(settings.upcast_ref()));
+    assert!(settings.is_ancestor(&imp.shell.body()));
 }

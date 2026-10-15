@@ -11,8 +11,7 @@ use tokio::{
 };
 
 use crate::{
-    CommandError, Ctx, Input, Publisher, Service, ServiceEndpoint, ServiceError, ServiceState, Sub,
-    context::SourceGuard,
+    CommandError, Ctx, Input, Publisher, Service, ServiceEndpoint, Sub, context::SourceGuard,
 };
 
 pub trait ModeWriter: Send + Sync {
@@ -44,34 +43,18 @@ pub enum Watch {
     Observed,
 }
 
-#[derive(Clone)]
-pub struct DesktopModeHandle(ServiceEndpoint<DesktopMode>);
+pub type DesktopModeHandle = ServiceEndpoint<DesktopMode>;
 
-impl DesktopModeHandle {
-    pub fn snapshot(&self) -> ModeStatus {
-        self.0.snapshot()
-    }
-    pub fn subscribe(&self) -> watch::Receiver<ModeStatus> {
-        self.0.subscribe()
-    }
-    pub fn health(&self) -> watch::Receiver<ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<DesktopMode> {
     pub async fn set_temporary(&self, mode: Mode) -> Result<(), CommandError> {
-        self.ask(|reply| Command::Temporary(mode, reply)).await
+        self.call("desktop mode stopped", |reply| {
+            Command::Temporary(mode, reply)
+        })
+        .await?
     }
 
     pub async fn resume(&self) -> Result<(), CommandError> {
-        self.ask(Command::Resume).await
-    }
-
-    async fn ask(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), CommandError> {
-        let (reply, answer) = oneshot::channel();
-        self.0.command(command(reply))?;
-        answer
-            .await
-            .map_err(|_| CommandError::Unavailable("desktop mode stopped".into()))?
+        self.call("desktop mode stopped", Command::Resume).await?
     }
 }
 
@@ -100,15 +83,10 @@ impl Service for DesktopMode {
     const NAME: &'static str = "desktop_mode";
     type Config = AutoDark;
     type State = ModeStatus;
-    type Handle = DesktopModeHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ModeDependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        DesktopModeHandle(endpoint)
-    }
 
     fn initial_state(config: &AutoDark) -> ModeStatus {
         ModeStatus {
@@ -136,11 +114,7 @@ impl Service for DesktopMode {
         ]
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: AutoDark,
-        dependencies: ModeDependencies,
-    ) -> Result<Self, ServiceError> {
+    async fn start(ctx: &Ctx<Self>, config: AutoDark, dependencies: ModeDependencies) -> Self {
         let mut service = Self {
             state: ctx.publisher(),
             status: Self::initial_state(&config),
@@ -158,7 +132,7 @@ impl Service for DesktopMode {
         service.status.observed = service.observed.borrow().clone().ok().flatten();
         service.apply(ctx, None);
         service.publish(ctx);
-        Ok(service)
+        service
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

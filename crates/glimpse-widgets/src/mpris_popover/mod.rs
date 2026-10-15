@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{NowPlaying, Player};
+use crate::{ActionRow, NowPlaying, Player};
 
 glib::wrapper! {
     pub struct MprisPopover(ObjectSubclass<imp::MprisPopover>)
@@ -28,30 +28,15 @@ impl MprisPopover {
         self.imp().player.clone()
     }
 
+    pub fn open_player(&self) -> ActionRow {
+        self.imp().open_player.clone()
+    }
+
     pub fn set_others(&self, players: Option<&[Player]>) {
         let imp = self.imp();
         let players = players.unwrap_or_default();
         imp.others.set_visible(!players.is_empty());
         imp.list.set_players(players);
-    }
-
-    pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.upcast_ref::<crate::Row>().set_title(label);
-        if footer.get_visible() != label.is_some() {
-            footer.set_visible(label.is_some());
-        }
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
-        )
     }
 
     /// Both carry the row's key rather than a captured widget or its position: a row is reused in

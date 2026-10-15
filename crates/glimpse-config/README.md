@@ -79,7 +79,7 @@ concurrent edit against a fresh read, up to three times.
 A theme is a directory of stylesheets under `<root>/<name>/`, resolved from `user_dir()/themes`
 then `DATA_DIR/themes` unless `GLIMPSE_THEMES_DIR` replaces both. `GLIMPSE_THEME` overrides
 `appearance.theme` at read time, so `Config` keeps reporting the document on disk. **Resolution
-picks one directory, not one file at a time.** `theme_dir_for` returns the first of
+picks one directory, not one file at a time.** Stylesheet resolution uses the first of
 `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that exists, because GTK resolves a
 relative `@import` against the importing file's own directory — a theme assembled from two roots
 could not import across them.
@@ -103,9 +103,9 @@ directories, existing or not; `--config` replaces the whole stack and so the who
   restart. Every watched directory is made absolute with `std::path::absolute` before arming, or a
   relatively-armed watch matches none of its own events.
 - **A watch re-arms when its directory is replaced**, since it is bound to an inode, not a name;
-  the gap produces no events, so a re-arm means "read everything again." The watch set itself is
-  derived once, at construction — re-pointing a symlinked base file is caught, but edits at the new
-  target are not until restart.
+  the gap produces no events, so a re-arm means "read everything again." The watch set is
+  recomputed after each change or re-arm, so re-pointing a symlinked base file also watches edits at
+  the new target.
 
 `reread` answers with a new document only if it parsed **and differs**. `watch_config` merges the
 filesystem watch with `SIGHUP` — neither replaces the other. Nothing is filtered by extension,
@@ -121,8 +121,6 @@ collects unclaimed keys and `deny_unknown_fields` rejects them, so serde refuses
 Both halves still deny unknown fields, so a misspelled common key survives into the kind's table
 and fails by name.
 
-**`settings-command` is a list, never one string** — no quoting, no word splitting, no shell to
-inject through. A label without a command, or a command without a label, is a load error.
 **A variant with no settings is written `Clock {}`, never `Clock`** — `deny_unknown_fields` has
 nothing to deny on a unit variant, so it silently swallows every key under it.
 
@@ -155,6 +153,6 @@ others name a closed set of behaviours; this names a catalog that may not be ins
 ## Not here
 
 A default naming an external command names one the system already has — `loginctl`, `systemctl` —
-never a helper this repository would have to install, since `scripts/` is not installed. Semantic
-validation across fields is not written; where a rule fits the type it belongs there instead of in
-a pass that has to remember to run.
+never a helper this repository would have to install, since `scripts/` is not installed. Rules that
+fit a type are checked at deserialization; `Config::validate` reports cross-field problems after
+merging, and the loader warns without rejecting the document.

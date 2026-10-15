@@ -72,6 +72,9 @@ pub struct Dom {
     opener: Opener,
     generation: Option<u64>,
     applying: Rc<Cell<bool>>,
+    tones_dirty: Rc<Cell<bool>>,
+    style_manager: adw::StyleManager,
+    style_handlers: Vec<glib::SignalHandlerId>,
 }
 
 impl Dom {
@@ -89,6 +92,19 @@ impl Dom {
             let closed = closed.clone();
             move |_| closed.set(true)
         });
+        let tones_dirty = Rc::new(Cell::new(false));
+        let style_manager = adw::StyleManager::default();
+        let style_handlers = ["dark", "accent-color"]
+            .into_iter()
+            .map(|property| {
+                let tones_dirty = tones_dirty.clone();
+                let opener = opener.clone();
+                style_manager.connect_notify_local(Some(property), move |_, _| {
+                    tones_dirty.set(true);
+                    opener.wake();
+                })
+            })
+            .collect();
         Self {
             shell: shell.downgrade(),
             closed,
@@ -102,6 +118,9 @@ impl Dom {
             opener,
             generation: None,
             applying: Rc::new(Cell::new(false)),
+            tones_dirty,
+            style_manager,
+            style_handlers,
         }
     }
 
@@ -109,9 +128,14 @@ impl Dom {
         !self.closed.get() && self.shell.upgrade().is_some()
     }
 
+    pub fn needs_redress(&self) -> bool {
+        self.tones_dirty.get()
+    }
+
     pub fn reconcile(&mut self, tree: &Tree, generation: u64) -> bool {
         self.applying.set(true);
         let alive = self.reconcile_tree(tree, generation);
+        self.tones_dirty.set(false);
         self.applying.set(false);
         if alive {
             self.report_closed_expanders();
@@ -764,7 +788,11 @@ impl Dom {
         let Some(mounted) = self.nodes.get_mut(&key) else {
             return;
         };
-        if !initial && Arc::ptr_eq(&mounted.node, node) {
+        if !initial
+            && Arc::ptr_eq(&mounted.node, node)
+            && !(self.tones_dirty.get()
+                && matches!(node.element, Element::Dots(_) | Element::Calendar(_)))
+        {
             return;
         }
         let widget = &mounted.widget.clone();
@@ -950,7 +978,7 @@ impl Dom {
                             p.icon.as_deref(),
                         );
                     }
-                    if let Some(label) = p.label.as_deref() {
+                    if let Some(label) = p.label.as_deref().or(p.icon.as_deref()) {
                         toggle.update_property(&[gtk4::accessible::Property::Label(label)]);
                     } else {
                         toggle.reset_property(gtk4::AccessibleProperty::Label);
@@ -1196,6 +1224,14 @@ impl Dom {
             widget.unblock_signal(handler);
         }
         mounted.node = node.clone();
+    }
+}
+
+impl Drop for Dom {
+    fn drop(&mut self) {
+        for handler in self.style_handlers.drain(..) {
+            self.style_manager.disconnect(handler);
+        }
     }
 }
 

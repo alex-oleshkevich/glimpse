@@ -120,14 +120,6 @@ impl NetworkPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.upcast_ref::<Row>().set_title(label);
-        if footer.get_visible() != label.is_some() {
-            footer.set_visible(label.is_some());
-        }
-    }
-
     pub fn set_prompt(&self, ask: Option<&Ask>) {
         let imp = self.imp();
         if imp.prompt.borrow().as_ref() == ask {
@@ -203,7 +195,6 @@ impl NetworkPopover {
         let Some(ask) = prompt else {
             imp.pages.set_visible_child_name(NETWORKS_PAGE);
             imp.wifi.set_sensitive(imp.radio_settable.get());
-            imp.footer.set_sensitive(true);
             return;
         };
 
@@ -235,7 +226,6 @@ impl NetworkPopover {
         imp.quiet.set(false);
         imp.pages.set_visible_child_name(PROMPT_PAGE);
         imp.wifi.set_sensitive(false);
-        imp.footer.set_sensitive(false);
         match naming {
             true => imp.prompt_name.grab_focus(),
             false => imp.prompt_secret.grab_focus(),
@@ -303,14 +293,6 @@ impl NetworkPopover {
     pub fn connect_hidden_network<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "hidden-network",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
             false,
             glib::closure_local!(move |popover: Self| f(&popover)),
         )

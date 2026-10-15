@@ -35,7 +35,7 @@ fn digest(url: &str) -> String {
 }
 
 pub fn cached(url: &str) -> Option<PathBuf> {
-    Some(dirs::runtime_dir()?.join("glimpse/art").join(digest(url)))
+    Some(glimpse_config::runtime_dir()?.join("art").join(digest(url)))
 }
 
 pub async fn fetch(client: reqwest::Client, url: String, max_kib: u32) -> Event {

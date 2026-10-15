@@ -30,9 +30,7 @@ async fn harness(
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = SystemMonitor::start(&ctx, config, ())
-        .await
-        .expect("starts");
+    let service = SystemMonitor::start(&ctx, config, ()).await;
     (service, ctx, state_rx)
 }
 

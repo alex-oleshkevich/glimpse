@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, NoConfig, Service, ServiceError},
+    service::{Input, NoConfig, Service},
     services::audio::{AudioHandle, AudioState},
     services::compositor::{CompositorHandle, CompositorPrivacy, CompositorState},
     subscription::Sub,
@@ -111,36 +111,16 @@ pub struct Privacy {
     attribution: HashMap<u32, String>,
 }
 
-#[derive(Clone)]
-pub struct PrivacyHandle(crate::ServiceEndpoint<Privacy>);
-
-impl PrivacyHandle {
-    pub fn snapshot(&self) -> PrivacyState {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<PrivacyState> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-}
+pub type PrivacyHandle = crate::ServiceEndpoint<Privacy>;
 
 impl Service for Privacy {
     const NAME: &'static str = "privacy";
     type Config = NoConfig;
     type State = PrivacyState;
-    type Handle = PrivacyHandle;
     type Command = Infallible;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
-        PrivacyHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -172,12 +152,8 @@ impl Service for Privacy {
         ]
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        _config: Self::Config,
-        deps: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self {
+    async fn start(ctx: &Ctx<Self>, _config: Self::Config, deps: Self::Dependencies) -> Self {
+        Self {
             state: ctx.publisher(),
             audio: deps.audio,
             compositor: deps.compositor,
@@ -187,7 +163,7 @@ impl Service for Privacy {
             location: Vec::new(),
             compositor_privacy: None,
             attribution: HashMap::new(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

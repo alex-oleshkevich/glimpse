@@ -94,9 +94,7 @@ impl ShotWindowList {
 }
 
 fn fill(rows: &gtk4::Box, entries: &[&ShotWindowEntry], list: &ShotWindowList) {
-    while let Some(child) = rows.first_child() {
-        rows.remove(&child);
-    }
+    crate::clear_children(rows);
     for entry in entries {
         rows.append(&row(entry, list));
     }

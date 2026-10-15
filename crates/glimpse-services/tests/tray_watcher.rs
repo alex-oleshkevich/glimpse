@@ -135,9 +135,16 @@ async fn exactly_one_of_two_services_holds_the_name_and_the_other_hosts_on_it() 
     // on one of them in particular would be asserting an order nothing promises. The contract is
     // that exactly one holds the name and *both* end up serving: the loser registers with the
     // winner as a host rather than sitting over an empty bar until it exits.
+    let probe = bus.connection().await;
+    let dbus = zbus::fdo::DBusProxy::new(&probe).await.unwrap();
     let settled = tokio::time::timeout(Duration::from_secs(20), async {
         loop {
-            if let (ServiceState::Running, ServiceState::Running) = (
+            let owned = dbus
+                .name_has_owner(WATCHER_NAME.try_into().expect("a bus name"))
+                .await
+                .unwrap_or(false);
+            if let (true, ServiceState::Running, ServiceState::Running) = (
+                owned,
                 first_handle.health().borrow().clone(),
                 second_handle.health().borrow().clone(),
             ) {
@@ -156,16 +163,7 @@ async fn exactly_one_of_two_services_holds_the_name_and_the_other_hosts_on_it() 
         )
     });
 
-    let probe = bus.connection().await;
-    assert!(
-        zbus::fdo::DBusProxy::new(&probe)
-            .await
-            .unwrap()
-            .name_has_owner(WATCHER_NAME.try_into().expect("a bus name"))
-            .await
-            .unwrap_or(false),
-        "the winner keeps the name"
-    );
+    hosted(&bus).await;
 
     second.stop().await;
     first.stop().await;

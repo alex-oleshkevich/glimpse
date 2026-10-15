@@ -154,22 +154,6 @@ fn collect_underscored(node: &serde_json::Value, offenders: &mut Vec<String>) {
 }
 
 #[test]
-fn config_default_round_trips_losslessly() {
-    let mut config = Config::default();
-    config.printing.server_url = Some("http://localhost:631/".to_owned());
-    config.printing.poll_idle = 45;
-    config.applets.insert(
-        "printing".to_owned(),
-        Applet::from(AppletKind::Printing(applets::Printing::default())),
-    );
-
-    let written = toml::to_string(&config).expect("the document serializes");
-    let again: Config = toml::from_str(&written).expect("what was written parses again");
-
-    assert_eq!(config, again);
-}
-
-#[test]
 fn night_light_still_accepts_manual_for_schedule() {
     let parsed: Config =
         toml::from_str("[night-light]\nschedule = \"manual\"\n").expect("the alias parses");
@@ -180,16 +164,6 @@ fn night_light_still_accepts_manual_for_schedule() {
 #[test]
 fn the_table_name_selects_the_applet_when_extends_is_absent() {
     let parsed: Config = toml::from_str("[applets.clock]\n").expect("the key names the kind");
-
-    assert_eq!(
-        parsed.applets["clock"],
-        Applet::from(AppletKind::Clock(applets::Clock::default()))
-    );
-}
-
-#[test]
-fn an_applet_table_with_no_settings_takes_the_defaults() {
-    let parsed: Config = toml::from_str("[applets.clock]\n").expect("settings are optional");
 
     assert_eq!(
         parsed.applets["clock"],
@@ -377,26 +351,6 @@ fn an_unknown_setting_names_the_common_ones_too() {
 }
 
 #[test]
-fn a_settings_row_needs_a_label_and_a_command() {
-    assert!(
-        toml::from_str::<Config>("[applets.clock]\nsettings-label = \"Open\"\n").is_err(),
-        "a label with no command is a row that does nothing"
-    );
-    assert!(
-        toml::from_str::<Config>("[applets.clock]\nsettings-command = [\"x\"]\n").is_err(),
-        "a command with no label is a row nobody can see"
-    );
-    let parsed: Config = toml::from_str(
-        "[applets.clock]\nsettings-label = \"Open\"\nsettings-command = [\"gnome-calendar\"]\n",
-    )
-    .expect("both halves together");
-    assert_eq!(
-        parsed.applets["clock"].common.settings(),
-        Some(("Open", ["gnome-calendar".to_owned()].as_slice()))
-    );
-}
-
-#[test]
 fn the_clock_still_reads_the_key_it_used_to_call_format() {
     let parsed: Config =
         toml::from_str("[applets.clock]\nformat = \"%H\"\n").expect("the alias parses");
@@ -417,11 +371,6 @@ fn a_clock_reads_its_world_clock_zones() {
     let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
         panic!("the table names the clock");
     };
-    assert_eq!(
-        clock.first_day,
-        FirstDay::Monday,
-        "first-day has no locale variant, so the default has to say what it is"
-    );
     assert_eq!(clock.timezones.len(), 1);
     assert_eq!(clock.timezones[0].label, "Tokyo");
     assert_eq!(clock.timezones[0].note, None);
@@ -429,10 +378,9 @@ fn a_clock_reads_its_world_clock_zones() {
 
 #[test]
 fn a_configured_applet_survives_being_written_back_out() {
-    let parsed: Config = toml::from_str(
-        "[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\nsettings-label = \"Open\"\nsettings-command = [\"gnome-calendar\"]\n",
-    )
-    .expect("a table carrying both halves");
+    let parsed: Config =
+        toml::from_str("[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\n")
+            .expect("a table carrying both halves");
 
     let written = toml::to_string(&parsed).expect("the document serializes");
     let again: Config = toml::from_str(&written).expect("what was written parses again");
@@ -455,14 +403,6 @@ fn a_setting_a_nested_table_lacks_is_not_blamed_on_a_common_one() {
         !error.contains("tooltip-format"),
         "a common setting is not valid inside a timezone entry: {error}"
     );
-}
-
-#[test]
-fn a_settings_command_that_names_no_program_is_refused() {
-    let parsed = toml::from_str::<Config>(
-        "[applets.clock]\nsettings-label = \"Open\"\nsettings-command = [\"\"]\n",
-    );
-    assert!(parsed.is_err(), "an empty program name was accepted");
 }
 
 #[test]

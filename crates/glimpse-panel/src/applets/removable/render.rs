@@ -10,10 +10,6 @@ use glimpse_widgets::{RemovableDrive, RemovableSpace, RemovableVolume};
 pub const ICON: &str = "drive-removable-media-symbolic";
 const NAME_CAP: usize = 60;
 
-fn cap(name: &str) -> String {
-    glimpse_utils::clean(name, NAME_CAP)
-}
-
 fn shown(drive: &ServiceDrive) -> bool {
     drive.media_available || !drive.volumes.is_empty()
 }
@@ -150,7 +146,7 @@ pub fn main_volume(drive: &ServiceDrive) -> Option<&ServiceVolume> {
 
 fn space(drive: &ServiceDrive, main: &ServiceVolume) -> Option<RemovableSpace> {
     let capacity = main.mount.as_ref()?.capacity?;
-    let title = match cap(&main.label) {
+    let title = match glimpse_utils::clean(&main.label, NAME_CAP) {
         label if drive.volumes.len() > 1 && !label.is_empty() => label,
         _ => gettext("Space"),
     };
@@ -163,13 +159,13 @@ fn space(drive: &ServiceDrive, main: &ServiceVolume) -> Option<RemovableSpace> {
 
 fn extra(volume: &ServiceVolume) -> RemovableVolume {
     let size = glimpse_utils::size::bytes(volume.size);
-    let label = cap(&volume.label);
+    let label = glimpse_utils::clean(&volume.label, NAME_CAP);
     let title = match (
         label.is_empty(),
         volume.fs.as_deref().filter(|fs| !fs.is_empty()),
     ) {
         (false, _) => label,
-        (true, Some(fs)) => cap(fs),
+        (true, Some(fs)) => glimpse_utils::clean(fs, NAME_CAP),
         (true, None) => size.clone(),
     };
     RemovableVolume {
@@ -194,7 +190,7 @@ fn drive_row(drive: &ServiceDrive) -> RemovableDrive {
     let main = main_volume(drive);
     RemovableDrive {
         id: drive.id.as_str().to_owned(),
-        title: cap(&drive.name),
+        title: glimpse_utils::clean(&drive.name, NAME_CAP),
         icon: drive_icon(drive).to_owned(),
         busy: drive.busy.is_some() || drive.volumes.iter().any(|volume| volume.busy.is_some()),
         mounted: main.is_some_and(|main| main.mount.is_some()),

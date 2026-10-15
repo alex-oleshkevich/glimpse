@@ -85,7 +85,6 @@ pub trait StatusNotifierItem {
 
 const ID: usize = 200;
 const TITLE: usize = 256;
-const CATEGORY: usize = 64;
 const LABEL: usize = 64;
 const TOOLTIP_TITLE: usize = 256;
 const TOOLTIP_BODY: usize = 800;
@@ -147,28 +146,24 @@ pub struct TrayItem {
     pub key: String,
     pub id: String,
     pub title: String,
-    pub category: String,
     pub status: TrayStatus,
     pub icon_name: Option<String>,
     pub icon_theme_path: Option<String>,
     pub icon_pixmaps: Vec<TrayPixmap>,
     pub attention_icon_name: Option<String>,
     pub attention_pixmaps: Vec<TrayPixmap>,
-    /// Decoded so it is not silently dropped; nothing renders an animation.
-    pub attention_movie_name: Option<String>,
     pub overlay_icon_name: Option<String>,
     pub overlay_pixmaps: Vec<TrayPixmap>,
     pub label: Option<String>,
     pub tooltip: Option<TrayTooltip>,
     pub menu: Option<String>,
     pub item_is_menu: bool,
-    pub ordering_index: u32,
     /// `com.canonical.dbusmenu.Status` — a *different* `Status`, on the menu object rather than the
     /// item, saying `normal` or `notice`. Set by the follower, not by `decode_item`.
     pub notice: bool,
 }
 
-use super::{Properties, flag, number, text};
+use super::{Properties, flag, text};
 
 /// A buffer whose length disagrees with its dimensions is dropped: every consumer indexes it as
 /// `width * height * 4`, so a short one would be read past its end. One copy of that guard.
@@ -228,7 +223,6 @@ pub fn decode_item(key: &str, properties: &Properties) -> TrayItem {
         key: key.to_owned(),
         id: text(properties, "Id", ID).unwrap_or_default(),
         title: text(properties, "Title", TITLE).unwrap_or_default(),
-        category: text(properties, "Category", CATEGORY).unwrap_or_default(),
         status: properties
             .get("Status")
             .and_then(|value| <&str>::try_from(value).ok())
@@ -239,14 +233,12 @@ pub fn decode_item(key: &str, properties: &Properties) -> TrayItem {
         icon_pixmaps: pixmaps(properties, "IconPixmap"),
         attention_icon_name: text(properties, "AttentionIconName", ICON_PATH),
         attention_pixmaps: pixmaps(properties, "AttentionIconPixmap"),
-        attention_movie_name: text(properties, "AttentionMovieName", ICON_PATH),
         overlay_icon_name: text(properties, "OverlayIconName", ICON_PATH),
         overlay_pixmaps: pixmaps(properties, "OverlayIconPixmap"),
         label: text(properties, "XAyatanaLabel", LABEL),
         tooltip: tooltip(properties),
         menu,
         item_is_menu: flag(properties, "ItemIsMenu").unwrap_or_default(),
-        ordering_index: number(properties, "XAyatanaOrderingIndex").unwrap_or_default(),
         notice: false,
     }
 }

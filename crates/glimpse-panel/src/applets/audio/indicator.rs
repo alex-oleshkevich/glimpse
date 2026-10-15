@@ -9,12 +9,11 @@ use glimpse_services::{
     AudioHandle, AudioRole, AudioState, CommandError,
 };
 use glimpse_widgets::{AudioBlock, AudioDetails, AudioEntry, AudioPopover, IndicatorSpec};
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{
     Applet, Button, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
 };
@@ -30,14 +29,9 @@ pub struct Audio {
     audio: AudioHandle,
     notifications: NotificationsProviderHandle,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<AudioPopover>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 impl Applet for Audio {
@@ -46,7 +40,7 @@ impl Applet for Audio {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -70,7 +64,7 @@ impl Applet for Audio {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = AudioPopover::new();
 
         shown.connect_level_changed({
@@ -215,13 +209,10 @@ impl Applet for Audio {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.expanded.set(false);
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -343,7 +334,7 @@ fn more_apps(total: usize, cap: usize, expanded: bool) -> Option<String> {
 fn device_entry(device: &AudioDevice, dir: AudioDirection) -> AudioEntry {
     AudioEntry {
         id: device.id.as_str().to_owned(),
-        title: render::cap(&device.name, AUDIO_NAME_CAP),
+        title: glimpse_utils::clean(&device.name, AUDIO_NAME_CAP),
         icon: Some(render::device_icon(device, dir).to_owned()),
         value: None,
         selected: device.default,
@@ -410,7 +401,7 @@ fn block(
             .iter()
             .map(|device| AudioEntry {
                 id: device.id.as_str().to_owned(),
-                title: render::cap(&device.name, AUDIO_NAME_CAP),
+                title: glimpse_utils::clean(&device.name, AUDIO_NAME_CAP),
                 icon: Some(render::device_icon(device, dir).to_owned()),
                 value: None,
                 selected: device.id == role.device,
@@ -489,7 +480,6 @@ impl Audio {
             audio,
             notifications,
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             expanded: Rc::new(Cell::new(false)),
             shown: glib::WeakRef::new(),
@@ -545,7 +535,6 @@ impl Audio {
             .filter_map(|app| details(&self.state, &app.id))
             .collect();
         shown.set_details(&details);
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

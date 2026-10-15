@@ -129,10 +129,6 @@ impl BluetoothPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
-
     pub fn connect_powered<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "powered",
@@ -166,17 +162,6 @@ impl BluetoothPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
-        )
-    }
-
     fn render_prompt(&self, switched: bool) {
         let imp = self.imp();
         if switched {
@@ -189,7 +174,6 @@ impl BluetoothPopover {
         let Some(ask) = prompt.as_ref() else {
             imp.pages.set_visible_child_name(DEVICES_PAGE);
             imp.shell.imp().header.set_sensitive(true);
-            imp.footer.set_sensitive(true);
             return;
         };
 
@@ -211,7 +195,6 @@ impl BluetoothPopover {
         imp.quiet.set(false);
         imp.pages.set_visible_child_name(PROMPT_PAGE);
         imp.shell.imp().header.set_sensitive(false);
-        imp.footer.set_sensitive(false);
     }
 
     fn render_entries(&self) {

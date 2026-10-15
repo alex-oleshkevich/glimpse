@@ -4,7 +4,6 @@ use adw::prelude::*;
 use gettextrs::{gettext, ngettext};
 use gtk4::{gdk, glib, subclass::prelude::*};
 
-use crate::notification_list::dress;
 use crate::{Notification, NotificationCard};
 
 #[cfg(test)]
@@ -151,7 +150,7 @@ impl NotificationStack {
                     Some(at) => rows.remove(at).1,
                     None => self.build_row(&notification.key),
                 };
-                dress(&row, notification);
+                row.set_notification(notification);
                 next.push((notification.key.clone(), row));
             }
             for (_, row) in rows.drain(..) {

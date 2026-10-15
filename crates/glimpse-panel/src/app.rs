@@ -17,6 +17,7 @@ use glimpse_services::{
     SessionActionsHandle,
 };
 use glimpse_widgets::actions::ComponentActions;
+use glimpse_widgets::color_scheme;
 use glimpse_widgets::{
     NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
     SecretDialog, Sheets, Styles,
@@ -29,7 +30,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     applet::{Report, spawn_reported},
-    applets::bluetooth::{cap, typed},
+    applets::bluetooth::{NAME_CAP, typed},
     attached::{AttachedRegistry, SharedRegistry},
     components::{self, panel},
     config_alert::{self, Problems},
@@ -63,7 +64,6 @@ pub enum AppInput {
     BluetoothPrompt(Option<(Entry, String, String)>),
     NetworkSecret(Option<SecretPrompt>),
     SessionConfirm(SessionDialog),
-    SessionDialogClosed,
     SessionRun(SessionAction),
     ConfigChanged(Config),
     ConfigRejected(String),
@@ -82,7 +82,6 @@ impl std::fmt::Debug for AppInput {
             AppInput::BluetoothPrompt(_) => "BluetoothPrompt",
             AppInput::NetworkSecret(_) => "NetworkSecret",
             AppInput::SessionConfirm(_) => "SessionConfirm",
-            AppInput::SessionDialogClosed => "SessionDialogClosed",
             AppInput::SessionRun(_) => "SessionRun",
             AppInput::ConfigChanged(_) => "ConfigChanged",
             AppInput::ConfigRejected(_) => "ConfigRejected",
@@ -104,7 +103,6 @@ pub struct App {
     styles: Styles,
     services: Option<PanelServices>,
     services_start: JoinHandle<()>,
-    host: adw::ApplicationWindow,
     bluetooth_watch: Option<JoinHandle<()>>,
     network_watch: Option<JoinHandle<()>>,
     exec_watch: Option<JoinHandle<()>>,
@@ -174,7 +172,6 @@ impl SimpleComponent for App {
             styles,
             services: None,
             services_start,
-            host: root.clone(),
             bluetooth_watch: None,
             network_watch: None,
             exec_watch: None,
@@ -233,20 +230,20 @@ impl SimpleComponent for App {
             AppInput::ServicesReady(services) => {
                 services.reconfigure(&self.config);
                 self.bluetooth_watch = Some(spawn_bluetooth_watch(
-                    services.bluetooth.clone(),
+                    services.handles.bluetooth.clone(),
                     sender.clone(),
                 ));
                 self.network_watch = Some(spawn_network_watch(
-                    services.network.clone(),
+                    services.handles.network.clone(),
                     sender.clone(),
                 ));
                 self.exec_watch = Some(spawn_exec_watch(
-                    services.exec(),
+                    services.handles.exec.clone(),
                     self.attached.clone(),
                     sender.clone(),
                 ));
                 self.alert = Some(config_alert::spawn(
-                    services.notifications(),
+                    services.handles.notifications.clone(),
                     self.problems.body(),
                 ));
                 self.services = Some(services);
@@ -258,11 +255,8 @@ impl SimpleComponent for App {
                     if pairing.is_some() {
                         self.close_popovers();
                     }
-                    let bluetooth = services.bluetooth.clone();
+                    let bluetooth = services.handles.bluetooth.clone();
                     self.show_pairing(pairing, &bluetooth);
-                    if self.pairing.is_none() && self.host.is_visible() {
-                        self.host.set_visible(false);
-                    }
                 }
                 return;
             }
@@ -274,23 +268,14 @@ impl SimpleComponent for App {
                     if request.is_some() {
                         self.close_popovers();
                     }
-                    let network = services.network.clone();
+                    let network = services.handles.network.clone();
                     self.show_secret(request, &network);
-                    if self.secret.is_none() && self.pairing.is_none() && self.host.is_visible() {
-                        self.host.set_visible(false);
-                    }
                 }
                 return;
             }
             AppInput::SessionConfirm(request) => {
                 self.close_popovers();
-                self.show_session_dialog(request, &sender);
-                return;
-            }
-            AppInput::SessionDialogClosed => {
-                if self.pairing.is_none() && self.secret.is_none() && self.host.is_visible() {
-                    self.host.set_visible(false);
-                }
+                self.show_session_dialog(request);
                 return;
             }
             AppInput::SessionRun(action) => {
@@ -314,7 +299,10 @@ impl SimpleComponent for App {
                 .and_then(|services| services.session.clone())
         {
             let registry = self.attached.clone();
-            let exec = self.services.as_ref().map(PanelServices::exec);
+            let exec = self
+                .services
+                .as_ref()
+                .map(|services| services.handles.exec.clone());
             let input = sender.input_sender().clone();
             if let Some(exec) = exec {
                 relm4::spawn(async move {
@@ -381,9 +369,8 @@ impl App {
                         let _ = handle.answer_pairing(answer).await;
                     });
                 });
-                self.host.set_title(Some(&gettext("Bluetooth pairing")));
-                self.host.set_visible(true);
-                dialog.present(Some(&self.host));
+                dialog.set_title(&gettext("Bluetooth pairing"));
+                dialog.present(None::<&gtk4::Widget>);
                 self.pairing = Some((dialog.clone(), answered));
                 dialog
             }
@@ -394,8 +381,7 @@ impl App {
 
     /// The prompt is presented here rather than by the applet: an applet holds no state outliving
     /// its widget, and NetworkManager can ask for a secret at any moment — including while the
-    /// popover is shut. A dialog on a never-mapped window is queued rather than shown, so the host
-    /// is made visible while one is up.
+    /// popover is shut.
     fn show_secret(&mut self, request: Option<SecretPrompt>, network: &NetworkHandle) {
         let Some(SecretPrompt {
             key,
@@ -425,9 +411,8 @@ impl App {
                         let _ = handle.answer_secret(answer).await;
                     });
                 });
-                self.host.set_title(Some(&gettext("Network password")));
-                self.host.set_visible(true);
-                dialog.present(Some(&self.host));
+                dialog.set_title(&gettext("Network password"));
+                dialog.present(None::<&gtk4::Widget>);
                 self.secret = Some((dialog.clone(), answered));
                 dialog
             }
@@ -436,23 +421,22 @@ impl App {
         dialog.ask(&key, &name, retry, entered);
     }
 
-    fn show_session_dialog(&self, request: SessionDialog, sender: &ComponentSender<Self>) {
+    fn show_session_dialog(&self, request: SessionDialog) {
         let dialog = adw::AlertDialog::new(Some(&request.title), Some(&request.body));
         dialog.add_response("cancel", &gettext("Cancel"));
         dialog.add_response("accept", &request.accept);
         dialog.set_response_appearance("accept", adw::ResponseAppearance::Destructive);
         dialog.set_default_response(Some("accept"));
         dialog.set_close_response("cancel");
-        let closed = sender.input_sender().clone();
         let action = request.action.clone();
         let actions = self
             .services
             .as_ref()
-            .map(|services| services.session_actions.clone());
+            .map(|services| services.handles.session_actions.clone());
         let notifications = self
             .services
             .as_ref()
-            .map(|services| services.notifications());
+            .map(|services| services.handles.notifications.clone());
         dialog.connect_response(None, move |_, response| {
             if session_accepted(response)
                 && let (Some(actions), Some(notifications)) =
@@ -460,11 +444,9 @@ impl App {
             {
                 execute_session(actions, notifications, action.clone());
             }
-            let _ = closed.send(AppInput::SessionDialogClosed);
         });
-        self.host.set_title(Some(&request.title));
-        self.host.set_visible(true);
-        dialog.present(Some(&self.host));
+        dialog.set_title(&request.title);
+        dialog.present(None::<&gtk4::Widget>);
     }
 
     fn run_session_action(&self, action: SessionAction) {
@@ -472,8 +454,8 @@ impl App {
             return;
         };
         execute_session(
-            services.session_actions.clone(),
-            services.notifications(),
+            services.handles.session_actions.clone(),
+            services.handles.notifications.clone(),
             action,
         );
     }
@@ -520,14 +502,6 @@ fn close<D: IsA<adw::Dialog>>(open: Option<(D, glib::SignalHandlerId)>) {
     dialog.block_signal(&handler);
     dialog.as_ref().force_close();
     dialog.unblock_signal(&handler);
-}
-
-fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
-    match scheme {
-        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
-        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
-        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
-    }
 }
 
 fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
@@ -607,7 +581,10 @@ fn spawn_bluetooth_watch(
                     let name = state
                         .name(prompt.device())
                         .filter(|name| !name.is_empty())
-                        .map_or_else(|| gettext("this device"), cap);
+                        .map_or_else(
+                            || gettext("this device"),
+                            |name| glimpse_utils::clean(name, NAME_CAP),
+                        );
                     typed(prompt).map(|entry| (entry, prompt.device().as_str().to_owned(), name))
                 })
             };
@@ -825,32 +802,7 @@ fn reconcile_panels(
                 applets: config.applets.clone(),
                 regional: config.regional.clone(),
                 blur: config.appearance.blur.clone(),
-                compositor: services.compositor.clone(),
-                keyboard: services.keyboard.clone(),
-                calendar: services.calendar.clone(),
-                mpris: services.mpris.clone(),
-                heartbeat: services.heartbeat.clone(),
-                tray: services.tray.clone(),
-                bluetooth: services.bluetooth.clone(),
-                network: services.network.clone(),
-                audio: services.audio.clone(),
-                brightness: services.brightness.clone(),
-                night_light: services.night_light(),
-                color_picker: services.color_picker.clone(),
-                notifications: services.notifications(),
-                weather: services.weather(),
-                idle: services.idle(),
-                session_actions: services.session_actions.clone(),
-                clipboard: services.clipboard.clone(),
-                battery: services.battery.clone(),
-                places: services.places.clone(),
-                printing: services.printing.clone(),
-                removable: services.removable.clone(),
-                kdeconnect: services.kdeconnect.clone(),
-                privacy: services.privacy.clone(),
-                system_monitor: services.system_monitor.clone(),
-                ruler: services.ruler.clone(),
-                exec: services.exec(),
+                handles: services.handles.clone(),
                 dialog: dialog.clone(),
             };
             let state = match existing.remove(&key) {

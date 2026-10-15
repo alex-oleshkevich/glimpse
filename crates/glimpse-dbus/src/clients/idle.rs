@@ -485,7 +485,10 @@ async fn follow_provider(
             return;
         }
     };
-    let mut owners = match dbus.receive_name_owner_changed().await {
+    let mut owners = match dbus
+        .receive_name_owner_changed_with_args(&[(0, GLIMPSE_IDLE_BUS_NAME)])
+        .await
+    {
         Ok(owners) => owners,
         Err(error) => {
             replace_unavailable(&updates, error.to_string());
@@ -497,21 +500,33 @@ async fn follow_provider(
     let mut last_inhibitors: Option<Vec<IdleInhibitorRecord>> = None;
     let mut last_health: Option<InhibitorsHealth> = None;
 
+    let mut retry_delay = super::RetryDelay::default();
+
     loop {
         let proxy = match Idle1Proxy::builder(&connection)
             .cache_properties(CacheProperties::Yes)
             .build()
             .await
         {
-            Ok(proxy) => proxy,
+            Ok(proxy) => {
+                retry_delay.reset();
+                proxy
+            }
             Err(error) => {
                 *current.write().await = None;
                 replace_unavailable(&updates, error.to_string());
                 tracing::debug!(
                     reason = clean(&error.to_string(), REASON),
-                    "idle provider has no owner; waiting"
+                    "idle provider property cache is unavailable"
                 );
-                if !wait_for_owner(&mut owners).await {
+                if !super::retry_after_failure(
+                    &dbus,
+                    &mut owners,
+                    GLIMPSE_IDLE_BUS_NAME,
+                    &mut retry_delay,
+                )
+                .await
+                {
                     return;
                 }
                 continue;
@@ -658,20 +673,15 @@ async fn follow_provider(
 }
 
 fn replace_unavailable(updates: &watch::Sender<IdleProviderState>, reason: impl Into<String>) {
-    let health = updates.borrow().health.clone();
-    updates.send_replace(IdleProviderState::unavailable(reason, Some(health)));
-}
-
-async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
-    while let Some(owner) = owners.next().await {
-        let Ok(args) = owner.args() else {
-            continue;
-        };
-        if args.name().as_str() == GLIMPSE_IDLE_BUS_NAME && args.new_owner().is_some() {
-            return true;
+    let reason = reason.into();
+    updates.send_if_modified(|previous| {
+        let next = IdleProviderState::unavailable(reason, Some(previous.health.clone()));
+        if *previous == next {
+            return false;
         }
-    }
-    false
+        *previous = next;
+        true
+    });
 }
 
 fn decode_inhibitors(records: Vec<IdleInhibitorRecord>) -> Vec<IdleInhibitorRecord> {

@@ -25,9 +25,10 @@ use super::render;
 const THUMBNAIL: i32 = 320;
 const EXCERPT_LINES: usize = 6;
 const EXCERPT_CHARS: usize = 200;
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, wording};
+use crate::applet::popover::Seat;
+use crate::applet::{
+    Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported, tell, wording,
+};
 
 pub struct Clipboard {
     service: ClipboardHandle,
@@ -36,7 +37,6 @@ pub struct Clipboard {
     state: ClipboardState,
     settings: ClipboardAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     shown: glib::WeakRef<ClipboardPopover>,
     spec: Vec<IndicatorSpec>,
     /// Decoded thumbnails, keyed by entry id. Decoding is the expensive half and an entry's bytes
@@ -61,7 +61,6 @@ impl Clipboard {
             notifications,
             settings: ClipboardAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             shown: glib::WeakRef::new(),
             spec: Vec::new(),
             images: HashMap::new(),
@@ -311,7 +310,6 @@ impl Clipboard {
             0 => None,
             _ => Some(clear.as_str()),
         });
-        shown.set_footer(self.footer.label().as_deref());
     }
 }
 
@@ -498,32 +496,6 @@ fn open(uri: String) {
 
 /// A command the viewer asked for answers in words they can read. `spawn_command` only logs, and a
 /// row that does nothing when pressed is exactly the failure a person needs told about.
-fn tell<F, T>(
-    notifications: &NotificationsProviderHandle,
-    opener: Opener,
-    operation: &'static str,
-    summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
-    T: 'static,
-{
-    let report = Report {
-        notifications: notifications.clone(),
-        app_name: gettext("Clipboard"),
-        icon: render::ICON.to_owned(),
-        summary,
-    };
-    let unavailable = gettext("The clipboard is unavailable.");
-    relm4::spawn_local(async move {
-        let Err(error) = future.await else {
-            return;
-        };
-        opener.wake();
-        report_failure(operation, report, wording_for(&error, &unavailable), error).await;
-    });
-}
-
 fn wording_for(error: &CommandError, unavailable: &str) -> Option<String> {
     match error {
         CommandError::Unavailable(_) => Some(unavailable.to_owned()),
@@ -541,7 +513,7 @@ impl Applet for Clipboard {
         };
         self.settings = settings.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh(&ctx.opener());
     }
 
@@ -568,7 +540,7 @@ impl Applet for Clipboard {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = ClipboardPopover::new();
         let opener = seat.opener();
         self.query.replace(String::new());
@@ -624,16 +596,22 @@ impl Applet for Clipboard {
                         let service = service.clone();
                         let acknowledged = opener.clone();
                         tell(
-                            &notifications,
+                            Report {
+                                notifications: notifications.clone(),
+                                app_name: gettext("Clipboard"),
+                                icon: render::ICON.to_owned(),
+                                summary: gettext("Could not copy that"),
+                            },
                             opener.clone(),
                             "clipboard.copy_text",
-                            gettext("Could not copy that"),
                             async move {
                                 service
                                     .copy_text(text)
                                     .await
                                     .inspect(|_| acknowledged.acknowledge())
                             },
+                            gettext("The clipboard is unavailable."),
+                            wording_for,
                         );
                     }
                 }
@@ -649,16 +627,22 @@ impl Applet for Clipboard {
                 let service = service.clone();
                 let acknowledged = opener.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Clipboard"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not copy that entry"),
+                    },
                     opener.clone(),
                     "clipboard.restore",
-                    gettext("Could not copy that entry"),
                     async move {
                         service
                             .restore(id)
                             .await
                             .inspect(|_| acknowledged.acknowledge())
                     },
+                    gettext("The clipboard is unavailable."),
+                    wording_for,
                 );
                 // Copying is what the press meant, so the surface closes on it.
                 opener.close_popover();
@@ -671,11 +655,17 @@ impl Applet for Clipboard {
             move |_, id, pinned| {
                 let service = service.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Clipboard"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not pin that entry"),
+                    },
                     opener.clone(),
                     "clipboard.pin",
-                    gettext("Could not pin that entry"),
                     async move { service.pin(id, pinned).await },
+                    gettext("The clipboard is unavailable."),
+                    wording_for,
                 );
                 opener.wake();
             }
@@ -687,11 +677,17 @@ impl Applet for Clipboard {
             move |_, id| {
                 let service = service.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Clipboard"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not forget that entry"),
+                    },
                     opener.clone(),
                     "clipboard.remove",
-                    gettext("Could not forget that entry"),
                     async move { service.remove(id).await },
+                    gettext("The clipboard is unavailable."),
+                    wording_for,
                 );
                 opener.wake();
             }
@@ -703,20 +699,24 @@ impl Applet for Clipboard {
             move |_| {
                 let service = service.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Clipboard"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not clear the history"),
+                    },
                     opener.clone(),
                     "clipboard.clear_history",
-                    gettext("Could not clear the history"),
                     async move { service.clear_history().await },
+                    gettext("The clipboard is unavailable."),
+                    wording_for,
                 );
                 opener.wake();
             }
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
 
         self.shown.set(Some(&shown));
         self.refresh(&opener);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }

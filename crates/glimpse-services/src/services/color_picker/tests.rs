@@ -1,4 +1,6 @@
+use crate::ServiceState;
 use std::sync::Mutex;
+use tokio::sync::watch;
 
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
@@ -63,8 +65,7 @@ async fn harness(answers: Vec<Result<Option<[u8; 3]>, String>>) -> Harness {
             picker: picker.clone(),
         },
     )
-    .await
-    .unwrap();
+    .await;
     Harness {
         service,
         selection,

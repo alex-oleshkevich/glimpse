@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use super::launcher::{Launcher, NEEDS_SYSTEMD, ProcessLauncher, UnitSpec, UnitState};
 use super::*;
 use crate::selection::FakeSelection;
-use crate::service::{ServiceRuntime, ServiceSender};
+use crate::service::ServiceRuntime;
 
 #[derive(Clone)]
 struct FakeCatalog(Arc<Mutex<Result<Entry, String>>>);
@@ -175,7 +175,7 @@ fn configured() -> TestConfig {
 
 type Running = (
     ExecHandle,
-    ServiceSender<Exec>,
+    tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
     FakeSelection,
@@ -227,7 +227,7 @@ fn running_with(
     };
     let task = tokio::spawn(async move {
         let _keep = (_state_dir, _runtime_dir);
-        let _ = runtime.run(deps).await;
+        runtime.run(deps).await;
     });
     (handle, sender, cancel, task, selection, process)
 }

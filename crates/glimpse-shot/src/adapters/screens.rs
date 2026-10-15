@@ -20,16 +20,15 @@ pub fn compositor_snapshot() -> anyhow::Result<Option<Snapshot>> {
 
 pub struct WaylandScreens {
     pub compositor: bool,
-    pub focused: Option<String>,
     pub counted: RefCell<Option<Frame>>,
 }
 
 impl Screens for WaylandScreens {
     fn current(&self) -> Result<String, CaptureError> {
         if self.compositor {
-            return self
-                .focused
-                .clone()
+            return compositor_snapshot()
+                .map_err(|error| CaptureError::Failed(format!("{error:#}")))?
+                .and_then(|snapshot| snapshot.focused_output)
                 .ok_or_else(|| CaptureError::NoSuchOutput("current".to_owned()));
         }
         let frames = capture::outputs(Instant::now() + CAPTURE_TIMEOUT, false)?;

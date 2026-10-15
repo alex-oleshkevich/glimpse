@@ -3,7 +3,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{reconcile, set_action_label};
+use crate::reconcile;
 
 pub(crate) use device::RemovableDevice;
 
@@ -48,10 +48,6 @@ impl RemovablePopover {
         imp.quiet.set(false);
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
-
     pub fn connect_activated<F: Fn(&Self, &str) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -73,14 +69,6 @@ impl RemovablePopover {
             "eject",
             false,
             glib::closure_local!(move |popover: Self, id: String| f(&popover, &id)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
         )
     }
 

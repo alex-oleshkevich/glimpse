@@ -34,28 +34,16 @@ impl Panel {
         self.imp().end_box.append(widget);
     }
 
-    pub fn remove_from_start(&self, widget: &impl IsA<gtk4::Widget>) {
-        self.imp().start_box.remove(widget);
-    }
-
-    pub fn remove_from_center(&self, widget: &impl IsA<gtk4::Widget>) {
-        self.imp().center_box.remove(widget);
-    }
-
-    pub fn remove_from_end(&self, widget: &impl IsA<gtk4::Widget>) {
-        self.imp().end_box.remove(widget);
-    }
-
     pub fn clear_start(&self) {
-        clear(&self.imp().start_box);
+        crate::clear_children(&self.imp().start_box);
     }
 
     pub fn clear_center(&self) {
-        clear(&self.imp().center_box);
+        crate::clear_children(&self.imp().center_box);
     }
 
     pub fn clear_end(&self) {
-        clear(&self.imp().end_box);
+        crate::clear_children(&self.imp().end_box);
     }
 
     pub fn set_orientation(&self, orientation: gtk4::Orientation) {
@@ -89,11 +77,5 @@ impl Panel {
             gtk4::Orientation::Vertical => self.set_size_request(thickness, -1),
             _ => self.set_size_request(-1, thickness),
         }
-    }
-}
-
-fn clear(section: &gtk4::Box) {
-    while let Some(child) = section.first_child() {
-        section.remove(&child);
     }
 }

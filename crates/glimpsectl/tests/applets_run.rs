@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::fd::AsFd;
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{
@@ -257,7 +258,8 @@ impl Harness {
         if let Some(config) = setup.config {
             fs::write(applet.join("config.toml"), config)?;
         }
-        let child = Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
+        command
             .args(["applets", "run"])
             .arg(&applet)
             .args(setup.extra)
@@ -265,8 +267,17 @@ impl Harness {
             .env("GLIMPSE_PANEL_APP_ID", "org.example.TestPanel")
             .env("XDG_DATA_HOME", root.path().join("data"))
             .stdout(Stdio::piped())
-            .stderr(fs::File::create(root.path().join("command.stderr"))?)
-            .spawn()?;
+            .stderr(fs::File::create(root.path().join("command.stderr"))?);
+        unsafe {
+            command.pre_exec(|| {
+                let flags = libc::CLOSE_RANGE_CLOEXEC as libc::c_int;
+                if libc::close_range(3, libc::c_uint::MAX, flags) < 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        let child = command.spawn()?;
         Ok(Self {
             _bus: bus,
             _connection: connection,
@@ -281,7 +292,8 @@ impl Harness {
 
     async fn event(&mut self) -> Result<Event> {
         tokio::time::timeout(Duration::from_secs(8), self.events.recv())
-            .await?
+            .await
+            .context("no event within 8 s")?
             .context("event stream closed")
     }
 
@@ -357,7 +369,8 @@ impl Harness {
             }
             Ok::<_, anyhow::Error>(())
         })
-        .await??;
+        .await
+        .context("the command did not exit within 8 s")??;
         let mut output = self
             .command
             .take()
@@ -519,6 +532,8 @@ async fn options_edit_calls_set_options_without_restarting() -> Result<()> {
         Event::Attach { options, .. } => assert_eq!(options, "{\"one\":1}"),
         other => anyhow::bail!("{other:?}"),
     }
+    fs::write(h.applet.join("config.toml"), "")?;
+    tokio::time::sleep(Duration::from_millis(50)).await;
     fs::write(h.applet.join("config.toml"), "options = { two = 2 }\n")?;
     assert_eq!(
         h.event().await?,

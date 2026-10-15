@@ -283,6 +283,42 @@ fn targets_resolve_per_the_targets_table() {
     assert_eq!(resolve(&["--region"], false), Ok(Target::PickRegion));
     assert!(resolve(&["--region"], true).is_err());
     assert!(resolve(&["--region", "10,10"], true).is_err());
+
+    for headless in [false, true] {
+        for empty in [
+            &["--screen", ""][..],
+            &["--window", ""],
+            &["--region", ""],
+            &["--region="],
+        ] {
+            assert!(
+                resolve(empty, headless).is_err(),
+                "{empty:?} headless={headless}"
+            );
+        }
+    }
+    let cancelled = resolve(&["--region", ""], false).expect_err("refused");
+    assert!(cancelled.contains("empty geometry"), "{cancelled}");
+}
+
+#[test]
+fn only_the_overlay_takes_a_prompt_a_timeout_or_stdout() {
+    use glimpse_config::Editor;
+
+    assert!(gui(&["--screen"]).in_window(Editor::Window));
+    assert!(!gui(&["--screen"]).in_window(Editor::Overlay));
+    assert!(gui(&["--screen", "--editor", "window"]).in_window(Editor::Overlay));
+    for overlay_only in [
+        &["--screen", "--prompt", "x"][..],
+        &["--screen", "--timeout", "30"],
+        &["--screen", "-o", "-"],
+        &["--screen", "--portal", "app"],
+    ] {
+        assert!(
+            !gui(overlay_only).in_window(Editor::Window),
+            "{overlay_only:?}"
+        );
+    }
 }
 
 #[test]

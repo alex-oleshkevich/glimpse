@@ -13,7 +13,7 @@ use glimpse_widgets::{
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 use crate::applets::output_name;
 use crate::applets::workspace::{Facts, render, workspace_token};
@@ -53,7 +53,7 @@ impl Applet for Pager {
         self.strip.set_orientation(orientation);
     }
 
-    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<gtk4::Widget> {
         let shown = WorkspacesPopover::new();
         shown.set_workspaces(&self.rows());
 
@@ -74,7 +74,7 @@ impl Applet for Pager {
         });
 
         self.shown.set(Some(&shown));
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 
     fn anchor(&self) -> Option<gtk4::Widget> {

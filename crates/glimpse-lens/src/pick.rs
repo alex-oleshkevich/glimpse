@@ -1,7 +1,6 @@
 use std::cell::Cell;
 use std::rc::Rc;
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context as _, Result, anyhow};
 use glimpse_config::ColorFormat;
@@ -10,10 +9,9 @@ use gtk4::glib;
 
 use crate::errors::Cancelled;
 use crate::lens::{Outcome, Session, Settings};
-use glimpse_wayland::capture::{self, CaptureError};
+use crate::overlay::capture_within;
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(3);
-const SETUP_GRACE: Duration = Duration::from_secs(1);
 
 pub fn pick(settings: Settings) -> Result<[u8; 3]> {
     let frames = capture_within(CAPTURE_TIMEOUT).context("cannot capture the screen")?;
@@ -41,17 +39,6 @@ pub fn pick(settings: Settings) -> Result<[u8; 3]> {
         Some(Outcome::Picked(color)) => Ok(color),
         Some(Outcome::Cancelled) | None => Err(Cancelled.into()),
     }
-}
-
-fn capture_within(timeout: Duration) -> Result<Vec<capture::Frame>, CaptureError> {
-    let deadline = Instant::now() + timeout;
-    let (sender, frames) = mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = sender.send(capture::outputs(deadline, false));
-    });
-    frames
-        .recv_timeout(timeout + SETUP_GRACE)
-        .unwrap_or(Err(CaptureError::TimedOut))
 }
 
 pub fn json(format: ColorFormat, [red, green, blue]: [u8; 3]) -> String {

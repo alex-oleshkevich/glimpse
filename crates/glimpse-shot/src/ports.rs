@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -29,11 +28,6 @@ pub trait Windows {
 pub trait Clipboard {
     fn copy(&self, entries: Vec<Entry>) -> Result<(), String>;
     fn snapshot(&self) -> io::Result<Snapshot>;
-}
-
-pub trait Notifier {
-    fn notify(&self, notice: Notice) -> Result<(), String>;
-    fn closed(&self) -> impl Future<Output = ()>;
 }
 
 pub trait Files {

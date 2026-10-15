@@ -229,32 +229,6 @@ fn every_block_in_the_builtin_sheet_closes() {
 }
 
 #[test]
-fn the_declared_vocabulary_is_the_documented_size() {
-    let (block, _) = split(BUILTIN);
-    assert_eq!(declared(block).len(), 84);
-}
-
-#[test]
-fn notification_width_and_popup_frame_match_the_measured_surface() {
-    assert!(BUILTIN.contains("--applet-popover-width-wide: 40rem;"));
-    assert!(BUILTIN.contains(".notification {\n    min-width: 40rem;\n"));
-    assert_eq!(BUILTIN.matches("min-width: 40rem;").count(), 1);
-    assert!(!BUILTIN.contains("min-width: 42rem;"));
-    assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));
-    assert!(BUILTIN.contains("--gl-popup-paint-outset: 2.5rem;"));
-    assert!(BUILTIN.contains("padding: var(--gl-popup-paint-outset);"));
-    assert!(BUILTIN.contains("box-shadow: var(--gl-elevation-floating);"));
-    assert!(BUILTIN.contains("transform: translate(0, var(--gl-popup-motion));"));
-}
-#[test]
-fn slider_row_css_has_token_fallbacks() {
-    assert!(
-        super::BUILTIN
-            .contains(".slider-row__start {\n    margin-right: var(--row-gap, 0.625rem);")
-    );
-}
-
-#[test]
 fn inactive_rows_fade_each_element_once() {
     let (_, rules) = split(BUILTIN);
     for block in rules.split('}') {

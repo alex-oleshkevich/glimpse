@@ -30,8 +30,6 @@ pub struct IdlePopover {
     pub others: TemplateChild<Section>,
     #[template_child]
     pub list: TemplateChild<InhibitorList>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub quiet: Cell<bool>,
 }
@@ -69,7 +67,6 @@ impl ObjectImpl for IdlePopover {
                 glib::subclass::Signal::builder("release-requested")
                     .param_types([u64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -104,12 +101,6 @@ impl ObjectImpl for IdlePopover {
             #[weak]
             popover,
             move |_, id| popover.emit_by_name::<()>("release-requested", &[&id])
-        ));
-
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

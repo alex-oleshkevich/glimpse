@@ -1,7 +1,7 @@
 mod imp;
 mod item;
 
-pub use item::PagerItem;
+pub(crate) use item::PagerItem;
 
 use gtk4::{glib, graphene, prelude::*, subclass::prelude::*};
 

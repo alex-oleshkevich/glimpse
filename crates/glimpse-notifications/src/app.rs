@@ -20,6 +20,7 @@ use glimpse_services::{
 };
 use glimpse_widgets::actions::ComponentActions;
 use glimpse_widgets::blur;
+use glimpse_widgets::color_scheme;
 use glimpse_widgets::{
     Action, Body, Notification, NotificationCard, Sheets, Styles, Urgency, notification_icon,
     notification_image,
@@ -1026,14 +1027,6 @@ fn activation_token(window: &gtk4::Window) -> Option<String> {
         .app_launch_context()
         .startup_notify_id(gio::AppInfo::NONE, &[])?;
     (!id.is_empty()).then(|| id.to_string())
-}
-
-fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
-    match scheme {
-        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
-        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
-        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
-    }
 }
 
 fn from_record(record: &NotificationRecord, when: String) -> Notification {

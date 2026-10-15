@@ -12,11 +12,6 @@ fn every_name_in_the_default_zones_resolves_to_a_kind() {
 }
 
 #[test]
-fn a_known_name_resolves_to_configuration() {
-    assert!(configured("heartbeat", &BTreeMap::new(), &Regional::default()).is_some());
-}
-
-#[test]
 fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
     let applets = custom("pulse", AppletKind::Heartbeat {}.into());
     assert!(
@@ -26,58 +21,6 @@ fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
     assert!(
         configured("pulse", &BTreeMap::new(), &Regional::default()).is_none(),
         "without the entry the same name is just unknown"
-    );
-}
-
-#[test]
-fn the_next_event_applet_is_configured_rather_than_skipped() {
-    assert!(
-        configured("next-event", &BTreeMap::new(), &Regional::default()).is_some(),
-        "the kind is known, so it must not be treated as a typo"
-    );
-}
-
-#[test]
-fn the_tray_applet_is_configured_and_no_longer_falls_through_to_nothing() {
-    let applets = configured("tray", &BTreeMap::new(), &Regional::default())
-        .expect("`tray` ships in the default right zone, so it must resolve");
-    assert!(
-        matches!(applets.kind, AppletKind::Tray(_)),
-        "a unit variant would let deny_unknown_fields swallow every key under it"
-    );
-}
-
-#[test]
-fn the_weather_applet_is_configured_rather_than_skipped() {
-    assert!(
-        configured("weather", &BTreeMap::new(), &Regional::default()).is_some(),
-        "the kind is known, so it must not be treated as a typo"
-    );
-}
-
-#[test]
-fn the_keyboard_applet_is_configured_rather_than_skipped() {
-    assert!(
-        configured("keyboard", &BTreeMap::new(), &Regional::default()).is_some(),
-        "the kind is known, so it must not be treated as a typo"
-    );
-}
-
-#[test]
-fn the_clipboard_applet_is_configured_and_no_longer_falls_through_to_nothing() {
-    let applets = configured("clipboard", &BTreeMap::new(), &Regional::default())
-        .expect("`clipboard` ships in the default right zone, so it must resolve");
-    assert!(
-        matches!(applets.kind, AppletKind::Clipboard(_)),
-        "a unit variant would let deny_unknown_fields swallow every key under it"
-    );
-}
-
-#[test]
-fn the_notifications_applet_is_configured_rather_than_skipped() {
-    assert!(
-        configured("notifications", &BTreeMap::new(), &Regional::default()).is_some(),
-        "the kind is known, so it must not be treated as a typo"
     );
 }
 

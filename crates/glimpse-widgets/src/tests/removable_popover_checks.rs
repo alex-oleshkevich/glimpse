@@ -341,14 +341,4 @@ fn removable_popover_widgets() {
     assert_eq!(moved.borrow().last().map(String::as_str), Some("v"));
     popover.set_overflow(None, true);
     assert!(!imp.devices_more.get_visible());
-
-    let footer_activated = Rc::new(Cell::new(false));
-    popover.connect_footer_activated({
-        let footer_activated = Rc::clone(&footer_activated);
-        move |_| footer_activated.set(true)
-    });
-    popover.set_footer(Some("Open file manager"));
-    assert!(imp.footer.get_visible());
-    imp.footer.emit_by_name::<()>("activated", &[]);
-    assert!(footer_activated.get());
 }

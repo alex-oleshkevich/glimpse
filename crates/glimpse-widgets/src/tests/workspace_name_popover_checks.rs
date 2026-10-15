@@ -77,13 +77,4 @@ fn workspace_name_popover_widgets() {
     popover.connect_cancelled(move |_| sink.set(true));
     popover.emit_by_name::<()>("cancelled", &[]);
     assert!(cancelled.get());
-
-    let footer = Rc::new(Cell::new(false));
-    let sink = footer.clone();
-    popover.connect_footer_activated(move |_| sink.set(true));
-    assert!(!imp.footer.get_visible(), "no footer until one is set");
-    popover.set_footer(Some("Workspace settings"));
-    assert!(imp.footer.get_visible());
-    imp.footer.activate();
-    assert!(footer.get());
 }

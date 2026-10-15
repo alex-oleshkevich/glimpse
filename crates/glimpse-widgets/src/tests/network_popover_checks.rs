@@ -15,12 +15,7 @@ pub(super) fn check() {
         "rendering radio state sends no command"
     );
     assert!(network.imp().shell.subtitle().is_none());
-    network.set_footer(Some("Network settings"));
-    assert_eq!(
-        network.imp().footer.parent(),
-        Some(network.imp().shell.body().upcast()),
-        "settings sits in the body"
-    );
+
     let hidden_requests = Rc::new(Cell::new(0));
     network.connect_hidden_network({
         let requests = Rc::clone(&hidden_requests);

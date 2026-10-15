@@ -1,17 +1,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context as _, Result, anyhow};
 use glimpse_widgets::Styles;
 use gtk4::glib;
 
+use crate::overlay::capture_within;
 use crate::session::{Outcome, Segment, Session, Settings};
-use glimpse_wayland::capture::{self, CaptureError};
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(3);
-const SETUP_GRACE: Duration = Duration::from_secs(1);
 
 pub fn measure(settings: Settings) -> Result<Vec<Segment>> {
     let frames = capture_within(CAPTURE_TIMEOUT).context("cannot capture the screen")?;
@@ -47,17 +45,6 @@ fn confirmed(outcome: Option<Outcome>) -> Vec<Segment> {
         }
         None => Vec::new(),
     }
-}
-
-fn capture_within(timeout: Duration) -> Result<Vec<capture::Frame>, CaptureError> {
-    let deadline = Instant::now() + timeout;
-    let (sender, frames) = mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = sender.send(capture::outputs(deadline, false));
-    });
-    frames
-        .recv_timeout(timeout + SETUP_GRACE)
-        .unwrap_or(Err(CaptureError::TimedOut))
 }
 
 pub fn ndjson(segments: &[Segment]) -> Option<String> {

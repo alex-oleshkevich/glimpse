@@ -1314,6 +1314,7 @@ dependencies = [
  "futures-util",
  "glimpse-dbus",
  "glimpse-utils",
+ "rustix",
  "serde",
  "serde_json",
  "thiserror",
@@ -1391,7 +1392,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "zbus",
  "zeroize",
 ]
@@ -1428,6 +1428,7 @@ dependencies = [
 name = "glimpse-package"
 version = "0.16.0"
 dependencies = [
+ "tempfile",
  "toml",
 ]
 
@@ -1435,7 +1436,6 @@ dependencies = [
 name = "glimpse-panel"
 version = "0.16.0"
 dependencies = [
- "anstream",
  "anyhow",
  "chrono",
  "chrono-tz",
@@ -1456,19 +1456,14 @@ dependencies = [
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",
- "owo-colors",
  "relm4",
  "serde_json",
  "shadow-rs",
- "thiserror",
+ "tempfile",
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
  "url",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-wlr",
  "zbus",
  "zeroize",
 ]
@@ -1531,6 +1526,7 @@ dependencies = [
  "glimpse-dbus",
  "glimpse-services",
  "glimpse-utils",
+ "tempfile",
  "tokio",
  "tracing",
  "zbus",
@@ -1589,7 +1585,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
  "wayland-client",
  "wayland-protocols-wlr",
  "zbus",
@@ -1711,7 +1706,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "tracing-subscriber",
  "zbus",
 ]
 
@@ -2961,12 +2955,6 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
 ]
-
-[[package]]
-name = "owo-colors"
-version = "4.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "palette"

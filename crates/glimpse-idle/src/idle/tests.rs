@@ -75,7 +75,7 @@ fn test_config() -> Idle {
 async fn settle() {
     tokio::time::sleep(Duration::from_millis(25)).await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn battery_change_reresolves_listeners_from_battery_profile() {
     let (actor, handle) = Actor::new(
         test_config(),
@@ -98,7 +98,7 @@ async fn battery_change_reresolves_listeners_from_battery_profile() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn battery_change_resumes_fired_listener_before_switching_and_clears_fired() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -132,7 +132,7 @@ async fn battery_change_resumes_fired_listener_before_switching_and_clears_fired
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn in_flight_command_does_not_block_next_transition() {
     let (started_tx, started_rx) = oneshot::channel();
     let runner = Arc::new(BlockingRunner {
@@ -168,7 +168,7 @@ async fn in_flight_command_does_not_block_next_transition() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn config_change_resumes_fired_listener_before_replacing_policy() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -203,7 +203,7 @@ async fn config_change_resumes_fired_listener_before_replacing_policy() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn disabled_config_reports_disabled_health_and_runs_nothing() {
     let commands = Recorded::default();
     let mut config = test_config();
@@ -237,7 +237,7 @@ async fn disabled_config_reports_disabled_health_and_runs_nothing() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn stale_generation_listener_event_is_ignored() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -290,7 +290,7 @@ fn resolve_listeners_filters_disabled_and_resolves_inhibitor_override() {
         "an explicit override wins over the table default"
     );
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn editing_the_inactive_profile_does_not_disturb_the_active_policy() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -337,7 +337,7 @@ async fn editing_the_inactive_profile_does_not_disturb_the_active_policy() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn respecting_listener_does_not_fire_while_an_idle_target_inhibitor_exists() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -366,7 +366,7 @@ async fn respecting_listener_does_not_fire_while_an_idle_target_inhibitor_exists
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn releasing_the_last_idle_target_fires_a_suppressed_listener_immediately() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -399,7 +399,7 @@ async fn releasing_the_last_idle_target_fires_a_suppressed_listener_immediately(
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_fired_listener_stays_fired_when_a_new_inhibitor_appears() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(
@@ -438,7 +438,7 @@ async fn a_fired_listener_stays_fired_when_a_new_inhibitor_appears() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn non_respecting_listener_fires_regardless_of_registry_state() {
     let commands = Recorded::default();
     let mut config = test_config();
@@ -469,7 +469,7 @@ async fn non_respecting_listener_fires_regardless_of_registry_state() {
     cancel.cancel();
     let _ = task.await;
 }
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_stale_generation_suppressed_entry_cannot_fire_under_a_new_policy() {
     let commands = Recorded::default();
     let (actor, handle) = Actor::new(

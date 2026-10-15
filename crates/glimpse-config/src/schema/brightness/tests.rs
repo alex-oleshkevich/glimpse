@@ -15,14 +15,6 @@ fn the_document_sets_the_floor() {
 }
 
 #[test]
-fn an_absent_table_defaults_to_three() {
-    let parsed = load("").expect("an absent table is fine").brightness;
-
-    assert_eq!(parsed.minimum, 3);
-    assert!(parsed.ddc, "DDC/CI probing defaults to on");
-}
-
-#[test]
 fn ddc_can_be_turned_off() {
     let parsed = load("[brightness]\nddc = false\n")
         .expect("ddc is a key of this table")

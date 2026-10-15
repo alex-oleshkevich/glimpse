@@ -58,6 +58,7 @@ fn a_configuration_that_does_not_load_says_binaries_will_not_start() {
     let broken = Configuration {
         files: vec![PathBuf::from("/etc/glimpse/config.toml")],
         loads: false,
+        warnings: Vec::new(),
         error: Some("expected a table".to_owned()),
     };
     let rendered = broken.section().render();

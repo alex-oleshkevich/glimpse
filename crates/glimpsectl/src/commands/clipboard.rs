@@ -20,7 +20,7 @@ pub async fn clipboard_list(connection: &Connection, json: bool) -> Result<()> {
 
     Section::new("Clipboard")
         .with(
-            Table::new()
+            Table::default()
                 .with_headers(["ID", "KIND", "PIN", "PREVIEW"])
                 .with_empty("the history is empty")
                 .with_rows(items.iter().map(row))

@@ -23,6 +23,10 @@ impl KdeconnectPopover {
         glib::Object::new()
     }
 
+    pub fn settings(&self) -> ActionRow {
+        self.imp().settings.clone()
+    }
+
     pub fn set_devices(&self, devices: &[Device]) {
         let imp = self.imp();
         if imp.devices_data.borrow().as_slice() == devices {
@@ -78,10 +82,6 @@ impl KdeconnectPopover {
         }
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        set_action_label(&self.imp().footer, label);
-    }
-
     pub fn connect_action<F: Fn(&Self, &str, &str) + 'static>(
         &self,
         f: F,
@@ -103,14 +103,6 @@ impl KdeconnectPopover {
         )
     }
 
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| f(&popover)),
-        )
-    }
-
     fn apply_device(&self, holder: &ExpanderRow, device: &Device, actions_changed: bool) {
         holder.set_title(none_if_empty(&device.title));
         holder.set_value(none_if_empty(&device.value));
@@ -118,9 +110,7 @@ impl KdeconnectPopover {
             return;
         }
         let details = holder.details();
-        while let Some(child) = details.first_child() {
-            details.remove(&child);
-        }
+        crate::clear_children(&details);
         for action in &device.actions {
             let row = ActionRow::new();
             let base = row.upcast_ref::<Row>();

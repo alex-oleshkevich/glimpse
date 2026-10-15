@@ -62,7 +62,7 @@ fn write_table_with(
 ) -> Result<(), ConfigError> {
     let target = match fs::canonicalize(path) {
         Ok(target) => target,
-        Err(error) if error.kind() == io::ErrorKind::NotFound && !is_symlink(path) => {
+        Err(error) if error.kind() == io::ErrorKind::NotFound && !path.is_symlink() => {
             path.to_path_buf()
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -117,10 +117,6 @@ fn write_table_with(
         &target,
         io::Error::other("the file kept changing while it was being written"),
     ))
-}
-
-fn is_symlink(path: &Path) -> bool {
-    fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
 }
 
 fn temporary_beside(target: &Path, dir: &Path, text: &str) -> io::Result<NamedTempFile> {
@@ -383,7 +379,12 @@ fn load_from(
 
 pub fn load_or_default(config_path: Option<&Path>) -> (Config, Option<ConfigError>) {
     match load(config_path) {
-        Ok(config) => (config, None),
+        Ok(config) => {
+            for problem in config.validate() {
+                tracing::warn!(%problem, "configuration problem");
+            }
+            (config, None)
+        }
         Err(error) => {
             tracing::error!(%error, "starting with the default configuration");
             (Config::default(), Some(error))

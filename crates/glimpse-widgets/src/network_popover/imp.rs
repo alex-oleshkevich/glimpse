@@ -6,7 +6,7 @@ use gtk4::{
 };
 
 use super::row::NetworkRow;
-use crate::{ActionRow, ExpanderRow, Fact, Placeholder, PopoverShell, Section};
+use crate::{ActionRow, ExpanderRow, Placeholder, PopoverShell, Section};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -28,16 +28,6 @@ pub struct Entry {
     pub busy: bool,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Line {
-    pub action: String,
-    pub title: String,
-    pub toggle: Option<bool>,
-    pub activates: bool,
-    pub busy: bool,
-    pub destructive: bool,
-}
-
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Entered {
     #[default]
@@ -57,12 +47,7 @@ pub struct Ask {
     pub open_choice: Option<u32>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Details {
-    pub id: String,
-    pub facts: Vec<Fact>,
-    pub lines: Vec<Line>,
-}
+pub use crate::fact_list::{Details, Line};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/network_popover.ui")]
@@ -114,8 +99,6 @@ pub struct NetworkPopover {
     pub prompt_cancel: TemplateChild<gtk4::Button>,
     #[template_child]
     pub prompt_accept: TemplateChild<gtk4::Button>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Vec<Details>>,
@@ -174,7 +157,6 @@ impl ObjectImpl for NetworkPopover {
                 glib::subclass::Signal::builder("answered")
                     .param_types([bool::static_type(), String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -259,12 +241,6 @@ impl ObjectImpl for NetworkPopover {
             #[weak]
             object,
             move |_| object.answer(true)
-        ));
-
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            object,
-            move |_| object.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

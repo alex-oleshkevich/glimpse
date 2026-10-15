@@ -98,20 +98,18 @@ pub struct TargetArgs {
     #[arg(
         long,
         num_args = 0..=1,
-        default_missing_value = "",
         value_name = "ID",
         help = "A window: picked by hand, the focused one, or the one with this id."
     )]
-    pub window: Option<String>,
+    pub window: Option<Option<String>>,
 
     #[arg(
         long,
         num_args = 0..=1,
-        default_missing_value = "",
         value_name = "GEOMETRY",
         help = "A rectangle as \"X,Y WxH\" in the compositor's logical layout, or dragged by hand."
     )]
-    pub region: Option<String>,
+    pub region: Option<Option<String>>,
 }
 
 impl TargetArgs {
@@ -124,25 +122,33 @@ impl TargetArgs {
             return match screen.as_str() {
                 "current" => Ok(Target::CurrentScreen),
                 "all" => Err("--screen all is reserved and not accepted yet".to_owned()),
+                "" => Err(
+                    "--screen got an empty name; leave the value out for the current output"
+                        .to_owned(),
+                ),
                 name => Ok(Target::Screen(name.to_owned())),
             };
         }
         if let Some(window) = &self.window {
-            return match window.as_str() {
-                "" if headless => Ok(Target::FocusedWindow),
-                "" => Ok(Target::PickWindow),
-                "focused" => Ok(Target::FocusedWindow),
-                id => id
+            return match window.as_deref() {
+                None if headless => Ok(Target::FocusedWindow),
+                None => Ok(Target::PickWindow),
+                Some("focused") => Ok(Target::FocusedWindow),
+                Some(id) => id
                     .parse()
                     .map(Target::Window)
                     .map_err(|_| format!("--window takes a window id or \"focused\", got {id:?}")),
             };
         }
         if let Some(region) = &self.region {
-            return match region.as_str() {
-                "" if headless => Err("--region needs a geometry such as \"X,Y WxH\"".to_owned()),
-                "" => Ok(Target::PickRegion),
-                geometry => parse_geometry(geometry)
+            return match region.as_deref() {
+                None if headless => Err("--region needs a geometry such as \"X,Y WxH\"".to_owned()),
+                None => Ok(Target::PickRegion),
+                Some("") => Err(
+                    "--region got an empty geometry; leave the value out to drag one by hand"
+                        .to_owned(),
+                ),
+                Some(geometry) => parse_geometry(geometry)
                     .map(Target::Region)
                     .map_err(|error| format!("{error}; expected \"X,Y WxH\" or \"X,Y,WxH\"")),
             };
@@ -328,6 +334,16 @@ pub struct CaptureArgs {
 impl CaptureArgs {
     pub fn cursor(&self, configured: bool) -> bool {
         paired(self.cursor, self.no_cursor).unwrap_or(configured)
+    }
+}
+
+impl GuiArgs {
+    pub fn in_window(&self, configured: Editor) -> bool {
+        self.portal.is_none()
+            && self.prompt.is_none()
+            && self.timeout.is_none()
+            && self.output.as_deref() != Some(Path::new("-"))
+            && self.editor.unwrap_or(configured) == Editor::Window
     }
 }
 

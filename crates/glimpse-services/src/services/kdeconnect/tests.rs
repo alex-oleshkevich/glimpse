@@ -22,7 +22,7 @@ async fn kdeconnect() -> (
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Kdeconnect::start(&ctx, NoConfig, ()).await.expect("starts");
+    let service = Kdeconnect::start(&ctx, NoConfig, ()).await;
     (service, ctx, state_rx, health_rx)
 }
 

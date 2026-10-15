@@ -1,3 +1,4 @@
+use crate::ServiceState;
 use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -78,8 +79,7 @@ async fn harness(config: Config) -> Harness {
             gamma: Box::new(gamma.clone()),
         },
     )
-    .await
-    .expect("the service starts");
+    .await;
 
     Harness {
         service,
@@ -680,7 +680,7 @@ async fn a_temperature_is_refused_while_the_night_light_is_off() {
         .await
         .expect_err("off has nothing to override");
 
-    assert!(matches!(refused, CommandError::Unavailable(_)));
+    assert!(matches!(refused, CommandError::Unsupported(_)));
     assert!(harness.gamma.applied().is_empty());
 }
 
@@ -735,4 +735,201 @@ fn a_window_with_matching_ends_is_never_night() {
     let noon = NaiveTime::from_hms_opt(12, 0, 0).expect("a real time");
 
     assert_eq!(manual(noon, noon, at(12, 0)), (SolarPhase::Day, None));
+}
+
+#[tokio::test]
+async fn pausing_a_night_applies_daylight_until_its_existing_boundary() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    harness.service.observed = night(Some(deadline));
+    harness.at(at(23, 0)).await;
+    let (reply, result) = oneshot::channel();
+    harness
+        .service
+        .handle_at(
+            &harness.ctx,
+            Input::Command(Command::Pause { reply }),
+            at(23, 0),
+        )
+        .await;
+    result.await.unwrap().unwrap();
+    assert_eq!(harness.state.borrow().paused_until, Some(deadline));
+    assert_eq!(harness.state.borrow().temperature, DAY);
+    assert_eq!(harness.gamma.applied().last(), Some(&DAY));
+    harness.at(deadline - TimeDelta::seconds(1)).await;
+    assert_eq!(harness.state.borrow().paused_until, Some(deadline));
+    harness.service.observed = day(Some(sunset() + TimeDelta::days(1)));
+    harness.at(deadline).await;
+    assert_eq!(harness.state.borrow().paused_until, None);
+    assert_eq!(harness.state.borrow().temperature, DAY);
+    harness.service.observed = night(Some(deadline + TimeDelta::days(1)));
+    harness.at(at(23, 0) + TimeDelta::days(1)).await;
+    assert_eq!(harness.state.borrow().temperature, NIGHT);
+}
+
+#[tokio::test]
+async fn resume_clears_a_pause_and_restores_the_night_immediately() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    harness.service.observed = night(Some(deadline));
+    harness.service.paused_until = Some(deadline);
+    harness.at(at(23, 0)).await;
+    let (reply, result) = oneshot::channel();
+    harness
+        .service
+        .handle_at(
+            &harness.ctx,
+            Input::Command(Command::Resume { reply }),
+            at(23, 0),
+        )
+        .await;
+    result.await.unwrap().unwrap();
+    assert_eq!(harness.state.borrow().paused_until, None);
+    assert_eq!(harness.state.borrow().temperature, NIGHT);
+}
+
+#[tokio::test]
+async fn a_daytime_or_off_pause_is_unsupported() {
+    for schedule in [Schedule::Automatic, Schedule::Off] {
+        let mut harness = harness(config(schedule)).await;
+        harness.service.observed = day(Some(sunset()));
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle_at(
+                &harness.ctx,
+                Input::Command(Command::Pause { reply }),
+                at(12, 0),
+            )
+            .await;
+        assert!(matches!(
+            result.await.unwrap(),
+            Err(CommandError::Unsupported(_))
+        ));
+        assert_eq!(harness.state.borrow().paused_until, None);
+        assert!(harness.gamma.applied().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn a_manual_temperature_clears_a_pause_but_an_invalid_one_keeps_it() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    harness.service.observed = night(Some(deadline));
+    harness.service.paused_until = Some(deadline);
+    for (kelvin, accepted) in [(999, false), (3000, true)] {
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle_at(
+                &harness.ctx,
+                Input::Command(Command::SetTemperature {
+                    kelvin: Some(kelvin),
+                    reply,
+                }),
+                at(23, 0),
+            )
+            .await;
+        assert_eq!(result.await.unwrap().is_ok(), accepted);
+        assert_eq!(
+            harness.state.borrow().paused_until,
+            if accepted { None } else { Some(deadline) }
+        );
+    }
+    assert!(harness.state.borrow().manual);
+    assert_eq!(harness.state.borrow().temperature, 3000);
+}
+
+#[tokio::test]
+async fn a_fixed_schedule_pause_uses_its_next_end_time() {
+    use chrono::TimeZone as _;
+    let mut config = config(Schedule::Schedule);
+    config.start = clock(Some("22:00"));
+    config.end = clock(Some("06:00"));
+    let mut harness = harness(config).await;
+    let now = Local
+        .with_ymd_and_hms(2026, 6, 21, 23, 0, 0)
+        .single()
+        .unwrap()
+        .with_timezone(&Utc);
+    let deadline = Local
+        .with_ymd_and_hms(2026, 6, 22, 6, 0, 0)
+        .single()
+        .unwrap()
+        .with_timezone(&Utc);
+    let (reply, result) = oneshot::channel();
+    harness
+        .service
+        .handle_at(&harness.ctx, Input::Command(Command::Pause { reply }), now)
+        .await;
+    result.await.unwrap().unwrap();
+    assert_eq!(harness.state.borrow().paused_until, Some(deadline));
+    harness.at(deadline).await;
+    assert_eq!(harness.state.borrow().paused_until, None);
+    assert_eq!(harness.state.borrow().temperature, DAY);
+}
+
+#[tokio::test]
+async fn a_pause_needs_a_future_boundary_and_does_not_survive_restart() {
+    for boundary in [None, Some(at(6, 0))] {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(boundary);
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle_at(
+                &harness.ctx,
+                Input::Command(Command::Pause { reply }),
+                at(23, 0),
+            )
+            .await;
+        assert!(matches!(
+            result.await.unwrap(),
+            Err(CommandError::Unavailable(_))
+        ));
+        assert_eq!(harness.state.borrow().paused_until, None);
+    }
+    assert_eq!(
+        initial_state(&config(Schedule::Automatic)).paused_until,
+        None
+    );
+}
+
+#[tokio::test]
+async fn pausing_preserves_the_manual_override_for_resume_but_expires_it_at_the_boundary() {
+    let deadline = at(6, 0) + TimeDelta::days(1);
+    for resume in [false, true] {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(Some(deadline));
+        harness.service.manual = Some((3000, SolarPhase::Night));
+        let (reply, result) = oneshot::channel();
+        harness
+            .service
+            .handle_at(
+                &harness.ctx,
+                Input::Command(Command::Pause { reply }),
+                at(23, 0),
+            )
+            .await;
+        result.await.unwrap().unwrap();
+        assert!(harness.state.borrow().manual);
+        assert_eq!(harness.state.borrow().temperature, DAY);
+        if resume {
+            let (reply, result) = oneshot::channel();
+            harness
+                .service
+                .handle_at(
+                    &harness.ctx,
+                    Input::Command(Command::Resume { reply }),
+                    at(23, 0),
+                )
+                .await;
+            result.await.unwrap().unwrap();
+            assert_eq!(harness.state.borrow().temperature, 3000);
+        } else {
+            harness.at(deadline).await;
+            assert!(!harness.state.borrow().manual);
+            assert_eq!(harness.state.borrow().temperature, DAY);
+        }
+    }
 }

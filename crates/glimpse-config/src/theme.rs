@@ -88,10 +88,6 @@ fn watch_dirs_in(roots: &[PathBuf], user_dir: Option<&Path>, theme: &str) -> Vec
     dirs
 }
 
-pub fn theme_dir_for(theme: &str) -> Option<PathBuf> {
-    theme_dir_in(&theme_dirs(), &selected(theme))
-}
-
 fn stylesheet_in(roots: &[PathBuf], theme: &str, name: &str) -> Option<PathBuf> {
     let path = theme_dir_in(roots, theme)?.join(name);
     path.is_file().then_some(path)

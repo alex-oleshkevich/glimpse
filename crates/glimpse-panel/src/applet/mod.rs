@@ -1,5 +1,4 @@
 pub mod catcher;
-pub mod footer;
 pub mod popover;
 pub mod runtime;
 
@@ -8,7 +7,7 @@ use glimpse_config::Applet as AppletConfig;
 use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use glimpse_services::CommandError;
 use glimpse_widgets::IndicatorSpec;
-use popover::{PopoverHandle, Seat};
+use popover::Seat;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::future::Future;
@@ -40,7 +39,7 @@ pub trait Applet: 'static {
         Vec::new()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let _ = seat;
         None
     }
@@ -90,6 +89,26 @@ pub enum Direction {
     Right,
 }
 
+pub fn tell<F, T>(
+    report: Report,
+    opener: Opener,
+    operation: &'static str,
+    future: F,
+    unavailable: String,
+    wording: fn(&CommandError, &str) -> Option<String>,
+) where
+    F: Future<Output = Result<T, CommandError>> + 'static,
+    T: 'static,
+{
+    relm4::spawn_local(async move {
+        let Err(error) = future.await else {
+            return;
+        };
+        opener.wake();
+        report_failure(operation, report, wording(&error, &unavailable), error).await;
+    });
+}
+
 pub fn spawn_command<F, T, E>(operation: &'static str, future: F)
 where
     F: Future<Output = Result<T, E>> + Send + 'static,
@@ -101,6 +120,11 @@ where
             tracing::warn!(operation, %error, "service command failed");
         }
     });
+}
+
+pub fn themed(name: &str) -> gtk4::gio::Icon {
+    use gtk4::prelude::Cast as _;
+    gtk4::gio::ThemedIcon::new(name).upcast()
 }
 
 pub fn app_id() -> String {

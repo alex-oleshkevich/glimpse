@@ -1514,15 +1514,11 @@ impl Taker {
     fn take(&self, target: Target) -> anyhow::Result<Shot> {
         let screens = WaylandScreens {
             compositor: self.snapshot.is_some(),
-            focused: self
-                .snapshot
-                .as_ref()
-                .and_then(|snapshot| snapshot.focused_output.clone()),
             counted: RefCell::default(),
         };
         let windows = self.snapshot.clone().map(|snapshot| CompositorWindows {
             compositor: detect_compositor(),
-            snapshot,
+            snapshot: RefCell::new(snapshot),
             clipboard: &self.clipboard,
             restore: true,
         });

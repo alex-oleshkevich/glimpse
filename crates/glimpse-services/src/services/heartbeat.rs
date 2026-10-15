@@ -1,12 +1,9 @@
-use tokio::{
-    sync::{oneshot, watch},
-    time,
-};
+use tokio::{sync::oneshot, time};
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint},
     subscription::Sub,
 };
 use serde::{Deserialize, Serialize};
@@ -46,36 +43,22 @@ pub struct Heartbeat {
     period_ms: u64,
 }
 
-#[derive(Clone)]
-pub struct HeartbeatHandle(ServiceEndpoint<Heartbeat>);
+pub type HeartbeatHandle = ServiceEndpoint<Heartbeat>;
 
-impl HeartbeatHandle {
-    pub fn snapshot(&self) -> HeartbeatTick {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> watch::Receiver<HeartbeatTick> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Heartbeat> {
     pub async fn reset(&self) -> Result<(), CommandError> {
-        let (reply, answer) = oneshot::channel();
-        self.0.command(Command::Reset { reply })?;
-        answer.await.map_err(|_| {
-            CommandError::Unavailable("`heartbeat` stopped before resetting".to_owned())
-        })?
+        self.call("`heartbeat` stopped before resetting", |reply| {
+            Command::Reset { reply }
+        })
+        .await?
     }
 
     pub async fn set_interval(&self, period_ms: u64) -> Result<HeartbeatInterval, CommandError> {
-        let (reply, answer) = oneshot::channel();
-        self.0.command(Command::SetInterval { period_ms, reply })?;
-        answer.await.map_err(|_| {
-            CommandError::Unavailable("`heartbeat` stopped before changing its interval".to_owned())
-        })?
+        self.call(
+            "`heartbeat` stopped before changing its interval",
+            |reply| Command::SetInterval { period_ms, reply },
+        )
+        .await?
     }
 }
 
@@ -91,15 +74,10 @@ impl Service for Heartbeat {
 
     type Config = NoConfig;
     type State = HeartbeatTick;
-    type Handle = HeartbeatHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Tick;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        HeartbeatHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -119,13 +97,13 @@ impl Service for Heartbeat {
         ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         tracing::debug!("starting heartbeat service");
-        Ok(Self {
+        Self {
             count: 0,
             period_ms: DEFAULT_PERIOD_MS,
             tick: ctx.publisher(),
-        })
+        }
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {

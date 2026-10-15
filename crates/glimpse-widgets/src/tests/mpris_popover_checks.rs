@@ -13,10 +13,7 @@ pub(super) fn check() {
         Some(mpris.player().upcast_ref())
     );
     assert!(!mpris.player().get_visible());
-    assert_eq!(
-        column.last_child().as_ref(),
-        Some(mpris.imp().footer.upcast_ref())
-    );
+
     let seen = Rc::new(RefCell::new(Vec::new()));
     mpris.connect_raise_requested({
         let seen = seen.clone();
@@ -66,11 +63,6 @@ pub(super) fn check() {
         "a row reports the key of whatever player currently occupies it, through the popover"
     );
 
-    mpris.set_footer(None);
-    assert!(!mpris.imp().footer.is_visible());
-    mpris.set_footer(Some("Open Spotify"));
-    assert!(mpris.imp().footer.is_visible());
-
     assert!(
         mpris.player().scrubber().is_ancestor(&mpris),
         "the primary player is composed whole, not reassembled out of its parts here"
@@ -85,7 +77,7 @@ pub(super) fn check() {
         })
         .collect();
     crowded.set_others(Some(&players));
-    crowded.set_footer(Some("Open player"));
+
     let window = gtk4::Window::new();
     window.set_default_size(500, 200);
     window.set_child(Some(&crowded));
@@ -113,4 +105,9 @@ pub(super) fn check() {
     scroll.set_value(scroll.upper() - scroll.page_size());
     assert!(scroll.value() > 0.0, "the lower controls remain scrollable");
     window.close();
+
+    let open_player = mpris.open_player();
+    assert!(!open_player.get_visible());
+    assert_eq!(column.last_child().as_ref(), Some(open_player.upcast_ref()));
+    assert_eq!(open_player.upcast_ref::<Row>().icon_name(), None);
 }

@@ -17,7 +17,7 @@ use tokio::{fs, sync::oneshot};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint},
     subscription::Sub,
 };
 
@@ -82,28 +82,14 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct CalendarHandle(ServiceEndpoint<Calendar>);
+pub type CalendarHandle = ServiceEndpoint<Calendar>;
 
-impl CalendarHandle {
-    pub fn snapshot(&self) -> CalendarEvents {
-        self.0.snapshot()
-    }
-
-    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<CalendarEvents> {
-        self.0.subscribe()
-    }
-
-    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Calendar> {
     pub async fn refresh(&self) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Refresh { reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("calendar stopped before refreshing".to_owned())
-        })?
+        self.call("calendar stopped before refreshing", |reply| {
+            Command::Refresh { reply }
+        })
+        .await?
     }
 
     pub async fn set_range(
@@ -111,11 +97,10 @@ impl CalendarHandle {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Result<(), CommandError> {
-        let (reply, result) = oneshot::channel();
-        self.0.command(Command::Range { from, to, reply })?;
-        result.await.map_err(|_| {
-            CommandError::Unavailable("calendar stopped before changing its range".to_owned())
-        })?
+        self.call("calendar stopped before changing its range", |reply| {
+            Command::Range { from, to, reply }
+        })
+        .await?
     }
 }
 
@@ -250,15 +235,10 @@ impl Service for Calendar {
 
     type Config = Config;
     type State = CalendarEvents;
-    type Handle = CalendarHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        CalendarHandle(endpoint)
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -340,11 +320,7 @@ impl Service for Calendar {
         declared
     }
 
-    async fn start(
-        ctx: &Ctx<Self>,
-        config: Self::Config,
-        (): Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, (): Self::Dependencies) -> Self {
         let client = match reqwest::Client::builder()
             .timeout(TIMEOUT)
             .user_agent(AGENT)
@@ -357,7 +333,7 @@ impl Service for Calendar {
             }
         };
 
-        Ok(Self {
+        Self {
             events: ctx.publisher(),
             client,
             sources: config.sources,
@@ -367,7 +343,7 @@ impl Service for Calendar {
             window: Window::around(Utc::now()),
             fetched: BTreeMap::new(),
             failures: BTreeMap::new(),
-        })
+        }
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {

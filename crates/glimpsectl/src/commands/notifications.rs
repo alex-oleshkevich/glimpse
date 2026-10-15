@@ -19,7 +19,7 @@ pub async fn notifications_list(connection: &Connection, json: bool) -> Result<(
 
     Section::new("Notifications")
         .with(
-            Table::new()
+            Table::default()
                 .with_row(["serving".to_owned(), yes_no(view.serving).to_owned()])
                 .with_row([
                     "reason".to_owned(),
@@ -33,7 +33,7 @@ pub async fn notifications_list(connection: &Connection, json: bool) -> Result<(
     crate::render::print("")?;
     Section::new("Store")
         .with(
-            Table::new()
+            Table::default()
                 .with_headers(["ID", "APP", "URGENCY", "SUMMARY"])
                 .with_empty("the store is empty")
                 .with_rows(view.notifications.iter().map(row))

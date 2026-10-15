@@ -34,10 +34,10 @@ fn store(keep: usize, posted: &[(u32, &str, &str)]) -> Store {
 
 async fn dnd_service() -> (
     NotificationsHandle,
-    crate::service::ServiceSender<Notifications>,
+    tokio::sync::mpsc::Sender<Input<Notifications>>,
     tokio::sync::watch::Receiver<NotificationsState>,
     CancellationToken,
-    tokio::task::JoinHandle<Result<(), ServiceError>>,
+    tokio::task::JoinHandle<()>,
 ) {
     let cancel = CancellationToken::new();
     let (mut runtime, handle) = ServiceRuntime::<Notifications>::new(

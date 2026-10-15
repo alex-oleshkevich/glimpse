@@ -18,9 +18,7 @@ async fn session() -> (
         Buses::unavailable("no bus"),
         CancellationToken::new(),
     );
-    let session = Session::start(&ctx, NoConfig, Dependencies { compositor })
-        .await
-        .expect("starts");
+    let session = Session::start(&ctx, NoConfig, Dependencies { compositor }).await;
     (session, ctx, state_rx)
 }
 

@@ -7,17 +7,16 @@ When this file and the code disagree, the code is right.
 
 ## The standard layout
 
-Every popover is a `$PopoverShell` with three slots. The shell is the composition; an applet chooses
-what fills the middle and almost never anything else. Read this before drawing a new one — eight
+Every popover is a `$PopoverShell` with an addon and a body. The shell is the composition; an applet chooses
+what fills the body and almost never anything else. Read this before drawing a new one — eight
 popovers already agree on it and a ninth that does not is a finding, not a style.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ [hero]   $Hero                                  │  hero_box, hidden until a child is visible
-│            icon   title             [slot]      │
-│                   subtitle                      │
-├─────────────────────────────────────────────────┤  hero_rule, follows hero_box
-│          Gtk.Box .column                        │  content_box, vexpand
+│ icon   title                        [addon]     │  header, hidden until it has content
+│        subtitle                                 │
+│                                                 │
+│          Gtk.Box .column                        │  body, inside scroller
 │                                                 │
 │            $Section   TITLE   count  [trail]    │    section__header
 │              $Row   check icon lead  title   ›  │
@@ -28,8 +27,6 @@ popovers already agree on it and a ninth that does not is a finding, not a style
 │              $Row   …                           │
 │              $Row   view-more-symbolic "N more" │
 │                                                 │
-├─────────────────────────────────────────────────┤  footer_rule, follows footer_box
-│ [footer] $Row   settings-symbolic  "Settings"   │  footer_box, horizontal, 0..N children
 └─────────────────────────────────────────────────┘
 ```
 
@@ -41,11 +38,8 @@ $Row       [check] [icon] [lead] [title / subtitle]──►──[value] [trail
 $Section   header( [title]──►──[count] [trail] )  content  [placeholder]
 ```
 
-- **A slot with nothing visible in it renders nothing, including its rule.** `hero_box` and
-  `footer_box` start `visible: false` and `PopoverShell` watches `notify::visible` on what is
-  appended, so a hero whose title is cleared takes its separator with it.
-- **`[footer]` takes more than one child.** `NotificationsPopover` appends `clear` and then `footer`
-  into the same horizontal box.
+- **A slot with nothing visible in it renders nothing.** `header` starts `visible: false`, and
+  `PopoverShell` watches `notify::visible` on body children so the scroller follows their visibility.
 - **`.column` is what carries the width floor** — `min-width: var(--gl-popover-min-width)`, 27rem in
   `:root`. Put it on the content box, or on the single `$Section` when there is no box
   (`KeyboardPopover`). Overriding the token per popover is the supported way to be narrower.
@@ -68,13 +62,11 @@ template $XPopover: Gtk.Widget {
   ]
 
   $PopoverShell shell {
-    [hero]
-    $Hero hero {
-      icon-name: "x-symbolic";
+    icon-name: "x-symbolic";
+    title: _("X");
 
-      [slot]
-      Gtk.Switch power { valign: center; }     // optional
-    }
+    [addon]
+    Gtk.Switch power { valign: center; }
 
     Gtk.Box column {
       orientation: vertical;
@@ -90,11 +82,6 @@ template $XPopover: Gtk.Widget {
 
         Gtk.Box first_rows { orientation: vertical; }
       }
-    }
-
-    [footer]
-    $Row footer {
-      visible: false;
     }
   }
 }
@@ -117,7 +104,7 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
 
 - **An open detail dims everything it is read against. This is not optional, and it is not the
   popover's code.** Opening an `Expandable` tells its `PopoverShell`, which closes every unrelated
-  one and gives `drawer::RECEDED` to the largest subtree outside the open card — hero, footer, other
+  one and gives `drawer::RECEDED` to the largest subtree outside the open card — hero, other
   rows, other sections' content — derived from the tree on each change, so nothing lists what dims
   and a widget added later is covered. The open card takes `.open` and `.card` and keeps full
   weight; its head never moves, because only paint changes. **Section headers and separators stay
@@ -147,7 +134,7 @@ column is a choice, and the choice is almost always "which list already exists".
 
 ```
 $PopoverShell
-├── [hero]    $Hero            icon · title/subtitle · [slot] ← a Gtk.Switch or a $Readout
+├── [addon]   a Gtk.Switch or a $Readout, in the header beside icon · title/subtitle
 ├──           Gtk.Box .column
 │              ├── $Section    title · count · [trail] · content · [placeholder]
 │              │    ├── $Row           the unit of every list
@@ -155,7 +142,6 @@ $PopoverShell
 │              │    ├── $Notice        an inline banner carrying a severity
 │              │    └── $Placeholder   the empty state, wording in the .blp
 │              └── $Section …
-└── [footer]  $Row             the settings row, 0..N of them
 ```
 
 The domain lists drop into a `$Section` in place of loose rows, and each owns its own row type:
@@ -259,9 +245,10 @@ window. It reaches the runtime as `HostInput::PopoverDismissed`, which drops the
 ## Where it opens
 
 **One `Catcher` per bar**, built in `Panel::init` and shared by every applet in every zone. So one
-popover is open at a time per monitor, and opening a second replaces the first. It is a layer-shell
-window covering the whole monitor at `Layer::Top`, exclusive zone 0, with an arrow drawn by a
-`DrawingArea` and a 150ms `adw::TimedAnimation` on opacity.
+popover is open at a time per monitor, and opening a second replaces the first. A bare layer-shell
+window covering the whole monitor at `Layer::Top`, exclusive zone 0, catches outside clicks; the
+body sits above it on a `Layer::Top` surface sized to itself, with an arrow drawn by a `DrawingArea`
+and a 150ms `adw::TimedAnimation` on opacity.
 
 **`KeyboardMode::None`.** A popover receives no key events at all — no focus, no `Escape`, no
 type-ahead. Do not design a surface that needs typing; it will silently not work.
@@ -287,7 +274,7 @@ last chip on the bar sits flush against the edge. That is the design, not a clip
 ## The four steps of `popover()`
 
 ```rust
-fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
     let shown = WeatherPopover::new();                     // 1. build fresh
 
     let caller = seat.caller();                            // 2. wire
@@ -296,14 +283,9 @@ fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
     let opener = seat.opener();
     shown.connect_day_selected(move |_, _| opener.wake());
 
-    if let Some((_, command)) = &self.footer {
-        let command = command.clone();
-        shown.connect_footer_activated(move |_| run(&command));
-    }
-
     self.shown.set(Some(&shown));                          // 3. hold weakly
     self.refresh();                                        // 4. dress, then hand over
-    Some(Box::new(shown))
+    Some(shown.upcast())
 }
 ```
 
@@ -340,7 +322,7 @@ one; `&Ctx` is neither and cannot be captured.
 ## `dress` and the weak reference
 
 The applet's only handle is `shown: glib::WeakRef<XPopover>`. The strong references are the
-catcher's child and the runtime's `Option<Box<dyn PopoverHandle>>`, and both go on dismissal — so
+catcher's child and the runtime's `Option<gtk4::Widget>`, and both go on dismissal — so
 `upgrade()` returning `None` **is** the closed state. There is no `is_open` flag to keep correct.
 
 **Never hold a strong reference.** It keeps the widget alive past dismissal, and the next open builds
@@ -390,7 +372,7 @@ because a row is rebuilt whenever the list changes.
 
 **A pairing prompt is a page in the popover, not a sheet over it.** `BluetoothPopover` holds a
 `Gtk.Stack pages` whose two pages are the device column and the prompt. A prompt swaps the column
-out and leaves the hero and the footer insensitive, so the surface carries one question and nothing
+out and leaves the hero insensitive, so the surface carries one question and nothing
 else to press. A view over a popover is not a shape this shell has; a stack also needs no dismissal
 guard on `Catcher`.
 
@@ -442,28 +424,6 @@ handler id is kept for.
 turns into wording (`spawn_reported`), so the viewer gets a notification rather than a `warn!` line
 they will never read. Only failures answering something the viewer asked for: a device dropping on
 its own belongs on its row, not in a notification.
-
-## The footer
-
-`config.common.settings()` returns `Option<(&str, &[String])>` — a label and an argv, guaranteed by
-the loader to be set together or not at all. Every applet stores it identically in `configure`:
-
-```rust
-self.footer = config
-    .common
-    .settings()
-    .map(|(label, command)| (label.to_owned(), command.to_vec()));
-```
-
-The label goes to `shown.set_footer(...)` in `dress`; `connect_footer_activated` is connected **at
-build time**, in `popover()`, and runs `popover::run(&command)`. Connecting a signal inside `dress`
-stacks one handler per event, and the symptom is a footer that launches four copies of the settings
-app.
-
-`run` spawns through `gio::Subprocess` and warns if the program does not start. It is the one place
-in the panel that starts a process; nothing else shells out.
-
-`WorkspacesPopover` is the only one of the eight popovers with no footer.
 
 ## Size
 

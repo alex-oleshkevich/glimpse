@@ -12,6 +12,7 @@ pub enum Error {
     InvalidSchedule(String),
     InvalidTemperature(String),
     Unavailable(String),
+    NotActive(String),
     #[zbus(error)]
     ZBus(zbus::Error),
 }
@@ -20,6 +21,7 @@ impl From<CommandError> for Error {
     fn from(error: CommandError) -> Self {
         match error {
             CommandError::InvalidArgument(reason) => Self::InvalidTemperature(reason),
+            CommandError::Unsupported(reason) => Self::NotActive(reason),
             error => Self::Unavailable(error.to_string()),
         }
     }
@@ -43,6 +45,14 @@ impl Provider {
     #[zbus(property)]
     fn snapshot(&self) -> NightLightSnapshot {
         snapshot(&self.night_light)
+    }
+
+    async fn pause(&self) -> Result<(), Error> {
+        self.night_light.pause().await.map_err(Error::from)
+    }
+
+    async fn resume(&self) -> Result<(), Error> {
+        self.night_light.resume().await.map_err(Error::from)
     }
 
     async fn set_schedule(&self, schedule: &str) -> Result<(), Error> {
@@ -98,6 +108,9 @@ fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
         reason: unavailable.unwrap_or_default(),
         configured: state.configured.as_str().to_owned(),
         manual: state.manual,
+        paused_until: state
+            .paused_until
+            .map_or(0, |deadline| deadline.timestamp()),
     }
 }
 

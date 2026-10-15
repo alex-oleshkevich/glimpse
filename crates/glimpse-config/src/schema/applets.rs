@@ -34,16 +34,6 @@ pub struct Common {
     /// behind it renders as nothing. Unset means the applet shows no tooltip.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
-    /// The label on the row the applet's popover puts in its footer. Set it together with
-    /// `settings-command`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub settings_label: Option<String>,
-    /// The program that row runs, as a command and its arguments:
-    /// `["xdg-open", "https://calendar.google.com/"]`. It is a list rather than one string because
-    /// there is no shell between here and the program — an argument containing a space is one
-    /// element, and nothing has to be quoted, escaped or protected from word splitting.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub settings_command: Vec<String>,
 }
 
 /// Which kind of applet this is, and the settings that kind alone understands.
@@ -442,8 +432,6 @@ pub struct Clock {
     /// naming one is how a second `[applets.clock-utc]` shows somewhere else.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    /// Which day a calendar week starts on.
-    pub first_day: FirstDay,
     /// Whether the popover names the ISO week the shown month belongs to.
     pub week_numbers: bool,
     /// The other zones the popover lists under its world clock. Empty hides the section.
@@ -609,19 +597,6 @@ pub struct Timezone {
     /// An icon name replacing the sun or moon the row picks from the hour it is showing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
-}
-
-/// Which day a calendar week starts on. There is deliberately no `locale` here, unlike
-/// `hour-format`: the two ways to ask the system are GTK's translated `calendar:week_start:0`,
-/// which came back untranslated when it was measured and would have answered Sunday under an
-/// `LC_TIME` that means Monday, and glibc's `_NL_TIME_FIRST_WEEKDAY`, which is not portable. A
-/// `locale` that quietly answers wrong is worse than a default that says what it is.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum FirstDay {
-    #[default]
-    Monday,
-    Sunday,
 }
 
 /// Settings for the next-event applet.
@@ -832,7 +807,6 @@ impl Default for Clock {
         Self {
             label_format: "%a, %-d %b, %H:%M".to_owned(),
             timezone: None,
-            first_day: FirstDay::default(),
             week_numbers: true,
             timezones: Vec::new(),
             hide_all_day: false,
@@ -840,14 +814,7 @@ impl Default for Clock {
     }
 }
 
-const COMMON: [&str; 3] = ["tooltip-format", "settings-label", "settings-command"];
-
-impl Common {
-    pub fn settings(&self) -> Option<(&str, &[String])> {
-        let label = self.settings_label.as_deref()?;
-        Some((label, self.settings_command.as_slice()))
-    }
-}
+const COMMON: [&str; 1] = ["tooltip-format"];
 
 impl From<Kind> for Applet {
     fn from(kind: Kind) -> Self {
@@ -1080,15 +1047,7 @@ fn take_common(table: &mut toml::Table) -> Result<Common, toml::de::Error> {
         }
     }
 
-    let common = Common::deserialize(taken)?;
-    if common.settings_label.is_some() == common.settings_command.is_empty() {
-        return Err(toml::de::Error::custom(
-            "settings-label and settings-command are set together: a label with no command is a \
-             row that does nothing, and a command with no label is a row nobody can see",
-        ));
-    }
-    names_a_program("settings-command", &common.settings_command)?;
-    Ok(common)
+    Common::deserialize(taken)
 }
 
 pub fn schema(generator: &mut SchemaGenerator) -> Schema {

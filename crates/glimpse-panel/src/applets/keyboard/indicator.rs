@@ -3,9 +3,9 @@ use glimpse_services::KeyboardHandle;
 use glimpse_services::{KeyboardLayouts, LayoutRef};
 use glimpse_widgets::{IndicatorSpec, KeyboardPopover};
 use gtk4::glib;
+use gtk4::prelude::Cast as _;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Direction, Input, Pointer, spawn_command};
 
 use super::render;
@@ -14,7 +14,6 @@ pub struct Keyboard {
     layouts: Option<KeyboardLayouts>,
     keyboard: KeyboardHandle,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<KeyboardPopover>,
 }
@@ -25,7 +24,7 @@ impl Applet for Keyboard {
             return;
         };
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -50,7 +49,7 @@ impl Applet for Keyboard {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = KeyboardPopover::new();
         let keyboard = self.keyboard.clone();
         let opener = seat.opener();
@@ -64,11 +63,10 @@ impl Applet for Keyboard {
                 keyboard.switch(LayoutRef::Index { index }).await
             });
         });
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -78,7 +76,6 @@ impl Keyboard {
             layouts: Some(keyboard.snapshot()),
             keyboard,
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
         }
@@ -118,7 +115,6 @@ impl Keyboard {
     }
 
     fn dress(&self, shown: &KeyboardPopover) {
-        shown.set_footer(self.footer.label().as_deref());
         match self.layouts.as_ref() {
             Some(layouts) => shown.set_layouts(&render::rows(layouts)),
             None => shown.set_layouts(&[]),

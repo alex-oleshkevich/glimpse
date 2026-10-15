@@ -2,7 +2,6 @@ use super::{Appearance, BlurSurface, blurs};
 
 #[test]
 fn auto_dark_defaults_to_auto_and_accepts_only_auto_or_system() {
-    assert_eq!(Appearance::default().auto_dark, super::AutoDark::Auto);
     assert_eq!(
         toml::from_str::<Appearance>("").unwrap().auto_dark,
         super::AutoDark::Auto

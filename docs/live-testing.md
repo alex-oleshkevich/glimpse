@@ -31,7 +31,7 @@ HOME="$SCRATCH/home" glimpse-panel                # a fake home, when drop-ins a
   layering, because an explicit path replaces the stack rather than joining it. A test needing
   `config.d/` sets `HOME` (or `XDG_CONFIG_HOME`); one needing the `/etc/glimpse` layer builds it
   through `load_from`, which takes the system directory as an argument for exactly this reason.
-- Themes redirect separately, because `theme_dir_for` resolves through `user_dir()` rather than the
+- Themes redirect separately, because stylesheet resolution runs through `user_dir()` rather than the
   config stack: `GLIMPSE_THEMES_DIR` replaces both roots for loading and watching, `GLIMPSE_THEME`
   overrides the selected name.
 - **Send the log somewhere else.** `--config` watches that file's parent directory, so redirecting

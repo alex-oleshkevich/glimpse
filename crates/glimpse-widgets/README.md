@@ -28,7 +28,7 @@ resolves the class by name, or `Builder` reports `Invalid object type` and the c
 - **Untrusted text is capped and set as plain text, with no markup setter anywhere**: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 
-## Indicator, IndicatorGroup, Pager, TrayStrip, TooltipCard and InhibitorList
+## Indicator, IndicatorGroup, Pager, TrayStrip and InhibitorList
 
 The icon is one `Option<gio::Icon>`, sitting in a `Gtk.Overlay` whose `overlay` is an emblem on the
 trailing corner; the slot follows the base icon's presence, so an indicator with neither reserves no
@@ -43,8 +43,7 @@ the primary button and acting on a workspace happens in the popover.
 `Edge::Start`, a left-zone one `Edge::End`, and the slide direction and `halign` follow that pair, or
 the strip shoves the chips already on the bar aside.
 
-`TooltipCard` reports itself invisible when every one of its four fields is empty, so a host shows
-no tooltip rather than an empty box. Each `InhibitorList` row is an `ExpanderRow` opening a card of
+Each `InhibitorList` row is an `ExpanderRow` opening a card of
 what it prevents and, when releasable, a destructive Release — it ends another app's hold, which
 "Cancel" does not say.
 
@@ -83,9 +82,8 @@ refused markup renders **empty**, not raw tags, so callers sanitize first throug
 `glimpse_utils::markup`, and a refused body falls back to `plain`, never the markup string. There is
 no inline reply here: a reply field needs keyboard focus, which a panel popover cannot take.
 
-`NotificationList` reconciles **by key**, because notifications arrive and leave from the middle;
-matching on position would rebuild every row below the change and destroy hover and focus. `set_cap`
-hides rows rather than dropping them, so expanding is a visibility flip. The stack has no
+`NotificationStack` reconciles **by key**, because notifications arrive and leave from the middle;
+matching on position would rebuild every row below the change and destroy hover and focus. It has no
 `BoxLayout`: the cards behind must overlap the front one at its *measured* height, which
 `Gtk.Overlay` cannot report while taking its size from that same child, and paint order is child
 order, so strips are parented ahead of the front card and clipped to below whatever covers them — a
@@ -131,7 +129,7 @@ own output is enabled **and** is the sole one enabled, never on a disabled outpu
 strand the user with no way to turn a display back on. **`set_output_power(false)` removes the
 toggle from the row, rather than locking it** — that guard answers "your last enabled display", the
 gate answers "this compositor cannot do this at all", and the two never fight. Blanking the screens
-in `DisplayPopover` is a plain `$ActionRow`, never a `$ToggleRow` — DPMS has no state to sit in, since the
+in `DisplayPopover` is gated by `set_blank_screens` and is a plain `$ActionRow`, never a `$ToggleRow` — DPMS has no state to sit in, since the
 first input undoes it. `AudioPopover` uses no `Gtk.Stack`: sound has no prompt page, unlike bluetooth
 or network. **`DisplayPopover::set_sources` takes the slice already ordered with the current
 source first**; `SourceList` renders only `sources[1..]`. Its night light section keeps its
@@ -242,13 +240,6 @@ precedence rule — user beats theme beats built-in — holds in both schemes. A
 `dark-notify`, with no file or config event behind it, since a config change touching only
 `color-scheme` never reaches `load()`. The built-in is compiled in rather than installed, because
 `load()` points the theme provider at **one** path.
-
-**The applet host's `gtk4::ProgressBar` is styled by bare node selectors** — `progressbar trough`,
-`progressbar progress`, `progressbar.warning progress` and `progressbar.error progress` — reading
-`--gl-faint`, `--gl-muted`, `--gl-warning-text` and `--gl-danger-text`, so a theme retints it by
-redefining those tokens. The selectors carry no class, which keeps their specificity below every
-native bar rule (`.capacity-bar`, `.notification__progress`); each of
-those sets the same four properties itself, so the bare rule never reaches a native bar.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with
 only a `Gtk-WARNING` on stderr, so every `var()` in the built-in carries a fallback.

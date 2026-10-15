@@ -26,6 +26,14 @@ pub fn duration_ms() -> u32 {
     animation_ms(DURATION_MS)
 }
 
+pub fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
+    match scheme {
+        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
+        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
+        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
+    }
+}
+
 pub(crate) fn animation_ms(base: u32) -> u32 {
     scaled(base, SPEED.get())
 }

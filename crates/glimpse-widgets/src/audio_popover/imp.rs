@@ -66,8 +66,6 @@ pub struct AudioPopover {
     pub app_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub more_apps: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
 
     pub outputs_list: RefCell<Vec<Entry>>,
     pub inputs_list: RefCell<Vec<Entry>>,
@@ -104,9 +102,6 @@ impl ObjectImpl for AudioPopover {
                 glib::subclass::Signal::builder("level-changed")
                     .param_types([String::static_type(), f64::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("level-moved")
-                    .param_types([String::static_type(), f64::static_type()])
-                    .build(),
                 glib::subclass::Signal::builder("level-toggled")
                     .param_types([String::static_type(), bool::static_type()])
                     .build(),
@@ -137,7 +132,6 @@ impl ObjectImpl for AudioPopover {
                 glib::subclass::Signal::builder("expanded")
                     .param_types([String::static_type()])
                     .build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -153,13 +147,6 @@ impl ObjectImpl for AudioPopover {
             popover,
             move |_, value| {
                 popover.emit_by_name::<()>("level-changed", &[&"output".to_owned(), &value])
-            }
-        ));
-        self.output.connect_moved(glib::clone!(
-            #[weak]
-            popover,
-            move |_, value| {
-                popover.emit_by_name::<()>("level-moved", &[&"output".to_owned(), &value])
             }
         ));
         self.output_mute.connect_clicked(glib::clone!(
@@ -190,11 +177,6 @@ impl ObjectImpl for AudioPopover {
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("expanded", &[&"apps".to_owned()])
-        ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            popover,
-            move |_| popover.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

@@ -2,12 +2,10 @@ use std::collections::HashMap;
 
 use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value};
 
-use super::{Properties, flag, number, optional_clean};
+use super::{Properties, flag, number, optional_clean, text};
 
 pub const SERVICE: &str = "org.freedesktop.NetworkManager";
 pub const MANAGER: &str = "/org/freedesktop/NetworkManager";
-pub const SETTINGS: &str = "/org/freedesktop/NetworkManager/Settings";
-pub const AGENT_MANAGER: &str = "/org/freedesktop/NetworkManager/AgentManager";
 
 pub const OBJECTS: &str = "/org/freedesktop";
 
@@ -15,7 +13,6 @@ pub const MANAGER1: &str = "org.freedesktop.NetworkManager";
 pub const DEVICE1: &str = "org.freedesktop.NetworkManager.Device";
 pub const WIRELESS1: &str = "org.freedesktop.NetworkManager.Device.Wireless";
 pub const WIRED1: &str = "org.freedesktop.NetworkManager.Device.Wired";
-pub const P2P1: &str = "org.freedesktop.NetworkManager.Device.WifiP2P";
 pub const ACCESS_POINT1: &str = "org.freedesktop.NetworkManager.AccessPoint";
 pub const ACTIVE1: &str = "org.freedesktop.NetworkManager.Connection.Active";
 pub const VPN1: &str = "org.freedesktop.NetworkManager.VPN.Connection";
@@ -27,14 +24,6 @@ const SSID_OCTETS: usize = 32;
 const ID: usize = 64;
 const INTERFACE: usize = 32;
 
-pub const SEC_PAIR_WEP40: u32 = 0x1;
-pub const SEC_PAIR_WEP104: u32 = 0x2;
-pub const SEC_PAIR_TKIP: u32 = 0x4;
-pub const SEC_PAIR_CCMP: u32 = 0x8;
-pub const SEC_GROUP_WEP40: u32 = 0x10;
-pub const SEC_GROUP_WEP104: u32 = 0x20;
-pub const SEC_GROUP_TKIP: u32 = 0x40;
-pub const SEC_GROUP_CCMP: u32 = 0x80;
 pub const SEC_KEY_MGMT_PSK: u32 = 0x100;
 pub const SEC_KEY_MGMT_802_1X: u32 = 0x200;
 pub const SEC_KEY_MGMT_SAE: u32 = 0x400;
@@ -340,7 +329,6 @@ pub struct Ip4ConfigProperties {
 pub struct WirelessProperties {
     pub access_points: Vec<String>,
     pub active_access_point: Option<String>,
-    pub last_scan: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -421,10 +409,6 @@ fn code(properties: &Properties, key: &str) -> u32 {
     number(properties, key).unwrap_or_default()
 }
 
-fn plain(properties: &Properties, key: &str, cap: usize) -> Option<String> {
-    optional_clean(<&str>::try_from(properties.get(key)?).ok()?.to_owned(), cap)
-}
-
 pub fn decode_ssid(raw: &[u8]) -> Option<String> {
     optional_clean(String::from_utf8_lossy(raw).into_owned(), SSID)
 }
@@ -470,7 +454,7 @@ pub fn decode_device(properties: &Properties) -> DeviceProperties {
         kind: DeviceKind::from_code(code(properties, "DeviceType")),
         state: DeviceState::from_code(code(properties, "State")),
         reason: state_reason(properties),
-        interface: plain(properties, "Interface", INTERFACE),
+        interface: text(properties, "Interface", INTERFACE),
         managed: flag(properties, "Managed"),
         metered: Metered::from_code(code(properties, "Metered")),
         active: path(properties, "ActiveConnection"),
@@ -505,9 +489,6 @@ pub fn decode_wireless(properties: &Properties) -> WirelessProperties {
     WirelessProperties {
         access_points: paths(properties, "AccessPoints"),
         active_access_point: path(properties, "ActiveAccessPoint"),
-        last_scan: properties
-            .get("LastScan")
-            .and_then(|value| i64::try_from(value).ok()),
     }
 }
 
@@ -522,7 +503,7 @@ pub fn decode_access_point(properties: &Properties) -> AccessPointProperties {
     AccessPointProperties {
         ssid: ssid(properties, "Ssid"),
         raw_ssid: raw_ssid(properties, "Ssid"),
-        bssid: plain(properties, "HwAddress", INTERFACE),
+        bssid: text(properties, "HwAddress", INTERFACE),
         strength: properties
             .get("Strength")
             .and_then(|value| u8::try_from(value).ok())
@@ -537,9 +518,9 @@ pub fn decode_access_point(properties: &Properties) -> AccessPointProperties {
 
 pub fn decode_active(properties: &Properties) -> ActiveProperties {
     ActiveProperties {
-        id: plain(properties, "Id", ID),
-        uuid: plain(properties, "Uuid", ID),
-        kind: plain(properties, "Type", ID),
+        id: text(properties, "Id", ID),
+        uuid: text(properties, "Uuid", ID),
+        kind: text(properties, "Type", ID),
         state: ActiveState::from_code(code(properties, "State")),
         default: flag(properties, "Default"),
         vpn: flag(properties, "Vpn"),
@@ -637,28 +618,6 @@ pub trait Device {
 pub trait DeviceWireless {
     fn get_all_access_points(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
     fn request_scan(&self, options: HashMap<&str, Value<'_>>) -> zbus::Result<()>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.NetworkManager.VPN.Connection",
-    default_service = "org.freedesktop.NetworkManager"
-)]
-pub trait VpnConnection {
-    #[zbus(property, name = "VpnState")]
-    fn vpn_state(&self) -> zbus::Result<u32>;
-}
-
-#[zbus::proxy(
-    interface = "org.freedesktop.NetworkManager.Settings",
-    default_service = "org.freedesktop.NetworkManager",
-    default_path = "/org/freedesktop/NetworkManager/Settings"
-)]
-pub trait NetworkSettings {
-    fn list_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
-    fn add_connection(
-        &self,
-        connection: HashMap<&str, HashMap<&str, Value<'_>>>,
-    ) -> zbus::Result<OwnedObjectPath>;
 }
 
 #[zbus::proxy(

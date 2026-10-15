@@ -9,6 +9,23 @@ pub struct Fact {
     pub warning: bool,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Line {
+    pub action: String,
+    pub title: String,
+    pub toggle: Option<bool>,
+    pub activates: bool,
+    pub busy: bool,
+    pub destructive: bool,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Details {
+    pub id: String,
+    pub facts: Vec<Fact>,
+    pub lines: Vec<Line>,
+}
+
 impl Fact {
     pub fn new(label: impl Into<String>, value: impl Into<String>) -> Self {
         Self {

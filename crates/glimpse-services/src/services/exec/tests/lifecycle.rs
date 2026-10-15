@@ -69,7 +69,7 @@ async fn options_change_does_not_respawn() {
         .expect("config")
         .options
         .insert("color".to_owned(), Value::from("red"));
-    sender.reconfigure(config);
+    sender.try_send(Input::Config(config)).expect("queued");
     file_contains(&output, "\"t\":\"options\"").await;
     assert_eq!(
         tokio::fs::read_to_string(output.with_extension("pid"))
@@ -96,7 +96,7 @@ async fn options_changed_while_starting_follow_hello() {
         .expect("config")
         .options
         .insert("color".to_owned(), Value::from("red"));
-    sender.reconfigure(config);
+    sender.try_send(Input::Config(config)).expect("queued");
     let content = file_contains(&output, "\"t\":\"hello\"").await;
     assert!(content.contains("\"red\""));
     handle.detach(1).await.expect("detach");
@@ -115,8 +115,18 @@ async fn removed_instance_stays_failed_without_respawning() {
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
     let pid = file_lines(&output, 1).await[0].clone();
     config.applets.clear();
-    sender.reconfigure(config);
-    tokio::time::sleep(Duration::from_secs(6)).await;
+    sender.try_send(Input::Config(config)).expect("queued");
+    status(
+        &handle,
+        1,
+        |s| matches!(s, Status::Failed(reason) if reason == "not configured"),
+    )
+    .await;
+    pid_gone(&pid).await;
+    sender
+        .try_send(Input::Event(Event::Retry))
+        .expect("retry queued");
+    handle.place(1, placement()).await.expect("retry processed");
     assert!(
         matches!(handle.snapshot().slots.get(&1).map(|s| &s.status), Some(Status::Failed(reason)) if reason == "not configured")
     );
@@ -179,7 +189,7 @@ async fn exits_before_hello_keeps_restarting() {
         .expect("config")
         .env
         .insert("FIXED".to_owned(), "1".to_owned());
-    sender.reconfigure(config);
+    sender.try_send(Input::Config(config)).expect("queued");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
     assert!(launcher.started().len() > started_before);
     let names: std::collections::BTreeSet<_> = launcher.started().into_iter().collect();
@@ -227,7 +237,7 @@ async fn stale_generation_is_dropped_and_detach_kills_child() {
         })
         .await
         .expect("send");
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    handle.place(1, placement()).await.expect("event processed");
     assert!(
         !tokio::fs::read_to_string(&output)
             .await

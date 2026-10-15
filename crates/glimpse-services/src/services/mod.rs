@@ -15,6 +15,26 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
     }
 }
 
+pub(crate) fn cap(text: &str, limit: usize) -> String {
+    text.chars().take(limit).collect()
+}
+
+pub(crate) fn compile_patterns(
+    patterns: &[String],
+    warn: impl Fn(&str, regex::Error),
+) -> Vec<regex::Regex> {
+    patterns
+        .iter()
+        .filter_map(|pattern| match regex::Regex::new(pattern) {
+            Ok(compiled) => Some(compiled),
+            Err(error) => {
+                warn(pattern, error);
+                None
+            }
+        })
+        .collect()
+}
+
 mod audio;
 mod battery;
 mod bluetooth;
@@ -63,8 +83,8 @@ pub use bluetooth::{
 pub use brightness::{
     Backlight, Brightness, BrightnessHandle, BrightnessState, CompositeBacklight,
     Config as BrightnessConfig, DdcBacklight, Dependencies as BrightnessDependencies,
-    Entry as BacklightEntry, Kind as BrightnessKind, Source as BrightnessSource, SysfsBacklight,
-    UnavailableBacklight,
+    Entry as BacklightEntry, Enumeration as BacklightEnumeration, Kind as BrightnessKind,
+    Source as BrightnessSource, SysfsBacklight,
 };
 pub use calendar::{Calendar, CalendarHandle};
 pub use clipboard::{
@@ -82,14 +102,13 @@ pub use exec::{
     CalendarProps, Catalog as ExecCatalog, CheckButtonProps, ChoiceItem, ChoiceListProps,
     ClassName, ContainerProps, DesktopCatalog, DotsProps, DropDownProps, Edge, Element,
     ElementKind, Ellipsize, EndProps, Entry as ExecEntry, EntryProps, ExpanderRowProps, FactItem,
-    FactListProps, FromApplet, INTERFACE as EXEC_INTERFACE, ImageProps, IndicatorProps, LabelProps,
-    MAX_CHILDREN_PER_PARENT, MAX_LINE, MAX_NODES, MeterRowProps, Node, NoticeProps, Op,
-    Orientation, Outgoing, Paint, PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT,
-    RangeBarProps, ReadoutProps, RevealerProps, RowProps, RowTone, RowTypography, ScaleProps,
-    SectionProps, SeparatorProps, Severity, SliderRowProps, SparklineProps, SpinnerProps,
-    StackProps, SwatchProps, SwatchSize, SwitchProps, ToggleButtonProps, ToggleControl,
-    ToggleRowProps, Tone, Transition, Tree, Urgency, Violation, WireNode, Zone,
-    expand as exec_expand,
+    FactListProps, FromApplet, ImageProps, IndicatorProps, LabelProps, MAX_CHILDREN_PER_PARENT,
+    MAX_LINE, MAX_NODES, MeterRowProps, Node, NoticeProps, Op, Orientation, Outgoing, Paint,
+    PlaceholderProps, Placement, PopoverProps, PopoverSize, ROOT, RangeBarProps, ReadoutProps,
+    RevealerProps, RowProps, RowTone, RowTypography, ScaleProps, SectionProps, SeparatorProps,
+    Severity, SliderRowProps, SparklineProps, SpinnerProps, StackProps, SwatchProps, SwatchSize,
+    SwitchProps, ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Urgency,
+    Violation, WireNode, Zone, expand as exec_expand,
 };
 pub use exec::{
     BarRequest as ExecBarRequest, Config as ExecConfig, Dependencies as ExecDependencies,

@@ -2,8 +2,8 @@ mod day;
 mod hour;
 mod imp;
 
-pub use day::ForecastDay;
-pub use hour::ForecastHour;
+pub(crate) use day::ForecastDay;
+pub(crate) use hour::ForecastHour;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 

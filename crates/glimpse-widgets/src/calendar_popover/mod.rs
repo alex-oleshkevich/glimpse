@@ -100,10 +100,6 @@ impl CalendarPopover {
         self.imp().clocks.set_twelve_hour(twelve_hour);
     }
 
-    pub fn set_footer(&self, label: Option<&str>) {
-        crate::set_action_label(&self.imp().footer, label);
-    }
-
     pub fn connect_day_selected<F: Fn(&Self, Ymd) + 'static>(
         &self,
         handler: F,
@@ -125,17 +121,6 @@ impl CalendarPopover {
             "link-activated",
             false,
             glib::closure_local!(move |popover: Self, url: String| handler(&popover, url)),
-        )
-    }
-
-    pub fn connect_footer_activated<F: Fn(&Self) + 'static>(
-        &self,
-        handler: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "footer-activated",
-            false,
-            glib::closure_local!(move |popover: Self| handler(&popover)),
         )
     }
 }

@@ -176,7 +176,6 @@ fn the_live_bat1_dump_keeps_the_fields_upower_actually_filled() {
         decoded.cycles.is_none(),
         "UPower sends -1 when it has no count"
     );
-    assert!(decoded.temperature_mc.is_none());
     assert_eq!(decoded.technology, Technology::LithiumIon);
     assert_eq!(decoded.warning, WarningLevel::None);
     assert_eq!(

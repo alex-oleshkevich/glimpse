@@ -66,6 +66,11 @@ template $DisplayPopover: Gtk.Widget {
             $ChoiceList schedules {
               visible: false;
             }
+
+            $ActionRow pause {
+              visible: false;
+              title: _("Pause until tomorrow");
+            }
           }
         }
       }
@@ -87,8 +92,5 @@ template $DisplayPopover: Gtk.Widget {
       }
     }
 
-    $ActionRow footer {
-      visible: false;
-    }
   }
 }

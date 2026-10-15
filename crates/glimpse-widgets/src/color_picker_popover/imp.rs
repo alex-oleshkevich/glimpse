@@ -18,8 +18,6 @@ pub struct ColorPickerPopover {
     pub palette: TemplateChild<ColorList>,
     #[template_child]
     pub pick: TemplateChild<ActionRow>,
-    #[template_child]
-    pub footer: TemplateChild<ActionRow>,
     pub resting: RefCell<Option<String>>,
 }
 
@@ -57,7 +55,6 @@ impl ObjectImpl for ColorPickerPopover {
                     .param_types([u64::static_type(), String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("pick-requested").build(),
-                glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
     }
@@ -80,11 +77,6 @@ impl ObjectImpl for ColorPickerPopover {
             #[weak]
             obj,
             move |_| obj.emit_by_name::<()>("pick-requested", &[])
-        ));
-        self.footer.connect_activated(glib::clone!(
-            #[weak]
-            obj,
-            move |_| obj.emit_by_name::<()>("footer-activated", &[])
         ));
     }
 

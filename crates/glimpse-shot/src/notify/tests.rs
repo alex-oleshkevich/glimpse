@@ -412,10 +412,12 @@ async fn an_activatable_handler_is_opened_with_the_activation_token() {
 
     let duty = notifier.closed();
     tokio::pin!(duty);
-    tokio::select! {
-        _ = &mut duty => panic!("hold returned before Open answered"),
-        () = tokio::time::sleep(Duration::from_millis(200)) => {}
-    }
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), &mut duty)
+            .await
+            .is_err(),
+        "hold returned before Open answered"
+    );
     release.notify_one();
 
     let opened = tokio::time::timeout(Duration::from_secs(2), async {
@@ -476,22 +478,34 @@ async fn a_close_for_this_notification_ends_a_hold_with_no_clipboard_duty() {
 #[tokio::test]
 async fn a_close_for_another_notification_does_not_end_the_duty() {
     let mut fixture = Fixture::start().await;
-    let notifier = fixture.notifier(Arc::new(Recording::default()));
+    let recording = Recording::default();
+    let notifier = fixture.notifier(Arc::new(recording.clone()));
     notifier.notify(saved("/tmp/shot.png")).expect("started");
     let posted = fixture.posted().await;
     let duty = notifier.closed();
     tokio::pin!(duty);
 
     fixture.emit_closed(posted.id.wrapping_add(1)).await;
-    tokio::select! {
-        _ = &mut duty => panic!("a different id ended the duty"),
-        () = tokio::time::sleep(Duration::from_millis(400)) => {}
-    }
-
-    fixture.emit_closed(posted.id).await;
+    zbus::fdo::DBusProxy::new(&fixture.client)
+        .await
+        .expect("bus proxy")
+        .get_id()
+        .await
+        .expect("the foreign close reaches the client before the assertion");
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), &mut duty)
+            .await
+            .is_err(),
+        "a foreign close must leave the duty pending"
+    );
+    fixture.emit_token(posted.id, "still-open").await;
+    fixture.emit_action(posted.id, "default").await;
+    let (opened, token) = recording.launched().await;
+    assert_eq!(opened, PathBuf::from("/tmp/shot.png"));
+    assert_eq!(token, "still-open");
     tokio::time::timeout(Duration::from_secs(2), duty)
         .await
-        .expect("our id ends the duty");
+        .expect("our action ends the duty");
 }
 
 #[tokio::test]

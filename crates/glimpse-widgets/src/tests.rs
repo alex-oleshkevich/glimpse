@@ -2,6 +2,12 @@ use super::*;
 
 use crate::bluetooth_pairing_dialog::PIN_MAX;
 
+use crate::forecast::ForecastDay;
+
+use crate::pager::PagerItem;
+
+use crate::player_list::PlayerRow;
+
 use adw::prelude::AlertDialogExt;
 
 use adw::prelude::{ActionRowExt, ComboRowExt, PreferencesRowExt};
@@ -75,7 +81,7 @@ fn widgets() {
     calendar_checks::check();
     notice_checks::check();
     notification_card_checks::check();
-    let four = notification_list_checks::check();
+    let four = notification_stack_checks::check();
     notifications_popover_checks::check();
     readout_checks::check();
     range_bar_checks::check();
@@ -97,7 +103,6 @@ fn widgets() {
     mpris_popover_checks::check();
     weather_popover_checks::check();
     tray_strip_checks::check();
-    tooltip_card_checks::check();
     bluetooth_popover_checks::check();
     pairing_dialog_checks::check();
     network_popover_checks::check();
@@ -127,9 +132,9 @@ fn widgets() {
     power_popover_checks::check();
     held_display_readout_check();
     toggle_disabled_accessibility_check();
-    footer_checks::check();
     expander_row_checks::geometry();
     blur_checks::check();
+    display_checks::pause();
 }
 
 fn held_display_readout_check() {
@@ -382,7 +387,6 @@ mod exit_presence_checks;
 mod expandable_checks;
 mod expander_row_checks;
 mod fact_list_checks;
-mod footer_checks;
 mod forecast_checks;
 mod hero_checks;
 mod idle_popover_checks;
@@ -395,7 +399,6 @@ mod network_popover_checks;
 mod none_if_empty_checks;
 mod notice_checks;
 mod notification_card_checks;
-mod notification_list_checks;
 mod notification_stack_checks;
 mod notifications_popover_checks;
 mod now_playing_checks;
@@ -427,7 +430,6 @@ mod slider_row_checks;
 mod source_list_checks;
 mod swatch_checks;
 mod system_monitor_popover_checks;
-mod tooltip_card_checks;
 mod transport_checks;
 mod tray_strip_checks;
 mod weather_popover_checks;

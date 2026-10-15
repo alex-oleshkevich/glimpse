@@ -77,7 +77,7 @@ new example's drawer silently inert:
   `$Indicator` would otherwise be read as state.
 
 **A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
-which is what lands `[hero]`, `[footer]` and `[slot]` in the right internal box, and `Hero` exposes
+which is what lands `[addon]` (shell) and `[slot]` (`Hero`) in the right internal box, and `Hero` exposes
 `title`, `subtitle` and `icon-name` as properties so a `.blp` sets them through the same capped
 setters Rust uses. `add_child` must ignore the widget's **own** template children — `init_template`
 adds them through the very interface being overridden, so an unguarded override routes `card`

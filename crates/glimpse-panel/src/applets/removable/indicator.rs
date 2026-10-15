@@ -11,8 +11,8 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Report, spawn_reported};
 
 use super::render;
@@ -22,15 +22,10 @@ pub struct Removable {
     notifications: NotificationsProviderHandle,
     state: Rc<RefCell<RemovableState>>,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     volumes_cap: usize,
     expanded: Rc<Cell<bool>>,
     shown: glib::WeakRef<RemovablePopover>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
 }
 
 impl Applet for Removable {
@@ -40,7 +35,7 @@ impl Applet for Removable {
         };
         self.volumes_cap = cfg.volumes;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -58,7 +53,7 @@ impl Applet for Removable {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         self.expanded.set(false);
 
         let shown = RemovablePopover::new();
@@ -129,12 +124,9 @@ impl Applet for Removable {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -178,7 +170,6 @@ impl Removable {
             notifications,
             state: Rc::new(RefCell::new(state)),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             volumes_cap: 6,
             expanded: Rc::new(Cell::new(false)),
@@ -201,7 +192,6 @@ impl Removable {
         }
         shown.set_devices(&devices.drives, &devices.rest);
         shown.set_overflow(devices.more.as_deref(), self.expanded.get());
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

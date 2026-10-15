@@ -24,7 +24,7 @@ pub async fn idle_status(connection: &Connection, json: bool) -> Result<()> {
 
     Section::new("Sources")
         .with(
-            Table::new()
+            Table::default()
                 .with_headers(["SOURCE", "STATE", "REASON"])
                 .with_rows([
                     backend("screensaver", &health.screen_saver),
@@ -39,7 +39,7 @@ pub async fn idle_status(connection: &Connection, json: bool) -> Result<()> {
     render::print("")?;
     Section::new("Inhibitors")
         .with(
-            Table::new()
+            Table::default()
                 .with_headers(["ID", "WHO", "WHY", "BLOCKS", "RELEASABLE"])
                 .with_empty("nothing holds off idle")
                 .with_rows(inhibitors.iter().map(row))

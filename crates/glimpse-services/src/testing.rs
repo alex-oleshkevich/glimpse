@@ -3,7 +3,7 @@ use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 use crate::context::Ctx;
-use crate::service::{Input, NoConfig, Service, ServiceEndpoint, ServiceError, ServiceState};
+use crate::service::{Input, NoConfig, Service, ServiceState};
 
 pub(crate) struct Probe;
 
@@ -18,15 +18,10 @@ impl Service for Probe {
 
     type Config = NoConfig;
     type State = ();
-    type Handle = ServiceEndpoint<Self>;
     type Command = ();
     type Event = u8;
     type Dependencies = ();
     type SubKey = Watch;
-
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        endpoint
-    }
 
     fn initial_state(_: &Self::Config) -> Self::State {
         Self::State::default()
@@ -36,8 +31,8 @@ impl Service for Probe {
         _ctx: &Ctx<Self>,
         _config: Self::Config,
         _dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
-        Ok(Self)
+    ) -> Self {
+        Self
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}

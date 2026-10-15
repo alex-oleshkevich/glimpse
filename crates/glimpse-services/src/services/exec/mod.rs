@@ -15,18 +15,18 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use serde_json::{Map, Value};
-use tokio::sync::{mpsc, oneshot, watch};
+use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
 use crate::selection::{Offer as SelectionOffer, Selection};
 use crate::services::compositor::{CompositorHandle, CompositorState};
 use crate::services::mpris::{MprisHandle, MprisPlayers};
-use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, ServiceError, Sub};
+use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, Sub};
 
 pub use launcher::{Launcher, SystemdLauncher, UnitSpec, UnitState};
 pub use spawn::{EXEC_HELLO_WINDOW, EXEC_MAX_HELLOS};
 
-pub use catalog::{Catalog, DesktopCatalog, Entry, INTERFACE, expand};
+pub use catalog::{Catalog, DesktopCatalog, Entry, expand};
 pub use tree::{
     ActionRowProps, AddonProps, Align, BarsProps, BoxProps, ButtonProps, CalendarMarker,
     CalendarProps, CheckButtonProps, ChoiceItem, ChoiceListProps, ClassName, ContainerProps,
@@ -298,26 +298,15 @@ pub enum Command {
     },
 }
 
-#[derive(Clone)]
-pub struct ExecHandle(ServiceEndpoint<Exec>);
+pub type ExecHandle = ServiceEndpoint<Exec>;
 
-impl ExecHandle {
-    pub fn snapshot(&self) -> ExecState {
-        self.0.snapshot()
-    }
-    pub fn subscribe(&self) -> watch::Receiver<ExecState> {
-        self.0.subscribe()
-    }
-    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
-        self.0.health()
-    }
-
+impl ServiceEndpoint<Exec> {
     fn submit(
         &self,
         build: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
     ) -> Pending {
         let (reply, answer) = oneshot::channel();
-        (self.0.command(build(reply)), answer)
+        (self.command(build(reply)), answer)
     }
 
     pub fn attach(
@@ -339,7 +328,7 @@ impl ExecHandle {
         request: DevRequest,
     ) -> impl Future<Output = Result<String, CommandError>> + Send + 'static + use<> {
         let (reply, answer) = oneshot::channel();
-        let sent = self.0.command(Command::DevAttach {
+        let sent = self.command(Command::DevAttach {
             applet: applet.to_owned(),
             request: Box::new(request),
             reply,
@@ -836,15 +825,11 @@ impl Service for Exec {
     const NAME: &'static str = "exec";
     type Config = Config;
     type State = ExecState;
-    type Handle = ExecHandle;
     type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = SubKey;
 
-    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
-        ExecHandle(endpoint)
-    }
     fn initial_state(_: &Self::Config) -> Self::State {
         ExecState::default()
     }
@@ -947,13 +932,13 @@ impl Service for Exec {
         ctx: &Ctx<Self>,
         config: Self::Config,
         dependencies: Self::Dependencies,
-    ) -> Result<Self, ServiceError> {
+    ) -> Self {
         let prefix = launcher::sweep_prefix(&config.panel);
         if let Some(dir) = config.sockets_dir() {
             let _ = tokio::task::spawn_blocking(move || prune_dead_sockets(&dir)).await;
         }
         dependencies.launcher.sweep(&prefix).await;
-        Ok(Self {
+        Self {
             state: ctx.publisher(),
             config,
             dependencies,
@@ -965,7 +950,7 @@ impl Service for Exec {
             next_generation: 0,
             mpris: None,
             compositor: None,
-        })
+        }
     }
 
     async fn stop(self, _ctx: &Ctx<Self>) {

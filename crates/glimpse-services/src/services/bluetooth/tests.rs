@@ -45,8 +45,7 @@ async fn started(
         Config::from(&glimpse_config::Config::default()),
         dependencies,
     )
-    .await
-    .expect("starts");
+    .await;
     (service, ctx, state_rx, health_rx)
 }
 

@@ -10,13 +10,11 @@ use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::{Seat, run};
+use crate::applet::themed;
 use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, wording};
 
 use super::render;
-
-const SETTINGS_COMMAND: &str = "kdeconnect-app";
 
 pub struct Kdeconnect {
     kdeconnect: KdeconnectHandle,
@@ -24,21 +22,9 @@ pub struct Kdeconnect {
     state: Rc<RefCell<KdeconnectState>>,
     config: KdeconnectAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<KdeconnectPopover>,
     opener: Option<Opener>,
-}
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
-
-fn default_footer() -> (String, Vec<String>) {
-    (
-        gettext("KDE Connect settings"),
-        vec![SETTINGS_COMMAND.to_owned()],
-    )
 }
 
 impl Applet for Kdeconnect {
@@ -48,13 +34,7 @@ impl Applet for Kdeconnect {
         };
         self.config = cfg.clone();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.set(Some(
-            config
-                .common
-                .settings()
-                .map(|(label, command)| (label.to_owned(), command.to_vec()))
-                .unwrap_or_else(default_footer),
-        ));
+
         self.refresh();
     }
 
@@ -72,7 +52,7 @@ impl Applet for Kdeconnect {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = KdeconnectPopover::new();
         shown.set_nearby_open(!render::any_paired(&self.state.borrow()));
 
@@ -148,13 +128,14 @@ impl Applet for Kdeconnect {
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
+        shown.settings().connect_activated(move |_| {
+            run(&["kdeconnect-app".to_owned()]);
+        });
 
         self.opener = Some(seat.opener());
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -226,7 +207,6 @@ impl Kdeconnect {
             state: Rc::new(RefCell::new(state)),
             config: KdeconnectAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
             opener: None,
@@ -251,7 +231,6 @@ impl Kdeconnect {
         shown.set_devices(&render::devices(&state));
         let (nearby, more) = render::nearby(&state);
         shown.set_nearby(&nearby, more.as_deref());
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

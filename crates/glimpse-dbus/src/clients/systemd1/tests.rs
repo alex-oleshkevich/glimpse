@@ -20,6 +20,14 @@ fn manager_and_scope_signatures_match_introspection() {
     assert_eq!(signature::<Vec<(String, u32, String)>>(), "a(sus)");
     assert_eq!(format!("{name}{name}{}", signature::<i32>()), "ssi");
     assert_eq!(signature::<u64>(), "t");
+    assert_eq!(
+        format!(
+            "{}{}{name}{name}",
+            signature::<u32>(),
+            signature::<zbus::zvariant::OwnedObjectPath>()
+        ),
+        "uoss"
+    );
 }
 
 #[test]

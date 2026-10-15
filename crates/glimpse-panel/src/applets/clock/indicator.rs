@@ -7,10 +7,10 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig};
 use glimpse_services::CalendarHandle;
 use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
+use gtk4::prelude::Cast as _;
 
 use super::popover;
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 use crate::applets::agenda::{self, Occasion};
 
@@ -23,7 +23,6 @@ pub struct Clock {
     settings: ClockConfig,
     twelve: bool,
     tooltip_format: Option<String>,
-    footer: Footer,
     zone: Option<Tz>,
     events: Vec<Occasion>,
     truncated_from: Option<DateTime<Utc>>,
@@ -39,7 +38,7 @@ impl Applet for Clock {
         self.settings = clock.clone();
         self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.zone = clock
             .timezone
             .as_deref()
@@ -108,7 +107,7 @@ impl Applet for Clock {
         }]
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let today = Local::now().date_naive();
 
         let shown = CalendarPopover::new();
@@ -121,13 +120,11 @@ impl Applet for Clock {
         let opener = seat.opener();
         shown.connect_month_shown(move |_, _, _| opener.wake());
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
         shown.connect_link_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.dress(&shown);
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -139,7 +136,6 @@ impl Clock {
             settings: ClockConfig::default(),
             twelve: false,
             tooltip_format: None,
-            footer: Footer::default(),
             zone: None,
             events: agenda::occasions(&events.events),
             truncated_from: events.truncated_from,
@@ -152,7 +148,7 @@ impl Clock {
         shown.set_zones(&popover::zones(&self.settings.timezones));
         shown.set_twelve_hour(self.twelve);
         shown.set_markers(&popover::markers(&self.events, self.settings.hide_all_day));
-        shown.set_footer(self.footer.label().as_deref());
+
         self.paint(shown);
     }
 

@@ -138,6 +138,19 @@ async fn stop_screencast_is_unavailable_under_hyprland() {
 }
 
 #[tokio::test]
+async fn blanking_the_screens_is_refused_under_hyprland() {
+    let mut harness = harness(Backend::Hyprland(glimpse_compositors::Hyprland::at(
+        "/nonexistent",
+    )));
+    snapshot_of_outputs(&mut harness, vec![output("DP-1", true)]).await;
+
+    assert!(matches!(
+        power_off_monitors(&mut harness).await,
+        Err(CommandError::Unsupported(_))
+    ));
+}
+
+#[tokio::test]
 async fn output_commands_are_unsupported_without_the_capability() {
     let mut harness = harness(Backend::Unsupported);
     snapshot_of_outputs(

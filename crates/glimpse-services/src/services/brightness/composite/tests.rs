@@ -18,7 +18,7 @@ async fn enumerate_merges_both_backends() {
     let ddc = FakeBacklight::new(vec![entry("ddc:5")]);
     let composite = CompositeBacklight::new(Arc::new(primary), Arc::new(ddc));
 
-    let entries = composite.enumerate().await;
+    let entries = composite.enumerate().await.entries;
 
     assert_eq!(entries.len(), 2);
     assert!(entries.iter().any(|entry| entry.id == "panel"));

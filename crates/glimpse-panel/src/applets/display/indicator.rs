@@ -17,14 +17,13 @@ use glimpse_widgets::{
     DisplayMode as WidgetDisplayMode, DisplayPopover, IndicatorSpec, NightLight,
     Source as WidgetSource,
 };
-use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
+use crate::applet::themed;
 use crate::applet::{
-    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, wording,
+    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, tell, wording,
 };
 
 use super::render::{self, Coalescer};
@@ -33,10 +32,6 @@ const NIGHT_LIGHT_ICON: &str = "night-light-symbolic";
 
 type LevelCoalescers = Rc<RefCell<HashMap<String, Rc<RefCell<Coalescer<u32>>>>>>;
 type TemperatureCoalescer = Rc<RefCell<Coalescer<u32>>>;
-
-fn themed(name: &str) -> gio::Icon {
-    gio::ThemedIcon::new(name).upcast()
-}
 
 pub struct Display {
     state: BrightnessState,
@@ -50,7 +45,6 @@ pub struct Display {
     notifications: NotificationsProviderHandle,
     settings: DisplayAppletConfig,
     tooltip_format: Option<String>,
-    footer: Footer,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<DisplayPopover>,
     pinned: RefCell<Option<String>>,
@@ -65,7 +59,7 @@ impl Applet for Display {
         };
         self.settings = *settings;
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
+
         self.refresh();
     }
 
@@ -95,7 +89,7 @@ impl Applet for Display {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let focused = self.focused_connector();
         let pinned = render::current_display(&self.powered_sources(), focused)
             .map(|source| source.id.clone());
@@ -180,6 +174,28 @@ impl Applet for Display {
             }
         });
 
+        shown.connect_night_light_paused({
+            let night_light = self.night_light.clone();
+            let notifications = self.notifications.clone();
+            let resync = resync.clone();
+            move |_, paused| {
+                let night_light = night_light.clone();
+                let notifications = notifications.clone();
+                let resync = resync.clone();
+                relm4::spawn_local(async move {
+                    let (operation, result) = if paused {
+                        ("night_light.pause", night_light.pause().await)
+                    } else {
+                        ("night_light.resume", night_light.resume().await)
+                    };
+                    if let Err(error) = result {
+                        resync.run();
+                        report_night_light_failure(&notifications, operation, error).await;
+                    }
+                });
+            }
+        });
+
         shown.connect_night_light_changed({
             let night_light = self.night_light.clone();
             let notifications = self.notifications.clone();
@@ -222,11 +238,17 @@ impl Applet for Display {
                 let compositor = compositor.clone();
                 let connector = connector.to_owned();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Displays"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not change that display"),
+                    },
                     opener.clone(),
                     "compositor.set_output_enabled",
-                    gettext("Could not change that display"),
                     async move { compositor.set_output_enabled(connector, enabled).await },
+                    gettext("The compositor is unavailable."),
+                    wording,
                 );
             }
         });
@@ -238,21 +260,24 @@ impl Applet for Display {
             move |_| {
                 let compositor = compositor.clone();
                 tell(
-                    &notifications,
+                    Report {
+                        notifications: notifications.clone(),
+                        app_name: gettext("Displays"),
+                        icon: render::ICON.to_owned(),
+                        summary: gettext("Could not blank the screens"),
+                    },
                     opener.clone(),
                     "compositor.power_off_monitors",
-                    gettext("Could not blank the screens"),
                     async move { compositor.power_off_monitors().await },
+                    gettext("The compositor is unavailable."),
+                    wording,
                 );
             }
         });
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
-
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -370,36 +395,11 @@ fn night_light_wording(error: &NightLightProviderError) -> Option<String> {
     Some(match error {
         NightLightProviderError::InvalidSchedule(_) => gettext("That was not a valid setting."),
         NightLightProviderError::InvalidTemperature(_) => gettext("That was not a valid value."),
+        NightLightProviderError::NotActive(_) => gettext("The night light is off."),
         NightLightProviderError::Unavailable(_) => gettext("The night light is not running."),
         NightLightProviderError::TimedOut => gettext("That took too long."),
         NightLightProviderError::Call(_) => gettext("That did not work."),
     })
-}
-
-fn tell<F, T>(
-    notifications: &NotificationsProviderHandle,
-    opener: Opener,
-    operation: &'static str,
-    summary: String,
-    future: F,
-) where
-    F: std::future::Future<Output = Result<T, CommandError>> + 'static,
-    T: 'static,
-{
-    let report = Report {
-        notifications: notifications.clone(),
-        app_name: gettext("Displays"),
-        icon: render::ICON.to_owned(),
-        summary,
-    };
-    let unavailable = gettext("The compositor is unavailable.");
-    relm4::spawn_local(async move {
-        let Err(error) = future.await else {
-            return;
-        };
-        opener.wake();
-        report_failure(operation, report, wording(&error, &unavailable), error).await;
-    });
 }
 
 fn to_mode(mode: &OutputMode) -> WidgetDisplayMode {
@@ -500,7 +500,6 @@ impl Display {
             notifications,
             settings: DisplayAppletConfig::default(),
             tooltip_format: None,
-            footer: Footer::default(),
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
             pinned: RefCell::new(None),
@@ -549,15 +548,24 @@ impl Display {
                 schedule: render::night_mode(&snapshot.schedule, &snapshot.configured).to_owned(),
                 fixed_hours: snapshot.schedule == "schedule" || snapshot.configured == "schedule",
                 serving: snapshot.serving,
+                can_pause: snapshot.active && snapshot.serving,
+                paused_until: (snapshot.paused_until != 0).then(|| {
+                    chrono::DateTime::from_timestamp(snapshot.paused_until, 0)
+                        .map(|time| {
+                            time.with_timezone(&chrono::Local)
+                                .format("%H:%M")
+                                .to_string()
+                        })
+                        .unwrap_or_default()
+                }),
             });
         shown.set_night_light(night_light.as_ref());
 
         let output_power = self.capabilities.is_some_and(|caps| caps.output_power);
         shown.set_output_power(output_power);
+        shown.set_blank_screens(self.capabilities.is_some_and(|caps| caps.blank_screens));
         let displays: Vec<WidgetDisplay> = self.outputs.iter().map(to_widget_display).collect();
         shown.set_displays(&displays);
-
-        shown.set_footer(self.footer.label().as_deref());
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {

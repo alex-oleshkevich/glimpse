@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Click a point on a niri output through ydotool.
+"""Click a point on a niri output through a wlr virtual pointer bound to that output.
 
-The input-injection API does not provide a global pointer-position query. The optional restore
-coordinates therefore name the virtual-desktop position to move back to; they are not an automatic
-snapshot of the position before the click.
+The virtual pointer cannot query the pointer position. The optional restore coordinates therefore
+name the virtual-desktop position to move back to; they are not an automatic snapshot of the
+position before the click.
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ import sys
 from dataclasses import dataclass
 
 
-ABSOLUTE_MAX = 65535
-BUTTON_CODES = {"left": "0xC0", "right": "0xC1", "middle": "0xC2"}
+BUTTONS = ("left", "right", "middle")
+POINTER = ["cargo", "run", "-q", "-p", "glimpse-wayland", "--example", "click", "--"]
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class Geometry:
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Click a point on a niri output with ydotool.",
+        description="Click a point on a niri output with a wlr virtual pointer.",
         epilog=(
             "KEY=VALUE arguments are accepted for use with `just click`; restore_x and restore_y "
             "are virtual-desktop coordinates, not an automatic pointer snapshot."
@@ -48,7 +48,7 @@ def parse_arguments(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output")
     parser.add_argument("--x", type=int)
     parser.add_argument("--y", type=int)
-    parser.add_argument("--button", choices=BUTTON_CODES, default="left")
+    parser.add_argument("--button", choices=BUTTONS, default="left")
     parser.add_argument("--restore-x", type=int)
     parser.add_argument("--restore-y", type=int)
     parser.add_argument("--dry-run", action="store_true")
@@ -150,35 +150,29 @@ def output_geometries() -> dict[str, Geometry]:
     return geometries
 
 
-def absolute_point(x: int, y: int, desktop: Geometry) -> tuple[int, int]:
-    if not desktop.x <= x < desktop.right or not desktop.y <= y < desktop.bottom:
-        raise RuntimeError(f"point ({x}, {y}) is outside the virtual desktop")
-    width = max(desktop.width - 1, 1)
-    height = max(desktop.height - 1, 1)
-    return (
-        round((x - desktop.x) * ABSOLUTE_MAX / width),
-        round((y - desktop.y) * ABSOLUTE_MAX / height),
-    )
+def containing(x: int, y: int, geometries: dict[str, Geometry]) -> tuple[str, Geometry]:
+    for name, geometry in geometries.items():
+        if geometry.x <= x < geometry.right and geometry.y <= y < geometry.bottom:
+            return name, geometry
+    raise RuntimeError(f"point ({x}, {y}) is on no output")
 
 
-def ydotool(*arguments: str, dry_run: bool) -> None:
-    command = ["ydotool", *arguments]
+def pointer(output: str, x: int, y: int, geometry: Geometry, action: str, dry_run: bool) -> None:
+    command = [*POINTER, output, str(x), str(y), str(geometry.width), str(geometry.height), action]
     if dry_run:
         print(" ".join(command))
         return
     try:
         subprocess.run(command, check=True)
     except FileNotFoundError as error:
-        raise RuntimeError("ydotool is not installed") from error
+        raise RuntimeError("cargo is not installed") from error
     except subprocess.CalledProcessError as error:
-        raise RuntimeError("ydotool could not inject the mouse event; is ydotoold running?") from error
+        raise RuntimeError("the virtual pointer could not inject the event") from error
 
 
 def run(args: argparse.Namespace) -> None:
     if shutil.which("niri") is None:
         raise RuntimeError("niri is not installed")
-    if not args.dry_run and shutil.which("ydotool") is None:
-        raise RuntimeError("ydotool is not installed")
 
     geometries = output_geometries()
     try:
@@ -191,20 +185,10 @@ def run(args: argparse.Namespace) -> None:
             f"point ({args.x}, {args.y}) is outside {args.output!r} ({output.width}x{output.height})"
         )
 
-    desktop = Geometry(
-        x=min(geometry.x for geometry in geometries.values()),
-        y=min(geometry.y for geometry in geometries.values()),
-        width=max(geometry.right for geometry in geometries.values())
-        - min(geometry.x for geometry in geometries.values()),
-        height=max(geometry.bottom for geometry in geometries.values())
-        - min(geometry.y for geometry in geometries.values()),
-    )
-    target = absolute_point(output.x + args.x, output.y + args.y, desktop)
-    ydotool("mousemove", "--absolute", str(target[0]), str(target[1]), dry_run=args.dry_run)
-    ydotool("click", BUTTON_CODES[args.button], dry_run=args.dry_run)
+    pointer(args.output, args.x, args.y, output, args.button, args.dry_run)
     if args.restore_x is not None:
-        restore = absolute_point(args.restore_x, args.restore_y, desktop)
-        ydotool("mousemove", "--absolute", str(restore[0]), str(restore[1]), dry_run=args.dry_run)
+        name, geometry = containing(args.restore_x, args.restore_y, geometries)
+        pointer(name, args.restore_x - geometry.x, args.restore_y - geometry.y, geometry, "move", args.dry_run)
 
 
 def main() -> int:

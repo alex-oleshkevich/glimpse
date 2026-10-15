@@ -8,8 +8,7 @@ use glimpse_services::CalendarHandle;
 use glimpse_widgets::{IndicatorSpec, NextEventPopover};
 use gtk4::{gio, glib, prelude::*};
 
-use crate::applet::footer::Footer;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, Opener};
 use crate::applets::agenda::{self, Occasion};
 
@@ -21,7 +20,6 @@ pub struct NextEvent {
     events: Vec<Occasion>,
     twelve: bool,
     tooltip_format: Option<String>,
-    footer: Footer,
     chosen: Option<usize>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<NextEventPopover>,
@@ -36,7 +34,6 @@ impl Applet for NextEvent {
         self.settings = settings.clone();
         self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
-        self.footer.configure(&config.common);
 
         ctx.interval(MINUTE);
         self.refresh(&ctx.opener());
@@ -57,17 +54,15 @@ impl Applet for NextEvent {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = NextEventPopover::new();
 
-        let footer = self.footer.clone();
-        shown.connect_footer_activated(move |_| footer.run());
         shown.connect_join_activated(|_, url| agenda::open_http(url));
         shown.connect_open_event_activated(|_, url| agenda::open_http(url));
 
         self.shown.set(Some(&shown));
         self.refresh(&seat.opener());
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -80,7 +75,6 @@ impl NextEvent {
             events: agenda::occasions(&events.events),
             twelve: false,
             tooltip_format: None,
-            footer: Footer::default(),
             chosen: None,
             spec: Vec::new(),
             shown: glib::WeakRef::default(),
@@ -146,7 +140,7 @@ impl NextEvent {
             return;
         };
         let clock = self.clock();
-        shown.set_footer(self.footer.label().as_deref());
+
         shown.set_upcoming(&render::upcoming(
             now,
             &self.events,

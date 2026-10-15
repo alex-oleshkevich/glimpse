@@ -54,8 +54,10 @@ Every usage rule is checked, and all violations are reported together, before an
 clap's own rows (two targets, a target with `FILE.png`, `--no-save` with `-o` or without `--copy`,
 `--delay` over 60) and the `Usage` rows clap cannot express (`-o -` with `--json` or on a terminal,
 `--annotate -` on a terminal, `--annotate` without a concrete target, `--region` without a geometry
-under `capture`, `--json`/`--prompt`/`--timeout` without a target, `--editor window` with `--prompt`,
-`--timeout` or `-o -`). The terminal facts are passed in, so every row is a unit test.
+under `capture`, an empty target value such as a cancelled slurp's `--region ""`,
+`--json`/`--prompt`/`--timeout` without a target, `--editor window` with `--prompt`, `--timeout` or
+`-o -`). A configured `editor = "window"` yields to the overlay for those three, as the portal does.
+The terminal facts are passed in, so every row is a unit test.
 
 | Code | Meaning |
 | --- | --- |
@@ -104,8 +106,9 @@ GUI face, marks and earlier results kept. `OutputGone` hands the document to a w
 emitted on completion only when the face asks.
 
 `ports` holds the traits a face executes effects through — `Screens`, `Windows`, `Clipboard`,
-`Notifier`, `Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
-`Screens` on `glimpse-wayland` and the compositor snapshot, `Windows` as the ladder below,
+`Files`, `Clock` — so the headless path is tested with fakes. `adapters` implements
+`Screens` on `glimpse-wayland`, `Windows` as the ladder below, both asking the compositor for the
+focused output and the windows when the capture happens, so a delay ends on what was focused then,
 `Clipboard` through `hold`, `Files` with `create_new`, and `Clock`. An `Effected` for anything but
 the first pending effect is stale and ignored; an `OutputGone` while finishing is remembered and
 opens the window when the machine returns to `Editing`.
@@ -158,9 +161,9 @@ the folder. No bus or notification server is a warning; the save already happene
 
 `glimpse-shot portal` is the xdg-desktop-portal backend, a tokio and zbus process. It takes the
 bus name `me.aresa.Glimpse.Shot.Portal` and then serves `org.freedesktop.impl.portal.Screenshot`
-version 2 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor` and `version`. D-Bus
-activation uses `glimpse-shot-portal.service`, which requires and stops with `glimpse-session.target`.
-It never constructs the app.
+version 3 at `/org/freedesktop/portal/desktop`: `Screenshot`, `PickColor`, `version` and
+`AvailableTargets` (screen, area, active window). D-Bus activation uses `glimpse-shot-portal.service`,
+which requires and stops with `glimpse-session.target`. It never constructs the app.
 
 Each call exports an `org.freedesktop.impl.portal.Request` at its handle. `Request.Close` SIGTERMs
 its child without replying. Overlay children use fresh GApplication IDs, so SIGTERM closes their
@@ -174,7 +177,10 @@ after a pending crop and Esc refuses. Other finish keys, controls and window pic
 so it never uses the clipboard or notifications. `parent_window` is ignored.
 `interactive=false` with `permission_store_checked=true` runs `glimpse-shot capture --screen
 --json -o PATH` under `[screenshot] directory`, creating it if needed. Child binaries come
-from beside this binary, then `PATH`; tokio captures stdout and kills dropped children.
+from beside this binary, then `PATH`; tokio captures stdout and kills dropped children. `target` 1
+follows that rule; 4 always opens the same overlay, so interactive targets 1 and 4 are identical.
+Target 8 runs `capture --window focused` with `permission_store_checked=true`, regardless of the
+`interactive` hint, and is refused without permission. Window (2) and invalid targets return 2.
 
 Exit 0 with a result path returns response 0 with a `file://` URI; exit 4 returns 1, and any
 other exit, signal or invalid result returns 2. `PickColor` runs `glimpse-lens --tool picker --json`:

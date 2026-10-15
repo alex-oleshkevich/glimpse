@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::io;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -10,6 +11,7 @@ use glimpse_wayland::selection::{self, Changes};
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
 
+use crate::adapters::screens::compositor_snapshot;
 use crate::render::within_frame;
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -17,19 +19,24 @@ const LATE_FILE_GRACE: Duration = Duration::from_secs(1);
 
 pub struct CompositorWindows<'a> {
     pub compositor: Compositor,
-    pub snapshot: Snapshot,
+    pub snapshot: RefCell<Snapshot>,
     pub clipboard: &'a dyn Clipboard,
     pub restore: bool,
 }
 
 impl Windows for CompositorWindows<'_> {
     fn list(&self) -> Result<Vec<Window>, CaptureError> {
-        Ok(self.snapshot.windows.clone())
+        if let Some(fresh) =
+            compositor_snapshot().map_err(|error| CaptureError::Failed(format!("{error:#}")))?
+        {
+            self.snapshot.replace(fresh);
+        }
+        Ok(self.snapshot.borrow().windows.clone())
     }
 
     fn capture(&self, id: u64) -> Result<Frame, CaptureError> {
-        let window = self
-            .snapshot
+        let snapshot = self.snapshot.borrow();
+        let window = snapshot
             .windows
             .iter()
             .find(|window| window.id.0 == id)
@@ -42,7 +49,7 @@ impl Windows for CompositorWindows<'_> {
             let frame = capture::toplevel(&identifier, deadline)?;
             return Ok(Frame { connector, ..frame });
         }
-        let visible = visible_crop(window, &self.snapshot);
+        let visible = visible_crop(window, &snapshot);
         match (&self.compositor, visible) {
             (Compositor::Niri(_), Some(crop)) if window.is_floating => {
                 crop_output(&connector, crop)

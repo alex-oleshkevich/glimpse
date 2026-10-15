@@ -83,19 +83,10 @@ fn printing_popover_states() {
     let imp = popover.imp();
 
     assert!(!imp.jobs.get_visible(), "no jobs is no section at all");
-    assert!(!imp.footer.get_visible(), "no footer until one is named");
 
-    popover.set_footer(Some("Printer settings"));
-    assert!(imp.footer.get_visible());
     let opened = Rc::new(RefCell::new(0));
-    popover.connect_footer_activated({
-        let opened = Rc::clone(&opened);
-        move |_| *opened.borrow_mut() += 1
-    });
-    imp.footer.emit_by_name::<()>("activated", &[]);
+
     assert_eq!(*opened.borrow(), 1);
-    popover.set_footer(None);
-    assert!(!imp.footer.get_visible());
 
     popover.set_jobs(&[job("1", Some((3, 12)))]);
     assert!(imp.jobs.get_visible());

@@ -3,6 +3,7 @@ mod errors;
 mod lens;
 mod marks;
 mod measure;
+mod overlay;
 mod pick;
 mod session;
 

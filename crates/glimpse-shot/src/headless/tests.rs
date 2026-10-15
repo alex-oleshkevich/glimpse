@@ -460,9 +460,17 @@ fn a_window_target_resolves_or_exits_five() {
 
 #[test]
 fn a_window_with_no_compositor_fails_naming_the_variables() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let out = dir.path().join("w.png");
     let files = FakeFiles::default();
     let (exit, _, stderr) = run_with(
-        &["capture", "--window", "42", "-o", "/run/user/1000/w.png"],
+        &[
+            "capture",
+            "--window",
+            "42",
+            "-o",
+            out.to_str().expect("utf-8 path"),
+        ],
         &files,
         Vec::new(),
         PIPES,
@@ -509,9 +517,11 @@ fn write_before_encode(phase: Phase, event: Event) -> (Phase, Vec<Effect>) {
 
 #[test]
 fn a_write_with_nothing_encoded_fails_instead_of_writing_nothing() {
+    let dir = tempfile::tempdir().expect("a temporary directory");
+    let out = dir.path().join("never.png");
     let files = FakeFiles::default();
     let (exit, _, stderr) = run_driven(
-        &["capture", "-o", "/run/user/1000/never.png"],
+        &["capture", "-o", out.to_str().expect("utf-8 path")],
         &files,
         &FakeClock::default(),
         write_before_encode,

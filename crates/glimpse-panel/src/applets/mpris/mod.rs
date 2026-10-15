@@ -11,10 +11,12 @@ use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
 use glimpse_services::MprisHandle;
 use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
-use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
+use glimpse_widgets::{
+    IndicatorSpec, MprisPopover, Repeat as TransportRepeat, Row, TransportAction,
+};
 use gtk4::{gdk, glib, prelude::*};
 
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::Seat;
 use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 const SECOND: Duration = Duration::from_secs(1);
@@ -74,7 +76,7 @@ impl Applet for Mpris {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, seat: &Seat) -> Option<gtk4::Widget> {
         let shown = MprisPopover::new();
         let player = shown.player();
 
@@ -120,7 +122,7 @@ impl Applet for Mpris {
             }
         });
 
-        shown.connect_footer_activated({
+        shown.open_player().connect_activated({
             let (service, held) = (self.service.clone(), self.aimed.clone());
             move |_| {
                 let service = service.clone();
@@ -134,7 +136,7 @@ impl Applet for Mpris {
 
         self.shown.set(Some(&shown));
         self.refresh();
-        Some(Box::new(shown))
+        Some(shown.upcast())
     }
 }
 
@@ -307,7 +309,7 @@ impl Mpris {
             self.aimed.replace(String::new());
             shown.player().set_visible(false);
             shown.set_others(None);
-            shown.set_footer(None);
+            shown.open_player().set_visible(false);
             return;
         };
 
@@ -345,13 +347,13 @@ impl Mpris {
             .then(|| popover::rows(&self.players, &self.icons))
             .filter(|rows| !rows.is_empty());
         shown.set_others(others.as_deref());
-        shown.set_footer(
-            player
-                .can
-                .raise
-                .then(|| gettext("Open {player}").replace("{player}", &player.identity))
-                .as_deref(),
-        );
+        let open_player = shown.open_player();
+        open_player.upcast_ref::<Row>().set_title(Some(
+            gettext("Open {player}")
+                .replace("{player}", &player.identity)
+                .as_str(),
+        ));
+        open_player.set_visible(player.can.raise);
     }
 }
 

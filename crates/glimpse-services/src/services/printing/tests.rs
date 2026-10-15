@@ -34,7 +34,7 @@ async fn printing(
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Printing::start(&ctx, cfg, ()).await.expect("starts");
+    let service = Printing::start(&ctx, cfg, ()).await;
     (service, ctx, state_rx, health_rx)
 }
 
@@ -164,9 +164,7 @@ async fn declared_subscriptions_really_start_a_running_source() {
         health,
         Buses::unavailable("no bus in tests"),
     );
-    let service = Printing::start(&ctx, config(15, 5_000, Some("http://127.0.0.1:1/")), ())
-        .await
-        .expect("starts");
+    let service = Printing::start(&ctx, config(15, 5_000, Some("http://127.0.0.1:1/")), ()).await;
 
     let mut live = crate::subscription::Live::new();
     live.reconcile(&ctx, service.subscriptions());
