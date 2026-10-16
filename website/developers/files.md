@@ -16,7 +16,7 @@ files and never write into a home directory.
 | `/etc/pam.d/glimpse-lock` | `data/pam.d/` | [The lock screen's PAM stack](#pam) |
 | `/etc/geoclue/conf.d/glimpse.conf` | `data/geoclue/conf.d/` | [Location access](#geoclue) |
 | `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | `data/` | [The screenshot app's launcher](#launcher-and-icons) |
-| `/usr/share/glimpse/` | `data/`, `sdk/template/` | [Shared data](#shared-data) |
+| `/usr/share/glimpse/` | `data/`, `sdk/templates/` | [Shared data](#shared-data) |
 | `/usr/share/locale/<lang>/LC_MESSAGES/glimpse.mo` | `po/`, built by `just build-translations` | Translations, one catalog per language |
 | `~/.config/glimpse/config.toml` | `data/config.commented.toml` | [A starting configuration](#your-configuration) |
 
@@ -135,7 +135,7 @@ the glimpse icon, each in a full color and a symbolic version.
 | `config.schema.json` | Editors that validate TOML; reference it with `#:schema /usr/share/glimpse/config.schema.json`. |
 | `language-codes.json` | The keyboard applet, which shortens layout names to codes such as `US`. A copy in `~/.config/glimpse/` takes precedence. |
 | `themes/adwaita/` | The built-in theme: `panel.css`, `dark.css`, `wallpaper.css`, `lock.css` and the default wallpaper. |
-| `sdk/template/` | `glimpsectl applet new`, which copies it to start an applet. |
+| `sdk/templates/` | `glimpsectl applet new`, which copies it to start an applet. |
 | `portals/` | The install script, as the pristine copies of the portal preferences. |
 | `LICENSE` | The license text. |
 

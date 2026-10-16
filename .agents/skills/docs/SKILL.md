@@ -91,7 +91,7 @@ after it is read in the source. If it cannot be confirmed, it is left out.
 | Commands and flags | `target/debug/<binary> --help`, the generated `website/config/cli/*.md` |
 | Installed files, units, bus names, portals, PAM, GeoClue | `scripts/install.sh`, `scripts/glimpse-paths.sh`, `data/`; every file there is on `/developers/files` |
 | Design rules | the crate `README.md` files |
-| Applet SDK and wire format | `sdk/applet/`, `crates/glimpse-services/src/services/exec/`, `crates/glimpse-panel/src/applets/exec/` |
+| Applet SDK and wire format | `sdk/sdk-ts/`, `crates/glimpse-services/src/services/exec/`, `crates/glimpse-panel/src/applets/exec/` |
 | UI strings the reader will see | the `_("…")` strings in the UI crates |
 
 Validate every complete TOML sample:
