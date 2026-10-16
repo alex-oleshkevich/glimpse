@@ -69,8 +69,9 @@ export default withMermaid(
             items: [
               { text: "Overview", link: "/guide/" },
               { text: "Arrange your panels", link: "/guide/panels" },
-              { text: "Show a world clock", link: "/guide/second-instance" },
+              { text: "Show a world clock next to your clock", link: "/guide/second-instance" },
               { text: "Change how glimpse looks", link: "/guide/theme" },
+              { text: "Write a theme", link: "/guide/theming" },
               { text: "Set a light and dark wallpaper", link: "/guide/wallpaper" },
               { text: "Show the weather for your city", link: "/guide/weather" },
               { text: "Manage notifications", link: "/guide/notifications" },
@@ -99,8 +100,8 @@ export default withMermaid(
               { text: "Build a todo applet", link: "/applets/exec/" },
               { text: "Develop with live reload", link: "/applets/exec/live-reload" },
               { text: "Keep data between restarts", link: "/applets/exec/data" },
-              { text: "Notify, copy, open and launch", link: "/applets/exec/host" },
-              { text: "React to media and workspaces", link: "/applets/exec/media" },
+              { text: "Notify, copy, open links and launch apps", link: "/applets/exec/host" },
+              { text: "React to media players and workspaces", link: "/applets/exec/media" },
               { text: "Test an applet", link: "/applets/exec/testing" },
               { text: "Debug a running applet", link: "/applets/exec/debug" },
               { text: "Install and share an applet", link: "/applets/exec/share" },
@@ -112,6 +113,18 @@ export default withMermaid(
               { text: "SDK API", link: "/applets/exec/reference/sdk" },
               { text: "Desktop entry keys", link: "/applets/exec/reference/desktop-entry" },
               { text: "Applet protocol", link: "/developers/protocol" },
+            ],
+          },
+        ],
+        "/ecosystem/": [
+          {
+            text: "Ecosystem",
+            items: [
+              { text: "Overview", link: "/ecosystem/" },
+              { text: "Screenshots", link: "/ecosystem/shot" },
+              { text: "Color picker", link: "/ecosystem/picker" },
+              { text: "Ruler", link: "/ecosystem/ruler" },
+              { text: "Magnifier", link: "/ecosystem/lens" },
             ],
           },
         ],
@@ -134,6 +147,7 @@ export default withMermaid(
             items: [
               { text: "How configuration works", link: "/config/" },
               { text: "Panels", link: "/config/panels" },
+              { text: "Theme tokens", link: "/config/theme-tokens" },
             ],
           },
           {

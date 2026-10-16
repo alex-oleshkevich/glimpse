@@ -28,7 +28,7 @@ Save the file. A camera icon appears in that zone. Hover over it to see "Select 
 
 ## 3. Take a screenshot
 
-Left-click the camera, then drag a rectangle over the area you want. The screenshot editor opens for that region. Its editing and saving controls are covered in [Screenshot and measure](/ecosystem/).
+Left-click the camera, then drag a rectangle over the area you want. The screenshot editor opens for that region. Its editing and saving controls are covered in [Screenshots](/ecosystem/shot).
 
 ## 4. Add right-click and scroll actions
 

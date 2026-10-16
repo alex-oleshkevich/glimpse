@@ -29,7 +29,7 @@ temperature = 3800
 ```
 
 Panels are an array of tables, written `[[panels]]`, because you can have more than one. Each
-applet's settings live under `[applets.<name>]`. Every key and value is lowercase with dashes.
+applet's settings live under `[applets.<name>]`. Every key, and every choice from a fixed list, is lowercase with dashes.
 
 glimpse refuses a key it doesn't know rather than ignoring it, so a typo such as `[notifcations]`
 is reported instead of silently doing nothing.
@@ -38,20 +38,29 @@ is reported instead of silently doing nothing.
 
 Each glimpse process watches the files it reads. Save, and within a moment the change is live: the
 clock reformats, the panel moves to another edge, notifications pop up in a different corner. You
-never restart anything for a configuration change. `systemctl --user reload glimpse-session.target`
-reloads the glimpse services.
+never restart anything for a configuration change, except `[regional] language` and
+`[lock] pam-service`, which are read when each process starts, and a smaller panel `size`, which
+applies when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
+for the panel or send any glimpse process `SIGHUP`.
 
 ## When something is wrong
 
 A file glimpse can't use doesn't take the shell down. On a syntax error or an unknown key, each
 process keeps running with the last version that worked, and the panel shows one notification
-saying so. `glimpsectl config validate` prints every problem with the file, line and column:
+saying so. `glimpsectl panel list` shows the same reason under `CONFIG` until the file is fixed.
+
+`glimpsectl config validate` checks the files. A syntax error comes with its file, line and column.
+A wrong value or an unknown key names the key but not the file, and only the first one is reported,
+so fix it and run the command again. Every unknown applet name gets its own line:
 
 ```sh
 glimpsectl config validate
 ```
 
-If the file was already broken when glimpse started, it starts with the built-in defaults.
+A clean run prints nothing. A path that does not exist is not an error, so check its spelling.
+
+If the file was already broken when glimpse started, it starts with the built-in defaults, except
+that idle timers and the night light stay off.
 
 ## Completion in your editor
 
@@ -77,18 +86,23 @@ ones winning:
 4. `~/.config/glimpse/config.toml`
 5. `~/.config/glimpse/config.d/*.toml`, in alphabetical order
 
+Only files ending in `.toml` count, and no file may be larger than 1 MiB. `~/.config/glimpse` is
+`$XDG_CONFIG_HOME/glimpse` when you set that variable.
+
 A drop-in is a small file holding only a few settings. It lets you keep one concern apart, such as a
 `config.d/laptop.toml` that only one machine has, or settings a script manages without touching
 your main file.
 
 Merging works key by key. Tables merge, so a drop-in that sets `[notifications] edge` leaves every
 other notification setting alone. Single values replace. Lists replace too, rather than growing, so
-a later file can always shorten a list an earlier one set.
+a later file can always shorten a list an earlier one set. `[[panels]]` is a list as well, so the
+last file with any `[[panels]]` table defines all of your panels.
 
 The screenshot tool also keeps its own `shot.toml` beside `config.toml`, holding the `[screenshot]`
-choices you make in its preferences window.
+choices you make in its preferences window. It is read last and supplies only `[screenshot]`.
 
-`glimpsectl config path` lists the files glimpse read, in order, and `glimpsectl config show` prints
+`glimpsectl config path` lists the files glimpse looks at, in order, including ones that do not
+exist yet, and `glimpsectl config show` prints
 the merged result.
 
 ## Where the rest lives
@@ -97,11 +111,12 @@ the merged result.
 | --- | --- |
 | `~/.config/glimpse/` | `config.toml`, drop-ins, and your own themes under `themes/` |
 | `~/.local/state/glimpse/` | things glimpse remembers between sessions, such as your last known location and applet data |
-| `~/.local/share/glimpse/applets/` | applets you install |
+| `~/.local/share/applications/` | the desktop entries of exec applets you install |
 | `/usr/share/glimpse/` | the default config, the schema and the built-in themes |
 
 ## Testing a different file
 
-Every glimpse program takes `--config <file>`, which replaces the whole stack with that one file.
-It is useful for trying a configuration without touching your own, but remember that drop-ins are
-skipped too.
+Every glimpse program takes `--config <file>`, which replaces the system files, your `config.toml`
+and your drop-ins with that one file. A `shot.toml` beside it still supplies `[screenshot]`. It is
+useful for trying a configuration without touching your own. `GLIMPSE_CONFIG_PATH` does the same as
+`--config`.

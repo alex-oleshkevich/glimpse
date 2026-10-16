@@ -42,28 +42,12 @@ animation-speed = 0.5
 
 ## Custom CSS
 
-A theme is a directory under `~/.config/glimpse/themes/<name>/` holding any of `panel.css`,
-`wallpaper.css`, `lock.css` and `dark.css`. `panel.css` styles the bar, its popovers, notification
-popups and the screenshot app; `wallpaper.css` and `lock.css` style the wallpaper and the lock
-screen. `dark.css` loads on every surface, only while the effective scheme is dark. Point `[appearance]` at the directory's
-name:
+A theme is a folder of CSS files under `~/.config/glimpse/themes/` that you select by name:
 
 ```toml
 [appearance]
 theme = "midnight"
 ```
 
-glimpse looks in `~/.config/glimpse/themes` first, then the installed themes under
-`/usr/share/glimpse/themes`, and falls back to the shipped `adwaita` theme when the name does not
-resolve. A theme overrides the built-in CSS variables. This
-`~/.config/glimpse/themes/midnight/panel.css` darkens the bar and the surfaces drawn over it:
-
-```css
-:root {
-    --gl-panel: #101018;
-    --gl-surface: mix(var(--gl-panel), white, 0.07);
-}
-```
-
-The shipped theme does the same for dark mode: see `dark.css` under
-`/usr/share/glimpse/themes/adwaita`.
+[Write a theme](/guide/theming) walks through making one, and [Theme tokens](/config/theme-tokens)
+lists every value a theme can change.

@@ -35,7 +35,7 @@ type ClassName =
 | `Container` | `width?: number`, `height?: number`, `background?: Paint`, `color?: Paint`, `align?: Align`, `children?: Node` |
 | `Section` | `title?: string`, `count?: string`, `className?: ClassName`, `children?: Node` |
 
-`Indicator` pointer buttons are `1` for left, `2` for middle, and `3` for right. `onScroll` receives numeric deltas. Text children of `Indicator`, `Label`, and `Button` supply their displayed text. The root accepts indicators and popovers; the panel shows the first popover.
+An `Indicator`'s `onPress` receives `2` for middle and `3` for right, or the raw button code for any other button. A left click opens the popover and never fires `onPress`. `onScroll` receives numeric deltas. Text children of `Indicator`, `Label`, and `Button` supply their displayed text. The root accepts indicators and popovers; the panel shows the first popover.
 
 ### Rows
 

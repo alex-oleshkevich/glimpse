@@ -29,7 +29,7 @@ The first time glimpse started, it wrote a configuration file for you. Open it i
 $EDITOR ~/.config/glimpse/config.toml
 ```
 
-Every setting is in there, commented out and set to its default. A line that starts with `#` has no
+Every setting that has a default is in there, commented out and set to its default. A line that starts with `#` has no
 effect, so the file currently changes nothing.
 
 ## Change the clock
@@ -53,7 +53,7 @@ label-format = "%H:%M"
 Save the file. Look at the panel: the clock now shows only hours and minutes. You didn't restart
 anything. glimpse watches the file and applies each change when you save.
 
-Put the date back by changing the format to `"%a %-d %b  %H:%M"` and saving again. The clock follows
+Put the date back by changing the format to `"%a, %-d %b, %H:%M"` and saving again. The clock follows
 within a moment.
 
 ## Catch a mistake
@@ -71,7 +71,7 @@ last version that worked. Ask glimpse what is wrong:
 glimpsectl config validate
 ```
 
-It names the file, the line, the column and the problem. Put the quote back and save.
+For a syntax error like this one, it names the file, the line, the column and the problem. Put the quote back and save.
 
 ## Switch to dark mode
 
@@ -79,7 +79,7 @@ By default glimpse turns dark at sunset and light again at sunrise. You can hold
 yourself:
 
 ```sh
-glimpsectl settings mode dark
+glimpsectl appearance set dark
 ```
 
 The panel turns dark straight away, and so do GTK apps that follow the desktop color scheme. Open
@@ -88,7 +88,7 @@ the clock popover again and you will see it is dark too.
 Hand control back to the sunset schedule:
 
 ```sh
-glimpsectl settings resume
+glimpsectl appearance resume
 ```
 
 ## Lock the screen
@@ -111,7 +111,7 @@ You can also lock from the session menu at the right end of the panel.
 
 You have used the panel's popovers and scroll shortcuts, edited `config.toml` and watched the change
 apply on save, checked the file with `glimpsectl config validate`, switched modes with
-`glimpsectl settings`, and locked the screen.
+`glimpsectl appearance`, and locked the screen.
 
 From here:
 

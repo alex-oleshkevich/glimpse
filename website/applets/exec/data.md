@@ -52,7 +52,7 @@ function Task() {
 await run(<Task />);
 ```
 
-Run it with `glimpsectl applets run --dev .`, enter a title, then type `r` and Enter in the terminal. Open the popover again to see the saved title.
+Run it with `glimpsectl applet run --dev .`, enter a title, then type `r` and Enter in the terminal. Open the popover again to see the saved title.
 
 ## Choose filenames for shared data
 

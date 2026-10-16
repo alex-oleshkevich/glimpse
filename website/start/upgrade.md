@@ -21,7 +21,8 @@ sudo nixos-rebuild switch
 
 ```sh [From source]
 git pull
-just install
+just build-release build-translations
+sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ```
 
 :::
@@ -70,7 +71,7 @@ sudo zypper remove glimpse
 ```
 
 ```sh [From source]
-just uninstall
+sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/uninstall.sh
 ```
 
 :::
@@ -78,5 +79,5 @@ just uninstall
 On NixOS, remove `services.glimpse.enable = true;` and the flake input, then rebuild.
 
 Uninstalling leaves your settings in `~/.config/glimpse/`, saved state in `~/.local/state/glimpse/`
-and any applets you installed in `~/.local/share/glimpse/`. Delete those directories if you don't
-plan to come back.
+and the desktop entries of any applets you installed in `~/.local/share/applications/`. Delete
+those if you don't plan to come back.

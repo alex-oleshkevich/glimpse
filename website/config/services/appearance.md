@@ -28,8 +28,8 @@ the desktop does, which suits a dark bar over light apps.
 | To switch light and dark yourself | `auto-dark = "system"` |
 | A dark bar all the time, apps following the sun | `color-scheme = "dark"` |
 
-`glimpsectl settings mode dark` holds the desktop in one mode until you run
-`glimpsectl settings resume`, without editing the file.
+`glimpsectl appearance set dark` holds the desktop in one mode until you run
+`glimpsectl appearance resume`, without editing the file.
 
 ### Blur
 
@@ -64,8 +64,9 @@ A theme is a directory of stylesheets. glimpse ships one, `adwaita`, and looks f
 
 ## Region
 
-The language, the clock format and units. Each one defaults to `locale`, which follows your system
-locale, so you only set them to differ from it.
+The language, the clock format and units. `hour-format` and `units` default to `locale`, which
+follows your system locale, and an empty `language` uses your system language, so you only set
+them to differ from it. A new `language` applies the next time glimpse starts.
 
 <ConfigTable path="regional" describe />
 

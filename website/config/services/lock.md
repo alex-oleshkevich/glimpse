@@ -26,7 +26,8 @@ your desktop.
 <ConfigTable path="lock.session" describe />
 
 ::: warning PAM
-The lock screen checks your password through the PAM service named by `pam-service`. The packages
+The lock screen checks your password through the PAM service named by `pam-service`, which it reads
+once when it starts. The packages
 install `/etc/pam.d/glimpse-lock`. Point `pam-service` somewhere else only if that file exists,
 or no password will unlock the screen. `glimpse-lock check` tests the setup without locking.
 :::

@@ -13,4 +13,5 @@ the lock screen, the night light, notifications and looks. Each one edits
 - [Show the weather for your city](/guide/weather)
 - [Manage notifications](/guide/notifications)
 - [Change how glimpse looks](/guide/theme)
+- [Write a theme](/guide/theming)
 - [Troubleshooting](/guide/troubleshooting)

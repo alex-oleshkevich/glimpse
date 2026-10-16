@@ -253,12 +253,25 @@ docs-screenshots: docs-sandbox-build
 docs-video: docs-sandbox-build
     scripts/docs-screenshots.py --video
 
+[doc("record the release video in the same sandbox into var/release-video; --reuse renders the last recording again")]
+release-video *ARGS: docs-sandbox-build
+    cargo build -q -p glimpse-lens
+    cargo build -q --release -p glimpse-shot
+    cargo build -q -p glimpse-wayland --example click
+    target/debug/glimpsectl idle inhibit -- scripts/release-video.py {{ ARGS }}
+
 [private]
-docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") fake-tray-build
+docs-sandbox-build: (build-crate "glimpse-panel") (build-crate "glimpsectl") (build-crate "glimpse-notifications") (build-crate "glimpse-weather") (build-crate "glimpse-wallpaper") (build-crate "glimpse-idle") (build-crate "glimpse-settings-daemon") (build-crate "glimpse-lens") (build-crate "glimpse-shot") fake-tray-build click-build
 
 [doc("build the fake tray example the screenshots and fake-tray use")]
 fake-tray-build:
     cargo build -q -p glimpse-dbus --features testing --example fake-tray
+
+[private]
+click-build:
+    cargo build -q -p glimpse-lens
+    cargo build -q --release -p glimpse-shot
+    cargo build -q -p glimpse-wayland --example click
 
 [doc("lint and build the documentation site into website/.vitepress/dist")]
 [working-directory("website")]

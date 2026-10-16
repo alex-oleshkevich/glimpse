@@ -36,18 +36,21 @@ position = "bottom"
 
 ## Change the bar's size
 
-`size` is the thickness in pixels: the height of a top or bottom bar, the width of a side bar. The
-default is 36.
+`size` is the least thickness in pixels: the height of a top or bottom bar, the width of a side
+bar. The default is 36. A bar is never thinner than its tallest applet, about 30 pixels, and a side
+bar is as wide as its widest applet, so a clock label makes it about 120 pixels wide.
 
 ```toml
 [[panels]]
 size = 42
 ```
 
+A larger `size` applies when you save. A smaller one takes effect the next time the panel starts.
+
 ## Float the bar
 
 A `[panels.margin]` table pulls the bar away from the screen edges, in pixels. It belongs to the
-`[[panels]]` table above it:
+`[[panels]]` table above it, and windows keep clear of the bar and its margin:
 
 ```toml
 [[panels]]
@@ -77,7 +80,8 @@ right = ["notifications"]
 ```
 
 A panel without `monitor` appears on every monitor, and a zone you leave out keeps its default
-applets. `glimpsectl panel applets` lists every applet with the connector its panel is on.
+applets. A panel whose `monitor` matches no connected monitor does not appear, and glimpse does not
+warn you, so check the spelling. `glimpsectl applet list` lists every applet with the connector its panel is on.
 
 ## Remove an applet
 

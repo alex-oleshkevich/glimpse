@@ -4,7 +4,7 @@ Read live media and compositor snapshots with `useMpris()` and `useCompositor()`
 
 ## Show players and workspaces
 
-Replace a generated project's `index.tsx` with this component and run `glimpsectl applets run --dev .`:
+Replace a generated project's `index.tsx` with this component and run `glimpsectl applet run --dev .`:
 
 ```tsx
 import {

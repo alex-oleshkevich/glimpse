@@ -7,7 +7,7 @@ Build the shipped todo example in five stages: create a project, show a task, ad
 Run:
 
 ```sh
-glimpsectl applets new
+glimpsectl applet new
 ```
 
 Answer the prompts with these values:
@@ -25,7 +25,7 @@ Use a new or empty directory. The id must not already be installed. The command 
 ```sh
 cd glimpse-todo
 npm install
-glimpsectl applets run --dev .
+glimpsectl applet run --dev .
 ```
 
 Leave that terminal open. A Todo chip appears in your panel; click it to see an "It works" row. You don't need to install the desktop entry or change your panel configuration for this development run.

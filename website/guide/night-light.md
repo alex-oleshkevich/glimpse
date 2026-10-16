@@ -35,12 +35,12 @@ temperature = 3400
 ## Pause it for tonight
 
 ```sh
-glimpsectl sunset pause
+glimpsectl night-light pause
 ```
 
 The pause keeps neutral daylight until the current night ends, and is refused during the day.
-`glimpsectl sunset resume` ends it early. To hold one temperature for a while, run
-`glimpsectl sunset temperature 3000`, and `glimpsectl sunset temperature clear` to follow the
+`glimpsectl night-light resume` ends it early. To hold one temperature for a while, run
+`glimpsectl night-light temperature 3000`, and `glimpsectl night-light temperature --clear` to follow the
 schedule again. Neither command writes the config file.
 
 ::: tip If the screen never warms

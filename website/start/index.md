@@ -7,13 +7,13 @@ managers, which are good at arranging windows but leave everything else up to yo
 <ThemeImage
   light="/screenshots/home/everyday-light.png"
   dark="/screenshots/home/everyday-dark.png"
-  alt="The weather, Bluetooth, media player and notification panels open side by side"
+  alt="The weather, Bluetooth, media player and notification popovers open side by side"
 />
 
 ## Everything in one bar
 
 The bar shows the time, your workspaces, what is playing, and the state of your Wi-Fi, Bluetooth,
-sound and battery. Click any of them and a small panel opens with the controls you need. You can pick
+sound and battery. Click any of them and a small popover opens with the controls you need. You can pick
 a Wi-Fi network, connect your headphones, turn the volume down, look at the calendar or check the
 weather for the week, all without opening a settings app.
 
@@ -37,12 +37,12 @@ at sunrise, based on where you live. You can give the wallpaper a different pict
 
 ## See-through blur
 
-The bar, its panels and notifications can blur whatever sits behind them, so your wallpaper and
+The bar, its popovers and notifications can blur whatever sits behind them, so your wallpaper and
 windows show through as soft color instead of a flat background. You choose which of the three get
 the effect, or all of them, in the settings file. It is off until you turn it on.
 
-Blur needs a window manager and a GTK version that support it. Where they don't, everything stays
-solid and works the same. How strong the blur looks is up to your window manager's own settings.
+Blur needs a compositor and a GTK version that support it. Where they don't, everything stays
+solid and works the same. How strong the blur looks is up to your compositor's own settings.
 
 ## Small tools
 
@@ -51,7 +51,7 @@ picker, an on-screen ruler, and a history of what you have copied.
 
 ## Fits in with your apps
 
-glimpse uses the same building blocks as GNOME apps, so the bar and its panels look like they belong
+glimpse uses the same building blocks as GNOME apps, so the bar and its popovers look like they belong
 next to Files, Settings and the rest. It follows your accent color too.
 
 ## Make it yours
@@ -63,7 +63,7 @@ bar, with its own panel.
 
 ## What you need
 
-glimpse runs on Linux with a Wayland window manager. It has packages for Arch Linux, Debian 14,
+glimpse runs on Linux with a Wayland compositor. It has packages for Arch Linux, Debian 14,
 Ubuntu 26.04, Fedora 44, openSUSE Tumbleweed and NixOS.
 
 ## Next steps

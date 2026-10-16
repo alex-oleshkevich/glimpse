@@ -156,7 +156,7 @@ the sweep at the next startup collects any unit still lingering.
 
 ## Dev slots
 
-`glimpsectl applets run` attaches a dev slot through the panel's `me.aresa.Glimpse.AppletHost1` interface
+`glimpsectl applet run` attaches a dev slot through the panel's `me.aresa.Glimpse.AppletHost1` interface
 rather than through configuration. The caller passes an absolute desktop-file path, a panel and output, an
 optional zone, options and environment, and a file descriptor that becomes the unit's stderr, which is
 why a dev applet's logs land in the terminal instead of the journal. The host validates the path (it must
@@ -166,7 +166,7 @@ checks as an installed applet, and admits at most 8 attachments per bus sender a
 A dev slot whose desktop id matches a configured applet on the same output takes that applet's slot over
 in place; otherwise it waits, and enters its zone (the configured zone for that id if there is one, else
 the right zone) when the bar next reconciles. Dev units are started with restarts disabled: a crashed dev
-applet stays down until the caller restarts it, and `glimpsectl applets run --dev` does exactly that on
+applet stays down until the caller restarts it, and `glimpsectl applet run --dev` does exactly that on
 source edits, while also pushing options changes live. Detaching (which also happens automatically when
 the caller's bus name vanishes, as it does on Ctrl-C) hands a taken-over slot back to the configured
 applet, which restarts as a fresh unit.

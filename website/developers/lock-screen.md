@@ -74,7 +74,8 @@ session.
 While locked, the screen shows limited status (media, battery, network and similar read-only state).
 Two restrictions follow from the threat model: the network and bluetooth views run without their agents,
 so a locked screen never accepts a pairing or answers a Wi-Fi password prompt, and notifications appear
-only as per-application counts, never with summaries or bodies.
+only as a total or as the names of the apps that sent them (`[lock.notifications] privacy`), never
+with summaries or bodies.
 
 ## Why the unit is never sandboxed
 

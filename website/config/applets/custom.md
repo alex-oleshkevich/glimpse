@@ -12,8 +12,8 @@ with spaces is one list item and nothing needs quoting.
 [applets.screenshot]
 extends = "command"
 icon = "camera-photo-symbolic"
-tooltip-format = "Take a screenshot"
-on-click = ["glimpse-shot"]
+tooltip-format = "Select a screenshot region"
+on-click = ["glimpse-shot", "--region"]
 
 [[panels]]
 right = ["screenshot", "network", "audio"]

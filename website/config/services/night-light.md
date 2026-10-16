@@ -15,7 +15,7 @@ end-time = "07:00"
 temperature = 3500
 ```
 
-Two commands change it for now without editing the file: `glimpsectl sunset pause` keeps daylight
-color until the current night ends, and `glimpsectl sunset temperature 3000` holds that temperature
-until you run `glimpsectl sunset temperature clear`. The night light needs a
+Two commands change it for now without editing the file: `glimpsectl night-light pause` keeps daylight
+color until the current night ends, and `glimpsectl night-light temperature 3000` holds that temperature
+until you run `glimpsectl night-light temperature --clear`. The night light needs a
 compositor that lets clients set the display gamma.

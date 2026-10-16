@@ -74,6 +74,15 @@ VIDEO_FADE = 0.5
 VIDEO_SCALE = 4 / 3
 VIDEO_LEAD = 3.0
 VIDEO_CUE = 3.0
+SHOT_MARKS = [
+    {"kind": "blur", "x": 66, "y": 4, "width": 330, "height": 28},
+    {"kind": "oval", "x": 1066, "y": 58, "width": 100, "height": 54, "color": "red", "stroke": 3},
+    {"kind": "arrow", "from": [1330, 230], "to": [1180, 100], "color": "red", "stroke": 3},
+    {"kind": "text", "x": 1300, "y": 240, "text": "Warm tonight", "color": "red", "stroke": 2},
+    {"kind": "rect", "x": 752, "y": 236, "width": 396, "height": 42, "color": "yellow",
+     "stroke": 2},
+    {"kind": "number", "x": 716, "y": 257, "color": "blue", "stroke": 2},
+]
 
 children: list[subprocess.Popen] = []
 
@@ -300,9 +309,11 @@ def audio(env, scratch: Path):
     spawn(["pw-record", "--target", "microphone", "-P", record, scratch / "record.wav"], env)
 
 
-def parent_windows():
+def parent_windows(pid: int) -> list[dict]:
     out = subprocess.run(["niri", "msg", "-j", "windows"], capture_output=True, text=True)
-    return {window["id"] for window in json.loads(out.stdout)} if out.returncode == 0 else set()
+    if out.returncode != 0:
+        return []
+    return [window for window in json.loads(out.stdout) if window.get("pid") == pid]
 
 
 def niri_config(path: Path, scale: float):
@@ -357,20 +368,23 @@ def nested(env, scratch: Path, size: tuple[int, int], scale: float):
     checked = subprocess.run(["niri", "validate", "-c", str(config)], capture_output=True, text=True)
     if checked.returncode != 0:
         raise SystemExit(f"the nested niri config does not parse:\n{checked.stderr}")
-    before = parent_windows()
     marker = scratch / "nested.env"
-    spawn(["niri", "-c", config, "--", "sh", "-c", f"env > {marker}.tmp && mv {marker}.tmp {marker}"
-           " && exec sleep infinity"], env, scratch / "niri.log")
+    compositor = spawn(["niri", "-c", config, "--", "sh", "-c",
+                        f"env > {marker}.tmp && mv {marker}.tmp {marker} && exec sleep infinity"],
+                       env, scratch / "niri.log")
     wait_for(marker.exists, "the nested niri")
-    new = parent_windows() - before
-    for window in new:
-        for action in [
-            ["move-window-to-workspace", "--window-id", str(window), "--focus", "false", "glimpse"],
-            ["toggle-window-floating", "--id", str(window)],
-            ["set-window-width", "--id", str(window), str(size[0])],
-            ["set-window-height", "--id", str(window), str(size[1])],
-        ]:
-            subprocess.run(["niri", "msg", "action", *action], capture_output=True)
+    wait_for(lambda: parent_windows(compositor.pid), "the nested niri window")
+    for window in parent_windows(compositor.pid):
+        identifier = str(window["id"])
+        subprocess.run(["niri", "msg", "action", "move-window-to-workspace", "--window-id",
+                        identifier, "--focus", "false", "glimpse"], capture_output=True)
+        if not window.get("is_floating"):
+            subprocess.run(["niri", "msg", "action", "toggle-window-floating", "--id", identifier],
+                           capture_output=True)
+        for action in ["set-window-width", "set-window-height"]:
+            value = size[0] if action == "set-window-width" else size[1]
+            subprocess.run(["niri", "msg", "action", action, "--id", identifier, str(value)],
+                           capture_output=True)
     values = dict(line.split("=", 1) for line in marker.read_text().splitlines() if "=" in line)
     time.sleep(1.5)
     return values["WAYLAND_DISPLAY"], values["NIRI_SOCKET"]
@@ -776,6 +790,92 @@ def encode(raw: Path):
     print(f"  poster: {poster.relative_to(REPO)}")
 
 
+def point(env, x: int, y: int, action="move"):
+    width, height = SCREENSHOT_WINDOW
+    subprocess.run([BIN / "examples" / "click", "winit", str(x), str(y), str(width), str(height),
+                    action], env=env, check=True, capture_output=True)
+    time.sleep(0.3)
+
+
+def overlay(env, argv, path: Path, log: Path, steps, crop=None, settle=2.5):
+    tool = spawn(argv, env, log)
+    time.sleep(settle)
+    for step in steps:
+        step()
+    time.sleep(1)
+    shot = capture(env, path)
+    subprocess.run(["wtype", "-k", "Escape"], env=env, capture_output=True)
+    try:
+        tool.wait(5)
+    except subprocess.TimeoutExpired:
+        os.killpg(tool.pid, signal.SIGTERM)
+    if crop:
+        ratio = shot.width / SCREENSHOT_WINDOW[0]
+        shot = shot.crop(tuple(round(side * ratio) for side in crop))
+    return shot
+
+
+def ecosystem(env, config, scratch, work, personal):
+    (OUT / "ecosystem").mkdir(parents=True, exist_ok=True)
+    shots = scratch / "shots"
+    shots.mkdir(exist_ok=True)
+    wait_for(lambda: capture(env, shots / "desktop.png").convert("L").getextrema()[1] > 0,
+             "the wallpaper")
+    lens = [
+        ("lens-magnifier", ["--zoom", "12"], [lambda: point(env, 700, 600)],
+         (480, 400, 920, 840)),
+        ("lens-picker", ["--tool", "picker", "--zoom", "8"], [lambda: point(env, 1000, 640)],
+         (780, 440, 1220, 920)),
+        ("lens-ruler", ["--tool", "ruler", "--zoom", "4", "--radius", "120"],
+         [lambda: point(env, 620, 420, "left"), lambda: point(env, 1080, 420, "left"),
+          lambda: point(env, 1080, 760, "left"), lambda: point(env, 1250, 860)],
+         (480, 280, 1420, 1020)),
+    ]
+    for name, argv, steps, crop in lens:
+        shot = overlay(env, [BIN / "glimpse-lens", *argv], shots / f"{name}.png",
+                       scratch / f"{name}.log", steps, crop)
+        target = OUT / "ecosystem" / f"{name}.png"
+        shot.save(target, optimize=True)
+        print(f"  {target.relative_to(REPO)}")
+    layout = dict(COLLAGE_LAYOUT, wallpaper=WALLPAPER)
+    for scheme in ["light", "dark"]:
+        glimpse_config(config, scheme, work, personal, layout)
+        app_id = f"me.aresa.Glimpse.DocsShot{scheme.title()}"
+        ctl = dict(env, GLIMPSE_PANEL_APP_ID=app_id)
+        panel = spawn([BIN / "glimpse-panel", "--config", config], ctl,
+                      scratch / f"panel-shot-{scheme}.log")
+        time.sleep(7)
+        try:
+            subprocess.run([BIN / "glimpsectl", "panel", "popover", "open", "winit", "weather"],
+                           env=ctl, capture_output=True)
+            time.sleep(2)
+            ratio = capture(env, shots / f"shot-base-{scheme}.png").width / SCREENSHOT_WINDOW[0]
+            marks = scratch / "marks.json"
+            marks.write_text(json.dumps(scaled(SHOT_MARKS, ratio)))
+            shot = overlay(env, [BIN / "glimpse-shot", "--config", config, "--screen",
+                                 "--annotate", marks, "--no-flash", "--no-notify"],
+                           shots / f"shot-{scheme}.png", scratch / f"shot-{scheme}.log", [],
+                           settle=6)
+            subprocess.run([BIN / "glimpsectl", "panel", "popovers", "close"], env=ctl,
+                           capture_output=True)
+            target = OUT / "ecosystem" / f"shot-editor-{scheme}.png"
+            shot.save(target, optimize=True)
+            print(f"  {target.relative_to(REPO)}")
+        finally:
+            os.killpg(panel.pid, signal.SIGTERM)
+            panel.wait(10)
+
+
+def scaled(marks: list[dict], ratio: float) -> list[dict]:
+    def scale(value):
+        if isinstance(value, list):
+            return [scale(each) for each in value]
+        return round(value * ratio)
+
+    return [{key: scale(value) if key in ("x", "y", "width", "height", "from", "to", "points")
+             else value for key, value in mark.items()} for mark in marks]
+
+
 def libexec(name: str) -> Path:
     for directory in ["/usr/lib", "/usr/libexec"]:
         if (Path(directory) / name).exists():
@@ -874,6 +974,8 @@ def main():
         if recording:
             video(env, config, scratch, work, personal)
             return
+        print("ecosystem")
+        ecosystem(env, config, scratch, work, personal)
         results: dict = {}
         for scheme in ["light", "dark"]:
             print(scheme)

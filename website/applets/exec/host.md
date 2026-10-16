@@ -38,7 +38,7 @@ function TodoActions() {
 await run(<TodoActions />);
 ```
 
-Run it with `glimpsectl applets run --dev .`. The launch action requires GNOME Files; use the desktop-file id of another installed application for a different target. `launch` accepts an id with or without `.desktop`, not an arbitrary command line.
+Run it with `glimpsectl applet run --dev .`. The launch action requires GNOME Files; use the desktop-file id of another installed application for a different target. `launch` accepts an id with or without `.desktop`, not an arbitrary command line.
 
 ## Keep requests within host limits
 

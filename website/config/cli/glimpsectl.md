@@ -8,14 +8,17 @@ Read and drive the glimpse services.
 Usage: glimpsectl [OPTIONS] <COMMAND>
 
 Commands:
-  sunset         The night light
+  night-light    The night light
   idle           Idle inhibitors and manual holds
   weather        Current conditions and the forecast
-  settings       Location, solar phase and desktop light/dark mode
+  appearance     Desktop light/dark mode
+  geolocation    Current location and solar phase
   notifications  The notification store
   clipboard      The panel's clipboard history
   config         Inspect the configuration stack
-  applets        Inspect and control external applets
+  applet         Inspect, control and develop applets
+  dev            Panel development tools
+  completions    Generate shell completions
   status         Show running glimpse components
   panel          Inspect and control the panel
   doctor         Check the configuration and every provider
@@ -27,90 +30,93 @@ Options:
       --log <LEVEL>          Set the logging filter (for example, info, debug, or trace). [env: RUST_LOG=] [default: info]
       --color <WHEN>         Controls when to use color [default: auto] [possible values: auto, always, never]
       --json                 Print the payload as JSON instead of a table
+      --panel <APP_ID>       Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
   -h, --help                 Print help
   -V, --version              Print version
 ```
 
 The options above work with every command and are not repeated below.
 
-## `glimpsectl sunset`
+## `glimpsectl night-light`
 
 The night light
 
 ```text
-Usage: glimpsectl sunset [OPTIONS] <COMMAND>
+Usage: glimpsectl night-light [OPTIONS] <COMMAND>
 
 Commands:
-  status       Print the mode, the temperature applied and why it is not applying one
+  status       Print the current schedule and temperature
   pause        Hold neutral daylight until the current night ends
-  resume       End a pause and follow the schedule again
-  mode         Change the mode in force
-  temperature  Hold a fixed temperature, or clear it
+  resume       Follow the schedule again
+  schedule     Temporarily select a schedule
+  temperature  Set or clear a temperature override
   help         Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl sunset status`
+### `glimpsectl night-light status`
 
-Print the mode, the temperature applied and why it is not applying one
+Print the current schedule and temperature
 
 ```text
-Usage: glimpsectl sunset status [OPTIONS]
+Usage: glimpsectl night-light status [OPTIONS]
+
+Options:
+      --watch                Follow status changes
+  -h, --help                 Print help
+```
+
+### `glimpsectl night-light pause`
+
+Hold neutral daylight until the current night ends
+
+```text
+Usage: glimpsectl night-light pause [OPTIONS]
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl sunset pause`
+### `glimpsectl night-light resume`
 
-Hold neutral daylight until the current night ends. Refused during the day; the pause is dropped when glimpse-sunset restarts.
-
-```text
-Usage: glimpsectl sunset pause [OPTIONS]
-
-Options:
-  -h, --help                 Print help (see more with '--help')
-```
-
-### `glimpsectl sunset resume`
-
-End a pause and follow the schedule again
+Follow the schedule again
 
 ```text
-Usage: glimpsectl sunset resume [OPTIONS]
+Usage: glimpsectl night-light resume [OPTIONS]
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl sunset mode`
+### `glimpsectl night-light schedule`
 
-Change the mode in force. The document is not written: the mode lasts until `[night-light]` is edited or glimpse-sunset restarts.
+Temporarily select a schedule
 
 ```text
-Usage: glimpsectl sunset mode [OPTIONS] <MODE>
+Usage: glimpsectl night-light schedule [OPTIONS] <MODE>
 
 Arguments:
-  <MODE>  Which schedule to run [possible values: off, automatic, schedule]
+  <MODE>  Schedule to run [possible values: off, automatic, schedule]
 
 Options:
-  -h, --help                 Print help (see more with '--help')
+  -h, --help                 Print help
 ```
 
-### `glimpsectl sunset temperature`
+### `glimpsectl night-light temperature`
 
-Hold a fixed temperature, or clear it. The document is not written: the temperature lasts until it is cleared or glimpse-sunset restarts.
+Set or clear a temperature override
 
 ```text
-Usage: glimpsectl sunset temperature [OPTIONS] <KELVIN|clear>
+Usage: glimpsectl night-light temperature [OPTIONS] [KELVIN]
 
 Arguments:
-  <KELVIN|clear>  A color temperature in Kelvin, or `clear` to follow the schedule again
+  [KELVIN]  Temperature in Kelvin
 
 Options:
-  -h, --help                 Print help (see more with '--help')
+      --clear                Clear the temperature override
+  -h, --help                 Print help
 ```
 
 ## `glimpsectl idle`
@@ -138,6 +144,7 @@ Print every inhibitor and the health of each source
 Usage: glimpsectl idle status [OPTIONS]
 
 Options:
+      --watch                Follow inhibitor changes
   -h, --help                 Print help
 ```
 
@@ -146,7 +153,10 @@ Options:
 Hold off idle and suspend while this command runs. The hold's id is printed first; the hold ends on Ctrl-C, when `--for` lapses, or when the process exits for any reason.
 
 ```text
-Usage: glimpsectl idle inhibit [OPTIONS]
+Usage: glimpsectl idle inhibit [OPTIONS] [-- <CMD>...]
+
+Arguments:
+  [CMD]...  Command to run while holding the inhibitor
 
 Options:
       --for <DURATION>       End the hold after this long: 90, 90s, 15m or 2h
@@ -205,54 +215,81 @@ Options:
   -h, --help                 Print help
 ```
 
-## `glimpsectl settings`
+## `glimpsectl appearance`
 
-Location, solar phase and desktop light/dark mode
+Desktop light/dark mode
 
 ```text
-Usage: glimpsectl settings [OPTIONS] <COMMAND>
+Usage: glimpsectl appearance [OPTIONS] <COMMAND>
 
 Commands:
-  status  Print location, solar phase and desktop mode status
-  mode    Hold light or dark mode until resume or daemon shutdown
-  resume  Release the temporary mode and follow the configured policy
+  status  Print desktop mode status
+  set     Temporarily select light or dark mode
+  resume  Follow the configured mode policy
   help    Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl settings status`
+### `glimpsectl appearance status`
 
-Print location, solar phase and desktop mode status
+Print desktop mode status
 
 ```text
-Usage: glimpsectl settings status [OPTIONS]
+Usage: glimpsectl appearance status [OPTIONS]
 
 Options:
+      --watch                Follow status changes
   -h, --help                 Print help
 ```
 
-### `glimpsectl settings mode`
+### `glimpsectl appearance set`
 
-Hold light or dark mode until resume or daemon shutdown
+Temporarily select light or dark mode
 
 ```text
-Usage: glimpsectl settings mode [OPTIONS] <MODE>
+Usage: glimpsectl appearance set [OPTIONS] <MODE>
 
 Arguments:
-  <MODE>  [possible values: light, dark]
+  <MODE>  Desktop mode [possible values: light, dark]
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl settings resume`
+### `glimpsectl appearance resume`
 
-Release the temporary mode and follow the configured policy
+Follow the configured mode policy
 
 ```text
-Usage: glimpsectl settings resume [OPTIONS]
+Usage: glimpsectl appearance resume [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+## `glimpsectl geolocation`
+
+Current location and solar phase
+
+```text
+Usage: glimpsectl geolocation [OPTIONS] <COMMAND>
+
+Commands:
+  status  Print location and solar phase
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl geolocation status`
+
+Print location and solar phase
+
+```text
+Usage: glimpsectl geolocation status [OPTIONS]
 
 Options:
   -h, --help                 Print help
@@ -266,11 +303,15 @@ The notification store
 Usage: glimpsectl notifications [OPTIONS] <COMMAND>
 
 Commands:
-  list     Print the notifications the store holds
-  dismiss  Dismiss one notification
-  clear    Dismiss every notification, or every one from a single application
-  dnd      Turn do not disturb on or off
-  help     Print this message or the help of the given subcommand(s)
+  list      Print the notifications the store holds
+  send      Send a notification
+  remove    Remove a stored notification
+  activate  Activate a notification's default action
+  action    Invoke a notification action
+  dismiss   Mark a notification read and drop its popup
+  clear     Dismiss every notification, or every one from a single application
+  dnd       Turn do not disturb on or off
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help                 Print help
@@ -284,12 +325,78 @@ Print the notifications the store holds
 Usage: glimpsectl notifications list [OPTIONS]
 
 Options:
+      --watch                Follow notification changes
+  -h, --help                 Print help
+```
+
+### `glimpsectl notifications send`
+
+Send a notification
+
+```text
+Usage: glimpsectl notifications send [OPTIONS] <SUMMARY>
+
+Arguments:
+  <SUMMARY>  Notification summary
+
+Options:
+      --body <BODY>          Notification body [default: ""]
+      --app-name <APP_NAME>  Sending application name [default: glimpsectl]
+      --icon <ICON>          Icon name or path [default: ""]
+      --image <IMAGE>        Image path
+      --urgency <URGENCY>    Notification urgency [default: normal] [possible values: low, normal, critical]
+      --action <KEY=LABEL>   Add an action
+      --replace <REPLACE>    Replace this notification ID [default: 0]
+      --expire <EXPIRE>      Expiry in milliseconds; -1 uses the server default [default: -1]
+  -h, --help                 Print help
+```
+
+### `glimpsectl notifications remove`
+
+Remove a stored notification
+
+```text
+Usage: glimpsectl notifications remove [OPTIONS] <ID>
+
+Arguments:
+  <ID>  Notification ID
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl notifications activate`
+
+Activate a notification's default action
+
+```text
+Usage: glimpsectl notifications activate [OPTIONS] <ID>
+
+Arguments:
+  <ID>  Notification ID
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl notifications action`
+
+Invoke a notification action
+
+```text
+Usage: glimpsectl notifications action [OPTIONS] <ID> <KEY>
+
+Arguments:
+  <ID>   Notification ID
+  <KEY>  Action key
+
+Options:
   -h, --help                 Print help
 ```
 
 ### `glimpsectl notifications dismiss`
 
-Dismiss one notification
+Mark a notification read and drop its popup
 
 ```text
 Usage: glimpsectl notifications dismiss [OPTIONS] <ID>
@@ -341,7 +448,7 @@ Commands:
   copy    Put one entry back on the clipboard
   pin     Keep one entry through eviction and clearing
   unpin   Let a pinned entry be evicted again
-  forget  Remove one entry from the history
+  remove  Remove one entry from the history
   clear   Remove every entry that is not pinned
   help    Print this message or the help of the given subcommand(s)
 
@@ -416,12 +523,12 @@ Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl clipboard forget`
+### `glimpsectl clipboard remove`
 
 Remove one entry from the history
 
 ```text
-Usage: glimpsectl clipboard forget [OPTIONS] <ID>
+Usage: glimpsectl clipboard remove [OPTIONS] <ID>
 
 Arguments:
   <ID>  The entry's id, as `list` prints it
@@ -494,99 +601,296 @@ Options:
   -h, --help                 Print help
 ```
 
-## `glimpsectl applets`
+## `glimpsectl applet`
 
-Inspect and control external applets
+Inspect, control and develop applets
 
 ```text
-Usage: glimpsectl applets [OPTIONS] <COMMAND>
+Usage: glimpsectl applet [OPTIONS] <COMMAND>
 
 Commands:
-  new      Create an external applet
-  list     List installed and placed external applets
-  inspect  Inspect an external applet
-  restart  Signal the applet's running units so systemd restarts them
-  run      Run an applet in the panel until Ctrl-C
-  help     Print this message or the help of the given subcommand(s)
+  list       List live applets or the installed catalog
+  inspect    Inspect a live applet or installed desktop entry
+  click      Click an applet
+  scroll     Scroll an applet
+  open       Open an applet's popover
+  close      Close an applet's popover
+  toggle     Toggle an applet's popover
+  restart    Restart the applet's systemd services
+  new        Create an external applet
+  run        Run an applet in the panel until Ctrl-C
+  check      Validate an external applet
+  install    Install a desktop entry for an external applet
+  uninstall  Remove a desktop entry installed by glimpsectl
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help                 Print help
 ```
 
-### `glimpsectl applets new`
+### `glimpsectl applet list`
+
+List live applets or the installed catalog
+
+```text
+Usage: glimpsectl applet list [OPTIONS]
+
+Options:
+      --watch                Follow live applet changes
+      --installed            List installed external applets
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet inspect`
+
+Inspect a live applet or installed desktop entry
+
+```text
+Usage: glimpsectl applet inspect [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  Applet name, as list prints it
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+      --installed            Inspect the installed desktop entry
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet click`
+
+Click an applet
+
+```text
+Usage: glimpsectl applet click [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  Applet name, as list prints it
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+      --button <BUTTON>      Mouse button: left, middle, right, or a number [default: left]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet scroll`
+
+Scroll an applet
+
+```text
+Usage: glimpsectl applet scroll [OPTIONS] <NAME> <DIRECTION>
+
+Arguments:
+  <NAME>       Applet name, as list prints it
+  <DIRECTION>  Scroll direction [possible values: up, down, left, right]
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+      --steps <STEPS>        Number of scroll notches [default: 1]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet open`
+
+Open an applet's popover
+
+```text
+Usage: glimpsectl applet open [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  Applet name, as list prints it
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet close`
+
+Close an applet's popover
+
+```text
+Usage: glimpsectl applet close [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  Applet name, as list prints it
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet toggle`
+
+Toggle an applet's popover
+
+```text
+Usage: glimpsectl applet toggle [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>  Applet name, as list prints it
+
+Options:
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [possible values: top, bottom, left, right]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet restart`
+
+Restart the applet's systemd services
+
+```text
+Usage: glimpsectl applet restart [OPTIONS] <ID>
+
+Arguments:
+  <ID>  Applet desktop-file ID
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet new`
 
 Create an external applet
 
 ```text
-Usage: glimpsectl applets new [OPTIONS]
+Usage: glimpsectl applet new [OPTIONS]
 
 Options:
-      --id <ID>                    
-      --name <NAME>                
-      --description <DESCRIPTION>  
-      --icon <ICON>                
-      --dir <DIR>                  
-      --yes                        
+      --id <ID>                    Applet desktop-file ID
+      --name <NAME>                Applet display name
+      --description <DESCRIPTION>  Applet description
+      --icon <ICON>                Applet icon name
+      --dir <DIR>                  Destination directory
+      --yes                        Accept defaults without prompting
   -h, --help                       Print help
 ```
 
-### `glimpsectl applets list`
-
-List installed and placed external applets
-
-```text
-Usage: glimpsectl applets list [OPTIONS]
-
-Options:
-  -h, --help                 Print help
-```
-
-### `glimpsectl applets inspect`
-
-Inspect an external applet
-
-```text
-Usage: glimpsectl applets inspect [OPTIONS] <ID>
-
-Arguments:
-  <ID>  The applet's desktop-file id
-
-Options:
-  -h, --help                 Print help
-```
-
-### `glimpsectl applets restart`
-
-Signal the applet's running units so systemd restarts them
-
-```text
-Usage: glimpsectl applets restart [OPTIONS] <ID>
-
-Arguments:
-  <ID>  The applet's desktop-file id
-
-Options:
-  -h, --help                 Print help
-```
-
-### `glimpsectl applets run`
+### `glimpsectl applet run`
 
 Run an applet in the panel until Ctrl-C
 
 ```text
-Usage: glimpsectl applets run [OPTIONS] [DIR|ID]
+Usage: glimpsectl applet run [OPTIONS] [DIR|ID]
 
 Arguments:
   [DIR|ID]  An applet directory holding one .desktop file, or an installed applet's desktop-file id [default: .]
 
 Options:
       --dev                   Restart the applet when its files or config change
-      --panel <PANEL>         Configured panel index [default: 0]
+      --bar <bar>             Configured panel index [default: 0]
+      --isolated              Start and own a fresh test panel
       --output <OUTPUT>       Output connector, or the first mapped output [default: ""]
       --zone <ZONE>           Panel zone [possible values: left, center, right]
       --env <KEY=VALUE>       Set an applet environment variable
       --applet-config <FILE>  TOML with the applet's options and environment
   -h, --help                  Print help
+```
+
+### `glimpsectl applet check`
+
+Validate an external applet
+
+```text
+Usage: glimpsectl applet check [OPTIONS] [DIR]
+
+Arguments:
+  [DIR]  Applet source directory [default: .]
+
+Options:
+      --run                  Run a headless protocol smoke check
+      --timeout <TIMEOUT>    Protocol smoke deadline in seconds [default: 5]
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet install`
+
+Install a desktop entry for an external applet
+
+```text
+Usage: glimpsectl applet install [OPTIONS] [DIR]
+
+Arguments:
+  [DIR]  Applet source directory [default: .]
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl applet uninstall`
+
+Remove a desktop entry installed by glimpsectl
+
+```text
+Usage: glimpsectl applet uninstall [OPTIONS] <ID>
+
+Arguments:
+  <ID>  Applet desktop-file ID
+
+Options:
+  -h, --help                 Print help
+```
+
+## `glimpsectl dev`
+
+Panel development tools
+
+```text
+Usage: glimpsectl dev [OPTIONS] <COMMAND>
+
+Commands:
+  panel           Start an isolated panel in the foreground
+  close-popovers  Close all popovers on the selected panel
+  help            Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help                 Print help
+```
+
+### `glimpsectl dev panel`
+
+Start an isolated panel in the foreground
+
+```text
+Usage: glimpsectl dev panel [OPTIONS]
+
+Options:
+      --app-id <APP_ID>      Fresh test-panel application ID
+      --output <OUTPUT>      Output connector
+      --edge <EDGE>          Panel edge [default: bottom] [possible values: top, bottom, left, right]
+      --applets <APPLETS>    Applets to place on the test panel
+  -h, --help                 Print help
+```
+
+### `glimpsectl dev close-popovers`
+
+Close all popovers on the selected panel
+
+```text
+Usage: glimpsectl dev close-popovers [OPTIONS]
+
+Options:
+  -h, --help                 Print help
+```
+
+## `glimpsectl completions`
+
+Generate shell completions
+
+```text
+Usage: glimpsectl completions [OPTIONS] <SHELL>
+
+Arguments:
+  <SHELL>  Shell to generate completions for [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -h, --help                 Print help
 ```
 
 ## `glimpsectl status`
@@ -608,160 +912,34 @@ Inspect and control the panel
 Usage: glimpsectl panel [OPTIONS] <COMMAND>
 
 Commands:
-  applets   List the panel's applets
-  click     Click an applet
-  scroll    Scroll an applet
-  popover   Control one applet's popover
-  popovers  Control all panel popovers
-  help      Print this message or the help of the given subcommand(s)
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel applets`
-
-List the panel's applets
-
-```text
-Usage: glimpsectl panel applets [OPTIONS]
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --watch                Print applet changes until the panel exits
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel click`
-
-Click an applet
-
-```text
-Usage: glimpsectl panel click [OPTIONS] <CONNECTOR> <APPLET>
-
-Arguments:
-  <CONNECTOR>  Output connector
-  <APPLET>     Applet name
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --button <BUTTON>      Mouse button: left, middle, right, or a number [default: left]
-      --position <POSITION>  Panel edge [possible values: top, bottom, left, right]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel scroll`
-
-Scroll an applet
-
-```text
-Usage: glimpsectl panel scroll [OPTIONS] <CONNECTOR> <APPLET> <DIRECTION>
-
-Arguments:
-  <CONNECTOR>  Output connector
-  <APPLET>     Applet name
-  <DIRECTION>  Scroll direction [possible values: up, down, left, right]
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --steps <STEPS>        Number of scroll notches [default: 1]
-      --position <POSITION>  Panel edge [possible values: top, bottom, left, right]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel popover`
-
-Control one applet's popover
-
-```text
-Usage: glimpsectl panel popover [OPTIONS] <COMMAND>
-
-Commands:
-  open    Open the applet's popover
-  close   Close the applet's popover
-  toggle  Open it when closed, close it when open
+  list    List running panel instances
+  reload  Reload the selected panel
   help    Print this message or the help of the given subcommand(s)
 
 Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
   -h, --help                 Print help
 ```
 
-### `glimpsectl panel popover open`
+### `glimpsectl panel list`
 
-Open the applet's popover
+List running panel instances
 
 ```text
-Usage: glimpsectl panel popover open [OPTIONS] <CONNECTOR> <APPLET>
-
-Arguments:
-  <CONNECTOR>  Output connector
-  <APPLET>     Applet name
+Usage: glimpsectl panel list [OPTIONS]
 
 Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --position <POSITION>  Panel edge [possible values: top, bottom, left, right]
+      --watch                Follow running panel instances
   -h, --help                 Print help
 ```
 
-### `glimpsectl panel popover close`
+### `glimpsectl panel reload`
 
-Close the applet's popover
-
-```text
-Usage: glimpsectl panel popover close [OPTIONS] <CONNECTOR> <APPLET>
-
-Arguments:
-  <CONNECTOR>  Output connector
-  <APPLET>     Applet name
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --position <POSITION>  Panel edge [possible values: top, bottom, left, right]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel popover toggle`
-
-Open it when closed, close it when open
+Reload the selected panel
 
 ```text
-Usage: glimpsectl panel popover toggle [OPTIONS] <CONNECTOR> <APPLET>
-
-Arguments:
-  <CONNECTOR>  Output connector
-  <APPLET>     Applet name
+Usage: glimpsectl panel reload [OPTIONS]
 
 Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-      --position <POSITION>  Panel edge [possible values: top, bottom, left, right]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel popovers`
-
-Control all panel popovers
-
-```text
-Usage: glimpsectl panel popovers [OPTIONS] <COMMAND>
-
-Commands:
-  close  
-  help   Print this message or the help of the given subcommand(s)
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
-  -h, --help                 Print help
-```
-
-### `glimpsectl panel popovers close`
-
-```text
-Usage: glimpsectl panel popovers close [OPTIONS]
-
-Options:
-      --app-id <APP_ID>      Panel D-Bus application ID [env: GLIMPSE_PANEL_APP_ID=] [default: me.aresa.GlimpsePanel]
   -h, --help                 Print help
 ```
 

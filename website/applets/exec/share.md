@@ -29,20 +29,19 @@ Implements=me.aresa.Glimpse.Applet1
 
 ## Install the desktop entry
 
-From the project directory, link the entry into your user applications directory:
+From the project directory, install the entry into your user applications directory:
 
 ```sh
-mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-ln -s "$PWD/me.aresa.GlimpseTodo.desktop" "${XDG_DATA_HOME:-$HOME/.local/share}/applications/me.aresa.GlimpseTodo.desktop"
+glimpsectl applet install
 ```
 
-The link keeps the resolved working directory in the project. If you copy the desktop entry instead, set its `Path` key to the absolute project directory. The host discovers applets through the desktop application catalog; `NoDisplay=true` keeps this entry out of application menus without preventing applet discovery.
+It copies the entry to `${XDG_DATA_HOME:-$HOME/.local/share}/applications/`, sets its `Path` key to the project directory so the applet keeps running from there, and refuses to overwrite an entry that is already there. `glimpsectl applet uninstall me.aresa.GlimpseTodo` removes it again, and removes only entries it installed. The host discovers applets through the desktop application catalog; `NoDisplay=true` keeps this entry out of application menus without preventing applet discovery.
 
 Check discovery:
 
 ```sh
-glimpsectl applets list
-glimpsectl applets inspect me.aresa.GlimpseTodo
+glimpsectl applet list --installed
+glimpsectl applet inspect --installed me.aresa.GlimpseTodo
 ```
 
 ## Place it and pass options

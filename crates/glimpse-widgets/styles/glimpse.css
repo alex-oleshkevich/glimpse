@@ -51,6 +51,7 @@
     --gl-duration: 150ms;
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
+    --gl-font-family-mono: "Adwaita Mono", monospace;
     --gl-disabled: var(--disabled-opacity, 0.5);
 
     --gl-lock-fg: #ffffff;
@@ -88,7 +89,7 @@
     --row-tone-warning: var(--gl-warning-text, var(--warning-color, #ffc252));
     --row-tone-error: var(--gl-danger-text, var(--destructive-color, #ff938b));
     --row-tone-destructive: var(--gl-danger-text, var(--destructive-color, #ff938b));
-    --row-mono-font: monospace;
+    --row-mono-font: var(--gl-font-family-mono);
     --meter-row-height: 0.3rem;
     --meter-row-trough: var(--gl-faint, alpha(var(--gl-surface-fg), 0.22));
     --meter-row-fill: var(--gl-muted, alpha(var(--gl-surface-fg), 0.65));
@@ -1465,7 +1466,7 @@ picker-lens {
 }
 
 .picker__value {
-    font-family: monospace;
+    font-family: var(--gl-font-family-mono);
     font-variant-numeric: tabular-nums;
     font-size: var(--gl-text-body);
 }
@@ -1479,7 +1480,7 @@ window.ruler {
     min-height: 1.4rem;
     background-color: alpha(var(--gl-surface), 0.7);
     color: var(--gl-muted);
-    font-family: monospace;
+    font-family: var(--gl-font-family-mono);
     font-variant-numeric: tabular-nums;
     font-size: var(--gl-text-caption);
 }
@@ -1498,7 +1499,7 @@ window.ruler {
 }
 
 .ruler__value {
-    font-family: monospace;
+    font-family: var(--gl-font-family-mono);
     font-variant-numeric: tabular-nums;
     font-size: var(--gl-text-body);
 }
@@ -1520,7 +1521,7 @@ window.ruler {
 }
 
 .color-notation .row__title {
-    font-family: monospace;
+    font-family: var(--gl-font-family-mono);
     font-variant-numeric: tabular-nums;
 }
 

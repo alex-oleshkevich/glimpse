@@ -22,8 +22,11 @@ right = [
 This is the default right zone with `"tokyo"` added at the front. Writing a zone replaces its whole
 default list, so keep the names you want to stay on the bar.
 
-`timezone` takes an IANA name such as `UTC` or `Asia/Tokyo`; unset is the local zone. The instance
-takes every other clock setting too, so `label-format` can give it a different format.
+`timezone` takes an IANA name such as `UTC` or `Asia/Tokyo`; unset is the local zone. A name glimpse
+doesn't know shows your local time, so check the spelling (`Asia/Tokyo`, not `Tokyo`). The instance
+takes every other clock setting too, so `label-format` can give it a different format. It starts
+from the built-in defaults and does not read `[applets.clock]`, so set what you want on the instance
+itself.
 
 ## Add cities to the clock popover
 
@@ -38,7 +41,7 @@ timezones = [
 ]
 ```
 
-A row works out for itself whether the time it shows is today, tomorrow or yesterday, and the `note`
-sits after that. An empty list hides the section.
+A row says `Tomorrow` or `Yesterday` when its day is not yours and shows no word on the same day.
+The `note` follows that word, or stands alone. An empty list hides the section.
 
 Every clock setting is in the [information applets reference](/config/applets/information#clock).

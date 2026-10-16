@@ -130,11 +130,11 @@ the glimpse icon, each in a full color and a symbolic version.
 | File | Read by |
 | --- | --- |
 | `config.default.toml` | You: every default, uncommented, always matching the installed version. glimpse itself does not read it; the defaults are built in. |
-| `config.commented.toml` | The install script, which seeds your configuration from it. The same defaults, every line commented out. |
+| `config.commented.toml` | The install script, and the first start of the panel, notifications, lock screen or wallpaper, which seed your configuration from it when you have none. The same defaults, every line commented out. |
 | `config.schema.json` | Editors that validate TOML; reference it with `#:schema /usr/share/glimpse/config.schema.json`. |
 | `language-codes.json` | The keyboard applet, which shortens layout names to codes such as `US`. A copy in `~/.config/glimpse/` takes precedence. |
 | `themes/adwaita/` | The built-in theme: `panel.css`, `dark.css`, `wallpaper.css`, `lock.css` and the default wallpaper. |
-| `sdk/template/` | `glimpsectl applets new`, which copies it to start an applet. |
+| `sdk/template/` | `glimpsectl applet new`, which copies it to start an applet. |
 | `portals/` | The install script, as the pristine copies of the portal preferences. |
 | `LICENSE` | The license text. |
 

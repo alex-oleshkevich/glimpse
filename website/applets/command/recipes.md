@@ -52,7 +52,7 @@ tooltip-format = "Pick a color"
 on-click = ["sh", "-c", "glimpse-lens --tool picker | wl-copy"]
 ```
 
-Click the button, then click a color on screen. The picker prints the color and `wl-copy` puts it on the clipboard. See [the color picker](/ecosystem/#pick-a-color) for its controls.
+Click the button, then click a color on screen. The picker prints the color and `wl-copy` puts it on the clipboard. See [the color picker](/ecosystem/picker) for its controls.
 
 ## Open a terminal app
 

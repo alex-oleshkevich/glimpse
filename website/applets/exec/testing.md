@@ -66,4 +66,4 @@ The returned session provides:
 | `setService(name, value)` | Supply an MPRIS or compositor snapshot. |
 | `close()` | Unmount and release the session. Await it before starting another render. |
 
-All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Also run the applet with `glimpsectl applets run --dev .` to check those.
+All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Also run the applet with `glimpsectl applet run --dev .` to check those.

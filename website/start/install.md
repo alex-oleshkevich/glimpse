@@ -69,10 +69,10 @@ night light and weather. Rebuild with `nixos-rebuild switch`.
 
 ### From source
 
-You need Rust 1.93 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`, gettext
-and clang, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire,
+You need Rust 1.93 or newer, [`just`](https://github.com/casey/just), `blueprint-compiler`, gettext,
+clang, ripgrep and python3, plus the development files for GTK4, libadwaita, gtk4-layer-shell, PulseAudio, PipeWire,
 PAM and udev. The install copies files under `/usr` and `/etc`, so it needs root.
-[Build glimpse from source](/contribute/build) lists the packages for each distribution and the exact
+[Build glimpse from source](/contribute/build) lists the packages for Debian, Ubuntu and Arch and the exact
 commands.
 
 ## Start the shell

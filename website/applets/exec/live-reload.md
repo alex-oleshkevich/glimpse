@@ -8,7 +8,7 @@ From the directory containing one `.desktop` file and `config.toml`, run:
 
 ```sh
 npm install
-glimpsectl applets run --dev .
+glimpsectl applet run --dev .
 ```
 
 The applet appears in the running panel. If a configured applet on that bar already resolves to the same desktop id, development takes over that slot. Keep the terminal open to see stderr and build errors.
