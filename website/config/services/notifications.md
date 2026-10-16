@@ -1,12 +1,14 @@
 # Notifications
 
 `[notifications]` controls the popups apps send and the history kept behind them. Do not disturb is
-not a setting here; toggle it from the notifications applet or with `glimpsectl notifications dnd`.
+not a setting here; turn it on with the switch in the notifications applet or with
+`glimpsectl notifications dnd`. [Manage notifications](/guide/notifications) covers how long popups
+stay and what the history keeps.
 
 <ConfigTable path="notifications" />
 
 To hide notifications from one app entirely, match it in `suppress`. The pattern is a regular
-expression tested against the app's id, its name, the title and the body:
+expression, case sensitive, tested against the app's id, its name, the title and the body:
 
 ```toml
 [notifications]

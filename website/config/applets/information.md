@@ -24,6 +24,11 @@ applet table changes only that applet.
 
 <ConfigTable path="applets.weather" describe />
 
+`label` sets the name in the applet's tooltip and at the top of its popover; the bar itself shows
+only the icon and the temperature. With no `label`, a `latlon` place reads as the nearest city,
+such as `Amsterdam, NL`. The hour strip shows at most 23 hours however high `hours` is set, and
+the day list never goes past `[weather] forecast-days` rows counting today (7 by default).
+
 <AppletShot name="weather" />
 
 <ConfigTable path="weather" describe />

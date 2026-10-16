@@ -34,11 +34,11 @@ Use two gestures for the two operations:
 extends = "command"
 icon = "weather-clear-night-symbolic"
 tooltip-format = "Left: dark mode. Right: resume the configured policy."
-on-click = ["glimpsectl", "settings", "mode", "dark"]
-on-right-click = ["glimpsectl", "settings", "resume"]
+on-click = ["glimpsectl", "appearance", "set", "dark"]
+on-right-click = ["glimpsectl", "appearance", "resume"]
 ```
 
-The dark override lasts until you resume or the settings daemon shuts down. Resume follows your configured policy, which may still choose dark mode. See [the settings commands](/config/cli/glimpsectl#glimpsectl-settings).
+The dark override lasts until you resume or the settings daemon shuts down. Resume follows your configured policy, which may still choose dark mode. See [the appearance commands](/config/cli/glimpsectl#glimpsectl-appearance).
 
 ## Pick a color into the clipboard
 

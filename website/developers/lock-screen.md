@@ -71,11 +71,13 @@ stack that always succeeds. The installed PAM files (`data/pam.d/`) cover the au
 only, and deny the password and session stacks, since a locker must never change a password or open a
 session.
 
-While locked, the screen shows limited status (media, battery, network and similar read-only state).
-Two restrictions follow from the threat model: the network and bluetooth views run without their agents,
-so a locked screen never accepts a pairing or answers a Wi-Fi password prompt, and notifications appear
-only as a total or as the names of the apps that sent them (`[lock.notifications] privacy`), never
-with summaries or bodies.
+While locked, the screen shows limited status and media information. The track title and artist are
+visible, and the pause and next media controls work without authentication. Two restrictions follow
+from the threat model: the network and Bluetooth views run without their agents, so a locked screen
+never accepts a pairing or answers a Wi-Fi password prompt. Notifications that arrived before the
+lock started do not appear. Later notifications appear only as a total or as per-application icons
+with counts (`[lock.notifications] privacy`), never with summaries or bodies. In per-application
+mode, the app name is the chip's tooltip and accessible name, not visible text.
 
 ## Why the unit is never sandboxed
 

@@ -57,7 +57,8 @@ so fix it and run the command again. Every unknown applet name gets its own line
 glimpsectl config validate
 ```
 
-A clean run prints nothing. A path that does not exist is not an error, so check its spelling.
+A clean run writes nothing to standard output; add `--log error` to also silence the line it logs
+for each file it reads. A path that does not exist is not an error, so check its spelling.
 
 If the file was already broken when glimpse started, it starts with the built-in defaults, except
 that idle timers and the night light stay off.

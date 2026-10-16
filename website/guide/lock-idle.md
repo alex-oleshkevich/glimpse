@@ -41,16 +41,25 @@ on-idle = "systemctl suspend"
 ```
 
 The battery profile applies while UPower reports the machine on battery; without UPower the AC
-profile always applies.
+profile always applies. Switching between AC and battery, or changing the active listener set, runs
+the `on-resume` commands of listeners that already ran. The replacement timers start from zero.
 
-## Keep the screen awake while presenting
+## Hold idle and suspend while presenting
 
 ```sh
 glimpsectl idle inhibit
 ```
 
-The hold lasts while the command runs: end it with Ctrl-C, or give it a limit up front, as in
-`glimpsectl idle inhibit --for 2h`. Video players and calls hold the timers off on their own while
+The hold blocks idle listeners and suspend. End it with Ctrl-C, or give it a limit up front, as in
+`glimpsectl idle inhibit --for 2h`. Durations are whole positive numbers with an `s`, `m`, or `h`
+suffix; no suffix means seconds.
+
+Without a command, `inhibit` prints the hold's id, and `glimpsectl idle release <id>` ends that hold
+from another terminal. With `glimpsectl idle inhibit -- CMD...`, the hold lasts only while `CMD`
+runs, and `glimpsectl` exits with the command's status.
+
+Listeners that were held back run as soon as the last hold ends, if you haven't touched the keyboard
+or pointer since. Video players and calls hold the timers off on their own while
 `respect-inhibitors` is on, and `glimpsectl idle status` shows who is holding what.
 
 ## Change the lock screen background
@@ -65,12 +74,14 @@ image-dark = "/home/alex/Pictures/lock-night.jpg"
 blur-radius = 24
 ```
 
-`image-dark` shows while the desktop is dark, `blur-radius` softens the picture (0 to 128, 0 by
-default) and `dim` darkens it.
+`image-dark` shows while the desktop is dark, and `blur-radius` softens the picture (0 to 128, 0 by
+default). `fit` accepts `cover`, `contain`, `fill`, and `center`; with `contain`, `color` fills the
+bars. `dim` darkens the background (0.35 by default), and `dim-dark` replaces it in dark (0.5 by
+default).
 
 ## Choose what the lock screen shows
 
-The clock, the status island (weather, battery, keyboard layout, Bluetooth and network), pending
+The clock, the status island (weather, battery, keyboard layout, Bluetooth and network),
 notifications, media controls and the session buttons each have a table with an `enabled` switch:
 
 ```toml
@@ -81,5 +92,16 @@ enabled = false
 enabled = false
 ```
 
-Notification text is never shown on the lock screen; `[lock.notifications] privacy` chooses between
-naming the sending apps (`"apps"`, the default) and showing only a count (`"count"`).
+Only notifications that arrive while the screen is locked appear. `"apps"`, the default, shows one
+icon with a count for each app; the app's name is the icon's tooltip and accessible name. `"count"`
+shows a single icon with the total. Neither mode shows a summary or a body.
+
+The media area shows the track title and artist to anyone, and its pause and next buttons work
+without a password. Network and Bluetooth status are icons only, never an SSID or device name. The
+battery shows a percentage, the keyboard layout appears with two or more layouts, and weather
+appears only when the panel's weather applet already has a place. Turning off `[lock.status]`
+removes the island but leaves the session button; the tables are independent.
+
+The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and every action asks for
+confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits
+for a restart.

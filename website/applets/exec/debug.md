@@ -9,7 +9,7 @@ glimpsectl applet list --installed
 glimpsectl applet inspect --installed me.aresa.GlimpseTodo
 ```
 
-The list includes installed and placed applets, their desktop entries, commands, and state. Inspect separates desktop metadata, configuration placements and options, and runtime units. A refused desktop entry includes its reason. `runtime: unavailable` means the CLI could not obtain runtime information; it does not establish that the applet is stopped.
+The list includes installed and placed applets, their desktop entries, commands, and state. Inspect separates desktop metadata, configuration placements and options, and runtime units. A refused desktop entry includes its reason. `runtime: unavailable` means the CLI could not obtain runtime information. Ignore the state column then: its `stopped` values do not confirm that an applet has stopped.
 
 ## Read installed applet logs
 
@@ -31,4 +31,4 @@ Restart all running units for an installed desktop id:
 glimpsectl applet restart me.aresa.GlimpseTodo
 ```
 
-This command requires running units for that id. During a [development run](/applets/exec/live-reload), save the source or type `r` and Enter in the development terminal instead. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applets) for command options.
+This command requires running units for that id. During a [development run](/applets/exec/live-reload), save the source or type `r` and Enter in the development terminal instead. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applet) for command options.

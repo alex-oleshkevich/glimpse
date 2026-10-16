@@ -29,4 +29,4 @@ Edit `index.tsx` and save. The CLI prints the changed file and restarts the appl
 
 Changing `env` in the local configuration also restarts the applet. If the applet stops after an error, fix the source and save, or type `r` followed by Enter in the development terminal to restart it.
 
-Press Ctrl-C to detach the development run. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applets) for panel, output, zone, environment, and alternate configuration options.
+Press Ctrl-C to detach the development run. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applet) for panel, output, zone, environment, and alternate configuration options.

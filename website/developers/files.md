@@ -39,7 +39,8 @@ files and never write into a home directory.
 Common directives across the long-running services: `StartLimitBurst=5` within
 `StartLimitIntervalSec=60`, `RestartSec=2`, and `ExecReload=/bin/kill -HUP $MAINPID` (a reload is a
 `SIGHUP`; every binary also reloads on its own when its configuration files change). The shot-portal unit
-sets none of these, and the lock unit replaces the start limit with `StartLimitIntervalSec=0`.
+sets none of these, and the lock unit replaces the start limit with `StartLimitIntervalSec=0`. The night light unit also sets `RestartPreventExitStatus=4`, so a session whose compositor has
+no gamma control does not use up its restart budget.
 
 Hardening directives are set per unit. `NoNewPrivileges`, `LockPersonality` and `RestrictRealtime`
 appear on every long-running unit except the lock and shot-portal units. The idle, settings-daemon,
