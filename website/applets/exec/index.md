@@ -2,6 +2,19 @@
 
 Build the shipped todo example in five stages: create a project, show a task, add tasks, add dates and controls, then save the list. You'll need a running glimpse panel, its installed SDK template, Node.js 22 or newer, and npm.
 
+## How it connects
+
+The panel starts your applet as a program and talks to it over a socket. You send what to draw, and the panel sends back clicks and scrolls. The SDK does this for you.
+
+```mermaid
+flowchart LR
+    P["Panel"] -- "starts" --> A["Your applet"]
+    A -- "what to draw" --> P
+    P -- "clicks, scrolls" --> A
+```
+
+Details are in [how the panel hosts applets](/developers/exec-applets).
+
 ## 1. Create and run the project
 
 Run:
