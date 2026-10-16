@@ -42,11 +42,11 @@ func TestSetStateWakes(t *testing.T) {
 	session := NewSession(app, func(string) {})
 	session.Handle(appletHello(t.TempDir()))
 	session.Flush()
-	if session.Dirty {
+	if session.isDirty() {
 		t.Fatal("session still dirty after flush")
 	}
 	app.SetState(func(s *appletState) { s.Count++ })
-	if !session.Dirty {
+	if !session.isDirty() {
 		t.Error("SetState did not wake a rebuild")
 	}
 	if got := app.State().Count; got != 1 {

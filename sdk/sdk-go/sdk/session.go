@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sync"
 )
 
 type el struct {
@@ -32,6 +33,25 @@ type Session struct {
 	nextID    int
 	Dirty     bool
 	Mounted   bool
+	dirtyMu   sync.Mutex
+}
+
+func (s *Session) markDirty() {
+	s.dirtyMu.Lock()
+	s.Dirty = true
+	s.dirtyMu.Unlock()
+}
+
+func (s *Session) clearDirty() {
+	s.dirtyMu.Lock()
+	s.Dirty = false
+	s.dirtyMu.Unlock()
+}
+
+func (s *Session) isDirty() bool {
+	s.dirtyMu.Lock()
+	defer s.dirtyMu.Unlock()
+	return s.Dirty
 }
 
 func NewSession(app App, writeLine func(string)) *Session {
@@ -66,7 +86,7 @@ func (s *Session) Wake() {
 		return
 	}
 
-	s.Dirty = true
+	s.markDirty()
 }
 
 func (s *Session) newEl(w Widget) *el {
@@ -265,7 +285,7 @@ func (s *Session) Rebuild() {
 		s.Send(map[string]any{"t": "commit", "ops": ops})
 	}
 
-	s.Dirty = false
+	s.clearDirty()
 }
 
 func (s *Session) Handle(msg map[string]any) {
@@ -288,7 +308,7 @@ func (s *Session) Handle(msg map[string]any) {
 
 		s.Ctx.Placement, _ = msg["placement"].(map[string]any)
 		s.Mounted = true
-		s.Dirty = true
+		s.markDirty()
 		if mounter, ok := s.app.(Mounter); ok {
 			mounter.Mount(s.Ctx)
 		}
@@ -310,17 +330,17 @@ func (s *Session) Handle(msg map[string]any) {
 		} else {
 			s.Ctx.Options = map[string]any{}
 		}
-		s.Dirty = true
+		s.markDirty()
 	case "placement":
 		s.Ctx.Placement, _ = msg["placement"].(map[string]any)
-		s.Dirty = true
+		s.markDirty()
 	case "popover":
 		s.Ctx.PopoverOpen = msg["open"] == true
-		s.Dirty = true
+		s.markDirty()
 	case "service":
 		if name, ok := msg["name"].(string); ok {
 			s.Ctx.Services[name] = msg["value"]
-			s.Dirty = true
+			s.markDirty()
 		}
 	case "event":
 		s.event(msg)
@@ -357,11 +377,11 @@ func (s *Session) event(msg map[string]any) {
 
 	args, _ := msg["args"].([]any)
 	handler(args)
-	s.Dirty = true
+	s.markDirty()
 }
 
 func (s *Session) Flush() {
-	if s.Mounted && s.Dirty {
+	if s.Mounted && s.isDirty() {
 		s.Rebuild()
 	}
 }

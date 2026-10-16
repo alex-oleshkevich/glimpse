@@ -90,7 +90,7 @@ func run(app App) (code int) {
 			}
 			batch = append(batch, line)
 		case <-wake:
-			session.Dirty = true
+			session.markDirty()
 		}
 	drain:
 		for {
@@ -102,7 +102,7 @@ func run(app App) (code int) {
 				}
 				batch = append(batch, line)
 			case <-wake:
-				session.Dirty = true
+				session.markDirty()
 			default:
 				break drain
 			}

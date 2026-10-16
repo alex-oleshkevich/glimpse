@@ -45,6 +45,13 @@ func main() { sdk.Run(app{}) }
   commands). `PositionNow` advances a playing track's position.
 - Work off the event path (a ticker, a goroutine, a file watch) calls `ctx.Wake()` to schedule
   a rebuild.
+- An app embeds `sdk.Applet[YourState]` (with an optional `Initial` value) and runs with
+  `sdk.Main(app)`. `State()` returns a copy and `SetState(func(*YourState))` applies a change
+  under a lock, persists the whole state as JSON to `state.json` in the state dir (fields
+  tagged `json:"-"` are skipped), and wakes a rebuild; it is safe from any goroutine. The
+  saved state loads on mount, before the optional one-shot `Start(ctx)` hook, which runs once
+  after the host `hello` on the runtime goroutine and starts tickers and watchers there. A
+  plain struct with only `Build` keeps working with `sdk.Run` or `sdk.Main`.
 - Nothing builds before the host `hello`. A panicking handler exits with code 1 and a tree
   over a protocol limit (or a panicking `Build`) with code 70; a closed socket exits 0.
 

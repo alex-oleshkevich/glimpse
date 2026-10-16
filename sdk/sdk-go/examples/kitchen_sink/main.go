@@ -15,24 +15,24 @@ type item struct {
 }
 
 type kitchenState struct {
-	Count    int    `json:"count"`
-	seconds  int64  `json:"-"`
-	wifi     bool   `json:"-"`
-	remember bool   `json:"-"`
+	Count    int     `json:"count"`
+	seconds  int64   `json:"-"`
+	wifi     bool    `json:"-"`
+	remember bool    `json:"-"`
 	volume   float64 `json:"-"`
 	scale    float64 `json:"-"`
-	draft    string `json:"-"`
-	choice   int    `json:"-"`
-	drop     int    `json:"-"`
-	date     string `json:"-"`
-	monthY   int    `json:"-"`
-	monthM   int    `json:"-"`
-	expanded bool   `json:"-"`
-	revealed bool   `json:"-"`
-	page     int    `json:"-"`
-	wide     bool   `json:"-"`
-	last     string `json:"-"`
-	items    []item `json:"-"`
+	draft    string  `json:"-"`
+	choice   int     `json:"-"`
+	drop     int     `json:"-"`
+	date     string  `json:"-"`
+	monthY   int     `json:"-"`
+	monthM   int     `json:"-"`
+	expanded bool    `json:"-"`
+	revealed bool    `json:"-"`
+	page     int     `json:"-"`
+	wide     bool    `json:"-"`
+	last     string  `json:"-"`
+	items    []item  `json:"-"`
 }
 
 type app struct {
