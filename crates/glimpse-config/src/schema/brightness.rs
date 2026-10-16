@@ -4,14 +4,12 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Brightness {
-    /// The lowest percent a display's backlight is allowed to reach; the keyboard backlight ignores
-    /// it and may still go to 0. Every write glimpse makes to a display source is clamped here,
-    /// because a screen driven all the way dark is indistinguishable from one that has failed.
+    /// The lowest brightness percentage your display can reach, from 0 to 100. Your keyboard
+    /// backlight can still reach 0.
     #[serde(deserialize_with = "percent")]
     #[schemars(range(max = 100))]
     pub minimum: u8,
-    /// Whether glimpse controls the brightness of external monitors. Most monitors support it; turn
-    /// it off if one reacts slowly, flickers or misbehaves when the brightness changes.
+    /// Control the brightness of your external monitors. Changes apply after you restart the panel.
     pub ddc: bool,
 }
 

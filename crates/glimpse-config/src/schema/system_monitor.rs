@@ -8,18 +8,14 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct SystemMonitor {
-    /// Seconds between samples of every reading this service publishes. Must be between 1 and 60.
+    /// How often the readings update, in seconds, from 1 to 60.
     #[serde(deserialize_with = "poll_interval")]
     #[schemars(range(min = 1, max = 60))]
     pub poll_interval: u64,
-    /// Filesystem paths sampled for free space, each becoming its own popover tile. A path that
-    /// does not exist is skipped. An unmounted-but-present path still resolves — `statvfs` reports
-    /// whichever filesystem currently owns the directory, the same way `df` would — accepted, not
-    /// a bug. Each entry must be absolute; duplicates (after stripping a trailing `/`) collapse to
-    /// their first occurrence.
+    /// Full paths to folders on the disks you want to check for free space.
     #[serde(deserialize_with = "disk_paths")]
     pub disk_paths: Vec<String>,
-    /// Whether to probe for an amdgpu GPU at all.
+    /// Show readings from your AMD GPU.
     pub gpu: bool,
 }
 

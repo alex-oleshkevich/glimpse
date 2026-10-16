@@ -9,17 +9,13 @@ use crate::environment;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Regional {
-    /// The language glimpse's text is shown in, such as `ru` for Russian. Empty uses your system
-    /// language. It changes only the words: dates, the clock and units still follow your system
-    /// settings. Takes effect the next time glimpse starts, for example when you log in.
+    /// Your text language, such as `ru` for Russian; leave it empty to use your system language.
+    /// Changes apply after you restart glimpse.
     pub language: String,
-    /// How a time of day reads wherever glimpse composes one itself — the world clock, the times
-    /// inside event rows, sunrise and sunset. A `strftime` format you write yourself, such as the
-    /// clock applet's `label-format`, is yours and is not affected by this.
+    /// How you display times throughout glimpse. Your bar and lock screen clocks use their own
+    /// formats.
     pub hour_format: HourFormat,
-    /// Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.
-    /// Every reading in one weather report uses the same system, and the panel prints the symbols
-    /// that go with it.
+    /// Your weather units for temperature, wind speed and rainfall.
     pub units: Units,
 }
 
@@ -49,7 +45,7 @@ impl Regional {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum HourFormat {
-    /// Follow `LC_TIME`, which is what the locale's own `%X` resolves to.
+    /// Your system's time format.
     #[default]
     Locale,
     /// `3:30 PM`.
@@ -64,11 +60,10 @@ pub enum HourFormat {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Units {
-    /// Follow `LC_MEASUREMENT`. Every locale glibc ships is metric except `en_US`, so this is
-    /// metric unless the machine is set to American English.
+    /// Your system's measurement units.
     #[default]
     Locale,
-    /// Celsius, kilometres per hour, millimetres.
+    /// Read Celsius, kilometers per hour and millimeters.
     Metric,
     /// Fahrenheit, miles per hour, inches.
     Imperial,

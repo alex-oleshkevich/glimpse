@@ -11,17 +11,20 @@ const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct NightLight {
-    /// When the screen warms: `automatic` from sunset to sunrise where you are, `schedule`
-    /// between `start-time` and `end-time`, `off` never.
+    /// When your screen uses warmer colors. Automatic mode needs your location to work out sunset
+    /// and sunrise.
     pub schedule: Schedule,
-    /// The color temperature at night, in kelvin. Lower is warmer; 6500 is the screen's own color.
+    /// Your screen's nighttime color temperature, from 1000 to 6500 kelvin. Lower values look
+    /// warmer; 6500 keeps the normal color.
     #[schemars(range(min = MIN_TEMPERATURE, max = MAX_TEMPERATURE))]
     pub temperature: u32,
-    /// When the warm color starts under `schedule = "schedule"`, as `HH:MM` local time.
+    /// When warmer colors start with `schedule = "schedule"`, in local `HH:MM` time. Set both times
+    /// to different values; the schedule can cross midnight.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub start_time: Option<String>,
-    /// When the warm color ends under `schedule = "schedule"`, as `HH:MM` local time.
+    /// When warmer colors end with `schedule = "schedule"`, in local `HH:MM` time. Set both times
+    /// to different values; the schedule can cross midnight.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub end_time: Option<String>,

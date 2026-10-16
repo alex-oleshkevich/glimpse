@@ -1,11 +1,12 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Keep your recent screen measurements; changes apply the next time the panel starts.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Ruler {
-    /// How many measurements history keeps, newest first. A measurement beyond it drops the
-    /// oldest. Clamped to 1..=64.
+    /// How many screen measurements you keep, from 1 to 64. Changes apply after you restart the
+    /// panel.
     pub history_limit: usize,
 }
 

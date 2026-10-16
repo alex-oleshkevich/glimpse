@@ -10,6 +10,6 @@ Use a built-in applet for desktop controls, a command applet for a button that r
 
 A command applet has a fixed display. Its command's output does not become the label. Start with [a screenshot button](/applets/command/).
 
-An exec applet runs as a systemd user unit with your full session access. The panel renders the UI it sends, and the SDK handles communication. Start with [the todo tutorial](/applets/exec/).
+An exec applet runs as a systemd user unit with your full session access and a 256 MiB memory limit. Installed applets restart on failure after 1 second, backing off to at most 60 seconds between attempts. The panel renders the UI it sends, and the SDK handles communication. Start with [the todo tutorial](/applets/exec/).
 
 Both custom kinds use panel zones and applet configuration. The [command and exec settings reference](/config/applets/custom) lists their settings.

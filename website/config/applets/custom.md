@@ -23,6 +23,11 @@ Give every command applet its own name and `extends = "command"`.
 
 <ConfigTable path="applets.command" describe />
 
+Left, middle and right click each run their own command, as do the four scroll directions. Each
+wheel notch runs once; other mouse buttons do nothing.
+
+An absolute SVG icon path works. If the file is missing, the chip uses `system-run-symbolic`.
+
 ## exec
 
 An exec applet is a program installed with a desktop entry that declares
@@ -49,3 +54,6 @@ options = { title = "Work" }
 
 <ConfigTable path="applets.exec" describe />
 
+Exec applets need the systemd user manager. If an id is not installed or the applet cannot start,
+no chip appears. Check the panel log for the reason; `glimpsectl applet list --installed` lists
+the installed applets.

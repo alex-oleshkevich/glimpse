@@ -60,7 +60,7 @@ function Todo() {
 await run(<Todo />);
 ```
 
-Save, then click Todo. The badge shows one open task. Check "Buy groceries" and the badge becomes zero. `useState` keeps the checked state while this process runs, and `ToggleRow` renders the checkbox.
+Save, then click Todo. The badge shows one open task. Click the "Buy groceries" row and the badge becomes zero. `useState` keeps the done state while this process runs. `ToggleRow` with `control="check"` shows a check mark at the end of the row only while the task is done.
 
 ## 3. Add tasks from an entry
 

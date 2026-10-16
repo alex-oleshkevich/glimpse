@@ -6,29 +6,33 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 const MAX_DELAY: u32 = 60;
 
-/// Screenshots. `glimpse-shot` reads it for where a capture is saved and how the editor opens.
+/// Choose where you save screenshots and how your editor opens.
+/// The `[screenshot]` table in `shot.toml` beside your active config overrides these settings one key at a time; other tables there are ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Screenshot {
-    /// Where a capture is saved, created on first save. Unset means `$XDG_PICTURES_DIR/Screenshots`.
+    /// Where you save screenshots, with the folder created on your first save. Use a full path; `~`
+    /// doesn't expand to your home folder.
     pub directory: Option<PathBuf>,
     /// The file name, as a strftime pattern expanded at the capture time. Must end in `.png` and
     /// contain no `/`.
     pub filename: FileTemplate,
     /// Where an annotation opens: over the screen, or in a window.
     pub editor: Editor,
-    /// Seconds to wait before capturing. Clamped to 0..=60.
+    /// How many seconds you wait before an editor capture, from 0 to 60. The `glimpse-shot capture`
+    /// command uses its own `--delay` option.
     #[serde(deserialize_with = "delay")]
     pub delay: u32,
-    /// Flash the screen on capture.
+    /// Flash your screen when the editor takes a screenshot. The `glimpse-shot capture` command
+    /// doesn't flash.
     pub flash: bool,
     /// Include the pointer in a capture.
     pub cursor: bool,
-    /// Post a notification after a capture is saved.
+    /// Notify you after saving or copying a screenshot from the fullscreen editor.
     pub notify: bool,
     /// The color annotation tools start with.
     pub color: PaletteColor,
-    /// The stroke width annotation tools start with.
+    /// The starting thickness of your annotation lines.
     pub stroke: Stroke,
 }
 

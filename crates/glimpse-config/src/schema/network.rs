@@ -4,12 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Network {
-    /// How many seconds a scan for nearby networks runs before stopping on its own. Scanning
-    /// interrupts traffic on the same radio, so it is never left running. `0` disables the timeout
-    /// and leaves the scan running until the popover closes.
+    /// How many seconds you scan for nearby networks. With `0`, scanning continues until you close
+    /// the popover.
     pub scan_timeout: u64,
-    /// Whether to hide networks that broadcast no name. They cannot be joined by tapping them —
-    /// a hidden network is reached by typing its name in — so a row for one is unactionable.
+    /// Hide networks that don't broadcast a name.
     pub hide_unnamed: bool,
 }
 

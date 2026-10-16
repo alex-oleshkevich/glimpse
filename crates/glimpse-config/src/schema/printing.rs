@@ -6,18 +6,15 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Printing {
-    /// How often the service polls CUPS while a job is active, in seconds. Must be at least 1;
-    /// `0` would leave the poll timer with no interval to tick on.
+    /// How often print jobs are checked while something is printing, in seconds, with a minimum of 1.
     #[serde(deserialize_with = "poll_seconds")]
     #[schemars(range(min = 1))]
     pub poll_active: u64,
-    /// How often the service polls CUPS while no job is active, in seconds. Must be at least 1,
-    /// for the same reason as `poll-active`.
+    /// How often print jobs are checked while nothing is printing, in seconds, with a minimum of 1.
     #[serde(deserialize_with = "poll_seconds")]
     #[schemars(range(min = 1))]
     pub poll_idle: u64,
-    /// The CUPS server to poll, such as `http://localhost:631/`. Unset uses CUPS's own default
-    /// server.
+    /// Your print server's address, such as `http://localhost:631/`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server_url: Option<String>,
 }

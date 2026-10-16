@@ -5,9 +5,8 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// One applet on a bar and the settings its kind understands.
-/// The table name is the applet's name, and `extends` says which kind it is when the two differ —
-/// which is how one kind can appear more than once, as `[applets.clock-utc]` with
-/// `extends = "clock"`.
+/// Use `extends` to run another copy, such as `[applets.clock-utc]` with `extends = "clock"`.
+/// Each copy starts from its kind's defaults, without inheriting another applet table's settings.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Applet {
     #[serde(flatten)]
@@ -34,11 +33,11 @@ pub const WEATHER_TOOLTIP: &str = "{place}\n{condition}, {temperature}, feels li
     deny_unknown_fields
 )]
 pub enum Kind {
-    /// Output volume, with the default sink and per-application streams in its popover.
+    /// Speaker and application volume.
     Audio(Audio),
     /// Battery, power mode, keep awake and peripheral batteries in its popover.
     Power(Power),
-    /// Adapter state and paired devices.
+    /// Bluetooth and paired devices.
     Bluetooth(Bluetooth),
     /// Clipboard history.
     Clipboard(Clipboard),
@@ -52,37 +51,35 @@ pub enum Kind {
         #[schemars(extend("default" = "{color}"))]
         tooltip_format: Option<String>,
     },
-    /// A chip the user defines, running a program on a click or a scroll.
+    /// Your own commands on the bar.
     Command(Box<Command>),
-    /// Connected outputs, brightness and night light in one popover.
+    /// Displays, brightness and night light.
     Display(Display),
-    /// A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).
+    /// A third-party applet.
     Exec(Box<Exec>),
     /// A counter that ticks once a second. A development fixture: it proves the service is
     /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
-    /// Idle inhibition, for keeping the screen awake.
+    /// Keep your screen awake.
     Idle {
-        /// What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if
-        /// anything.
+        /// Your tooltip text, with `{status}` for what is keeping your screen awake.
         #[serde(skip_serializing_if = "Option::is_none")]
         #[schemars(extend("default" = "{status}"))]
         tooltip_format: Option<String>,
     },
-    /// A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair
-    /// in its popover. Needs `kdeconnectd` running; it is never started from here.
+    /// Your paired KDE Connect phone.
     Kdeconnect(Kdeconnect),
     /// The active keyboard layout, and switches between the configured ones.
     Keyboard {
-        /// What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full
+        /// Your tooltip text, with `{code}` for the short layout label and `{name}` for its full
         /// name.
         #[serde(skip_serializing_if = "Option::is_none")]
         #[schemars(extend("default" = "{name}"))]
         tooltip_format: Option<String>,
     },
-    /// The currently playing track, with transport controls in its popover.
+    /// Music and playback controls.
     Mpris(Mpris),
-    /// Connection state, with the available networks in its popover.
+    /// Your network connections.
     Network(Network),
     /// The next entry from the configured calendars.
     NextEvent(NextEvent),
@@ -94,39 +91,35 @@ pub enum Kind {
     Places(Places),
     /// Active print jobs.
     Printing(Printing),
-    /// Shows when the microphone, camera or screen is in use.
+    /// Microphone, camera, screen and location use.
     Privacy(Privacy),
-    /// Removable drives, one row each, with open and eject in its popover.
+    /// Removable drives.
     Removable(Removable),
-    /// Measures a distance on screen on right click; the popover keeps recent measurements.
+    /// Screen measurements.
     Ruler {
-        /// What the bar's tooltip reads. `{measurement}` is the last distance measured.
+        /// Your tooltip text, with `{measurement}` for your last measured distance.
         #[serde(skip_serializing_if = "Option::is_none")]
         #[schemars(extend("default" = "{measurement}"))]
         tooltip_format: Option<String>,
     },
     /// Log out, suspend, restart and shut down.
     Session {
-        /// What the bar's tooltip reads. `{user}` is your user name.
+        /// Your tooltip text, with `{user}` for your user name.
         #[serde(skip_serializing_if = "Option::is_none")]
         #[schemars(extend("default" = "Session"))]
         tooltip_format: Option<String>,
     },
-    /// Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the
-    /// applet is on a panel.
+    /// Your computer's resource usage.
     SystemMonitor(SystemMonitor),
-    /// The system tray: icons from applications that ask for one.
+    /// Application icons in the system tray.
     Tray(Tray),
-    /// Current conditions, with the forecast in its popover.
+    /// Current weather and forecast.
     Weather(Weather),
-    /// A popover with a colored block in every slot of the shell. A development fixture, mirrored by
-    /// `sdk/examples/widget_demo`, for comparing built-in and exec rendering; not meant for a real bar.
+    /// A widget preview for testing.
     WidgetDemo {},
-    /// The current workspace's name, renamed from its popover.
+    /// Your current workspace's name.
     WorkspaceName {
-        /// What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and
-        /// `{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace
-        /// and its monitor.
+        /// Your tooltip text, using the same placeholders as the pager's `label`.
         #[serde(skip_serializing_if = "Option::is_none")]
         tooltip_format: Option<String>,
     },
@@ -189,14 +182,12 @@ fn validate_env(env: &BTreeMap<String, String>) -> Result<(), String> {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Tray {
-    /// Item ids never shown, matched against the application's own `Id`. That id survives an
-    /// application restart, which the bus name it happens to hold does not.
+    /// Hide tray icons by their application id.
     pub hide: Vec<String>,
-    /// Item ids kept on the bar whatever the cap, in the order given. Anything not named here
-    /// follows in the order the items registered.
+    /// Keep these tray icons on your bar in the order you give, even beyond `max-visible`.
     pub pin: Vec<String>,
-    /// How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every
-    /// icon on the bar and shows no chevron.
+    /// How many tray icons stay on your bar before the rest go behind an arrow. Pinned icons always
+    /// stay visible; `0` shows every icon.
     pub max_visible: u8,
 }
 
@@ -205,21 +196,16 @@ pub struct Tray {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct SystemMonitor {
-    /// What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.
+    /// Your tooltip text, shared by all resource indicators.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
-    /// Chips shown on the bar, in order. Anything sampled but left out here still appears in the
-    /// popover — this list is panel real estate, not visibility. A repeated chip collapses to its
-    /// first occurrence.
+    /// Which resource indicators you see on your bar, in order. Other readings still appear when
+    /// you click one.
     #[serde(deserialize_with = "chips")]
     pub chips: Vec<Chip>,
-    /// How each chip's own label reads. `{name}` is the chip's own localized name ("CPU", "RAM",
-    /// …); `{value}` is its reading ("42%" for a percentage chip, "↓1.2 MB/s" for network, "62°C" for a
-    /// temperature). An
-    /// unrecognized token is left as literal text rather than silently emptied.
+    /// Your indicator text, with `{name}` for the resource name and `{value}` for its reading.
     pub chip_format: String,
-    /// Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is
-    /// shown as a warning. Network and temperatures have no percentage and are never colored.
+    /// The percentage at which CPU, RAM, swap and GPU readings show a warning.
     #[schemars(range(min = 1, max = 100))]
     pub warn_percent: u8,
     /// Percent at and above which a percentage reading is shown as critical. Must not be below
@@ -268,7 +254,7 @@ pub struct Command {
     /// follows the bar's color.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
-    /// Text beside the icon. With neither an icon nor a label the chip takes no room.
+    /// Text beside your icon.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     /// What a left click runs.
@@ -280,16 +266,16 @@ pub struct Command {
     /// What a right click runs.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_right_click: Vec<String>,
-    /// What each notch of scrolling up runs, once per notch.
+    /// What scrolling up runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_up: Vec<String>,
-    /// What each notch of scrolling down runs, once per notch.
+    /// What scrolling down runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_down: Vec<String>,
-    /// What each notch of scrolling left runs, once per notch.
+    /// What scrolling left runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_left: Vec<String>,
-    /// What each notch of scrolling right runs, once per notch.
+    /// What scrolling right runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_right: Vec<String>,
 }
@@ -302,20 +288,14 @@ pub struct Clipboard {
     /// tooltip.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
-    /// What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the
-    /// chip is an icon alone, which is what every applet does unless asked otherwise.
+    /// Text beside your icon, with `{count}` for the number of entries in your history.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label_format: Option<String>,
-    /// How many recent entries the popover lists. Nothing in the panel scrolls, so this is what
-    /// keeps the card on the screen. Pinned entries are listed above and are not counted here —
-    /// a pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.
+    /// How many recent entries the popover shows. Pinned entries don't count.
     pub visible: usize,
-    /// How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at
-    /// most and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much
-    /// on screen. Clamped to 8..=128.
+    /// How many characters of each clipboard entry you see in its preview, from 8 to 128.
     pub preview_chars: usize,
-    /// Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room
-    /// until there is something to open it for.
+    /// Keep the chip visible when your history is empty.
     pub show_when_empty: bool,
 }
 
@@ -334,8 +314,7 @@ impl Default for Clipboard {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Notifications {
-    /// What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says
-    /// how many are waiting and whether do not disturb is on.
+    /// Your tooltip text, with `{count}` for the number of unread notifications.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
     /// How the bar marks unread notifications: `icon-dot` adds a dot, `icon-counter` shows how many,
@@ -397,16 +376,12 @@ pub struct Kdeconnect {
     pub tooltip_format: Option<String>,
     /// Whether the bar shows the device icon, the label, or both.
     pub indicator_style: BatteryIndicatorStyle,
-    /// What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and
-    /// `{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no
-    /// battery never shows a bare `%`.
+    /// Your phone's label, with `{name}`, `{battery}` and `{charging}`.
     pub label_format: String,
-    /// The device the bar follows, by the name the device announces. Unset follows the first
-    /// connected paired device.
+    /// The paired phone you follow, matched by its full name. Names are case sensitive.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device: Option<String>,
-    /// Hide the chip while no paired device is connected, instead of showing it with an offline
-    /// emblem.
+    /// Hide your phone's icon when disconnected, except during a pairing request.
     pub hide_when_disconnected: bool,
 }
 
@@ -427,16 +402,13 @@ impl Default for Kdeconnect {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Mpris {
-    /// What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.
+    /// Your tooltip text, using the same placeholders as `label-format`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
-    /// What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,
-    /// `{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with
-    /// nothing behind it renders as nothing.
+    /// Your track label, using `{player}`, `{title}`, `{artist}`, `{album}`, `{state}`,
+    /// `{position}`, `{duration}` and `{remaining}`.
     pub label_format: String,
-    /// Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from
-    /// whatever is playing and are unbounded, and a bar that resizes as they change is worse than
-    /// one that truncates.
+    /// How many characters of your track label you see before it ends in `…`.
     pub max_length: u8,
 }
 
@@ -445,17 +417,15 @@ pub struct Mpris {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Network {
-    /// What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads
-    /// Metered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`
-    /// the active VPN's name. A line whose tokens are all empty is left out.
+    /// Your tooltip text, with `{connection}` for your network, `{metered}` for its metered status,
+    /// `{signal}` for Wi-Fi strength and `{vpn}` for your VPN's name.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("default" = NETWORK_TOOLTIP))]
     pub tooltip_format: Option<String>,
-    /// How many networks the popover lists before the rest go behind a "more networks" row. `0`
-    /// lists every network in range.
+    /// How many other networks you see before a "more networks" row; `0` shows all. Connected and
+    /// saved networks don't count.
     pub visible_networks: usize,
-    /// Whether an active VPN gets a chip of its own beside the network chip. An indicator is an
-    /// icon, and two states overlaid on one glyph are illegible at bar size.
+    /// Show your active VPN as a separate icon beside your network icon.
     pub vpn_chip: bool,
 }
 
@@ -490,16 +460,15 @@ pub struct Clock {
     /// A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.
     #[serde(alias = "format")]
     pub label_format: String,
-    /// The IANA zone this clock reads, such as `UTC` or `Asia/Tokyo`. Unset is the local zone;
-    /// naming one is how a second `[applets.clock-utc]` shows somewhere else.
+    /// Your clock's time zone, such as `UTC` or `Asia/Tokyo`. Leave it unset to use your local
+    /// time.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    /// Whether the popover names the ISO week the shown month belongs to.
+    /// Show today's week number above your calendar.
     pub week_numbers: bool,
     /// The other zones the popover lists under its world clock. Empty hides the section.
     pub timezones: Vec<Timezone>,
-    /// Whether an all-day entry is left out of the calendar popover's day list entirely, rather
-    /// than shown alongside the day's timed events.
+    /// Hide all-day events from your calendar's day list and month grid.
     pub hide_all_day: bool,
 }
 
@@ -507,13 +476,13 @@ pub struct Clock {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Bluetooth {
-    /// What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices
-    /// are connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's
-    /// name.
+    /// Your tooltip text, with `{status}` for connection status, `{devices}` for connected devices
+    /// and `{adapter}` for your Bluetooth adapter's name.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("default" = "{status}"))]
     pub tooltip_format: Option<String>,
-    /// How many paired devices the popover lists before the rest go behind a drawer.
+    /// How many disconnected paired devices you see before a "more devices" row. Connected devices
+    /// don't count.
     pub devices: usize,
     /// How many nearby devices the popover lists while scanning.
     pub nearby: usize,
@@ -533,8 +502,8 @@ impl Default for Bluetooth {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Places {
-    /// What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover
-    /// lists.
+    /// Your tooltip text, with `{bookmarks}` for your bookmark count and `{places}` for your home
+    /// and user-directory count.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("default" = "Places"))]
     pub tooltip_format: Option<String>,
@@ -578,13 +547,12 @@ impl Default for Removable {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Printing {
-    /// What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the
-    /// printer, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only
-    /// while something is printing. A line whose tokens are all empty is left out.
+    /// Your tooltip text, with `{document}` for the current document, `{printer}` for its printer,
+    /// `{pages}` for progress and `{count}` for the jobs shown.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("default" = PRINTING_TOOLTIP))]
     pub tooltip_format: Option<String>,
-    /// Print jobs listed in the popover before older ones are hidden.
+    /// How many active print jobs you see.
     pub jobs: usize,
     /// When the bar shows the printing chip.
     pub show: PrintingShow,
@@ -604,9 +572,9 @@ impl Default for Printing {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum PrintingShow {
-    /// The chip stays on the bar whenever a printer exists, idle or not.
+    /// Show whenever a printer exists.
     Always,
-    /// The chip appears only while a print job is active or a printer needs attention.
+    /// Show while a print job is active.
     #[default]
     Jobs,
 }
@@ -668,15 +636,12 @@ impl Default for Audio {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Display {
-    /// What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its
-    /// brightness in percent.
+    /// Your tooltip text, with `{name}` for the display's name and `{brightness}` for its
+    /// brightness percentage.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schemars(extend("default" = "{name}: {brightness}%"))]
     pub tooltip_format: Option<String>,
-    /// How much a scroll notch on the chip moves the current display, in percent of its range.
-    /// Converted to native units at the call site and rounded away from zero, so a notch always
-    /// moves something even on a display with a small native range. Zero would leave the wheel
-    /// silently dead; the range is 1 to 100.
+    /// How much scrolling one notch changes your display's brightness, in percent, from 1 to 100.
     #[serde(deserialize_with = "scroll_percent")]
     #[schemars(range(min = 1, max = 100))]
     pub scroll_step: u8,
@@ -708,10 +673,9 @@ where
 pub struct Timezone {
     /// What the row is called, such as `Tokyo`.
     pub label: String,
-    /// The IANA zone the row reads, such as `Asia/Tokyo`.
+    /// The time zone for this row, such as `Asia/Tokyo`.
     pub timezone: String,
-    /// A note after the `tomorrow` or `yesterday` the row works out for itself, such as
-    /// `the office`.
+    /// A note beside the time, such as `the office`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     /// An icon name replacing the sun or moon the row picks from the hour it is showing.
@@ -728,28 +692,17 @@ pub struct NextEvent {
     /// shows no tooltip.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip_format: Option<String>,
-    /// How long before an event starts it takes the bar, in minutes. Anything further out than
-    /// this leaves the applet empty, which is what keeps a meeting two days away off a bar that
-    /// has nothing to say about it. An event that has already started stays until it ends,
-    /// however long it has been running, so `0` shows only what is under way.
+    /// How many minutes before an event starts it appears on your bar. With `0`, you only see
+    /// events already under way.
     pub within: u64,
-    /// How close an event has to be before the bar spells out how long is left, in minutes. Inside
-    /// it the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;
-    /// outside it the title stands alone. Set it below `within` to have an entry appear quietly and
-    /// start counting only as it approaches; `0` never counts.
+    /// How many minutes before an event starts you see a countdown beside its title. With `0`, you
+    /// only see a countdown after the event starts.
     pub countdown: u64,
-    /// How far ahead the popover's list reaches, in minutes. This is the second of two windows and
-    /// the wider one: `within` decides when the bar lights up, `horizon` decides what the list
-    /// holds once you open it. The default 720 is twelve hours, so a late-afternoon glance still
-    /// reaches tomorrow morning — a plain "today only" rule empties the list at exactly the hour
-    /// tomorrow's first meeting starts mattering. 1440 is a rolling day.
+    /// How many minutes ahead your event list reaches, with `within` as the minimum.
     pub horizon: u64,
-    /// Whether an all-day entry may take the bar. A timed event always wins over one, so this
-    /// only decides what happens on a day holding nothing else — leaving it off keeps a week of
-    /// leave from pinning the applet open for the whole week.
+    /// Show all-day events on your bar when there are no timed events to show.
     pub all_day: bool,
-    /// How many entries the popover lists under the one it is showing, whichever `horizon` leaves.
-    /// Capped at 20, because a list longer than that is a popover taller than the screen.
+    /// How many upcoming events you see below the current one.
     pub upcoming: usize,
 }
 
@@ -763,12 +716,10 @@ pub struct Weather {
     pub tooltip_format: Option<String>,
     /// Which place this applet shows.
     pub place: Place,
-    /// What the bar and the popover call this place. Unset means a fixed place reads as the pair
-    /// it was given, and `here` as whatever the geolocation service resolved.
+    /// Your place's name in the tooltip and weather panel. Leave it unset to use the city name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// How many hours the popover's strip shows. The strip starts at the next hour — the hour
-    /// standing is already the hero.
+    /// How many forecast hours you see, starting with the next hour.
     pub hours: u8,
     /// How many days after today the popover's list shows. Today always leads the list, holding
     /// the current conditions.
@@ -781,9 +732,9 @@ pub struct Weather {
 #[serde(tag = "at", rename_all = "kebab-case", deny_unknown_fields)]
 #[schemars(transform = coordinate_alias)]
 pub enum Place {
-    /// Follow the geolocation service, and move with it.
+    /// Your current location.
     Here {},
-    /// A fixed pair of coordinates in degrees.
+    /// A fixed location.
     #[serde(rename = "latlon", alias = "coordinates")]
     Coordinates {
         /// Degrees north of the equator, between -90 and 90.
@@ -791,10 +742,9 @@ pub enum Place {
         /// Degrees east of Greenwich, between -180 and 180.
         longitude: f64,
     },
-    /// Resolve a city and ISO 3166-1 alpha-2 country code through Open-Meteo. This sends a
-    /// geocoding request to Open-Meteo, which receives the machine's public IP address.
+    /// A city and country.
     Location {
-        /// City and country code, written as `City, CC`.
+        /// Your city and two-letter uppercase country code, such as `Amsterdam, NL`.
         name: String,
     },
 }
@@ -835,30 +785,24 @@ pub struct Pager {
     pub shape: PagerShape,
     /// How much of the session the strip covers.
     pub scope: PagerScope,
-    /// What a slot reads, when the shape is `labels`, and the fallback for every state below.
-    /// Understands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.
-    /// `{index}` falls back to the id, because only niri numbers its workspaces separately from
-    /// their ids; in `windows` mode it is the slot's position and `{name}` is the window's app
-    /// id, which is why `{workspace-name}` exists.
+    /// Your slot text, using `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.
+    /// This also supplies any state label you leave unset.
     pub label: String,
-    /// The label for the slot the user is on, so the current workspace can show its name while
-    /// the rest stay numbers. Same tokens as `label`; unset falls back to it.
+    /// Your current slot's text, using the same placeholders as `label`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focused_label: Option<String>,
-    /// The label for every slot the user is not on. Same tokens as `label`; unset falls back
-    /// to it.
+    /// Text for other slots, using the same placeholders as `label`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unfocused_label: Option<String>,
-    /// The label for a slot asking for attention. Takes precedence over the other two, because a
-    /// window wanting attention is the one thing the strip exists to surface. Same tokens as
-    /// `label`; unset falls back to it.
+    /// Text for a slot asking for attention, using the same placeholders as `label`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub urgent_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-/// What each slot stands for: `workspaces` for one slot per workspace, `windows` for one slot per
-/// window on the current workspace.
+/// Choose `workspaces` for one slot per workspace, or `windows` for windows on each in-scope workspace active on its output.
+/// In `windows` mode, scroll vertically between windows and horizontally between workspaces; `workspaces` reverses those axes.
+/// Your slot tooltip shows the window title in `windows` mode and the workspace name or number otherwise.
 #[serde(rename_all = "kebab-case")]
 pub enum PagerMode {
     Workspaces,

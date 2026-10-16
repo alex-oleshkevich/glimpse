@@ -27,6 +27,6 @@ Save it. The CLI prints `options updated`, and `useOptions()` receives the new o
 
 Edit `index.tsx` and save. The CLI prints the changed file and restarts the applet. The generated project's start script rebuilds it before launching. Changes under hidden paths, `node_modules`, `build`, and `dist` do not trigger source restarts.
 
-Changing `env` in the local configuration also restarts the applet. If the applet stops after an error, fix the source and save, or type `r` followed by Enter in the development terminal to restart it.
+Changing `env` in the local configuration also restarts the applet. Development runs do not restart on failure. If the applet stops after an error, fix the source and save, or type `r` followed by Enter in the development terminal to restart it. Type `t` and Enter to print the current tree as the panel holds it.
 
 Press Ctrl-C to detach the development run. See [the CLI reference](/config/cli/glimpsectl#glimpsectl-applet) for panel, output, zone, environment, and alternate configuration options.

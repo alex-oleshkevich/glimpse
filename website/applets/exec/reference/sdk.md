@@ -37,6 +37,8 @@ type ClassName =
 
 An `Indicator`'s `onPress` receives `2` for middle and `3` for right, or the raw button code for any other button. A left click opens the popover and never fires `onPress`. `onScroll` receives numeric deltas. Text children of `Indicator`, `Label`, and `Button` supply their displayed text. The root accepts indicators and popovers; the panel shows the first popover.
 
+`dot` takes a CSS color such as `"#e01b24"`; an unparseable value shows no dot. `attention` shows a dot while no badge is visible. `notice` gives the icon and label a rounded accent background. `severity="warning"` and `severity="error"` style the chip; `"info"` looks the same as no severity.
+
 ### Rows
 
 The following base props apply to every component in the next table unless stated otherwise:
@@ -61,6 +63,8 @@ The following base props apply to every component in the next table unless state
 
 `MeterRow.level` is a fraction from `0` to `1`. `SliderRow.onMove` reports dragging; `onChange` reports release or a keyboard step. Inactive action, toggle, and meter rows suppress primary input. An inactive expander can still expand for inspection.
 
+`ExpanderRow.titleLines` defaults to `1` and is limited to `1` through `4`. `SliderRow.step` defaults to `0.01`.
+
 ### Inputs and actions
 
 | Component | Props |
@@ -76,7 +80,7 @@ The following base props apply to every component in the next table unless state
 | `Calendar` | `year?: number`, `month?: number`, `selected?: string`, `today?: string`, `events?: { date: string; colors?: Tone[] }[]`, `className?: ClassName`, `onMonth?: (year: number, month: number) => void`, `onSelect?: (date: string) => void` |
 | `Notice` | `icon?: string`, `title?: string`, `subtitle?: string`, `severity?: "info" \| "warning" \| "error"`, `className?: ClassName`, `onActivate?: () => void` |
 
-Calendar dates use `YYYY-MM-DD`; months are `1` through `12`. Selection indexes are numbers. Controlled inputs need updated props in response to their callbacks. `Notice.onActivate` makes the notice a button. Give icon-only buttons a tooltip for their accessible name.
+Calendar dates use `YYYY-MM-DD`; the host clamps months to `1` through `12` and years to `1` through `9999`. Selection indexes are numbers. Controlled inputs need updated props in response to their callbacks. `Notice.onActivate` makes the notice a button. Give icon-only buttons a tooltip for their accessible name.
 
 ### Layout and display
 
@@ -100,6 +104,12 @@ Calendar dates use `YYYY-MM-DD`; months are `1` through `12`. Selection indexes 
 
 `Label` displays plain text, never markup. `Image.icon` is a themed icon name, not a path. `Swatch.color` is a CSS color. `Stack.visible` selects a child by index. `Bars` and `Sparkline` accept `null` for missing data and retain at most 366 values.
 
+All icon props accept only ASCII letters, digits, `_`, `.` and `-`. A name with any other character is dropped, leaving the widget without that icon.
+
+The host clamps `Container.width` and `height` to `-1` through `1024`, `Box.spacing` to `0` through `24`, and `Label.xalign` to `0` through `1`. `Label.lines` accepts nonnegative values, rounds them, and caps them at `8`. `Image.pixelSize` is rounded and clamped to `8` through `64`. `Dots.size` is clamped to `2` through `16`, and `Dots.max` to `1` through `3`.
+
+`SliderRow`, `Scale`, and `RangeBar` default to `min=0` and `max=1`. If `min >= max`, the host resets that range to `0` through `1`. Slider values and `RangeBar.low` and `now` are clamped to the range; `RangeBar.high` is clamped between `low` and `max`.
+
 ### Nesting and size limits
 
 JSX types permit some children that the host rejects. Text children on `Indicator`, `Label`, and `Button` become text props, not child widgets. Other children must follow these rules:
@@ -122,7 +132,7 @@ JSX types permit some children that the host rejects. Text children on `Indicato
 
 Body elements are the exported components other than `Indicator`, `Popover`, `Addon`, `Start`, `End`, and `Swatch`.
 
-The host allows 300 nodes including the root, 200 children per parent, and 1,200 operations per commit. An array prop longer than 64 items, at any depth, is rejected rather than shortened; chart `values` and `tooltips` allow 366. Most text is cleaned and capped at 256 characters, badges at eight, and entry values at 4,096. A rejected commit stops the applet.
+The host allows 300 nodes including the root, 200 children per parent, and 1,200 operations per commit. An array prop longer than 64 items, at any depth, is rejected rather than shortened; chart `values` and `tooltips` allow 366. Most text is cleaned and capped at 256 characters, badges at eight, the indicator label on the chip at 32, and entry values at 4,096. A rejected commit stops the applet.
 
 ## Hooks
 
@@ -148,7 +158,7 @@ The host allows 300 nodes including the root, 200 children per parent, and 1,200
 | `launch` | `launch(id: string): void` |
 | `closePopover` | `closePopover(): void` |
 
-`notify` defaults to an empty body and normal urgency. The host caps it at one notification per second per slot. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [host requests and limits](/applets/exec/host) for file restrictions and clipboard limits.
+`notify` defaults to an empty body and normal urgency. The host caps it at one notification per second per slot, cleans its text, and cuts the summary at 256 characters and the body at 4,096. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [host requests and limits](/applets/exec/host) for file restrictions and clipboard limits.
 
 ## Service requests
 
@@ -163,7 +173,9 @@ The host allows 300 nodes including the root, 200 children per parent, and 1,200
 | `compositor.renameWorkspace` | `compositor.renameWorkspace(id: number, name: string \| null): void` |
 | `compositor.closeWindow` | `compositor.closeWindow(id: number): void` |
 
-Player arguments are player ids. Seek offsets and positions are rounded to integer microseconds; negative offsets seek backward. Passing `null` as a workspace name clears it. MPRIS and compositor requests share a cap of ten requests per second per slot; excess requests are dropped. Player ids and workspace rename strings are limited to 256 bytes.
+Player arguments are player ids. Seek offsets and positions are rounded to integer microseconds; negative offsets seek backward. Passing `null` as a workspace name clears it. Workspace `index` targets must be integers from `0` through `255`; workspace and window ids must be nonnegative integers. A service request the host cannot parse stops the applet.
+
+MPRIS and compositor requests share a cap of ten requests per second per slot; excess requests are dropped. Player ids and workspace rename strings are limited to 256 bytes.
 
 ```ts
 type PlayerAction = "play" | "pause" | "play-pause" | "stop" | "previous" | "next" | "raise";

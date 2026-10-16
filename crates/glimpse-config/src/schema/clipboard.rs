@@ -1,28 +1,22 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// What the panel remembers of the clipboard. The history lives in the panel process and in memory
-/// only: it survives nothing, which is deliberate for a buffer that routinely holds passwords.
+/// Keep your copied text and PNG or JPEG images in memory until the panel restarts.
+/// Content marked secret by a password manager is skipped; copying an existing entry moves it to the top.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clipboard {
-    /// Whether the clipboard is watched at all. Off means no compositor connection is opened and
-    /// nothing is recorded; the applet then renders as if nothing had ever been copied.
+    /// Keep a history of what you copy. Turning this off clears your history, including pinned
+    /// entries.
     pub enabled: bool,
-    /// How many entries are kept. Pinned entries do not count against it and are never evicted, so
-    /// a history full of pins holds more than this many. Clamped to 1..=10000.
+    /// How many recent clipboard entries you keep. Pinned entries don't count.
     pub limit: usize,
-    /// The largest single entry that will be captured, in kibibytes. Another application chooses
-    /// what it puts on the clipboard, so this is what stops one handing over something enormous.
-    /// Clamped to 4..=2048: the compositor read is capped at 2 MiB, and a larger value here would
-    /// promise a size that is discarded before it ever reaches the history.
+    /// The largest clipboard entry you keep, in kibibytes, from 4 to 2048.
     pub max_entry_kib: u32,
-    /// The total the history may occupy, in kibibytes. Reached, the oldest unpinned entry is
-    /// dropped. This bounds memory in a way `limit` alone cannot, because one image can outweigh a
-    /// hundred lines of text. Clamped to 64..=1048576.
+    /// How much memory your clipboard history can use, in kibibytes. When it fills up, the oldest
+    /// unpinned entries are dropped.
     pub max_total_kib: u32,
-    /// Whether images are captured as well as text. Off records text only; an image copied while
-    /// off is not recorded at all rather than recorded without its content.
+    /// Keep copied images in your clipboard history alongside text.
     pub capture_images: bool,
 }
 

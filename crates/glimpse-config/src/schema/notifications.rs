@@ -4,14 +4,11 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Notifications {
-    /// How many notifications are kept once they have been read. Dismissing one puts it here
-    /// rather than destroying it, which is what makes an accidental dismissal recoverable; past
-    /// this many, the oldest is dropped for good. Senders choose how often they notify, so this
-    /// is the bound that stops a chatty one growing the provider's memory without limit. Clamped
-    /// to 1..=1000.
+    /// How many read notifications you keep. Your history clears when you restart the notification
+    /// service.
     pub keep: u32,
-    /// Regex patterns matched against the application identity, application name, title and body.
-    /// Matching notifications are not stored or published.
+    /// Block notifications whose sender, title or message matches these case-sensitive regular expressions.
+    /// Adding a pattern also deletes matching notifications from your history.
     pub suppress: Vec<String>,
     /// Whether new notifications pop up on screen. Turned off, they still go to the history.
     pub enabled: bool,

@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Places {
-    /// Whether the trash is watched and listed. Turns off one persistent inotify watch.
+    /// Show your trash. Restart the panel after turning this off to remove existing entries.
     pub trash: bool,
-    /// Whether network shares are watched and listed. Turns off one directory read.
+    /// Show your network shares.
     pub network: bool,
 }
 

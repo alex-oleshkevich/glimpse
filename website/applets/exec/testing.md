@@ -49,6 +49,8 @@ node --test build/copy.test.mjs
 
 The test checks both the rendered button and its clipboard request. It does not change your real clipboard. The `ReactNode` assertion bridges the SDK's JSX return type and the test host's React input type.
 
+Run `glimpsectl applet check .` to validate the desktop entry, local configuration, and `Exec` expansion without a panel. `glimpsectl applet check --run .` also starts the applet headlessly and validates its first tree, reporting errors such as `section cannot hold section`.
+
 ## Supply host state
 
 `render(element, host)` accepts optional `options`, `placement`, and `state` fields. `state` is a directory path; omitting it gives the test a temporary directory that `close()` removes.
@@ -63,7 +65,7 @@ The returned session provides:
 | `event(id, name, args?)` | Send another subscribed event, such as `onToggle` with `[true]`. |
 | `setOptions(options)` | Replace options and update `useOptions()`. |
 | `setPopoverOpen(open)` | Update `usePopoverOpen()`. |
-| `setService(name, value)` | Supply an MPRIS or compositor snapshot. |
+| `setService(name, value)` | Supply a service snapshot: `setService("mpris", { players: [player] })` or `setService("compositor", { name, workspaces, windows, outputs })`. |
 | `close()` | Unmount and release the session. Await it before starting another render. |
 
-All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Also run the applet with `glimpsectl applet run --dev .` to check those.
+All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Use `glimpsectl applet check --run .` to check the first tree's nesting. Run `glimpsectl applet run --dev .` to exercise later updates and inspect the displayed text. If the panel rejects a tree, it stops the applet and logs the reason; the development terminal prints nothing about that rejection.

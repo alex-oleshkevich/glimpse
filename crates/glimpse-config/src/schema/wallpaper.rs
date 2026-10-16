@@ -6,8 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Wallpaper {
-    /// Painted under everything: the whole wallpaper when no image resolves, and what shows
-    /// through `contain`'s letterbox.
+    /// Your wallpaper's background color, visible when an image is missing or doesn't fill the
+    /// screen.
     pub color: String,
     /// The wallpaper image, used as-is or under the light color scheme when `image-dark` is set.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,7 +15,7 @@ pub struct Wallpaper {
     /// The wallpaper image under the dark color scheme. Falls back to `image` when unset.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_dark: Option<PathBuf>,
-    /// How the image meets an output of a different aspect ratio.
+    /// How your wallpaper image fits the screen.
     pub fit: Fit,
     /// How one image replaces another.
     pub transition: Transition,
@@ -24,9 +24,8 @@ pub struct Wallpaper {
     #[schemars(range(min = 0, max = 5_000))]
     pub transition_ms: u32,
     pub backdrop: Backdrop,
-    /// Per-output overrides, matched by connector name such as `DP-1` (the same name
-    /// `[[panels]] monitor` takes). An output with no entry here
-    /// renders the values above. When two entries name the same connector, the first one wins.
+    /// Separate wallpaper settings for each monitor, matched by connector name such as `DP-1`.
+    /// Settings you leave unset use the values above.
     pub outputs: Vec<WallpaperOutput>,
 }
 
@@ -113,8 +112,7 @@ pub enum Fit {
     Cover,
     Contain,
     Fill,
-    /// The image at its own size, centred on color, downscaled only when it exceeds the
-    /// output. contain enlarges a small image and looks soft; this is the honest option.
+    /// Center your image without stretching it.
     Center,
 }
 
@@ -122,18 +120,18 @@ pub enum Fit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Transition {
-    /// A cut, with no animation.
+    /// Switch immediately.
     None,
-    /// A crossfade between the outgoing and incoming image.
+    /// Fade between images.
     Fade,
 }
 
-/// A second background surface, named `glimpse-backdrop`, shown only where the compositor has
-/// somewhere to place it — niri's Overview, through a `place-within-backdrop` layer rule.
+/// Show a second background surface, `glimpse-backdrop`, behind your Overview in `niri`.
+/// Add a `place-within-backdrop` layer rule matching this namespace to see it.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Backdrop {
-    /// Whether the backdrop surface is created at all.
+    /// Show a separate background in your overview.
     pub enabled: bool,
     /// Source image. Unset derives it from `[wallpaper] image`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,12 +139,12 @@ pub struct Backdrop {
     /// Source image under the dark color scheme. Unset derives it from `[wallpaper] image-dark`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_dark: Option<PathBuf>,
-    /// Gaussian blur radius in output pixels; 0 blurs nothing.
+    /// How much you blur your overview background, in pixels, from 0 to 128.
     #[serde(deserialize_with = "blur_radius")]
     #[schemars(range(min = 0, max = 128))]
     pub blur_radius: u32,
-    /// Divides the output's physical size to get the size the backdrop is decoded at; 1 decodes
-    /// at full size. The shorter side never drops below 256 pixels.
+    /// How much you shrink your overview background before blurring it, from 1 to 16. Higher values
+    /// use less memory but lose detail.
     #[serde(deserialize_with = "downscale_factor")]
     #[schemars(range(min = 1, max = 16))]
     pub downscale_factor: u32,

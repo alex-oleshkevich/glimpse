@@ -18,7 +18,7 @@
       "type": "object",
       "properties": {
         "audio": {
-          "description": "Output volume, with the default sink and per-application streams in its popover.",
+          "description": "Speaker and application volume.",
           "type": "object",
           "properties": {
             "extends": {
@@ -46,11 +46,11 @@
           "required": []
         },
         "bluetooth": {
-          "description": "Adapter state and paired devices.",
+          "description": "Bluetooth and paired devices.",
           "type": "object",
           "properties": {
             "devices": {
-              "description": "How many paired devices the popover lists before the rest go behind a drawer.",
+              "description": "How many disconnected paired devices you see before a \"more devices\" row. Connected devices\ndon't count.",
               "type": "integer",
               "format": "uint",
               "default": 6,
@@ -68,7 +68,7 @@
               "minimum": 0
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices\nare connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's\nname.",
+              "description": "Your tooltip text, with `{status}` for connection status, `{devices}` for connected devices\nand `{adapter}` for your Bluetooth adapter's name.",
               "type": [
                 "string",
                 "null"
@@ -88,21 +88,21 @@
               "const": "clipboard"
             },
             "label-format": {
-              "description": "What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the\nchip is an icon alone, which is what every applet does unless asked otherwise.",
+              "description": "Text beside your icon, with `{count}` for the number of entries in your history.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "preview-chars": {
-              "description": "How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at\nmost and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much\non screen. Clamped to 8..=128.",
+              "description": "How many characters of each clipboard entry you see in its preview, from 8 to 128.",
               "type": "integer",
               "format": "uint",
               "default": 72,
               "minimum": 0
             },
             "show-when-empty": {
-              "description": "Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room\nuntil there is something to open it for.",
+              "description": "Keep the chip visible when your history is empty.",
               "type": "boolean",
               "default": false
             },
@@ -114,7 +114,7 @@
               ]
             },
             "visible": {
-              "description": "How many recent entries the popover lists. Nothing in the panel scrolls, so this is what\nkeeps the card on the screen. Pinned entries are listed above and are not counted here —\na pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.",
+              "description": "How many recent entries the popover shows. Pinned entries don't count.",
               "type": "integer",
               "format": "uint",
               "default": 10,
@@ -133,7 +133,7 @@
               "const": "clock"
             },
             "hide-all-day": {
-              "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
+              "description": "Hide all-day events from your calendar's day list and month grid.",
               "type": "boolean",
               "default": false
             },
@@ -143,7 +143,7 @@
               "default": "%a, %-d %b, %H:%M"
             },
             "timezone": {
-              "description": "The IANA zone this clock reads, such as `UTC` or `Asia/Tokyo`. Unset is the local zone;\nnaming one is how a second `[applets.clock-utc]` shows somewhere else.",
+              "description": "Your clock's time zone, such as `UTC` or `Asia/Tokyo`. Leave it unset to use your local\ntime.",
               "type": [
                 "string",
                 "null"
@@ -165,7 +165,7 @@
               ]
             },
             "week-numbers": {
-              "description": "Whether the popover names the ISO week the shown month belongs to.",
+              "description": "Show today's week number above your calendar.",
               "type": "boolean",
               "default": true
             }
@@ -194,7 +194,7 @@
           "required": []
         },
         "command": {
-          "description": "A chip the user defines, running a program on a click or a scroll.",
+          "description": "Your own commands on the bar.",
           "type": "object",
           "properties": {
             "extends": {
@@ -209,7 +209,7 @@
               ]
             },
             "label": {
-              "description": "Text beside the icon. With neither an icon nor a label the chip takes no room.",
+              "description": "Text beside your icon.",
               "type": [
                 "string",
                 "null"
@@ -237,28 +237,28 @@
               }
             },
             "on-scroll-down": {
-              "description": "What each notch of scrolling down runs, once per notch.",
+              "description": "What scrolling down runs, once per notch.",
               "type": "array",
               "items": {
                 "type": "string"
               }
             },
             "on-scroll-left": {
-              "description": "What each notch of scrolling left runs, once per notch.",
+              "description": "What scrolling left runs, once per notch.",
               "type": "array",
               "items": {
                 "type": "string"
               }
             },
             "on-scroll-right": {
-              "description": "What each notch of scrolling right runs, once per notch.",
+              "description": "What scrolling right runs, once per notch.",
               "type": "array",
               "items": {
                 "type": "string"
               }
             },
             "on-scroll-up": {
-              "description": "What each notch of scrolling up runs, once per notch.",
+              "description": "What scrolling up runs, once per notch.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -276,7 +276,7 @@
           "required": []
         },
         "display": {
-          "description": "Connected outputs, brightness and night light in one popover.",
+          "description": "Displays, brightness and night light.",
           "type": "object",
           "properties": {
             "extends": {
@@ -284,7 +284,7 @@
               "const": "display"
             },
             "scroll-step": {
-              "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+              "description": "How much scrolling one notch changes your display's brightness, in percent, from 1 to 100.",
               "type": "integer",
               "format": "uint8",
               "default": 5,
@@ -292,7 +292,7 @@
               "minimum": 1
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its\nbrightness in percent.",
+              "description": "Your tooltip text, with `{name}` for the display's name and `{brightness}` for its\nbrightness percentage.",
               "type": [
                 "string",
                 "null"
@@ -304,7 +304,7 @@
           "required": []
         },
         "exec": {
-          "description": "A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).",
+          "description": "A third-party applet.",
           "type": "object",
           "properties": {
             "applet": {
@@ -348,7 +348,7 @@
           "required": []
         },
         "idle": {
-          "description": "Idle inhibition, for keeping the screen awake.",
+          "description": "Keep your screen awake.",
           "type": "object",
           "properties": {
             "extends": {
@@ -356,7 +356,7 @@
               "const": "idle"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if\nanything.",
+              "description": "Your tooltip text, with `{status}` for what is keeping your screen awake.",
               "type": [
                 "string",
                 "null"
@@ -368,11 +368,11 @@
           "required": []
         },
         "kdeconnect": {
-          "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+          "description": "Your paired KDE Connect phone.",
           "type": "object",
           "properties": {
             "device": {
-              "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+              "description": "The paired phone you follow, matched by its full name. Names are case sensitive.",
               "type": [
                 "string",
                 "null"
@@ -383,7 +383,7 @@
               "const": "kdeconnect"
             },
             "hide-when-disconnected": {
-              "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+              "description": "Hide your phone's icon when disconnected, except during a pairing request.",
               "type": "boolean",
               "default": false
             },
@@ -393,7 +393,7 @@
               "default": "icon-text"
             },
             "label-format": {
-              "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+              "description": "Your phone's label, with `{name}`, `{battery}` and `{charging}`.",
               "type": "string",
               "default": "{battery}"
             },
@@ -417,7 +417,7 @@
               "const": "keyboard"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full\nname.",
+              "description": "Your tooltip text, with `{code}` for the short layout label and `{name}` for its full\nname.",
               "type": [
                 "string",
                 "null"
@@ -429,7 +429,7 @@
           "required": []
         },
         "mpris": {
-          "description": "The currently playing track, with transport controls in its popover.",
+          "description": "Music and playback controls.",
           "type": "object",
           "properties": {
             "extends": {
@@ -437,12 +437,12 @@
               "const": "mpris"
             },
             "label-format": {
-              "description": "What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,\n`{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with\nnothing behind it renders as nothing.",
+              "description": "Your track label, using `{player}`, `{title}`, `{artist}`, `{album}`, `{state}`,\n`{position}`, `{duration}` and `{remaining}`.",
               "type": "string",
               "default": "{title} — {artist}"
             },
             "max-length": {
-              "description": "Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from\nwhatever is playing and are unbounded, and a bar that resizes as they change is worse than\none that truncates.",
+              "description": "How many characters of your track label you see before it ends in `…`.",
               "type": "integer",
               "format": "uint8",
               "default": 40,
@@ -450,7 +450,7 @@
               "minimum": 0
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.",
+              "description": "Your tooltip text, using the same placeholders as `label-format`.",
               "type": [
                 "string",
                 "null"
@@ -461,7 +461,7 @@
           "required": []
         },
         "network": {
-          "description": "Connection state, with the available networks in its popover.",
+          "description": "Your network connections.",
           "type": "object",
           "properties": {
             "extends": {
@@ -469,7 +469,7 @@
               "const": "network"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads\nMetered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`\nthe active VPN's name. A line whose tokens are all empty is left out.",
+              "description": "Your tooltip text, with `{connection}` for your network, `{metered}` for its metered status,\n`{signal}` for Wi-Fi strength and `{vpn}` for your VPN's name.",
               "type": [
                 "string",
                 "null"
@@ -477,14 +477,14 @@
               "default": "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}"
             },
             "visible-networks": {
-              "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
+              "description": "How many other networks you see before a \"more networks\" row; `0` shows all. Connected and\nsaved networks don't count.",
               "type": "integer",
               "format": "uint",
               "default": 8,
               "minimum": 0
             },
             "vpn-chip": {
-              "description": "Whether an active VPN gets a chip of its own beside the network chip. An indicator is an\nicon, and two states overlaid on one glyph are illegible at bar size.",
+              "description": "Show your active VPN as a separate icon beside your network icon.",
               "type": "boolean",
               "default": true
             }
@@ -497,12 +497,12 @@
           "type": "object",
           "properties": {
             "all-day": {
-              "description": "Whether an all-day entry may take the bar. A timed event always wins over one, so this\nonly decides what happens on a day holding nothing else — leaving it off keeps a week of\nleave from pinning the applet open for the whole week.",
+              "description": "Show all-day events on your bar when there are no timed events to show.",
               "type": "boolean",
               "default": false
             },
             "countdown": {
-              "description": "How close an event has to be before the bar spells out how long is left, in minutes. Inside\nit the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;\noutside it the title stands alone. Set it below `within` to have an entry appear quietly and\nstart counting only as it approaches; `0` never counts.",
+              "description": "How many minutes before an event starts you see a countdown beside its title. With `0`, you\nonly see a countdown after the event starts.",
               "type": "integer",
               "format": "uint64",
               "default": 60,
@@ -513,7 +513,7 @@
               "const": "next-event"
             },
             "horizon": {
-              "description": "How far ahead the popover's list reaches, in minutes. This is the second of two windows and\nthe wider one: `within` decides when the bar lights up, `horizon` decides what the list\nholds once you open it. The default 720 is twelve hours, so a late-afternoon glance still\nreaches tomorrow morning — a plain \"today only\" rule empties the list at exactly the hour\ntomorrow's first meeting starts mattering. 1440 is a rolling day.",
+              "description": "How many minutes ahead your event list reaches, with `within` as the minimum.",
               "type": "integer",
               "format": "uint64",
               "default": 720,
@@ -527,14 +527,14 @@
               ]
             },
             "upcoming": {
-              "description": "How many entries the popover lists under the one it is showing, whichever `horizon` leaves.\nCapped at 20, because a list longer than that is a popover taller than the screen.",
+              "description": "How many upcoming events you see below the current one.",
               "type": "integer",
               "format": "uint",
               "default": 5,
               "minimum": 0
             },
             "within": {
-              "description": "How long before an event starts it takes the bar, in minutes. Anything further out than\nthis leaves the applet empty, which is what keeps a meeting two days away off a bar that\nhas nothing to say about it. An event that has already started stays until it ends,\nhowever long it has been running, so `0` shows only what is under way.",
+              "description": "How many minutes before an event starts it appears on your bar. With `0`, you only see\nevents already under way.",
               "type": "integer",
               "format": "uint64",
               "default": 60,
@@ -558,7 +558,7 @@
               "default": "icon-dot"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says\nhow many are waiting and whether do not disturb is on.",
+              "description": "Your tooltip text, with `{count}` for the number of unread notifications.",
               "type": [
                 "string",
                 "null"
@@ -577,14 +577,14 @@
               "const": "pager"
             },
             "focused-label": {
-              "description": "The label for the slot the user is on, so the current workspace can show its name while\nthe rest stay numbers. Same tokens as `label`; unset falls back to it.",
+              "description": "Your current slot's text, using the same placeholders as `label`.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "label": {
-              "description": "What a slot reads, when the shape is `labels`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
+              "description": "Your slot text, using `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\nThis also supplies any state label you leave unset.",
               "type": "string",
               "default": "{index}"
             },
@@ -604,14 +604,14 @@
               "default": "dots"
             },
             "unfocused-label": {
-              "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
+              "description": "Text for other slots, using the same placeholders as `label`.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "urgent-label": {
-              "description": "The label for a slot asking for attention. Takes precedence over the other two, because a\nwindow wanting attention is the one thing the strip exists to surface. Same tokens as\n`label`; unset falls back to it.",
+              "description": "Text for a slot asking for attention, using the same placeholders as `label`.",
               "type": [
                 "string",
                 "null"
@@ -637,7 +637,7 @@
               "const": "places"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover\nlists.",
+              "description": "Your tooltip text, with `{bookmarks}` for your bookmark count and `{places}` for your home\nand user-directory count.",
               "type": [
                 "string",
                 "null"
@@ -687,7 +687,7 @@
               "const": "printing"
             },
             "jobs": {
-              "description": "Print jobs listed in the popover before older ones are hidden.",
+              "description": "How many active print jobs you see.",
               "type": "integer",
               "format": "uint",
               "default": 8,
@@ -699,7 +699,7 @@
               "default": "jobs"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the\nprinter, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only\nwhile something is printing. A line whose tokens are all empty is left out.",
+              "description": "Your tooltip text, with `{document}` for the current document, `{printer}` for its printer,\n`{pages}` for progress and `{count}` for the jobs shown.",
               "type": [
                 "string",
                 "null"
@@ -711,7 +711,7 @@
           "required": []
         },
         "privacy": {
-          "description": "Shows when the microphone, camera or screen is in use.",
+          "description": "Microphone, camera, screen and location use.",
           "type": "object",
           "properties": {
             "extends": {
@@ -750,7 +750,7 @@
           "required": []
         },
         "removable": {
-          "description": "Removable drives, one row each, with open and eject in its popover.",
+          "description": "Removable drives.",
           "type": "object",
           "properties": {
             "extends": {
@@ -777,7 +777,7 @@
           "required": []
         },
         "ruler": {
-          "description": "Measures a distance on screen on right click; the popover keeps recent measurements.",
+          "description": "Screen measurements.",
           "type": "object",
           "properties": {
             "extends": {
@@ -785,7 +785,7 @@
               "const": "ruler"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{measurement}` is the last distance measured.",
+              "description": "Your tooltip text, with `{measurement}` for your last measured distance.",
               "type": [
                 "string",
                 "null"
@@ -805,7 +805,7 @@
               "const": "session"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{user}` is your user name.",
+              "description": "Your tooltip text, with `{user}` for your user name.",
               "type": [
                 "string",
                 "null"
@@ -817,16 +817,16 @@
           "required": []
         },
         "system-monitor": {
-          "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the\napplet is on a panel.",
+          "description": "Your computer's resource usage.",
           "type": "object",
           "properties": {
             "chip-format": {
-              "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network, \"62°C\" for a\ntemperature). An\nunrecognized token is left as literal text rather than silently emptied.",
+              "description": "Your indicator text, with `{name}` for the resource name and `{value}` for its reading.",
               "type": "string",
               "default": "{name} {value}"
             },
             "chips": {
-              "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+              "description": "Which resource indicators you see on your bar, in order. Other readings still appear when\nyou click one.",
               "type": "array",
               "default": [
                 "cpu",
@@ -849,14 +849,14 @@
               "const": "system-monitor"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.",
+              "description": "Your tooltip text, shared by all resource indicators.",
               "type": [
                 "string",
                 "null"
               ]
             },
             "warn-percent": {
-              "description": "Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is\nshown as a warning. Network and temperatures have no percentage and are never colored.",
+              "description": "The percentage at which CPU, RAM, swap and GPU readings show a warning.",
               "type": "integer",
               "format": "uint8",
               "default": 85,
@@ -868,7 +868,7 @@
           "required": []
         },
         "tray": {
-          "description": "The system tray: icons from applications that ask for one.",
+          "description": "Application icons in the system tray.",
           "type": "object",
           "properties": {
             "extends": {
@@ -876,7 +876,7 @@
               "const": "tray"
             },
             "hide": {
-              "description": "Item ids never shown, matched against the application's own `Id`. That id survives an\napplication restart, which the bus name it happens to hold does not.",
+              "description": "Hide tray icons by their application id.",
               "type": "array",
               "default": [],
               "items": {
@@ -884,7 +884,7 @@
               }
             },
             "max-visible": {
-              "description": "How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every\nicon on the bar and shows no chevron.",
+              "description": "How many tray icons stay on your bar before the rest go behind an arrow. Pinned icons always\nstay visible; `0` shows every icon.",
               "type": "integer",
               "format": "uint8",
               "default": 0,
@@ -892,7 +892,7 @@
               "minimum": 0
             },
             "pin": {
-              "description": "Item ids kept on the bar whatever the cap, in the order given. Anything not named here\nfollows in the order the items registered.",
+              "description": "Keep these tray icons on your bar in the order you give, even beyond `max-visible`.",
               "type": "array",
               "default": [],
               "items": {
@@ -904,7 +904,7 @@
           "required": []
         },
         "weather": {
-          "description": "Current conditions, with the forecast in its popover.",
+          "description": "Current weather and forecast.",
           "type": "object",
           "properties": {
             "days": {
@@ -920,7 +920,7 @@
               "const": "weather"
             },
             "hours": {
-              "description": "How many hours the popover's strip shows. The strip starts at the next hour — the hour\nstanding is already the hero.",
+              "description": "How many forecast hours you see, starting with the next hour.",
               "type": "integer",
               "format": "uint8",
               "default": 4,
@@ -928,7 +928,7 @@
               "minimum": 0
             },
             "label": {
-              "description": "What the bar and the popover call this place. Unset means a fixed place reads as the pair\nit was given, and `here` as whatever the geolocation service resolved.",
+              "description": "Your place's name in the tooltip and weather panel. Leave it unset to use the city name.",
               "type": [
                 "string",
                 "null"
@@ -954,7 +954,7 @@
           "required": []
         },
         "widget-demo": {
-          "description": "A popover with a colored block in every slot of the shell. A development fixture, mirrored by\n`sdk/examples/widget_demo`, for comparing built-in and exec rendering; not meant for a real bar.",
+          "description": "A widget preview for testing.",
           "type": "object",
           "properties": {
             "extends": {
@@ -966,7 +966,7 @@
           "required": []
         },
         "workspace-name": {
-          "description": "The current workspace's name, renamed from its popover.",
+          "description": "Your current workspace's name.",
           "type": "object",
           "properties": {
             "extends": {
@@ -974,7 +974,7 @@
               "const": "workspace-name"
             },
             "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and\n`{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace\nand its monitor.",
+              "description": "Your tooltip text, using the same placeholders as the pager's `label`.",
               "type": [
                 "string",
                 "null"
@@ -988,7 +988,7 @@
       "additionalProperties": {
         "oneOf": [
           {
-            "description": "Output volume, with the default sink and per-application streams in its popover.",
+            "description": "Speaker and application volume.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1050,11 +1050,11 @@
             ]
           },
           {
-            "description": "Adapter state and paired devices.",
+            "description": "Bluetooth and paired devices.",
             "type": "object",
             "properties": {
               "devices": {
-                "description": "How many paired devices the popover lists before the rest go behind a drawer.",
+                "description": "How many disconnected paired devices you see before a \"more devices\" row. Connected devices\ndon't count.",
                 "type": "integer",
                 "format": "uint",
                 "default": 6,
@@ -1072,7 +1072,7 @@
                 "minimum": 0
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{status}` says whether Bluetooth is on and how many devices\nare connected, `{devices}` lists the connected devices and `{adapter}` is the adapter's\nname.",
+                "description": "Your tooltip text, with `{status}` for connection status, `{devices}` for connected devices\nand `{adapter}` for your Bluetooth adapter's name.",
                 "type": [
                   "string",
                   "null"
@@ -1094,21 +1094,21 @@
                 "const": "clipboard"
               },
               "label-format": {
-                "description": "What the chip reads beside its icon. `{count}` is the number of entries held. Left unset the\nchip is an icon alone, which is what every applet does unless asked otherwise.",
+                "description": "Text beside your icon, with `{count}` for the number of entries in your history.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "preview-chars": {
-                "description": "How much of an entry a row shows before it is ellipsized, in characters. A row holds 128 at\nmost and shows roughly 24 before ellipsizing, so this trades tooltip detail for nothing much\non screen. Clamped to 8..=128.",
+                "description": "How many characters of each clipboard entry you see in its preview, from 8 to 128.",
                 "type": "integer",
                 "format": "uint",
                 "default": 72,
                 "minimum": 0
               },
               "show-when-empty": {
-                "description": "Whether the chip is shown when nothing has been copied yet. Off, the applet takes no room\nuntil there is something to open it for.",
+                "description": "Keep the chip visible when your history is empty.",
                 "type": "boolean",
                 "default": false
               },
@@ -1120,7 +1120,7 @@
                 ]
               },
               "visible": {
-                "description": "How many recent entries the popover lists. Nothing in the panel scrolls, so this is what\nkeeps the card on the screen. Pinned entries are listed above and are not counted here —\na pin is an explicit choice and is never dropped from the list. Clamped to 1..=50.",
+                "description": "How many recent entries the popover shows. Pinned entries don't count.",
                 "type": "integer",
                 "format": "uint",
                 "default": 10,
@@ -1141,7 +1141,7 @@
                 "const": "clock"
               },
               "hide-all-day": {
-                "description": "Whether an all-day entry is left out of the calendar popover's day list entirely, rather\nthan shown alongside the day's timed events.",
+                "description": "Hide all-day events from your calendar's day list and month grid.",
                 "type": "boolean",
                 "default": false
               },
@@ -1151,7 +1151,7 @@
                 "default": "%a, %-d %b, %H:%M"
               },
               "timezone": {
-                "description": "The IANA zone this clock reads, such as `UTC` or `Asia/Tokyo`. Unset is the local zone;\nnaming one is how a second `[applets.clock-utc]` shows somewhere else.",
+                "description": "Your clock's time zone, such as `UTC` or `Asia/Tokyo`. Leave it unset to use your local\ntime.",
                 "type": [
                   "string",
                   "null"
@@ -1173,7 +1173,7 @@
                 ]
               },
               "week-numbers": {
-                "description": "Whether the popover names the ISO week the shown month belongs to.",
+                "description": "Show today's week number above your calendar.",
                 "type": "boolean",
                 "default": true
               }
@@ -1206,7 +1206,7 @@
             ]
           },
           {
-            "description": "A chip the user defines, running a program on a click or a scroll.",
+            "description": "Your own commands on the bar.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1221,7 +1221,7 @@
                 ]
               },
               "label": {
-                "description": "Text beside the icon. With neither an icon nor a label the chip takes no room.",
+                "description": "Text beside your icon.",
                 "type": [
                   "string",
                   "null"
@@ -1249,28 +1249,28 @@
                 }
               },
               "on-scroll-down": {
-                "description": "What each notch of scrolling down runs, once per notch.",
+                "description": "What scrolling down runs, once per notch.",
                 "type": "array",
                 "items": {
                   "type": "string"
                 }
               },
               "on-scroll-left": {
-                "description": "What each notch of scrolling left runs, once per notch.",
+                "description": "What scrolling left runs, once per notch.",
                 "type": "array",
                 "items": {
                   "type": "string"
                 }
               },
               "on-scroll-right": {
-                "description": "What each notch of scrolling right runs, once per notch.",
+                "description": "What scrolling right runs, once per notch.",
                 "type": "array",
                 "items": {
                   "type": "string"
                 }
               },
               "on-scroll-up": {
-                "description": "What each notch of scrolling up runs, once per notch.",
+                "description": "What scrolling up runs, once per notch.",
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -1290,7 +1290,7 @@
             ]
           },
           {
-            "description": "Connected outputs, brightness and night light in one popover.",
+            "description": "Displays, brightness and night light.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1298,7 +1298,7 @@
                 "const": "display"
               },
               "scroll-step": {
-                "description": "How much a scroll notch on the chip moves the current display, in percent of its range.\nConverted to native units at the call site and rounded away from zero, so a notch always\nmoves something even on a display with a small native range. Zero would leave the wheel\nsilently dead; the range is 1 to 100.",
+                "description": "How much scrolling one notch changes your display's brightness, in percent, from 1 to 100.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 5,
@@ -1306,7 +1306,7 @@
                 "minimum": 1
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{name}` is the display's name and `{brightness}` its\nbrightness in percent.",
+                "description": "Your tooltip text, with `{name}` for the display's name and `{brightness}` for its\nbrightness percentage.",
                 "type": [
                   "string",
                   "null"
@@ -1320,7 +1320,7 @@
             ]
           },
           {
-            "description": "A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).",
+            "description": "A third-party applet.",
             "type": "object",
             "properties": {
               "applet": {
@@ -1367,7 +1367,7 @@
             ]
           },
           {
-            "description": "Idle inhibition, for keeping the screen awake.",
+            "description": "Keep your screen awake.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1375,7 +1375,7 @@
                 "const": "idle"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{status}` says what is keeping the screen awake, if\nanything.",
+                "description": "Your tooltip text, with `{status}` for what is keeping your screen awake.",
                 "type": [
                   "string",
                   "null"
@@ -1389,11 +1389,11 @@
             ]
           },
           {
-            "description": "A phone paired through KDE Connect: its battery on the bar, and ring, ping, send and pair\nin its popover. Needs `kdeconnectd` running; it is never started from here.",
+            "description": "Your paired KDE Connect phone.",
             "type": "object",
             "properties": {
               "device": {
-                "description": "The device the bar follows, by the name the device announces. Unset follows the first\nconnected paired device.",
+                "description": "The paired phone you follow, matched by its full name. Names are case sensitive.",
                 "type": [
                   "string",
                   "null"
@@ -1404,7 +1404,7 @@
                 "const": "kdeconnect"
               },
               "hide-when-disconnected": {
-                "description": "Hide the chip while no paired device is connected, instead of showing it with an offline\nemblem.",
+                "description": "Hide your phone's icon when disconnected, except during a pairing request.",
                 "type": "boolean",
                 "default": false
               },
@@ -1414,7 +1414,7 @@
                 "default": "icon-text"
               },
               "label-format": {
-                "description": "What the label shows. Placeholders are replaced by name: `{name}`, `{battery}` and\n`{charging}`. A placeholder with nothing behind it renders as nothing, so a device with no\nbattery never shows a bare `%`.",
+                "description": "Your phone's label, with `{name}`, `{battery}` and `{charging}`.",
                 "type": "string",
                 "default": "{battery}"
               },
@@ -1440,7 +1440,7 @@
                 "const": "keyboard"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{code}` is the layout's short label and `{name}` its full\nname.",
+                "description": "Your tooltip text, with `{code}` for the short layout label and `{name}` for its full\nname.",
                 "type": [
                   "string",
                   "null"
@@ -1454,7 +1454,7 @@
             ]
           },
           {
-            "description": "The currently playing track, with transport controls in its popover.",
+            "description": "Music and playback controls.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1462,12 +1462,12 @@
                 "const": "mpris"
               },
               "label-format": {
-                "description": "What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,\n`{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with\nnothing behind it renders as nothing.",
+                "description": "Your track label, using `{player}`, `{title}`, `{artist}`, `{album}`, `{state}`,\n`{position}`, `{duration}` and `{remaining}`.",
                 "type": "string",
                 "default": "{title} — {artist}"
               },
               "max-length": {
-                "description": "Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from\nwhatever is playing and are unbounded, and a bar that resizes as they change is worse than\none that truncates.",
+                "description": "How many characters of your track label you see before it ends in `…`.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 40,
@@ -1475,7 +1475,7 @@
                 "minimum": 0
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. The same tokens as `label-format`. Unset shows no tooltip.",
+                "description": "Your tooltip text, using the same placeholders as `label-format`.",
                 "type": [
                   "string",
                   "null"
@@ -1488,7 +1488,7 @@
             ]
           },
           {
-            "description": "Connection state, with the available networks in its popover.",
+            "description": "Your network connections.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1496,7 +1496,7 @@
                 "const": "network"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{connection}` is the network you are on, `{metered}` reads\nMetered connection on a metered one, `{signal}` is the Wi-Fi signal in percent and `{vpn}`\nthe active VPN's name. A line whose tokens are all empty is left out.",
+                "description": "Your tooltip text, with `{connection}` for your network, `{metered}` for its metered status,\n`{signal}` for Wi-Fi strength and `{vpn}` for your VPN's name.",
                 "type": [
                   "string",
                   "null"
@@ -1504,14 +1504,14 @@
                 "default": "{connection}\n{metered}\nSignal {signal}%\nVPN: {vpn}"
               },
               "visible-networks": {
-                "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
+                "description": "How many other networks you see before a \"more networks\" row; `0` shows all. Connected and\nsaved networks don't count.",
                 "type": "integer",
                 "format": "uint",
                 "default": 8,
                 "minimum": 0
               },
               "vpn-chip": {
-                "description": "Whether an active VPN gets a chip of its own beside the network chip. An indicator is an\nicon, and two states overlaid on one glyph are illegible at bar size.",
+                "description": "Show your active VPN as a separate icon beside your network icon.",
                 "type": "boolean",
                 "default": true
               }
@@ -1526,12 +1526,12 @@
             "type": "object",
             "properties": {
               "all-day": {
-                "description": "Whether an all-day entry may take the bar. A timed event always wins over one, so this\nonly decides what happens on a day holding nothing else — leaving it off keeps a week of\nleave from pinning the applet open for the whole week.",
+                "description": "Show all-day events on your bar when there are no timed events to show.",
                 "type": "boolean",
                 "default": false
               },
               "countdown": {
-                "description": "How close an event has to be before the bar spells out how long is left, in minutes. Inside\nit the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;\noutside it the title stands alone. Set it below `within` to have an entry appear quietly and\nstart counting only as it approaches; `0` never counts.",
+                "description": "How many minutes before an event starts you see a countdown beside its title. With `0`, you\nonly see a countdown after the event starts.",
                 "type": "integer",
                 "format": "uint64",
                 "default": 60,
@@ -1542,7 +1542,7 @@
                 "const": "next-event"
               },
               "horizon": {
-                "description": "How far ahead the popover's list reaches, in minutes. This is the second of two windows and\nthe wider one: `within` decides when the bar lights up, `horizon` decides what the list\nholds once you open it. The default 720 is twelve hours, so a late-afternoon glance still\nreaches tomorrow morning — a plain \"today only\" rule empties the list at exactly the hour\ntomorrow's first meeting starts mattering. 1440 is a rolling day.",
+                "description": "How many minutes ahead your event list reaches, with `within` as the minimum.",
                 "type": "integer",
                 "format": "uint64",
                 "default": 720,
@@ -1556,14 +1556,14 @@
                 ]
               },
               "upcoming": {
-                "description": "How many entries the popover lists under the one it is showing, whichever `horizon` leaves.\nCapped at 20, because a list longer than that is a popover taller than the screen.",
+                "description": "How many upcoming events you see below the current one.",
                 "type": "integer",
                 "format": "uint",
                 "default": 5,
                 "minimum": 0
               },
               "within": {
-                "description": "How long before an event starts it takes the bar, in minutes. Anything further out than\nthis leaves the applet empty, which is what keeps a meeting two days away off a bar that\nhas nothing to say about it. An event that has already started stays until it ends,\nhowever long it has been running, so `0` shows only what is under way.",
+                "description": "How many minutes before an event starts it appears on your bar. With `0`, you only see\nevents already under way.",
                 "type": "integer",
                 "format": "uint64",
                 "default": 60,
@@ -1589,7 +1589,7 @@
                 "default": "icon-dot"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{count}` is the number of unread notifications. Unset says\nhow many are waiting and whether do not disturb is on.",
+                "description": "Your tooltip text, with `{count}` for the number of unread notifications.",
                 "type": [
                   "string",
                   "null"
@@ -1610,14 +1610,14 @@
                 "const": "pager"
               },
               "focused-label": {
-                "description": "The label for the slot the user is on, so the current workspace can show its name while\nthe rest stay numbers. Same tokens as `label`; unset falls back to it.",
+                "description": "Your current slot's text, using the same placeholders as `label`.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "label": {
-                "description": "What a slot reads, when the shape is `labels`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
+                "description": "Your slot text, using `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\nThis also supplies any state label you leave unset.",
                 "type": "string",
                 "default": "{index}"
               },
@@ -1637,14 +1637,14 @@
                 "default": "dots"
               },
               "unfocused-label": {
-                "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
+                "description": "Text for other slots, using the same placeholders as `label`.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "urgent-label": {
-                "description": "The label for a slot asking for attention. Takes precedence over the other two, because a\nwindow wanting attention is the one thing the strip exists to surface. Same tokens as\n`label`; unset falls back to it.",
+                "description": "Text for a slot asking for attention, using the same placeholders as `label`.",
                 "type": [
                   "string",
                   "null"
@@ -1672,7 +1672,7 @@
                 "const": "places"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{bookmarks}` and `{places}` are how many of each the popover\nlists.",
+                "description": "Your tooltip text, with `{bookmarks}` for your bookmark count and `{places}` for your home\nand user-directory count.",
                 "type": [
                   "string",
                   "null"
@@ -1694,7 +1694,7 @@
                 "const": "printing"
               },
               "jobs": {
-                "description": "Print jobs listed in the popover before older ones are hidden.",
+                "description": "How many active print jobs you see.",
                 "type": "integer",
                 "format": "uint",
                 "default": 8,
@@ -1706,7 +1706,7 @@
                 "default": "jobs"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{document}` is the document printing now, `{printer}` the\nprinter, `{pages}` how far it has got and `{count}` how many jobs are waiting. Shown only\nwhile something is printing. A line whose tokens are all empty is left out.",
+                "description": "Your tooltip text, with `{document}` for the current document, `{printer}` for its printer,\n`{pages}` for progress and `{count}` for the jobs shown.",
                 "type": [
                   "string",
                   "null"
@@ -1720,7 +1720,7 @@
             ]
           },
           {
-            "description": "Shows when the microphone, camera or screen is in use.",
+            "description": "Microphone, camera, screen and location use.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1761,7 +1761,7 @@
             ]
           },
           {
-            "description": "Removable drives, one row each, with open and eject in its popover.",
+            "description": "Removable drives.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1790,7 +1790,7 @@
             ]
           },
           {
-            "description": "Measures a distance on screen on right click; the popover keeps recent measurements.",
+            "description": "Screen measurements.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1798,7 +1798,7 @@
                 "const": "ruler"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{measurement}` is the last distance measured.",
+                "description": "Your tooltip text, with `{measurement}` for your last measured distance.",
                 "type": [
                   "string",
                   "null"
@@ -1820,7 +1820,7 @@
                 "const": "session"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{user}` is your user name.",
+                "description": "Your tooltip text, with `{user}` for your user name.",
                 "type": [
                   "string",
                   "null"
@@ -1834,16 +1834,16 @@
             ]
           },
           {
-            "description": "Live CPU, RAM, swap, disk, network and (amdgpu) GPU load. Nothing is sampled unless the\napplet is on a panel.",
+            "description": "Your computer's resource usage.",
             "type": "object",
             "properties": {
               "chip-format": {
-                "description": "How each chip's own label reads. `{name}` is the chip's own localized name (\"CPU\", \"RAM\",\n…); `{value}` is its reading (\"42%\" for a percentage chip, \"↓1.2 MB/s\" for network, \"62°C\" for a\ntemperature). An\nunrecognized token is left as literal text rather than silently emptied.",
+                "description": "Your indicator text, with `{name}` for the resource name and `{value}` for its reading.",
                 "type": "string",
                 "default": "{name} {value}"
               },
               "chips": {
-                "description": "Chips shown on the bar, in order. Anything sampled but left out here still appears in the\npopover — this list is panel real estate, not visibility. A repeated chip collapses to its\nfirst occurrence.",
+                "description": "Which resource indicators you see on your bar, in order. Other readings still appear when\nyou click one.",
                 "type": "array",
                 "default": [
                   "cpu",
@@ -1866,14 +1866,14 @@
                 "const": "system-monitor"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. Plain text, the same on every chip. Unset shows no tooltip.",
+                "description": "Your tooltip text, shared by all resource indicators.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "warn-percent": {
-                "description": "Percent at and above which a percentage reading (CPU, RAM, swap, GPU usage and memory) is\nshown as a warning. Network and temperatures have no percentage and are never colored.",
+                "description": "The percentage at which CPU, RAM, swap and GPU readings show a warning.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 85,
@@ -1887,7 +1887,7 @@
             ]
           },
           {
-            "description": "The system tray: icons from applications that ask for one.",
+            "description": "Application icons in the system tray.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1895,7 +1895,7 @@
                 "const": "tray"
               },
               "hide": {
-                "description": "Item ids never shown, matched against the application's own `Id`. That id survives an\napplication restart, which the bus name it happens to hold does not.",
+                "description": "Hide tray icons by their application id.",
                 "type": "array",
                 "default": [],
                 "items": {
@@ -1903,7 +1903,7 @@
                 }
               },
               "max-visible": {
-                "description": "How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every\nicon on the bar and shows no chevron.",
+                "description": "How many tray icons stay on your bar before the rest go behind an arrow. Pinned icons always\nstay visible; `0` shows every icon.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 0,
@@ -1911,7 +1911,7 @@
                 "minimum": 0
               },
               "pin": {
-                "description": "Item ids kept on the bar whatever the cap, in the order given. Anything not named here\nfollows in the order the items registered.",
+                "description": "Keep these tray icons on your bar in the order you give, even beyond `max-visible`.",
                 "type": "array",
                 "default": [],
                 "items": {
@@ -1925,7 +1925,7 @@
             ]
           },
           {
-            "description": "Current conditions, with the forecast in its popover.",
+            "description": "Current weather and forecast.",
             "type": "object",
             "properties": {
               "days": {
@@ -1941,7 +1941,7 @@
                 "const": "weather"
               },
               "hours": {
-                "description": "How many hours the popover's strip shows. The strip starts at the next hour — the hour\nstanding is already the hero.",
+                "description": "How many forecast hours you see, starting with the next hour.",
                 "type": "integer",
                 "format": "uint8",
                 "default": 4,
@@ -1949,7 +1949,7 @@
                 "minimum": 0
               },
               "label": {
-                "description": "What the bar and the popover call this place. Unset means a fixed place reads as the pair\nit was given, and `here` as whatever the geolocation service resolved.",
+                "description": "Your place's name in the tooltip and weather panel. Leave it unset to use the city name.",
                 "type": [
                   "string",
                   "null"
@@ -1977,7 +1977,7 @@
             ]
           },
           {
-            "description": "A popover with a colored block in every slot of the shell. A development fixture, mirrored by\n`sdk/examples/widget_demo`, for comparing built-in and exec rendering; not meant for a real bar.",
+            "description": "A widget preview for testing.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1991,7 +1991,7 @@
             ]
           },
           {
-            "description": "The current workspace's name, renamed from its popover.",
+            "description": "Your current workspace's name.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1999,7 +1999,7 @@
                 "const": "workspace-name"
               },
               "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{index}`, `{id}`, `{name}`, `{name-or-index}` and\n`{workspace-name}`, the same tokens as the pager's `label`. Unset shows the workspace\nand its monitor.",
+                "description": "Your tooltip text, using the same placeholders as the pager's `label`.",
                 "type": [
                   "string",
                   "null"
@@ -2016,7 +2016,7 @@
       "default": {},
       "patternProperties": {
         "^[_A-Za-z][_A-Za-z0-9-]*\\.[_A-Za-z][_A-Za-z0-9-]*(\\.[_A-Za-z][_A-Za-z0-9-]*)*$": {
-          "description": "A third-party applet found through its `.desktop` file (`Implements=me.aresa.Glimpse.Applet1`).",
+          "description": "A third-party applet.",
           "type": "object",
           "properties": {
             "applet": {
@@ -2386,11 +2386,11 @@
       "additionalProperties": false
     },
     "Backdrop": {
-      "description": "A second background surface, named `glimpse-backdrop`, shown only where the compositor has\nsomewhere to place it — niri's Overview, through a `place-within-backdrop` layer rule.",
+      "description": "Show a second background surface, `glimpse-backdrop`, behind your Overview in `niri`.\nAdd a `place-within-backdrop` layer rule matching this namespace to see it.",
       "type": "object",
       "properties": {
         "blur-radius": {
-          "description": "Gaussian blur radius in output pixels; 0 blurs nothing.",
+          "description": "How much you blur your overview background, in pixels, from 0 to 128.",
           "type": "integer",
           "format": "uint32",
           "default": 24,
@@ -2398,7 +2398,7 @@
           "minimum": 0
         },
         "downscale-factor": {
-          "description": "Divides the output's physical size to get the size the backdrop is decoded at; 1 decodes\nat full size. The shorter side never drops below 256 pixels.",
+          "description": "How much you shrink your overview background before blurring it, from 1 to 16. Higher values\nuse less memory but lose detail.",
           "type": "integer",
           "format": "uint32",
           "default": 4,
@@ -2406,7 +2406,7 @@
           "minimum": 1
         },
         "enabled": {
-          "description": "Whether the backdrop surface is created at all.",
+          "description": "Show a separate background in your overview.",
           "type": "boolean",
           "default": true
         },
@@ -2477,12 +2477,12 @@
       "type": "object",
       "properties": {
         "hide-unnamed": {
-          "description": "Whether to hide nearby devices that advertise no name. Most of them are beacons whose only\nidentity is their own address, and they arrive in large numbers during a scan.",
+          "description": "Hide nearby Bluetooth devices that have no name.",
           "type": "boolean",
           "default": true
         },
         "scan-timeout": {
-          "description": "How many seconds a scan for nearby devices runs before stopping on its own. Scanning costs\nbattery and interferes with connected audio, so it is never left running. `0` disables the\ntimeout and leaves the scan running until the popover closes.",
+          "description": "How many seconds you scan for nearby Bluetooth devices. With `0`, scanning continues until\nyou close the popover.",
           "type": "integer",
           "format": "uint64",
           "default": 30,
@@ -2504,12 +2504,12 @@
       "type": "object",
       "properties": {
         "ddc": {
-          "description": "Whether glimpse controls the brightness of external monitors. Most monitors support it; turn\nit off if one reacts slowly, flickers or misbehaves when the brightness changes.",
+          "description": "Control the brightness of your external monitors. Changes apply after you restart the panel.",
           "type": "boolean",
           "default": true
         },
         "minimum": {
-          "description": "The lowest percent a display's backlight is allowed to reach; the keyboard backlight ignores\nit and may still go to 0. Every write glimpse makes to a display source is clamped here,\nbecause a screen driven all the way dark is indistinguishable from one that has failed.",
+          "description": "The lowest brightness percentage your display can reach, from 0 to 100. Your keyboard\nbacklight can still reach 0.",
           "type": "integer",
           "format": "uint8",
           "default": 3,
@@ -2520,18 +2520,18 @@
       "additionalProperties": false
     },
     "Calendar": {
-      "description": "Where calendar events come from. One list, read by every surface that shows an event: the\nclock popover, the day markers on its grid, and the `next-event` applet.",
+      "description": "Share your calendar events between the clock grid, day list and `next-event`.\nYou get events from 31 days back to 62 days ahead; browsing the clock moves that window, with a maximum span of 400 days.\nUp to 512 events are kept, with 512 occurrences per recurring event and titles cut at 120 characters.",
       "type": "object",
       "properties": {
         "poll-interval": {
-          "description": "How often a source that lives on the network is fetched again, in seconds, unless it\nnames its own. Anything local is watched instead and ignores this: a `directory`, and an\n`ical` whose `uri` is a path or a `file://`. The exception is a `file://` holding a\none-line feed URL, which is both — watched for the URL changing, fetched on this interval\nfor the calendar behind it.",
+          "description": "How often online calendars update, in seconds, unless a source sets its own interval.\nLocal calendars update when their files change.",
           "type": "integer",
           "format": "uint64",
           "default": 600,
           "minimum": 0
         },
         "sources": {
-          "description": "The sources themselves. Every one listed is active; remove it to stop reading it.",
+          "description": "The calendars you read events from.",
           "type": "array",
           "default": [],
           "items": {
@@ -2555,35 +2555,35 @@
       ]
     },
     "Clipboard": {
-      "description": "What the panel remembers of the clipboard. The history lives in the panel process and in memory\nonly: it survives nothing, which is deliberate for a buffer that routinely holds passwords.",
+      "description": "Keep your copied text and PNG or JPEG images in memory until the panel restarts.\nContent marked secret by a password manager is skipped; copying an existing entry moves it to the top.",
       "type": "object",
       "properties": {
         "capture-images": {
-          "description": "Whether images are captured as well as text. Off records text only; an image copied while\noff is not recorded at all rather than recorded without its content.",
+          "description": "Keep copied images in your clipboard history alongside text.",
           "type": "boolean",
           "default": true
         },
         "enabled": {
-          "description": "Whether the clipboard is watched at all. Off means no compositor connection is opened and\nnothing is recorded; the applet then renders as if nothing had ever been copied.",
+          "description": "Keep a history of what you copy. Turning this off clears your history, including pinned\nentries.",
           "type": "boolean",
           "default": true
         },
         "limit": {
-          "description": "How many entries are kept. Pinned entries do not count against it and are never evicted, so\na history full of pins holds more than this many. Clamped to 1..=10000.",
+          "description": "How many recent clipboard entries you keep. Pinned entries don't count.",
           "type": "integer",
           "format": "uint",
           "default": 100,
           "minimum": 0
         },
         "max-entry-kib": {
-          "description": "The largest single entry that will be captured, in kibibytes. Another application chooses\nwhat it puts on the clipboard, so this is what stops one handing over something enormous.\nClamped to 4..=2048: the compositor read is capped at 2 MiB, and a larger value here would\npromise a size that is discarded before it ever reaches the history.",
+          "description": "The largest clipboard entry you keep, in kibibytes, from 4 to 2048.",
           "type": "integer",
           "format": "uint32",
           "default": 2048,
           "minimum": 0
         },
         "max-total-kib": {
-          "description": "The total the history may occupy, in kibibytes. Reached, the oldest unpinned entry is\ndropped. This bounds memory in a way `limit` alone cannot, because one image can outweigh a\nhundred lines of text. Clamped to 64..=1048576.",
+          "description": "How much memory your clipboard history can use, in kibibytes. When it fills up, the oldest\nunpinned entries are dropped.",
           "type": "integer",
           "format": "uint32",
           "default": 10240,
@@ -2601,7 +2601,7 @@
           "default": "%A, {day} %B"
         },
         "enabled": {
-          "description": "Whether the clock shows on the lock stage at all.",
+          "description": "Show the clock on your lock screen.",
           "type": "boolean",
           "default": true
         },
@@ -2641,22 +2641,23 @@
           "const": "oklch"
         },
         {
-          "description": "`cmyk(0% 62% 72% 12%)`, a naive conversion with no color profile.",
+          "description": "`cmyk(0% 62% 72% 12%)`",
           "type": "string",
           "const": "cmyk"
         }
       ]
     },
     "ColorPicker": {
+      "description": "Choose how you copy and keep picked colors; changes apply the next time the panel starts.",
       "type": "object",
       "properties": {
         "format": {
-          "description": "The notation a picked color is copied in, and the one the palette shows it in. Every other\nnotation stays one click away in the palette.",
+          "description": "The format you copy picked colors in and see in your palette. Changes apply after you\nrestart the panel.",
           "$ref": "#/$defs/ColorFormat",
           "default": "hex"
         },
         "limit": {
-          "description": "How many colors the palette keeps, newest first. A pick beyond it drops the oldest.\nClamped to 1..=64.",
+          "description": "How many colors you keep in your palette, from 1 to 64. Changes apply after you restart the\npanel.",
           "type": "integer",
           "format": "uint",
           "default": 8,
@@ -2704,16 +2705,17 @@
           ]
         },
         {
-          "description": "The image at its own size, centred on color, downscaled only when it exceeds the\noutput. contain enlarges a small image and looks soft; this is the honest option.",
+          "description": "Center your image without stretching it.",
           "type": "string",
           "const": "center"
         }
       ]
     },
     "Geolocation": {
-      "description": "Where you are, for sunset times and the local forecast. `geoclue` asks the system location\nservice; `manual` uses the `latitude` and `longitude` written beside it, which are then required.",
+      "description": "Set your location for sunset times and local weather; changes apply without a restart.\nOmit `[geolocation]` to use GeoClue; if you write the table, you must set `provider`.\nChoose `geoclue` for the system location service, or `manual` with both coordinates; coordinates beside `geoclue` are ignored.",
       "oneOf": [
         {
+          "description": "Your system's location service.",
           "type": "object",
           "properties": {
             "provider": {
@@ -2726,13 +2728,16 @@
           ]
         },
         {
+          "description": "Your own coordinates.",
           "type": "object",
           "properties": {
             "latitude": {
+              "description": "Your latitude in degrees north, from -90 to 90.",
               "type": "number",
               "format": "double"
             },
             "longitude": {
+              "description": "Your longitude in degrees east, from -180 to 180.",
               "type": "number",
               "format": "double"
             },
@@ -2753,7 +2758,7 @@
       "description": "How a time of day reads.",
       "oneOf": [
         {
-          "description": "Follow `LC_TIME`, which is what the locale's own `%X` resolves to.",
+          "description": "Your system's time format.",
           "type": "string",
           "const": "locale"
         },
@@ -2778,7 +2783,7 @@
           "default": true
         },
         "profiles": {
-          "description": "The listeners to run on AC power and on battery. The battery profile applies while UPower\nreports the machine on battery; without UPower the AC profile always applies.",
+          "description": "Your idle actions while plugged in and while on battery.",
           "$ref": "#/$defs/Profiles",
           "default": {
             "ac": {
@@ -2817,7 +2822,7 @@
           }
         },
         "respect-inhibitors": {
-          "description": "Whether an app holding the screen awake, such as a video player or a browser playing a\nvideo, pauses the listeners. A listener's own `respect-inhibitors` overrides this.",
+          "description": "Pause idle timers while an app keeps your screen awake, such as during a video. Each\nlistener can override this.",
           "type": "boolean",
           "default": true
         }
@@ -2828,7 +2833,7 @@
       "type": "object",
       "properties": {
         "labels": {
-          "description": "The text the panel shows for a layout, keyed by the layout's code or full name, matched\nwithout regard to case: `{ \"English (US)\" = \"EN\", ua = \"УКР\" }`. Unlisted layouts show\ntheir code.",
+          "description": "Your layout labels, matched by code or full name without regard to case, such as `{ \"English\n(US)\" = \"EN\" }`. Other layouts show their code.",
           "type": "object",
           "additionalProperties": {
             "type": "string"
@@ -2836,7 +2841,7 @@
           "default": {}
         },
         "remember": {
-          "description": "Where a layout choice sticks: `window` gives each window its own layout, `app` shares one\nper application, and `global` keeps one layout for everything.",
+          "description": "Keep a keyboard layout for each `window`, each `app`, or everything with `global`. Your lock\nscreen always uses `global`.",
           "$ref": "#/$defs/Remember",
           "default": "window"
         }
@@ -2877,7 +2882,7 @@
       "type": "object",
       "properties": {
         "background": {
-          "description": "The image and color behind the lock stage.",
+          "description": "Your lock screen's background image and color.",
           "$ref": "#/$defs/LockBackground",
           "default": {
             "blur-radius": 0,
@@ -2888,7 +2893,7 @@
           }
         },
         "clock": {
-          "description": "The large time and date on the lock stage.",
+          "description": "The time and date on your lock screen.",
           "$ref": "#/$defs/Clock",
           "default": {
             "date-format": "%A, {day} %B",
@@ -2897,7 +2902,7 @@
           }
         },
         "media": {
-          "description": "The now-playing transport, when something is playing.",
+          "description": "Playback controls on your lock screen.",
           "$ref": "#/$defs/LockSection",
           "default": {
             "enabled": true
@@ -2912,17 +2917,17 @@
           }
         },
         "pam-service": {
-          "description": "The PAM service that checks the password, read from `/etc/pam.d/<name>`.",
+          "description": "The password-checking rules for your lock screen, from `/etc/pam.d/<name>`.",
           "type": "string",
           "default": "glimpse-lock"
         },
         "prompt-output": {
-          "description": "`\"focused\"` follows the compositor's focused output; anything else is a connector name.",
+          "description": "The monitor you enter your password on, by connector name such as `eDP-1`. Use `focused` to\nfollow your current monitor.",
           "type": "string",
           "default": "focused"
         },
         "session": {
-          "description": "The suspend, reboot and power-off actions offered from the lock stage.",
+          "description": "Power options on your lock screen.",
           "$ref": "#/$defs/LockSession",
           "default": {
             "actions": [
@@ -2934,7 +2939,7 @@
           }
         },
         "status": {
-          "description": "The status island: weather, battery, keyboard layout, bluetooth and network.",
+          "description": "Weather, battery, keyboard layout, Bluetooth and network on your lock screen.",
           "$ref": "#/$defs/LockSection",
           "default": {
             "enabled": true
@@ -2948,7 +2953,7 @@
       "type": "object",
       "properties": {
         "blur-radius": {
-          "description": "Gaussian blur radius in output pixels; 0 blurs nothing.",
+          "description": "How much you blur your background, in pixels; `0` leaves it sharp.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
@@ -2956,7 +2961,7 @@
           "minimum": 0
         },
         "color": {
-          "description": "Painted under everything: the whole background when no image resolves, and what shows\nthrough `contain`'s letterbox.",
+          "description": "The background color you see when an image is missing or doesn't fill your screen.",
           "type": "string",
           "default": "#000000"
         },
@@ -2977,12 +2982,12 @@
           "minimum": 0.0
         },
         "fit": {
-          "description": "How the image meets an output of a different aspect ratio.",
+          "description": "How your image fits the screen.",
           "$ref": "#/$defs/Fit",
           "default": "cover"
         },
         "image": {
-          "description": "The background image, used as-is or under the light color scheme when `image-dark` is set.\nWith neither this nor `image-dark` set, the lock shows `[wallpaper]`'s `image` and\n`image-dark`.",
+          "description": "Your lock screen's background image. If you leave both this and `image-dark` unset, it uses\nyour wallpaper.",
           "type": [
             "string",
             "null"
@@ -3003,12 +3008,12 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "description": "Whether notifications show on the lock stage at all.",
+          "description": "Show notifications on your lock screen.",
           "type": "boolean",
           "default": true
         },
         "privacy": {
-          "description": "A locked screen never shows a notification's body. `count` shows only a total; `apps`\nalso names which applications sent them.",
+          "description": "How much you reveal about notifications: `count` shows a total, and `apps` also shows the\nsenders. Message text stays hidden.",
           "$ref": "#/$defs/LockPrivacy",
           "default": "apps"
         }
@@ -3019,12 +3024,12 @@
       "description": "How much of a notification's own content shows on the lock stage.",
       "oneOf": [
         {
-          "description": "Only a total count, naming nothing about any individual notification.",
+          "description": "A notification count only.",
           "type": "string",
           "const": "count"
         },
         {
-          "description": "Also names which application each notification came from, never a summary or body.",
+          "description": "A count and application names.",
           "type": "string",
           "const": "apps"
         }
@@ -3035,7 +3040,7 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "description": "Whether this element shows on the lock stage at all.",
+          "description": "Show this item on your lock screen.",
           "type": "boolean",
           "default": true
         }
@@ -3047,7 +3052,7 @@
       "type": "object",
       "properties": {
         "actions": {
-          "description": "Every action here is also gated by logind: one it refuses does not appear even when listed.",
+          "description": "The power actions you offer on your lock screen. Actions your system doesn't allow stay\nhidden.",
           "type": "array",
           "default": [
             "suspend",
@@ -3059,7 +3064,7 @@
           }
         },
         "enabled": {
-          "description": "Whether the session actions show on the lock stage at all.",
+          "description": "Show power options on your lock screen.",
           "type": "boolean",
           "default": true
         }
@@ -3070,12 +3075,12 @@
       "description": "One system action offered from the lock stage.",
       "oneOf": [
         {
-          "description": "Suspend the system.",
+          "description": "Put your computer to sleep.",
           "type": "string",
           "const": "suspend"
         },
         {
-          "description": "Reboot the system.",
+          "description": "Restart your computer.",
           "type": "string",
           "const": "reboot"
         },
@@ -3121,23 +3126,23 @@
       "additionalProperties": false
     },
     "Mpris": {
-      "description": "Which media players the panel service follows, and what it does with their artwork. There are no\nplayers here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`\nsays otherwise.",
+      "description": "Choose which media players you follow and whether to download their artwork.\nPlaying players take priority over paused, then stopped players, with the most recently active first.\n`playerctld` and KDE Connect mirrors are left out.",
       "type": "object",
       "properties": {
         "art-max-kib": {
-          "description": "The largest artwork that will be downloaded, in kibibytes. A player chooses this URL, so the\ncap is what stops one pointing the service at something enormous. It bounds downloads only;\nartwork a player names as a local file is bounded by its pixel dimensions instead, when it is\ndecoded. Clamped to 16..=65536.",
+          "description": "The largest artwork download you allow, in kibibytes, from 16 to 65536.",
           "type": "integer",
           "format": "uint32",
           "default": 4096,
           "minimum": 0
         },
         "fetch-art": {
-          "description": "Whether artwork named by an `http` or `https` URL is downloaded. Players that name a local\nfile are unaffected, and turning this off leaves those working. Downloads go to\n`$XDG_RUNTIME_DIR/glimpse/art/` and are capped by `art-max-kib`.",
+          "description": "Download album artwork from the internet. Artwork from local files still works when this is\noff.",
           "type": "boolean",
           "default": true
         },
         "ignore": {
-          "description": "Media players to keep off the bar. Write part of the player's name, as it appears in the\npopover: `ignore = ['Firefox', 'chromium']` hides Firefox and every Chromium window\nplaying sound. Upper and lower case must match the name; start an entry with `(?i)` to\nignore case, as in `'(?i)firefox'`. Use single quotes around each entry.",
+          "description": "Hide media players whose names match these case-sensitive regular expressions. Start one with\n`(?i)` to ignore case.",
           "type": "array",
           "default": [],
           "items": {
@@ -3151,12 +3156,12 @@
       "type": "object",
       "properties": {
         "hide-unnamed": {
-          "description": "Whether to hide networks that broadcast no name. They cannot be joined by tapping them —\na hidden network is reached by typing its name in — so a row for one is unactionable.",
+          "description": "Hide networks that don't broadcast a name.",
           "type": "boolean",
           "default": true
         },
         "scan-timeout": {
-          "description": "How many seconds a scan for nearby networks runs before stopping on its own. Scanning\ninterrupts traffic on the same radio, so it is never left running. `0` disables the timeout\nand leaves the scan running until the popover closes.",
+          "description": "How many seconds you scan for nearby networks. With `0`, scanning continues until you close\nthe popover.",
           "type": "integer",
           "format": "uint64",
           "default": 30,
@@ -3169,7 +3174,7 @@
       "type": "object",
       "properties": {
         "end-time": {
-          "description": "When the warm color ends under `schedule = \"schedule\"`, as `HH:MM` local time.",
+          "description": "When warmer colors end with `schedule = \"schedule\"`, in local `HH:MM` time. Set both times\nto different values; the schedule can cross midnight.",
           "type": [
             "string",
             "null"
@@ -3177,12 +3182,12 @@
           "pattern": "^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$"
         },
         "schedule": {
-          "description": "When the screen warms: `automatic` from sunset to sunrise where you are, `schedule`\nbetween `start-time` and `end-time`, `off` never.",
+          "description": "When your screen uses warmer colors. Automatic mode needs your location to work out sunset\nand sunrise.",
           "$ref": "#/$defs/Schedule",
           "default": "automatic"
         },
         "start-time": {
-          "description": "When the warm color starts under `schedule = \"schedule\"`, as `HH:MM` local time.",
+          "description": "When warmer colors start with `schedule = \"schedule\"`, in local `HH:MM` time. Set both times\nto different values; the schedule can cross midnight.",
           "type": [
             "string",
             "null"
@@ -3190,7 +3195,7 @@
           "pattern": "^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$"
         },
         "temperature": {
-          "description": "The color temperature at night, in kelvin. Lower is warmer; 6500 is the screen's own color.",
+          "description": "Your screen's nighttime color temperature, from 1000 to 6500 kelvin. Lower values look\nwarmer; 6500 keeps the normal color.",
           "type": "integer",
           "format": "uint32",
           "default": 4200,
@@ -3248,7 +3253,7 @@
           "minimum": 1
         },
         "keep": {
-          "description": "How many notifications are kept once they have been read. Dismissing one puts it here\nrather than destroying it, which is what makes an accidental dismissal recoverable; past\nthis many, the oldest is dropped for good. Senders choose how often they notify, so this\nis the bound that stops a chatty one growing the provider's memory without limit. Clamped\nto 1..=1000.",
+          "description": "How many read notifications you keep. Your history clears when you restart the notification\nservice.",
           "type": "integer",
           "format": "uint32",
           "default": 100,
@@ -3270,7 +3275,7 @@
           "default": null
         },
         "suppress": {
-          "description": "Regex patterns matched against the application identity, application name, title and body.\nMatching notifications are not stored or published.",
+          "description": "Block notifications whose sender, title or message matches these case-sensitive regular expressions.\nAdding a pattern also deletes matching notifications from your history.",
           "type": "array",
           "default": [],
           "items": {
@@ -3281,7 +3286,7 @@
       "additionalProperties": false
     },
     "PagerMode": {
-      "description": "What each slot stands for: `workspaces` for one slot per workspace, `windows` for one slot per\nwindow on the current workspace.",
+      "description": "Choose `workspaces` for one slot per workspace, or `windows` for windows on each in-scope workspace active on its output.\nIn `windows` mode, scroll vertically between windows and horizontally between workspaces; `workspaces` reverses those axes.\nYour slot tooltip shows the window title in `windows` mode and the workspace name or number otherwise.",
       "type": "string",
       "enum": [
         "workspaces",
@@ -3403,7 +3408,7 @@
       "description": "Where a weather applet looks. Tagged on `at`, matching the shape `WatchPlace` takes, so a\nplace reads the same in a document and on the wire.",
       "oneOf": [
         {
-          "description": "Follow the geolocation service, and move with it.",
+          "description": "Your current location.",
           "type": "object",
           "properties": {
             "at": {
@@ -3417,7 +3422,7 @@
           ]
         },
         {
-          "description": "A fixed pair of coordinates in degrees.",
+          "description": "A fixed location.",
           "type": "object",
           "properties": {
             "at": {
@@ -3443,7 +3448,7 @@
           ]
         },
         {
-          "description": "Resolve a city and ISO 3166-1 alpha-2 country code through Open-Meteo. This sends a\ngeocoding request to Open-Meteo, which receives the machine's public IP address.",
+          "description": "A city and country.",
           "type": "object",
           "properties": {
             "at": {
@@ -3451,7 +3456,7 @@
               "const": "location"
             },
             "name": {
-              "description": "City and country code, written as `City, CC`.",
+              "description": "Your city and two-letter uppercase country code, such as `Amsterdam, NL`.",
               "type": "string"
             }
           },
@@ -3462,7 +3467,7 @@
           ]
         },
         {
-          "description": "A fixed pair of coordinates in degrees.",
+          "description": "A fixed location.",
           "type": "object",
           "properties": {
             "at": {
@@ -3493,12 +3498,12 @@
       "type": "object",
       "properties": {
         "network": {
-          "description": "Whether network shares are watched and listed. Turns off one directory read.",
+          "description": "Show your network shares. Restart the panel after turning this off to remove existing\nentries.",
           "type": "boolean",
           "default": true
         },
         "trash": {
-          "description": "Whether the trash is watched and listed. Turns off one persistent inotify watch.",
+          "description": "Show your trash. Restart the panel after turning this off to remove existing entries.",
           "type": "boolean",
           "default": true
         }
@@ -3519,21 +3524,21 @@
       "type": "object",
       "properties": {
         "poll-active": {
-          "description": "How often the service polls CUPS while a job is active, in seconds. Must be at least 1;\n`0` would leave the poll timer with no interval to tick on.",
+          "description": "How often print jobs are checked while something is printing, in seconds, with a minimum of 1.",
           "type": "integer",
           "format": "uint64",
           "default": 2,
           "minimum": 1
         },
         "poll-idle": {
-          "description": "How often the service polls CUPS while no job is active, in seconds. Must be at least 1,\nfor the same reason as `poll-active`.",
+          "description": "How often print jobs are checked while nothing is printing, in seconds, with a minimum of 1.",
           "type": "integer",
           "format": "uint64",
           "default": 30,
           "minimum": 1
         },
         "server-url": {
-          "description": "The CUPS server to poll, such as `http://localhost:631/`. Unset uses CUPS's own default\nserver.",
+          "description": "Your print server's address, such as `http://localhost:631/`.",
           "type": [
             "string",
             "null"
@@ -3546,12 +3551,12 @@
       "description": "When the printing chip is on the bar.",
       "oneOf": [
         {
-          "description": "The chip stays on the bar whenever a printer exists, idle or not.",
+          "description": "Show whenever a printer exists.",
           "type": "string",
           "const": "always"
         },
         {
-          "description": "The chip appears only while a print job is active or a printer needs attention.",
+          "description": "Show while a print job is active.",
           "type": "string",
           "const": "jobs"
         }
@@ -3561,7 +3566,7 @@
       "type": "object",
       "properties": {
         "listeners": {
-          "description": "Each listener runs a command once the session has been idle for its `timeout`. Setting this\nlist replaces the default listeners rather than adding to them.",
+          "description": "The actions you run after a period without input. Setting this list replaces the default\nactions.",
           "type": "array",
           "default": [],
           "items": {
@@ -3622,12 +3627,12 @@
       "description": "Where a forecast comes from.",
       "oneOf": [
         {
-          "description": "Open-Meteo, which needs no account and no key.",
+          "description": "Open-Meteo.",
           "type": "string",
           "const": "open-meteo"
         },
         {
-          "description": "The Norwegian Meteorological Institute, which needs no key either but asks for a\nUser-Agent naming the application. It is the only source that carries official warnings.",
+          "description": "The Norwegian Meteorological Institute.",
           "type": "string",
           "const": "met-no"
         }
@@ -3638,17 +3643,17 @@
       "type": "object",
       "properties": {
         "hour-format": {
-          "description": "How a time of day reads wherever glimpse composes one itself — the world clock, the times\ninside event rows, sunrise and sunset. A `strftime` format you write yourself, such as the\nclock applet's `label-format`, is yours and is not affected by this.",
+          "description": "How you display times throughout glimpse. Your bar and lock screen clocks use their own\nformats.",
           "$ref": "#/$defs/HourFormat",
           "default": "locale"
         },
         "language": {
-          "description": "The language glimpse's text is shown in, such as `ru` for Russian. Empty uses your system\nlanguage. It changes only the words: dates, the clock and units still follow your system\nsettings. Takes effect the next time glimpse starts, for example when you log in.",
+          "description": "Your text language, such as `ru` for Russian; leave it empty to use your system language.\nChanges apply after you restart glimpse.",
           "type": "string",
           "default": ""
         },
         "units": {
-          "description": "Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.\nEvery reading in one weather report uses the same system, and the panel prints the symbols\nthat go with it.",
+          "description": "Your weather units for temperature, wind speed and rainfall.",
           "$ref": "#/$defs/Units",
           "default": "locale"
         }
@@ -3667,7 +3672,7 @@
       "type": "object",
       "properties": {
         "capacity-interval": {
-          "description": "Seconds between free-space samples of mounted removable volumes. `0` turns the capacity\nreadout off and runs no timer.",
+          "description": "How often free space on removable drives is checked, in seconds. Use `0` to hide the\nfree-space reading.",
           "type": "integer",
           "format": "uint64",
           "default": 10,
@@ -3677,10 +3682,11 @@
       "additionalProperties": false
     },
     "Ruler": {
+      "description": "Keep your recent screen measurements; changes apply the next time the panel starts.",
       "type": "object",
       "properties": {
         "history-limit": {
-          "description": "How many measurements history keeps, newest first. A measurement beyond it drops the\noldest. Clamped to 1..=64.",
+          "description": "How many screen measurements you keep, from 1 to 64. Changes apply after you restart the\npanel.",
           "type": "integer",
           "format": "uint",
           "default": 8,
@@ -3698,7 +3704,7 @@
       ]
     },
     "Screenshot": {
-      "description": "Screenshots. `glimpse-shot` reads it for where a capture is saved and how the editor opens.",
+      "description": "Choose where you save screenshots and how your editor opens.\nThe `[screenshot]` table in `shot.toml` beside your active config overrides these settings one key at a time; other tables there are ignored.",
       "type": "object",
       "properties": {
         "color": {
@@ -3712,14 +3718,14 @@
           "default": false
         },
         "delay": {
-          "description": "Seconds to wait before capturing. Clamped to 0..=60.",
+          "description": "How many seconds you wait before an editor capture, from 0 to 60. The `glimpse-shot capture`\ncommand uses its own `--delay` option.",
           "type": "integer",
           "format": "uint32",
           "default": 0,
           "minimum": 0
         },
         "directory": {
-          "description": "Where a capture is saved, created on first save. Unset means `$XDG_PICTURES_DIR/Screenshots`.",
+          "description": "Where you save screenshots, with the folder created on your first save. Use a full path; `~`\ndoesn't expand to your home folder.",
           "type": [
             "string",
             "null"
@@ -3737,17 +3743,17 @@
           "default": "Screenshot from %Y-%m-%d %H-%M-%S.png"
         },
         "flash": {
-          "description": "Flash the screen on capture.",
+          "description": "Flash your screen when the editor takes a screenshot. The `glimpse-shot capture` command\ndoesn't flash.",
           "type": "boolean",
           "default": true
         },
         "notify": {
-          "description": "Post a notification after a capture is saved.",
+          "description": "Notify you after saving or copying a screenshot from the fullscreen editor.",
           "type": "boolean",
           "default": true
         },
         "stroke": {
-          "description": "The stroke width annotation tools start with.",
+          "description": "The starting thickness of your annotation lines.",
           "$ref": "#/$defs/Stroke",
           "default": "medium"
         }
@@ -3759,14 +3765,14 @@
       "type": "object",
       "properties": {
         "color": {
-          "description": "The dot beside this calendar's events, as a hex color.",
+          "description": "The color of the dot beside this calendar's events, such as `purple` or `#336699`.",
           "type": [
             "string",
             "null"
           ]
         },
         "id": {
-          "description": "What this source is called internally. It has to be unique, and it is what an event\ncarries so a surface can tell which calendar it came from.",
+          "description": "A unique name for this calendar source.",
           "type": "string"
         },
         "name": {
@@ -3777,7 +3783,7 @@
           ]
         },
         "poll-interval": {
-          "description": "How often to fetch this one, in seconds, overriding the shared interval. Ignored by a\nsource that is watched rather than fetched, the way the shared one is.",
+          "description": "How often this online calendar updates, in seconds, instead of using the shared\ninterval.",
           "type": [
             "integer",
             "null"
@@ -3786,11 +3792,11 @@
           "minimum": 0
         },
         "type": {
-          "description": "Whether `uri` names a subscription feed or a directory of `.ics` files.",
+          "description": "Choose `ical` for a calendar file or online feed, or `directory` for a folder of `.ics`\nfiles.",
           "$ref": "#/$defs/SourceKind"
         },
         "uri": {
-          "description": "The feed or directory. `webcal://`, which is what a provider's Subscribe button hands\nout, is read as the `https://` it stands for. A provider's iCalendar URL behaves like a\nread-only access token — anyone holding it can usually read the calendar without signing\nin — so a `file://` path to a one-line sidecar file is offered as an alternative to\nwriting a secret URL into a configuration file that gets shared or committed.",
+          "description": "Your calendar feed URL, local file or folder. To keep a secret feed URL out of shared\nconfig, use a `file://` path to a file containing the URL on one line.",
           "type": "string"
         }
       },
@@ -3805,12 +3811,12 @@
       "description": "What a source's `uri` points at.",
       "oneOf": [
         {
-          "description": "One iCalendar document: an `https://` or `webcal://` feed, a local `.ics`, or a `file://`\nholding a one-line feed URL. A local one is watched; a remote one is fetched on\n`poll-interval`.",
+          "description": "A calendar file or online feed.",
           "type": "string",
           "const": "ical"
         },
         {
-          "description": "A directory of `.ics` files, watched for changes rather than polled.",
+          "description": "A folder of `.ics` calendar files.",
           "type": "string",
           "const": "directory"
         }
@@ -3829,7 +3835,7 @@
       "type": "object",
       "properties": {
         "disk-paths": {
-          "description": "Filesystem paths sampled for free space, each becoming its own popover tile. A path that\ndoes not exist is skipped. An unmounted-but-present path still resolves — `statvfs` reports\nwhichever filesystem currently owns the directory, the same way `df` would — accepted, not\na bug. Each entry must be absolute; duplicates (after stripping a trailing `/`) collapse to\ntheir first occurrence.",
+          "description": "Full paths to folders on the disks you want to check for free space.",
           "type": "array",
           "default": [
             "/"
@@ -3839,12 +3845,12 @@
           }
         },
         "gpu": {
-          "description": "Whether to probe for an amdgpu GPU at all.",
+          "description": "Show readings from your AMD GPU.",
           "type": "boolean",
           "default": true
         },
         "poll-interval": {
-          "description": "Seconds between samples of every reading this service publishes. Must be between 1 and 60.",
+          "description": "How often the readings update, in seconds, from 1 to 60.",
           "type": "integer",
           "format": "uint64",
           "default": 2,
@@ -3870,14 +3876,14 @@
           "type": "string"
         },
         "note": {
-          "description": "A note after the `tomorrow` or `yesterday` the row works out for itself, such as\n`the office`.",
+          "description": "A note beside the time, such as `the office`.",
           "type": [
             "string",
             "null"
           ]
         },
         "timezone": {
-          "description": "The IANA zone the row reads, such as `Asia/Tokyo`.",
+          "description": "The time zone for this row, such as `Asia/Tokyo`.",
           "type": "string"
         }
       },
@@ -3891,12 +3897,12 @@
       "description": "How one wallpaper image replaces another.",
       "oneOf": [
         {
-          "description": "A cut, with no animation.",
+          "description": "Switch immediately.",
           "type": "string",
           "const": "none"
         },
         {
-          "description": "A crossfade between the outgoing and incoming image.",
+          "description": "Fade between images.",
           "type": "string",
           "const": "fade"
         }
@@ -3906,12 +3912,12 @@
       "description": "Which units every reading is reported in.",
       "oneOf": [
         {
-          "description": "Follow `LC_MEASUREMENT`. Every locale glibc ships is metric except `en_US`, so this is\nmetric unless the machine is set to American English.",
+          "description": "Your system's measurement units.",
           "type": "string",
           "const": "locale"
         },
         {
-          "description": "Celsius, kilometres per hour, millimetres.",
+          "description": "Read Celsius, kilometers per hour and millimeters.",
           "type": "string",
           "const": "metric"
         },
@@ -3934,12 +3940,12 @@
           }
         },
         "color": {
-          "description": "Painted under everything: the whole wallpaper when no image resolves, and what shows\nthrough `contain`'s letterbox.",
+          "description": "Your wallpaper's background color, visible when an image is missing or doesn't fill the\nscreen.",
           "type": "string",
           "default": "#000000"
         },
         "fit": {
-          "description": "How the image meets an output of a different aspect ratio.",
+          "description": "How your wallpaper image fits the screen.",
           "$ref": "#/$defs/Fit",
           "default": "cover"
         },
@@ -3959,7 +3965,7 @@
           ]
         },
         "outputs": {
-          "description": "Per-output overrides, matched by connector name such as `DP-1` (the same name\n`[[panels]] monitor` takes). An output with no entry here\nrenders the values above. When two entries name the same connector, the first one wins.",
+          "description": "Separate wallpaper settings for each monitor, matched by connector name such as `DP-1`.\nSettings you leave unset use the values above.",
           "type": "array",
           "default": [],
           "items": {
@@ -4065,7 +4071,7 @@
       "type": "object",
       "properties": {
         "forecast-days": {
-          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10.",
+          "description": "How many forecast days you get, including today, from 1 to 10.",
           "type": "integer",
           "format": "uint8",
           "default": 7,
@@ -4073,14 +4079,14 @@
           "minimum": 0
         },
         "poll-interval": {
-          "description": "How often a forecast is fetched again, in seconds. The provider recomputes current\nconditions every fifteen minutes, so anything shorter asks again for data that has not\nmoved; the provider's `Refresh` method is how a person asks for it now. Values below 600 are raised.",
+          "description": "How often the forecast updates, in seconds, with a minimum of 600.",
           "type": "integer",
           "format": "uint64",
           "default": 900,
           "minimum": 0
         },
         "provider": {
-          "description": "Which service a forecast comes from. `open-meteo` needs no account and no key.",
+          "description": "Your weather forecast service.",
           "$ref": "#/$defs/Provider",
           "default": "open-meteo"
         }

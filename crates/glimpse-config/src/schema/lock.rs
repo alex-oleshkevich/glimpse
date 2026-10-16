@@ -8,21 +8,22 @@ use super::wallpaper::{Fit, blur_radius};
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Lock {
-    /// The PAM service that checks the password, read from `/etc/pam.d/<name>`.
+    /// The password-checking rules for your lock screen, from `/etc/pam.d/<name>`.
     pub pam_service: String,
-    /// `"focused"` follows the compositor's focused output; anything else is a connector name.
+    /// The monitor you enter your password on, by connector name such as `eDP-1`. Use `focused` to
+    /// follow your current monitor.
     pub prompt_output: String,
-    /// The image and color behind the lock stage.
+    /// Your lock screen's background image and color.
     pub background: Background,
-    /// The large time and date on the lock stage.
+    /// The time and date on your lock screen.
     pub clock: Clock,
-    /// The status island: weather, battery, keyboard layout, bluetooth and network.
+    /// Weather, battery, keyboard layout, Bluetooth and network on your lock screen.
     pub status: Section,
     /// Notifications received while the screen is locked.
     pub notifications: Notifications,
-    /// The now-playing transport, when something is playing.
+    /// Playback controls on your lock screen.
     pub media: Section,
-    /// The suspend, reboot and power-off actions offered from the lock stage.
+    /// Power options on your lock screen.
     pub session: Session,
 }
 
@@ -46,20 +47,18 @@ impl Default for Lock {
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 #[schemars(rename = "LockBackground")]
 pub struct Background {
-    /// The background image, used as-is or under the light color scheme when `image-dark` is set.
-    /// With neither this nor `image-dark` set, the lock shows `[wallpaper]`'s `image` and
-    /// `image-dark`.
+    /// Your lock screen's background image. If you leave both this and `image-dark` unset, it uses
+    /// your wallpaper.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<PathBuf>,
     /// The background image under the dark color scheme. Falls back to `image` when unset.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_dark: Option<PathBuf>,
-    /// Painted under everything: the whole background when no image resolves, and what shows
-    /// through `contain`'s letterbox.
+    /// The background color you see when an image is missing or doesn't fill your screen.
     pub color: String,
-    /// How the image meets an output of a different aspect ratio.
+    /// How your image fits the screen.
     pub fit: Fit,
-    /// Gaussian blur radius in output pixels; 0 blurs nothing.
+    /// How much you blur your background, in pixels; `0` leaves it sharp.
     #[serde(deserialize_with = "blur_radius")]
     #[schemars(range(min = 0, max = 128))]
     pub blur_radius: u32,
@@ -101,7 +100,7 @@ where
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
-    /// Whether the clock shows on the lock stage at all.
+    /// Show the clock on your lock screen.
     pub enabled: bool,
     /// A `strftime` pattern for the time, e.g. `%H:%M` or `%-I:%M %p`.
     pub time_format: String,
@@ -124,7 +123,7 @@ impl Default for Clock {
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 #[schemars(rename = "LockSection")]
 pub struct Section {
-    /// Whether this element shows on the lock stage at all.
+    /// Show this item on your lock screen.
     pub enabled: bool,
 }
 
@@ -139,10 +138,10 @@ impl Default for Section {
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 #[schemars(rename = "LockNotifications")]
 pub struct Notifications {
-    /// Whether notifications show on the lock stage at all.
+    /// Show notifications on your lock screen.
     pub enabled: bool,
-    /// A locked screen never shows a notification's body. `count` shows only a total; `apps`
-    /// also names which applications sent them.
+    /// How much you reveal about notifications: `count` shows a total, and `apps` also shows the
+    /// senders. Message text stays hidden.
     pub privacy: Privacy,
 }
 
@@ -160,9 +159,9 @@ impl Default for Notifications {
 #[serde(rename_all = "kebab-case")]
 #[schemars(rename = "LockPrivacy")]
 pub enum Privacy {
-    /// Only a total count, naming nothing about any individual notification.
+    /// A notification count only.
     Count,
-    /// Also names which application each notification came from, never a summary or body.
+    /// A count and application names.
     Apps,
 }
 
@@ -171,9 +170,10 @@ pub enum Privacy {
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 #[schemars(rename = "LockSession")]
 pub struct Session {
-    /// Whether the session actions show on the lock stage at all.
+    /// Show power options on your lock screen.
     pub enabled: bool,
-    /// Every action here is also gated by logind: one it refuses does not appear even when listed.
+    /// The power actions you offer on your lock screen. Actions your system doesn't allow stay
+    /// hidden.
     pub actions: Vec<SessionAction>,
 }
 
@@ -195,9 +195,9 @@ impl Default for Session {
 #[serde(rename_all = "kebab-case")]
 #[schemars(rename = "LockSessionAction")]
 pub enum SessionAction {
-    /// Suspend the system.
+    /// Put your computer to sleep.
     Suspend,
-    /// Reboot the system.
+    /// Restart your computer.
     Reboot,
     /// Power the system off.
     PowerOff,

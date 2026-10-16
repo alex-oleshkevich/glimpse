@@ -9,7 +9,10 @@ Keep the project in a permanent directory. From that directory, install dependen
 ```sh
 npm install
 npm run check
+glimpsectl applet check --run .
 ```
+
+`glimpsectl applet check .` validates the desktop entry, local configuration, and `Exec` expansion without a panel. `--run` also starts the applet headlessly and validates its first tree against the panel's nesting and size limits.
 
 The generated desktop entry contains:
 
@@ -61,8 +64,10 @@ options = { title = "Groceries" }
 
 Save the configuration. The panel starts the installed applet, and the todo chip reads "Groceries". A second instance can use its own configured name and options; see [exec settings](/config/applets/custom#exec).
 
+The panel runs the applet as a systemd user unit with a 256 MiB memory limit. If the process exits with an error, it restarts after 1 second, backing off to at most 60 seconds between attempts.
+
 ## Share the source
 
 Share the source, `package.json`, `tsconfig.json`, the desktop entry, and local `config.toml`. Recipients install dependencies, install the entry on their machine, and place its id in their panel. Avoid distributing an absolute `Path` from your machine; use a link or have recipients set their own path.
 
-Exec applets run as systemd user units with the user's full session access, so install applets whose code you trust. The [desktop entry reference](/applets/exec/reference/desktop-entry) lists the keys the host reads and the entries it refuses.
+Exec applets have your full session access, so install applets whose code you trust. The [desktop entry reference](/applets/exec/reference/desktop-entry) lists the keys the host reads and the entries it refuses.
