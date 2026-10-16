@@ -48,8 +48,10 @@ under `runtime_dir()`, using defaults unless a config was explicitly supplied. `
 --isolated` owns the same test-panel lifecycle. Neither reads the user's config implicitly, and
 both clean up only their own child and runtime files.
 
-`applet new` renders the template under `$GLIMPSE_TS_SDK_TEMPLATE_DIR` or `DATA_DIR/sdk/template`
-with minijinja. `applet check` validates its desktop entry and config without a panel or bus;
+`applet new` selects `$GLIMPSE_SDK_TEMPLATES_DIR/<language>` or
+`DATA_DIR/sdk/templates/<language>`. It renders only `.jinja` files with minijinja and copies
+other files unchanged.
+`applet check` validates its desktop entry and config without a panel or bus;
 `--run` also checks its protocol greeting and first commit with temporary state and a bounded
 unconfined process. `applet install` writes a marked desktop entry and prints a config suggestion;
 `uninstall` removes only an entry carrying that marker. Neither edits the panel config.

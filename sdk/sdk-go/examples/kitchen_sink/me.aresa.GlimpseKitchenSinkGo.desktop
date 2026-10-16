@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Kitchen Sink (Go)
+Comment=Every exec applet feature, in Go
+Icon=applications-graphics-symbolic
+Exec=go run .
+NoDisplay=true
+Implements=me.aresa.Glimpse.Applet1

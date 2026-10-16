@@ -48,6 +48,23 @@ fn text(value: &Value) -> String {
         .to_owned()
 }
 
+fn files_under(dir: &Path) -> Vec<PathBuf> {
+    let mut pending = vec![dir.to_owned()];
+    let mut files = Vec::new();
+    while let Some(current) = pending.pop() {
+        for item in fs::read_dir(current).expect("a readable directory") {
+            let path = item.expect("a directory entry").path();
+            if path.is_dir() {
+                pending.push(path);
+            } else {
+                files.push(path.strip_prefix(dir).expect("a relative path").to_owned());
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
 #[test]
 fn every_language_in_linguas_reaches_both_package_manifests() {
     let root = workspace_root();
@@ -559,19 +576,26 @@ fn every_install_route_ships_the_commented_reference() {
 }
 
 #[test]
-fn every_install_route_ships_the_applet_template_and_nothing_else_of_the_sdk() {
+fn every_install_route_ships_the_applet_templates_and_nothing_else_of_the_sdk() {
     let root = workspace_root();
-    let mut template: Vec<String> = fs::read_dir(root.join("sdk/template"))
-        .expect("the template")
-        .map(|item| {
-            format!(
-                "sdk/template/{}",
-                item.unwrap().file_name().to_string_lossy()
-            )
-        })
+    let templates = root.join("sdk/templates");
+    let mut template: Vec<String> = files_under(&templates)
+        .into_iter()
+        .map(|path| format!("sdk/templates/{}", path.display()))
         .collect();
     template.sort();
-    assert!(template.contains(&"sdk/template/{{id}}.desktop".to_owned()));
+    assert!(
+        !template.iter().any(|path| path.contains("glimpse_sdk")),
+        "templates carry no SDK sources"
+    );
+    for nested in [
+        "sdk/templates/ts/{{id}}.desktop.jinja",
+        "sdk/templates/rs/src/main.rs.jinja",
+        "sdk/templates/py/applet.py.jinja",
+        "sdk/templates/go/main.go.jinja",
+    ] {
+        assert!(template.contains(&nested.to_owned()), "{nested}");
+    }
     for script in ["scripts/install.sh", "scripts/package-binary.sh"] {
         let body = fs::read_to_string(root.join(script)).expect(script);
         let selection = body
@@ -601,8 +625,8 @@ fn every_install_route_ships_the_applet_template_and_nothing_else_of_the_sdk() {
             .filter(|(path, _)| path.contains("sdk/"))
             .collect();
         assert_eq!(sdk.len(), 1, "{kind}");
-        assert!(sdk[0].0.ends_with("sdk/template/*"), "{kind}");
-        assert!(sdk[0].1.contains("share/glimpse/sdk/template"), "{kind}");
+        assert!(sdk[0].0.ends_with("sdk/templates/**/*"), "{kind}");
+        assert!(sdk[0].1.contains("share/glimpse/sdk/templates"), "{kind}");
     }
 }
 

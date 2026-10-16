@@ -1,0 +1,11 @@
+# {{ name }}
+
+Applet id: `{{ id }}`.
+
+Requires Cargo. Cargo fetches the `glimpse-sdk` crate on first build.
+
+Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
+applet with its options and env. Options edits update it; source
+edits restart it. Run `cargo build` to check it. The desktop entry builds a release binary with its target under `/tmp`.
+
+Add `center = ["{{ id }}"]` to a panel's applet zone.

@@ -1,0 +1,23 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"rewriteRelativeImportExtensions": true,
+		"rootDir": ".",
+		"outDir": "dist"
+	},
+	"include": [
+		"index.ts",
+		"jsx-runtime.ts",
+		"elements.ts",
+		"hooks.ts",
+		"services.ts",
+		"wire.ts",
+		"state.ts",
+		"host.ts",
+		"session.ts",
+		"reconciler.ts",
+		"testing.ts"
+	]
+}

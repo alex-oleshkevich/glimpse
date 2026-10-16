@@ -35,7 +35,7 @@ rustPlatform.buildRustPackage {
     patchShebangs "$out/bin/glimpse-dpms"
 
     mkdir -p "$out/share/glimpse/sdk" "$out/share/glimpse/themes"
-    cp -r sdk/template "$out/share/glimpse/sdk/"
+    cp -r sdk/templates "$out/share/glimpse/sdk/"
     cp -r data/themes/. "$out/share/glimpse/themes/"
     for name in config.default.toml config.commented.toml config.schema.json language-codes.json; do
       install -Dm644 "data/$name" "$out/share/glimpse/$name"

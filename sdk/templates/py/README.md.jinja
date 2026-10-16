@@ -1,0 +1,11 @@
+# {{ name }}
+
+Applet id: `{{ id }}`.
+
+Requires Python 3.14 and `uv`. `uv` installs the `glimpse-applet-sdk` dependency on first run.
+
+Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
+applet with its options and env. Options edits update it; source
+edits restart it. Run `uv run mypy` to type-check it in strict mode. The desktop entry runs `uv run applet.py`.
+
+Add `center = ["{{ id }}"]` to a panel's applet zone.

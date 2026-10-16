@@ -4,7 +4,7 @@ fn source(root: &Path) -> PathBuf {
     let dir = root.join("applet \\ source");
     fs::create_dir(&dir).unwrap();
     fs::write(dir.join("org.example.Test.desktop"), "[Desktop Entry]\nType=Application\nName=Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n").unwrap();
-    fs::write(dir.join("config.toml"), "").unwrap();
+    fs::write(dir.join("devconfig.toml"), "").unwrap();
     dir
 }
 
@@ -48,7 +48,7 @@ fn installation_round_trips_escaped_paths_and_refuses_other_files() {
 fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
     let root = tempfile::tempdir().unwrap();
     let dir = source(root.path());
-    let path = dir.join("config.toml");
+    let path = dir.join("devconfig.toml");
     fs::remove_file(&path).unwrap();
     let defaults = settings(&dir, "org.example.Test").unwrap();
     assert_eq!(defaults.applet, "org.example.Test");

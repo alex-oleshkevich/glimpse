@@ -59,7 +59,7 @@ install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg "$
 
 while IFS= read -r -d '' f; do
     install -Dm644 "$f" "$pkgroot/usr/share/glimpse/$f"
-done < <(find sdk/template -type f -print0)
+done < <(find sdk/templates -type f -print0)
 
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"

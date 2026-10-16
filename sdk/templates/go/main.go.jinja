@@ -1,0 +1,39 @@
+package main
+
+import sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
+
+type state struct{}
+
+type app struct {
+	sdk.Applet[state]
+}
+
+func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
+	return []sdk.Widget{
+		sdk.Indicator(
+			sdk.IndicatorProps{
+				Icon: {{ icon | tojson }},
+				Tooltip: {{ name | tojson }},
+			},
+			{{ name | tojson }},
+		),
+		sdk.Popover(
+			sdk.PopoverProps{
+				Icon: {{ icon | tojson }},
+				Title: {{ name | tojson }},
+			},
+			sdk.Section(
+				sdk.SectionProps{
+					Title: {{ name | tojson }},
+				},
+				sdk.Row(sdk.RowProps{
+					Title: "It works",
+				}),
+			),
+		),
+	}
+}
+
+func main() {
+	sdk.Main(&app{})
+}

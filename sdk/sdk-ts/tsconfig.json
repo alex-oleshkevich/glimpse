@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
+		"jsx": "react-jsx",
+		"jsxImportSource": "glimpse-sdk",
+		"strict": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"esModuleInterop": true,
+		"types": ["node"]
+	},
+	"include": [
+		"index.ts",
+		"jsx-runtime.ts",
+		"elements.ts",
+		"hooks.ts",
+		"services.ts",
+		"wire.ts",
+		"state.ts",
+		"host.ts",
+		"session.ts",
+		"reconciler.ts",
+		"testing.ts",
+		"index.test.ts",
+		"testing.test.ts"
+	]
+}

@@ -1,0 +1,33 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = ["glimpse-applet-sdk>=0.9"]
+# ///
+from glimpse_sdk import BaseApplet, Context, Indicator, Popover, Row, Section, State, W
+
+
+class App(BaseApplet[State]):
+    state = State()
+
+    def build(self, ctx: Context) -> list[W]:
+        return [
+            Indicator(
+                icon={{ icon | tojson }},
+                tooltip={{ name | tojson }},
+                children=[{{ name | tojson }}],
+            ),
+            Popover(
+                icon={{ icon | tojson }},
+                title={{ name | tojson }},
+                children=[
+                    Section(
+                        title={{ name | tojson }},
+                        children=[Row(title="It works")],
+                    )
+                ],
+            ),
+        ]
+
+
+if __name__ == "__main__":
+    App.main()

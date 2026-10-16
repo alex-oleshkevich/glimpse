@@ -1,0 +1,33 @@
+use glimpse_sdk::*;
+use std::process::ExitCode;
+
+struct App;
+
+enum Msg {}
+
+impl glimpse_sdk::App for App {
+    type Msg = Msg;
+
+    fn update(&mut self, _ctx: &Ctx, msg: Msg) {
+        match msg {}
+    }
+
+    fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
+        vec![
+            indicator()
+                .icon({{ icon | tojson }})
+                .tooltip({{ name | tojson }})
+                .text({{ name | tojson }})
+                .into(),
+            popover()
+                .icon({{ icon | tojson }})
+                .title({{ name | tojson }})
+                .child(section().title({{ name | tojson }}).child(row().title("It works")))
+                .into(),
+        ]
+    }
+}
+
+fn main() -> ExitCode {
+    run(App)
+}

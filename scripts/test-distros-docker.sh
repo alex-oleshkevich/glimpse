@@ -72,7 +72,7 @@ for binary in glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-su
     fi
 done
 
-for file in /usr/bin/glimpse-dpms /usr/share/glimpse/config.default.toml /usr/share/glimpse/config.commented.toml /usr/share/glimpse/config.schema.json /usr/share/glimpse/themes/adwaita/default.jpg /usr/share/glimpse/sdk/template/index.tsx /usr/share/locale/ru/LC_MESSAGES/glimpse.mo /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /etc/geoclue/conf.d/glimpse.conf /etc/pam.d/glimpse-lock /usr/lib/systemd/user/glimpse-settings-daemon.service /usr/share/dbus-1/services/me.aresa.Glimpse.Settings.service; do
+for file in /usr/bin/glimpse-dpms /usr/share/glimpse/config.default.toml /usr/share/glimpse/config.commented.toml /usr/share/glimpse/config.schema.json /usr/share/glimpse/themes/adwaita/default.jpg /usr/share/glimpse/sdk/templates/ts/index.tsx.jinja /usr/share/locale/ru/LC_MESSAGES/glimpse.mo /usr/lib/systemd/user/glimpse-session.target /usr/share/dbus-1/services/me.aresa.Glimpse.Idle.service /usr/share/xdg-desktop-portal/portals/glimpse.portal /etc/geoclue/conf.d/glimpse.conf /etc/pam.d/glimpse-lock /usr/lib/systemd/user/glimpse-settings-daemon.service /usr/share/dbus-1/services/me.aresa.Glimpse.Settings.service; do
     test -e "$file"
 done
 

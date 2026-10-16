@@ -1,0 +1,55 @@
+[build-system]
+requires = ["uv_build>=0.5,<0.20"]
+build-backend = "uv_build"
+
+[project]
+name = "glimpse-applet-sdk"
+version = "0.9.0"
+description = "Typed framework for Glimpse exec applets"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = []
+authors = [{ name = "Alex Oleshkevich", email = "alex.oleshkevich@gmail.com" }]
+keywords = ["glimpse", "applet", "panel", "desktop", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Desktop Environment",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://alex-oleshkevich.github.io/glimpse/"
+Repository = "https://github.com/alex-oleshkevich/glimpse"
+
+[tool.uv.build-backend]
+module-name = "glimpse_sdk"
+module-root = ""
+
+[tool.mypy]
+files = ["glimpse_sdk", "tests", "examples"]
+strict = true
+python_version = "3.14"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["examples/kitchen_sink/glimpse_sdk.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID", "ANN"]
+ignore = ["RUF012", "ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"glimpse_sdk/__init__.py" = ["F403", "F405"]
+"glimpse_sdk/elements.py" = ["N802"]
+"tests/*" = []
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

@@ -176,10 +176,10 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
     let applet_config = match applet_config {
         Some(path) => path,
         None if directory_target => {
-            let path = dir.join("config.toml");
+            let path = dir.join("devconfig.toml");
             ensure!(
                 path.is_file(),
-                "no config.toml in {}; create one or pass --applet-config <file>",
+                "no devconfig.toml in {}; create one or pass --applet-config <file>",
                 dir.display()
             );
             path

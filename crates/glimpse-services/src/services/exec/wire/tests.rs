@@ -1,11 +1,11 @@
 use super::{FromApplet, Outgoing, Urgency};
 
-const HELLO: &str = include_str!("../../../../../../sdk/applet/fixtures/hello.ndjson");
-const OPS: &str = include_str!("../../../../../../sdk/applet/fixtures/ops.ndjson");
-const TOOLTIP: &str = include_str!("../../../../../../sdk/applet/fixtures/tooltip.ndjson");
-const HOST: &str = include_str!("../../../../../../sdk/applet/fixtures/host.ndjson");
-const REQUESTS: &str = include_str!("../../../../../../sdk/applet/fixtures/requests.ndjson");
-const GARBAGE: &str = include_str!("../../../../../../sdk/applet/fixtures/invalid/garbage.ndjson");
+const HELLO: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/hello.ndjson");
+const OPS: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/ops.ndjson");
+const TOOLTIP: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/tooltip.ndjson");
+const HOST: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/host.ndjson");
+const REQUESTS: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/requests.ndjson");
+const GARBAGE: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/garbage.ndjson");
 
 fn lines(source: &str) -> impl Iterator<Item = &str> {
     source

@@ -157,7 +157,7 @@ pub async fn applet_check(args: CheckArgs, json: bool) -> Result<()> {
 }
 
 fn settings(dir: &Path, id: &str) -> Result<ExecAppletConfig> {
-    let path = dir.join("config.toml");
+    let path = dir.join("devconfig.toml");
     match fs::symlink_metadata(&path) {
         Ok(_) => super::run::settings(&path, id),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(ExecAppletConfig {

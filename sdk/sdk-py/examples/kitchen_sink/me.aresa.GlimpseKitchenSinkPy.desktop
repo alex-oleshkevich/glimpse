@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Kitchen Sink (Python)
+Comment=Every exec applet feature, in Python
+Icon=applications-graphics-symbolic
+Exec=uv run applet.py
+NoDisplay=true
+Implements=me.aresa.Glimpse.Applet1
