@@ -1,198 +1,256 @@
 # How exec applets work
 
-An exec applet is a separate program that draws one chip in the bar and, usually, one popover. The panel
-is the host: it finds the applet through a desktop entry, starts it as a systemd user unit, and exchanges
-newline-delimited JSON with it over a unix socket. The applet describes a small widget tree; the panel
-owns the real widgets. This page explains the host's side of that arrangement as the current code
-implements it. The wire format itself is [Applet protocol](/developers/protocol), and the trust boundary
-(or lack of one) is [Trust model](/developers/trust).
+An exec applet is a small program you install. It tells the panel what to draw in the bar, and the panel draws it and sends back your clicks and scrolls. The applet never draws anything itself.
 
-## Discovery through desktop entries
+## The big picture
 
-There is no applet registry of glimpse's own. An applet ships a desktop entry whose `Implements` key
-lists `me.aresa.Glimpse.Applet1`, and the whole catalog is answered by asking the desktop-entry system
-which entries implement that interface. Listing applets is that query, sorted by id.
-
-Resolving one id loads `<id>.desktop` and then applies glimpse's own checks. An entry is refused, with
-the reason kept for display, when it is hidden, when `Implements` does not include the interface, when it
-is `DBusActivatable` or `Terminal` (neither can speak the socket protocol), or when it has no `Exec`. An
-entry whose `TryExec` or `Exec` program is not on `PATH` does not load at all. What survives becomes an
-argv: `Exec` is split with shell-style quoting rules but no shell ever runs, file and URL field codes
-(`%f`, `%u` and friends) are dropped because an applet takes no arguments from the host, `%i` becomes
-`--icon` plus the icon name, `%c` the entry name, `%k` the desktop file's path, and an unknown field code
-refuses the entry. The working directory is the entry's `Path`, or the desktop file's own directory.
-
-Configuration names applets by putting the desktop-file id in a bar zone, optionally with a table of the
-same name holding `options` and `env`. A second instance of the same applet is a named table extending
-`exec`. The details are user-facing and live in the [applet configuration pages](/config/applets/).
-
-## Slots and zones
-
-Inside the panel, each placed exec applet instance on one bar is a slot, identified by a number the panel
-assigns when it attaches the applet to a zone (`left`, `center` or `right`, on one output). The slot is
-the unit of everything that follows: one systemd unit, one socket, one widget tree, one generation. Two bars showing the same applet are two slots and two processes. The slot also carries the
-placement the applet is told about: output connector, bar edge, orientation, zone and bar thickness.
-
-Attachment is the panel's job, config the exec service's job. When the panel builds a bar, it attaches
-each exec applet's slot with its configured name and placement; the exec service looks the name up in the
-configuration it holds to find the desktop id, `options` and `env`. A slot whose name is not configured
-is a failed slot, not an error for the panel: the bar builds without it.
-
-## Each start is a transient unit
-
-The exec service never forks an applet. Every start asks the systemd user manager, over the session bus,
-to start a transient service unit named:
-
-```
-app-glimpse-<panel>-<applet>-<slot>-<panel pid>-<n>.service
+```mermaid
+flowchart LR
+    classDef panel fill:#D6EAF8,stroke:#2E6EA6,color:#1B3A57
+    classDef applet fill:#FDEBD0,stroke:#CA7A1E,color:#5D3A00
+    classDef system fill:#D5E8D4,stroke:#3E7E3E,color:#1E4D1E
+    classDef file fill:#E8DAEF,stroke:#7D3C98,color:#3D1A52
+    subgraph disk ["On disk"]
+        config["Your config"]:::file
+        entry["Desktop entry<br/>the applet .desktop file"]:::file
+    end
+    panel["Panel"]:::panel
+    ctl["glimpsectl<br/>command line"]:::panel
+    systemd["systemd<br/>starts and watches"]:::system
+    applet["Applet program"]:::applet
+    config -->|"reads"| panel
+    entry -->|"says what to run"| panel
+    ctl -->|"asks for test run"| panel
+    panel -->|"asks to start"| systemd
+    systemd -->|"starts and watches"| applet
+    applet -->|"sends what to draw"| panel
+    panel -->|"clicks and scrolls"| applet
 ```
 
-The panel component is the panel's application id, the applet component is the desktop id, and a dash in
-either is escaped so the fields stay separable. The counter `n` increases on every deliberate restart, so
-a replaced applet never collides with its predecessor's unit. The unit's description is the entry's name,
-its slice is `app.slice`, and it is collected once inactive or failed.
+| Part           | What it is                                                                                                           | Where in the code                                                                     |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Panel          | The bar on your screen. It draws every applet and owns the real widgets.                                             | `crates/glimpse-panel/`, host service in `crates/glimpse-services/src/services/exec/` |
+| Applet program | A separate program per place in the bar. It sends descriptions of what to draw.                                      | Written with `sdk/applet/`                                                            |
+| systemd        | The system program that starts other programs and watches them. It starts each applet and restarts it after a crash. | Driven from `crates/glimpse-services/src/services/exec/launcher.rs`                   |
+| Desktop entry  | The applet `.desktop` file. It gives the applet a name and says which program to run.                                | Read by `crates/glimpse-services/src/services/exec/catalog.rs`                        |
+| Your config    | Your `config.toml`. It says which applets sit in the bar and where.                                                  | Loaded by `crates/glimpse-config/`                                                    |
+| `glimpsectl`   | The command line tool. You use it to test an applet you are writing.                                                 | `crates/glimpsectl/`                                                                  |
+| Socket         | A private pipe between the panel and one applet. All drawing descriptions and clicks travel through it.              | Opened in `crates/glimpse-services/src/services/exec/mod.rs`                          |
+| Unit           | systemd word for one running program it looks after. Each applet start gets its own unit.                            | `crates/glimpse-services/src/services/exec/launcher.rs`                               |
+| Slot           | One place in one bar where an applet sits. One slot means one unit, one socket and one drawing.                      | `crates/glimpse-services/src/services/exec/mod.rs`                                    |
+| D-Bus          | A message system programs use to ask each other for things. The panel uses it to ask systemd to start applets.       | `crates/glimpse-dbus/`                                                                |
 
-systemd, not the panel, owns the process from this point: its cgroup, its journal (an applet's stderr
-goes there), a `MemoryMax` of 256 MiB, and a restart curve for configured applets: restart on failure
-after 1 second, in 6 steps up to a 60 second delay, with no start limit. The environment is built fresh
-for each start: the panel's environment with the systemd-internal names filtered out, then
-`GLIMPSE_APPLET_SOCKET`, then the configured `env` entries (also filtered). The first argv element is
-resolved against that merged environment's `PATH`, so a configured `PATH` decides which program runs.
-Before the start, the applet's persistent state directory is created (mode 0700) so its path can be handed
-to the applet in the `hello` reply.
+Read the colors as owners. Blue is glimpse code, orange is your applet, green is systemd, and purple sits on disk. When something breaks, the first question is which color owns it.
 
-Without a systemd user manager on the session bus, every slot fails with the reason "needs the systemd
-user manager" and the panel keeps running. Exec applets are the one glimpse feature with a hard systemd
-dependency, and its absence degrades exactly those slots.
+Two bars showing the same applet are two slots, so the applet program runs twice. A slot also knows where it sits: which screen, which edge of the screen, and which zone of the bar (`left`, `center` or `right`). The applet hears about that place, but it never gets to choose it.
 
-## The per-slot socket
-
-Before starting the unit, the host binds a unix socket for the slot under the glimpse runtime directory
-(`$XDG_RUNTIME_DIR/glimpse/applets/<panel pid>-<slot>.sock`) and names it in `GLIMPSE_APPLET_SOCKET`. A
-stale file at that path is removed first. The socket serves one connection at a time: a second connection
-while one is live is accepted and dropped, and after a disconnect the host listens again on the same
-socket for the unit's next incarnation. The applet speaks first and the host sends nothing until it has
-read `hello`.
+## Follow one applet from install to screen
 
 ```mermaid
 sequenceDiagram
-    participant P as Panel (exec service)
-    participant S as systemd user manager
-    participant A as Applet process
-    P->>P: bind slot socket, create state dir
-    P->>S: StartTransientUnit (argv, env, socket name)
-    S->>A: start process
-    A->>P: connect to GLIMPSE_APPLET_SOCKET
-    A->>P: {"t":"hello","v":1}
-    P->>A: hello (name, state dir, options, placement)
-    P->>A: service values (mpris, compositor)
-    A->>P: {"t":"commit","ops":[...]}
-    P->>P: validate batch, publish tree
-    P->>A: event (user acted on an element)
-    A->>P: commit / notify / open-uri / ...
-    Note over P,A: options and placement updates<br/>reuse this connection
-    A--xP: disconnect
-    P->>P: clear tree, slot is Restarting
-    S->>A: restart on failure (configured slots)
+    autonumber
+    participant Y as You
+    participant P as Panel
+    participant S as systemd
+    participant A as Your applet
+    rect rgba(53, 132, 228, 0.12)
+    Note over Y,P: Getting the applet running
+    Y->>P: Installs applet file
+    Y->>P: Adds applet to config
+    P->>P: Notices the new applet
+    P->>S: Please start this applet
+    S->>A: Starts the program
+    end
+    rect rgba(46, 204, 113, 0.12)
+    Note over P,A: Drawing and clicking
+    A->>P: Connects and says hello
+    A->>P: Sends what to draw
+    P->>Y: Shows it on screen
+    Y->>P: Clicks the chip
+    P->>A: Tells about the click
+    end
 ```
 
-## Hello and generations
+The same steps with the real names:
 
-Each `hello` (the first on a connection, or a later one from the same process after a reload) starts a
-new generation: the host advances a generation counter, clears the slot's tree, marks the slot running,
-and answers with its own `hello` carrying the instance name, the state directory, the current options and
-the current placement. It then replays the current popover state and the cached media-player and
-compositor values, so a reloaded applet starts from the present, not from nothing.
+1. You install a `.desktop` file whose `Implements` key lists `me.aresa.Glimpse.Applet1`. glimpse keeps no applet registry of its own, so that file is the whole sign up.
+2. You put the desktop file id in a bar zone in `config.toml`. A table of the same name can hold `options` and `env` for it. See the [applet configuration pages](/config/applets/).
+3. The panel attaches a slot for that place in the bar. The catalog resolves the id to a program to run, and refuses entries it cannot run, for example a hidden entry or one with no `Exec`.
+4. The panel opens the slot socket, then asks the systemd user manager over D-Bus to start a transient unit (`StartTransientUnit`). The socket path travels in `GLIMPSE_APPLET_SOCKET`.
+5. systemd starts the applet program as that unit. systemd owns the process from here on, including its logs and its restarts.
+6. The applet connects to the socket and sends `hello`. The panel answers with its own `hello`, carrying the instance name, the state directory, the current `options` and the placement.
+7. The applet sends a `commit`, a batch of changes that describes what to draw. The wire format is [Applet protocol](/developers/protocol).
+8. The panel checks the whole batch, then draws it. A batch with one bad change draws nothing at all.
+9. You click or scroll on the chip in the bar.
+10. The panel sends an `event` to the applet, and the applet answers with a new `commit` if the drawing should change.
 
-Generations exist to solve the stale-event problem. User events from the panel carry the generation of
-the tree they were produced against, and the exec service drops any event whose generation is not the
-slot's current one. A click that was in flight while an applet reloaded cannot reach the new incarnation
-as if it belonged to the new tree.
+Each `hello` starts a new generation. The panel stamps every `event` with the generation of the drawing it came from and drops events from an older generation. A click sent while an applet was restarting can never land on the new drawing by mistake.
 
-## The reconciled tree
+The panel resolves `Exec` without a shell. It splits the line with shell style quoting, drops file and URL codes because an applet takes no arguments from the host, and runs the program it finds on `PATH`. The environment for each start is built fresh from the panel environment, the socket path and your configured `env`, so a configured `PATH` decides which program runs.
 
-The applet never touches GTK. It sends commits: batches of insert, move, remove and set operations. The
-host applies a batch to a copy of the slot's tree, checks ids, cycles, the parent table and the size caps
-against the whole batch, and only then swaps the copy in as the published tree. A rejected batch changes
-nothing on screen (and, as below, costs the applet its unit). The panel's exec widget renders whatever
-tree is published and turns user gestures into protocol events. Requests in the other direction
-(notifications, clipboard copies, URIs, workspace and player control) are handled by the exec service
-against the panel's own services, under the caps in [Trust model](/developers/trust).
+## How does the panel notice a new applet?
 
-## Updates without a restart
+```mermaid
+flowchart LR
+    classDef panel fill:#D6EAF8,stroke:#2E6EA6,color:#1B3A57
+    classDef file fill:#E8DAEF,stroke:#7D3C98,color:#3D1A52
+    classDef good fill:#D5E8D4,stroke:#3E7E3E,color:#1E4D1E
+    classDef bad fill:#FADBD8,stroke:#C0392B,color:#641E16
+    tick["Check every 5 seconds"]:::panel
+    entry["Applet file"]:::file
+    ok{"File there and usable?"}:::panel
+    start["Start the applet"]:::good
+    keep["Leave it running"]:::good
+    stop["Stop and mark failed"]:::bad
+    tick -->|"looks up"| entry
+    entry -->|"answers"| ok
+    ok -->|"yes and waiting"| start
+    ok -->|"yes and running"| keep
+    ok -->|"missing twice"| stop
+```
 
-Two kinds of change are delivered over the live connection rather than by restarting the process:
+In short:
 
-- An options change. Saving a different `options` table, or a dev client calling `set_options`, sends an
-  `options` message with the new object. The process keeps running and decides what to redraw.
-- A placement change. When the bar moves edge, output or thickness and the slot moves with it, a
-  `placement` message carries the new placement. Zone changes are not a placement update: a different
-  zone is a different slot, attached fresh.
+- The panel does not watch applet files. It asks about them every 5 seconds, and only for applets your config already places in a bar.
+- Installing the file for a placed applet that failed makes it start on a later check. An applet with no place in your config gets no slot and never starts.
+- A changed file leaves a running applet alone. The new file takes effect the next time that applet starts fresh.
+- A file missing on two checks in a row stops the running applet and marks the slot failed.
 
-## Restarts and environment changes
+The check retries a failed slot only when the entry changed, a refusal cleared, or the earlier start itself failed. Listing applets asks the catalog at once, so a new applet shows in lists before its first check runs.
 
-Everything that defines the process itself does restart it. On a configuration reload, if a slot's
-desktop id or its `env` changed, the host cancels the slot's connection and spawn, and starts the next
-unit (the next `n` in the name) with the new values and an empty tree. An options change for a slot that
-is currently failed also restarts it, since there is no live process to deliver the message to, while an
-applet removed from the configuration has its connection and unit stopped and its slot marked failed.
+## What happens when you edit your config?
 
-The desktop entry is watched the same way. While any configured slot is running or failed, the host
-re-resolves its entry every 5 seconds. A failed slot restarts when its entry resolves again, changed, or
-when the previous failure was at launch: this is what makes installing or fixing an applet on disk take
-effect without touching the panel. A running applet whose entry stops resolving is left alone until the
-catalog has missed it twice, then its unit is stopped and the slot fails with the catalog's reason.
+```mermaid
+flowchart LR
+    classDef panel fill:#D6EAF8,stroke:#2E6EA6,color:#1B3A57
+    classDef file fill:#E8DAEF,stroke:#7D3C98,color:#3D1A52
+    classDef good fill:#D5E8D4,stroke:#3E7E3E,color:#1E4D1E
+    classDef bad fill:#FADBD8,stroke:#C0392B,color:#641E16
+    save["You save the config"]:::file
+    wait["Panel waits for quiet"]:::panel
+    ok{"Config still valid?"}:::panel
+    keep["Keep the old config"]:::bad
+    apply["Apply the changes"]:::good
+    save -->|"file changes"| wait
+    wait -->|"reads it again"| ok
+    ok -->|"no"| keep
+    ok -->|"yes"| apply
+```
 
-## Startup sweep and shutdown
+In short:
 
-A panel that died without stopping its applets leaves two things behind: transient units and socket
-files. So every panel startup sweeps before it starts any slot. It deletes socket files whose owning process
-has exited, and asks the user manager to stop every unit matching its own prefix
-(`app-glimpse-<panel>-*`), which catches the previous incarnation's applets whatever pid they carried.
+- One editor save can look like several file changes, so the panel waits for 250 ms of quiet, then reads the config once. `SIGHUP` asks for the same reread.
+- A broken edit changes nothing. The panel keeps the last good config and the bar stays as it was.
+- Applets started from the command line for testing ignore config edits. Their caller stays in charge of them.
 
-A clean panel stop stops each slot's unit and removes its socket. A crashed panel does neither, but its
-exit closes the sockets, and an applet whose socket reaches the end of the stream has nothing left to do;
-the sweep at the next startup collects any unit still lingering.
+| Change                                 | What happens                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Applet added to or removed from a zone | A slot attaches or detaches. Detaching stops its unit, and attaching starts a fresh unit with an empty drawing. |
+| Applet id or `env` changes             | The slot starts a fresh unit, because the program or its environment is now different.                          |
+| `options` change on a running applet   | The panel sends an `options` message. The program keeps running.                                                |
+| `options` change on a failed applet    | The slot starts a fresh unit.                                                                                   |
+| Bar moves to another edge or screen    | The panel sends a `placement` message. Moving between zones makes a new slot instead.                           |
 
-## Dev slots
+## What does glimpsectl applet run do?
 
-`glimpsectl applet run` attaches a dev slot through the panel's `me.aresa.Glimpse.AppletHost1` interface
-rather than through configuration. The caller passes an absolute desktop-file path, a panel and output, an
-optional zone, options and environment, and a file descriptor that becomes the unit's stderr, which is
-why a dev applet's logs land in the terminal instead of the journal. The host validates the path (it must
-be a regular `.desktop` file whose stem is a valid desktop id), resolves it through the same catalog
-checks as an installed applet, and admits at most 8 attachments per bus sender and 16 in total.
+You run this while writing an applet. Your test copy goes on screen at once, your terminal shows its logs, and nothing about your config changes.
 
-A dev slot whose desktop id matches a configured applet on the same output takes that applet's slot over
-in place; otherwise it waits, and enters its zone (the configured zone for that id if there is one, else
-the right zone) when the bar next reconciles. Dev units are started with restarts disabled: a crashed dev
-applet stays down until the caller restarts it, and `glimpsectl applet run --dev` does exactly that on
-source edits, while also pushing options changes live. Detaching (which also happens automatically when
-the caller's bus name vanishes, as it does on Ctrl-C) hands a taken-over slot back to the configured
-applet, which restarts as a fresh unit.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Your terminal
+    participant C as glimpsectl
+    participant P as Panel
+    participant S as systemd
+    participant A as Your applet
+    rect rgba(53, 132, 228, 0.12)
+    Note over T,A: Test copy goes on screen
+    T->>C: Run this applet here
+    C->>P: Show my copy instead
+    P->>S: Swap in the test copy
+    S->>A: Starts the program
+    A->>P: Connects and says hello
+    end
+    rect rgba(254, 160, 90, 0.15)
+    Note over T,P: Leaving restores the old copy
+    T->>C: Ctrl C pressed
+    C->>P: Take my copy away
+    P->>S: Bring installed copy back
+    end
+```
 
-## Rates, crashes and what kills a unit
+The same steps with the real names:
 
-Not every excess is fatal. The host counts lines per second; past 120 it simply stops reading until the
-next second, so a chatty applet blocks on its own socket. Notifications past one per second and
-media-player or compositor calls past ten per second are dropped with a warning. Clipboard copies over
-1 MiB are dropped silently; a player id or workspace name over 256 bytes is dropped with a warning.
+1. You run `glimpsectl applet run` in a terminal, with a folder or an installed applet id.
+2. `glimpsectl` calls `Attach` on the panel interface `me.aresa.Glimpse.AppletHost1`. It passes the desktop file, the panel and screen, optional `options` and `env`, and a pipe for the applet logs.
+3. The panel checks the desktop file the same way it checks installed applets. When the same applet already sits in that place on that screen, the test copy takes over its slot and the installed copy stops.
+4. systemd starts the test copy as its own unit (`StartTransientUnit`). `glimpsectl` never starts the program itself. The pipe from step 2 becomes the unit stderr, which is why logs land in your terminal and not in the journal.
+5. The applet connects to its slot socket and says `hello`, and drawing and clicking work as in the story above.
+6. You press Ctrl C in the terminal.
+7. `glimpsectl` calls `Detach`. The panel also detaches on its own when the caller leaves the session bus, so closing the terminal cannot strand a test copy.
+8. The panel stops the test unit. If an installed copy held that slot, the configured applet starts again in its place.
 
-A crash is systemd's business. The host watches each unit's state: entering an auto-restart is reported
-as the slot restarting with its restart count, a failed unit fails the slot with the unit's result, and a
-unit that disappears ends the slot. On any disconnect the published tree is cleared, so the bar never
-keeps drawing a dead applet's last frame. A unit that then runs cleanly for 60 seconds has its failed
-state reset and its restart count forgiven.
+In short:
 
-The host itself kills a unit (a `KillUnit` of all its processes, signal 9) only for protocol abuse:
+- systemd starts the process in both the normal and the test path. Only the caller differs.
+- While you test, the installed copy of the same applet in the same place is off screen. Ctrl C brings it back.
+- With no matching slot, the test copy gets its own place in the zone you asked for, the zone your config gives that applet, or the right zone.
+- A test copy that crashes stays down. Configured applets restart on their own and test copies do not, because you are there watching.
 
-- a line that is not valid protocol JSON, or a line past the 1 MiB cap
-- an unsupported protocol version in `hello`
-- a commit or any other request before `hello`
-- a commit the tree validator rejects
-- more than 5 `hello`s within 10 seconds
-- a full outgoing queue: the applet has stopped reading its socket
+The panel reply to `Attach` means the slot is attached, not that the program is ready. The host accepts at most 8 attachments per caller and 16 in total.
 
-A message with an unknown type is explicitly not on this list; it is ignored, which is what lets a newer
-SDK talk to an older host. A killed configured applet restarts under systemd's restart curve like any
-crashed one, and only the offending slot is affected. Everything else in the bar carries on.
+With `--dev`, saving files drives the running test copy. Edits settle for 300 ms first.
+
+| You edit                   | Panel call              | What happens                                                  |
+| -------------------------- | ----------------------- | ------------------------------------------------------------- |
+| Source files               | `Restart`               | A fresh test unit starts. The terminal key `r` does the same. |
+| Options                    | `SetOptions`            | The running applet gets live `options`.                       |
+| `env` or the desktop entry | `Detach`, then `Attach` | The panel checks the entry again and replaces the unit.       |
+
+For a folder target, `--dev` watches sources in that folder except hidden paths, `node_modules`, `build` and `dist`. For an installed id it watches the desktop entry and the applet config. The terminal key `t` prints the current drawing (`Tree`). `applet check --run` is a separate headless check where the command line tool starts the child itself and gives it a socket.
+
+## What happens at panel start and exit?
+
+```mermaid
+flowchart LR
+    classDef panel fill:#D6EAF8,stroke:#2E6EA6,color:#1B3A57
+    classDef applet fill:#FDEBD0,stroke:#CA7A1E,color:#5D3A00
+    classDef bad fill:#FADBD8,stroke:#C0392B,color:#641E16
+    start["Panel starts"]:::panel
+    clean["Removes old leftovers"]:::panel
+    run["Starts your applets"]:::panel
+    stop["Stops each applet"]:::applet
+    crash["Applets lose the socket"]:::bad
+    start -->|"first cleans up"| clean
+    clean -->|"then starts fresh"| run
+    run -->|"panel stops normally"| stop
+    run -->|"panel crashes"| crash
+```
+
+In short:
+
+- A panel that died can leave applet units and socket files behind. Every panel start removes socket files whose owner is gone and asks systemd to stop units left by an earlier panel, before it starts anything.
+- A clean panel stop stops each applet unit and removes its socket.
+- A panel crash closes the sockets. Applets built with the SDK exit when their socket closes, and the next panel start collects anything left behind.
+
+## When an applet sends too much or breaks the rules
+
+The panel protects the bar first. Small excesses slow one applet down, and protocol abuse stops that one applet. The rest of the bar carries on either way. What happens after a stop, and when the applet comes back, is in [Trust model](/developers/trust#what-happens-when-an-applet-crashes).
+
+Slowed down or dropped, with the applet left running:
+
+- Lines past 120 per second wait. The panel stops reading until the next second, so a chatty applet blocks on its own socket.
+- Notifications past one per second, and media player or compositor requests past ten per second, are dropped with a warning.
+- Clipboard copies over 1 MiB are dropped. A player id or workspace name over 256 bytes is dropped with a warning.
+- A message with an unknown type is ignored. That is what lets a newer SDK talk to an older panel.
+
+Stopped at once, because the panel cannot trust what arrives:
+
+- A line that is not valid protocol JSON, or a line past the 1 MiB cap.
+- An unsupported protocol version in `hello`.
+- A `commit` or any other request before `hello`.
+- A `commit` the tree checker rejects.
+- More than 5 `hello` messages within 10 seconds.
+- A full outgoing queue, which means the applet stopped reading its socket.
+
+Without a systemd user manager on the session bus, every slot fails with "needs the systemd user manager" and the panel keeps running. Exec applets are the one glimpse feature that cannot work without systemd, and they are the only part that stops.

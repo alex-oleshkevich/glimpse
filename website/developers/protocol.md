@@ -7,10 +7,8 @@ enforces. How applets are discovered and started is [How exec applets work](/dev
 
 ## Transport and framing
 
-The panel is the host. It starts every exec applet as a systemd user unit, including one that
-`glimpsectl applet run` attaches. The applet connects once to the unix socket named
-by `GLIMPSE_APPLET_SOCKET`; both directions carry UTF-8 NDJSON on that one connection: one JSON
-object per line, separated by `\n`. Stdio carries the same stream in tests. The host also
+The applet connects to `GLIMPSE_APPLET_SOCKET`; both directions carry UTF-8 NDJSON on that unix socket:
+one JSON object per line, separated by `\n`. Stdio carries the same stream in tests. The host also
 accepts a trailing `\r`. Stderr is not part of the protocol; it goes to the journal, or to the
 terminal of the `glimpsectl applet run` that attached the applet.
 
@@ -19,16 +17,46 @@ rejected. A single JSON value nests at most 128 levels; a deeper tree is built a
 commits. The operation value `op` is a closed set: an unknown `op`, or a line that is not
 JSON, does not decode. A message with an unknown `t` is ignored.
 
-The applet speaks first. The host does not send anything until it has read `hello`.
+The applet speaks first; both hellos carry `v: 1`.
 
-The only version is `1`, carried as `v` on both hellos.
+## How one conversation goes
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Your applet
+    participant P as Panel
+    rect rgba(53, 132, 228, 0.12)
+    Note over A,P: Saying hello
+    A->>P: Connects to the socket
+    A->>P: Says hello
+    P->>A: Says hello back
+    end
+    rect rgba(46, 204, 113, 0.12)
+    Note over A,P: Drawing and clicking
+    A->>P: Sends what to draw
+    P->>P: Checks then shows it
+    P->>A: Sends a click
+    A->>P: Sends updated drawing
+    end
+```
+
+The same steps with the real names:
+
+1. The applet connects to the unix socket in `GLIMPSE_APPLET_SOCKET`. Both directions then carry NDJSON on that one connection.
+2. The applet sends `hello` with `v: 1`. The host starts a new generation and clears the protocol tree.
+3. The host answers with its own `hello` (`name`, `state`, `options`, `placement`), then sends `popover` if one is open and replays cached `service` values.
+4. The applet sends a `commit`, one batch of `ops` that builds or changes its widget tree.
+5. The host applies the batch to a copy of the tree, checks the whole batch, and only then publishes it to the exec widget. A rejected batch changes nothing on screen.
+6. A user gesture becomes an `event`. Events carry the generation of the tree they came from, and the host drops any event from an older generation.
+7. The applet replies with another `commit`, or with a request such as `notify`, `copy` or `open-uri`.
 
 Object keys added by a newer peer are ignored. A commit is applied as a whole batch or
 not at all: if any operation in the batch is rejected, the tree does not change. The host
 then stops that applet. The caps below are what the validator enforces, except the line
 rate, which the host counts itself: past the cap it stops reading until the next second,
-so the applet blocks on its pipe. More than 5 `hello`s within any 10 seconds stops the applet
-with the reason `too many hellos`, and it restarts like any stopped applet.
+so the applet blocks on its socket. More than 5 `hello`s within any 10 seconds kills the unit
+with the reason `too many hellos`. Configured applets restart on failure; dev units do not.
 
 ## Host to applet
 

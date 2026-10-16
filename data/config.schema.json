@@ -2841,7 +2841,7 @@
           "default": {}
         },
         "remember": {
-          "description": "Keep a keyboard layout for each `window`, each `app`, or everything with `global`. Your lock\nscreen always uses `global`.",
+          "description": "Keep a keyboard layout for each `window`, each `app`, or everything with `global`.",
           "$ref": "#/$defs/Remember",
           "default": "window"
         }
@@ -3126,7 +3126,7 @@
       "additionalProperties": false
     },
     "Mpris": {
-      "description": "Choose which media players you follow and whether to download their artwork.\nPlaying players take priority over paused, then stopped players, with the most recently active first.\n`playerctld` and KDE Connect mirrors are left out.",
+      "description": "Choose which media players you follow and whether to download their artwork.\nPlaying players take priority over paused, then stopped players, with the most recently active first.",
       "type": "object",
       "properties": {
         "art-max-kib": {
@@ -3142,7 +3142,7 @@
           "default": true
         },
         "ignore": {
-          "description": "Hide media players whose names match these case-sensitive regular expressions. Start one with\n`(?i)` to ignore case.",
+          "description": "Hide media players whose names match these case-sensitive regular expressions. Upper and lower case must match the name; start an entry with `(?i)` to\nignore case, as in `'(?i)firefox'`. Use single quotes around each entry.",
           "type": "array",
           "default": [],
           "items": {
@@ -3498,7 +3498,7 @@
       "type": "object",
       "properties": {
         "network": {
-          "description": "Show your network shares. Restart the panel after turning this off to remove existing\nentries.",
+          "description": "Show your network shares.",
           "type": "boolean",
           "default": true
         },
@@ -3811,7 +3811,7 @@
       "description": "What a source's `uri` points at.",
       "oneOf": [
         {
-          "description": "A calendar file or online feed.",
+          "description": "One iCalendar document: an `https://` or `webcal://` feed, a local `.ics`, or a `file://`\nholding a one-line feed URL. A local one is watched; a remote one is fetched on\n`poll-interval`.",
           "type": "string",
           "const": "ical"
         },

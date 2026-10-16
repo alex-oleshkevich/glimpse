@@ -1,46 +1,85 @@
 # Trust model
 
-An exec applet is a program the user installed, and glimpse runs it the way the session runs any program:
-as a transient systemd user unit with the user's full session. There is no confinement layer between an
-applet and the rest of the desktop. This page states what that means, what the host still enforces, and
-why the line is drawn there.
+An exec applet runs as a transient systemd user unit with the user's full session. Installation is the
+trust decision; the host's protocol checks protect the panel without confining the process.
+
+## What can an applet reach?
+
+```mermaid
+flowchart LR
+    classDef applet fill:#FDEBD0,stroke:#CA7A1E,color:#5D3A00
+    classDef panel fill:#D6EAF8,stroke:#2E6EA6,color:#1B3A57
+    classDef plain fill:#F2F3F4,stroke:#616A6B,color:#1B2631
+    applet["Applet program"]:::applet
+    files["Your files"]:::plain
+    net["Network"]:::plain
+    panel["Panel"]:::panel
+    bar["The bar"]:::panel
+    applet -->|"can read and change"| files
+    applet -->|"can use"| net
+    applet -->|"sends what to draw"| panel
+    panel -->|"shows after checks"| bar
+```
+
+In short:
+
+- An applet runs as you. It can reach your files, the network and the session bus without asking the panel for anything.
+- The panel checks only what arrives through the applet socket, so one applet cannot flood or break the bar for the others.
+- Installing an applet is the trust decision, as installing any program is.
 
 ## What an applet can do
 
-The unit gets the panel's environment (minus systemd-internal names such as `NOTIFY_SOCKET`, `INVOCATION_ID`,
-`LISTEN_*` and `WATCHDOG_*`, which would corrupt the applet's own service management if inherited, and
-any name that is not a valid identifier)
-plus any `env` entries from its configuration table. It can reach the session bus, the user's files, the
+The unit gets the panel's environment plus any `env` entries from its configuration table. It can reach the session bus, the user's files, the
 network and everything else the user can reach. Its persistent state directory is mode 0700, but that is
 housekeeping, not a boundary: nothing stops an applet from reading or writing anywhere else the user can.
 
 Installing an applet is therefore the trust decision, exactly as installing any application is. The
-desktop entry decides what runs, and glimpse refuses entries it cannot run honestly (hidden entries,
-entries without the applet interface, `DBusActivatable` and `Terminal` entries), but it does not audit
+desktop entry decides what runs, and glimpse refuses entries it cannot run honestly, but it does not audit
 what the program does once started. A malicious applet needs nothing from the panel to do damage: it
 already runs as the user.
 
-## What the host still enforces
+## What happens when an applet crashes?
 
-If confinement is off the table, the remaining host rules protect the shared surface: the bar, the other
-applets, and the user actions an applet can ask the host to perform on its behalf. A buggy or hostile
-applet should be able to ruin its own chip and nothing else.
+One slot moves through four states. The panel watches two things to move it: the socket handshake and the systemd unit state.
 
-| Area | Rule |
-| --- | --- |
-| Tree size | A commit is rejected as a whole past 300 nodes, 200 children of one parent, or 1,200 operations. Lines are capped at 1 MiB and JSON nesting at 128 levels. |
-| Rates | Lines past 120 per second are delayed, so the applet blocks on its socket instead of the panel blocking on the applet. Notifications are capped at one per second, and media-player and compositor calls at ten per second; past the cap the request is dropped. Clipboard copies past 1 MiB are dropped. |
-| Memory | Every applet unit carries `MemoryMax` of 256 MiB in its cgroup. |
-| Protocol abuse | Invalid JSON, an oversized line, an invalid tree, a commit or request before `hello`, an unsupported protocol version, more than 5 `hello`s in 10 seconds, or a full write queue (an applet not reading its socket) kills only the offending unit. The full list is in [How exec applets work](/developers/exec-applets). |
-| Text | Every string an applet puts on screen is cleaned and capped (256 characters for labels and titles, 8 for a badge, and so on), and it reaches widgets as plain text, never as markup. |
-| URIs | `open-uri` accepts only `http`, `https`, `mailto` and `file`, at most 2,048 bytes; anything else is dropped. |
-| Files | A `file` URI opens only a directory, or a regular file that is neither executable nor of a type that starts a program (a desktop entry, a script, a binary, an installer, an AppImage or similar launcher types). The path is resolved before the check, so a symlink cannot dress an executable up as a document. |
-| Launching | `launch` takes a desktop-file id. An applet can of course start programs itself, since it runs as the user; the host's own launch path stays narrow so a click in the bar never becomes "run this file". |
+```mermaid
+stateDiagram-v2
+    direction LR
+    classDef wait fill:#FEF3DC,stroke:#CA7A1E,color:#5D3A00
+    classDef good fill:#D5E8D4,stroke:#3E7E3E,color:#1E4D1E
+    classDef bad fill:#FADBD8,stroke:#C0392B,color:#641E16
+    state "Waiting to restart" as Waiting
+    class Starting,Waiting wait
+    class Running good
+    class Failed bad
+    [*] --> Starting: applet placed in bar
+    Starting --> Running: says hello
+    Starting --> Failed: systemd missing or broken file
+    Running --> Waiting: applet exits, bad message, uses over 256 MB
+    Waiting --> Running: says hello again
+    Waiting --> Failed: unit gives up
+    Failed --> Starting: file fixed or changed
+```
 
-The file rule deserves its reason. Opening a URI is the one host action that turns applet-supplied data
-into a program start on the user's click, so it is gated even though the applet could start the same
-program on its own. The difference is who appears to have asked: a user who clicks a link in the bar
-expects a document or a folder, not an installer.
+In short:
+
+- A crash costs one slot its chip for a short wait. Everything else in the bar carries on.
+- Configured applets come back on their own. Test copies from `glimpsectl applet run` stay down until you restart them.
+- A failed slot waits for a reason to try again, such as a fixed desktop entry. It does not spin.
+
+| Cause                             | What happens                                                                                                                | How long until it comes back                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Applet exits with failure         | systemd restarts configured units (`Restart` on failure). Dev units use `Restart=no`.                                       | After 1 s, rising in 6 steps to 60 s, with no start limit. Dev units never restart alone.            |
+| Bad message (protocol abuse)      | The host disconnects and kills the unit (`KillUnit`, all processes, signal 9). Only that slot is affected.                  | Configured units follow the same restart curve.                                                      |
+| Memory limit reached              | `MemoryMax` of 256 MiB caps the unit cgroup. A process killed for memory counts as a failure.                               | The same restart curve as any other failure.                                                         |
+| Socket disconnects, process alive | The panel clears the published tree and listens on the same socket again. A disconnect alone does not restart the process.  | When the process connects and says `hello` again.                                                    |
+| Entry or launch fails             | The slot fails with the reason kept for display.                                                                            | Checked every 5 s. It retries when the entry changed, a refusal cleared, or the start itself failed. |
+| systemd is missing                | Every slot fails with `needs the systemd user manager`. The panel keeps running.                                            | When a systemd user manager is on the session bus.                                                   |
+| Applet runs well for 60 s         | The host calls `ResetFailedUnit` and clears the recorded restart count, so the next crash starts the curve at 1 s again.    | It never left.                                                                                       |
+| Panel crashes                     | Sockets close and applet processes see EOF. The SDK exits on EOF, so applets end with the panel.                            | At the next panel start.                                                                             |
+| Leftovers after a panel crash     | The next panel start deletes socket files whose owner is gone and stops units left by the earlier panel, then starts fresh. | During that startup, before any applet starts.                                                       |
+
+The waiting state also covers a disconnected dev slot waiting for its caller. When systemd removes a unit, an active slot ends, including after a clean exit, and ended slots do not retry. A slot that already failed stays failed until a check finds a reason above.
 
 ## Text from other apps
 
@@ -49,13 +88,3 @@ items, notifications, media players, windows and wireless networks are treated a
 glimpse displays them, including inside exec applets: media-player fields and window titles are capped at
 256 characters before they are sent to an applet, and applet labels render them as plain text. An applet
 is trusted code, but the strings flowing through it are not.
-
-## Why no confinement
-
-A barrier that still lets an applet show useful things (files, players, workspaces, the network) would
-mostly duplicate the session's own permissions, while giving users a reason to install applets they have
-not actually decided to trust. glimpse instead keeps the model honest: installation is the decision, the
-unit runs as the user under systemd's accounting (its own cgroup, restart curve and journal), and the
-host's caps keep one applet from taking the bar, the notification stack or the user's clicks down with
-it. Anything stronger belongs to the mechanisms a user can already apply to any program in their
-session.
