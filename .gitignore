@@ -44,3 +44,4 @@ crates/glimpse-widgets/resources/widgets/
 website/public/assets/*.png
 website/.vitepress/cache/
 website/.vitepress/dist/
+.pi/
