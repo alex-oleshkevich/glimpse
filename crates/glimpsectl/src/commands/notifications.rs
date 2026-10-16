@@ -171,16 +171,17 @@ pub async fn notifications_dnd(
     state: DndState,
     until: Option<NaiveTime>,
 ) -> Result<()> {
-    let enabled = state == DndState::On;
-    let lapses = expiry(enabled, until)?;
+    let lapses = expiry(state == DndState::On, until)?;
+    let proxy = proxy::<Notifications1Proxy>(connection).await?;
+    let enabled = match state {
+        DndState::On => true,
+        DndState::Off => false,
+        DndState::Toggle => !read_proxy(&proxy).await?.do_not_disturb.enabled,
+    };
 
-    within(
-        proxy::<Notifications1Proxy>(connection)
-            .await?
-            .set_do_not_disturb(enabled, lapses),
-    )
-    .await
-    .context("cannot change do not disturb")?;
+    within(proxy.set_do_not_disturb(enabled, lapses))
+        .await
+        .context("cannot change do not disturb")?;
     Ok(())
 }
 
@@ -188,10 +189,7 @@ pub fn expiry(enabled: bool, until: Option<NaiveTime>) -> Result<i64> {
     let Some(time) = until else {
         return Ok(INDEFINITELY);
     };
-    anyhow::ensure!(
-        enabled,
-        "`--until` needs `dnd on`: there is nothing to lapse when it is off"
-    );
+    anyhow::ensure!(enabled, "`--until` is only valid with `dnd on`");
 
     let now = Local::now();
     (0..3)

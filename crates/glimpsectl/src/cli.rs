@@ -374,9 +374,9 @@ pub enum NotificationsCommand {
     },
 
     #[command(
-        about = "Turn do not disturb on or off",
-        long_about = "Turn do not disturb on or off. Without `--until` it stands until it is \
-                      turned off again."
+        about = "Turn do not disturb on or off, or toggle it",
+        long_about = "Turn do not disturb on or off, or toggle it. Use `on --until HH:MM` to \
+                      turn it off again at a local time."
     )]
     Dnd {
         #[arg(value_name = "STATE", help = "Whether to silence notifications")]
@@ -469,6 +469,7 @@ pub struct EntryTarget {
 pub enum DndState {
     On,
     Off,
+    Toggle,
 }
 
 #[derive(Debug, Subcommand)]

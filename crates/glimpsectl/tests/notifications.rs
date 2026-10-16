@@ -5,6 +5,30 @@ use glimpsectl::commands::notifications::{INDEFINITELY, expiry, row};
 
 struct NotificationCommands(tokio::sync::mpsc::UnboundedSender<(String, u32, String)>);
 
+struct DndCommands {
+    enabled: std::sync::atomic::AtomicBool,
+    changes: tokio::sync::mpsc::UnboundedSender<(bool, i64)>,
+}
+
+#[zbus::interface(name = "me.aresa.Glimpse.Notifications1")]
+impl DndCommands {
+    #[zbus(property)]
+    fn snapshot(&self) -> glimpse_dbus::notifications::NotificationsSnapshot {
+        (
+            Vec::new(),
+            (self.enabled.load(std::sync::atomic::Ordering::SeqCst), 0),
+            true,
+            String::new(),
+        )
+    }
+
+    fn set_do_not_disturb(&self, enabled: bool, until: i64) {
+        self.enabled
+            .store(enabled, std::sync::atomic::Ordering::SeqCst);
+        self.changes.send((enabled, until)).unwrap();
+    }
+}
+
 #[zbus::interface(name = "me.aresa.Glimpse.Notifications1")]
 impl NotificationCommands {
     fn remove(&self, id: u32) {
@@ -200,6 +224,70 @@ fn an_expiry_is_the_next_time_the_clock_reads_that_way() {
         assert!(when > Local::now(), "{time} resolved into the past");
         assert!(when < Local::now() + TimeDelta::days(2));
         assert_eq!((when.hour(), when.minute()), (hour, minute));
+    }
+}
+
+#[tokio::test]
+async fn dnd_toggle_preserves_explicit_states_and_timed_on() {
+    use glimpse_dbus::{notifications::*, testing::PrivateBus};
+
+    let bus = PrivateBus::start();
+    let server = bus.connection().await;
+    let (changes, mut received) = tokio::sync::mpsc::unbounded_channel();
+    server
+        .object_server()
+        .at(
+            GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
+            DndCommands {
+                enabled: false.into(),
+                changes,
+            },
+        )
+        .await
+        .unwrap();
+    glimpse_dbus::own_name(&server, GLIMPSE_NOTIFICATIONS_BUS_NAME)
+        .await
+        .unwrap();
+
+    for (args, expected, timed) in [
+        (vec!["on", "--until", "18:00"], true, true),
+        (vec!["toggle"], false, false),
+        (vec!["toggle"], true, false),
+        (vec!["off"], false, false),
+        (vec!["on"], true, false),
+    ] {
+        let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+            .args(["notifications", "dnd"])
+            .args(args)
+            .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success(), "{:?}", output);
+        assert!(output.stdout.is_empty());
+        let (enabled, until) = received.try_recv().unwrap();
+        assert_eq!(enabled, expected);
+        if timed {
+            assert!(until > Utc::now().timestamp_micros());
+            let until = DateTime::from_timestamp_micros(until)
+                .unwrap()
+                .with_timezone(&Local);
+            assert_eq!((until.hour(), until.minute()), (18, 0));
+        } else {
+            assert_eq!(until, INDEFINITELY);
+        }
+    }
+
+    for state in ["toggle", "off"] {
+        let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
+            .args(["notifications", "dnd", state, "--until", "18:00"])
+            .env("DBUS_SESSION_BUS_ADDRESS", bus.address())
+            .output()
+            .await
+            .unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("dnd on"));
+        assert!(received.try_recv().is_err());
     }
 }
 
