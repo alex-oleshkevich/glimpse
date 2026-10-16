@@ -102,7 +102,7 @@ sdk-test:
     scripts/sdk-test.sh
 
 [doc("publish glimpse-sdk to npm; extra arguments go to npm publish, e.g. --dry-run")]
-[working-directory("sdk/applet")]
+[working-directory("sdk/sdk-ts")]
 sdk-publish *ARGS: sdk-test
     npm publish "$@"
 

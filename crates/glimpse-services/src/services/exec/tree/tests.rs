@@ -11,7 +11,7 @@ use super::{
 
 use crate::services::exec::wire::{FromApplet, Op, WireNode};
 
-const HELLO: &str = include_str!("../../../../../../sdk/applet/fixtures/hello.ndjson");
+const HELLO: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/hello.ndjson");
 
 #[test]
 fn snapshot_preserves_properties_order_and_updates() {
@@ -61,23 +61,23 @@ fn snapshot_preserves_properties_order_and_updates() {
     );
 }
 
-const OPS: &str = include_str!("../../../../../../sdk/applet/fixtures/ops.ndjson");
+const OPS: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/ops.ndjson");
 
 const UNKNOWN: &str =
-    include_str!("../../../../../../sdk/applet/fixtures/invalid/unknown-id.ndjson");
+    include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/unknown-id.ndjson");
 
-const CYCLE: &str = include_str!("../../../../../../sdk/applet/fixtures/invalid/cycle.ndjson");
+const CYCLE: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/cycle.ndjson");
 
 const BAD_PARENT: &str =
-    include_str!("../../../../../../sdk/applet/fixtures/invalid/bad-parent.ndjson");
+    include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/bad-parent.ndjson");
 
 const TOO_MANY_NODES: &str =
-    include_str!("../../../../../../sdk/applet/fixtures/invalid/max-nodes.ndjson");
+    include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/max-nodes.ndjson");
 
 const TOO_MANY_CHILDREN: &str =
-    include_str!("../../../../../../sdk/applet/fixtures/invalid/max-children.ndjson");
+    include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/max-children.ndjson");
 
-const GARBAGE: &str = include_str!("../../../../../../sdk/applet/fixtures/invalid/garbage.ndjson");
+const GARBAGE: &str = include_str!("../../../../../../sdk/sdk-ts/fixtures/invalid/garbage.ndjson");
 
 fn lines(source: &str) -> impl Iterator<Item = &str> {
     source

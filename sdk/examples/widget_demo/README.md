@@ -5,7 +5,7 @@ A development fixture that fills the popover shell slots. The built-in twin is a
 Build the local SDK first, from the repository root:
 
 ```
-cd sdk/applet && npm ci && npm run build
+cd sdk/sdk-ts && npm ci && npm run build
 ```
 
 `.npmrc` (`install-links=true`) copies that build in.

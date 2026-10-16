@@ -34,6 +34,9 @@ var/demo/rs/target/
 var/sysstats/sysstats-applet
 config.toml
 !sdk/template/config.toml
+!sdk/sdk-py/examples/kitchen_sink/config.toml
+!sdk/sdk-go/examples/kitchen_sink/config.toml
+!sdk/sdk-rs/examples/kitchen_sink/config.toml
 .envrc
 
 # Beads / Dolt files (added by bd init)
