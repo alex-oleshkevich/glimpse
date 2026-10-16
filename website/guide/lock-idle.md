@@ -51,8 +51,8 @@ glimpsectl idle inhibit
 ```
 
 The hold blocks idle listeners and suspend. End it with Ctrl-C, or give it a limit up front, as in
-`glimpsectl idle inhibit --for 2h`. Durations are whole positive numbers with an `s`, `m`, or `h`
-suffix; no suffix means seconds.
+`glimpsectl idle inhibit --for 2h`. See the [idle reference](/config/services/idle#hold-idle-and-suspend)
+for duration formats and limits.
 
 Without a command, `inhibit` prints the hold's id, and `glimpsectl idle release <id>` ends that hold
 from another terminal. With `glimpsectl idle inhibit -- CMD...`, the hold lasts only while `CMD`
@@ -74,10 +74,10 @@ image-dark = "/home/alex/Pictures/lock-night.jpg"
 blur-radius = 24
 ```
 
-`image-dark` shows while the desktop is dark, and `blur-radius` softens the picture (0 to 128, 0 by
-default). `fit` accepts `cover`, `contain`, `fill`, and `center`; with `contain`, `color` fills the
-bars. `dim` darkens the background (0.35 by default), and `dim-dark` replaces it in dark (0.5 by
-default).
+`image-dark` shows while the desktop is dark, and `blur-radius` softens the picture. Adjust `fit`
+to change how the picture fills the screen, `dim` to darken it, and `dim-dark` for its darkness in
+the dark scheme. The [background settings](/config/services/lock#lock-background) list the choices
+and limits.
 
 ## Choose what the lock screen shows
 
@@ -97,10 +97,8 @@ icon with a count for each app; the app's name is the icon's tooltip and accessi
 shows a single icon with the total. Neither mode shows a summary or a body.
 
 The media area shows the track title and artist to anyone, and its pause and next buttons work
-without a password. Network and Bluetooth status are icons only, never an SSID or device name. The
-battery shows a percentage, the keyboard layout appears with two or more layouts, and weather
-appears only when the panel's weather applet already has a place. Turning off `[lock.status]`
-removes the island but leaves the session button; the tables are independent.
+without a password. Turn off `[lock.media]` as above to hide it. Turn off `[lock.status]` to hide
+the status island; the session button has its own switch under `[lock.session]`.
 
 The session menu offers `Suspend...`, `Restart...`, and `Power Off...`, and every action asks for
 confirmation. Configuration edits apply live while the screen is locked; only `pam-service` waits

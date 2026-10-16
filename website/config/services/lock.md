@@ -3,15 +3,12 @@
 `[lock]` and its subtables set what the lock screen shows.
 
 The screen locks when you ask it to, for example with `loginctl lock-session` or from the session
-menu, and always before the computer sleeps, so it wakes up locked. To lock after a period of
-inactivity, add a listener to [`[idle]`](./idle).
+menu, and before the computer sleeps. If its password checks fail, it refuses to lock and warns
+you instead. To lock after a period of inactivity, add a listener to [`[idle]`](./idle).
 
 ## Lock screen
 
 <ConfigTable path="lock" />
-
-An unknown `prompt-output` connector is accepted; the password prompt falls back to the first
-output.
 
 <ConfigTable path="lock.background" describe />
 
@@ -29,6 +26,8 @@ an unknown placeholder is printed as typed.
 
 <ConfigTable path="lock.status" describe />
 
+Turning off this table hides the status island but leaves the session button.
+
 <ConfigTable path="lock.notifications" describe />
 
 Only notifications that arrive after the lock starts appear. `"apps"` shows one icon with a count
@@ -38,16 +37,21 @@ total. Neither mode shows a summary or a body.
 
 <ConfigTable path="lock.media" describe />
 
+The track title and artist are visible to anyone. The pause and next buttons work without a
+password; turn this table off to hide both the information and the controls.
+
 <ConfigTable path="lock.session" describe />
 
 Every session action asks for confirmation. Logind decides whether it is available: `yes` shows the
-action, `no`, `na`, and `challenge` hide it, and `inhibited` or `inhibitor-blocked` shows it
-disabled with the blocker's reason.
+action, `no`, `na`, and `challenge` hide it, and `inhibited`, `inhibitor-blocked`, or
+`challenge-inhibitor-blocked` shows it disabled with the blocker's reason when available.
 
 ::: warning PAM
 The lock screen checks your password through the PAM service named by `pam-service`, which it reads
 once when it starts. The packages install `/etc/pam.d/glimpse-lock`. Give the bare file name, not a
 path. Point `pam-service` somewhere else only if that file exists in `/etc/pam.d`. If it is missing
 or unsafe, the lock screen refuses to lock and posts a "Screen not locked" notification.
-`glimpse-lock check` tells you what is wrong.
+`glimpse-lock check` tells you what is wrong. If the session is already locked when the daemon
+starts, it re-acquires the lock even if the checks fail and shows instructions for using a text
+console.
 :::

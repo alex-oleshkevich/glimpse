@@ -38,7 +38,7 @@ sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ### Arch Linux
 
 `glimpse-desktop-bin` is in the AUR. Use your AUR helper, or build it with `makepkg`. Some applets
-and features need a system service that the package lists as optional:
+and features need extra packages:
 
 | Install | For |
 | --- | --- |
@@ -51,14 +51,17 @@ and features need a system service that the package lists as optional:
 | `kdeconnect` | the phone applet |
 | `ddcutil` | brightness control for external monitors |
 | `xdg-desktop-portal` | letting apps hold off the idle timers |
-| `xdg-desktop-portal` with a backend such as `xdg-desktop-portal-gtk` | switching the desktop between light and dark mode |
+| `xdg-desktop-portal`, a settings backend such as `xdg-desktop-portal-gtk`, and `dconf` | switching the desktop between light and dark mode |
 
 ### Debian, Ubuntu, Fedora and openSUSE
 
-The install script supports Debian 14 (forky), Ubuntu 26.04, Fedora 44 and openSUSE Tumbleweed. It
-downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums and
-installs it with your package manager, so it asks for your `sudo` password. On any other
-distribution it unpacks the binary tarball into `/` as root instead.
+The packages target Debian 14 (forky), Ubuntu 26.04, Fedora 44 and openSUSE Tumbleweed. The install
+script downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums
+and installs it with your package manager, so it asks for your `sudo` password.
+
+On other distributions the script unpacks the binary tarball into `/` as root, asking for `sudo`.
+The `.deb` and `.rpm` packages are the supported route. On Arch Linux it prints the AUR command
+without installing; on NixOS it refuses and points you to the flake module.
 
 If you would rather not pipe a script into a shell, download the package for your distribution from
 the [releases page](https://github.com/alex-oleshkevich/glimpse/releases) and install it yourself.
@@ -81,15 +84,15 @@ commands.
 
 ## Start the shell
 
-glimpse runs as systemd user services grouped under one target. Enable the target once, from a
-terminal inside your Wayland session:
+glimpse runs as systemd user services grouped under one target. Except on NixOS, enable the target
+once, from a terminal inside your Wayland session:
 
 ```sh
 systemctl --user enable --now glimpse-session.target
 ```
 
 From then on it starts with every graphical session. The panel should appear within a second or
-two.
+two. On NixOS, use the compositor startup command below instead.
 
 ::: tip If nothing appears
 Your compositor may not start `graphical-session.target`, which glimpse hangs off. Start the target

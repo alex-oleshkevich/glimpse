@@ -31,7 +31,7 @@ and applies the file anyway. Set `timeout = 0` to turn a listener off.
 `on-idle` and `on-resume` run with `/bin/sh -c` in glimpse-idle's own environment. Commands for one
 listener run one at a time without blocking other listeners. A failed command is only logged.
 
-`glimpse-dpms` turns the screens off and on. It needs `NIRI_SOCKET` or
+`glimpse-dpms` turns the screens off and on, and supports `niri` and `Hyprland` only. It needs `NIRI_SOCKET` or
 `HYPRLAND_INSTANCE_SIGNATURE` in its environment and exits 1 when neither is set. With no `off` or
 `on` argument, it prints usage and exits 2. `loginctl lock-session` locks the screen.
 

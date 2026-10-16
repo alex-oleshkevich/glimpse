@@ -50,6 +50,8 @@ Stop the shell and keep it from starting with your next session:
 systemctl --user disable --now glimpse-session.target
 ```
 
+The lock screen keeps running until you log out.
+
 Then remove the package:
 
 ::: code-group
@@ -81,3 +83,10 @@ On NixOS, remove `services.glimpse.enable = true;` and the flake input, then reb
 Uninstalling leaves your settings in `~/.config/glimpse/`, saved state in `~/.local/state/glimpse/`
 and the desktop entries of any applets you installed in `~/.local/share/applications/`. Delete
 those if you don't plan to come back.
+
+Package removal can also leave edited files at `/etc/pam.d/glimpse-lock`,
+`/etc/geoclue/conf.d/glimpse.conf`, `/etc/xdg-desktop-portal/glimpse-portals.conf` and
+`/etc/xdg-desktop-portal/niri-portals.conf`. On Arch Linux, these are kept as `.pacsave` files.
+
+The source uninstall script also leaves `/usr/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg`
+and `/usr/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg` behind.
