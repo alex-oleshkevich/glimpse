@@ -12,12 +12,13 @@ color you click. Every option is in the [command reference](/config/cli/glimpse-
 ## Pick a color
 
 ```sh
-glimpse-lens --tool picker | wl-copy
+glimpse-lens --tool picker | wl-copy -n
 ```
 
 Move to the color you want. The pill under the lens shows the color and its value as you go. Click,
 or press <kbd>Enter</kbd> or <kbd>Space</kbd>, to pick it. The value is printed, and here
-`wl-copy` puts it on the clipboard. The picker does not touch the clipboard itself.
+`wl-copy` puts it on the clipboard; `-n` drops the trailing newline. The picker does not touch the
+clipboard itself. When you cancel it prints nothing, and `wl-copy` then empties the clipboard.
 
 The arrow keys move one pixel at a time, which helps on a thin line or a single-pixel border.
 Scroll to zoom in, up to 200 times; from six times on a pixel grid appears. Hold

@@ -38,7 +38,8 @@ its strength; where blur is not supported, glimpse stays solid and works the sam
 animation-speed = 0.5
 ```
 
-`1.0` is the default pace and `0` turns animations off.
+`1.0` is the default pace, `0.5` is half as fast and `2.0` is twice as fast. The accepted range is
+`0.1` to `10`, or `0` to turn animations off.
 
 ## Custom CSS
 
@@ -50,4 +51,4 @@ theme = "midnight"
 ```
 
 [Write a theme](/guide/theming) walks through making one, and [Theme tokens](/config/theme-tokens)
-lists every value a theme can change.
+lists the main values a theme can change.

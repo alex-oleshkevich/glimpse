@@ -39,8 +39,8 @@ is reported instead of silently doing nothing.
 Each glimpse process watches the files it reads. Save, and within a moment the change is live: the
 clock reformats, the panel moves to another edge, notifications pop up in a different corner. You
 never restart anything for a configuration change, except `[regional] language` and
-`[lock] pam-service`, which are read when each process starts, and a smaller panel `size`, which
-applies when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
+`[lock] pam-service`, which are read when each process starts, and a smaller panel `size`,
+`[color-picker]` and `[ruler]`, which apply when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
 for the panel or send any glimpse process `SIGHUP`.
 
 ## When something is wrong

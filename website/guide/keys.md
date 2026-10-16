@@ -9,7 +9,7 @@ glimpse's tools are ordinary commands, so any key your compositor can bind can d
 | `glimpse-shot --window` | Click a window, then mark it up |
 | `glimpse-shot --region` | Drag a rectangle, then mark it up |
 | `glimpse-shot capture --copy --no-save` | Copy the focused output, no file, no window |
-| `glimpse-lens --tool picker \| wl-copy` | Pick a color and copy its hex value |
+| `glimpse-lens --tool picker \| wl-copy -n` | Pick a color and copy its hex value |
 | `glimpsectl applet toggle clock` | Open or close the clock's calendar popover |
 | `glimpsectl notifications dnd on` | Silence notifications until you turn it off |
 | `glimpsectl notifications dnd on --until 18:00` | Silence them until a local time, today or tomorrow |
@@ -30,7 +30,7 @@ is your compositor's):
 binds {
     Mod+Shift+X { spawn "loginctl" "lock-session"; }
     Print { spawn "glimpse-shot" "--screen"; }
-    Mod+Shift+C { spawn "sh" "-c" "glimpse-lens --tool picker | wl-copy"; }
+    Mod+Shift+C { spawn "sh" "-c" "glimpse-lens --tool picker | wl-copy -n"; }
     Mod+Shift+D { spawn "glimpsectl" "applet" "toggle" "clock"; }
 }
 ```

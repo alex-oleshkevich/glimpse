@@ -1,8 +1,8 @@
 # Write a theme
 
 A theme is a folder of CSS files that recolors and reshapes the bar, its popovers, notifications
-and the lock screen. Most themes only redefine a handful of named values called tokens; every token
-is listed in [Theme tokens](/config/theme-tokens).
+and the lock screen. Most themes only redefine a handful of named values called tokens; the main
+tokens are listed in [Theme tokens](/config/theme-tokens).
 
 ## Start a theme
 
@@ -25,11 +25,18 @@ Then select it by the folder's name:
 theme = "midnight"
 ```
 
-The bar picks up the change as soon as you save, and so does every later edit to the CSS. You don't
-need to restart anything.
+The bar, popovers, notifications, lock screen and wallpaper reload when you save. They also pick up
+a theme folder you create after selecting its name. The screenshot app reads your CSS only when it
+starts, so close and reopen it after an edit.
 
 glimpse looks for the folder in `~/.config/glimpse/themes` first and in the installed themes under
-`/usr/share/glimpse/themes` second. When neither has it, glimpse uses the shipped `adwaita` theme.
+`/usr/share/glimpse/themes` second. When neither has it, or `theme` is empty, glimpse uses `adwaita`
+without logging anything. `glimpsectl config validate` passes too, so a typo in `theme` looks like
+the default look. The fallback searches `~/.config/glimpse/themes/adwaita` before
+`/usr/share/glimpse/themes/adwaita`, so your own `adwaita` folder is used before the shipped one.
+
+Setting `GLIMPSE_THEME` in the environment overrides the configured `theme`. Setting
+`GLIMPSE_THEMES_DIR` replaces both lookup roots for loading and watching themes.
 
 ## Which file styles what
 
@@ -41,11 +48,16 @@ glimpse looks for the folder in `~/.config/glimpse/themes` first and in the inst
 | `dark.css` | all of the above, read only while glimpse is dark |
 
 Every file is optional. A missing file leaves that surface with the built-in look; it does not fall
-back to the same file in `adwaita`. The color picker, the ruler and the magnifier always use the
-built-in look.
+back to the same file in `adwaita`. The color picker, the ruler and the magnifier read only the
+built-in stylesheet. They ignore your theme, your `styles.css` and `dark.css` files, and
+`color-scheme`.
+
+`wallpaper.css` has the plain `window` and `picture` nodes to target, with no glimpse classes.
+glimpse tokens have no effect there.
 
 Each file is a separate stylesheet, so a token set in `panel.css` does not reach the lock screen.
-Set it in `lock.css` too, or put it in `~/.config/glimpse/styles.css`, which every surface reads.
+Set it in `lock.css` too, or put it in `~/.config/glimpse/styles.css`, which every surface except
+the color picker, ruler and magnifier reads.
 
 ## Change the dark look
 
@@ -60,12 +72,16 @@ turns light. Put only what differs there:
 }
 ```
 
+The shipped `adwaita` theme's only nonempty stylesheet is `dark.css`, which makes the bar black in
+dark mode. Your theme does not inherit it. Without a `dark.css`, your bar uses GTK's header bar
+color.
+
 Whether glimpse is dark comes from `color-scheme` and `auto-dark` under `[appearance]`; see
 [light and dark](/guide/theme#light-and-dark).
 
 ## Make small changes without a theme
 
-Two files in `~/.config/glimpse/` apply on top of whatever theme is selected, on every surface:
+Two files in `~/.config/glimpse/` apply on top of whatever theme is selected, on the same surfaces:
 `styles.css` all the time, and `dark.css` only in dark. They suit a tweak you want to keep when you
 switch themes:
 
@@ -152,9 +168,9 @@ A rule that does not parse is skipped, and the process logs where it stopped:
 journalctl --user -u glimpse-panel.service -g stylesheet
 ```
 
-A `var()` that names a token that doesn't exist does not count as a parse error. The property
-turns transparent, and GTK prints only a warning. If part of the bar goes invisible after an edit,
-check the token names first.
+A `var()` that names a token that doesn't exist is not a parse error, and nothing is logged. A
+background drops to transparent, while a text color falls back to the inherited color. If part of
+the bar looks wrong after an edit, check the token names first.
 
 ## Share a theme
 

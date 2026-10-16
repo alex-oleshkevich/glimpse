@@ -22,6 +22,6 @@ glimpse sets no key bindings. Add them in your compositor's configuration:
 | <kbd>Print</kbd> | `glimpse-shot --screen` |
 | <kbd>Ctrl</kbd>+<kbd>Print</kbd> | `glimpse-shot --window` |
 | <kbd>Shift</kbd>+<kbd>Print</kbd> | `glimpse-shot capture --copy --no-save` |
-| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> | `sh -c "glimpse-lens --tool picker \| wl-copy"` |
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd> | `sh -c "glimpse-lens --tool picker \| wl-copy -n"` |
 
 [Bind glimpse to keys](/guide/keys) shows the full syntax and more commands worth binding.

@@ -49,10 +49,10 @@ Install wl-clipboard, which provides `wl-copy`, alongside `glimpse-lens`. This r
 extends = "command"
 icon = "color-select-symbolic"
 tooltip-format = "Pick a color"
-on-click = ["sh", "-c", "glimpse-lens --tool picker | wl-copy"]
+on-click = ["sh", "-c", "glimpse-lens --tool picker | wl-copy -n"]
 ```
 
-Click the button, then click a color on screen. The picker prints the color and `wl-copy` puts it on the clipboard. See [the color picker](/ecosystem/picker) for its controls.
+Click the button, then click a color on screen. The picker prints the color and `wl-copy` puts it on the clipboard; `-n` drops the trailing newline. If you cancel with Esc, the picker prints nothing and `wl-copy` empties the clipboard. See [the color picker](/ecosystem/picker) for its controls.
 
 ## Open a terminal app
 
