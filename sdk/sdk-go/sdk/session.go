@@ -289,6 +289,13 @@ func (s *Session) Handle(msg map[string]any) {
 		s.Ctx.Placement, _ = msg["placement"].(map[string]any)
 		s.Mounted = true
 		s.Dirty = true
+		if mounter, ok := s.app.(Mounter); ok {
+			mounter.Mount(s.Ctx)
+		}
+
+		if starter, ok := s.app.(Starter); ok {
+			starter.Start(s.Ctx)
+		}
 		return
 	}
 

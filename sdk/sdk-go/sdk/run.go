@@ -12,49 +12,49 @@ import (
 	"syscall"
 )
 
+func exitCode(r any) int {
+	switch r.(type) {
+	case limitError, renderError:
+		return 70
+	}
+	return 1
+}
+
 func Run(app App) {
 	code := run(app)
 	os.Exit(code)
+}
+
+func Main(app App) {
+	Run(app)
 }
 
 func run(app App) (code int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintln(os.Stderr, r)
-			switch r.(type) {
-			case limitError, renderError:
-				code = 70
-			default:
-				code = 1
-			}
+			code = exitCode(r)
 		}
 	}()
 
 	path := os.Getenv("GLIMPSE_APPLET_SOCKET")
-	var conn net.Conn
-	var reader *bufio.Reader
-	var writeLine func(string)
-
-	if path != "" {
-		dialed, err := net.Dial("unix", path)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {
-				return 0
-			}
-			fmt.Fprintln(os.Stderr, err)
-			return 1
-		}
-		conn = dialed
-		defer conn.Close()
-
-		reader = bufio.NewReader(conn)
-		writeLine = func(line string) { _, _ = conn.Write([]byte(line + "\n")) }
-	} else {
-		stdout := os.Stdout
-		os.Stdout = os.Stderr
-		reader = bufio.NewReader(os.Stdin)
-		writeLine = func(line string) { _, _ = stdout.WriteString(line + "\n") }
+	if path == "" {
+		fmt.Fprintln(os.Stderr, "GLIMPSE_APPLET_SOCKET is not set: run the applet under the panel")
+		return 1
 	}
+
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {
+			return 0
+		}
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	writeLine := func(line string) { _, _ = conn.Write([]byte(line + "\n")) }
 
 	lines := make(chan string, 16)
 	go func() {

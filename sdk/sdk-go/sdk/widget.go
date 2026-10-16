@@ -86,6 +86,10 @@ func clean(value any) any {
 	default:
 		rv := reflect.ValueOf(value)
 		switch rv.Kind() {
+		case reflect.Float32, reflect.Float64:
+			if f := rv.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
+				return nil
+			}
 		case reflect.Slice, reflect.Array:
 			out := make([]any, rv.Len())
 			for i := range out {

@@ -1,7 +1,9 @@
 package sdk
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"time"
 )
 
@@ -61,6 +63,16 @@ func (c *Context) Compositor() map[string]any {
 	return value
 }
 
+func (c *Context) send(msg map[string]any) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, r)
+			os.Exit(exitCode(r))
+		}
+	}()
+	c.session.Send(msg)
+}
+
 func (c *Context) Wake() { c.session.Wake() }
 
 func (c *Context) Notify(n Notification) {
@@ -77,47 +89,47 @@ func (c *Context) Notify(n Notification) {
 		msg["urgency"] = string(n.Urgency)
 	}
 
-	c.session.Send(msg)
+	c.send(msg)
 }
 
-func (c *Context) Copy(text string) { c.session.Send(map[string]any{"t": "copy", "text": text}) }
+func (c *Context) Copy(text string) { c.send(map[string]any{"t": "copy", "text": text}) }
 
 func (c *Context) OpenURI(uri string) {
-	c.session.Send(map[string]any{"t": "open-uri", "uri": uri})
+	c.send(map[string]any{"t": "open-uri", "uri": uri})
 }
 
-func (c *Context) Launch(id string) { c.session.Send(map[string]any{"t": "launch", "id": id}) }
+func (c *Context) Launch(id string) { c.send(map[string]any{"t": "launch", "id": id}) }
 
-func (c *Context) ClosePopover() { c.session.Send(map[string]any{"t": "close-popover"}) }
+func (c *Context) ClosePopover() { c.send(map[string]any{"t": "close-popover"}) }
 
 func (c *Context) MprisControl(player, action string) {
-	c.session.Send(map[string]any{"t": "mpris", "player": player, "op": "control", "action": action})
+	c.send(map[string]any{"t": "mpris", "player": player, "op": "control", "action": action})
 }
 
 func (c *Context) MprisSeek(player string, offsetUs float64) {
-	c.session.Send(map[string]any{"t": "mpris", "player": player, "op": "seek", "offset": math.Round(offsetUs)})
+	c.send(map[string]any{"t": "mpris", "player": player, "op": "seek", "offset": math.Round(offsetUs)})
 }
 
 func (c *Context) MprisSetPosition(player string, positionUs float64) {
-	c.session.Send(map[string]any{"t": "mpris", "player": player, "op": "set-position", "position": math.Round(positionUs)})
+	c.send(map[string]any{"t": "mpris", "player": player, "op": "set-position", "position": math.Round(positionUs)})
 }
 
 func (c *Context) FocusWorkspace(target any) {
-	c.session.Send(map[string]any{"t": "compositor", "op": "focus-workspace", "target": target})
+	c.send(map[string]any{"t": "compositor", "op": "focus-workspace", "target": target})
 }
 
 func (c *Context) FocusWindow(target any) {
-	c.session.Send(map[string]any{"t": "compositor", "op": "focus-window", "target": target})
+	c.send(map[string]any{"t": "compositor", "op": "focus-window", "target": target})
 }
 
 func (c *Context) MoveWindow(window int, target any) {
-	c.session.Send(map[string]any{"t": "compositor", "op": "move-window", "window": window, "target": target})
+	c.send(map[string]any{"t": "compositor", "op": "move-window", "window": window, "target": target})
 }
 
 func (c *Context) RenameWorkspace(id int, name *string) {
-	c.session.Send(map[string]any{"t": "compositor", "op": "rename-workspace", "id": id, "name": name})
+	c.send(map[string]any{"t": "compositor", "op": "rename-workspace", "id": id, "name": name})
 }
 
 func (c *Context) CloseWindow(id int) {
-	c.session.Send(map[string]any{"t": "compositor", "op": "close-window", "id": id})
+	c.send(map[string]any{"t": "compositor", "op": "close-window", "id": id})
 }

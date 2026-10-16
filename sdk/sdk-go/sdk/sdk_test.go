@@ -19,17 +19,17 @@ type testApp struct {
 func (a *testApp) Build(ctx *Context) []Widget {
 	rows := make([]any, 0, len(a.items))
 	for _, it := range a.items {
-		rows = append(rows, ToggleRow(Props{
-			"key": it.id, "title": it.title, "control": "check", "active": it.done,
-			"on_toggle": func(v bool) { it.done = v },
+		rows = append(rows, ToggleRow(ToggleRowProps{
+			Key: it.id, Title: it.title, Control: "check", Active: it.done,
+			OnToggle: func(v bool) { it.done = v },
 		}))
 	}
 	return []Widget{
-		Indicator(Props{"icon": "view-list-symbolic", "badge": "2"}, "Todo"),
-		Popover(Props{"title": "Todo"},
-			Section(Props{"title": "Todo"}, rows),
-			Entry(Props{"placeholder": "Add", "value": a.draft,
-				"on_change": func(v string) { a.draft = v }}),
+		Indicator(IndicatorProps{Icon: "view-list-symbolic", Badge: "2"}, "Todo"),
+		Popover(PopoverProps{Title: "Todo"},
+			Section(SectionProps{Title: "Todo"}, rows),
+			Entry(EntryProps{Placeholder: "Add", Value: a.draft,
+				OnChange: func(v string) { a.draft = v }}),
 		),
 	}
 }
@@ -248,7 +248,7 @@ func TestKeyedReorderMoves(t *testing.T) {
 func TestAllHostRequestsReachTheWire(t *testing.T) {
 	h := newHost(t)
 	ctx := h.session.Ctx
-	ctx.Notify("Hi", Props{"body": "b", "urgency": "low"})
+	ctx.Notify(Notification{Summary: "Hi", Body: "b", Urgency: "low"})
 	ctx.Copy("x")
 	ctx.OpenURI("https://example.org")
 	ctx.Launch("org.example.App")
@@ -278,11 +278,11 @@ func TestAllHostRequestsReachTheWire(t *testing.T) {
 }
 
 func TestCapsAndNonFinite(t *testing.T) {
-	w := Indicator(Props{"badge": "123456789", "tooltip": strings.Repeat("x", 300)})
+	w := Indicator(IndicatorProps{Badge: "123456789", Tooltip: strings.Repeat("x", 300)})
 	if len([]rune(w.Props["badge"].(string))) != 8 {
 		t.Error("badge not capped at 8")
 	}
-	scale := Scale(Props{"value": mathNaN()})
+	scale := Scale(ScaleProps{Value: mathNaN()})
 	if scale.Props["value"] != nil {
 		t.Errorf("NaN = %v", scale.Props["value"])
 	}
@@ -323,9 +323,9 @@ type wideApp struct{}
 func (wideApp) Build(ctx *Context) []Widget {
 	labels := make([]any, 250)
 	for i := range labels {
-		labels[i] = Label(Props{"text": "x"})
+		labels[i] = Label(LabelProps{Text: "x"})
 	}
-	return []Widget{Section(Props{"title": "x"}, labels)}
+	return []Widget{Section(SectionProps{Title: "x"}, labels)}
 }
 
 func TestFreshSubtreeOverChildrenCapPanicsLimit(t *testing.T) {
@@ -340,13 +340,13 @@ func TestFreshSubtreeOverChildrenCapPanicsLimit(t *testing.T) {
 }
 
 func TestTypedSliceCapAndClean(t *testing.T) {
-	w := DropDown(Props{"options": make([]string, 65)})
+	w := DropDown(DropDownProps{Options: make([]string, 65)})
 	if !oversized(w.Props["options"], maxItems) {
 		t.Error("typed slice over cap not detected")
 	}
-	scale := Scale(Props{"value": []float64{mathNaN()}})
-	cleaned, ok := clean(scale.Props["value"]).([]any)
-	if !ok || cleaned[0] != nil {
-		t.Errorf("typed slice NaN = %v", scale.Props["value"])
+	bars := Bars(BarsProps{Values: []*float64{Ptr(mathNaN())}})
+	values, ok := bars.Props["values"].([]any)
+	if !ok || values[0] != nil {
+		t.Errorf("typed slice NaN = %v", bars.Props["values"])
 	}
 }

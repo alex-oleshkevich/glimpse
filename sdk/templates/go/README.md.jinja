@@ -1,0 +1,11 @@
+# {{ name }}
+
+Applet id: `{{ id }}`.
+
+Requires Go. The SDK is the `sdk-go` module; run `go mod tidy` once to fetch it.
+
+Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
+applet with its options and env. Options edits update it; source
+edits restart it. Run `go vet ./...` to check it. The desktop entry runs `go run .`.
+
+Add `center = ["{{ id }}"]` to a panel's applet zone.

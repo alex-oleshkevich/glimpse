@@ -2,7 +2,7 @@
 
 Write a glimpse panel applet in Go. The applet is a Go program: the panel starts it as a
 systemd user unit, and the SDK speaks the panel's NDJSON protocol on the unix socket named by
-`GLIMPSE_APPLET_SOCKET`, or on stdin and stdout when that is unset. The wire format is
+`GLIMPSE_APPLET_SOCKET`, which the panel sets (without it the applet exits with code 1). The wire format is
 specified in [PROTOCOL.md](../sdk-ts/PROTOCOL.md) and is shared with the other SDKs. The SDK
 uses only the standard library.
 
