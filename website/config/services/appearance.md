@@ -38,8 +38,8 @@ the desktop does, which suits a dark bar over light apps.
 `glimpsectl appearance set light` or `glimpsectl appearance set dark` holds the desktop in one mode
 without editing the file. This works with `auto-dark` set to either `auto` or `system`.
 `glimpsectl appearance resume` clears the hold and returns to the configured behavior. Automatic
-switching and these commands write `org.gnome.desktop.interface color-scheme` to `prefer-light` or
-`prefer-dark`, the preference GTK apps follow.
+switching and the `set` commands write `org.gnome.desktop.interface color-scheme` to `prefer-light`
+or `prefer-dark`, the preference GTK apps follow.
 
 ### Blur
 

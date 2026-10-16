@@ -81,8 +81,8 @@ the same as dimmed text in GTK apps.
 | `--row-gap` | `10px` | spacing inside rows |
 | `--row-hover-bg` | `--gl-hover` | an interactive row's background under the pointer |
 | `--row-active-bg` | `--gl-active` | an interactive row's background while pressed |
-| `--row-tone-warning` | `--gl-warning-text` | warning row text and meter fills |
-| `--row-tone-error` | `--gl-danger-text` | error row text and meter fills |
+| `--row-tone-warning` | `--gl-warning-text` | warning row icons, subtitles, values and meter fills |
+| `--row-tone-error` | `--gl-danger-text` | error row icons, subtitles, values and meter fills |
 | `--row-tone-destructive` | `--gl-danger-text` | destructive row titles and meter fills |
 | `--row-mono-font` | `--gl-font-family-mono` | the font of monospace rows |
 | `--meter-row-height` | `0.3rem` | meter bar thickness |
