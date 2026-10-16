@@ -15,17 +15,15 @@ impl glimpse_sdk::App for App {
     fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
         vec![
             indicator()
-                .prop("icon", {{ icon | tojson }})
-                .prop("tooltip", {{ name | tojson }})
-                .text({{ name | tojson }}),
+                .icon({{ icon | tojson }})
+                .tooltip({{ name | tojson }})
+                .text({{ name | tojson }})
+                .into(),
             popover()
-                .prop("icon", {{ icon | tojson }})
-                .prop("title", {{ name | tojson }})
-                .child(
-                    section()
-                        .prop("title", {{ name | tojson }})
-                        .child(row().prop("title", "It works")),
-                ),
+                .icon({{ icon | tojson }})
+                .title({{ name | tojson }})
+                .child(section().title({{ name | tojson }}).child(row().title("It works")))
+                .into(),
         ]
     }
 }

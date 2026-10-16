@@ -49,7 +49,7 @@ pub struct Widget<M> {
 }
 
 impl<M> Widget<M> {
-    pub fn new(kind: &'static str) -> Self {
+    pub(crate) fn new(kind: &'static str) -> Self {
         Self {
             kind,
             key: None,
@@ -59,12 +59,12 @@ impl<M> Widget<M> {
         }
     }
 
-    pub fn key(mut self, key: impl Into<Key>) -> Self {
+    pub(crate) fn key(mut self, key: impl Into<Key>) -> Self {
         self.key = Some(key.into());
         self
     }
 
-    pub fn prop(mut self, name: &str, value: impl Into<Value>) -> Self {
+    pub(crate) fn prop(mut self, name: &str, value: impl Into<Value>) -> Self {
         let mut value = value.into();
         if let Value::String(text) = &value {
             value = Value::String(cap(self.kind, name, text));
@@ -75,7 +75,8 @@ impl<M> Widget<M> {
         self
     }
 
-    pub fn props(mut self, value: Value) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn props(mut self, value: Value) -> Self {
         if let Value::Object(fields) = value {
             for (name, value) in fields {
                 self = self.prop(&name, value);
@@ -84,16 +85,21 @@ impl<M> Widget<M> {
         self
     }
 
-    pub fn text(self, text: &str) -> Self {
+    pub(crate) fn remove_prop(mut self, name: &str) -> Self {
+        self.props.remove(name);
+        self
+    }
+
+    pub(crate) fn text(self, text: &str) -> Self {
         self.prop("text", text)
     }
 
-    pub fn child(mut self, child: Widget<M>) -> Self {
+    pub(crate) fn child(mut self, child: Widget<M>) -> Self {
         self.children.push(child);
         self
     }
 
-    pub fn children(mut self, children: impl IntoIterator<Item = Widget<M>>) -> Self {
+    pub(crate) fn children(mut self, children: impl IntoIterator<Item = Widget<M>>) -> Self {
         self.children.extend(children);
         self
     }
@@ -120,11 +126,11 @@ impl<M> Widget<M> {
         self.on(name, Box::new(move |_| Some(f())))
     }
 
-    pub fn on_press(self, f: impl Fn(u64) -> M + 'static) -> Self {
+    pub(crate) fn on_press(self, f: impl Fn(u64) -> M + 'static) -> Self {
         self.on_first("onPress", Value::as_u64, f)
     }
 
-    pub fn on_scroll(self, f: impl Fn(f64, f64) -> M + 'static) -> Self {
+    pub(crate) fn on_scroll(self, f: impl Fn(f64, f64) -> M + 'static) -> Self {
         self.on(
             "onScroll",
             Box::new(move |args| {
@@ -139,35 +145,35 @@ impl<M> Widget<M> {
         )
     }
 
-    pub fn on_activate(self, f: impl Fn() -> M + 'static) -> Self {
+    pub(crate) fn on_activate(self, f: impl Fn() -> M + 'static) -> Self {
         self.on_unit("onActivate", f)
     }
 
-    pub fn on_click(self, f: impl Fn() -> M + 'static) -> Self {
+    pub(crate) fn on_click(self, f: impl Fn() -> M + 'static) -> Self {
         self.on_unit("onClick", f)
     }
 
-    pub fn on_toggle(self, f: impl Fn(bool) -> M + 'static) -> Self {
+    pub(crate) fn on_toggle(self, f: impl Fn(bool) -> M + 'static) -> Self {
         self.on_first("onToggle", Value::as_bool, f)
     }
 
-    pub fn on_move(self, f: impl Fn(f64) -> M + 'static) -> Self {
+    pub(crate) fn on_move(self, f: impl Fn(f64) -> M + 'static) -> Self {
         self.on_first("onMove", Value::as_f64, f)
     }
 
-    pub fn on_change_f64(self, f: impl Fn(f64) -> M + 'static) -> Self {
+    pub(crate) fn on_change_f64(self, f: impl Fn(f64) -> M + 'static) -> Self {
         self.on_first("onChange", Value::as_f64, f)
     }
 
-    pub fn on_change_string(self, f: impl Fn(String) -> M + 'static) -> Self {
+    pub(crate) fn on_change_string(self, f: impl Fn(String) -> M + 'static) -> Self {
         self.on_first("onChange", |value| value.as_str().map(str::to_owned), f)
     }
 
-    pub fn on_submit(self, f: impl Fn(String) -> M + 'static) -> Self {
+    pub(crate) fn on_submit(self, f: impl Fn(String) -> M + 'static) -> Self {
         self.on_first("onSubmit", |value| value.as_str().map(str::to_owned), f)
     }
 
-    pub fn on_select_index(self, f: impl Fn(usize) -> M + 'static) -> Self {
+    pub(crate) fn on_select_index(self, f: impl Fn(usize) -> M + 'static) -> Self {
         self.on_first(
             "onSelect",
             |value| {
@@ -179,11 +185,11 @@ impl<M> Widget<M> {
         )
     }
 
-    pub fn on_select_date(self, f: impl Fn(String) -> M + 'static) -> Self {
+    pub(crate) fn on_select_date(self, f: impl Fn(String) -> M + 'static) -> Self {
         self.on_first("onSelect", |value| value.as_str().map(str::to_owned), f)
     }
 
-    pub fn on_month(self, f: impl Fn(i64, i64) -> M + 'static) -> Self {
+    pub(crate) fn on_month(self, f: impl Fn(i64, i64) -> M + 'static) -> Self {
         self.on(
             "onMonth",
             Box::new(move |args| {

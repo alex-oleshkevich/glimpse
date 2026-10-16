@@ -24,11 +24,15 @@ impl glimpse_sdk::App for App {
     fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
         vec![
             indicator()
-                .props(json!({"icon": "face-smile-symbolic", "tooltip": "Hello"}))
-                .text("Hello"),
+                .icon("face-smile-symbolic")
+                .tooltip("Hello")
+                .text("Hello")
+                .into(),
             popover()
-                .props(json!({"icon": "face-smile-symbolic", "title": "Hello"}))
-                .child(section().prop("title", "Hello").child(row().prop("title", "It works"))),
+                .icon("face-smile-symbolic")
+                .title("Hello")
+                .child(section().title("Hello").child(row().title("It works")))
+                .into(),
         ]
     }
 }
@@ -40,10 +44,17 @@ fn main() -> ExitCode {
 
 ## Model
 
-- `build(ctx)` returns a fresh widget tree on every rebuild. Widgets are plain values built
-  with one constructor per element kind plus `.prop`/`.props`, `.key`, `.text`, `.child` and
-  `.children`. Props flow down; handlers (`on_toggle`, `on_change_string`, …) return a message
-  that `update` applies, because a handler cannot capture `&mut self`.
+- `build(ctx)` returns a fresh widget tree on every rebuild. Each element kind has a typed
+  builder (`Indicator`, `ToggleRow`, …) from its constructor (`indicator()`, `toggle_row()`, …),
+  with one method per prop taking a real type: strings, `bool`, `i64`/`f64`, `Option` where the
+  wire value is nullable, and enums (`Severity`, `Tone`, `ClassName`, …) for the string unions.
+  Structured props take small structs (`Fact`, `Choice`, `CalendarEvent`). Unset props are
+  omitted, strings are capped as the host caps them, and `.key`, `.child` and `.children` work
+  on every builder (`.text` on `label`, `indicator` and `button`). `build` still returns `Vec<Widget<Msg>>`; each builder
+  converts with `.into()`. Handlers are typed per element (`on_toggle(bool)`, `on_press(u64)`,
+  `on_select(usize)`, `on_change`, …) and return a message that `update` applies, because a
+  handler cannot capture `&mut self`. `Urgency` names the `notify` levels: pass
+  `Urgency::Low.as_str()` where `notify` takes an urgency.
 - The runtime rebuilds after every host message and diffs the new tree against the mounted
   one, emitting one protocol commit per rebuild.
 - A widget keeps its identity across rebuilds when its kind and key match in the same parent.

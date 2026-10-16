@@ -31,21 +31,27 @@ impl App for TestApp {
             .map(|(index, (id, title, done))| {
                 toggle_row()
                     .key(id.clone())
-                    .props(json!({"title": title, "control": "check", "active": done}))
+                    .title(title.clone())
+                    .control(ToggleControl::Check)
+                    .active(*done)
                     .on_toggle(move |value| Msg::Toggle(index, value))
             });
         vec![
             indicator()
-                .props(json!({"icon": "view-list-symbolic", "badge": "2"}))
-                .text("Todo"),
+                .icon("view-list-symbolic")
+                .badge("2")
+                .text("Todo")
+                .into(),
             popover()
-                .prop("title", "Todo")
-                .child(section().prop("title", "Todo").children(rows))
+                .title("Todo")
+                .child(section().title("Todo").children(rows))
                 .child(
                     entry()
-                        .props(json!({"placeholder": "Add", "value": self.draft}))
-                        .on_change_string(Msg::Draft),
-                ),
+                        .placeholder("Add")
+                        .value(self.draft.clone())
+                        .on_change(Msg::Draft),
+                )
+                .into(),
         ]
     }
 }
@@ -245,7 +251,7 @@ fn keyed_reorder_moves() {
 fn all_host_requests_reach_the_wire() {
     let host = Host::new();
     let ctx = host.session.ctx();
-    ctx.notify("Hi", Some("b"), Some("i"), Some("low"));
+    ctx.notify("Hi", Some("b"), Some("i"), Some(Urgency::Low.as_str()));
     ctx.copy("x");
     ctx.open_uri("https://example.org");
     ctx.launch("org.example.App");
@@ -271,10 +277,143 @@ fn all_host_requests_reach_the_wire() {
 
 #[test]
 fn string_caps_match_the_host() {
-    let widget: Widget<Msg> =
-        indicator().props(json!({"badge": "123456789", "tooltip": "x".repeat(300)}));
+    let widget: Widget<Msg> = indicator()
+        .badge("123456789")
+        .tooltip("x".repeat(300))
+        .into();
     assert_eq!(widget.props["badge"].as_str().map(str::len), Some(8));
     assert_eq!(widget.props["tooltip"].as_str().map(str::len), Some(256));
+    let entry: Widget<Msg> = entry().value("y".repeat(5000)).into();
+    assert_eq!(entry.props["value"].as_str().map(str::len), Some(4096));
+}
+
+#[test]
+fn typed_wire_matches_previous_json() {
+    let typed: Widget<Msg> = toggle_row()
+        .key("a")
+        .title("Alpha")
+        .control(ToggleControl::Check)
+        .active(true)
+        .tone(RowTone::Warning)
+        .on_toggle(|_| Msg::Draft(String::new()))
+        .into();
+    assert_eq!(typed.kind, "togglerow");
+    assert_eq!(typed.key, Some(Key::S("a".to_owned())));
+    assert_eq!(
+        json!(typed.props),
+        json!({"title": "Alpha", "control": "check", "active": true, "tone": "warning", "onToggle": true})
+    );
+    let typed: Widget<Msg> = notice()
+        .icon("i")
+        .title("T")
+        .severity(Severity::Error)
+        .class_name(ClassName::DimLabel)
+        .into();
+    assert_eq!(
+        json!(typed.props),
+        json!({"icon": "i", "title": "T", "severity": "error", "className": "dim-label"})
+    );
+    let typed: Widget<Msg> = calendar()
+        .year(2026)
+        .month(10)
+        .selected("2026-10-15")
+        .events([CalendarEvent::new("2026-10-15").colors([Tone::Accent, Tone::Success])])
+        .into();
+    assert_eq!(
+        json!(typed.props),
+        json!({"year": 2026, "month": 10, "selected": "2026-10-15", "events": [{"date": "2026-10-15", "colors": ["accent", "success"]}]})
+    );
+    let typed: Widget<Msg> = bars()
+        .values([Some(0.0), None, Some(1.5)])
+        .maximum(Some(2.0))
+        .highlight_last(Some(false))
+        .tooltips([Some("a"), None])
+        .into();
+    assert_eq!(
+        json!(typed.props),
+        json!({"values": [0.0, null, 1.5], "maximum": 2.0, "highlightLast": false, "tooltips": ["a", null]})
+    );
+    let typed: Widget<Msg> = fact_list()
+        .facts([Fact::new("K", "V"), Fact::new("W", "1").warning(true)])
+        .into();
+    assert_eq!(
+        json!(typed.props),
+        json!({"facts": [{"label": "K", "value": "V"}, {"label": "W", "value": "1", "warning": true}]})
+    );
+    let typed: Widget<Msg> = choice_list()
+        .choices([
+            Choice::new("First").detail("d"),
+            Choice::new("Second").icon("ok"),
+        ])
+        .selected(Some(0))
+        .into();
+    assert_eq!(
+        json!(typed.props),
+        json!({"choices": [{"label": "First", "detail": "d"}, {"label": "Second", "icon": "ok"}], "selected": 0})
+    );
+}
+
+#[test]
+fn enums_serialize_to_wire_strings() {
+    assert_eq!(Severity::Info.as_str(), "info");
+    assert_eq!(Tone::Accent.as_str(), "accent");
+    assert_eq!(RowTone::Destructive.as_str(), "destructive");
+    assert_eq!(RowTypography::Monospace.as_str(), "monospace");
+    assert_eq!(Paint::Blue.as_str(), "blue");
+    assert_eq!(Align::Baseline.as_str(), "baseline");
+    assert_eq!(PopoverSize::Wide.as_str(), "wide");
+    assert_eq!(ToggleControl::Switch.as_str(), "switch");
+    assert_eq!(Orientation::Vertical.as_str(), "vertical");
+    assert_eq!(Ellipsize::Middle.as_str(), "middle");
+    assert_eq!(SwatchSize::Large.as_str(), "large");
+    assert_eq!(Transition::SlideDown.as_str(), "slide-down");
+    assert_eq!(Transition::None.as_str(), "none");
+    assert_eq!(Urgency::Critical.as_str(), "critical");
+    assert_eq!(ClassName::DimLabel.as_str(), "dim-label");
+    assert_eq!(ClassName::Title1.as_str(), "title-1");
+    assert_eq!(
+        ClassName::NetworkPopoverRule.as_str(),
+        "network-popover__rule"
+    );
+    assert_eq!(ClassName::NetworkPopover.as_str(), "network-popover");
+    let widget: Widget<Msg> = label().text("x").class_name(ClassName::Title2).into();
+    assert_eq!(widget.props["className"], json!("title-2"));
+    let unset: Widget<Msg> = label().text("x").into();
+    assert!(!unset.props.contains_key("className"));
+    let cleared: Widget<Msg> = image().pixel_size(Some(32)).pixel_size(None).into();
+    assert!(!cleared.props.contains_key("pixelSize"));
+    let kept: Widget<Msg> = switch().sensitive(Some(false)).into();
+    assert_eq!(kept.props["sensitive"], json!(false));
+}
+
+#[test]
+fn typed_handlers_dispatch() {
+    let mut host = Host::new();
+    let id = host.find("entry", None)["id"].clone();
+    host.feed(&json!({"t": "event", "id": id, "name": "onChange", "args": ["hi"], "seq": 1}));
+    assert_eq!(host.session.app().draft, "hi");
+    let widget: Widget<Msg> = drop_down()
+        .options(["a", "b"])
+        .selected(Some(1))
+        .on_select(|index| Msg::Toggle(index, true))
+        .into();
+    assert_eq!(widget.props["onSelect"], json!(true));
+    assert!(matches!(
+        widget.handlers["onSelect"](&[json!(3)]),
+        Some(Msg::Toggle(3, true))
+    ));
+    let widget: Widget<Msg> = calendar().on_select(Msg::Draft).into();
+    assert!(matches!(
+        widget.handlers["onSelect"](&[json!("2026-01-01")]).as_ref(),
+        Some(Msg::Draft(date)) if date == "2026-01-01"
+    ));
+    let widget: Widget<Msg> = scale()
+        .on_change(|value| Msg::Draft(value.to_string()))
+        .into();
+    assert!(matches!(
+        widget.handlers["onChange"](&[json!(2.5)]).as_ref(),
+        Some(Msg::Draft(text)) if text == "2.5"
+    ));
 }
 
 #[test]
@@ -294,8 +433,9 @@ impl App for WideApp {
     fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
         vec![
             section()
-                .prop("title", "x")
-                .children((0..250).map(|_| label().text("x"))),
+                .title("x")
+                .children((0..250).map(|_| label().text("x")))
+                .into(),
         ]
     }
 }
@@ -326,7 +466,7 @@ impl App for StartApp {
     fn update(&mut self, _ctx: &Ctx, _msg: Msg) {}
 
     fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
-        vec![indicator().text("hi")]
+        vec![indicator().text("hi").into()]
     }
 }
 
