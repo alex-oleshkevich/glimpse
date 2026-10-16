@@ -55,6 +55,7 @@ import {
 	SliderRow,
 	Stack,
 	useOptions,
+	usePersistentState,
 	useStateDir,
 	ToggleButton,
 	ToggleRow,
@@ -271,6 +272,15 @@ function StateDir() {
 	return createElement(Indicator, { text: useStateDir() });
 }
 
+function Persistent() {
+	const [count, setCount] = usePersistentState("count", 0);
+	useEffect(() => {
+		const timer = setTimeout(() => setCount((prev) => prev + 1), 5);
+		return () => clearTimeout(timer);
+	}, [setCount]);
+	return createElement(Indicator, { text: String(count) });
+}
+
 function mockExit(throwOnExit: boolean): {
 	code: () => number | null;
 	restore: () => void;
@@ -329,6 +339,77 @@ test("applet sdk", async (t) => {
 			},
 		]);
 		assert(lines[1].includes('"text":"/tmp/glimpse-state"'), lines[1]);
+	});
+
+	await t.test("persistent state loads and saves", async (t) => {
+		const drivePersistent = async (state: string) => {
+			const lines: string[] = [];
+			await session(createElement(Persistent), {
+				writeLine: (line: string) => lines.push(line),
+				lines: (async function* () {
+					yield JSON.stringify({ t: "hello", v: 1, state });
+					await delay(100);
+				})(),
+			});
+			return lines;
+		};
+
+		await t.test("saved value loads and a change writes the whole object", async () => {
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sdk-ts-"));
+			try {
+				fs.writeFileSync(
+					path.join(dir, "state.json"),
+					JSON.stringify({ count: 41, other: "keep" }),
+				);
+				const lines = await drivePersistent(dir);
+				assert(lines[1].includes('"text":"41"'), lines.join("\n"));
+				assert(
+					lines.some((line) => line.includes('"text":"42"')),
+					lines.join("\n"),
+				);
+				const saved = JSON.parse(
+					fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+				);
+				assert(saved.count === 42, JSON.stringify(saved));
+				assert(saved.other === "keep", JSON.stringify(saved));
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		await t.test("a missing state file falls back to the initial value", async () => {
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sdk-ts-"));
+			try {
+				const lines = await drivePersistent(dir);
+				assert(lines[1].includes('"text":"0"'), lines.join("\n"));
+				const saved = JSON.parse(
+					fs.readFileSync(path.join(dir, "state.json"), "utf8"),
+				);
+				assert(saved.count === 1, JSON.stringify(saved));
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		await t.test("a corrupt state file is ignored", async () => {
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), "glimpse-sdk-ts-"));
+			try {
+				fs.writeFileSync(path.join(dir, "state.json"), "{nope");
+				const lines = await drivePersistent(dir);
+				assert(lines[1].includes('"text":"0"'), lines.join("\n"));
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		});
+
+		await t.test("persistence is a no-op without a state dir", async () => {
+			const lines = await drivePersistent("");
+			assert(lines[1].includes('"text":"0"'), lines.join("\n"));
+			assert(
+				lines.some((line) => line.includes('"text":"1"')),
+				lines.join("\n"),
+			);
+		});
 	});
 
 	await t.test("every host fixture line is handled", async () => {
