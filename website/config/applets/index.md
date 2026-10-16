@@ -49,11 +49,11 @@ tooltip-format = "{connection}\n{metered}"
 
 ## Information
 
-<AppletList page="/config/applets/information" :names="['clock', 'next-event', 'weather', 'mpris', 'notifications', 'system-monitor', 'kdeconnect']" />
+<AppletList page="/config/applets/information" :names="['clock', 'next-event', 'weather', 'mpris', 'notifications']" />
 
 ## Tools
 
-<AppletList page="/config/applets/tools" :names="['clipboard', 'color-picker', 'ruler']" />
+<AppletList page="/config/applets/tools" :names="['clipboard']" />
 
 ## Applets you build
 

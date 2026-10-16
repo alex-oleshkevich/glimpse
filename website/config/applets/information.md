@@ -46,17 +46,3 @@ the day list never goes past `[weather] forecast-days` rows counting today (7 by
 <ConfigTable path="applets.notifications" describe />
 
 <AppletShot name="notifications" />
-
-## system-monitor
-
-<ConfigTable path="applets.system-monitor" describe />
-
-<AppletShot name="system-monitor" />
-
-<ConfigTable path="system-monitor" describe />
-
-## kdeconnect
-
-<ConfigTable path="applets.kdeconnect" describe />
-
-<AppletShot name="kdeconnect" />

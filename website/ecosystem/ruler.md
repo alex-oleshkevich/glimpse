@@ -35,17 +35,12 @@ rather than drawing a line across both.
 Distances are in the screen's own pixels. With display scaling at 2, a gap that looks 100 pixels
 wide measures 200.
 
-## Keep a history
-
-The [ruler applet](/config/applets/tools#ruler) starts the ruler from the bar and keeps your recent
-measurements, 8 by default.
-
 ## Use it in scripts
 
 When you finish, the ruler prints one line of JSON per segment, in the order you measured them:
 
 ```json
-{"angle":0.0,"distance":340.0,"dx":340,"dy":0,"from_x":620,"from_y":420,"to_x":960,"to_y":420}
+{ "angle": 0.0, "distance": 340.0, "dx": 340, "dy": 0, "from_x": 620, "from_y": 420, "to_x": 960, "to_y": 420 }
 ```
 
 `distance` is the length, `dx` and `dy` the offsets, `angle` the slope from horizontal in degrees

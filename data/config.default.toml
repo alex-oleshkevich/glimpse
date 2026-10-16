@@ -83,13 +83,6 @@ max-entry-kib = 2048
 max-total-kib = 10240
 capture-images = true
 
-[color-picker]
-format = "hex"
-limit = 8
-
-[ruler]
-history-limit = 8
-
 [screenshot]
 filename = "Screenshot from %Y-%m-%d %H-%M-%S.png"
 editor = "overlay"
@@ -172,11 +165,6 @@ network = true
 [removable]
 capacity-interval = 10
 
-[system-monitor]
-poll-interval = 2
-disk-paths = ["/"]
-gpu = true
-
 [[panels]]
 size = 36
 position = "top"
@@ -197,7 +185,6 @@ right = [
     "tray",
     "removable",
     "clipboard",
-    "color-picker",
     "printing",
     "bluetooth",
     "network",

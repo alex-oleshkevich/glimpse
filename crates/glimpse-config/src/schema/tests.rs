@@ -41,33 +41,32 @@ fn desktop_id_in_zone_resolves_and_is_placed() {
 fn placed_kinds_follows_zone_placement_not_table_presence() {
     let default = Config::default();
     assert!(
-        !placed_kinds(&default).any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
-        "the default document places nothing named system-monitor"
+        !placed_kinds(&default).any(|kind| matches!(kind, AppletKind::Heartbeat {})),
+        "the default document places nothing named heartbeat"
     );
 
     let named_in_a_zone_with_no_table: Config =
-        toml::from_str("[[panels]]\nright = [\"system-monitor\"]\n")
+        toml::from_str("[[panels]]\nright = [\"heartbeat\"]\n")
             .expect("a bare name resolves through Applet::from_name");
     assert!(
         placed_kinds(&named_in_a_zone_with_no_table)
-            .any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a name placed in a zone with no table entry must still resolve, the common case"
     );
 
-    let table_with_no_placement: Config = toml::from_str("[applets.system-monitor]\n")
+    let table_with_no_placement: Config = toml::from_str("[applets.heartbeat]\n")
         .expect("a table with no zone naming it still loads");
     assert!(
         !placed_kinds(&table_with_no_placement)
-            .any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+            .any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a table nobody places is not demand"
     );
 
-    let renamed_and_placed: Config = toml::from_str(
-        "[applets.sm]\nextends = \"system-monitor\"\n\n[[panels]]\nright = [\"sm\"]\n",
-    )
-    .expect("a renamed table placed in a zone loads");
+    let renamed_and_placed: Config =
+        toml::from_str("[applets.hb]\nextends = \"heartbeat\"\n\n[[panels]]\nright = [\"hb\"]\n")
+            .expect("a renamed table placed in a zone loads");
     assert!(
-        placed_kinds(&renamed_and_placed).any(|kind| matches!(kind, AppletKind::SystemMonitor(_))),
+        placed_kinds(&renamed_and_placed).any(|kind| matches!(kind, AppletKind::Heartbeat {})),
         "a renamed table placed in a zone must still resolve to its kind"
     );
 }

@@ -2,27 +2,6 @@ use palette::{FromColor, Hsl, Hsv, Oklch, Srgb};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Choose how you copy and keep picked colors; changes apply the next time the panel starts.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct ColorPicker {
-    /// The format you copy picked colors in and see in your palette. Changes apply after you
-    /// restart the panel.
-    pub format: ColorFormat,
-    /// How many colors you keep in your palette, from 1 to 64. Changes apply after you restart the
-    /// panel.
-    pub limit: usize,
-}
-
-impl Default for ColorPicker {
-    fn default() -> Self {
-        Self {
-            format: ColorFormat::Hex,
-            limit: 8,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ColorFormat {

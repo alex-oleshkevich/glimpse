@@ -276,9 +276,8 @@ mod fixtures {
         InhibitorTargets, Notification, NotificationsPopover, NowPlaying, POWER_OFF, Pager, Player,
         PlayerList, PrintingJob, PrintingPopover, PrintingPrinter, PrivacyPopover, PrivacyUsage,
         REBOOT, Repeat, SUSPEND, SessionActionState, SessionSheet, Severity, Shape, Slot,
-        SourceList, StatusIsland, SystemMonitorMeter, SystemMonitorNamedMeter,
-        SystemMonitorPopover, SystemMonitorReadings, TransportAction, TrayChip, TrayStrip, Urgency,
-        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        SourceList, StatusIsland, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -332,8 +331,6 @@ mod fixtures {
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
             "tray_states" => tray_states(root),
-            "system_monitor" => system_monitor(root),
-            "system_monitor_indicator_states" => system_monitor_indicator_states(builder),
             "inhibitor_list_states" => inhibitor_list_states(root),
             "printing_states" => printing_popover_states(root),
             "privacy_states" => privacy_popover_states(root),
@@ -3212,83 +3209,6 @@ mod fixtures {
         }
     }
 
-    fn system_monitor(root: &gtk4::Widget) {
-        let meter = |value: &str, level: f64, severity| SystemMonitorMeter {
-            level,
-            value: value.to_owned(),
-            severity,
-        };
-        let named = |title: &str, meter| SystemMonitorNamedMeter {
-            title: title.to_owned(),
-            meter,
-        };
-
-        for popover in collect::<SystemMonitorPopover>(root) {
-            let Some(case) = popover
-                .css_classes()
-                .iter()
-                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
-            else {
-                eprintln!("a $SystemMonitorPopover carries no {DEMO} class, so it stays empty");
-                continue;
-            };
-
-            let mut readings = SystemMonitorReadings {
-                cpu: Some(meter("42%", 0.42, None)),
-                memory: Some(meter("6.1 / 16.3 GB", 0.37, None)),
-                disks: vec![
-                    named(
-                        "/home",
-                        meter("870 / 1000 GB", 0.87, Some(Severity::Warning)),
-                    ),
-                    named("/var", meter("970 / 1000 GB", 0.97, Some(Severity::Error))),
-                ],
-                load: Some("1.24, 0.98, 0.87".to_owned()),
-                uptime: Some("2d 4h".to_owned()),
-                network: Some("↓ 1.2 MB/s ↑ 84 KB/s".to_owned()),
-                cpu_temp: Some("62°C".to_owned()),
-                ..Default::default()
-            };
-
-            if case == "full" {
-                readings.swap = Some(meter("1.1 / 8.0 GB", 0.14, None));
-                readings.gpu = Some(meter("18%", 0.18, None));
-                readings.gpu_memory = Some(named("GTT", meter("6.7 / 16.3 GB", 0.41, None)));
-                readings.gpu_temp = Some("54°C".to_owned());
-            }
-
-            popover.set_readings(&readings);
-        }
-    }
-
-    fn system_monitor_indicator_states(builder: &gtk4::Builder) {
-        let cases: &[(&str, &str, Option<Severity>)] = &[
-            ("cpu_normal", "CPU 42%", None),
-            ("cpu_warning", "CPU 88%", Some(Severity::Warning)),
-            ("cpu_error", "CPU 97%", Some(Severity::Error)),
-            ("ram_normal", "RAM 51%", None),
-            ("ram_warning", "RAM 88%", Some(Severity::Warning)),
-            ("ram_error", "RAM 97%", Some(Severity::Error)),
-            ("swap_normal", "Swap 12%", None),
-            ("swap_warning", "Swap 88%", Some(Severity::Warning)),
-            ("swap_error", "Swap 97%", Some(Severity::Error)),
-            ("network_normal", "↓ 1.2 MB/s", None),
-            ("network_warning", "↓ 1.2 MB/s", Some(Severity::Warning)),
-            ("network_error", "↓ 1.2 MB/s", Some(Severity::Error)),
-            ("gpu_normal", "GPU 18%", None),
-            ("gpu_warning", "GPU 88%", Some(Severity::Warning)),
-            ("gpu_error", "GPU 97%", Some(Severity::Error)),
-        ];
-        for (id, label, severity) in cases {
-            let Some(indicator) = builder.object::<Indicator>(*id) else {
-                eprintln!("{id} names no $Indicator in this file");
-                continue;
-            };
-            indicator.set_label(Some(label));
-            indicator.set_severity(*severity);
-        }
-    }
-
     fn inhibitor_list_states(root: &gtk4::Widget) {
         let entry = |id: u64,
                      source: InhibitorSource,
@@ -3962,17 +3882,16 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, ColorList,
-        ColorPickerPopover, DisplayList, DisplayPopover, EventList, Expandable, ForecastList,
-        ForecastStrip, Hero, Indicator, IndicatorGroup, InhibitorList, KeyboardPopover, LockClock,
-        LockStage, Notice, NotificationCard, NotificationChips, NotificationHeader,
-        NotificationImageBody, NotificationStack, NotificationTextBody, NotificationsPopover,
-        NowPlaying, Pager, Panel, PasswordPrompt, Placeholder, PlayerList, PopoverShell,
-        PrintingPopover, PrivacyPopover, RangeBar, Readout, Scrubber, Section, SessionPopover,
-        SessionSheet, ShotBanner, ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion,
-        ShotResultPage, ShotToolbar, ShotWindowList, SourceList, StatusIsland, Swatch,
-        SystemMonitorPopover, TrackCard, Transport, TrayStrip, WeatherPopover,
-        WorkspaceNamePopover, WorldClock,
+        Calendar, CalendarPopover, ChoiceList, ClipboardList, ClipboardPopover, DisplayList,
+        DisplayPopover, EventList, Expandable, ForecastList, ForecastStrip, Hero, Indicator,
+        IndicatorGroup, InhibitorList, KeyboardPopover, LockClock, LockStage, Notice,
+        NotificationCard, NotificationChips, NotificationHeader, NotificationImageBody,
+        NotificationStack, NotificationTextBody, NotificationsPopover, NowPlaying, Pager, Panel,
+        PasswordPrompt, Placeholder, PlayerList, PopoverShell, PrintingPopover, PrivacyPopover,
+        RangeBar, Readout, Scrubber, Section, SessionPopover, SessionSheet, ShotBanner,
+        ShotCapturePage, ShotCountdown, ShotPreferences, ShotRegion, ShotResultPage, ShotToolbar,
+        ShotWindowList, SourceList, StatusIsland, Swatch, TrackCard, Transport, TrayStrip,
+        WeatherPopover, WorkspaceNamePopover, WorldClock,
     };
 
     for widget in [
@@ -3988,8 +3907,6 @@ fn ensure_types() {
         Calendar::static_type(),
         CalendarPopover::static_type(),
         ChoiceList::static_type(),
-        ColorList::static_type(),
-        ColorPickerPopover::static_type(),
         Swatch::static_type(),
         DisplayList::static_type(),
         DisplayPopover::static_type(),
@@ -4028,7 +3945,6 @@ fn ensure_types() {
         InhibitorList::static_type(),
         ClipboardList::static_type(),
         ClipboardPopover::static_type(),
-        SystemMonitorPopover::static_type(),
         PrintingPopover::static_type(),
         PrivacyPopover::static_type(),
         WorkspaceNamePopover::static_type(),

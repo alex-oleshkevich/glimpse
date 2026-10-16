@@ -4,7 +4,7 @@ mod bluetooth;
 mod brightness;
 mod calendar;
 mod clipboard;
-mod color_picker;
+mod color_format;
 mod geolocation;
 mod idle;
 mod keyboard;
@@ -18,9 +18,7 @@ mod places;
 mod printing;
 mod regional;
 mod removable;
-mod ruler;
 mod screenshot;
-mod system_monitor;
 mod wallpaper;
 mod weather;
 
@@ -32,23 +30,21 @@ use serde::{Deserialize, Serialize};
 pub use appearance::{Appearance, BlurSurface, ColorScheme, DesktopColorScheme, blurs};
 pub use applets::{
     Applet, Audio as AudioAppletConfig, BatteryIndicatorStyle, Bluetooth as BluetoothAppletConfig,
-    Chip as SystemMonitorChip, Clipboard as ClipboardAppletConfig, Clock as ClockConfig,
-    Command as CommandAppletConfig, Display as DisplayAppletConfig, Exec as ExecAppletConfig,
-    Kdeconnect as KdeconnectAppletConfig, Kind as AppletKind, Mpris as MprisAppletConfig,
-    NETWORK_TOOLTIP, NextEvent as NextEventConfig, NotificationIndicatorStyle,
-    Notifications as NotificationsAppletConfig, PRINTING_TOOLTIP, Pager as PagerConfig, PagerMode,
-    PagerScope, PagerShape, Place as WeatherPlace, Places as PlacesAppletConfig,
-    Power as PowerAppletConfig, Printing as PrintingAppletConfig, PrintingShow,
-    Privacy as PrivacyAppletConfig, Removable as RemovableAppletConfig,
-    SystemMonitor as SystemMonitorAppletConfig, Timezone as ClockTimezone,
-    Tray as TrayAppletConfig, WEATHER_TOOLTIP, Weather as WeatherAppletConfig,
-    exec_env_name_allowed, is_desktop_id, resolve_applet,
+    Clipboard as ClipboardAppletConfig, Clock as ClockConfig, Command as CommandAppletConfig,
+    Display as DisplayAppletConfig, Exec as ExecAppletConfig, Kind as AppletKind,
+    Mpris as MprisAppletConfig, NETWORK_TOOLTIP, NextEvent as NextEventConfig,
+    NotificationIndicatorStyle, Notifications as NotificationsAppletConfig, PRINTING_TOOLTIP,
+    Pager as PagerConfig, PagerMode, PagerScope, PagerShape, Place as WeatherPlace,
+    Places as PlacesAppletConfig, Power as PowerAppletConfig, Printing as PrintingAppletConfig,
+    PrintingShow, Privacy as PrivacyAppletConfig, Removable as RemovableAppletConfig,
+    Timezone as ClockTimezone, Tray as TrayAppletConfig, WEATHER_TOOLTIP,
+    Weather as WeatherAppletConfig, exec_env_name_allowed, is_desktop_id, resolve_applet,
 };
 pub use bluetooth::Bluetooth;
 pub use brightness::Brightness;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
 pub use clipboard::Clipboard;
-pub use color_picker::{ColorFormat, ColorPicker};
+pub use color_format::ColorFormat;
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
@@ -65,9 +61,7 @@ pub use places::Places;
 pub use printing::Printing;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use removable::Removable;
-pub use ruler::Ruler as RulerConfig;
 pub use screenshot::{Editor, FileTemplate, PaletteColor, Screenshot as ScreenshotConfig, Stroke};
-pub use system_monitor::SystemMonitor;
 pub use wallpaper::{Backdrop, BackdropOutput, Fit, Transition, Wallpaper, WallpaperOutput};
 pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
@@ -86,8 +80,6 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub calendar: Calendar,
     pub clipboard: Clipboard,
-    pub color_picker: ColorPicker,
-    pub ruler: RulerConfig,
     pub screenshot: ScreenshotConfig,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
@@ -96,7 +88,6 @@ pub struct Config {
     pub lock: Lock,
     pub places: Places,
     pub removable: Removable,
-    pub system_monitor: SystemMonitor,
     pub panels: Vec<Panel>,
     #[serde(deserialize_with = "applets::deserialize")]
     #[schemars(schema_with = "applets::schema")]
@@ -160,8 +151,6 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
             clipboard: Clipboard::default(),
-            color_picker: ColorPicker::default(),
-            ruler: RulerConfig::default(),
             screenshot: ScreenshotConfig::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
@@ -170,7 +159,6 @@ impl Default for Config {
             lock: Lock::default(),
             places: Places::default(),
             removable: Removable::default(),
-            system_monitor: SystemMonitor::default(),
             panels: vec![Panel::default()],
             applets: BTreeMap::new(),
             retired_power: toml::Table::new(),

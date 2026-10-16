@@ -84,9 +84,6 @@ History is **in memory only**, and an entry's `id` fingerprints `(kind, content)
 mime spelling, so dedup closes the echo loop. `is_sensitive` classifies an offer before its
 content is read; secrets leave no history entry or tombstone.
 
-**color_picker** — calls `Screenshot.PickColor` through an injected `Picker`, one pick at a time,
-and copies through the same `Selection` the clipboard uses, since the panel owns the palette.
-
 **brightness** — `SysfsBacklight` reads `/sys/class/backlight` with `tokio::fs` and writes through
 logind. `current` moves when a command is accepted, `confirmed` when the write lands, and a failed
 write rolls `current` back unless a newer value is queued. Sources collapse to the highest-preference
@@ -174,12 +171,6 @@ call goes to that unique name, which the bus cannot activate. **The daemon emits
 `$XDG_RUNTIME_DIR/gvfs`, `Trash/files`. **`user-dirs.dirs` is parsed, never read through
 `glib::user_special_dir`**, since that enum is closed to eight entries. **`empty_trash` clears the
 home trash only** — `files/`, `info/`, `expunged/` and `directorysizes`, leaving `.Trash-$UID` alone.
-
-**system-monitor** — CPU, memory, swap, disk, network, load average, uptime and (amdgpu only) GPU.
-**`Config.enabled` reflects panel placement, not table presence**, and **`subscriptions()` returns
-nothing at all while disabled**, discovery included, since a service with no consumer should do zero
-work. **GPU memory reads GTT on an integrated card, VRAM on a discrete one**, classified once at
-discovery.
 
 **session actions** — logind capabilities and inhibitors on their own subscription, window count from
 the compositor.

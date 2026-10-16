@@ -20,7 +20,7 @@ moves the clock to the end of the center zone:
 left = ["workspace-name", "pager", "places", "mpris"]
 center = ["weather", "notifications", "privacy", "clock"]
 right = [
-    "next-event", "tray", "removable", "clipboard", "color-picker", "printing", "bluetooth",
+    "next-event", "tray", "removable", "clipboard", "printing", "bluetooth",
     "network", "display", "audio", "idle", "power", "keyboard", "session",
 ]
 ```

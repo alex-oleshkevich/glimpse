@@ -3,13 +3,11 @@ pub mod audio;
 pub(crate) mod bluetooth;
 mod clipboard;
 mod clock;
-mod color_picker;
 mod command;
 mod display;
 pub(crate) mod exec;
 mod heartbeat;
 pub(crate) mod idle;
-mod kdeconnect;
 mod keyboard;
 mod mpris;
 pub mod network;
@@ -21,9 +19,7 @@ mod power;
 mod printing;
 mod privacy;
 mod removable;
-mod ruler;
 mod session;
-mod system_monitor;
 mod tokens;
 mod tray;
 pub(crate) mod weather;
@@ -233,14 +229,6 @@ pub fn build(
                 Box::new(removable::Removable::start(removable, notifications))
             }))
         }
-        AppletKind::Kdeconnect(_) => {
-            let kdeconnect = handles.kdeconnect.clone();
-            let notifications = handles.notifications.clone();
-            Some(Box::new(move |ctx| {
-                ctx.watch(kdeconnect.subscribe());
-                Box::new(kdeconnect::Kdeconnect::start(kdeconnect, notifications))
-            }))
-        }
         AppletKind::Privacy(_) => {
             let privacy = handles.privacy.clone();
             let compositor = handles.compositor.clone();
@@ -253,17 +241,6 @@ pub fn build(
                     privacy,
                     compositor,
                     audio,
-                    notifications,
-                ))
-            }))
-        }
-        AppletKind::ColorPicker { .. } => {
-            let color_picker = handles.color_picker.clone();
-            let notifications = handles.notifications.clone();
-            Some(Box::new(move |ctx| {
-                ctx.watch(color_picker.subscribe());
-                Box::new(color_picker::ColorPicker::start(
-                    color_picker,
                     notifications,
                 ))
             }))
@@ -283,21 +260,6 @@ pub fn build(
             let notifications = handles.notifications.clone();
             Some(Box::new(move |_ctx| {
                 Box::new(command::Command::start(notifications))
-            }))
-        }
-        AppletKind::SystemMonitor(_) => {
-            let system_monitor = handles.system_monitor.clone();
-            Some(Box::new(move |ctx| {
-                ctx.watch(system_monitor.subscribe());
-                Box::new(system_monitor::SystemMonitor::start(system_monitor))
-            }))
-        }
-        AppletKind::Ruler { .. } => {
-            let ruler = handles.ruler.clone();
-            let notifications = handles.notifications.clone();
-            Some(Box::new(move |ctx| {
-                ctx.watch(ruler.subscribe());
-                Box::new(ruler::Ruler::start(ruler, notifications))
             }))
         }
         AppletKind::Exec(_) => {

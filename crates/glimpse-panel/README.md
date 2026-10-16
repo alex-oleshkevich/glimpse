@@ -134,11 +134,6 @@ its entry: a drop hands a file manager a URI, and a drag's content must exist wh
 opens a data-control watch only while the service has an events subscriber and passes read demand
 before reading an offer, so a disabled clipboard service opens no connection or reads no secret.
 
-**color-picker** — the service owns the palette and the clipboard copy; the applet holds none of
-it, and failures are reported by notification, never a popover banner. **ruler** — shaped like
-color-picker: right click runs `glimpse-lens --tool ruler`, refused mid-measurement; the chip is always
-icon-only, since a measurement has no swatch to substitute it with.
-
 **places** — a share reads as its folder over `host · PROTOCOL`, parsed out of the GVFS mount name,
 never the raw `smb-share:` string; bookmark and volume labels are capped through `glimpse_utils::clean`,
 since that text comes from another application. **removable** — renders no chip with no
@@ -147,8 +142,6 @@ largest, the first on a tie.** Space is the short "N free" form, never a percent
 volume with none left says so in words rather than printing `0 B free`. A refused eject reads "In use
 by an app"; the overflow cap counts devices.
 
-**kdeconnect** — renders no chip while `kdeconnectd` is not running. **An incoming pair request is
-answered in its own notification, never the popover** — `kdeconnectd` posts Accept/Reject itself.
 **weather** — several places is several applets, through `extends`. **Units come off the typed
 provider snapshot, never the panel configuration**, so a units change cannot print °F over a
 Celsius reading mid-flight.
@@ -214,10 +207,6 @@ parentless dialog after the popover closes, with the action as the default respo
 be handed back to the process holding it. **A cast takes `IndicatorSpec.class` instead of
 severity**, so `glimpse.css` can paint the record glyph in the danger colour while the timer keeps
 the bar's foreground.
-
-**system-monitor** — opt-in: its service samples nothing unless the applet is actually *placed* on
-a panel zone, not merely present in the config. CPU and network read `None` on the first sample
-since enabling, since a rate needs a delta the first sample cannot have.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

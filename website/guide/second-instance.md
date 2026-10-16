@@ -14,7 +14,7 @@ timezone = "Asia/Tokyo"
 
 [[panels]]
 right = [
-    "tokyo", "next-event", "tray", "removable", "clipboard", "color-picker", "printing", "bluetooth",
+    "tokyo", "next-event", "tray", "removable", "clipboard", "printing", "bluetooth",
     "network", "display", "audio", "idle", "power", "keyboard", "session",
 ]
 ```

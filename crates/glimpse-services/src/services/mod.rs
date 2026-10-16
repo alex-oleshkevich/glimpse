@@ -41,7 +41,6 @@ mod bluetooth;
 mod brightness;
 mod calendar;
 mod clipboard;
-mod color_picker;
 mod compositor;
 mod desktop_mode;
 mod exec;
@@ -57,11 +56,9 @@ mod places;
 mod printing;
 mod privacy;
 mod removable;
-mod ruler;
 mod session;
 mod session_actions;
 mod solar;
-mod system_monitor;
 mod tray;
 mod weather;
 
@@ -90,10 +87,6 @@ pub use calendar::{Calendar, CalendarHandle};
 pub use clipboard::{
     Clipboard, ClipboardEntry, ClipboardEntryId, ClipboardHandle, ClipboardKind, ClipboardState,
     Config as ClipboardConfig, Dependencies as ClipboardDependencies,
-};
-pub use color_picker::{
-    ColorPicker, ColorPickerHandle, ColorPickerState, Config as ColorPickerConfig,
-    Dependencies as ColorPickerDependencies, Picked, PickedColor, Picker, PortalPicker,
 };
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use desktop_mode::{DesktopMode, DesktopModeHandle, ModeDependencies, ModeWriter};
@@ -154,11 +147,6 @@ pub use removable::{
     Mount as RemovableMount, Removable, RemovableError, RemovableHandle, RemovableState, Volume,
     VolumeId,
 };
-pub use ruler::{
-    Config as RulerConfig, Dependencies as RulerDependencies, Measured as RulerMeasured,
-    Measurement as RulerMeasurement, ProcessRunner as ProcessRulerRunner, Ruler, RulerHandle,
-    RulerState, Runner as RulerRunner,
-};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use session_actions::{
     Action as SessionAction, Capability as SessionCapability,
@@ -166,12 +154,6 @@ pub use session_actions::{
     SessionActionsHandle, SessionActionsState,
 };
 pub use solar::{Solar, SolarDependencies, SolarHandle};
-pub use system_monitor::{
-    Cpu as SystemMonitorCpu, DiskUsage as SystemMonitorDiskUsage, Gpu as SystemMonitorGpu,
-    GpuMemoryKind as SystemMonitorGpuMemoryKind, LoadAverage as SystemMonitorLoadAverage,
-    NetworkRate as SystemMonitorNetworkRate, SystemMonitor, SystemMonitorHandle,
-    SystemMonitorState, Usage as SystemMonitorUsage,
-};
 pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 

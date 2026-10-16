@@ -716,8 +716,7 @@ listrow.row--destructive progressbar.meter-row__bar progress {
     font-weight: 700;
 }
 
-.clipboard-popover .hero__title,
-.color-picker-popover .hero__title {
+.clipboard-popover .hero__title {
     font-size: var(--gl-text-title);
     font-weight: 700;
 }
@@ -1514,25 +1513,6 @@ window.ruler {
     min-height: 1rem;
     border-radius: 0.3rem;
     border: 1px solid alpha(var(--gl-panel-fg), 0.28);
-}
-
-.color-picker-popover .hero__title {
-    font-variant-numeric: tabular-nums;
-}
-
-.color-notation .row__title {
-    font-family: var(--gl-font-family-mono);
-    font-variant-numeric: tabular-nums;
-}
-
-.color-notation .row__value {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-}
-
-.color-picker--picking {
-    background-color: var(--gl-active);
-    border-radius: 999px;
 }
 
 window.blurred {

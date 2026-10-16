@@ -1,5 +1,5 @@
 use super::{
-    BatteryIndicatorStyle, Chip, Kind, NotificationIndicatorStyle, Printing, PrintingShow, Privacy,
+    BatteryIndicatorStyle, Kind, NotificationIndicatorStyle, Printing, PrintingShow, Privacy,
 };
 
 #[test]
@@ -173,33 +173,6 @@ fn removable_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
 }
 
 #[test]
-fn kdeconnect_resolves_from_a_bare_name_and_reads_its_own_settings() {
-    let bare = super::Applet::from_name("kdeconnect").expect("a known applet name");
-    assert_eq!(bare.kind, Kind::Kdeconnect(super::Kdeconnect::default()));
-
-    let configured: crate::Config = toml::from_str(
-        "[applets.phone]\nextends = \"kdeconnect\"\nindicator-style = \"icon-only\"\n\
-             label-format = \"{name}\"\ndevice = \"Pixel 8\"\nhide-when-disconnected = true\n",
-    )
-    .expect("the table loads");
-    assert_eq!(
-        configured.applets["phone"].kind,
-        Kind::Kdeconnect(super::Kdeconnect {
-            tooltip_format: None,
-            indicator_style: BatteryIndicatorStyle::IconOnly,
-            label_format: "{name}".to_owned(),
-            device: Some("Pixel 8".to_owned()),
-            hide_when_disconnected: true,
-        })
-    );
-    assert!(
-        toml::from_str::<crate::Config>("[applets.p]\nextends = \"kdeconnect\"\nbattery = 1\n")
-            .is_err(),
-        "an unknown key under kdeconnect is refused"
-    );
-}
-
-#[test]
 fn bluetooth_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
     let bare = super::Applet::from_name("bluetooth").expect("a known applet name");
     assert_eq!(bare.kind, Kind::Bluetooth(super::Bluetooth::default()));
@@ -345,17 +318,6 @@ fn schema_only_accepts_canonical_applet_kinds() {
     let generated: serde_json::Value =
         serde_json::from_str(include_str!("../../../../../data/config.schema.json")).unwrap();
     assert_eq!(generated, document);
-}
-
-#[test]
-fn a_repeated_chip_collapses_to_its_first_occurrence() {
-    let document: crate::Config =
-        toml::from_str("[applets.system-monitor]\nchips = [\"cpu\", \"cpu\", \"ram\"]\n")
-            .expect("chips is a key of this table");
-    let Kind::SystemMonitor(settings) = &document.applets["system-monitor"].kind else {
-        panic!("system-monitor resolves to its own kind");
-    };
-    assert_eq!(settings.chips, vec![Chip::Cpu, Chip::Ram]);
 }
 
 #[test]

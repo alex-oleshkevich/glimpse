@@ -44,13 +44,6 @@ pub enum Kind {
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
     /// Picks a color from the screen on right click; the popover keeps the picked colors.
-    ColorPicker {
-        /// What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen
-        /// in the popover.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        #[schemars(extend("default" = "{color}"))]
-        tooltip_format: Option<String>,
-    },
     /// Your own commands on the bar.
     Command(Box<Command>),
     /// Displays, brightness and night light.
@@ -68,7 +61,6 @@ pub enum Kind {
         tooltip_format: Option<String>,
     },
     /// Your paired KDE Connect phone.
-    Kdeconnect(Kdeconnect),
     /// The active keyboard layout, and switches between the configured ones.
     Keyboard {
         /// Your tooltip text, with `{code}` for the short layout label and `{name}` for its full
@@ -96,12 +88,6 @@ pub enum Kind {
     /// Removable drives.
     Removable(Removable),
     /// Screen measurements.
-    Ruler {
-        /// Your tooltip text, with `{measurement}` for your last measured distance.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        #[schemars(extend("default" = "{measurement}"))]
-        tooltip_format: Option<String>,
-    },
     /// Log out, suspend, restart and shut down.
     Session {
         /// Your tooltip text, with `{user}` for your user name.
@@ -110,7 +96,6 @@ pub enum Kind {
         tooltip_format: Option<String>,
     },
     /// Your computer's resource usage.
-    SystemMonitor(SystemMonitor),
     /// Application icons in the system tray.
     Tray(Tray),
     /// Current weather and forecast.
@@ -189,55 +174,6 @@ pub struct Tray {
     /// How many tray icons stay on your bar before the rest go behind an arrow. Pinned icons always
     /// stay visible; `0` shows every icon.
     pub max_visible: u8,
-}
-
-/// Settings for the system-monitor applet's chips and popover coloring. What the sampler itself
-/// reads lives in the top-level `[system-monitor]` table instead.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct SystemMonitor {
-    /// Your tooltip text, shared by all resource indicators.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tooltip_format: Option<String>,
-    /// Which resource indicators you see on your bar, in order. Other readings still appear when
-    /// you click one.
-    #[serde(deserialize_with = "chips")]
-    pub chips: Vec<Chip>,
-    /// Your indicator text, with `{name}` for the resource name and `{value}` for its reading.
-    pub chip_format: String,
-    /// The percentage at which CPU, RAM, swap and GPU readings show a warning.
-    #[schemars(range(min = 1, max = 100))]
-    pub warn_percent: u8,
-    /// Percent at and above which a percentage reading is shown as critical. Must not be below
-    /// `warn-percent`.
-    #[schemars(range(min = 1, max = 100))]
-    pub critical_percent: u8,
-}
-
-/// One chip the system-monitor applet can show on the bar. Disk is deliberately not a variant —
-/// arbitrarily many configured paths don't reduce to one chip value, so disk stays popover-only.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum Chip {
-    Cpu,
-    Ram,
-    Swap,
-    Network,
-    Gpu,
-    CpuTemp,
-    GpuTemp,
-}
-
-impl Default for SystemMonitor {
-    fn default() -> Self {
-        Self {
-            tooltip_format: None,
-            chips: vec![Chip::Cpu, Chip::Ram],
-            chip_format: "{name} {value}".to_owned(),
-            warn_percent: 85,
-            critical_percent: 95,
-        }
-    }
 }
 
 /// A chip the user defines: an icon, a label or both, and a program for each click and scroll
@@ -361,38 +297,6 @@ impl Default for Power {
             tooltip_format: None,
             indicator_style: BatteryIndicatorStyle::IconOnly,
             label_format: "{percentage}".to_owned(),
-        }
-    }
-}
-
-/// Settings for the kdeconnect applet. Which devices exist and which are paired is the daemon's
-/// decision; this is only how the bar renders the one it follows.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Kdeconnect {
-    /// What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as
-    /// `label-format`. Unset lists every paired device.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tooltip_format: Option<String>,
-    /// Whether the bar shows the device icon, the label, or both.
-    pub indicator_style: BatteryIndicatorStyle,
-    /// Your phone's label, with `{name}`, `{battery}` and `{charging}`.
-    pub label_format: String,
-    /// The paired phone you follow, matched by its full name. Names are case sensitive.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device: Option<String>,
-    /// Hide your phone's icon when disconnected, except during a pairing request.
-    pub hide_when_disconnected: bool,
-}
-
-impl Default for Kdeconnect {
-    fn default() -> Self {
-        Self {
-            tooltip_format: None,
-            indicator_style: BatteryIndicatorStyle::IconText,
-            label_format: "{battery}".to_owned(),
-            device: None,
-            hide_when_disconnected: false,
         }
     }
 }
@@ -941,6 +845,27 @@ where
         .collect()
 }
 
+/// Applets that used to be built in and now ship as exec applets. Naming one of them in `extends`
+/// is the one legacy spelling this file still sees often enough to answer by hand, since the
+/// generated variant list says only what the kinds are called now.
+const EXTRACTED: [(&str, &str); 4] = [
+    ("system-monitor", "me.aresa.SystemMonitor"),
+    ("color-picker", "me.aresa.ColorPicker"),
+    ("ruler", "me.aresa.Ruler"),
+    ("kdeconnect", "me.aresa.Kdeconnect"),
+];
+
+fn extracted(name: &str, table: &toml::Table) -> Option<String> {
+    let extends = table.get("extends")?.as_str()?;
+    let applet = EXTRACTED
+        .into_iter()
+        .find(|(kind, _)| *kind == extends)
+        .map(|(_, applet)| applet)?;
+    Some(format!(
+        "{name} is an exec applet now: write extends = \"exec\" and applet = \"{applet}\""
+    ))
+}
+
 fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> {
     if !table.contains_key("extends") && is_desktop_id(name) {
         table.insert("extends".to_owned(), toml::Value::String("exec".to_owned()));
@@ -951,6 +876,9 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         table
             .entry("extends")
             .or_insert_with(|| toml::Value::String(name.to_owned()));
+    }
+    if let Some(reason) = extracted(name, &table) {
+        return Err(toml::de::Error::custom(reason));
     }
     let mut kind = Kind::deserialize(table)?;
     if let Kind::Exec(exec) = &kind
@@ -963,7 +891,6 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     }
     on_earth(&mut kind)?;
     runnable(&kind)?;
-    thresholds(&kind)?;
     Ok(Applet {
         kind,
         regional: super::Regional::default(),
@@ -1012,30 +939,6 @@ fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
             *name = format!("{city}, {country_code}");
         }
         Place::Here {} => {}
-    }
-    Ok(())
-}
-
-fn chips<'de, D>(deserializer: D) -> Result<Vec<Chip>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let raw = Vec::<Chip>::deserialize(deserializer)?;
-    let mut seen = std::collections::HashSet::new();
-    Ok(raw.into_iter().filter(|chip| seen.insert(*chip)).collect())
-}
-
-/// `warn-percent` above `critical-percent` would make a reading skip straight from `None` to
-/// `Severity::Error` with no `Warning` in between — a document saying so at load names the table
-/// rather than leaving the popover to render a threshold ordering nobody chose.
-fn thresholds(kind: &Kind) -> Result<(), toml::de::Error> {
-    let Kind::SystemMonitor(settings) = kind else {
-        return Ok(());
-    };
-    if settings.warn_percent > settings.critical_percent {
-        return Err(toml::de::Error::custom(
-            "warn-percent must be less than or equal to critical-percent",
-        ));
     }
     Ok(())
 }
@@ -1157,7 +1060,6 @@ impl Kind {
             Self::Clock(kind) => kind.tooltip_format.as_deref(),
             Self::Command(kind) => kind.tooltip_format.as_deref(),
             Self::Display(kind) => kind.tooltip_format.as_deref(),
-            Self::Kdeconnect(kind) => kind.tooltip_format.as_deref(),
             Self::Mpris(kind) => kind.tooltip_format.as_deref(),
             Self::Network(kind) => kind.tooltip_format.as_deref(),
             Self::NextEvent(kind) => kind.tooltip_format.as_deref(),
@@ -1166,12 +1068,9 @@ impl Kind {
             Self::Printing(kind) => kind.tooltip_format.as_deref(),
             Self::Privacy(kind) => kind.tooltip_format.as_deref(),
             Self::Removable(kind) => kind.tooltip_format.as_deref(),
-            Self::SystemMonitor(kind) => kind.tooltip_format.as_deref(),
             Self::Weather(kind) => kind.tooltip_format.as_deref(),
-            Self::ColorPicker { tooltip_format }
-            | Self::Idle { tooltip_format }
+            Self::Idle { tooltip_format }
             | Self::Keyboard { tooltip_format }
-            | Self::Ruler { tooltip_format }
             | Self::Session { tooltip_format }
             | Self::WorkspaceName { tooltip_format } => tooltip_format.as_deref(),
             Self::Exec(_)
