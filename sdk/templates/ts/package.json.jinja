@@ -1,0 +1,19 @@
+{
+  "name": {{ id | tojson }},
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "glimpse-sdk": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "build": "esbuild index.tsx --bundle --platform=node --format=esm --minify --log-level=warning --define:process.env.NODE_ENV='\"production\"' --outfile=build/applet.mjs",
+    "start": "node --run build && node build/applet.mjs",
+    "watch": "node --run build -- --watch",
+    "check": "tsc --noEmit"
+  }
+}

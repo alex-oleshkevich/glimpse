@@ -2,7 +2,7 @@
 
 Write a [glimpse](https://github.com/alex-oleshkevich/glimpse) panel applet in React. The applet is
 a Node program: the panel starts it, and the SDK speaks the panel's NDJSON protocol on the
-unix socket named by `GLIMPSE_APPLET_SOCKET`, or on stdin and stdout when that is unset.
+unix socket named by `GLIMPSE_APPLET_SOCKET`, which the panel sets (without it the applet exits with code 1).
 
 ```tsx
 import { Indicator, Popover, Row, run, Section } from "glimpse-sdk";
@@ -27,7 +27,7 @@ cd <dir> && npm install
 glimpsectl applet run --dev .
 ```
 
-`applet new` writes `index.tsx`, `package.json`, `tsconfig.json`, `config.toml`, `README.md`
+`applet new` writes `index.tsx`, `package.json`, `tsconfig.json`, `devconfig.toml`, `README.md`
 and the desktop entry. The entry runs `node --run start`, which bundles everything into
 `build/applet.mjs` and starts it.
 
