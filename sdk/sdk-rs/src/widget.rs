@@ -75,16 +75,6 @@ impl<M> Widget<M> {
         self
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn props(mut self, value: Value) -> Self {
-        if let Value::Object(fields) = value {
-            for (name, value) in fields {
-                self = self.prop(&name, value);
-            }
-        }
-        self
-    }
-
     pub(crate) fn remove_prop(mut self, name: &str) -> Self {
         self.props.remove(name);
         self

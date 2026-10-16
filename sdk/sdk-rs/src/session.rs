@@ -37,7 +37,7 @@ impl<A: App> Session<A> {
     pub fn new(app: A, tx: Sender<In>) -> Self {
         Self {
             app,
-            out: tx,
+            out: tx.clone(),
             els: Vec::new(),
             free: Vec::new(),
             by_id: HashMap::new(),

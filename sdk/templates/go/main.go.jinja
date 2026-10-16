@@ -2,16 +2,20 @@ package main
 
 import sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
 
-type app struct{}
+type state struct{}
 
-func (app) Build(ctx *sdk.Context) []sdk.Widget {
+type app struct {
+	sdk.Applet[state]
+}
+
+func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
 	return []sdk.Widget{
 		sdk.Indicator(
 			sdk.IndicatorProps{
 				Icon: {{ icon | tojson }},
 				Tooltip: {{ name | tojson }},
 			},
-			{{ name | tojson }}
+			{{ name | tojson }},
 		),
 		sdk.Popover(
 			sdk.PopoverProps{
@@ -24,12 +28,12 @@ func (app) Build(ctx *sdk.Context) []sdk.Widget {
 				},
 				sdk.Row(sdk.RowProps{
 					Title: "It works",
-				})
-			)
+				}),
+			),
 		),
 	}
 }
 
 func main() {
-	sdk.Main(app{})
+	sdk.Main(&app{})
 }
