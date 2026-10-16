@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Kitchen Sink (Rust)
+Comment=Every exec applet feature, in Rust
+Icon=applications-graphics-symbolic
+Exec=env CARGO_TARGET_DIR=/tmp/glimpse-kitchen-sink-rs cargo run --release --quiet
+NoDisplay=true
+Implements=me.aresa.Glimpse.Applet1
