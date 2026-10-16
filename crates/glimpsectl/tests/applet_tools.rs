@@ -14,7 +14,7 @@ fn fixture(root: &Path, body: &str) -> Result<()> {
             root.join("applet.py").display()
         ),
     )?;
-    fs::write(root.join("config.toml"), "options = { test = true }\n")?;
+    fs::write(root.join("devconfig.toml"), "options = { test = true }\n")?;
     fs::write(
         root.join("applet.py"),
         format!(
@@ -200,7 +200,7 @@ async fn check_accepts_missing_config_and_refuses_existing_invalid_config() -> R
         root.path(),
         "raise RuntimeError('static check must not run')",
     )?;
-    let config = root.path().join("config.toml");
+    let config = root.path().join("devconfig.toml");
     fs::remove_file(&config)?;
     for invalid in [
         None,
@@ -247,7 +247,7 @@ async fn shipped_examples_pass_static_check_with_empty_default_settings() -> Res
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../sdk/examples")
             .join(directory);
-        assert!(!dir.join("config.toml").exists());
+        assert!(!dir.join("devconfig.toml").exists());
         let output = Command::new(env!("CARGO_BIN_EXE_glimpsectl"))
             .args(["--json", "applet", "check"])
             .arg(dir)

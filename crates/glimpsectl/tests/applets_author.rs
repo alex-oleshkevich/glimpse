@@ -69,7 +69,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
         files,
         [
             "README.md",
-            "config.toml",
+            "devconfig.toml",
             "index.tsx",
             "me.example.Hello.desktop",
             "package.json",

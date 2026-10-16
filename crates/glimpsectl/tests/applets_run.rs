@@ -282,7 +282,7 @@ impl Harness {
             "[Desktop Entry]\nType=Application\nName=Dev Test\nExec=/bin/true\nNoDisplay=true\nImplements=me.aresa.Glimpse.Applet1\n",
         )?;
         if let Some(config) = setup.config {
-            fs::write(applet.join("config.toml"), config)?;
+            fs::write(applet.join("devconfig.toml"), config)?;
         }
         let mut command = Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
         command
@@ -439,7 +439,7 @@ async fn terminal_tree_command_reads_the_current_host_tree() -> Result<()> {
         root.path().join(format!("{ID}.desktop")),
         "[Desktop Entry]\nType=Application\nName=Tree Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n",
     )?;
-    fs::write(root.path().join("config.toml"), "")?;
+    fs::write(root.path().join("devconfig.toml"), "")?;
     let mut master = -1;
     let mut slave = -1;
     ensure!(
@@ -603,7 +603,7 @@ async fn a_failed_reattach_keeps_the_session_running() -> Result<()> {
     let mut h = Harness::dev("env = { A = \"1\" }\n", &[]).await?;
     let handle = h.attach().await?;
     h.host.refuse_attach.store(true, Ordering::SeqCst);
-    fs::write(h.applet.join("config.toml"), "env = { A = \"2\" }\n")?;
+    fs::write(h.applet.join("devconfig.toml"), "env = { A = \"2\" }\n")?;
     assert_eq!(h.event().await?, Event::Detach(handle));
     h.stderr_contains("waiting for the next change").await?;
     assert!(
@@ -644,9 +644,9 @@ async fn options_edit_calls_set_options_without_restarting() -> Result<()> {
         Event::Attach { options, .. } => assert_eq!(options, "{\"one\":1}"),
         other => anyhow::bail!("{other:?}"),
     }
-    fs::write(h.applet.join("config.toml"), "")?;
+    fs::write(h.applet.join("devconfig.toml"), "")?;
     tokio::time::sleep(Duration::from_millis(50)).await;
-    fs::write(h.applet.join("config.toml"), "options = { two = 2 }\n")?;
+    fs::write(h.applet.join("devconfig.toml"), "options = { two = 2 }\n")?;
     assert_eq!(
         h.event().await?,
         Event::Options("dev-0".to_owned(), "{\"two\":2}".to_owned())
@@ -659,7 +659,7 @@ async fn options_edit_calls_set_options_without_restarting() -> Result<()> {
 async fn env_edit_detaches_and_attaches_again() -> Result<()> {
     let mut h = Harness::dev("env = { A = \"1\" }\n", &[]).await?;
     h.attach().await?;
-    fs::write(h.applet.join("config.toml"), "env = { A = \"2\" }\n")?;
+    fs::write(h.applet.join("devconfig.toml"), "env = { A = \"2\" }\n")?;
     assert_eq!(h.event().await?, Event::Detach("dev-0".to_owned()));
     match h.event().await? {
         Event::Attach { env, handle, .. } => {
@@ -728,7 +728,7 @@ async fn missing_config_toml_fails_with_a_hint() -> Result<()> {
     let output = h.output_after_exit().await?;
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains(&format!(
-        "no config.toml in {}; create one or pass --applet-config <file>",
+        "no devconfig.toml in {}; create one or pass --applet-config <file>",
         h.applet.display()
     )));
     assert!(h.events.try_recv().is_err());
