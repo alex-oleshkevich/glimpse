@@ -43,7 +43,7 @@ async fn settings_commands_read_status_send_modes_and_report_a_missing_provider(
         .object_server()
         .at(
             GLIMPSE_SETTINGS_OBJECT_PATH,
-            Settings((true, false, 0, 0, 0, String::new())),
+            Settings((true, "external".into(), 0, 0, 0, String::new())),
         )
         .await
         .unwrap();
@@ -68,7 +68,7 @@ async fn settings_commands_read_status_send_modes_and_report_a_missing_provider(
         .interface::<_, Settings>(GLIMPSE_SETTINGS_OBJECT_PATH)
         .await
         .unwrap();
-    interface.get_mut().await.0 = (false, true, 0, 0, 0, "no solar phase".into());
+    interface.get_mut().await.0 = (false, "sun".into(), 0, 0, 0, "no solar phase".into());
     settings_status(&client, false).await.unwrap();
     interface.get_mut().await.0.3 = 99;
     assert!(settings_status(&client, true).await.is_err());

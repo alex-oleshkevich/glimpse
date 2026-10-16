@@ -32,7 +32,7 @@ async fn configured_coordinates_publish_solar_and_reconfigure_without_a_system_b
         },
         ..Config::default()
     };
-    config.appearance.auto_dark = glimpse_config::AutoDark::System;
+    config.appearance.desktop_color_scheme = glimpse_config::DesktopColorScheme::External;
     let services = SettingsServices::start_with_buses(
         &config,
         Buses::for_session(bus.connection().await),
@@ -158,7 +158,7 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
         },
         ..Config::default()
     };
-    config.appearance.auto_dark = glimpse_config::AutoDark::System;
+    config.appearance.desktop_color_scheme = glimpse_config::DesktopColorScheme::External;
     config.night_light.schedule = glimpse_config::Schedule::Automatic;
     config.night_light.temperature = 4200;
     let services = SettingsServices::start_with_buses(

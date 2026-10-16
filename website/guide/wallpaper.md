@@ -2,8 +2,9 @@
 
 The wallpaper lives under `[wallpaper]`. `image` is the picture for light mode and `image-dark` the
 one shown while glimpse is dark; without `image-dark`, `image` shows all the time. Which one shows
-follows `[appearance] color-scheme`, so with `color-scheme = "light"` the light picture stays up
-even when the desktop is dark. The full setting list is in the
+follows `[appearance] color-scheme`: `desktop` follows the desktop mode set by `desktop-color-scheme`,
+while `light` or `dark` keeps one picture up. With `color-scheme = "light"`, you keep the light
+picture even when the desktop is dark. The full setting list is in the
 [wallpaper reference](/config/services/wallpaper).
 
 ```toml

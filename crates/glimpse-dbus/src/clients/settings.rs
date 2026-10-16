@@ -14,7 +14,7 @@ pub const GLIMPSE_SETTINGS_OBJECT_PATH: &str = "/me/aresa/Glimpse/Settings";
 
 pub type SolarSnapshot = (bool, u32, i64, String);
 pub type GeolocationSnapshot = (bool, f64, f64, String);
-pub type ModeSnapshot = (bool, bool, u32, u32, u32, String);
+pub type ModeSnapshot = (bool, String, u32, u32, u32, String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -43,19 +43,49 @@ impl Mode {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModeStatus {
-    pub automatic: bool,
+    pub policy: ModePolicy,
     pub requested: Option<Mode>,
     pub observed: Option<Mode>,
     pub temporary: Option<Mode>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ModePolicy {
+    Sun,
+    Light,
+    Dark,
+    External,
+}
+
+impl ModePolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sun => "sun",
+            Self::Light => "light",
+            Self::Dark => "dark",
+            Self::External => "external",
+        }
+    }
+
+    pub fn decode(value: &str) -> Result<Self, String> {
+        match value {
+            "sun" => Ok(Self::Sun),
+            "light" => Ok(Self::Light),
+            "dark" => Ok(Self::Dark),
+            "external" => Ok(Self::External),
+            _ => Err("invalid desktop color-scheme policy".into()),
+        }
+    }
+}
+
 pub fn decode_mode(snapshot: ModeSnapshot) -> Result<ModeStatus, String> {
-    let (available, automatic, requested, observed, temporary, reason) = snapshot;
+    let (available, policy, requested, observed, temporary, reason) = snapshot;
     if available && !reason.is_empty() {
         return Err("an available desktop mode carries an error".to_owned());
     }
     Ok(ModeStatus {
-        automatic,
+        policy: ModePolicy::decode(&policy)?,
         requested: Mode::decode(requested)?,
         observed: Mode::decode(observed)?,
         temporary: Mode::decode(temporary)?,

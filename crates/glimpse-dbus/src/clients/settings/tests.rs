@@ -7,26 +7,52 @@ use crate::testing::PrivateBus;
 
 #[test]
 fn mode_wire_validates_codes_and_health() {
-    assert_eq!(ModeSnapshot::SIGNATURE, "(bbuuus)");
+    assert_eq!(ModeSnapshot::SIGNATURE, "(bsuuus)");
     assert_eq!(
-        decode_mode((true, false, 0, 0, 0, String::new())).unwrap(),
+        decode_mode((true, "external".into(), 0, 0, 0, String::new())).unwrap(),
         ModeStatus {
-            automatic: false,
+            policy: ModePolicy::External,
             requested: None,
             observed: None,
             temporary: None,
         }
     );
     assert_eq!(
-        decode_mode((false, true, 1, 2, 1, "write failed".into()))
+        decode_mode((false, "sun".into(), 1, 2, 1, "write failed".into()))
             .unwrap()
             .temporary,
         Some(Mode::Light)
     );
     for codes in [(3, 0, 0), (0, 3, 0), (0, 0, 3)] {
-        assert!(decode_mode((true, false, codes.0, codes.1, codes.2, String::new())).is_err());
+        assert!(
+            decode_mode((
+                true,
+                "external".into(),
+                codes.0,
+                codes.1,
+                codes.2,
+                String::new()
+            ))
+            .is_err()
+        );
     }
-    assert!(decode_mode((true, false, 0, 0, 0, "failed".into())).is_err());
+    assert!(decode_mode((true, "external".into(), 0, 0, 0, "failed".into())).is_err());
+    for policy in [
+        ModePolicy::Sun,
+        ModePolicy::Light,
+        ModePolicy::Dark,
+        ModePolicy::External,
+    ] {
+        assert_eq!(
+            decode_mode((true, policy.as_str().into(), 0, 0, 0, String::new()))
+                .unwrap()
+                .policy,
+            policy
+        );
+    }
+    for policy in ["auto", "system", "unknown"] {
+        assert!(decode_mode((true, policy.into(), 0, 0, 0, String::new())).is_err());
+    }
 }
 
 #[test]

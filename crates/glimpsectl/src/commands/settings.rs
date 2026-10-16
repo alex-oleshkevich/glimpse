@@ -22,7 +22,7 @@ pub async fn settings_status(connection: &Connection, json_output: bool) -> Resu
         return emit(&json!({
             "solar": { "available": solar.0, "status": phase, "reason": safe(&solar.3) },
             "geolocation": { "available": location.0, "coordinates": coordinates, "reason": safe(&location.3) },
-            "mode": { "available": mode.0, "policy": if status.automatic { "auto" } else { "system" },
+            "mode": { "available": mode.0, "policy": status.policy,
                 "requested": status.requested, "observed": status.observed, "temporary": status.temporary, "reason": safe(&mode.5) }
         }));
     }
@@ -54,14 +54,7 @@ pub async fn settings_status(connection: &Connection, json_output: bool) -> Resu
                         .map_or_else(|| "-".into(), |time| time.to_rfc3339()),
                 ])
                 .with_row(["solar reason".into(), reason_or_absent(&safe(&solar.3))])
-                .with_row([
-                    "policy".into(),
-                    if status.automatic {
-                        "auto".into()
-                    } else {
-                        "system".into()
-                    },
-                ])
+                .with_row(["policy".into(), status.policy.as_str().into()])
                 .with_row(["requested".into(), name(status.requested).into()])
                 .with_row(["observed".into(), name(status.observed).into()])
                 .with_row(["temporary".into(), name(status.temporary).into()])
@@ -106,7 +99,7 @@ async fn appearance_snapshot(
         .context("cannot read desktop appearance")?;
     let status = decode_mode(mode.clone()).map_err(anyhow::Error::msg)?;
     if json {
-        let value = json!({"available": mode.0, "policy": if status.automatic { "auto" } else { "system" },
+        let value = json!({"available": mode.0, "policy": status.policy,
             "requested": status.requested, "observed": status.observed, "temporary": status.temporary,
             "reason": safe(&mode.5)});
         return Ok(if compact {
@@ -118,14 +111,7 @@ async fn appearance_snapshot(
     Ok(Section::new("Appearance")
         .with(
             Table::default()
-                .with_row([
-                    "policy".into(),
-                    if status.automatic {
-                        "auto".into()
-                    } else {
-                        "system".into()
-                    },
-                ])
+                .with_row(["policy".into(), status.policy.as_str().into()])
                 .with_row(["requested".into(), name(status.requested).into()])
                 .with_row(["observed".into(), name(status.observed).into()])
                 .with_row(["temporary".into(), name(status.temporary).into()])

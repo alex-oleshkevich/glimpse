@@ -1,21 +1,75 @@
-use super::{Appearance, BlurSurface, blurs};
+use super::{Appearance, BlurSurface, ColorScheme, DesktopColorScheme, blurs};
 
 #[test]
-fn auto_dark_defaults_to_auto_and_accepts_only_auto_or_system() {
+fn desktop_color_scheme_defaults_to_sun_and_accepts_only_its_policies() {
     assert_eq!(
-        toml::from_str::<Appearance>("").unwrap().auto_dark,
-        super::AutoDark::Auto
+        toml::from_str::<Appearance>("")
+            .unwrap()
+            .desktop_color_scheme,
+        DesktopColorScheme::Sun
     );
     for (value, expected) in [
-        ("auto", super::AutoDark::Auto),
-        ("system", super::AutoDark::System),
+        ("sun", DesktopColorScheme::Sun),
+        ("light", DesktopColorScheme::Light),
+        ("dark", DesktopColorScheme::Dark),
+        ("external", DesktopColorScheme::External),
     ] {
-        let parsed: Appearance = toml::from_str(&format!("auto-dark = {value:?}")).unwrap();
-        assert_eq!(parsed.auto_dark, expected);
-        assert_eq!(parsed.color_scheme, super::ColorScheme::Auto);
+        let parsed: Appearance =
+            toml::from_str(&format!("desktop-color-scheme = {value:?}")).unwrap();
+        assert_eq!(parsed.desktop_color_scheme, expected);
+        assert_eq!(parsed.color_scheme, ColorScheme::Desktop);
     }
-    for value in ["solar", "off", "schedule"] {
-        assert!(toml::from_str::<Appearance>(&format!("auto-dark = {value:?}")).is_err());
+    for value in ["auto", "system", "solar", "off", "schedule"] {
+        assert!(
+            toml::from_str::<Appearance>(&format!("desktop-color-scheme = {value:?}")).is_err()
+        );
+    }
+}
+
+#[test]
+fn retired_forms_name_their_replacements_and_stay_out_of_generated_config() {
+    for value in [
+        "\"auto\"",
+        "\"system\"",
+        "\"anything\"",
+        "false",
+        "42",
+        "[]",
+        "{}",
+    ] {
+        let error = toml::from_str::<Appearance>(&format!("auto-dark = {value}"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("desktop-color-scheme = \"sun\""), "{error}");
+        assert!(
+            error.contains("desktop-color-scheme = \"external\""),
+            "{error}"
+        );
+    }
+    let error = toml::from_str::<Appearance>("color-scheme = \"auto\"")
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("color-scheme = \"desktop\""), "{error}");
+    let schema = crate::json_schema_document();
+    assert!(!schema.contains("auto-dark"));
+    assert!(!crate::default_document().contains("auto-dark"));
+    assert!(!crate::commented_document().contains("auto-dark"));
+    let schema: serde_json::Value = serde_json::from_str(&schema).unwrap();
+    assert_eq!(
+        schema["$defs"]["ColorScheme"]["enum"],
+        serde_json::json!(["light", "dark", "desktop"])
+    );
+}
+
+#[test]
+fn glimpse_color_scheme_accepts_desktop_light_and_dark() {
+    for (value, expected) in [
+        ("desktop", ColorScheme::Desktop),
+        ("light", ColorScheme::Light),
+        ("dark", ColorScheme::Dark),
+    ] {
+        let parsed: Appearance = toml::from_str(&format!("color-scheme = {value:?}")).unwrap();
+        assert_eq!(parsed.color_scheme, expected);
     }
 }
 

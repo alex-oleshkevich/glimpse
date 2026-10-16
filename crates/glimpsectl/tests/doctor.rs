@@ -151,7 +151,7 @@ impl Settings {
     #[zbus(property)]
     fn mode(&self, #[zbus(header)] header: Option<zbus::message::Header<'_>>) -> ModeSnapshot {
         unique_destination(header);
-        (true, false, 0, 1, 0, String::new())
+        (true, "external".into(), 0, 1, 0, String::new())
     }
     #[zbus(property)]
     fn geolocation(&self) -> GeolocationSnapshot {

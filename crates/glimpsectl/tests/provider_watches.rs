@@ -65,7 +65,7 @@ impl Settings {
     fn mode(&self) -> ModeSnapshot {
         (
             true,
-            false,
+            "external".into(),
             0,
             1 + self.0.load(Ordering::SeqCst),
             0,
@@ -290,7 +290,7 @@ impl PendingSettings {
         if self.blocked.load(Ordering::SeqCst) {
             self.unblock.notified().await;
         }
-        (true, false, 0, 1, 0, String::new())
+        (true, "external".into(), 0, 1, 0, String::new())
     }
 }
 
@@ -301,7 +301,7 @@ impl ReplacementSettings {
     #[zbus(property)]
     fn mode(&self) -> ModeSnapshot {
         self.0.fetch_add(1, Ordering::SeqCst);
-        (true, false, 0, 2, 0, String::new())
+        (true, "external".into(), 0, 2, 0, String::new())
     }
 }
 

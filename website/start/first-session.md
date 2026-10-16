@@ -77,26 +77,28 @@ For a syntax error like this one, it names the file, the line, the column and th
 
 ## Switch to dark mode
 
-By default glimpse turns dark at sunset and light again at sunrise. You can hold it in one mode
-yourself:
+The default `[appearance]` settings are `desktop-color-scheme = "sun"` and
+`color-scheme = "desktop"`. With a known location, your desktop turns dark at sunset and light at
+sunrise, and glimpse follows it. You can hold your desktop in one mode yourself:
 
 ```sh
 glimpsectl appearance set dark
 ```
 
-The panel turns dark straight away, and so do GTK apps that follow the desktop color scheme. The
-switch goes through `xdg-desktop-portal` and `dconf`; without a running portal the panel and your
-apps keep their current look. Open the clock popover again and you will see it is dark too.
+You need `glimpse-settings-daemon` and `dconf` running to change the desktop preference. Apps that
+follow it turn dark. Your panel follows it through `xdg-desktop-portal` and a settings backend such
+as `xdg-desktop-portal-gtk`; without a running portal, the panel keeps its current look.
 
-Hand control back to the sunset schedule:
+Return to your configured desktop policy:
 
 ```sh
 glimpsectl appearance resume
 ```
 
 Sunset and sunrise are computed from your location. If glimpse has none, `resume` fails with
-`no solar phase yet` and the desktop keeps the mode you set. Set a location in
-[`[geolocation]`](/config/services/appearance) or run GeoClue so glimpse can find one.
+`no solar phase yet` and the desktop keeps the mode you set. Set `provider = "manual"` with a
+`latitude` and `longitude` under [`[geolocation]`](/config/services/appearance), or run GeoClue so
+glimpse can find your location.
 
 ## Lock the screen
 

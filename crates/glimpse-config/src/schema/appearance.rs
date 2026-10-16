@@ -4,29 +4,30 @@ use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Appearance {
-    /// The theme directory to load stylesheets from, looked up under `~/.config/glimpse/themes`
-    /// first and the installed themes second.
+    /// Choose a theme from `~/.config/glimpse/themes` or the installed themes.
     pub theme: String,
-    /// A CSS class added to every window, so one theme can ship several looks. Letters, digits,
-    /// `-` and `_` only, not starting with a digit; anything else is ignored with a warning.
+    /// Choose an alternate look provided by your theme.
     pub theme_variant: String,
-    /// Whether glimpse's own surfaces are light or dark. `auto` follows the desktop mode that
-    /// `auto-dark` decides; `light` and `dark` hold glimpse in one scheme whatever the desktop does.
+    /// Choose `desktop` to follow your desktop mode, or `light` or `dark` to keep glimpse in one mode.
     pub color_scheme: ColorScheme,
-    /// What decides the desktop mode: `auto` turns dark at sunset and light at sunrise where you
-    /// are, `system` follows the color scheme preference set elsewhere, for example in GNOME Settings.
-    pub auto_dark: AutoDark,
-    /// Which parts of glimpse blur what is behind them: `panel`, `popover`, `notification`, or
-    /// `all`. Needs compositor support; without it they stay solid. Setup notes:
-    /// https://alex-oleshkevich.github.io/glimpse/config/services/appearance#blur
+    /// Choose `sun` to turn your desktop dark at sunset and light at sunrise, `light` or `dark` to keep it in one mode, or `external` to let another tool decide.
+    /// Without a known location, `sun` leaves your desktop mode alone.
+    pub desktop_color_scheme: DesktopColorScheme,
+    /// Choose which surfaces blur what is behind them: `panel`, `popover`, `notification`, or `all`.
+    /// Your compositor must support blur.
     pub blur: Vec<BlurSurface>,
-    /// How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,
-    /// and `0` turns animations off. Anything else below `0.1` is refused, because a fade that
-    /// slow leaves the panel ignoring clicks while it runs. The popover and notification fades and every CSS transition
-    /// that reads `--gl-duration` follow it; the wallpaper keeps its own `transition-ms`.
+    /// Set your animation speed from 0.1 to 10, or `0` to turn animations off.
+    /// Use `2.0` for twice as fast or `0.5` for half as fast; your wallpaper uses `transition-ms` instead.
     #[serde(deserialize_with = "speed")]
     #[schemars(range(min = 0.0, max = 10.0))]
     pub animation_speed: f64,
+    #[serde(
+        rename = "auto-dark",
+        skip_serializing,
+        deserialize_with = "retired_auto_dark"
+    )]
+    #[schemars(skip)]
+    pub retired_auto_dark: Option<toml::Value>,
 }
 
 impl Default for Appearance {
@@ -34,10 +35,11 @@ impl Default for Appearance {
         Self {
             theme: "adwaita".to_owned(),
             theme_variant: String::new(),
-            color_scheme: ColorScheme::Auto,
-            auto_dark: AutoDark::Auto,
+            color_scheme: ColorScheme::Desktop,
+            desktop_color_scheme: DesktopColorScheme::Sun,
             blur: Vec::new(),
             animation_speed: 1.0,
+            retired_auto_dark: None,
         }
     }
 }
@@ -53,23 +55,51 @@ where
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", try_from = "String")]
+#[schemars(!try_from)]
 pub enum ColorScheme {
     Light,
     Dark,
-    Auto,
+    Desktop,
+}
+
+impl TryFrom<String> for ColorScheme {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "desktop" => Ok(Self::Desktop),
+            "light" => Ok(Self::Light),
+            "dark" => Ok(Self::Dark),
+            "auto" => {
+                Err("use color-scheme = \"desktop\" instead of color-scheme = \"auto\"".into())
+            }
+            _ => Err("color-scheme must be desktop, light or dark".into()),
+        }
+    }
+}
+
+fn retired_auto_dark<'de, D>(_: D) -> Result<Option<toml::Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Err(D::Error::custom(
+        "auto-dark is retired; use desktop-color-scheme = \"sun\" for sunset and sunrise, or desktop-color-scheme = \"external\" to follow another tool",
+    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
-pub enum AutoDark {
-    Auto,
-    System,
+pub enum DesktopColorScheme {
+    Sun,
+    Light,
+    Dark,
+    External,
 }
 
-impl From<&crate::Config> for AutoDark {
+impl From<&crate::Config> for DesktopColorScheme {
     fn from(document: &crate::Config) -> Self {
-        document.appearance.auto_dark
+        document.appearance.desktop_color_scheme
     }
 }
 

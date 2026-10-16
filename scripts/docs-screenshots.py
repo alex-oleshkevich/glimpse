@@ -447,7 +447,7 @@ def glimpse_config(path: Path, scheme: str, work: Path, personal: Path, layout: 
     path.write_text(f"""#:schema none
 [appearance]
 color-scheme = "{scheme}"
-auto-dark = "system"
+desktop-color-scheme = "external"
 animation-speed = {1 if motion else 0}
 blur = ["all"]
 

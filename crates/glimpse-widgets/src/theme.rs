@@ -30,7 +30,7 @@ pub fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
     match scheme {
         glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
         glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
-        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
+        glimpse_config::ColorScheme::Desktop => adw::ColorScheme::Default,
     }
 }
 

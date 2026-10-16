@@ -64,9 +64,17 @@ impl Backend {
                                 Ok(settings) if !settings.is_writable(KEY) => {
                                     Err("desktop color-scheme is not writable".into())
                                 }
-                                Ok(settings) => settings
-                                    .set_string(KEY, value(write.mode))
-                                    .map_err(|error| error.to_string()),
+                                Ok(settings) => {
+                                    let result = settings
+                                        .set_string(KEY, value(write.mode))
+                                        .map_err(|error| error.to_string());
+                                    gio::Settings::sync();
+                                    result.and_then(|()| {
+                                        (read(settings)? == write.mode).then_some(()).ok_or_else(
+                                            || "desktop color-scheme write was not applied".into(),
+                                        )
+                                    })
+                                }
                             };
                             let _ = write.reply.send(result);
                         }

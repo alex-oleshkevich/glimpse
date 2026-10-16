@@ -34,7 +34,7 @@ impl Provider {
         let status = self.mode.snapshot();
         (
             reason.is_empty(),
-            status.automatic,
+            status.policy.as_str().into(),
             status.requested.map_or(0, Mode::code),
             status.observed.map_or(0, Mode::code),
             status.temporary.map_or(0, Mode::code),

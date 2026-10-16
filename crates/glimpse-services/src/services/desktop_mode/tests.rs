@@ -2,11 +2,13 @@ use super::*;
 use crate::Running;
 use crate::ServiceState;
 use glimpse_dbus::Buses;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 struct Writer {
     writes: Arc<Mutex<Vec<Option<Mode>>>>,
+    attempts: Arc<AtomicUsize>,
     observed: watch::Sender<Result<Option<Mode>, String>>,
     failure: Arc<Mutex<Option<String>>>,
 }
@@ -14,6 +16,7 @@ struct Writer {
 impl ModeWriter for Writer {
     fn write(&self, mode: Option<Mode>) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async move {
+            self.attempts.fetch_add(1, Ordering::SeqCst);
             let failure = self.failure.lock().unwrap().clone();
             if let Some(reason) = failure {
                 assert_ne!(reason, "panic", "the writer is broken");
@@ -35,7 +38,7 @@ struct Fixture {
 }
 
 impl Fixture {
-    fn new(policy: AutoDark, observed: Option<Mode>, phase: Option<SolarPhase>) -> Self {
+    fn new(policy: DesktopColorScheme, observed: Option<Mode>, phase: Option<SolarPhase>) -> Self {
         let (solar, phases) = watch::channel(phase.map(|phase| SolarStatus {
             phase,
             next_change: None,
@@ -43,11 +46,12 @@ impl Fixture {
         let (observer, observed_rx) = watch::channel(Ok(observed));
         let writer = Writer {
             writes: Arc::default(),
+            attempts: Arc::default(),
             observed: observer,
             failure: Arc::default(),
         };
         let mut config = glimpse_config::Config::default();
-        config.appearance.auto_dark = policy;
+        config.appearance.desktop_color_scheme = policy;
         let (runtime, handle) = Running::<DesktopMode>::spawn(
             &config,
             Buses::unavailable("test"),
@@ -96,8 +100,106 @@ impl Fixture {
 }
 
 #[tokio::test]
+async fn fixed_modes_pin_without_solar_and_resume_after_a_hold() {
+    for (policy, mode, opposite) in [
+        (DesktopColorScheme::Light, Mode::Light, Mode::Dark),
+        (DesktopColorScheme::Dark, Mode::Dark, Mode::Light),
+    ] {
+        let mut fixture = Fixture::new(policy, Some(opposite), None);
+        fixture.observed(Some(mode)).await;
+        fixture.running().await;
+        assert_eq!(fixture.writes(), [Some(mode)]);
+        let _ = fixture.writer.observed.send_replace(Ok(Some(opposite)));
+        timeout(Duration::from_secs(2), async {
+            while fixture.writes().len() < 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        fixture.observed(Some(mode)).await;
+        assert_eq!(fixture.writes(), [Some(mode), Some(mode)]);
+        fixture.handle.set_temporary(opposite).await.unwrap();
+        fixture.observed(Some(opposite)).await;
+        fixture.solar.send_replace(Some(SolarStatus {
+            phase: SolarPhase::Night,
+            next_change: None,
+        }));
+        fixture.handle.resume().await.unwrap();
+        fixture.observed(Some(mode)).await;
+        assert_eq!(fixture.handle.snapshot().temporary, None);
+        assert_eq!(
+            fixture.writes(),
+            [Some(mode), Some(mode), Some(opposite), Some(mode)]
+        );
+        fixture.runtime.stop().await;
+    }
+}
+
+#[tokio::test]
+async fn a_failed_pin_reports_failure_and_resume_retries_it() {
+    let mut fixture = Fixture::new(DesktopColorScheme::Light, Some(Mode::Dark), None);
+    *fixture.writer.failure.lock().unwrap() = Some("write refused".into());
+    timeout(Duration::from_secs(2), fixture.handle.health().wait_for(|health| {
+        matches!(health, ServiceState::Degraded { reason } if reason == "write refused")
+    })).await.unwrap().unwrap();
+    let _ = fixture.writer.observed.send_replace(Ok(None));
+    fixture.observed(None).await;
+    assert!(fixture.writes().is_empty());
+    *fixture.writer.failure.lock().unwrap() = None;
+    fixture.handle.resume().await.unwrap();
+    fixture.observed(Some(Mode::Light)).await;
+    fixture.running().await;
+    assert_eq!(fixture.writes(), [Some(Mode::Light)]);
+    assert_eq!(fixture.writer.attempts.load(Ordering::SeqCst), 2);
+    fixture.runtime.stop().await;
+}
+
+#[tokio::test]
+async fn fixed_policy_reload_replaces_a_hold_and_external_releases_the_pin() {
+    let mut fixture = Fixture::new(DesktopColorScheme::Light, None, None);
+    fixture.observed(Some(Mode::Light)).await;
+    fixture.handle.set_temporary(Mode::Dark).await.unwrap();
+    fixture.config.appearance.desktop_color_scheme = DesktopColorScheme::Dark;
+    fixture.runtime.reconfigure(&fixture.config);
+    timeout(
+        Duration::from_secs(2),
+        fixture
+            .handle
+            .subscribe()
+            .wait_for(|status| status.policy == ModePolicy::Dark && status.temporary.is_none()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    fixture.config.appearance.desktop_color_scheme = DesktopColorScheme::External;
+    fixture.runtime.reconfigure(&fixture.config);
+    timeout(
+        Duration::from_secs(2),
+        fixture
+            .handle
+            .subscribe()
+            .wait_for(|status| status.policy == ModePolicy::External && status.requested.is_none()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let _ = fixture.writer.observed.send_replace(Ok(Some(Mode::Light)));
+    fixture.observed(Some(Mode::Light)).await;
+    assert_eq!(
+        fixture.writes(),
+        [Some(Mode::Light), Some(Mode::Dark), Some(Mode::Dark)]
+    );
+    fixture.runtime.stop().await;
+}
+
+#[tokio::test]
 async fn solar_changes_apply_once_and_external_changes_do_not_feedback() {
-    let mut fixture = Fixture::new(AutoDark::Auto, Some(Mode::Dark), Some(SolarPhase::Day));
+    let mut fixture = Fixture::new(
+        DesktopColorScheme::Sun,
+        Some(Mode::Dark),
+        Some(SolarPhase::Day),
+    );
     fixture.observed(Some(Mode::Light)).await;
     fixture.running().await;
     let _ = fixture.writer.observed.send_replace(Ok(Some(Mode::Dark)));
@@ -119,8 +221,8 @@ async fn solar_changes_apply_once_and_external_changes_do_not_feedback() {
 }
 
 #[tokio::test]
-async fn system_holds_keep_the_original_baseline_and_preserve_external_changes() {
-    let mut fixture = Fixture::new(AutoDark::System, None, None);
+async fn external_holds_keep_the_original_baseline_and_preserve_external_changes() {
+    let mut fixture = Fixture::new(DesktopColorScheme::External, None, None);
     fixture.running().await;
     assert!(fixture.writes().is_empty());
     fixture.handle.set_temporary(Mode::Dark).await.unwrap();
@@ -143,14 +245,18 @@ async fn system_holds_keep_the_original_baseline_and_preserve_external_changes()
 
 #[tokio::test]
 async fn only_policy_reload_clears_a_hold_and_failures_are_visible() {
-    let mut fixture = Fixture::new(AutoDark::System, Some(Mode::Light), Some(SolarPhase::Night));
+    let mut fixture = Fixture::new(
+        DesktopColorScheme::External,
+        Some(Mode::Light),
+        Some(SolarPhase::Night),
+    );
     fixture.running().await;
     fixture.handle.set_temporary(Mode::Light).await.unwrap();
     fixture.config.appearance.theme = "test".into();
     fixture.runtime.reconfigure(&fixture.config);
     fixture.handle.set_temporary(Mode::Light).await.unwrap();
     assert_eq!(fixture.handle.snapshot().temporary, Some(Mode::Light));
-    fixture.config.appearance.auto_dark = AutoDark::Auto;
+    fixture.config.appearance.desktop_color_scheme = DesktopColorScheme::Sun;
     fixture.runtime.reconfigure(&fixture.config);
     fixture.observed(Some(Mode::Dark)).await;
     assert_eq!(fixture.handle.snapshot().temporary, None);
@@ -164,13 +270,13 @@ async fn only_policy_reload_clears_a_hold_and_failures_are_visible() {
 }
 
 #[tokio::test]
-async fn missing_solar_does_not_prevent_a_temporary_mode_or_system_policy() {
-    let mut fixture = Fixture::new(AutoDark::Auto, None, None);
+async fn missing_solar_does_not_prevent_a_temporary_mode_or_external_policy() {
+    let mut fixture = Fixture::new(DesktopColorScheme::Sun, None, None);
     fixture.handle.set_temporary(Mode::Dark).await.unwrap();
     fixture.running().await;
     assert!(fixture.handle.resume().await.is_err());
     fixture.observed(Some(Mode::Dark)).await;
-    fixture.config.appearance.auto_dark = AutoDark::System;
+    fixture.config.appearance.desktop_color_scheme = DesktopColorScheme::External;
     fixture.runtime.reconfigure(&fixture.config);
     fixture.running().await;
     let _ = fixture
@@ -251,7 +357,7 @@ async fn a_slow_write_cannot_overwrite_a_newer_policy_or_its_health() {
     }));
     let (observer, observed) = watch::channel(Ok(None));
     let mut config = glimpse_config::Config::default();
-    config.appearance.auto_dark = AutoDark::System;
+    config.appearance.desktop_color_scheme = DesktopColorScheme::External;
     let (mut runtime, handle) = Running::<DesktopMode>::spawn(
         &config,
         Buses::unavailable("test"),
@@ -268,13 +374,13 @@ async fn a_slow_write_cannot_overwrite_a_newer_policy_or_its_health() {
         .unwrap()
         .unwrap();
     assert_eq!(mode, Some(Mode::Dark));
-    config.appearance.auto_dark = AutoDark::Auto;
+    config.appearance.desktop_color_scheme = DesktopColorScheme::Sun;
     runtime.reconfigure(&config);
     timeout(
         Duration::from_secs(2),
         handle
             .subscribe()
-            .wait_for(|status| status.automatic && status.temporary.is_none()),
+            .wait_for(|status| status.policy == ModePolicy::Sun && status.temporary.is_none()),
     )
     .await
     .unwrap()
@@ -302,7 +408,7 @@ async fn a_slow_write_cannot_overwrite_a_newer_policy_or_its_health() {
 
 #[tokio::test]
 async fn a_writer_that_panics_does_not_strand_the_next_request() {
-    let mut fixture = Fixture::new(AutoDark::System, Some(Mode::Light), None);
+    let mut fixture = Fixture::new(DesktopColorScheme::External, Some(Mode::Light), None);
     *fixture.writer.failure.lock().unwrap() = Some("panic".into());
     assert!(fixture.handle.set_temporary(Mode::Dark).await.is_err());
 

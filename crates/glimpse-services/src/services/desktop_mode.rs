@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use futures_util::FutureExt as _;
 use futures_util::future::BoxFuture;
-use glimpse_config::AutoDark;
-use glimpse_dbus::settings::{Mode, ModeStatus, SolarPhase, SolarStatus};
+use glimpse_config::DesktopColorScheme;
+use glimpse_dbus::settings::{Mode, ModePolicy, ModeStatus, SolarPhase, SolarStatus};
 use tokio::{
     sync::{oneshot, watch},
     time::{Duration, timeout},
@@ -81,16 +81,21 @@ pub struct DesktopMode {
 
 impl Service for DesktopMode {
     const NAME: &'static str = "desktop_mode";
-    type Config = AutoDark;
+    type Config = DesktopColorScheme;
     type State = ModeStatus;
     type Command = Command;
     type Event = Event;
     type Dependencies = ModeDependencies;
     type SubKey = Watch;
 
-    fn initial_state(config: &AutoDark) -> ModeStatus {
+    fn initial_state(config: &DesktopColorScheme) -> ModeStatus {
         ModeStatus {
-            automatic: *config == AutoDark::Auto,
+            policy: match config {
+                DesktopColorScheme::Sun => ModePolicy::Sun,
+                DesktopColorScheme::Light => ModePolicy::Light,
+                DesktopColorScheme::Dark => ModePolicy::Dark,
+                DesktopColorScheme::External => ModePolicy::External,
+            },
             requested: None,
             observed: None,
             temporary: None,
@@ -114,7 +119,11 @@ impl Service for DesktopMode {
         ]
     }
 
-    async fn start(ctx: &Ctx<Self>, config: AutoDark, dependencies: ModeDependencies) -> Self {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: DesktopColorScheme,
+        dependencies: ModeDependencies,
+    ) -> Self {
         let mut service = Self {
             state: ctx.publisher(),
             status: Self::initial_state(&config),
@@ -141,13 +150,14 @@ impl Service for DesktopMode {
                 let phase = self.latest_phase();
                 if phase != self.phase {
                     self.phase = phase;
-                    if self.status.automatic && self.status.temporary.is_none() {
+                    if self.status.policy == ModePolicy::Sun && self.status.temporary.is_none() {
                         self.apply(ctx, None);
                     }
                 }
             }
             Input::Event(Event::Observed(observed)) => {
                 self.status.observed = observed.ok().flatten();
+                self.pin(ctx);
             }
             Input::Event(Event::Written(revision, result, reply)) => {
                 if let Some((_, mode)) = self.effect.take()
@@ -166,12 +176,15 @@ impl Service for DesktopMode {
                         "desktop mode request superseded".into(),
                     ))
                 };
+                let succeeded = result.is_ok();
                 self.publish(ctx);
                 if let Some(reply) = reply {
                     let _ = reply.send(result);
                 }
                 if let Some(write) = self.queued.take() {
                     self.dispatch(ctx, write);
+                } else if succeeded {
+                    self.pin(ctx);
                 }
                 return;
             }
@@ -195,7 +208,7 @@ impl Service for DesktopMode {
                 self.apply(ctx, Some(reply));
             }
             Input::Config(config) => {
-                self.status.automatic = config == AutoDark::Auto;
+                self.status.policy = Self::initial_state(&config).policy;
                 self.status.temporary = None;
                 self.apply(ctx, None);
             }
@@ -214,6 +227,20 @@ impl Service for DesktopMode {
 }
 
 impl DesktopMode {
+    fn pin(&mut self, ctx: &Ctx<Self>) {
+        if matches!(self.status.policy, ModePolicy::Light | ModePolicy::Dark)
+            && self.effect.is_none()
+            && self.failure.is_none()
+            && self
+                .observed
+                .borrow()
+                .as_ref()
+                .is_ok_and(|observed| *observed != self.status.requested)
+        {
+            self.apply(ctx, None);
+        }
+    }
+
     fn latest_phase(&self) -> Option<Mode> {
         if self.solar.has_changed().is_err() {
             return None;
@@ -243,10 +270,13 @@ impl DesktopMode {
         self.failure = None;
         let target = if let Some(mode) = self.status.temporary {
             Some(Some(mode))
-        } else if self.status.automatic {
-            self.phase.map(Some)
         } else {
-            self.restore()
+            match self.status.policy {
+                ModePolicy::Sun => self.phase.map(Some),
+                ModePolicy::Light => Some(Some(Mode::Light)),
+                ModePolicy::Dark => Some(Some(Mode::Dark)),
+                ModePolicy::External => self.restore(),
+            }
         };
         if self.status.temporary.is_none() {
             self.baseline = None;
@@ -262,7 +292,7 @@ impl DesktopMode {
         let Some(mode) = target else {
             self.publish(ctx);
             if let Some(reply) = reply {
-                let result = if self.status.automatic {
+                let result = if self.status.policy == ModePolicy::Sun {
                     Err(CommandError::Unavailable("no solar phase yet".into()))
                 } else {
                     Ok(())
@@ -311,8 +341,10 @@ impl DesktopMode {
             })
             .or_else(|| observed.as_ref().err().map(String::as_str))
             .or_else(|| {
-                (self.status.automatic && self.status.temporary.is_none() && self.phase.is_none())
-                    .then_some("no solar phase yet")
+                (self.status.policy == ModePolicy::Sun
+                    && self.status.temporary.is_none()
+                    && self.phase.is_none())
+                .then_some("no solar phase yet")
             });
         match reason {
             Some(reason) => ctx.degraded(glimpse_utils::clean(reason, 240)),

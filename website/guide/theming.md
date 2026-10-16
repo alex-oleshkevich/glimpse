@@ -76,7 +76,8 @@ The shipped `adwaita` theme's only nonempty stylesheet is `dark.css`, which make
 dark mode. Your theme does not inherit it. Without a `dark.css`, your bar uses GTK's header bar
 color.
 
-Whether glimpse is dark comes from `color-scheme` and `auto-dark` under `[appearance]`; see
+You choose glimpse's mode with `color-scheme` and your desktop's mode with `desktop-color-scheme`
+under `[appearance]`; see
 [light and dark](/guide/theme#light-and-dark).
 
 ## Make small changes without a theme

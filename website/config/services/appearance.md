@@ -14,32 +14,31 @@ half as fast, `2.0` is twice as fast and `0` turns animations off.
 
 ### Light and dark
 
-Two settings decide when glimpse is light or dark, and they do different jobs.
-`glimpse-settings-daemon` must be running for `auto-dark` and the `glimpsectl appearance` commands
-to change the desktop mode.
+`desktop-color-scheme` decides the desktop's mode, which your apps follow; `color-scheme` decides
+glimpse's own. You need `glimpse-settings-daemon` running for glimpse to set the desktop mode or
+respond to `glimpsectl appearance` commands.
 
-`auto-dark` decides the mode of your whole desktop. With `auto`, glimpse switches the desktop to
-dark at sunset and back to light at sunrise. With `system`, glimpse leaves that decision to you or
-another tool, for example the dark style switch in GNOME Settings.
+For `desktop-color-scheme`, choose `sun` (the default) to turn your desktop dark at sunset and
+light at sunrise. Without a known location, it leaves your desktop mode unchanged. See
+[Location](#location). Choose `light` or `dark` to set the desktop preference at startup and restore
+it whenever another tool changes it. Choose `external` to leave the preference to you or another tool.
 
-Without a known location, `auto-dark = "auto"` cannot tell day from night and leaves the desktop
-mode unchanged. See [Location](#location).
+For `color-scheme`, choose `desktop` (the default) to follow that preference. Choose `light` or
+`dark` to keep your bar, popovers, notifications, lock screen and wallpaper in one mode.
 
-`color-scheme` decides whether glimpse itself follows that mode. With `auto` it does. With `light`
-or `dark`, the bar, popovers, notifications and lock screen stay in that scheme whatever the rest of
-the desktop does, which suits a dark bar over light apps.
+| You want | `desktop-color-scheme` | `color-scheme` |
+| --- | --- | --- |
+| Follow the sun everywhere | `"sun"` | `"desktop"` |
+| A dark bar with apps following the sun | `"sun"` | `"dark"` |
+| Switch modes yourself in GNOME Settings | `"external"` | `"desktop"` |
+| Always dark everywhere | `"dark"` | `"desktop"` |
 
-| You want                                        | Set                           |
-| ----------------------------------------------- | ----------------------------- |
-| Everything dark at night, light by day          | nothing, the defaults do this |
-| To switch light and dark yourself               | `auto-dark = "system"`        |
-| A dark bar all the time, apps following the sun | `color-scheme = "dark"`       |
-
-`glimpsectl appearance set light` or `glimpsectl appearance set dark` holds the desktop in one mode
-without editing the file. This works with `auto-dark` set to either `auto` or `system`.
-`glimpsectl appearance resume` clears the hold and returns to the configured behavior. Automatic
-switching and the `set` commands write `org.gnome.desktop.interface color-scheme` to `prefer-light`
-or `prefer-dark`, the preference GTK apps follow.
+`glimpsectl appearance set light` or `glimpsectl appearance set dark` holds your desktop in one mode
+with any configured value. `glimpsectl appearance resume` clears the hold and returns to your
+configured policy. With `external`, it restores the preference from before the hold only if another
+tool hasn't changed it. With `sun` and no known location, `resume` reports `no solar phase yet` and
+leaves the desktop mode unchanged. A hold ends on a desktop policy change or a clean daemon shutdown.
+The desktop preference is `org.gnome.desktop.interface color-scheme`: `prefer-light` or `prefer-dark`.
 
 ### Blur
 
@@ -112,7 +111,7 @@ longitude = 4.90
 
 `latitude` runs from -90 to 90, and `longitude` from -180 to 180. Config validation accepts values
 outside those ranges, but glimpse then has no location, shows no sunset times and leaves the
-desktop's light/dark mode unchanged. Run `glimpsectl geolocation status` to check the location and
+desktop's light/dark mode unchanged when you choose `sun`. Run `glimpsectl geolocation status` to check the location and
 solar phase. Changes to `[geolocation]` apply without a restart.
 
 glimpse saves GeoClue fixes in `~/.local/state/glimpse/location.json` and uses the remembered fix

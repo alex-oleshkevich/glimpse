@@ -19,8 +19,8 @@
 [appearance]
 # theme = "adwaita"
 # theme-variant = ""
-# color-scheme = "auto"
-# auto-dark = "auto"
+# color-scheme = "desktop"
+# desktop-color-scheme = "sun"
 # blur = []
 # animation-speed = 1.0
 

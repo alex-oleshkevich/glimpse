@@ -12,9 +12,13 @@ location service. `--config` selects a document, file changes and SIGHUP
 reload it, and a rejected reload keeps the last valid configuration. Sunset owns gamma control
 and follows solar phase without calculating it or acquiring location itself.
 
-`appearance.auto-dark` selects solar policy (`auto`, the default) or system preference observation
-(`system`). The mode service receives an injected writer; GSettings `org.gnome.desktop.interface`
-`color-scheme` is the desktop adapter. `SetTemporaryMode` holds light or dark until `Resume`, a policy
-change or clean shutdown. System policy restores the preference captured before the hold only while
+`appearance.desktop-color-scheme` selects `sun` (the default), fixed `light` or `dark`, or
+`external` observation. Solar policy writes at sunrise and sunset when a location is known; fixed
+policies write at startup and correct drift. The mode service receives an injected writer; GSettings
+`org.gnome.desktop.interface color-scheme` is the desktop adapter. `SetTemporaryMode` holds light or
+dark until `Resume`, a policy change or clean shutdown. External policy restores the preference captured before the hold only while
 the hold's last write remains in force. Holds are not persisted, so a crash can leave that preference
-applied. `appearance.color-scheme` remains the local Glimpse override.
+applied. The adapter flushes each write and checks the stored preference before reporting success;
+a failed pin stays degraded until a command or policy change retries it. `appearance.color-scheme`
+selects `desktop` to follow the desktop preference, or local `light` or `dark` for glimpse's own
+surfaces. `Mode` publishes the configured policy by name.

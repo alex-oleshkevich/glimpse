@@ -6,17 +6,28 @@ theme directory of CSS. The full setting list is in the
 
 ## Light and dark
 
-Two settings work together. `auto-dark` decides the desktop's mode: `auto` (the default) switches to
-dark at sunset and back to light at sunrise, and GTK apps that follow the system setting switch with
-it; `system` leaves the decision to you or another tool. `color-scheme` decides whether glimpse
-itself follows that mode: `auto` follows it, while `light` or `dark` keeps the bar, popovers,
-notifications and lock screen in one scheme whatever the desktop does.
+`desktop-color-scheme` decides the desktop's mode, which your apps follow; `color-scheme` decides
+glimpse's own. The defaults are `sun` and `desktop`: with a known location, your desktop turns dark
+at sunset and light at sunrise, and glimpse follows it. Without a location, `sun` leaves your
+desktop mode unchanged.
+
+Choose `light` or `dark` for `desktop-color-scheme` to keep your desktop in that mode, even if
+another tool changes it. Choose `external` to switch modes yourself in GNOME Settings or let
+another tool decide. You need `glimpse-settings-daemon` running for glimpse to set the desktop mode.
+
+With `color-scheme = "desktop"`, your bar, popovers, notifications, lock screen and wallpaper follow
+the desktop. Choose `light` or `dark` to keep glimpse in one mode. For a dark bar with apps following
+the sun:
 
 ```toml
 [appearance]
-auto-dark = "system"
+desktop-color-scheme = "sun"
 color-scheme = "dark"
 ```
+
+`glimpsectl appearance set light` or `glimpsectl appearance set dark` gives you a temporary hold
+with any desktop policy. `glimpsectl appearance resume` returns to your configured policy. With
+`external`, it restores the preference from before the hold if another tool hasn't changed it.
 
 The accent color comes from the system: glimpse reads the same accent your other GTK apps use, so
 there is nothing to set.

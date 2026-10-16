@@ -49,9 +49,10 @@ file in the tree; none is read at runtime. `seed_user_config` writes the comment
 `user_dir()/config.toml` once and never replaces it; `--config`/`GLIMPSE_CONFIG_PATH` skip seeding.
 **A `[table]` header in the seed stays uncommented only when an empty table means the same as no
 table** — an `[[array]]` header never qualifies, since an empty element replaces rather than merges
-as nothing; `[applets]` is documentation only. **A table whose header the seed leaves live is in every user's file**, so removing
-one from `Config` keeps it as a skipped field that accepts and ignores the table, or every
-existing document stops loading.
+as nothing; `[applets]` is documentation only. A retired table with a live seed header keeps a
+skipped field that accepts it, so existing documents load. Retired appearance forms stay out of
+generated documents and fail with guidance: `auto-dark` names `desktop-color-scheme`, and
+`color-scheme = "auto"` names `color-scheme = "desktop"`.
 
 ## Reading and errors
 

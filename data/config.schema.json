@@ -7,9 +7,9 @@
       "$ref": "#/$defs/Appearance",
       "default": {
         "animation-speed": 1.0,
-        "auto-dark": "auto",
         "blur": [],
-        "color-scheme": "auto",
+        "color-scheme": "desktop",
+        "desktop-color-scheme": "sun",
         "theme": "adwaita",
         "theme-variant": ""
       }
@@ -2347,20 +2347,15 @@
       "type": "object",
       "properties": {
         "animation-speed": {
-          "description": "How fast every animation runs: `1.0` is normal, `2.0` twice as fast, `0.5` half as fast,\nand `0` turns animations off. Anything else below `0.1` is refused, because a fade that\nslow leaves the panel ignoring clicks while it runs. The popover and notification fades and every CSS transition\nthat reads `--gl-duration` follow it; the wallpaper keeps its own `transition-ms`.",
+          "description": "Set your animation speed from 0.1 to 10, or `0` to turn animations off.\nUse `2.0` for twice as fast or `0.5` for half as fast; your wallpaper uses `transition-ms` instead.",
           "type": "number",
           "format": "double",
           "default": 1.0,
           "maximum": 10.0,
           "minimum": 0.0
         },
-        "auto-dark": {
-          "description": "What decides the desktop mode: `auto` turns dark at sunset and light at sunrise where you\nare, `system` follows the color scheme preference set elsewhere, for example in GNOME Settings.",
-          "$ref": "#/$defs/AutoDark",
-          "default": "auto"
-        },
         "blur": {
-          "description": "Which parts of glimpse blur what is behind them: `panel`, `popover`, `notification`, or\n`all`. Needs compositor support; without it they stay solid. Setup notes:\nhttps://alex-oleshkevich.github.io/glimpse/config/services/appearance#blur",
+          "description": "Choose which surfaces blur what is behind them: `panel`, `popover`, `notification`, or `all`.\nYour compositor must support blur.",
           "type": "array",
           "default": [],
           "items": {
@@ -2368,29 +2363,27 @@
           }
         },
         "color-scheme": {
-          "description": "Whether glimpse's own surfaces are light or dark. `auto` follows the desktop mode that\n`auto-dark` decides; `light` and `dark` hold glimpse in one scheme whatever the desktop does.",
+          "description": "Choose `desktop` to follow your desktop mode, or `light` or `dark` to keep glimpse in one mode.",
           "$ref": "#/$defs/ColorScheme",
-          "default": "auto"
+          "default": "desktop"
+        },
+        "desktop-color-scheme": {
+          "description": "Choose `sun` to turn your desktop dark at sunset and light at sunrise, `light` or `dark` to keep it in one mode, or `external` to let another tool decide.\nWithout a known location, `sun` leaves your desktop mode alone.",
+          "$ref": "#/$defs/DesktopColorScheme",
+          "default": "sun"
         },
         "theme": {
-          "description": "The theme directory to load stylesheets from, looked up under `~/.config/glimpse/themes`\nfirst and the installed themes second.",
+          "description": "Choose a theme from `~/.config/glimpse/themes` or the installed themes.",
           "type": "string",
           "default": "adwaita"
         },
         "theme-variant": {
-          "description": "A CSS class added to every window, so one theme can ship several looks. Letters, digits,\n`-` and `_` only, not starting with a digit; anything else is ignored with a warning.",
+          "description": "Choose an alternate look provided by your theme.",
           "type": "string",
           "default": ""
         }
       },
       "additionalProperties": false
-    },
-    "AutoDark": {
-      "type": "string",
-      "enum": [
-        "auto",
-        "system"
-      ]
     },
     "Backdrop": {
       "description": "A second background surface, named `glimpse-backdrop`, shown only where the compositor has\nsomewhere to place it — niri's Overview, through a `place-within-backdrop` layer rule.",
@@ -2677,7 +2670,16 @@
       "enum": [
         "light",
         "dark",
-        "auto"
+        "desktop"
+      ]
+    },
+    "DesktopColorScheme": {
+      "type": "string",
+      "enum": [
+        "sun",
+        "light",
+        "dark",
+        "external"
       ]
     },
     "Editor": {
