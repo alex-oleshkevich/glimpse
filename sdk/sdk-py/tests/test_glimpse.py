@@ -14,7 +14,18 @@ import unittest
 from unittest import mock
 
 import glimpse_sdk as glimpse
-from glimpse_sdk import Context, Entry, Indicator, Popover, Section, Session, ToggleRow, W
+from glimpse_sdk import (
+    BaseApplet,
+    Context,
+    Entry,
+    Indicator,
+    Popover,
+    Section,
+    Session,
+    State,
+    ToggleRow,
+    W,
+)
 from glimpse_sdk.session import App as AppProtocol
 
 Node = dict[str, typing.Any]
@@ -24,7 +35,7 @@ def discard(line: str) -> None:
     pass
 
 
-class EmptyApp:
+class EmptyApp(BaseApplet[State]):
     def build(self, ctx: Context) -> list[W]:
         return []
 
@@ -36,7 +47,7 @@ class Item:
     done: bool
 
 
-class App:
+class App(BaseApplet[State]):
     def __init__(self) -> None:
         self.items = [Item("a", "Alpha", False), Item("b", "Bravo", False)]
         self.draft = ""
@@ -288,7 +299,7 @@ class TestSession(unittest.TestCase):
         self.assertEqual(len(entry.props["value"]), 4096)
 
     def test_render_throw_is_a_render_error(self) -> None:
-        class Boom:
+        class Boom(BaseApplet[State]):
             def build(self, ctx: Context) -> typing.Never:
                 raise ValueError("boom")
 
@@ -299,7 +310,7 @@ class TestSession(unittest.TestCase):
             session.flush()
 
     def test_oversized_array_prop_is_a_limit_error(self) -> None:
-        class Wide:
+        class Wide(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 return [glimpse.DropDown(options=["x"] * 65)]
 
@@ -321,7 +332,7 @@ class TestSession(unittest.TestCase):
         self.assertEqual(glimpse.position_now({**player, "playback": "paused"}), 1_000_000)
 
     def test_fresh_subtree_over_children_cap_is_a_limit_error(self) -> None:
-        class Wide:
+        class Wide(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 return [
                     Section(title="x", children=[glimpse.Label(text=str(i)) for i in range(250)])
@@ -334,7 +345,7 @@ class TestSession(unittest.TestCase):
             session.flush()
 
     def test_unkeyed_type_swap_remounts_instead_of_moving(self) -> None:
-        class Swap:
+        class Swap(BaseApplet[State]):
             def __init__(self) -> None:
                 self.flipped = False
 
@@ -402,7 +413,7 @@ class AsyncHandlerTest(unittest.IsolatedAsyncioTestCase):
         async def on_change(value: str) -> None:
             done.set()
 
-        class App:
+        class App(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 return [Popover(title="t", children=[Entry(value="", on_change=on_change)])]
 
@@ -480,20 +491,16 @@ class RunLoopTest(unittest.TestCase):
 
         return script
 
-    def test_async_handler_and_spawn_rebuild_after_awaiting(self) -> None:
-        class App:
+    def test_start_hook_runs_after_hello_and_rebuilds_on_completion(self) -> None:
+        class App(BaseApplet[State]):
             def __init__(self) -> None:
                 self.text = "idle"
 
-            async def load(self) -> None:
+            async def start(self, ctx: Context) -> None:
                 await asyncio.sleep(0.05)
                 self.text = "loaded"
 
             def build(self, ctx: Context) -> list[W]:
-                if not hasattr(self, "started"):
-                    self.started = True
-                    ctx.spawn(self.load())
-
                 return [Indicator(text=self.text)]
 
         code, lines = self.serve(App(), self.hello_then())
@@ -511,7 +518,7 @@ class RunLoopTest(unittest.TestCase):
         self.assertEqual(lines[0], {"t": "hello", "v": 1})
 
     def test_a_garbage_line_is_skipped(self) -> None:
-        class App:
+        class App(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 return [Indicator(text="ok")]
 
@@ -524,7 +531,7 @@ class RunLoopTest(unittest.TestCase):
         self.assertIn("commit", [line["t"] for line in lines])
 
     def test_wake_from_another_thread_rebuilds(self) -> None:
-        class App:
+        class App(BaseApplet[State]):
             def __init__(self) -> None:
                 self.text = "before"
                 self.started = False
@@ -550,7 +557,7 @@ class RunLoopTest(unittest.TestCase):
         self.assertIn("from a thread", texts)
 
     def test_a_render_error_exits_70(self) -> None:
-        class Boom:
+        class Boom(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 raise ValueError("boom")
 
@@ -558,7 +565,7 @@ class RunLoopTest(unittest.TestCase):
         self.assertEqual(code, 70)
 
     def test_a_limit_error_exits_70(self) -> None:
-        class Wide:
+        class Wide(BaseApplet[State]):
             def build(self, ctx: Context) -> list[W]:
                 return [Section(children=[glimpse.Label(text=str(i)) for i in range(250)])]
 
@@ -566,7 +573,7 @@ class RunLoopTest(unittest.TestCase):
         self.assertEqual(code, 70)
 
     def test_a_spawned_task_that_raises_exits_1(self) -> None:
-        class App:
+        class App(BaseApplet[State]):
             async def fail(self) -> None:
                 raise ValueError("task failed")
 

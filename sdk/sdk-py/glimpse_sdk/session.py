@@ -40,6 +40,8 @@ class El:
 
 class App(typing.Protocol):
     def build(self, ctx: Context) -> collections.abc.Sequence[W]: ...
+    def mount(self, ctx: Context) -> None: ...
+    async def start(self, ctx: Context) -> None: ...
 
 
 class Session:
@@ -253,8 +255,7 @@ class Session:
                 self.mounted = True
                 self.dirty = True
 
-                if (start := getattr(self.app, "start", None)) is not None:
-                    self.spawn(start(self.ctx))
+                self.app.mount(self.ctx)
 
             case _ if not self.mounted:
                 return

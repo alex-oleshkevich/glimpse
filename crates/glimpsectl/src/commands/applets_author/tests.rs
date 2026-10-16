@@ -13,9 +13,7 @@ fn template_resolution_uses_the_templates_root_or_installed_templates() {
         template_dir(AppletLanguage::Go, Some(PathBuf::from("/tmp/templates")),),
         PathBuf::from("/tmp/templates/go")
     );
-    assert!(
-        template_dir(AppletLanguage::Rs, Some(PathBuf::new())).ends_with("sdk/templates/rs")
-    );
+    assert!(template_dir(AppletLanguage::Rs, Some(PathBuf::new())).ends_with("sdk/templates/rs"));
     assert!(template_dir(AppletLanguage::Py, None).ends_with("sdk/templates/py"));
 }
 

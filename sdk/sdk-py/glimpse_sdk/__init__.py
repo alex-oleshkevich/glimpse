@@ -1,3 +1,4 @@
+from glimpse_sdk.applet import BaseApplet, State
 from glimpse_sdk.context import Context, position_now
 from glimpse_sdk.elements import *
 from glimpse_sdk.protocol import (
@@ -28,6 +29,7 @@ __all__ = [
     "ActionRow",
     "Addon",
     "Bars",
+    "BaseApplet",
     "Box",
     "Button",
     "Calendar",
@@ -64,6 +66,7 @@ __all__ = [
     "Spinner",
     "Stack",
     "Start",
+    "State",
     "Swatch",
     "Switch",
     "ToggleButton",

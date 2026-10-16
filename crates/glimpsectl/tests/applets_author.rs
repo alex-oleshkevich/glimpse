@@ -33,25 +33,6 @@ fn files_under(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-fn file_names(dir: &Path) -> Vec<String> {
-    let mut names: Vec<_> = fs::read_dir(dir)
-        .unwrap()
-        .map(|item| item.unwrap().file_name().into_string().unwrap())
-        .filter(|name| name != "__pycache__")
-        .collect();
-    names.sort();
-    names
-}
-
-fn assert_same(canonical: &Path, vendored: &Path) {
-    assert_eq!(
-        fs::read(canonical).unwrap(),
-        fs::read(vendored).unwrap(),
-        "{}",
-        canonical.display()
-    );
-}
-
 fn package_scripts(dir: &Path) -> serde_json::Value {
     let package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
@@ -144,20 +125,15 @@ fn new_renders_every_language_without_placeholders() {
             AppletLanguage::Rs,
             "src/main.rs",
             "env CARGO_TARGET_DIR=/tmp/glimpse-hello cargo run --release --quiet",
-            "glimpse_sdk/src/session.rs",
+            "Cargo.toml",
         ),
         (
             AppletLanguage::Py,
             "applet.py",
             "uv run applet.py",
-            "glimpse_sdk/session.py",
+            "applet.py",
         ),
-        (
-            AppletLanguage::Go,
-            "main.go",
-            "go run .",
-            "glimpse_sdk/sdk/session.go",
-        ),
+        (AppletLanguage::Go, "main.go", "go run .", "go.mod"),
     ];
     for (language, entry, exec, vendored) in cases {
         let root = tempfile::tempdir().unwrap();
@@ -172,6 +148,11 @@ fn new_renders_every_language_without_placeholders() {
         assert!(files.contains(&PathBuf::from(entry)), "{}", language.dir());
         assert!(
             files.contains(&PathBuf::from(vendored)),
+            "{}",
+            language.dir()
+        );
+        assert!(
+            !files.iter().any(|path| path.starts_with("glimpse_sdk")),
             "{}",
             language.dir()
         );
@@ -204,7 +185,7 @@ fn new_renders_every_language_without_placeholders() {
     assert!(
         fs::read_to_string(dir.join("Cargo.toml"))
             .unwrap()
-            .contains("exclude = [\"glimpse_sdk\"]")
+            .contains("glimpse-sdk = \"0.9\"")
     );
     let dir = root.path().join("go");
     applets_new_with_catalog(
@@ -218,50 +199,23 @@ fn new_renders_every_language_without_placeholders() {
             .unwrap()
             .contains("module glimpse.local/hello")
     );
-}
-
-#[test]
-fn vendored_template_sdks_match_canonical_sources() {
-    let root = repo();
-    let py = root.join("sdk/sdk-py/glimpse_sdk");
-    let vendored_py = root.join("sdk/templates/py/glimpse_sdk");
-    assert_eq!(file_names(&py), file_names(&vendored_py));
-    for name in file_names(&py) {
-        assert_same(&py.join(&name), &vendored_py.join(&name));
-    }
-
-    let go = root.join("sdk/sdk-go");
-    let vendored_go = root.join("sdk/templates/go/glimpse_sdk");
-    for name in ["go.mod", "LICENSE"] {
-        assert_same(&go.join(name), &vendored_go.join(name));
-    }
-    let go_sources: Vec<_> = file_names(&go.join("sdk"))
-        .into_iter()
-        .filter(|name| !name.ends_with("_test.go"))
-        .collect();
-    assert_eq!(go_sources, file_names(&vendored_go.join("sdk")));
-    for name in go_sources {
-        assert_same(
-            &go.join("sdk").join(&name),
-            &vendored_go.join("sdk").join(&name),
-        );
-    }
-
-    let rs = root.join("sdk/sdk-rs");
-    let vendored_rs = root.join("sdk/templates/rs/glimpse_sdk");
-    for name in ["Cargo.toml", "LICENSE", "README.md"] {
-        assert_same(&rs.join(name), &vendored_rs.join(name));
-    }
-    assert_eq!(
-        file_names(&rs.join("src")),
-        file_names(&vendored_rs.join("src"))
+    assert!(
+        fs::read_to_string(dir.join("go.mod"))
+            .unwrap()
+            .contains("require github.com/alex-oleshkevich/glimpse/sdk/sdk-go v0.9.0")
     );
-    for name in file_names(&rs.join("src")) {
-        assert_same(
-            &rs.join("src").join(&name),
-            &vendored_rs.join("src").join(&name),
-        );
-    }
+    let dir = root.path().join("py");
+    applets_new_with_catalog(
+        args_for(AppletLanguage::Py, &dir, "Hello"),
+        &template_for(AppletLanguage::Py),
+        |_| false,
+    )
+    .unwrap();
+    assert!(
+        fs::read_to_string(dir.join("applet.py"))
+            .unwrap()
+            .contains("dependencies = [\"glimpse-applet-sdk>=0.9\"]")
+    );
 }
 
 #[test]

@@ -41,6 +41,14 @@ run(App())
 - `ctx` carries `name`, `state_dir`, `options`, `placement`, `popover_open`, and the `mpris`
   and `compositor` service snapshots, plus the host requests (`notify`, `copy`, `open_uri`,
   `launch`, `close_popover`, `mpris_control`, workspace and window commands).
+- Subclass `BaseApplet[YourState]` with a frozen-dataclass `state = YourState()` and `build(ctx)`;
+  `Applet.main()` runs it. `set_state(field=value)` replaces the state, rebuilds when it changed,
+  and writes the fields listed in `persist` to `state.json` (loaded before `start`). Call it on the
+  loop thread; replace lists and dicts rather than mutating them.
+- An app may define `async def start(self, ctx)`: it is spawned once after the host `hello`, with
+  `ctx.options` and `state_dir` filled in. It is a one-shot setup hook: start long-running work
+  from it with `ctx.spawn(coro)`; spawned tasks are cancelled when the applet exits. Load saved state and
+  run tickers, watchers and network loops there; keep `build` free of side effects.
 - The runtime is an asyncio loop. A handler may be `async def`, and `ctx.spawn(coro)` starts a
   background coroutine for network, D-Bus or timer work; both run on the loop, so they mutate state
   without locks. A rebuild follows each completion; a long-running task calls `ctx.wake()` after each state change. An exception in a spawned coroutine exits

@@ -584,11 +584,15 @@ fn every_install_route_ships_the_applet_templates_and_nothing_else_of_the_sdk() 
         .map(|path| format!("sdk/templates/{}", path.display()))
         .collect();
     template.sort();
+    assert!(
+        !template.iter().any(|path| path.contains("glimpse_sdk")),
+        "templates carry no SDK sources"
+    );
     for nested in [
         "sdk/templates/ts/{{id}}.desktop.jinja",
-        "sdk/templates/rs/glimpse_sdk/src/session.rs",
-        "sdk/templates/py/glimpse_sdk/session.py",
-        "sdk/templates/go/glimpse_sdk/sdk/session.go",
+        "sdk/templates/rs/src/main.rs.jinja",
+        "sdk/templates/py/applet.py.jinja",
+        "sdk/templates/go/main.go.jinja",
     ] {
         assert!(template.contains(&nested.to_owned()), "{nested}");
     }

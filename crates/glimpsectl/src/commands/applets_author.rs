@@ -111,7 +111,7 @@ fn collect_template_files(dir: &Path, root: &Path, files: &mut Vec<PathBuf>) -> 
     let mut entries: Vec<_> = fs::read_dir(dir)
         .with_context(|| format!("applet template not installed at {}", root.display()))?
         .collect::<io::Result<_>>()?;
-    
+
     entries.sort_by_key(|entry| entry.file_name());
     for entry in entries {
         let path = entry.path();
@@ -230,22 +230,22 @@ fn new_with_catalog(
     )?;
     let dir = PathBuf::from(dir);
     fs::create_dir_all(&dir)?;
-    
+
     let dir = dir.canonicalize()?;
     let slug = slug(&id);
-    
+
     let mut env = Environment::new();
     env.set_auto_escape_callback(|_| AutoEscape::None);
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.set_keep_trailing_newline(true);
-    
+
     let context = context! { id, name, description, icon, dir, slug, language => language.dir() };
     let mut relative_files = Vec::new();
     collect_template_files(template, template, &mut relative_files)?;
-    
+
     let mut outputs = HashSet::new();
     let mut planned = Vec::new();
-    
+
     for relative in relative_files {
         let source = template.join(&relative);
         let relative_text = relative
@@ -257,7 +257,7 @@ fn new_with_catalog(
             .unwrap_or(relative_text);
         let output_text = env.render_str(output_text, &context)?;
         let output = PathBuf::from(&output_text);
-        
+
         ensure!(
             !output.as_os_str().is_empty()
                 && output
@@ -271,7 +271,7 @@ fn new_with_catalog(
             "template files render to the same path: {}",
             output.display()
         );
-        
+
         let content = if rendered {
             env.render_str(&fs::read_to_string(&source)?, &context)
                 .with_context(|| format!("cannot render {}", relative.display()))?
@@ -279,7 +279,7 @@ fn new_with_catalog(
         } else {
             fs::read(&source)?
         };
-        
+
         planned.push((output, content));
     }
     for (relative, content) in planned {
@@ -287,7 +287,7 @@ fn new_with_catalog(
         if let Some(parent) = output.parent() {
             fs::create_dir_all(parent)?;
         }
-        
+
         fs::write(output, content)?;
     }
     let shown = env::current_dir()

@@ -7,16 +7,14 @@
 # glimpse-applet-sdk = { path = "../..", editable = true }
 # ///
 import asyncio
-import contextlib
 import dataclasses
 import functools
-import json
-import pathlib
 
 from glimpse_sdk import (
     ActionRow,
     Addon,
     Bars,
+    BaseApplet,
     Box,
     Button,
     Calendar,
@@ -49,67 +47,76 @@ from glimpse_sdk import (
     Spinner,
     Stack,
     Start,
+    State,
     Swatch,
     Switch,
     ToggleButton,
     ToggleRow,
     W,
-    run,
 )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Item:
     id: str
     title: str
     done: bool
 
 
-class App:
-    def __init__(self) -> None:
-        self.ctx: Context | None = None
-        self.count = 0
-        self.seconds = 0
-        self.wifi = True
-        self.remember = False
-        self.volume = 0.5
-        self.scale = 30.0
-        self.draft = ""
-        self.choice = 0
-        self.drop = 1
-        self.date = "2026-10-15"
-        self.month = (2026, 10)
-        self.expanded = False
-        self.revealed = False
-        self.page = 0
-        self.wide = False
-        self.last_event = "none"
-        self.items = [
-            Item("a", "Alpha", False),
-            Item("b", "Bravo", True),
-            Item("c", "Charlie", False),
-        ]
+@dataclasses.dataclass(frozen=True)
+class KitchenState(State):
+    count: int = 0
+    seconds: int = 0
+    wifi: bool = True
+    remember: bool = False
+    volume: float = 0.5
+    scale: float = 30.0
+    draft: str = ""
+    choice: int = 0
+    drop: int = 1
+    date: str = "2026-10-15"
+    month: tuple[int, int] = (2026, 10)
+    expanded: bool = False
+    revealed: bool = False
+    page: int = 0
+    wide: bool = False
+    last_event: str = "none"
+    items: tuple[Item, ...] = (
+        Item("a", "Alpha", False),
+        Item("b", "Bravo", True),
+        Item("c", "Charlie", False),
+    )
+
+
+class Kitchen(BaseApplet[KitchenState]):
+    state = KitchenState()
+    persist = ("count",)
 
     async def start(self, ctx: Context) -> None:
-        self.ctx = ctx
+        ctx.spawn(self.tick())
 
-        with contextlib.suppress(Exception):
-            self.count = int(
-                json.loads((pathlib.Path(ctx.state_dir) / "state.json").read_text())["count"]
-            )
-
+    async def tick(self) -> None:
         while True:
             await asyncio.sleep(1)
-            self.seconds += 1
-            ctx.wake()
+            self.set_state(seconds=self.state.seconds + 1)
 
-    def _save(self) -> None:
-        if self.ctx is not None and self.ctx.state_dir:
-            target = pathlib.Path(self.ctx.state_dir) / "state.json"
-            target.write_text(json.dumps({"count": self.count}))
+    def event(self, name: str) -> None:
+        self.set_state(last_event=name)
 
-    def _event(self, name: str) -> None:
-        self.last_event = name
+    def rotate(self) -> None:
+        first, *rest = self.state.items
+        self.set_state(items=(*rest, first), last_event="rotate")
+
+    def increment(self) -> None:
+        self.set_state(count=self.state.count + 1, last_event="increment")
+
+    def toggle_item(self, item_id: str, done: bool) -> None:
+        self.set_state(
+            items=tuple(
+                dataclasses.replace(item, done=done) if item.id == item_id else item
+                for item in self.state.items
+            )
+        )
 
     def build(self, ctx: Context) -> list[W]:
         title = ctx.options.get("title") or "Kitchen sink"
@@ -117,10 +124,10 @@ class App:
         players = ctx.mpris or []
         compositor = ctx.compositor or {}
         workspaces = compositor.get("workspaces") or []
-        open_items = sum(not item.done for item in self.items)
+        open_items = sum(not item.done for item in self.state.items)
         state = "open" if ctx.popover_open else "closed"
         zone = placement.get("zone", "?")
-        history = [((self.seconds + i * 7) % 10) / 10 for i in range(24)]
+        history = [((self.state.seconds + i * 7) % 10) / 10 for i in range(24)]
 
         player_rows = [
             ActionRow(
@@ -160,47 +167,50 @@ class App:
                 icon="applications-graphics-symbolic",
                 tooltip=title,
                 badge=str(open_items),
-                dot="#e01b24" if self.count % 2 else None,
-                severity="warning" if self.count > 5 else None,
-                attention=self.count > 10,
-                on_press=lambda button: self._event(f"press {button}"),
-                on_scroll=lambda dx, dy: self._event(f"scroll {dx:.1f} {dy:.1f}"),
+                dot="#e01b24" if self.state.count % 2 else None,
+                severity="warning" if self.state.count > 5 else None,
+                attention=self.state.count > 10,
+                on_press=lambda button: self.event(f"press {button}"),
+                on_scroll=lambda dx, dy: self.event(f"scroll {dx:.1f} {dy:.1f}"),
                 children=["KS"] if placement.get("orientation") != "vertical" else [],
             ),
             Popover(
                 icon="applications-graphics-symbolic",
                 title=title,
-                subtitle=f"{self.seconds}s uptime, popover {state}",
-                size="wide" if self.wide else "regular",
+                subtitle=f"{self.state.seconds}s uptime, popover {state}",
+                size="wide" if self.state.wide else "regular",
                 children=[
                     Addon(
                         children=[
-                            Switch(active=self.wide, on_toggle=lambda v: setattr(self, "wide", v))
+                            Switch(
+                                active=self.state.wide,
+                                on_toggle=lambda v: self.set_state(wide=v),
+                            )
                         ]
                     ),
                     Notice(
                         icon="dialog-information-symbolic",
                         title="Last event",
-                        subtitle=self.last_event,
+                        subtitle=self.state.last_event,
                         severity="info",
-                        on_activate=lambda: self._event("notice"),
+                        on_activate=lambda: self.event("notice"),
                     ),
                     Section(
                         title="State and timers",
-                        count=str(self.count),
+                        count=str(self.state.count),
                         children=[
                             Row(
                                 icon="timer-symbolic",
                                 title="Seconds",
-                                value=str(self.seconds),
-                                children=[Readout(value=str(self.seconds), unit="s")],
+                                value=str(self.state.seconds),
+                                children=[Readout(value=str(self.state.seconds), unit="s")],
                             ),
                             ActionRow(
                                 icon="list-add-symbolic",
                                 title="Increment persisted counter",
                                 subtitle="Saved to the state dir",
-                                value=str(self.count),
-                                on_activate=self._increment,
+                                value=str(self.state.count),
+                                on_activate=self.increment,
                             ),
                             Row(title="Applet", value=ctx.name or "?"),
                             Row(
@@ -220,52 +230,52 @@ class App:
                             ToggleRow(
                                 icon="network-wireless-symbolic",
                                 title="Wi-Fi",
-                                active=self.wifi,
-                                on_toggle=lambda v: setattr(self, "wifi", v),
+                                active=self.state.wifi,
+                                on_toggle=lambda v: self.set_state(wifi=v),
                             ),
                             ToggleRow(
                                 title="Remember",
                                 control="check",
-                                active=self.remember,
-                                on_toggle=lambda v: setattr(self, "remember", v),
+                                active=self.state.remember,
+                                on_toggle=lambda v: self.set_state(remember=v),
                             ),
                             SliderRow(
                                 title="Volume",
-                                value=self.volume,
+                                value=self.state.volume,
                                 min=0,
                                 max=1,
                                 step=0.05,
-                                on_move=lambda v: self._event(f"move {v:.2f}"),
-                                on_change=lambda v: setattr(self, "volume", v),
+                                on_move=lambda v: self.event(f"move {v:.2f}"),
+                                on_change=lambda v: self.set_state(volume=v),
                                 children=[
                                     Start(
                                         children=[
                                             Button(
                                                 icon="audio-volume-medium-symbolic",
                                                 class_name="flat",
-                                                on_click=lambda: self._event("mute"),
+                                                on_click=lambda: self.event("mute"),
                                             )
                                         ]
                                     )
                                 ],
                             ),
                             Scale(
-                                value=self.scale,
+                                value=self.state.scale,
                                 min=0,
                                 max=100,
                                 step=1,
-                                on_change=lambda v: setattr(self, "scale", v),
+                                on_change=lambda v: self.set_state(scale=v),
                             ),
                             Entry(
                                 placeholder="Type, then Enter",
-                                value=self.draft,
-                                on_change=lambda v: setattr(self, "draft", v),
-                                on_submit=lambda v: self._event(f"submit {v}"),
+                                value=self.state.draft,
+                                on_change=lambda v: self.set_state(draft=v),
+                                on_submit=lambda v: self.event(f"submit {v}"),
                             ),
                             DropDown(
                                 options=["Small", "Medium", "Large"],
-                                selected=self.drop,
-                                on_select=lambda i: setattr(self, "drop", i),
+                                selected=self.state.drop,
+                                on_select=lambda i: self.set_state(drop=i),
                             ),
                             ChoiceList(
                                 choices=[
@@ -273,8 +283,8 @@ class App:
                                     {"label": "Second", "icon": "emblem-ok-symbolic"},
                                     {"label": "Third", "warning": True},
                                 ],
-                                selected=self.choice,
-                                on_select=lambda i: setattr(self, "choice", i),
+                                selected=self.state.choice,
+                                on_select=lambda i: self.set_state(choice=i),
                             ),
                             Box(
                                 orientation="horizontal",
@@ -282,25 +292,25 @@ class App:
                                 children=[
                                     ToggleButton(
                                         label="Toggle",
-                                        active=self.wifi,
-                                        on_toggle=lambda v: setattr(self, "wifi", v),
+                                        active=self.state.wifi,
+                                        on_toggle=lambda v: self.set_state(wifi=v),
                                     ),
                                     CheckButton(
                                         label="Check",
-                                        active=self.remember,
-                                        on_toggle=lambda v: setattr(self, "remember", v),
+                                        active=self.state.remember,
+                                        on_toggle=lambda v: self.set_state(remember=v),
                                     ),
-                                    Button(text="Plain", on_click=lambda: self._event("button")),
+                                    Button(text="Plain", on_click=lambda: self.event("button")),
                                 ],
                             ),
                             Calendar(
-                                year=self.month[0],
-                                month=self.month[1],
-                                selected=self.date,
+                                year=self.state.month[0],
+                                month=self.state.month[1],
+                                selected=self.state.date,
                                 today="2026-10-15",
                                 events=[{"date": "2026-10-15", "colors": ["accent"]}],
-                                on_month=lambda y, m: setattr(self, "month", (y, m)),
-                                on_select=lambda d: setattr(self, "date", d),
+                                on_month=lambda y, m: self.set_state(month=(y, m)),
+                                on_select=lambda d: self.set_state(date=d),
                             ),
                         ],
                     ),
@@ -314,14 +324,14 @@ class App:
                                     title=item.title,
                                     control="check",
                                     active=item.done,
-                                    on_toggle=functools.partial(setattr, item, "done"),
+                                    on_toggle=functools.partial(self.toggle_item, item.id),
                                 )
-                                for item in self.items
+                                for item in self.state.items
                             ],
                             ActionRow(
                                 title="Rotate list",
                                 subtitle="Keyed rows move, state follows",
-                                on_activate=self._rotate,
+                                on_activate=self.rotate,
                             ),
                         ],
                     ),
@@ -335,7 +345,7 @@ class App:
                                 children=[Image(icon="computer-symbolic")],
                             ),
                             MeterRow(title="Memory", level=0.8, tone="warning", value="80%"),
-                            RangeBar(min=0, max=100, low=20, high=80, now=self.seconds % 100),
+                            RangeBar(min=0, max=100, low=20, high=80, now=self.state.seconds % 100),
                             Bars(
                                 values=history,
                                 maximum=1,
@@ -346,18 +356,18 @@ class App:
                             Sparkline(values=history, fill=True, show_last=True, label="Trend"),
                             FactList(
                                 facts=[
-                                    {"label": "Counter", "value": str(self.count)},
-                                    {"label": "Date", "value": self.date},
+                                    {"label": "Counter", "value": str(self.state.count)},
+                                    {"label": "Date", "value": self.state.date},
                                     {
                                         "label": "Draft",
-                                        "value": self.draft or "-",
-                                        "warning": bool(self.draft),
+                                        "value": self.state.draft or "-",
+                                        "warning": bool(self.state.draft),
                                     },
                                 ]
                             ),
                             ActionRow(
                                 title="Event dots",
-                                on_activate=lambda: self._event("dots"),
+                                on_activate=lambda: self.event("dots"),
                                 children=[
                                     Start(
                                         children=[
@@ -372,7 +382,7 @@ class App:
                             ),
                             ActionRow(
                                 title="Color swatch",
-                                on_activate=lambda: self._event("swatch"),
+                                on_activate=lambda: self.event("swatch"),
                                 children=[
                                     Start(children=[Swatch(color="#3584e4", tooltip="Blue")])
                                 ],
@@ -393,11 +403,11 @@ class App:
                         children=[
                             ToggleRow(
                                 title="Reveal more",
-                                active=self.revealed,
-                                on_toggle=lambda v: setattr(self, "revealed", v),
+                                active=self.state.revealed,
+                                on_toggle=lambda v: self.set_state(revealed=v),
                             ),
                             Revealer(
-                                revealed=self.revealed,
+                                revealed=self.state.revealed,
                                 transition="slide-down",
                                 children=[
                                     Row(title="Revealed row", subtitle="Inside a revealer"),
@@ -405,11 +415,11 @@ class App:
                             ),
                             ActionRow(
                                 title="Next stack page",
-                                value=str(self.page),
-                                on_activate=lambda: setattr(self, "page", (self.page + 1) % 3),
+                                value=str(self.state.page),
+                                on_activate=lambda: self.set_state(page=(self.state.page + 1) % 3),
                             ),
                             Stack(
-                                visible=self.page,
+                                visible=self.state.page,
                                 children=[
                                     Label(text="Page one"),
                                     Label(text="Page two"),
@@ -419,19 +429,19 @@ class App:
                             ExpanderRow(
                                 icon="bluetooth-symbolic",
                                 title="Expander",
-                                open=self.expanded,
-                                on_toggle=lambda v: setattr(self, "expanded", v),
+                                open=self.state.expanded,
+                                on_toggle=lambda v: self.set_state(expanded=v),
                                 children=[
                                     End(children=[Image(icon="object-select-symbolic")]),
                                     ActionRow(
                                         title="Drawer action",
-                                        on_activate=lambda: self._event("drawer"),
+                                        on_activate=lambda: self.event("drawer"),
                                     ),
                                     MeterRow(title="Battery", level=0.6, value="60%"),
                                     ToggleRow(
                                         title="Drawer toggle",
-                                        active=self.wifi,
-                                        on_toggle=lambda v: setattr(self, "wifi", v),
+                                        active=self.state.wifi,
+                                        on_toggle=lambda v: self.set_state(wifi=v),
                                     ),
                                 ],
                             ),
@@ -450,7 +460,7 @@ class App:
                             ),
                             ActionRow(
                                 title="Copy draft",
-                                on_activate=lambda: ctx.copy(self.draft or "kitchen sink"),
+                                on_activate=lambda: ctx.copy(self.state.draft or "kitchen sink"),
                             ),
                             ActionRow(
                                 title="Open example.org",
@@ -473,14 +483,6 @@ class App:
             ),
         ]
 
-    def _rotate(self) -> None:
-        self.items.append(self.items.pop(0))
-        self._event("rotate")
 
-    def _increment(self) -> None:
-        self.count += 1
-        self._save()
-        self._event("increment")
-
-
-run(App())
+if __name__ == "__main__":
+    Kitchen.main()

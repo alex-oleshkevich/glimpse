@@ -60,6 +60,7 @@ class _Connection:
         self.loop = asyncio.get_running_loop()
         self.inbox: asyncio.Queue[bytes | _Signal] = asyncio.Queue()
         self.buffer = b""
+        self.started = False
 
     def write_line(self, line: str) -> None:
         self.loop.call_soon_threadsafe(self.writer.write, line.encode() + b"\n")
@@ -73,7 +74,7 @@ class _Connection:
                 session = Session(app, self.write_line, on_wake=self.wake, tasks=group)
                 group.create_task(self._pump())
                 session.send({"t": "hello", "v": 1})
-                await self._dispatch(session)
+                await self._dispatch(app, session)
         except* _Closed:
             pass
         finally:
@@ -85,7 +86,7 @@ class _Connection:
 
         self.inbox.put_nowait(_Signal.EOF)
 
-    async def _dispatch(self, session: Session) -> None:
+    async def _dispatch(self, app: App, session: Session) -> None:
         while True:
             items = [await self.inbox.get()]
 
@@ -117,6 +118,10 @@ class _Connection:
 
                 if isinstance(msg, dict) and isinstance(msg.get("t"), str):
                     session.handle(msg)
+
+            if session.mounted and not self.started:
+                self.started = True
+                session.spawn(app.start(session.ctx))
 
             session.flush()
             await self.writer.drain()
