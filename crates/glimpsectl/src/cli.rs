@@ -863,10 +863,46 @@ pub fn parse() -> Cli {
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum AppletLanguage {
+    Rs,
+    Ts,
+    Py,
+    Go,
+}
+
+impl AppletLanguage {
+    pub fn dir(self) -> &'static str {
+        match self {
+            Self::Rs => "rs",
+            Self::Ts => "ts",
+            Self::Py => "py",
+            Self::Go => "go",
+        }
+    }
+
+    pub fn setup_hint(self) -> &'static str {
+        match self {
+            Self::Rs => "cargo build",
+            Self::Ts => "npm install",
+            Self::Py => "python3 -m py_compile applet.py",
+            Self::Go => "go vet ./...",
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct NewAppletArgs {
     #[arg(long, help = "Applet desktop-file ID")]
     pub id: Option<String>,
+    #[arg(
+        long,
+        value_enum,
+        default_value = "ts",
+        help = "Applet language template"
+    )]
+    pub language: AppletLanguage,
     #[arg(long, help = "Applet display name")]
     pub name: Option<String>,
     #[arg(long, help = "Applet description")]

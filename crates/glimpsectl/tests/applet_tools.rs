@@ -163,8 +163,8 @@ async fn one_shot_applet_commands_complete_when_stdout_reader_is_closed() -> Res
                     .env("PATH", &bin)
                     .env("XDG_DATA_HOME", root.path().join("data"))
                     .env(
-                        "GLIMPSE_TS_SDK_TEMPLATE_DIR",
-                        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/template"),
+                        "GLIMPSE_SDK_TEMPLATES_DIR",
+                        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/templates"),
                     )
                     .env(
                         "DBUS_SESSION_BUS_ADDRESS",

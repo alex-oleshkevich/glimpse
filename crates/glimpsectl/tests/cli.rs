@@ -1,6 +1,7 @@
 use clap::CommandFactory;
 use glimpsectl::cli::{
-    AppletsCommand, Cli, Command, ConfigCommand, Mode, SunsetCommand, duration, temperature,
+    AppletCommand, AppletLanguage, AppletsCommand, Cli, Command, ConfigCommand, Mode,
+    SunsetCommand, duration, temperature,
 };
 
 #[test]
@@ -77,6 +78,49 @@ fn run(args: &[&str]) -> Result<Cli, clap::Error> {
 fn running_an_applet_needs_no_session_bus() {
     let cli = run(&["me.x.Applet"]).unwrap();
     assert!(!cli.command.needs_session_bus());
+}
+
+#[test]
+fn new_applets_default_to_typescript_and_accept_every_language() {
+    fn language(cli: Cli) -> AppletLanguage {
+        match cli.command {
+            Command::Applet(AppletCommand::New(args))
+            | Command::Applets(AppletsCommand::New(args)) => args.language,
+            _ => panic!("expected a new applet command"),
+        }
+    }
+    assert_eq!(
+        language(Cli::try_parse_from(["glimpsectl", "applet", "new", "--yes"]).unwrap()),
+        AppletLanguage::Ts
+    );
+    assert_eq!(
+        language(Cli::try_parse_from(["glimpsectl", "applets", "new", "--yes"]).unwrap()),
+        AppletLanguage::Ts
+    );
+    for (value, expected) in [
+        ("rs", AppletLanguage::Rs),
+        ("ts", AppletLanguage::Ts),
+        ("py", AppletLanguage::Py),
+        ("go", AppletLanguage::Go),
+    ] {
+        assert_eq!(
+            language(
+                Cli::try_parse_from(["glimpsectl", "applet", "new", "--language", value, "--yes",])
+                    .unwrap(),
+            ),
+            expected
+        );
+    }
+    assert_eq!(
+        language(
+            Cli::try_parse_from(["glimpsectl", "applets", "new", "--language", "go", "--yes",])
+                .unwrap(),
+        ),
+        AppletLanguage::Go
+    );
+    let error = Cli::try_parse_from(["glimpsectl", "applet", "new", "--language", "rust", "--yes"])
+        .expect_err("only the four template names are accepted");
+    assert_eq!(error.exit_code(), 2);
 }
 
 #[test]
