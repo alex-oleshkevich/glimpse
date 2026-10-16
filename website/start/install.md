@@ -38,7 +38,7 @@ sudo GLIMPSE_BINARIES="$(just --evaluate binaries)" scripts/install.sh
 ### Arch Linux
 
 `glimpse-desktop-bin` is in the AUR. Use your AUR helper, or build it with `makepkg`. Some applets
-need a system service that the package lists as optional:
+and features need a system service that the package lists as optional:
 
 | Install | For |
 | --- | --- |
@@ -51,12 +51,14 @@ need a system service that the package lists as optional:
 | `kdeconnect` | the phone applet |
 | `ddcutil` | brightness control for external monitors |
 | `xdg-desktop-portal` | letting apps hold off the idle timers |
+| `xdg-desktop-portal` with a backend such as `xdg-desktop-portal-gtk` | switching the desktop between light and dark mode |
 
 ### Debian, Ubuntu, Fedora and openSUSE
 
 The install script supports Debian 14 (forky), Ubuntu 26.04, Fedora 44 and openSUSE Tumbleweed. It
 downloads the latest release as a `.deb` or `.rpm`, checks it against the published checksums and
-installs it with your package manager, so it asks for your `sudo` password.
+installs it with your package manager, so it asks for your `sudo` password. On any other
+distribution it unpacks the binary tarball into `/` as root instead.
 
 If you would rather not pipe a script into a shell, download the package for your distribution from
 the [releases page](https://github.com/alex-oleshkevich/glimpse/releases) and install it yourself.
@@ -65,7 +67,9 @@ the [releases page](https://github.com/alex-oleshkevich/glimpse/releases) and in
 
 Add the flake input and enable the module as shown above. The module installs the package, its
 systemd units and D-Bus services, the PAM entry for the lock screen, and a GeoClue policy for the
-night light and weather. Rebuild with `nixos-rebuild switch`.
+night light and weather. Rebuild with `nixos-rebuild switch`. The module does not enable
+`glimpse-session.target`, so start the target from your compositor's startup commands as described
+below instead of enabling it.
 
 ### From source
 
@@ -103,5 +107,6 @@ glimpsectl doctor
 ```
 
 `doctor` checks each part of glimpse and the services it depends on, and tells you what is missing.
+It exits with status 1 if anything is wrong.
 
 Continue with [your first session](./first-session).

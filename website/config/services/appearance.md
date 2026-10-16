@@ -29,11 +29,11 @@ mode unchanged. See [Location](#location).
 or `dark`, the bar, popovers, notifications and lock screen stay in that scheme whatever the rest of
 the desktop does, which suits a dark bar over light apps.
 
-| You want | Set |
-| --- | --- |
-| Everything dark at night, light by day | nothing, the defaults do this |
-| To switch light and dark yourself | `auto-dark = "system"` |
-| A dark bar all the time, apps following the sun | `color-scheme = "dark"` |
+| You want                                        | Set                           |
+| ----------------------------------------------- | ----------------------------- |
+| Everything dark at night, light by day          | nothing, the defaults do this |
+| To switch light and dark yourself               | `auto-dark = "system"`        |
+| A dark bar all the time, apps following the sun | `color-scheme = "dark"`       |
 
 `glimpsectl appearance set light` or `glimpsectl appearance set dark` holds the desktop in one mode
 without editing the file. This works with `auto-dark` set to either `auto` or `system`.
@@ -51,16 +51,19 @@ blur = ["all"]
 ```
 
 Your compositor draws the blur, so it needs to support it, and how strong it looks is set in the
-compositor's own configuration. Where it isn't supported, glimpse stays solid and works the same.
+compositor's own configuration. glimpse asks for blur through the `ext-background-effect` protocol,
+which needs GTK 4.23.3 or newer. Where it isn't supported, glimpse stays solid and works the same.
 
-Some compositors blur glimpse's popups against the wallpaper only, ignoring the windows behind
-them. If that happens, tell the compositor to blur what is actually underneath with a layer rule
-like this one:
+With `niri` 26.04 or newer you don't enable anything on the compositor side: it blurs every surface
+that asks. Its `blur {}` section sets the strength for all of them.
+
+By default `niri` blurs these surfaces against the wallpaper only, ignoring the windows behind them.
+To blur what is actually underneath the bar, popovers and notifications, add this layer rule:
 
 ```kdl
 // ~/.config/niri/config.kdl
 layer-rule {
-    match namespace="^glimpse-(popover|notifications)$"
+    match namespace="^glimpse-(popover|notifications|panel)$"
     background-effect {
         xray false
     }

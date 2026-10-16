@@ -25,11 +25,11 @@ of your way until you turn it off.
 
 ## Looks after your screen
 
-When you step away, the screen turns off and then locks. Your laptop goes to sleep sooner when it is
-on battery than when it is plugged in. Watching a video keeps all of that from happening.
-
-The lock screen also comes up before your laptop sleeps, so it always wakes up locked. You unlock it
-with the same password you log in with.
+When you step away, glimpse looks after your screen. Plugged in, the screen turns off after 15
+minutes, locks after 30 and the laptop goes to sleep after 60. On battery the screen turns off
+after 15 minutes and the laptop sleeps after 30; the lock screen comes up just before it sleeps, so
+it always wakes up locked. Watching a video keeps all of that from happening. You unlock it with
+the same password you log in with.
 
 In the evening, the night light makes the screen colors warmer, which is easier on your eyes, and
 changes them back in the morning. Everything also switches to dark mode at sunset and back to light

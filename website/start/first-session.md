@@ -14,10 +14,12 @@ bookmarked places and whatever media is playing. The clock, weather and notifica
 middle. The right side holds the tray and the system applets: network, Bluetooth, sound, power and
 the session menu.
 
-Click the clock. A popover opens with a calendar and your upcoming events. Click anywhere outside
-it, or press <kbd>Esc</kbd>, to close it.
+Click the clock. A popover opens with a calendar; once you configure a calendar source under
+`[calendar]` it also lists your upcoming events (see [Information applets](/config/applets/information)).
+Click the clock again or anywhere outside the popover to close it.
 
-Now click the speaker icon on the right. You get a volume slider and a list of outputs. Scroll on
+Now click the speaker icon on the right. You get output and input volume sliders, a row for the
+current device and a volume slider per app. Scroll on
 the speaker icon itself and notice that the volume changes without opening anything. Several applets
 work this way: a click opens the controls, a scroll adjusts the obvious thing.
 
@@ -82,14 +84,19 @@ yourself:
 glimpsectl appearance set dark
 ```
 
-The panel turns dark straight away, and so do GTK apps that follow the desktop color scheme. Open
-the clock popover again and you will see it is dark too.
+The panel turns dark straight away, and so do GTK apps that follow the desktop color scheme. The
+switch goes through `xdg-desktop-portal` and `dconf`; without a running portal the panel and your
+apps keep their current look. Open the clock popover again and you will see it is dark too.
 
 Hand control back to the sunset schedule:
 
 ```sh
 glimpsectl appearance resume
 ```
+
+Sunset and sunrise are computed from your location. If glimpse has none, `resume` fails with
+`no solar phase yet` and the desktop keeps the mode you set. Set a location in
+[`[geolocation]`](/config/services/appearance) or run GeoClue so glimpse can find one.
 
 ## Lock the screen
 
@@ -115,4 +122,7 @@ apply on save, checked the file with `glimpsectl config validate`, switched mode
 
 From here:
 
+- [Use glimpse](/guide/) collects the guides, from [arranging the bar](/guide/panels) to
+  [binding keys](/guide/keys).
+- [Troubleshooting](/guide/troubleshooting) helps when something does not work.
 - [Upgrade and uninstall](./upgrade) explains how to keep glimpse current.
