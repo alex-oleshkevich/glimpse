@@ -40,7 +40,7 @@ Each glimpse process watches the files it reads. Save, and within a moment the c
 clock reformats, the panel moves to another edge, notifications pop up in a different corner. You
 never restart anything for a configuration change, except `[regional] language` and
 `[lock] pam-service`, which are read when each process starts, and a smaller panel `size`,
-`[color-picker]` and `[ruler]`, which apply when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
+which applies when the panel next starts. To read the files again right away, run `glimpsectl panel reload`
 for the panel or send any glimpse process `SIGHUP`.
 
 ## When something is wrong

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-15 21:38+0200\n"
+"POT-Creation-Date: 2026-10-16 20:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -180,13 +180,11 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applet/mod.rs:166
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:283
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:98
 #: crates/glimpse-panel/src/applets/display/indicator.rs:390
 #: crates/glimpse-panel/src/applets/display/indicator.rs:401
 #: crates/glimpse-panel/src/applets/network/render.rs:98
 #: crates/glimpse-panel/src/applets/power/mod.rs:355
 #: crates/glimpse-panel/src/applets/privacy/indicator.rs:155
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:82
 msgid "That did not work."
 msgstr ""
 
@@ -377,8 +375,7 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:84
 #: crates/glimpse-panel/src/applets/display/render.rs:117
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:71
-#: crates/glimpse-widgets/src/lib.rs:377
+#: crates/glimpse-widgets/src/lib.rs:361
 msgid "{percent}%"
 msgstr ""
 
@@ -760,7 +757,6 @@ msgid "Unpin"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:298
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:283
 #: crates/glimpse-panel/src/applets/places/render.rs:50
 #: crates/glimpse-panel/src/applets/removable/render.rs:47
 msgid "{count} more"
@@ -796,7 +792,6 @@ msgid "Could not send that"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/clipboard/indicator.rs:461
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:164
 msgid "KDE Connect is not running."
 msgstr ""
 
@@ -851,34 +846,6 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/clock/popover.rs:32
 #: crates/glimpse-widgets/src/world_clock/mod.rs:148
 msgid "Yesterday"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:81
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:12
-msgid "Color picker"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:92
-msgid "That color is no longer in the palette."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:95
-msgid "The picker could not start, capture the screen or reach the clipboard."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:140
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:181
-msgid "Could not pick a color"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:160
-#: crates/glimpse-panel/src/applets/color_picker/indicator.rs:170
-msgid "Could not copy that color"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/color_picker/render.rs:33
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:33
-msgid "Pick a color"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/command.rs:85
@@ -1070,83 +1037,7 @@ msgstr ""
 msgid "Manual hold"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:145
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:12
-msgid "KDE Connect"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:147
-msgid "The device did not respond"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/indicator.rs:178
-msgid "Send files"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:78
-msgid "{percent}, charging"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:84
-msgid "Connected"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:90
-msgid "{name} wants to pair"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:93
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:254
-#: crates/glimpse-panel/src/applets/network/render.rs:44
-msgid "Not connected"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:95
-msgid "{name} · {state}"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:113
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:160
-msgid "No paired devices"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:129
-msgid "charging"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:230
-msgid "Ring"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:233
-msgid "Ping"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:236
-msgid "Send clipboard"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:239
-msgid "Send files…"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:242
-msgid "Browse files"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:245
-msgid "Open SMS"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:248
-msgid "Unpair"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/kdeconnect/render.rs:276
-msgid "Wants to pair"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/mod.rs:51
+#: crates/glimpse-panel/src/applets/mod.rs:47
 msgid "Built-in display"
 msgstr ""
 
@@ -1187,7 +1078,6 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/indicator.rs:114
 #: crates/glimpse-widgets/blueprints/places_popover.blp:51
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:67
 msgid "Network"
 msgstr ""
 
@@ -1283,6 +1173,10 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:41
 msgid "{network}: connected, no internet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/render.rs:44
+msgid "Not connected"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:51
@@ -1880,29 +1774,6 @@ msgstr ""
 msgid "The drive could not complete that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:60
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:12
-msgid "Ruler"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:78
-msgid "The ruler could not start, capture the screen or reach the clipboard."
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:115
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:144
-msgid "Could not measure the screen"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/ruler/indicator.rs:135
-msgid "Could not copy that measurement"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/ruler/render.rs:25
-#: crates/glimpse-widgets/blueprints/ruler_popover.blp:16
-msgid "Measure the screen"
-msgstr ""
-
 #: crates/glimpse-panel/src/applets/session/render.rs:24
 msgid "Blocked by {who}"
 msgstr ""
@@ -1980,31 +1851,6 @@ msgid "Signed in for {days} day"
 msgid_plural "Signed in for {days} days"
 msgstr[0] ""
 msgstr[1] ""
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:78
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:107
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:21
-msgid "CPU"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:86
-msgid "RAM"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:91
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:31
-msgid "Swap"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:96
-msgid "Net"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:103
-#: crates/glimpse-panel/src/applets/system_monitor/render.rs:111
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:40
-msgid "GPU"
-msgstr ""
 
 #: crates/glimpse-panel/src/applets/tray/mod.rs:295
 msgid "Show {count} hidden item"
@@ -2434,7 +2280,6 @@ msgid "Applications"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:55
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:34
 msgid "Nearby devices"
 msgstr ""
 
@@ -2471,10 +2316,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/clipboard_popover.blp:44
 msgid "Recent"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/color_picker_popover.blp:39
-msgid "Palette"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/display_popover.blp:31
@@ -2534,10 +2375,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/idle_popover.blp:58
 msgid "Kept awake by"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/kdeconnect_popover.blp:48
-msgid "KDE Connect settings"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:31
@@ -2619,7 +2456,7 @@ msgstr ""
 #: crates/glimpse-widgets/blueprints/player_row.blp:16
 #: crates/glimpse-widgets/blueprints/track_card.blp:52
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:319
+#: crates/glimpse-widgets/src/lib.rs:303
 msgid "Play"
 msgstr ""
 
@@ -3050,7 +2887,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/shot_shortcuts.blp:136
 #: crates/glimpse-widgets/src/clipboard_list/mod.rs:265
-#: crates/glimpse-widgets/src/color_list/mod.rs:150
 msgid "Copy"
 msgstr ""
 
@@ -3235,30 +3071,6 @@ msgstr ""
 msgid "Other workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:12
-msgid "System Monitor"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:26
-msgid "Memory"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:57
-msgid "Load average"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:62
-msgid "Uptime"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:72
-msgid "CPU temperature"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/system_monitor_popover.blp:77
-msgid "GPU temperature"
-msgstr ""
-
 #: crates/glimpse-widgets/blueprints/transport.blp:20
 msgid "Shuffle"
 msgstr ""
@@ -3325,16 +3137,6 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:59
 msgid "Up to 999999"
-msgstr ""
-
-#: crates/glimpse-widgets/src/color_list/mod.rs:70
-msgid "{count} more color"
-msgid_plural "{count} more colors"
-msgstr[0] ""
-msgstr[1] ""
-
-#: crates/glimpse-widgets/src/color_picker_popover/mod.rs:44
-msgid "Nothing picked yet"
 msgstr ""
 
 #: crates/glimpse-widgets/src/display_list/mod.rs:138
@@ -3438,7 +3240,7 @@ msgstr ""
 msgid "Hibernate key"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:318
+#: crates/glimpse-widgets/src/lib.rs:302
 #: crates/glimpse-widgets/src/printing_popover/mod.rs:126
 msgid "Pause"
 msgstr ""

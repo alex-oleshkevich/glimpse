@@ -61,6 +61,6 @@ compositor's own output list (for example `niri msg outputs`) gives the names.
 | --- | --- |
 | `left` | `workspace-name`, `pager`, `places`, `mpris` |
 | `center` | `clock`, `weather`, `notifications`, `privacy` |
-| `right` | `next-event`, `tray`, `removable`, `clipboard`, `color-picker`, `printing`, `bluetooth`, `network`, `display`, `audio`, `idle`, `power`, `keyboard`, `session` |
+| `right` | `next-event`, `tray`, `removable`, `clipboard`, `printing`, `bluetooth`, `network`, `display`, `audio`, `idle`, `power`, `keyboard`, `session` |
 
 See the [applet reference](./applets/) for what each one does.

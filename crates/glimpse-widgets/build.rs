@@ -154,14 +154,6 @@ fn main() {
             "resources/widgets/removable_popover.ui",
         ),
         (
-            "blueprints/kdeconnect_popover.blp",
-            "resources/widgets/kdeconnect_popover.ui",
-        ),
-        (
-            "blueprints/ruler_popover.blp",
-            "resources/widgets/ruler_popover.ui",
-        ),
-        (
             "blueprints/player_row.blp",
             "resources/widgets/player_row.ui",
         ),
@@ -216,10 +208,6 @@ fn main() {
             "resources/widgets/status_island.ui",
         ),
         (
-            "blueprints/system_monitor_popover.blp",
-            "resources/widgets/system_monitor_popover.ui",
-        ),
-        (
             "blueprints/track_card.blp",
             "resources/widgets/track_card.ui",
         ),
@@ -239,10 +227,6 @@ fn main() {
         (
             "blueprints/workspace_name_popover.blp",
             "resources/widgets/workspace_name_popover.ui",
-        ),
-        (
-            "blueprints/color_picker_popover.blp",
-            "resources/widgets/color_picker_popover.ui",
         ),
         (
             "blueprints/shot_toolbar.blp",

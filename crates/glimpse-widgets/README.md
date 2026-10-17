@@ -162,7 +162,7 @@ through `glib::Object::builder`, since the role is construct-only.
 `SessionSheet::has_actions`, so the outcome never depends on order. Escape and a press anywhere but
 the sheet or the power button close the sheet, both in the capture phase so the press is consumed.
 
-## ClipboardPopover, ClipboardList, PlacesPopover, KdeconnectPopover and RemovablePopover
+## ClipboardPopover, ClipboardList, PlacesPopover and RemovablePopover
 
 `ClipboardList` reconciles by clip id. An image's head is a tile with a badge carrying
 `expandable__opener`, since `Expandable` cannot otherwise find the opener inside a head that is
@@ -170,9 +170,7 @@ not a row. **The card is built on first open and never rebuilt**, since a clip's
 content cannot change under its id — each render only rewrites the pin row's wording.
 
 `PlacesPopover`'s four independent `$Section`s each hide when they have nothing, with no exception
-and no placeholder. In `KdeconnectPopover`, **a card's rows are rebuilt only when its actions
-change**, so the row under the pointer of an open card is never swapped out, and a nearby row spins
-the moment it is pressed and ignores a second press while it does. In `RemovablePopover`, **every device is one `ExpanderRow` in a flat list, keyed by id**, whose
+and no placeholder. In `RemovablePopover`, **every device is one `ExpanderRow` in a flat list, keyed by id**, whose
 head opens the drawer even when unmounted and carries the accent check while its main volume is
 mounted. A drawer reads the space `MeterRow`, one `ActionRow` per extra volume (its size beside the
 check, since a `Row`'s `[end]` slot no longer hides the value), Open, then the destructive Eject
@@ -180,7 +178,7 @@ last; while busy they stay in place and insensitive. The device icon is the only
 popover, and busy is the head's spinner. Overflow is an `ExpanderRow` "N more" whose drawer holds
 the same row widget, with the applet owning its open state and the `quiet` flag muting the echo.
 
-## PrintingPopover, PrivacyPopover, Swatch, ColorList, ColorPickerPopover and WorkspaceNamePopover
+## PrintingPopover, PrivacyPopover, Swatch and WorkspaceNamePopover
 
 **A job and a printer are an `ExpanderRow` whose head opens the drawer; a printer with no facts is a
 plain `Row`.** A drawer holds info first, then toggles, then actions, with the destructive one

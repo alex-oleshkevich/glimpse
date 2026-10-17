@@ -173,26 +173,6 @@
           "additionalProperties": false,
           "required": []
         },
-        "color-picker": {
-          "description": "Picks a color from the screen on right click; the popover keeps the picked colors.",
-          "type": "object",
-          "properties": {
-            "extends": {
-              "type": "string",
-              "const": "color-picker"
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen\nin the popover.",
-              "type": [
-                "string",
-                "null"
-              ],
-              "default": "{color}"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
         "command": {
           "description": "Your own commands on the bar.",
           "type": "object",
@@ -362,47 +342,6 @@
                 "null"
               ],
               "default": "{status}"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
-        "kdeconnect": {
-          "description": "Your paired KDE Connect phone.",
-          "type": "object",
-          "properties": {
-            "device": {
-              "description": "The paired phone you follow, matched by its full name. Names are case sensitive.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "extends": {
-              "type": "string",
-              "const": "kdeconnect"
-            },
-            "hide-when-disconnected": {
-              "description": "Hide your phone's icon when disconnected, except during a pairing request.",
-              "type": "boolean",
-              "default": false
-            },
-            "indicator-style": {
-              "description": "Whether the bar shows the device icon, the label, or both.",
-              "$ref": "#/$defs/BatteryIndicatorStyle",
-              "default": "icon-text"
-            },
-            "label-format": {
-              "description": "Your phone's label, with `{name}`, `{battery}` and `{charging}`.",
-              "type": "string",
-              "default": "{battery}"
-            },
-            "tooltip-format": {
-              "description": "What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as\n`label-format`. Unset lists every paired device.",
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "additionalProperties": false,
@@ -776,26 +715,6 @@
           "additionalProperties": false,
           "required": []
         },
-        "ruler": {
-          "description": "Screen measurements.",
-          "type": "object",
-          "properties": {
-            "extends": {
-              "type": "string",
-              "const": "ruler"
-            },
-            "tooltip-format": {
-              "description": "Your tooltip text, with `{measurement}` for your last measured distance.",
-              "type": [
-                "string",
-                "null"
-              ],
-              "default": "{measurement}"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
         "session": {
           "description": "Log out, suspend, restart and shut down.",
           "type": "object",
@@ -811,57 +730,6 @@
                 "null"
               ],
               "default": "Session"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
-        "system-monitor": {
-          "description": "Your computer's resource usage.",
-          "type": "object",
-          "properties": {
-            "chip-format": {
-              "description": "Your indicator text, with `{name}` for the resource name and `{value}` for its reading.",
-              "type": "string",
-              "default": "{name} {value}"
-            },
-            "chips": {
-              "description": "Which resource indicators you see on your bar, in order. Other readings still appear when\nyou click one.",
-              "type": "array",
-              "default": [
-                "cpu",
-                "ram"
-              ],
-              "items": {
-                "$ref": "#/$defs/Chip"
-              }
-            },
-            "critical-percent": {
-              "description": "Percent at and above which a percentage reading is shown as critical. Must not be below\n`warn-percent`.",
-              "type": "integer",
-              "format": "uint8",
-              "default": 95,
-              "maximum": 100,
-              "minimum": 1
-            },
-            "extends": {
-              "type": "string",
-              "const": "system-monitor"
-            },
-            "tooltip-format": {
-              "description": "Your tooltip text, shared by all resource indicators.",
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "warn-percent": {
-              "description": "The percentage at which CPU, RAM, swap and GPU readings show a warning.",
-              "type": "integer",
-              "format": "uint8",
-              "default": 85,
-              "maximum": 100,
-              "minimum": 1
             }
           },
           "additionalProperties": false,
@@ -1184,28 +1052,6 @@
             ]
           },
           {
-            "description": "Picks a color from the screen on right click; the popover keeps the picked colors.",
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "color-picker"
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{color}` is the last picked color, in the notation chosen\nin the popover.",
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "default": "{color}"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
             "description": "Your own commands on the bar.",
             "type": "object",
             "properties": {
@@ -1381,49 +1227,6 @@
                   "null"
                 ],
                 "default": "{status}"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "description": "Your paired KDE Connect phone.",
-            "type": "object",
-            "properties": {
-              "device": {
-                "description": "The paired phone you follow, matched by its full name. Names are case sensitive.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "extends": {
-                "type": "string",
-                "const": "kdeconnect"
-              },
-              "hide-when-disconnected": {
-                "description": "Hide your phone's icon when disconnected, except during a pairing request.",
-                "type": "boolean",
-                "default": false
-              },
-              "indicator-style": {
-                "description": "Whether the bar shows the device icon, the label, or both.",
-                "$ref": "#/$defs/BatteryIndicatorStyle",
-                "default": "icon-text"
-              },
-              "label-format": {
-                "description": "Your phone's label, with `{name}`, `{battery}` and `{charging}`.",
-                "type": "string",
-                "default": "{battery}"
-              },
-              "tooltip-format": {
-                "description": "What the bar's tooltip reads. `{name}`, `{battery}` and `{charging}`, the same tokens as\n`label-format`. Unset lists every paired device.",
-                "type": [
-                  "string",
-                  "null"
-                ]
               }
             },
             "additionalProperties": false,
@@ -1790,28 +1593,6 @@
             ]
           },
           {
-            "description": "Screen measurements.",
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "ruler"
-              },
-              "tooltip-format": {
-                "description": "Your tooltip text, with `{measurement}` for your last measured distance.",
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "default": "{measurement}"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
             "description": "Log out, suspend, restart and shut down.",
             "type": "object",
             "properties": {
@@ -1826,59 +1607,6 @@
                   "null"
                 ],
                 "default": "Session"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "description": "Your computer's resource usage.",
-            "type": "object",
-            "properties": {
-              "chip-format": {
-                "description": "Your indicator text, with `{name}` for the resource name and `{value}` for its reading.",
-                "type": "string",
-                "default": "{name} {value}"
-              },
-              "chips": {
-                "description": "Which resource indicators you see on your bar, in order. Other readings still appear when\nyou click one.",
-                "type": "array",
-                "default": [
-                  "cpu",
-                  "ram"
-                ],
-                "items": {
-                  "$ref": "#/$defs/Chip"
-                }
-              },
-              "critical-percent": {
-                "description": "Percent at and above which a percentage reading is shown as critical. Must not be below\n`warn-percent`.",
-                "type": "integer",
-                "format": "uint8",
-                "default": 95,
-                "maximum": 100,
-                "minimum": 1
-              },
-              "extends": {
-                "type": "string",
-                "const": "system-monitor"
-              },
-              "tooltip-format": {
-                "description": "Your tooltip text, shared by all resource indicators.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "warn-percent": {
-                "description": "The percentage at which CPU, RAM, swap and GPU readings show a warning.",
-                "type": "integer",
-                "format": "uint8",
-                "default": 85,
-                "maximum": 100,
-                "minimum": 1
               }
             },
             "additionalProperties": false,
@@ -2078,13 +1806,6 @@
         "max-total-kib": 10240
       }
     },
-    "color-picker": {
-      "$ref": "#/$defs/ColorPicker",
-      "default": {
-        "format": "hex",
-        "limit": 8
-      }
-    },
     "geolocation": {
       "$ref": "#/$defs/Geolocation",
       "default": {
@@ -2240,7 +1961,6 @@
             "tray",
             "removable",
             "clipboard",
-            "color-picker",
             "printing",
             "bluetooth",
             "network",
@@ -2286,12 +2006,6 @@
         "capacity-interval": 10
       }
     },
-    "ruler": {
-      "$ref": "#/$defs/Ruler",
-      "default": {
-        "history-limit": 8
-      }
-    },
     "screenshot": {
       "$ref": "#/$defs/Screenshot",
       "default": {
@@ -2304,16 +2018,6 @@
         "flash": true,
         "notify": true,
         "stroke": "medium"
-      }
-    },
-    "system-monitor": {
-      "$ref": "#/$defs/SystemMonitor",
-      "default": {
-        "disk-paths": [
-          "/"
-        ],
-        "gpu": true,
-        "poll-interval": 2
       }
     },
     "wallpaper": {
@@ -2541,19 +2245,6 @@
       },
       "additionalProperties": false
     },
-    "Chip": {
-      "description": "One chip the system-monitor applet can show on the bar. Disk is deliberately not a variant —\narbitrarily many configured paths don't reduce to one chip value, so disk stays popover-only.",
-      "type": "string",
-      "enum": [
-        "cpu",
-        "ram",
-        "swap",
-        "network",
-        "gpu",
-        "cpu-temp",
-        "gpu-temp"
-      ]
-    },
     "Clipboard": {
       "description": "Keep your copied text and PNG or JPEG images in memory until the panel restarts.\nContent marked secret by a password manager is skipped; copying an existing entry moves it to the top.",
       "type": "object",
@@ -2609,59 +2300,6 @@
           "description": "A `strftime` pattern for the time, e.g. `%H:%M` or `%-I:%M %p`.",
           "type": "string",
           "default": "%H:%M"
-        }
-      },
-      "additionalProperties": false
-    },
-    "ColorFormat": {
-      "oneOf": [
-        {
-          "description": "`#E0563F`",
-          "type": "string",
-          "const": "hex"
-        },
-        {
-          "description": "`rgb(224 86 63)`",
-          "type": "string",
-          "const": "rgb"
-        },
-        {
-          "description": "`hsl(9 72% 56%)`",
-          "type": "string",
-          "const": "hsl"
-        },
-        {
-          "description": "`hsv(9 72% 88%)`",
-          "type": "string",
-          "const": "hsv"
-        },
-        {
-          "description": "`oklch(0.63 0.18 32)`",
-          "type": "string",
-          "const": "oklch"
-        },
-        {
-          "description": "`cmyk(0% 62% 72% 12%)`",
-          "type": "string",
-          "const": "cmyk"
-        }
-      ]
-    },
-    "ColorPicker": {
-      "description": "Choose how you copy and keep picked colors; changes apply the next time the panel starts.",
-      "type": "object",
-      "properties": {
-        "format": {
-          "description": "The format you copy picked colors in and see in your palette. Changes apply after you\nrestart the panel.",
-          "$ref": "#/$defs/ColorFormat",
-          "default": "hex"
-        },
-        "limit": {
-          "description": "How many colors you keep in your palette, from 1 to 64. Changes apply after you restart the\npanel.",
-          "type": "integer",
-          "format": "uint",
-          "default": 8,
-          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -3379,7 +3017,6 @@
             "tray",
             "removable",
             "clipboard",
-            "color-picker",
             "printing",
             "bluetooth",
             "network",
@@ -3681,20 +3318,6 @@
       },
       "additionalProperties": false
     },
-    "Ruler": {
-      "description": "Keep your recent screen measurements; changes apply the next time the panel starts.",
-      "type": "object",
-      "properties": {
-        "history-limit": {
-          "description": "How many screen measurements you keep, from 1 to 64. Changes apply after you restart the\npanel.",
-          "type": "integer",
-          "format": "uint",
-          "default": 8,
-          "minimum": 0
-        }
-      },
-      "additionalProperties": false
-    },
     "Schedule": {
       "type": "string",
       "enum": [
@@ -3829,36 +3452,6 @@
         "medium",
         "thick"
       ]
-    },
-    "SystemMonitor": {
-      "description": "The system-monitor service: what it samples and how often. Whether it samples at all is not a\nkey here — it is derived from panel placement (see `placed_kinds`), because a poll interval\nonly means something once something is actually placed to consume it.",
-      "type": "object",
-      "properties": {
-        "disk-paths": {
-          "description": "Full paths to folders on the disks you want to check for free space.",
-          "type": "array",
-          "default": [
-            "/"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "gpu": {
-          "description": "Show readings from your AMD GPU.",
-          "type": "boolean",
-          "default": true
-        },
-        "poll-interval": {
-          "description": "How often the readings update, in seconds, from 1 to 60.",
-          "type": "integer",
-          "format": "uint64",
-          "default": 2,
-          "maximum": 60,
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
     },
     "Timezone": {
       "description": "One zone in the clock popover's world clock.",

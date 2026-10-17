@@ -36,7 +36,6 @@ impl Default for Panel {
                 "tray",
                 "removable",
                 "clipboard",
-                "color-picker",
                 "printing",
                 "bluetooth",
                 "network",

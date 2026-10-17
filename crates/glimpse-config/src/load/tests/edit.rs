@@ -35,7 +35,7 @@ fn a_change_between_read_and_write_is_kept_and_the_edit_reapplied() {
     let dir = tempfile::tempdir().expect("a temporary directory");
     let path = dir.path().join(FILE_NAME);
     std::fs::write(&path, DOTFILE).expect("writes");
-    let concurrent = format!("{DOTFILE}\n[ruler]\nhistory-limit = 12\n");
+    let concurrent = format!("{DOTFILE}\n# a comment added while the edit ran\n");
     let mut edits = 0;
 
     write_table_with(&path, "screenshot", &flash_off(), &mut || {

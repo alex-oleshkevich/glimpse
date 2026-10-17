@@ -12,8 +12,6 @@ mod calendar_popover;
 mod choice_list;
 mod clipboard_list;
 mod clipboard_popover;
-mod color_list;
-mod color_picker_popover;
 mod connection;
 mod container;
 mod display_list;
@@ -30,7 +28,6 @@ mod idle_popover;
 mod indicator;
 mod indicator_group;
 mod inhibitor_list;
-mod kdeconnect_popover;
 mod keyboard_popover;
 mod lens;
 mod lock_clock;
@@ -67,7 +64,6 @@ mod readout;
 pub mod reconcile;
 mod removable_popover;
 pub(crate) mod row;
-mod ruler_popover;
 mod scrubber;
 mod section;
 mod session_popover;
@@ -86,7 +82,6 @@ mod source_list;
 mod sparkline;
 mod status_island;
 mod swatch;
-mod system_monitor_popover;
 mod theme;
 pub(crate) mod toggle_row;
 mod track_card;
@@ -119,8 +114,6 @@ pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
 pub use clipboard_list::{Actions as ClipActions, Clip, ClipAction, ClipboardList};
 pub use clipboard_popover::ClipboardPopover;
-pub use color_list::{ColorList, Notation, Shade};
-pub use color_picker_popover::ColorPickerPopover;
 pub use connection::roundtrip;
 pub use container::{Container, Paint as ContainerPaint};
 pub use display_list::{Display, DisplayList, DisplayLogical, DisplayMode};
@@ -136,10 +129,6 @@ pub use idle_popover::IdlePopover;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use inhibitor_list::{InhibitorEntry, InhibitorList, InhibitorSource, InhibitorTargets};
-pub use kdeconnect_popover::{
-    Action as KdeconnectAction, Device as KdeconnectDevice, KdeconnectPopover,
-    Nearby as KdeconnectNearby,
-};
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use lens::{Lens, zoomed};
 pub use lock_clock::LockClock;
@@ -182,7 +171,6 @@ pub use removable_popover::{
     Drive as RemovableDrive, RemovablePopover, Space as RemovableSpace, Volume as RemovableVolume,
 };
 pub use row::{Row, RowTone, RowTypography};
-pub use ruler_popover::{HistoryEntry, RulerPopover};
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use session_popover::{
@@ -204,10 +192,6 @@ pub use source_list::{Source, SourceList};
 pub use sparkline::{Sparkline, Tick};
 pub use status_island::StatusIsland;
 pub use swatch::{Swatch, rgba};
-pub use system_monitor_popover::{
-    Meter as SystemMonitorMeter, NamedMeter as SystemMonitorNamedMeter,
-    Readings as SystemMonitorReadings, SystemMonitorPopover,
-};
 pub(crate) use theme::animation_ms;
 pub use theme::{Sheets, Styles, color_scheme, duration_ms};
 pub use toggle_row::{ToggleControl, ToggleRow};

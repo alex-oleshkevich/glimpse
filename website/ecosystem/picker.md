@@ -29,20 +29,14 @@ cancels.
 
 The value is hex unless you pass `--format`:
 
-| `--format` | Prints |
-| --- | --- |
-| `hex` | `#E0563F` |
-| `rgb` | `rgb(224 86 63)` |
-| `hsl` | `hsl(9 72% 56%)` |
-| `hsv` | `hsv(9 72% 88%)` |
-| `oklch` | `oklch(0.63 0.18 32)` |
-| `cmyk` | `cmyk(0% 62% 72% 12%)`, without a color profile |
-
-## Keep a palette
-
-The [color picker applet](/config/applets/tools#color-picker) starts the same picker from the bar,
-copies the color for you and keeps the colors you picked, 8 by default, each one a click away in
-any notation.
+| `--format` | Prints                                          |
+| ---------- | ----------------------------------------------- |
+| `hex`      | `#E0563F`                                       |
+| `rgb`      | `rgb(224 86 63)`                                |
+| `hsl`      | `hsl(9 72% 56%)`                                |
+| `hsv`      | `hsv(9 72% 88%)`                                |
+| `oklch`    | `oklch(0.63 0.18 32)`                           |
+| `cmyk`     | `cmyk(0% 62% 72% 12%)`, without a color profile |
 
 ## Use it in scripts
 
@@ -54,11 +48,11 @@ glimpse-lens --tool picker --json
 # {"format":"hex","value":"#E0563F","red":224,"green":86,"blue":63}
 ```
 
-| Exit code | Meaning |
-| --- | --- |
-| 0 | a color was picked |
-| 4 | you cancelled, or a screen went away while picking |
-| 1 | something else failed; the reason is on standard error |
+| Exit code | Meaning                                                |
+| --------- | ------------------------------------------------------ |
+| 0         | a color was picked                                     |
+| 4         | you cancelled, or a screen went away while picking     |
+| 1         | something else failed; the reason is on standard error |
 
 Check the exit code before using the output, since a cancelled pick prints nothing:
 
