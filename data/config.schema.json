@@ -174,7 +174,7 @@
           "required": []
         },
         "command": {
-          "description": "Picks a color from the screen on right click; the popover keeps the picked colors.\nYour own commands on the bar.",
+          "description": "Your own commands on the bar.",
           "type": "object",
           "properties": {
             "extends": {
@@ -348,7 +348,7 @@
           "required": []
         },
         "keyboard": {
-          "description": "Your paired KDE Connect phone.\nThe active keyboard layout, and switches between the configured ones.",
+          "description": "The active keyboard layout, and switches between the configured ones.",
           "type": "object",
           "properties": {
             "extends": {
@@ -716,7 +716,7 @@
           "required": []
         },
         "session": {
-          "description": "Screen measurements.\nLog out, suspend, restart and shut down.",
+          "description": "Log out, suspend, restart and shut down.",
           "type": "object",
           "properties": {
             "extends": {
@@ -736,7 +736,7 @@
           "required": []
         },
         "tray": {
-          "description": "Your computer's resource usage.\nApplication icons in the system tray.",
+          "description": "Application icons in the system tray.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1052,7 +1052,7 @@
             ]
           },
           {
-            "description": "Picks a color from the screen on right click; the popover keeps the picked colors.\nYour own commands on the bar.",
+            "description": "Your own commands on the bar.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1235,7 +1235,7 @@
             ]
           },
           {
-            "description": "Your paired KDE Connect phone.\nThe active keyboard layout, and switches between the configured ones.",
+            "description": "The active keyboard layout, and switches between the configured ones.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1593,7 +1593,7 @@
             ]
           },
           {
-            "description": "Screen measurements.\nLog out, suspend, restart and shut down.",
+            "description": "Log out, suspend, restart and shut down.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1615,7 +1615,7 @@
             ]
           },
           {
-            "description": "Your computer's resource usage.\nApplication icons in the system tray.",
+            "description": "Application icons in the system tray.",
             "type": "object",
             "properties": {
               "extends": {

@@ -48,16 +48,16 @@ Setting `GLIMPSE_THEME` in the environment overrides the configured `theme`. Set
 | `dark.css` | all of the above, read only while glimpse is dark |
 
 Every file is optional. A missing file leaves that surface with the built-in look; it does not fall
-back to the same file in `adwaita`. The color picker, the ruler and the magnifier read only the
-built-in stylesheet. They ignore your theme, your `styles.css` and `dark.css` files, and
-`color-scheme`.
+back to the same file in `adwaita`. glimpse-lens — the magnifier, and the color picker and ruler it
+runs as tools — reads only the built-in stylesheet. It ignores your theme, your `styles.css` and
+`dark.css` files, and `color-scheme`.
 
 `wallpaper.css` has the plain `window` and `picture` nodes to target, with no glimpse classes.
 glimpse tokens have no effect there.
 
 Each file is a separate stylesheet, so a token set in `panel.css` does not reach the lock screen.
 Set it in `lock.css` too, or put it in `~/.config/glimpse/styles.css`, which every surface except
-the color picker, ruler and magnifier reads.
+glimpse-lens reads.
 
 ## Change the dark look
 

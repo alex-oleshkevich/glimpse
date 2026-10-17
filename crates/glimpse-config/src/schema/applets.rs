@@ -43,7 +43,6 @@ pub enum Kind {
     Clipboard(Clipboard),
     /// The time and date, with a calendar in its popover.
     Clock(Clock),
-    /// Picks a color from the screen on right click; the popover keeps the picked colors.
     /// Your own commands on the bar.
     Command(Box<Command>),
     /// Displays, brightness and night light.
@@ -60,7 +59,6 @@ pub enum Kind {
         #[schemars(extend("default" = "{status}"))]
         tooltip_format: Option<String>,
     },
-    /// Your paired KDE Connect phone.
     /// The active keyboard layout, and switches between the configured ones.
     Keyboard {
         /// Your tooltip text, with `{code}` for the short layout label and `{name}` for its full
@@ -87,7 +85,6 @@ pub enum Kind {
     Privacy(Privacy),
     /// Removable drives.
     Removable(Removable),
-    /// Screen measurements.
     /// Log out, suspend, restart and shut down.
     Session {
         /// Your tooltip text, with `{user}` for your user name.
@@ -95,7 +92,6 @@ pub enum Kind {
         #[schemars(extend("default" = "Session"))]
         tooltip_format: Option<String>,
     },
-    /// Your computer's resource usage.
     /// Application icons in the system tray.
     Tray(Tray),
     /// Current weather and forecast.
