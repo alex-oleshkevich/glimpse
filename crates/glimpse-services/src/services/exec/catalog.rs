@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use gio::prelude::AppInfoExt;
 use gio_unix::DesktopAppInfo;
@@ -25,21 +25,23 @@ impl Catalog for DesktopCatalog {
     fn resolve(&self, id: &str) -> Result<Entry, String> {
         let info = DesktopAppInfo::new(&format!("{id}.desktop"))
             .ok_or_else(|| format!("{id}: not installed, or not Type=Application, or its TryExec/Exec program is not on PATH"))?;
-        entry_of(&info, id)
+        entry_of(&info, id, None)
     }
 }
 
 impl DesktopCatalog {
     pub fn resolve_file(&self, path: &Path) -> Result<Entry, String> {
         let subject = path.display().to_string();
-        let info = DesktopAppInfo::from_filename(path).ok_or_else(|| {
-            if path.exists() {
-                format!("{subject}: cannot be loaded (not Type=Application, or its TryExec/Exec program is not on PATH)")
-            } else {
-                format!("{subject}: no desktop entry")
-            }
+        if let Some(info) = DesktopAppInfo::from_filename(path) {
+            return entry_of(&info, &subject, None);
+        }
+        if !path.exists() {
+            return Err(format!("{subject}: no desktop entry"));
+        }
+        let info = relative_exec_info(path).ok_or_else(|| {
+            format!("{subject}: cannot be loaded (not Type=Application, or its TryExec/Exec program is not on PATH)")
         })?;
-        entry_of(&info, &subject)
+        entry_of(&info, &subject, Some(path.to_path_buf()))
     }
 
     pub fn installed(&self) -> Vec<(String, Result<Entry, String>)> {
@@ -52,7 +54,7 @@ impl DesktopCatalog {
                 Some(id) => id.to_owned(),
                 None => raw.to_string(),
             };
-            let resolved = entry_of(&info, &id);
+            let resolved = entry_of(&info, &id, None);
             rows.push((id, resolved));
         }
         rows.sort_by(|left, right| left.0.cmp(&right.0));
@@ -60,7 +62,50 @@ impl DesktopCatalog {
     }
 }
 
-fn entry_of(info: &DesktopAppInfo, subject: &str) -> Result<Entry, String> {
+fn join_relative(base: &Path, relative: &Path) -> PathBuf {
+    base.join(
+        relative
+            .components()
+            .filter(|component| !matches!(component, Component::CurDir))
+            .collect::<PathBuf>(),
+    )
+}
+
+fn relative_exec_info(path: &Path) -> Option<DesktopAppInfo> {
+    let keyfile = gio::glib::KeyFile::new();
+    keyfile
+        .load_from_file(path, gio::glib::KeyFileFlags::NONE)
+        .ok()?;
+    let exec = keyfile.string("Desktop Entry", "Exec").ok()?;
+    let mut argv: Vec<String> = gio::glib::shell_parse_argv(&exec)
+        .ok()?
+        .iter()
+        .map(|arg| arg.to_str().map(str::to_owned))
+        .collect::<Option<_>>()?;
+    let first = PathBuf::from(argv.first()?);
+    if first.is_absolute() || !first.to_string_lossy().contains('/') {
+        return None;
+    }
+    let base = keyfile
+        .string("Desktop Entry", "Path")
+        .ok()
+        .filter(|cwd| !cwd.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| path.canonicalize().ok()?.parent().map(Path::to_path_buf))?;
+    argv[0] = join_relative(&base, &first).display().to_string();
+    let quoted: Vec<String> = argv
+        .iter()
+        .map(|arg| gio::glib::shell_quote(arg).to_str().map(str::to_owned))
+        .collect::<Option<_>>()?;
+    keyfile.set_string("Desktop Entry", "Exec", &quoted.join(" "));
+    DesktopAppInfo::from_keyfile(&keyfile)
+}
+
+fn entry_of(
+    info: &DesktopAppInfo,
+    subject: &str,
+    path_override: Option<PathBuf>,
+) -> Result<Entry, String> {
     if info.is_hidden() {
         return Err(format!("{subject}: Hidden"));
     }
@@ -88,16 +133,28 @@ fn entry_of(info: &DesktopAppInfo, subject: &str) -> Result<Entry, String> {
         .string("Icon")
         .filter(|icon| !icon.is_empty())
         .map(|icon| icon.to_string());
-    let path = info
-        .filename()
-        .ok_or_else(|| format!("{subject}: no filename"))?;
+    let path = match path_override {
+        Some(path) => path,
+        None => info
+            .filename()
+            .ok_or_else(|| format!("{subject}: no filename"))?,
+    };
     let cwd = info
         .string("Path")
         .filter(|cwd| !cwd.is_empty())
         .map(|cwd| PathBuf::from(cwd.as_str()))
         .or_else(|| path.canonicalize().ok()?.parent().map(Path::to_path_buf));
-    let argv = expand(&exec, &name, icon.as_deref(), &path)
+    let mut argv = expand(&exec, &name, icon.as_deref(), &path)
         .map_err(|error| format!("{subject}: {error}"))?;
+    if let Some(first) = argv.first_mut() {
+        let program = Path::new(first.as_str());
+        if !program.is_absolute()
+            && first.contains('/')
+            && let Some(cwd) = &cwd
+        {
+            *first = join_relative(cwd, program).display().to_string();
+        }
+    }
     Ok(Entry {
         argv,
         cwd,

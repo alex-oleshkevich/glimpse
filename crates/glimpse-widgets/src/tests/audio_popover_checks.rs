@@ -130,10 +130,10 @@ pub(super) fn check() {
     audio.set_output_level(64.0, true, Some("audio-volume-muted-symbolic"));
     assert!(
         audio.imp().output.inactive()
-            && audio.imp().output.subtitle().as_deref() == Some("Muted")
+            && audio.imp().output.subtitle().is_none()
             && audio.imp().output_mute.icon_name().as_deref()
                 == Some("audio-volume-muted-symbolic"),
-        "a muted level is inactive and says so; its button carries the muted glyph"
+        "a muted level is inactive with no subtitle; its button carries the muted glyph"
     );
     audio.imp().output_mute.emit_clicked();
     assert_eq!(*toggles.borrow(), ["output/true", "output/false"]);

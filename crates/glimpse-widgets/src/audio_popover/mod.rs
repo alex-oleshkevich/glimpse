@@ -404,7 +404,6 @@ fn dress_level(
 ) {
     slider.set_value(volume);
     slider.set_inactive(muted);
-    slider.set_subtitle(muted.then(|| gettext("Muted")).as_deref());
     mute.set_icon_name(icon.unwrap_or_default());
     mute.set_tooltip_text(Some(&match muted {
         true => gettext("Unmute"),

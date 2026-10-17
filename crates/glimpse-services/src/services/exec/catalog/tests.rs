@@ -178,6 +178,31 @@ fn resolve_file_returns_the_entry() {
 }
 
 #[test]
+fn resolve_file_absolutizes_a_relative_exec() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let program = dir.path().join("glimpse-applet");
+    std::fs::write(&program, "#!/bin/sh\nexit 0\n").expect("stub script");
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))
+        .expect("executable stub");
+    let path = dir.path().join("applet.desktop");
+    std::fs::write(
+        &path,
+        "[Desktop Entry]\nType=Application\nName=Pomodoro\nExec=./glimpse-applet --flag\nImplements=me.aresa.Glimpse.Applet1;\n",
+    )
+    .expect("desktop file");
+    let entry = DesktopCatalog.resolve_file(&path).expect("entry");
+    let expected = dir
+        .path()
+        .canonicalize()
+        .unwrap()
+        .join("glimpse-applet")
+        .display()
+        .to_string();
+    assert_eq!(entry.argv, [expected, "--flag".to_owned()]);
+    assert_eq!(entry.path, path);
+}
+
+#[test]
 fn resolve_file_treats_an_empty_icon_as_absent_and_runs_beside_the_desktop_file() {
     let (_dir, path) = desktop(
         "[Desktop Entry]\nType=Application\nName=Pomodoro\nIcon=\nPath=\nExec=glimpse-applet %i\nImplements=me.aresa.Glimpse.Applet1;\n",
