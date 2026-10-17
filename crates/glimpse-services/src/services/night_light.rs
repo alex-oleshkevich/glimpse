@@ -17,6 +17,7 @@ use crate::{
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 const RAMPING: time::Duration = time::Duration::from_secs(10);
+const SOFTENING_STEP: time::Duration = time::Duration::from_secs(1);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -71,6 +72,64 @@ fn initial_state(config: &Config) -> NightLightState {
         configured: config.schedule,
         manual: false,
         paused_until: None,
+    }
+}
+
+struct Ramp {
+    from: u32,
+    to: u32,
+    started: DateTime<Utc>,
+    duration: TimeDelta,
+}
+
+impl Ramp {
+    const GLIDE: TimeDelta = TimeDelta::seconds(3);
+
+    fn to_boundary(phase: &SolarPhase, change: DateTime<Utc>, config: &Config) -> Self {
+        Self {
+            from: steady(phase, config),
+            to: match phase {
+                SolarPhase::Day => config.temperature,
+                SolarPhase::Night => DAY,
+            },
+            started: change - config.transition,
+            duration: config.transition,
+        }
+    }
+
+    fn glide(from: u32, to: u32, now: DateTime<Utc>) -> Self {
+        Self {
+            from,
+            to,
+            started: now,
+            duration: Self::GLIDE,
+        }
+    }
+
+    fn value(&self, now: DateTime<Utc>) -> u32 {
+        if self.duration <= TimeDelta::zero() {
+            return if now >= self.started {
+                self.to
+            } else {
+                self.from
+            };
+        }
+        let progress = ((now - self.started).as_seconds_f64() / self.duration.as_seconds_f64())
+            .clamp(0.0, 1.0);
+        (self.from as f64 + (self.to as f64 - self.from as f64) * progress).round() as u32
+    }
+
+    fn moving(&self, now: DateTime<Utc>) -> bool {
+        self.duration > TimeDelta::zero()
+            && now >= self.started
+            && now < self.started + self.duration
+    }
+}
+
+fn steady(phase: &SolarPhase, config: &Config) -> u32 {
+    match phase {
+        SolarPhase::Day => DAY,
+        SolarPhase::Night => config.temperature,
     }
 }
 
@@ -149,6 +208,7 @@ pub struct NightLight {
     manual: Option<(u32, SolarPhase)>,
     observed: Option<SolarStatus>,
     applied: Option<u32>,
+    glide: Option<Ramp>,
     paused_until: Option<DateTime<Utc>>,
 }
 
@@ -200,6 +260,7 @@ impl Service for NightLight {
             manual: None,
             observed,
             applied: None,
+            glide: None,
             paused_until: None,
         }
     }
@@ -300,8 +361,13 @@ impl NightLight {
     }
 
     fn cadence(&self, now: DateTime<Utc>) -> time::Duration {
+        if self.glide.is_some() {
+            return SOFTENING_STEP;
+        }
         match self.boundary(now) {
-            Some((_, Some(change))) if in_transition(change - now, self.config.transition) => {
+            Some((phase, Some(change)))
+                if Ramp::to_boundary(&phase, change, &self.config).moving(now) =>
+            {
                 RAMPING
             }
             _ => TICK,
@@ -323,19 +389,15 @@ impl NightLight {
             self.manual = None;
         }
         if self.effective() == Schedule::Off {
+            self.glide = None;
             return self.release(ctx);
         }
         if self.paused_until.is_some() {
-            match self.gamma.apply(DAY) {
-                Ok(()) => {
-                    self.applied = Some(DAY);
-                    ctx.running();
-                }
-                Err(reason) => ctx.degraded(reason),
-            }
-            return;
+            let wanted = self.glide_toward(now, DAY, false);
+            return self.drive(ctx, wanted);
         }
         let Some((phase, next_change)) = self.boundary(now) else {
+            self.glide = None;
             return ctx.degraded(self.missing());
         };
 
@@ -345,16 +407,43 @@ impl NightLight {
             self.manual = None;
         }
 
-        // Applied on every tick rather than only when it moves: the compositor is the authority on
-        // whether we still hold the outputs, and a client that took them from us and left would
-        // otherwise leave the screen neutral while this service still believed it had applied.
-        let wanted = match self.manual {
-            Some((kelvin, _)) => kelvin,
-            None => ramp(&phase, next_change, now, &self.config),
+        let boundary = next_change.map(|change| Ramp::to_boundary(&phase, change, &self.config));
+        let (target, on_boundary_ramp) = match self.manual {
+            Some((kelvin, _)) => (kelvin, false),
+            None => match &boundary {
+                Some(ramp) => (ramp.value(now), ramp.moving(now)),
+                None => (steady(&phase, &self.config), false),
+            },
         };
-        if wanted == DAY && (self.manual.is_some() || phase == SolarPhase::Day) {
+        let wanted = self.glide_toward(now, target, on_boundary_ramp);
+        if wanted == target && target == DAY && (self.manual.is_some() || phase == SolarPhase::Day)
+        {
             return self.release(ctx);
         }
+        self.drive(ctx, wanted);
+    }
+
+    fn glide_toward(&mut self, now: DateTime<Utc>, target: u32, on_boundary_ramp: bool) -> u32 {
+        if on_boundary_ramp {
+            self.glide = None;
+            return target;
+        }
+        let running = match self.glide.take() {
+            Some(ramp) if ramp.to == target => ramp,
+            _ => Ramp::glide(self.applied.unwrap_or(DAY), target, now),
+        };
+        let wanted = running.value(now);
+        if wanted == target {
+            return target;
+        }
+        self.glide = Some(running);
+        wanted
+    }
+
+    /// Applied on every tick rather than only when it moves: the compositor is the authority on
+    /// whether we still hold the outputs, and a client that took them from us and left would
+    /// otherwise leave the screen neutral while this service still believed it had applied.
+    fn drive(&mut self, ctx: &Ctx<Self>, wanted: u32) {
         match self.gamma.apply(wanted) {
             Ok(()) => {
                 self.applied = Some(wanted);
@@ -412,43 +501,6 @@ impl NightLight {
             paused_until: self.paused_until,
         });
     }
-}
-
-/// The temperature standing at `now`, ramping so that it arrives at the next phase's own
-/// temperature exactly as the phase flips. Anchoring on the boundary ahead is what lets this read
-/// one instant instead of remembering the last one.
-fn ramp(
-    phase: &SolarPhase,
-    next_change: Option<DateTime<Utc>>,
-    now: DateTime<Utc>,
-    config: &Config,
-) -> u32 {
-    let (steady, next) = match phase {
-        SolarPhase::Day => (DAY, config.temperature),
-        SolarPhase::Night => (config.temperature, DAY),
-    };
-    let Some(change) = next_change else {
-        return steady;
-    };
-    let remaining = change - now;
-    // A boundary already behind us means the ramp finished: `solar` recomputes on its own minute,
-    // so just after sunset the phase still reads `Day` against a `next_change` in the past. Reading
-    // that as "far from the boundary" put daylight back on the screen for up to a minute, every
-    // sunset and every sunrise.
-    if remaining <= TimeDelta::zero() {
-        return next;
-    }
-    if !in_transition(remaining, config.transition) {
-        return steady;
-    }
-
-    let progress = 1.0 - remaining.as_seconds_f64() / config.transition.as_seconds_f64();
-    let travelled = (next as f64 - steady as f64) * progress.clamp(0.0, 1.0);
-    (steady as f64 + travelled).round() as u32
-}
-
-fn in_transition(remaining: TimeDelta, transition: TimeDelta) -> bool {
-    remaining > TimeDelta::zero() && remaining < transition
 }
 
 /// Night runs from `start` to `end` every day in the machine's own zone. Both instants are laid out

@@ -315,14 +315,36 @@ async fn pause_and_resume_publish_the_existing_night_deadline_over_a_private_bus
         .await
         .unwrap();
     proxy.pause().await.unwrap();
-    let paused = proxy.snapshot().await.unwrap();
+    let limit = tokio::time::Instant::now() + std::time::Duration::from_secs(15);
+    let paused = loop {
+        let snapshot = proxy.snapshot().await.unwrap();
+        if snapshot.temperature == 6500 && snapshot.paused_until == deadline.timestamp() {
+            break snapshot;
+        }
+        assert!(
+            tokio::time::Instant::now() < limit,
+            "pause never glided back to neutral"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
     assert_eq!(paused.paused_until, deadline.timestamp());
     assert_eq!(paused.temperature, 6500);
     assert!(!paused.active);
     assert!(paused.serving);
     assert_eq!(applied.applied().last(), Some(&6500));
     proxy.resume().await.unwrap();
-    let resumed = proxy.snapshot().await.unwrap();
+    let limit = tokio::time::Instant::now() + std::time::Duration::from_secs(15);
+    let resumed = loop {
+        let snapshot = proxy.snapshot().await.unwrap();
+        if snapshot.temperature == 4200 {
+            break snapshot;
+        }
+        assert!(
+            tokio::time::Instant::now() < limit,
+            "resume never glided back to the night temperature"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
     assert_eq!(resumed.paused_until, 0);
     assert_eq!(resumed.temperature, 4200);
     assert!(resumed.active);

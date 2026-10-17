@@ -196,7 +196,7 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
     );
     let mut state = handle.subscribe();
     tokio::time::timeout(
-        Duration::from_secs(3),
+        Duration::from_secs(15),
         state.wait_for(|state| state.temperature == 4200),
     )
     .await
@@ -238,6 +238,13 @@ async fn night_light_follows_the_daemon_and_recovers_after_a_restart() {
     tokio::time::timeout(
         Duration::from_secs(3),
         health.wait_for(|health| matches!(health, ServiceState::Running)),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(15),
+        state.wait_for(|state| state.temperature == 6500),
     )
     .await
     .unwrap()

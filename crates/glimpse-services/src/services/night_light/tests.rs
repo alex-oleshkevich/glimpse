@@ -27,6 +27,15 @@ impl Harness {
         self.service.handle(&self.ctx, input).await;
     }
 
+    async fn feed_at(&mut self, input: Input<NightLight>, now: DateTime<Utc>) {
+        self.service.handle_at(&self.ctx, input, now).await;
+    }
+
+    async fn settle(&mut self, now: DateTime<Utc>) {
+        self.at(now).await;
+        self.at(now + Ramp::GLIDE).await;
+    }
+
     async fn set(&mut self, schedule: Schedule) {
         let (reply, result) = oneshot::channel();
         self.feed(Input::Command(Command::SetSchedule { schedule, reply }))
@@ -142,15 +151,15 @@ async fn far_from_the_boundary_each_phase_holds_its_own_temperature() {
 
     // Tomorrow's sunrise, because `solar` never reports a boundary that has already passed.
     harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
-    harness.at(at(23, 0)).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
     assert!(harness.state.borrow().active());
 }
 
 /// The property the whole `next_change` design exists for: the ramp arrives exactly as the
 /// phase flips, so the two never disagree about what the screen should look like.
 #[tokio::test]
-async fn the_ramp_reaches_the_target_exactly_at_the_boundary() {
+async fn the_ramp_settles_at_the_target_at_the_boundary() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = day(Some(sunset()));
 
@@ -162,9 +171,10 @@ async fn the_ramp_reaches_the_target_exactly_at_the_boundary() {
 
     harness.at(sunset() - TimeDelta::minutes(8)).await;
     harness.at(sunset()).await;
+    harness.at(sunset() + Ramp::GLIDE).await;
 
     let applied = harness.gamma.applied();
-    assert_eq!(applied.last(), Some(&NIGHT), "and closes at the target");
+    assert_eq!(applied.last(), Some(&NIGHT), "and settles at the target");
     let midpoint = applied[0];
     assert!(
         midpoint < DAY && midpoint > NIGHT,
@@ -172,21 +182,25 @@ async fn the_ramp_reaches_the_target_exactly_at_the_boundary() {
     );
 }
 
-/// `solar` recomputes on its own minute, so between a boundary passing and the next solar tick
-/// the phase is stale against a `next_change` in the past. Treating that as "far away" is what
-/// flashed daylight onto the screen at every sunset.
 #[tokio::test]
-async fn a_boundary_already_behind_us_holds_the_temperature_it_ramped_to() {
+async fn a_stale_phase_does_not_write_daylight() {
     let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
+    harness.settle(at(23, 0)).await;
+    let baseline = harness.gamma.applied().len();
+
     harness.service.observed = day(Some(sunset()));
+    harness.settle(at(23, 0) + TimeDelta::seconds(30)).await;
 
-    harness.at(sunset() + TimeDelta::seconds(30)).await;
-
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert!(
+        !harness.gamma.applied()[baseline..].contains(&DAY),
+        "the stale phase must not write daylight"
+    );
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 }
 
 #[tokio::test]
-async fn a_zero_transition_steps_rather_than_ramps() {
+async fn a_zero_transition_still_glides() {
     let mut harness = harness(Config {
         transition: TimeDelta::zero(),
         ..config(Schedule::Automatic)
@@ -194,19 +208,105 @@ async fn a_zero_transition_steps_rather_than_ramps() {
     .await;
     harness.service.observed = day(Some(sunset()));
 
-    harness.at(sunset() - TimeDelta::minutes(1)).await;
-    assert!(
-        harness.gamma.applied().is_empty(),
-        "a minute before the boundary a zero transition has begun no ramp"
-    );
-
-    harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
-    harness.at(sunset()).await;
-
+    let now = sunset() + TimeDelta::seconds(30);
+    harness.at(now).await;
     assert_eq!(
         harness.gamma.applied(),
-        vec![NIGHT],
-        "it steps straight to the target instead of travelling to it"
+        vec![DAY],
+        "a stale phase does not step; the glide opens at the neutral screen"
+    );
+
+    harness.at(now + Ramp::GLIDE / 2).await;
+    let midpoint = *harness.gamma.applied().last().expect("a midpoint");
+    assert!(
+        midpoint < DAY && midpoint > NIGHT,
+        "{midpoint}K is between the two"
+    );
+
+    harness.at(now + Ramp::GLIDE).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+}
+
+#[tokio::test]
+async fn a_change_with_no_boundary_ramp_glides() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(Some(at(5, 0) + TimeDelta::days(1)));
+
+    harness.at(at(23, 0)).await;
+    assert_eq!(
+        harness.gamma.applied(),
+        vec![DAY],
+        "it opens at what is on screen"
+    );
+
+    harness.at(at(23, 0) + Ramp::GLIDE / 2).await;
+    let midpoint = *harness.gamma.applied().last().expect("a midpoint");
+    assert!(
+        midpoint < DAY && midpoint > NIGHT,
+        "{midpoint}K is between the two"
+    );
+
+    harness.at(at(23, 0) + Ramp::GLIDE).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+}
+
+#[tokio::test]
+async fn losing_the_solar_source_mid_glide_stops_the_fast_tick() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(None);
+    harness.at(at(23, 0)).await;
+    assert!(harness.service.glide.is_some());
+
+    harness.service.observed = None;
+    harness.at(at(23, 0) + TimeDelta::seconds(1)).await;
+
+    assert!(harness.service.glide.is_none());
+    assert_eq!(
+        harness.service.cadence(at(23, 0) + TimeDelta::seconds(1)),
+        TICK
+    );
+}
+
+#[tokio::test]
+async fn retargeting_a_glide_continues_from_the_value_on_screen() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = day(Some(sunset()));
+    harness.service.manual = Some((3000, SolarPhase::Day));
+
+    let start = at(12, 0);
+    harness.at(start).await;
+    harness.at(start + Ramp::GLIDE / 2).await;
+    let midpoint = *harness.gamma.applied().last().expect("a midpoint");
+
+    harness.service.manual = Some((5000, SolarPhase::Day));
+    harness
+        .at(start + Ramp::GLIDE / 2 + TimeDelta::seconds(1))
+        .await;
+
+    let glide = harness.service.glide.as_ref().expect("still gliding");
+    assert_eq!(glide.from, midpoint);
+    assert_eq!(glide.to, 5000);
+}
+
+#[tokio::test]
+async fn a_soft_ramp_asks_to_be_woken_faster_than_a_minute() {
+    let mut harness = harness(config(Schedule::Automatic)).await;
+    harness.service.observed = night(None);
+
+    harness.at(at(23, 0)).await;
+    assert!(harness.service.glide.is_some());
+    assert_eq!(
+        harness.service.cadence(at(23, 0)),
+        SOFTENING_STEP,
+        "a glide needs finer ticks than the idle minute"
+    );
+
+    harness.at(at(23, 0) + Ramp::GLIDE).await;
+    assert!(harness.service.glide.is_none());
+    assert_eq!(
+        harness.service.cadence(at(23, 0) + Ramp::GLIDE),
+        TICK,
+        "and the idle cadence comes back when it lands"
     );
 }
 
@@ -240,9 +340,9 @@ async fn a_polar_day_holds_steady_with_no_boundary_to_ramp_to() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
 
-    harness.at(at(2, 0)).await;
+    harness.settle(at(2, 0)).await;
 
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 }
 
 #[tokio::test]
@@ -263,15 +363,25 @@ async fn a_lost_solar_source_does_not_reuse_its_last_phase() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     let (source, state) = watch::channel(night(None));
     harness.service.solar = state;
-    harness.feed(Input::Event(Event::Solar(night(None)))).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness
+        .feed_at(Input::Event(Event::Solar(night(None))), at(23, 0))
+        .await;
+    harness.at(at(23, 0) + Ramp::GLIDE).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
+    let baseline = harness.gamma.applied().len();
 
     drop(source);
-    harness.feed(Input::Event(Event::Solar(None))).await;
+    harness
+        .feed_at(Input::Event(Event::Solar(None)), at(23, 1))
+        .await;
     harness.at(at(23, 1)).await;
 
     assert!(harness.service.observed.is_none());
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert_eq!(
+        harness.gamma.applied().len(),
+        baseline,
+        "a lost source applies nothing"
+    );
     assert_eq!(harness.gamma.resets(), 0);
     assert!(harness.reason().is_some());
 }
@@ -308,7 +418,7 @@ async fn a_failing_backend_degrades_and_a_later_success_clears_it() {
     harness.gamma.fail(None);
     harness.at(at(23, 1)).await;
 
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
     assert!(matches!(&*harness.health.borrow(), ServiceState::Running));
 }
 
@@ -320,11 +430,16 @@ async fn the_temperature_is_reapplied_every_tick_so_stolen_outputs_come_back() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
 
-    harness.at(at(23, 0)).await;
+    harness.settle(at(23, 0)).await;
     harness.at(at(23, 1)).await;
     harness.at(at(23, 2)).await;
 
-    assert_eq!(harness.gamma.applied(), vec![NIGHT, NIGHT, NIGHT]);
+    let applied = harness.gamma.applied();
+    assert_eq!(
+        &applied[applied.len() - 3..],
+        &[NIGHT, NIGHT, NIGHT],
+        "re-applying every tick is what brings stolen outputs back"
+    );
     assert_eq!(harness.state.borrow().temperature, NIGHT);
 }
 
@@ -332,8 +447,8 @@ async fn the_temperature_is_reapplied_every_tick_so_stolen_outputs_come_back() {
 async fn turning_the_schedule_off_releases_the_outputs_once() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 
     harness.service.config.schedule = Schedule::Off;
     harness.at(at(23, 1)).await;
@@ -347,16 +462,16 @@ async fn turning_the_schedule_off_releases_the_outputs_once() {
 async fn a_day_temperature_is_released_rather_than_written_as_a_neutral_curve() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 
     harness.service.observed = day(Some(sunset()));
-    harness.at(at(12, 0)).await;
+    let baseline = harness.gamma.applied().len();
+    harness.settle(at(12, 0)).await;
 
-    assert_eq!(
-        harness.gamma.applied(),
-        vec![NIGHT],
-        "nothing further was written; the outputs went back instead"
+    assert!(
+        !harness.gamma.applied()[baseline..].contains(&DAY),
+        "the outputs go back instead of a neutral curve being written"
     );
     assert_eq!(harness.gamma.resets(), 1);
     assert_eq!(harness.state.borrow().temperature, DAY);
@@ -381,7 +496,7 @@ async fn a_night_ramp_that_rounds_to_daylight_keeps_gamma_control_until_sunrise(
 async fn a_commanded_mode_wins_over_the_document_and_says_that_it_did() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
+    harness.settle(at(23, 0)).await;
     assert!(harness.state.borrow().active());
 
     harness.set(Schedule::Off).await;
@@ -490,8 +605,8 @@ async fn an_override_declares_the_sources_its_mode_needs() {
 async fn a_release_the_backend_refused_is_retried_rather_than_forgotten() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 
     harness
         .gamma
@@ -527,7 +642,7 @@ async fn a_degraded_service_still_publishes_the_mode_in_force() {
 async fn a_refused_ramp_publishes_the_mode_and_the_temperature_still_showing() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
+    harness.settle(at(23, 0)).await;
     assert_eq!(harness.state.borrow().temperature, NIGHT);
 
     harness.gamma.fail(Some("no gamma control"));
@@ -543,14 +658,20 @@ async fn a_manual_temperature_is_applied_on_every_tick() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = day(Some(sunset()));
 
+    let now = Utc::now();
     harness
         .set_temperature(Some(3000))
         .await
         .expect("3000 is in range");
-    harness.at(at(12, 0)).await;
-    harness.at(at(12, 1)).await;
+    harness.at(now + TimeDelta::minutes(1)).await;
+    harness.at(now + TimeDelta::minutes(2)).await;
 
-    assert_eq!(harness.gamma.applied(), vec![3000, 3000, 3000]);
+    let applied = harness.gamma.applied();
+    assert_eq!(
+        &applied[applied.len() - 2..],
+        &[3000, 3000],
+        "a manual temperature is re-applied on every tick"
+    );
     assert!(harness.state.borrow().manual);
 }
 
@@ -566,7 +687,7 @@ async fn a_boundary_crossing_clears_the_manual_override() {
     assert!(harness.state.borrow().manual);
 
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
+    harness.settle(at(23, 0)).await;
 
     assert!(!harness.state.borrow().manual);
     assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
@@ -601,7 +722,7 @@ async fn clearing_the_override_lets_the_ramp_resume_on_the_next_evaluate() {
         .set_temperature(None)
         .await
         .expect("clearing is always accepted");
-    harness.at(at(12, 0)).await;
+    harness.settle(at(12, 0)).await;
 
     assert!(!harness.state.borrow().manual);
     assert_eq!(
@@ -651,8 +772,8 @@ fn a_fresh_service_has_no_manual_override_and_reports_the_configured_schedule() 
 async fn an_override_does_not_resurrect_a_released_ramp() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     harness.service.observed = night(None);
-    harness.at(at(23, 0)).await;
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    harness.settle(at(23, 0)).await;
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 
     harness.set(Schedule::Off).await;
     assert_eq!(harness.gamma.resets(), 1);
@@ -668,7 +789,7 @@ async fn an_override_does_not_resurrect_a_released_ramp() {
         1,
         "hand_back is a no-op, not a second reset"
     );
-    assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+    assert_eq!(harness.gamma.applied().last(), Some(&NIGHT));
 }
 
 #[tokio::test]
@@ -742,18 +863,28 @@ async fn pausing_a_night_applies_daylight_until_its_existing_boundary() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     let deadline = at(6, 0) + TimeDelta::days(1);
     harness.service.observed = night(Some(deadline));
-    harness.at(at(23, 0)).await;
+    let start = at(23, 0);
+    harness.settle(start).await;
+    assert_eq!(harness.state.borrow().temperature, NIGHT);
+    let pause_at = start + Ramp::GLIDE;
     let (reply, result) = oneshot::channel();
     harness
         .service
         .handle_at(
             &harness.ctx,
             Input::Command(Command::Pause { reply }),
-            at(23, 0),
+            pause_at,
         )
         .await;
     result.await.unwrap().unwrap();
     assert_eq!(harness.state.borrow().paused_until, Some(deadline));
+    harness.at(pause_at + Ramp::GLIDE / 2).await;
+    let midpoint = *harness.gamma.applied().last().expect("a midpoint");
+    assert!(
+        midpoint < DAY && midpoint > NIGHT,
+        "{midpoint}K is between the two"
+    );
+    harness.at(pause_at + Ramp::GLIDE).await;
     assert_eq!(harness.state.borrow().temperature, DAY);
     assert_eq!(harness.gamma.applied().last(), Some(&DAY));
     harness.at(deadline - TimeDelta::seconds(1)).await;
@@ -763,12 +894,12 @@ async fn pausing_a_night_applies_daylight_until_its_existing_boundary() {
     assert_eq!(harness.state.borrow().paused_until, None);
     assert_eq!(harness.state.borrow().temperature, DAY);
     harness.service.observed = night(Some(deadline + TimeDelta::days(1)));
-    harness.at(at(23, 0) + TimeDelta::days(1)).await;
+    harness.settle(at(23, 0) + TimeDelta::days(1)).await;
     assert_eq!(harness.state.borrow().temperature, NIGHT);
 }
 
 #[tokio::test]
-async fn resume_clears_a_pause_and_restores_the_night_immediately() {
+async fn resume_clears_a_pause_and_restores_the_night_after_the_glide() {
     let mut harness = harness(config(Schedule::Automatic)).await;
     let deadline = at(6, 0) + TimeDelta::days(1);
     harness.service.observed = night(Some(deadline));
@@ -784,6 +915,7 @@ async fn resume_clears_a_pause_and_restores_the_night_immediately() {
         )
         .await;
     result.await.unwrap().unwrap();
+    harness.at(at(23, 0) + Ramp::GLIDE).await;
     assert_eq!(harness.state.borrow().paused_until, None);
     assert_eq!(harness.state.borrow().temperature, NIGHT);
 }
@@ -836,6 +968,7 @@ async fn a_manual_temperature_clears_a_pause_but_an_invalid_one_keeps_it() {
             if accepted { None } else { Some(deadline) }
         );
     }
+    harness.at(at(23, 0) + Ramp::GLIDE).await;
     assert!(harness.state.borrow().manual);
     assert_eq!(harness.state.borrow().temperature, 3000);
 }
@@ -902,29 +1035,37 @@ async fn pausing_preserves_the_manual_override_for_resume_but_expires_it_at_the_
         let mut harness = harness(config(Schedule::Automatic)).await;
         harness.service.observed = night(Some(deadline));
         harness.service.manual = Some((3000, SolarPhase::Night));
+        let start = at(23, 0);
+        harness.settle(start).await;
+        assert_eq!(harness.state.borrow().temperature, 3000);
+
+        let pause_at = start + Ramp::GLIDE;
         let (reply, result) = oneshot::channel();
         harness
             .service
             .handle_at(
                 &harness.ctx,
                 Input::Command(Command::Pause { reply }),
-                at(23, 0),
+                pause_at,
             )
             .await;
         result.await.unwrap().unwrap();
         assert!(harness.state.borrow().manual);
+        harness.at(pause_at + Ramp::GLIDE).await;
         assert_eq!(harness.state.borrow().temperature, DAY);
         if resume {
+            let resume_at = pause_at + Ramp::GLIDE;
             let (reply, result) = oneshot::channel();
             harness
                 .service
                 .handle_at(
                     &harness.ctx,
                     Input::Command(Command::Resume { reply }),
-                    at(23, 0),
+                    resume_at,
                 )
                 .await;
             result.await.unwrap().unwrap();
+            harness.at(resume_at + Ramp::GLIDE).await;
             assert_eq!(harness.state.borrow().temperature, 3000);
         } else {
             harness.at(deadline).await;
