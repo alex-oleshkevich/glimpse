@@ -53,11 +53,12 @@ both clean up only their own child and runtime files.
 other files unchanged.
 `applet check` validates its desktop entry and config without a panel or bus;
 `--run` also checks its protocol greeting and first commit with temporary state and a bounded
-unconfined process. `applet package` builds rs/go/ts sources and writes `<id>.glimpse.zip` with a
-generated `metadata.toml` listing every file and its sha256. `applet install` verifies a package
-(or a source directory) against that metadata, copies it under `applet_dir(<id>)`, writes a marked
-desktop entry and prints a config suggestion; `uninstall` removes the listed files and only an
-entry carrying that marker. None of them edits the panel config.
+unconfined process. `applet package` runs the applet's `just build`, which assembles production
+files into `dist/`, and writes `<id>.glimpse.zip` holding only those files plus a generated
+`metadata.toml` listing each with its sha256. `applet install` checks a package against its own
+metadata, copies it under `applet_dir(<id>)`, writes a marked desktop entry and prints a config
+suggestion; `uninstall` removes the listed files and only an entry carrying that marker. None of
+them edits the panel config.
 
 **There are no generic commands.** Every command names one operation on one provider, with a typed
 request and a typed result, so the help text is the whole surface rather than a starting point for

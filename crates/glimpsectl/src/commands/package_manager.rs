@@ -18,7 +18,9 @@ use crate::errors::Refused;
 const METADATA_FILE: &str = "metadata.toml";
 const PACKAGE_EXTENSION: &str = "glimpse.zip";
 const MAX_PACKAGE_BYTES: u64 = 512 * 1024 * 1024;
-const EXCLUDED_DIRS: [&str; 5] = [".git", "target", "node_modules", "__pycache__", ".venv"];
+const MAX_METADATA_BYTES: u64 = 1024 * 1024;
+const MAX_ENTRIES: usize = 10_000;
+const DIST_DIR: &str = "dist";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -50,15 +52,25 @@ pub struct PackageManager {
     applications_dir: PathBuf,
 }
 
-enum Language {
-    Rs { bin: String },
-    Go { bin: String },
-    Ts,
-    Source,
-}
-
+#[cfg(test)]
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn sha256_file(path: &Path) -> Result<(String, u64)> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    let mut size: u64 = 0;
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        size += read as u64;
+    }
+    Ok((format!("{:x}", hasher.finalize()), size))
 }
 
 fn enclosed(path: &str) -> Result<PathBuf> {
@@ -84,14 +96,7 @@ fn collect(dir: &Path, base: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
             "applet directory contains a symlink: {}",
             path.display()
         );
-
         if file_type.is_dir() {
-            if EXCLUDED_DIRS
-                .iter()
-                .any(|name| entry.file_name() == std::ffi::OsStr::new(name))
-            {
-                continue;
-            }
             collect(&path, base, files)?;
         } else if file_type.is_file() {
             files.push(path.strip_prefix(base)?.to_path_buf());
@@ -105,73 +110,63 @@ fn collect(dir: &Path, base: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn run_build(argv: &[&str], dir: &Path) -> Result<()> {
-    let (program, args) = argv.split_first().context("empty build command")?;
-    let status = Command::new(program)
-        .args(args)
-        .current_dir(dir)
-        .status()
-        .with_context(|| format!("cannot run build command: {}", argv.join(" ")))?;
-    ensure!(status.success(), "build failed: {}", argv.join(" "));
+fn copy_listed(from: &Path, to: &Path, files: &[PathBuf]) -> Result<()> {
+    for relative in files {
+        let destination = to.join(relative);
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(from.join(relative), &destination)?;
+    }
     Ok(())
 }
 
-fn rewrite_exec(desktop_path: &Path, exec: &str) -> Result<()> {
-    let desktop = glib::KeyFile::new();
-    desktop.load_from_file(desktop_path, glib::KeyFileFlags::KEEP_TRANSLATIONS)?;
-    desktop.set_string(GROUP, "Exec", exec);
-    fs::write(desktop_path, desktop.to_data())?;
-    Ok(())
-}
-
-fn cargo_build(dir: &Path) -> Result<(String, PathBuf)> {
-    run_build(&["cargo", "build", "--release"], dir)?;
-
-    let output = Command::new("cargo")
-        .args(["metadata", "--format-version", "1", "--no-deps"])
-        .current_dir(dir)
-        .output()
-        .context("cannot run cargo metadata")?;
-    ensure!(output.status.success(), "cargo metadata failed");
-
-    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    let manifest = dir.join("Cargo.toml").canonicalize()?;
-    let package = parsed["packages"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|package| {
-            package["manifest_path"]
-                .as_str()
-                .is_some_and(|path| Path::new(path) == manifest.as_path())
-        })
-        .context("cargo metadata does not describe this directory")?;
-
-    let bin = package["targets"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|target| {
-            target["kind"]
-                .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|kind| kind.as_str() == Some("bin")))
-        })
-        .and_then(|target| target["name"].as_str())
-        .context("cargo package builds no binary")?
-        .to_owned();
-
-    let target_dir = PathBuf::from(
-        parsed["target_directory"]
-            .as_str()
-            .context("cargo metadata names no target directory")?,
-    );
-    let built = target_dir.join("release").join(&bin);
+fn find_desktop(dir: &Path) -> Result<(String, PathBuf)> {
+    let mut desktops = fs::read_dir(dir)?
+        .filter_map(|item| item.ok().map(|item| item.path()))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "desktop"));
+    let path = desktops
+        .next()
+        .context("no .desktop file in applet directory")?;
     ensure!(
-        built.is_file(),
-        "cargo produced no binary at {}",
-        built.display()
+        desktops.next().is_none(),
+        "multiple .desktop files in applet directory"
     );
-    Ok((bin, built))
+    let id = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .context("invalid .desktop filename")?
+        .to_owned();
+    ensure!(is_desktop_id(&id), "invalid desktop-file id: {id}");
+    Ok((id, path))
+}
+
+fn check_exec(dist: &Path, desktop_path: &Path) -> Result<()> {
+    let desktop = glib::KeyFile::new();
+    desktop.load_from_file(desktop_path, glib::KeyFileFlags::NONE)?;
+    ensure!(
+        desktop
+            .string_list(GROUP, "Implements")
+            .is_ok_and(|items| items
+                .iter()
+                .any(|item| item.as_str() == "me.aresa.Glimpse.Applet1")),
+        "desktop entry does not implement me.aresa.Glimpse.Applet1"
+    );
+    let exec = desktop
+        .string(GROUP, "Exec")
+        .map_err(|_| Refused("desktop entry has no Exec".to_owned()))?;
+    let argv = glib::shell_parse_argv(&exec)?;
+    let first = argv
+        .first()
+        .and_then(|arg| arg.to_str())
+        .unwrap_or_default();
+    if let Some(rest) = first.strip_prefix("./") {
+        ensure!(
+            dist.join(rest).is_file(),
+            "Exec names ./{rest}, which the build did not produce in {DIST_DIR}/"
+        );
+    }
+    Ok(())
 }
 
 impl PackageManager {
@@ -209,80 +204,50 @@ impl PackageManager {
 
     fn stage(&self, dir: &Path, staging: &Path) -> Result<Metadata> {
         let dir = dir.canonicalize()?;
-        ensure!(
-            !dir.join(METADATA_FILE).exists(),
-            "{METADATA_FILE} is generated at package time; remove it from the applet directory"
-        );
-        let (id, entry) = super::run::source(&dir)?;
+        let (id, _) = find_desktop(&dir)?;
         settings(&dir, &id)?;
-
-        let mut built: Option<PathBuf> = None;
-        let language = if dir.join("Cargo.toml").is_file() {
-            let (bin, artifact) = cargo_build(&dir)?;
-            built = Some(artifact);
-            Language::Rs { bin }
-        } else if dir.join("go.mod").is_file() {
-            Language::Go {
-                bin: super::applets_author::slug(&id),
-            }
-        } else if dir.join("package.json").is_file() {
-            let parsed: serde_json::Value =
-                serde_json::from_slice(&fs::read(dir.join("package.json"))?)?;
-            if parsed["scripts"]["build"].is_string() {
-                run_build(&["node", "--run", "build"], &dir)?;
-            }
-            Language::Ts
-        } else {
-            Language::Source
-        };
-
-        let mut sources = Vec::new();
-        collect(&dir, &dir, &mut sources)?;
-        for relative in sources {
-            if relative == Path::new("devconfig.toml")
-                || relative
-                    .to_str()
-                    .is_some_and(|name| name.ends_with(".glimpse.zip"))
-            {
-                continue;
-            }
-            let target = staging.join(&relative);
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(dir.join(&relative), &target)?;
+        ensure!(
+            ["justfile", "Justfile", ".justfile"]
+                .iter()
+                .any(|name| dir.join(name).is_file()),
+            "packaging runs `just build`; add a justfile whose build recipe assembles production files into {DIST_DIR}/"
+        );
+        let dist = dir.join(DIST_DIR);
+        if dist.exists() {
+            ensure!(
+                !fs::symlink_metadata(&dist)?.file_type().is_symlink(),
+                "{DIST_DIR}/ is a symlink"
+            );
+            fs::remove_dir_all(&dist)?;
         }
+        eprintln!("build: just build (runs the applet's build recipe unconfined)");
+        let status = Command::new("just")
+            .arg("build")
+            .current_dir(&dir)
+            .status()
+            .context("cannot run `just build`")?;
+        ensure!(status.success(), "`just build` failed");
+        ensure!(
+            dist.is_dir(),
+            "`just build` produced no {DIST_DIR}/ directory"
+        );
+        let (dist_id, dist_desktop) = find_desktop(&dist)?;
+        ensure!(dist_id == id, "{DIST_DIR}/ holds {dist_id}, expected {id}");
+        check_exec(&dist, &dist_desktop)?;
 
-        let desktop = staging.join(entry.path.file_name().context("desktop file name")?);
-        match &language {
-            Language::Rs { bin } => {
-                let artifact = built.context("cargo build produced no binary")?;
-                fs::copy(&artifact, staging.join(bin))?;
-                fs::set_permissions(staging.join(bin), fs::Permissions::from_mode(0o755))?;
-                rewrite_exec(&desktop, &format!("./{bin}"))?;
-            }
-            Language::Go { bin } => {
-                let target = staging.join(bin);
-                let target_text = target.to_str().context("build path is not UTF-8")?;
-                run_build(&["go", "build", "-o", target_text, "."], &dir)?;
-                rewrite_exec(&desktop, &format!("./{bin}"))?;
-            }
-            Language::Ts => {
-                if staging.join("build/applet.mjs").is_file() {
-                    rewrite_exec(&desktop, "node build/applet.mjs")?;
-                }
-            }
-            Language::Source => {}
-        }
-
-        let mut staged = Vec::new();
-        collect(staging, staging, &mut staged)?;
+        let mut produced = Vec::new();
+        collect(&dist, &dist, &mut produced)?;
+        ensure!(
+            !produced.contains(&PathBuf::from(METADATA_FILE)),
+            "{METADATA_FILE} is generated at package time; remove it from {DIST_DIR}/"
+        );
+        copy_listed(&dist, staging, &produced)?;
 
         let mut files = Vec::new();
         let mut total: u64 = 0;
-        for relative in staged {
-            let bytes = fs::read(staging.join(&relative))?;
-            total += bytes.len() as u64;
+        for relative in produced {
+            let (sha256, size) = sha256_file(&staging.join(&relative))?;
+            total += size;
             ensure!(
                 total <= MAX_PACKAGE_BYTES,
                 "package exceeds {MAX_PACKAGE_BYTES} bytes"
@@ -292,22 +257,31 @@ impl PackageManager {
                     .to_str()
                     .context("applet file name is not UTF-8")?
                     .to_owned(),
-                sha256: sha256_hex(&bytes),
+                sha256,
             });
         }
-
         let metadata = Metadata { id, files };
         fs::write(staging.join(METADATA_FILE), toml::to_string(&metadata)?)?;
         Ok(metadata)
     }
 
     pub fn package(&self, dir: &Path, out: Option<&Path>) -> Result<(Metadata, PathBuf)> {
+        let source = dir.canonicalize()?;
         let staging = tempfile::tempdir()?;
         let metadata = self.stage(dir, staging.path())?;
         let out = match out {
-            Some(out) => out.to_path_buf(),
+            Some(out) if out.is_absolute() => out.to_path_buf(),
+            Some(out) => std::env::current_dir()?.join(out),
             None => std::env::current_dir()?.join(format!("{}.{PACKAGE_EXTENSION}", metadata.id)),
         };
+        ensure!(
+            !out.starts_with(&source)
+                || out
+                    .file_name()
+                    .is_some_and(|name| name.to_string_lossy().ends_with(".glimpse.zip")),
+            "package output inside the source directory: {}",
+            out.display()
+        );
         let mut names: Vec<String> = metadata
             .files
             .iter()
@@ -315,16 +289,15 @@ impl PackageManager {
             .collect();
         names.push(METADATA_FILE.to_owned());
         names.sort();
-
         let mut archive = zip::ZipWriter::new(File::create(&out)?);
         for name in names {
-            let source = staging.path().join(&name);
-            let mode = fs::metadata(&source)?.permissions().mode();
+            let source_file = staging.path().join(&name);
+            let mode = fs::metadata(&source_file)?.permissions().mode();
             let options = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Deflated)
                 .unix_permissions(mode);
             archive.start_file(&name, options)?;
-            archive.write_all(&fs::read(&source)?)?;
+            std::io::copy(&mut File::open(&source_file)?, &mut archive)?;
         }
         archive.finish()?;
         Ok((metadata, out))
@@ -332,12 +305,22 @@ impl PackageManager {
 
     fn unstage(&self, package: &Path, staging: &Path) -> Result<Metadata> {
         let mut archive = zip::ZipArchive::new(File::open(package)?)?;
-        let mut text = String::new();
+        ensure!(
+            archive.len() <= MAX_ENTRIES,
+            "package holds more than {MAX_ENTRIES} entries"
+        );
+        let mut raw = Vec::new();
         archive
             .by_name(METADATA_FILE)
             .map_err(|_| Refused("package has no metadata.toml".to_owned()))?
-            .read_to_string(&mut text)?;
-
+            .take(MAX_METADATA_BYTES + 1)
+            .read_to_end(&mut raw)?;
+        ensure!(
+            raw.len() as u64 <= MAX_METADATA_BYTES,
+            "metadata.toml exceeds {MAX_METADATA_BYTES} bytes"
+        );
+        let text =
+            String::from_utf8(raw).map_err(|_| Refused("metadata.toml is not UTF-8".to_owned()))?;
         let metadata: Metadata = toml::from_str(&text)
             .map_err(|error| Refused(format!("invalid metadata.toml: {error}")))?;
         ensure!(
@@ -346,10 +329,21 @@ impl PackageManager {
             metadata.id
         );
 
+        let relatives: Vec<PathBuf> = metadata
+            .files
+            .iter()
+            .map(|file| enclosed(&file.path))
+            .collect::<Result<_>>()?;
+        ensure!(
+            relatives.iter().collect::<BTreeSet<_>>().len() == relatives.len(),
+            "metadata.toml lists a file twice"
+        );
+
         let mut present = BTreeSet::new();
         for index in 0..archive.len() {
             let entry = archive.by_index(index)?;
             ensure!(!entry.is_dir(), "package contains a directory entry");
+            ensure!(!entry.is_symlink(), "package contains a symlink entry");
             ensure!(
                 present.insert(entry.name()?.into_owned()),
                 "package contains a duplicate entry"
@@ -367,35 +361,34 @@ impl PackageManager {
         );
 
         let mut total: u64 = 0;
-        for file in &metadata.files {
-            let relative = enclosed(&file.path).map_err(|_| {
-                Refused(format!(
-                    "metadata entry escapes the install directory: {}",
-                    file.path
-                ))
-            })?;
-
+        for (file, relative) in metadata.files.iter().zip(&relatives) {
             let mut entry = archive.by_name(&file.path)?;
-            total += entry.size();
-            ensure!(
-                total <= MAX_PACKAGE_BYTES,
-                "package exceeds {MAX_PACKAGE_BYTES} bytes"
-            );
-
             let mode = entry.unix_mode().unwrap_or(0o644);
-            let mut bytes = Vec::new();
-            entry.read_to_end(&mut bytes)?;
-            ensure!(
-                sha256_hex(&bytes) == file.sha256,
-                "{}: sha256 does not match metadata.toml",
-                file.path
-            );
-
-            let target = staging.join(&relative);
+            let target = staging.join(relative);
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(&target, &bytes)?;
+            let mut out_file = File::create(&target)?;
+            let mut hasher = Sha256::new();
+            let mut buffer = [0u8; 64 * 1024];
+            loop {
+                let read = entry.read(&mut buffer)?;
+                if read == 0 {
+                    break;
+                }
+                total += read as u64;
+                ensure!(
+                    total <= MAX_PACKAGE_BYTES,
+                    "package exceeds {MAX_PACKAGE_BYTES} bytes"
+                );
+                hasher.update(&buffer[..read]);
+                out_file.write_all(&buffer[..read])?;
+            }
+            ensure!(
+                format!("{:x}", hasher.finalize()) == file.sha256,
+                "{}: sha256 does not match metadata.toml",
+                file.path
+            );
             fs::set_permissions(
                 &target,
                 fs::Permissions::from_mode(if mode & 0o111 != 0 { 0o755 } else { 0o644 }),
@@ -406,21 +399,23 @@ impl PackageManager {
     }
 
     fn remove_listed(&self, dir: &Path, metadata: &Metadata) -> Result<Vec<PathBuf>> {
-        for file in &metadata.files {
-            let relative = enclosed(&file.path)?;
-            match fs::remove_file(dir.join(&relative)) {
+        let relatives: Vec<PathBuf> = metadata
+            .files
+            .iter()
+            .map(|file| enclosed(&file.path))
+            .collect::<Result<_>>()?;
+        for relative in &relatives {
+            match fs::remove_file(dir.join(relative)) {
                 Ok(()) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),
             }
-
             let mut parent = relative.parent();
             while let Some(current) = parent.filter(|path| !path.as_os_str().is_empty()) {
                 let _ = fs::remove_dir(dir.join(current));
                 parent = current.parent();
             }
         }
-
         let _ = fs::remove_file(dir.join(METADATA_FILE));
         match fs::remove_dir(dir) {
             Ok(()) => Ok(Vec::new()),
@@ -435,54 +430,9 @@ impl PackageManager {
         }
     }
 
-    fn install_staged(&self, staging: &Path, metadata: &Metadata) -> Result<Installed> {
-        let target = self.applets_dir.join(&metadata.id);
-        if target.exists() {
-            let previous = self.metadata(&metadata.id).map_err(|_| {
-                Refused(format!(
-                    "{} exists and was not installed by glimpsectl",
-                    target.display()
-                ))
-            })?;
-            let leftovers = self.remove_listed(&target, &previous)?;
-            ensure!(
-                leftovers.is_empty(),
-                "{} holds files the previous install does not own",
-                target.display()
-            );
-        }
-
-        let mut staged = Vec::new();
-        collect(staging, staging, &mut staged)?;
-
-        for relative in staged {
-            let destination = target.join(&relative);
-            if let Some(parent) = destination.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(staging.join(&relative), &destination)?;
-        }
-
-        let installed = Installed {
-            id: metadata.id.clone(),
-            dir: target.clone(),
-        };
-
-        if let Err(error) = self.install_desktop(metadata, &target) {
-            let _ = self.remove_listed(&target, metadata);
-            return Err(error);
-        }
-        Ok(installed)
-    }
-
-    fn install_desktop(&self, metadata: &Metadata, target: &Path) -> Result<()> {
-        let name = format!("{}.desktop", metadata.id);
-        let source = target.join(&name);
-        ensure!(source.is_file(), "package has no {name}");
-
+    fn desktop_data(&self, source: &Path, target: &Path) -> Result<String> {
         let desktop = glib::KeyFile::new();
-        desktop.load_from_file(&source, glib::KeyFileFlags::KEEP_TRANSLATIONS)?;
-
+        desktop.load_from_file(source, glib::KeyFileFlags::KEEP_TRANSLATIONS)?;
         if let Ok(exec) = desktop.string(GROUP, "Exec")
             && let Ok(argv) = glib::shell_parse_argv(&exec)
         {
@@ -490,7 +440,6 @@ impl PackageManager {
                 .iter()
                 .map(|arg| arg.to_str().unwrap_or_default().to_owned())
                 .collect();
-
             if let Some(first) = argv.first_mut()
                 && let Some(rest) = first.strip_prefix("./")
             {
@@ -513,20 +462,125 @@ impl PackageManager {
             target.to_str().context("applet path is not UTF-8")?,
         );
         desktop.set_string(GROUP, MARKER, "glimpsectl");
-        fs::create_dir_all(&self.applications_dir)?;
+        Ok(desktop.to_data().to_string())
+    }
 
-        let destination = self.applications_dir.join(&name);
-        if destination.exists() {
-            marked(&destination)
-                .map_err(|_| Refused(format!("refusing to overwrite {}", destination.display())))?;
+    fn check_desktop_destination(&self, destination: &Path) -> Result<Option<Vec<u8>>> {
+        match fs::symlink_metadata(destination) {
+            Ok(found) => {
+                ensure!(
+                    !found.file_type().is_symlink(),
+                    "refusing a symlink desktop entry: {}",
+                    destination.display()
+                );
+                ensure!(found.is_file(), "desktop entry is not a regular file");
+                marked(destination).map_err(|_| {
+                    Refused(format!("refusing to overwrite {}", destination.display()))
+                })?;
+                Ok(Some(fs::read(destination)?))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.into()),
         }
+    }
 
-        fs::write(&destination, desktop.to_data())?;
-        if let Err(reason) = DesktopCatalog.resolve_file(&destination) {
-            let _ = fs::remove_file(&destination);
-            anyhow::bail!("{reason}");
-        }
+    fn write_desktop(&self, destination: &Path, data: &[u8]) -> Result<()> {
+        let mut temp = tempfile::NamedTempFile::new_in(&self.applications_dir)?;
+        temp.write_all(data)?;
+        temp.persist(destination).map_err(|error| error.error)?;
         Ok(())
+    }
+
+    fn install_staged(&self, staging: &Path, metadata: &Metadata) -> Result<Installed> {
+        fs::create_dir_all(&self.applets_dir)?;
+        fs::create_dir_all(&self.applications_dir)?;
+        let target = self.applets_dir.join(&metadata.id);
+        if let Ok(found) = fs::symlink_metadata(&target) {
+            ensure!(
+                !found.file_type().is_symlink(),
+                "{} is a symlink",
+                target.display()
+            );
+        }
+        let name = format!("{}.desktop", metadata.id);
+        let staged_desktop = staging.join(&name);
+        ensure!(staged_desktop.is_file(), "package has no {name}");
+        let data = self.desktop_data(&staged_desktop, &target)?;
+        let destination = self.applications_dir.join(&name);
+        let old_desktop = self.check_desktop_destination(&destination)?;
+
+        let replaced = target.exists();
+        if replaced {
+            let previous = self.metadata(&metadata.id).map_err(|_| {
+                Refused(format!(
+                    "{} exists and was not installed by glimpsectl",
+                    target.display()
+                ))
+            })?;
+            let owned: BTreeSet<PathBuf> = previous
+                .files
+                .iter()
+                .map(|file| enclosed(&file.path))
+                .collect::<Result<_>>()?;
+            let mut present = Vec::new();
+            collect(&target, &target, &mut present)?;
+            let unowned: Vec<String> = present
+                .iter()
+                .filter(|path| !owned.contains(*path) && *path != &PathBuf::from(METADATA_FILE))
+                .map(|path| path.display().to_string())
+                .collect();
+            ensure!(
+                unowned.is_empty(),
+                "{} holds files the previous install does not own: {}",
+                target.display(),
+                unowned.join(", ")
+            );
+        }
+
+        let pid = std::process::id();
+        let fresh = self.applets_dir.join(format!(".{}.new-{pid}", metadata.id));
+        let backup = self.applets_dir.join(format!(".{}.old-{pid}", metadata.id));
+        let _ = fs::remove_dir_all(&fresh);
+        let _ = fs::remove_dir_all(&backup);
+        let mut staged = Vec::new();
+        collect(staging, staging, &mut staged)?;
+        copy_listed(staging, &fresh, &staged)?;
+
+        if replaced {
+            fs::rename(&target, &backup)?;
+        }
+        if let Err(error) = fs::rename(&fresh, &target) {
+            if replaced {
+                let _ = fs::rename(&backup, &target);
+            }
+            return Err(error.into());
+        }
+        let outcome = self
+            .write_desktop(&destination, data.as_bytes())
+            .and_then(|()| {
+                DesktopCatalog
+                    .resolve_file(&destination)
+                    .map(|_| ())
+                    .map_err(anyhow::Error::msg)
+            });
+        if let Err(error) = outcome {
+            let _ = fs::remove_file(&destination);
+            let _ = fs::remove_dir_all(&target);
+            if replaced {
+                let _ = fs::rename(&backup, &target);
+            }
+            if let Some(bytes) = &old_desktop {
+                let _ = fs::write(&destination, bytes);
+            }
+            return Err(error);
+        }
+        if replaced {
+            let _ = fs::remove_dir_all(&backup);
+        }
+        Ok(Installed {
+            id: metadata.id.clone(),
+            dir: target,
+        })
     }
 
     pub fn install(&self, source: &Path) -> Result<Installed> {
@@ -542,32 +596,48 @@ impl PackageManager {
     pub fn uninstall(&self, id: &str) -> Result<Removed> {
         ensure!(is_desktop_id(id), "invalid desktop-file id: {id}");
         let target = self.applets_dir.join(id);
-        let mut leftovers = Vec::new();
-        let mut removed_files = false;
-
-        if target.join(METADATA_FILE).is_file() {
-            let metadata = self.metadata(id)?;
-            leftovers = self.remove_listed(&target, &metadata)?;
-            removed_files = true;
+        if let Ok(found) = fs::symlink_metadata(&target) {
+            ensure!(
+                !found.file_type().is_symlink(),
+                "{} is a symlink",
+                target.display()
+            );
         }
-
+        let metadata = if target.join(METADATA_FILE).is_file() {
+            let metadata = self.metadata(id)?;
+            for file in &metadata.files {
+                enclosed(&file.path)?;
+            }
+            Some(metadata)
+        } else {
+            None
+        };
         let desktop = self.applications_dir.join(format!("{id}.desktop"));
-        let mut removed_desktop = false;
-        if desktop.exists() || desktop.is_symlink() {
-            let (_, opened) = marked(&desktop)?;
+        let desktop_identity = match fs::symlink_metadata(&desktop) {
+            Ok(_) => {
+                let (_, opened) = marked(&desktop)?;
+                Some((opened.dev(), opened.ino()))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        };
+        ensure!(
+            metadata.is_some() || desktop_identity.is_some(),
+            "{id} is not installed by glimpsectl"
+        );
+
+        let mut leftovers = Vec::new();
+        if let Some(metadata) = &metadata {
+            leftovers = self.remove_listed(&target, metadata)?;
+        }
+        if let Some(identity) = desktop_identity {
             let current = fs::symlink_metadata(&desktop)?;
             ensure!(
-                current.is_file() && (opened.dev(), opened.ino()) == (current.dev(), current.ino()),
+                current.is_file() && (current.dev(), current.ino()) == identity,
                 "desktop entry changed during uninstall"
             );
             fs::remove_file(&desktop)?;
-            removed_desktop = true;
         }
-
-        ensure!(
-            removed_files || removed_desktop,
-            "{id} is not installed by glimpsectl"
-        );
         Ok(Removed { leftovers })
     }
 }
@@ -591,6 +661,9 @@ fn print_installed(installed: &Installed, json: bool) -> Result<()> {
 pub fn applet_package(args: PackageArgs, json: bool) -> Result<()> {
     let manager = PackageManager::new()?;
     let (metadata, path) = manager.package(&args.dir, args.out.as_deref())?;
+    for file in &metadata.files {
+        eprintln!("{}", file.path);
+    }
     if json && !args.install {
         super::emit(&serde_json::json!({
             "id": metadata.id,

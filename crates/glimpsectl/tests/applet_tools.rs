@@ -136,7 +136,15 @@ async fn one_shot_applet_commands_complete_when_stdout_reader_is_closed() -> Res
         let dir = root.path().join("source");
         let bin = root.path().join("bin");
         fs::create_dir(&bin)?;
-        std::os::unix::fs::symlink("/bin/true", bin.join("node"))?;
+        for tool in ["sh", "just", "node", "mkdir", "cp"] {
+            let paths = std::env::var_os("PATH").unwrap_or_default();
+            let found = std::env::split_paths(&paths)
+                .map(|dir| dir.join(tool))
+                .find(|candidate| candidate.exists())
+                .unwrap_or_else(|| panic!("{tool} on PATH"));
+            std::os::unix::fs::symlink(found, bin.join(tool))?;
+        }
+        std::os::unix::fs::symlink("/bin/true", bin.join("uv"))?;
         for operation in ["new", "check", "install"] {
             let mut command = Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
             command.args(["applet", operation]);
@@ -150,6 +158,8 @@ async fn one_shot_applet_commands_complete_when_stdout_reader_is_closed() -> Res
                         "org.example.ClosedPipe",
                         "--name",
                         "Closed pipe",
+                        "--language",
+                        "py",
                         "--yes",
                         "--dir",
                     ])

@@ -2,8 +2,14 @@
 default:
     @just --list --unsorted
 
+[doc("build production files into dist/")]
+build:
+    go build -o {{ slug }} .
+    mkdir -p dist
+    cp {{ slug }} {{ id }}.desktop dist/
+
 [doc("run the applet in the panel, restarting on source edits")]
-dev:
+dev: build
     glimpsectl applet run --dev .
 
 [doc("build the package and install it")]
@@ -16,10 +22,8 @@ package:
 
 [doc("run the tests")]
 test:
-    uv run pytest
+    go test ./...
 
 [doc("lint")]
 lint:
-    uv run ruff check .
-    uv run ruff format --check .
-    uv run mypy
+    golangci-lint run ./...

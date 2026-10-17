@@ -77,7 +77,7 @@ fn desktop_value(value: &str) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn slug(id: &str) -> String {
+fn slug(id: &str) -> String {
     let mut slug = String::new();
     for ch in words(id).1.chars() {
         if ch.is_ascii_alphanumeric() {

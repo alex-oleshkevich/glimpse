@@ -4,18 +4,55 @@ fn manager(root: &Path) -> PackageManager {
     PackageManager::with_dirs(root.join("applets"), root.join("applications"))
 }
 
+const DESKTOP: &str = "[Desktop Entry]\nType=Application\nName=Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n";
+
 fn fixture(root: &Path) -> PathBuf {
     let dir = root.join("source");
     fs::create_dir_all(dir.join("assets")).unwrap();
-    fs::write(
-        dir.join("org.example.Test.desktop"),
-        "[Desktop Entry]\nType=Application\nName=Test\nExec=/bin/true\nImplements=me.aresa.Glimpse.Applet1;\n",
-    )
-    .unwrap();
+    fs::write(dir.join("org.example.Test.desktop"), DESKTOP).unwrap();
     fs::write(dir.join("applet.py"), "print('hi')\n").unwrap();
     fs::write(dir.join("assets/note.txt"), "note\n").unwrap();
     fs::write(dir.join("devconfig.toml"), "").unwrap();
+    fs::write(
+        dir.join("justfile"),
+        "build:\n    mkdir -p dist/assets\n    cp applet.py org.example.Test.desktop dist/\n    cp assets/note.txt dist/assets/\n",
+    )
+    .unwrap();
     dir
+}
+
+fn make_zip(path: &Path, id: &str, entries: &[(&str, &[u8], u32)]) {
+    let mut metadata = format!("id = \"{id}\"\n");
+    for (name, bytes, _) in entries {
+        metadata.push_str(&format!(
+            "\n[[files]]\npath = \"{name}\"\nsha256 = \"{}\"\n",
+            sha256_hex(bytes)
+        ));
+    }
+    let mut archive = zip::ZipWriter::new(File::create(path).unwrap());
+    for (name, bytes, mode) in entries {
+        let options = zip::write::SimpleFileOptions::default().unix_permissions(*mode);
+        if mode & 0o170000 == 0o120000 {
+            archive
+                .add_symlink(
+                    name.to_string(),
+                    String::from_utf8(bytes.to_vec()).unwrap(),
+                    options,
+                )
+                .unwrap();
+        } else {
+            archive.start_file(name.to_string(), options).unwrap();
+            archive.write_all(bytes).unwrap();
+        }
+    }
+    archive
+        .start_file(
+            METADATA_FILE.to_owned(),
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+    archive.write_all(metadata.as_bytes()).unwrap();
+    archive.finish().unwrap();
 }
 
 #[test]
@@ -43,6 +80,7 @@ fn package_install_and_uninstall_round_trip() {
     assert!(installed.dir.join("assets/note.txt").is_file());
     assert!(installed.dir.join(METADATA_FILE).is_file());
     assert!(!installed.dir.join("devconfig.toml").exists());
+    assert!(!installed.dir.join("justfile").exists());
     let applications = root.path().join("applications/org.example.Test.desktop");
     let (contents, _) = marked(&applications).unwrap();
     let desktop = glib::KeyFile::new();
@@ -76,6 +114,86 @@ fn install_from_directory_replaces_the_previous_install() {
 }
 
 #[test]
+fn upgrade_refused_by_an_unowned_file_keeps_the_previous_install() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let installed = manager.install(&dir).unwrap();
+    fs::write(installed.dir.join("cache.db"), "mine\n").unwrap();
+    fs::write(dir.join("applet.py"), "print('changed')\n").unwrap();
+    assert!(manager.install(&dir).is_err());
+    assert_eq!(
+        fs::read_to_string(installed.dir.join("applet.py")).unwrap(),
+        "print('hi')\n"
+    );
+    assert!(installed.dir.join(METADATA_FILE).is_file());
+    assert!(
+        root.path()
+            .join("applications/org.example.Test.desktop")
+            .is_file()
+    );
+}
+
+#[test]
+fn failed_upgrade_restores_the_previous_install() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let installed = manager.install(&dir).unwrap();
+    let hidden = format!("{DESKTOP}Hidden=true\n");
+    let bad = root.path().join("bad.zip");
+    make_zip(
+        &bad,
+        "org.example.Test",
+        &[
+            ("org.example.Test.desktop", hidden.as_bytes(), 0o644),
+            ("applet.py", b"print('bad')\n", 0o644),
+        ],
+    );
+    assert!(manager.install(&bad).is_err());
+    assert_eq!(
+        fs::read_to_string(installed.dir.join("applet.py")).unwrap(),
+        "print('hi')\n"
+    );
+    let applications = root.path().join("applications/org.example.Test.desktop");
+    assert!(marked(&applications).is_ok());
+}
+
+#[test]
+fn install_refuses_a_dangling_symlink_desktop_entry() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let applications = root.path().join("applications");
+    fs::create_dir_all(&applications).unwrap();
+    let outside = root.path().join("outside.txt");
+    std::os::unix::fs::symlink(&outside, applications.join("org.example.Test.desktop")).unwrap();
+    assert!(manager.install(&dir).is_err());
+    assert!(!outside.exists());
+    assert!(applications.join("org.example.Test.desktop").is_symlink());
+}
+
+#[test]
+fn install_refuses_an_unmarked_desktop_entry() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let applications = root.path().join("applications");
+    fs::create_dir_all(&applications).unwrap();
+    fs::write(
+        applications.join("org.example.Test.desktop"),
+        "[Desktop Entry]\nName=Foreign\n",
+    )
+    .unwrap();
+    assert!(manager.install(&dir).is_err());
+    assert!(!root.path().join("applets/org.example.Test").exists());
+    assert_eq!(
+        fs::read_to_string(applications.join("org.example.Test.desktop")).unwrap(),
+        "[Desktop Entry]\nName=Foreign\n"
+    );
+}
+
+#[test]
 fn install_refuses_a_package_whose_contents_do_not_match_the_metadata() {
     let root = tempfile::tempdir().unwrap();
     let dir = fixture(root.path());
@@ -94,13 +212,30 @@ fn install_refuses_a_package_whose_contents_do_not_match_the_metadata() {
             bytes = b"print('ho')\n".to_vec();
         }
         archive
-            .start_file(&name, zip::write::SimpleFileOptions::default())
+            .start_file(name, zip::write::SimpleFileOptions::default())
             .unwrap();
         archive.write_all(&bytes).unwrap();
     }
     archive.finish().unwrap();
     let error = manager.install(&tampered).unwrap_err();
     assert!(error.to_string().contains("sha256"), "{error:#}");
+    assert!(!root.path().join("applets/org.example.Test").exists());
+}
+
+#[test]
+fn install_refuses_a_symlink_entry() {
+    let root = tempfile::tempdir().unwrap();
+    let manager = manager(root.path());
+    let package = root.path().join("link.zip");
+    make_zip(
+        &package,
+        "org.example.Test",
+        &[
+            ("org.example.Test.desktop", DESKTOP.as_bytes(), 0o644),
+            ("link.py", b"applet.py", 0o120777),
+        ],
+    );
+    assert!(manager.install(&package).is_err());
     assert!(!root.path().join("applets/org.example.Test").exists());
 }
 
@@ -128,18 +263,64 @@ fn uninstall_keeps_unlisted_files_and_refuses_unmarked_desktop_entries() {
 }
 
 #[test]
-fn package_refuses_a_reserved_metadata_file_and_symlinks() {
+fn uninstall_with_an_unmarked_desktop_entry_deletes_nothing() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    let installed = manager.install(&dir).unwrap();
+    let applications = root.path().join("applications/org.example.Test.desktop");
+    fs::write(&applications, "[Desktop Entry]\nName=Foreign\n").unwrap();
+    assert!(manager.uninstall("org.example.Test").is_err());
+    assert!(installed.dir.join("applet.py").is_file());
+    assert!(installed.dir.join(METADATA_FILE).is_file());
+}
+
+#[test]
+fn package_refuses_invalid_settings_and_a_missing_exec_target() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let manager = manager(root.path());
+    fs::write(dir.join("devconfig.toml"), "broken = [").unwrap();
+    assert!(
+        manager
+            .package(&dir, Some(&root.path().join("x.zip")))
+            .is_err()
+    );
+    fs::write(dir.join("devconfig.toml"), "").unwrap();
+    fs::write(
+        dir.join("org.example.Test.desktop"),
+        "[Desktop Entry]\nType=Application\nName=Test\nExec=./run.sh\nImplements=me.aresa.Glimpse.Applet1;\n",
+    )
+    .unwrap();
+    assert!(
+        manager
+            .package(&dir, Some(&root.path().join("x.zip")))
+            .is_err()
+    );
+}
+
+#[test]
+fn package_refuses_a_reserved_metadata_file_and_symlinks_in_dist() {
     let root = tempfile::tempdir().unwrap();
     let dir = fixture(root.path());
     let manager = manager(root.path());
     fs::write(dir.join(METADATA_FILE), "id = \"x\"\n").unwrap();
+    fs::write(
+        dir.join("justfile"),
+        "build:\n    mkdir -p dist\n    cp applet.py org.example.Test.desktop metadata.toml dist/\n",
+    )
+    .unwrap();
     assert!(
         manager
             .package(&dir, Some(&root.path().join("x.zip")))
             .is_err()
     );
     fs::remove_file(dir.join(METADATA_FILE)).unwrap();
-    std::os::unix::fs::symlink("applet.py", dir.join("link.py")).unwrap();
+    fs::write(
+        dir.join("justfile"),
+        "build:\n    mkdir -p dist\n    cp org.example.Test.desktop dist/\n    ln -s ../applet.py dist/link.py\n",
+    )
+    .unwrap();
     assert!(
         manager
             .package(&dir, Some(&root.path().join("x.zip")))

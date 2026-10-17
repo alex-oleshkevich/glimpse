@@ -2,8 +2,14 @@
 default:
     @just --list --unsorted
 
+[doc("build production files into dist/")]
+build:
+    node --run build
+    mkdir -p dist
+    cp applet.mjs {{ id }}.desktop dist/
+
 [doc("run the applet in the panel, restarting on source edits")]
-dev:
+dev: build
     glimpsectl applet run --dev .
 
 [doc("build the package and install it")]

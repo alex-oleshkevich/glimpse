@@ -905,10 +905,10 @@ impl AppletLanguage {
 
     pub fn setup_hint(self) -> &'static str {
         match self {
-            Self::Rs => "cargo build",
-            Self::Ts => "npm install",
+            Self::Rs => "just build",
+            Self::Ts => "npm install && just build",
             Self::Py => "python3 -m py_compile applet.py",
-            Self::Go => "go vet ./...",
+            Self::Go => "just build",
         }
     }
 }

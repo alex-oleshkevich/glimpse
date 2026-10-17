@@ -10,6 +10,7 @@ dev = ["mypy", "pytest", "ruff"]
 [tool.ruff]
 line-length = 120
 indent-width = 4
+extend-exclude = ["dist"]
 
 [tool.ruff.format]
 indent-style = "space"
@@ -17,5 +18,6 @@ skip-magic-trailing-comma = false
 
 [tool.mypy]
 files = ["."]
+exclude = "(^|/)dist/"
 strict = true
 python_version = "3.14"

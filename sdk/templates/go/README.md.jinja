@@ -2,11 +2,11 @@
 
 Applet id: `{{ id }}`.
 
-Requires Go. The SDK is the `sdk-go` module; run `go mod tidy` once to fetch it.
+Requires Go. `just lint` also needs `golangci-lint`. The SDK is the `sdk-go` module; run `go mod tidy` once to fetch it.
 
-Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
-applet with its options and env. Options edits update it; source
-edits restart it. Run `go vet ./...` to check it. The desktop entry runs `go run .`.
+Run `just dev`: it builds the binary, loads `devconfig.toml` and attaches the
+applet with its options and env. Options edits update it; re-run `just build` after source
+edits and the restart picks up the new binary.
 
 The justfile wraps the whole loop: `just dev`, `just test`, `just lint`, `just package`,
 `just install`.
