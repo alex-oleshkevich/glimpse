@@ -5,9 +5,17 @@ requires-python = ">=3.14"
 dependencies = ["glimpse-applet-sdk>=0.9"]
 
 [dependency-groups]
-dev = ["mypy"]
+dev = ["mypy", "pytest", "ruff"]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.format]
+indent-style = "space"
+skip-magic-trailing-comma = false
 
 [tool.mypy]
-files = ["applet.py"]
+files = ["."]
 strict = true
 python_version = "3.14"

@@ -7,6 +7,7 @@ pub mod dev;
 pub mod doctor;
 pub mod idle;
 pub mod notifications;
+pub mod package_manager;
 pub mod panel;
 pub mod run;
 pub mod session;

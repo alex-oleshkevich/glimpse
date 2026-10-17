@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use super::*;
 
 fn source(root: &Path) -> PathBuf {
@@ -9,42 +11,6 @@ fn source(root: &Path) -> PathBuf {
 }
 
 #[test]
-fn installation_round_trips_escaped_paths_and_refuses_other_files() {
-    let root = tempfile::tempdir().unwrap();
-    let dir = source(root.path());
-    let applications = root.path().join("applications");
-    let id = install(&dir, &applications).unwrap();
-    let target = applications.join(format!("{id}.desktop"));
-    let (contents, _) = marked(&target).unwrap();
-    let desktop = glib::KeyFile::new();
-    desktop
-        .load_from_data(&contents, glib::KeyFileFlags::NONE)
-        .unwrap();
-    assert_eq!(
-        desktop.string(GROUP, "Path").unwrap().as_str(),
-        dir.to_str().unwrap()
-    );
-    assert!(install(&dir, &applications).is_err());
-    uninstall(&id, &applications).unwrap();
-    assert!(!target.exists());
-    fs::write(&target, "[Desktop Entry]\nName=Unrelated\n").unwrap();
-    assert!(uninstall(&id, &applications).is_err());
-    assert_eq!(
-        fs::read_to_string(&target).unwrap(),
-        "[Desktop Entry]\nName=Unrelated\n"
-    );
-    assert!(install(&dir, &applications).is_err());
-    fs::remove_file(&target).unwrap();
-    let unrelated = root.path().join("unrelated");
-    fs::write(&unrelated, contents).unwrap();
-    std::os::unix::fs::symlink(&unrelated, &target).unwrap();
-    assert!(uninstall(&id, &applications).is_err());
-    assert!(install(&dir, &applications).is_err());
-    assert!(unrelated.exists());
-    assert!(uninstall("../escape", &applications).is_err());
-}
-
-#[test]
 fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
     let root = tempfile::tempdir().unwrap();
     let dir = source(root.path());
@@ -53,9 +19,6 @@ fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
     let defaults = settings(&dir, "org.example.Test").unwrap();
     assert_eq!(defaults.applet, "org.example.Test");
     assert!(defaults.env.is_empty() && defaults.options.is_empty());
-    let applications = root.path().join("applications");
-    let id = install(&dir, &applications).unwrap();
-    uninstall(&id, &applications).unwrap();
     for invalid in [
         "broken = [",
         "unknown = true",
@@ -64,13 +27,10 @@ fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
     ] {
         fs::write(&path, invalid).unwrap();
         assert!(settings(&dir, "org.example.Test").is_err(), "{invalid}");
-        assert!(install(&dir, &applications).is_err(), "{invalid}");
-        assert!(!applications.join("org.example.Test.desktop").exists());
     }
     fs::remove_file(&path).unwrap();
     std::os::unix::fs::symlink(dir.join("missing.toml"), &path).unwrap();
     assert!(settings(&dir, "org.example.Test").is_err());
-    assert!(install(&dir, &applications).is_err());
 }
 
 #[tokio::test]

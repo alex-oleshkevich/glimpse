@@ -8,4 +8,7 @@ Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
 applet with its options and env. Options edits update it; source
 edits restart it. Run `cargo build` to check it. The desktop entry builds a release binary with its target under `/tmp`.
 
+The justfile wraps the whole loop: `just dev`, `just test`, `just lint`, `just package`,
+`just install`.
+
 Add `center = ["{{ id }}"]` to a panel's applet zone.

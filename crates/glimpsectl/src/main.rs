@@ -181,8 +181,13 @@ async fn run(cli: Cli) -> Result<()> {
             AppletCommand::Check(args) => {
                 commands::applet_tools::applet_check(args, cli.json).await
             }
-            AppletCommand::Install { dir } => commands::applet_tools::applet_install(dir, cli.json),
-            AppletCommand::Uninstall { id } => commands::applet_tools::applet_uninstall(id),
+            AppletCommand::Package(args) => {
+                commands::package_manager::applet_package(args, cli.json)
+            }
+            AppletCommand::Install { target } => {
+                commands::package_manager::applet_install(target, cli.json)
+            }
+            AppletCommand::Uninstall { id } => commands::package_manager::applet_uninstall(id),
             command => {
                 commands::panel::applet_live(bus()?, &cli.panel_app_id, command, cli.json).await
             }

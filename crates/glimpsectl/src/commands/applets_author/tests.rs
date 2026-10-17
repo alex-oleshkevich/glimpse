@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn a_rendered_script_is_written_executable_and_a_plain_file_is_not() {
+    let root = tempfile::tempdir().unwrap();
+    let script = root.path().join("applet.py");
+    write_file(&script, b"#!/usr/bin/env python3\n").unwrap();
+    assert_eq!(
+        fs::metadata(&script).unwrap().permissions().mode() & 0o111,
+        0o111
+    );
+    let plain = root.path().join("notes.txt");
+    write_file(&plain, b"notes\n").unwrap();
+    assert_eq!(
+        fs::metadata(&plain).unwrap().permissions().mode() & 0o111,
+        0
+    );
+}
+
+#[test]
 fn slug_is_a_package_name() {
     assert_eq!(slug("me.example.HelloWorld_2"), "hello-world-2");
     assert_eq!(slug("me.example.123Thing"), "applet-123-thing");

@@ -10,7 +10,8 @@ pub use commented::commented_document;
 pub use environment::{TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{
-    DATA_DIR, applet_dir, load, load_or_default, resolve_image, resolved_files, runtime_dir,
+    DATA_DIR, applet_dir, applets_dir, load, load_or_default, resolve_image, resolved_files,
+    runtime_dir,
     screenshot_file, seed_user_config, state_dir, unknown_applets, user_dir, watch_dirs,
     write_table,
 };

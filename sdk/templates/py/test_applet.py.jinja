@@ -1,0 +1,11 @@
+from glimpse_sdk import Session
+
+from applet import App
+
+
+def test_build_shows_the_indicator() -> None:
+    app = App()
+    session = Session(app, lambda line: None)
+    widgets = app.build(session.ctx)
+    assert widgets[0].kind == "indicator"
+    assert widgets[0].props["text"] == {{ name | tojson }}

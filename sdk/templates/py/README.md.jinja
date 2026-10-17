@@ -8,4 +8,7 @@ Run `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
 applet with its options and env. Options edits update it; source
 edits restart it. Run `uv run mypy` to type-check it in strict mode. The desktop entry runs `uv run applet.py`.
 
+The justfile wraps the whole loop: `just dev`, `just test`, `just lint`, `just package`,
+`just install`.
+
 Add `center = ["{{ id }}"]` to a panel's applet zone.

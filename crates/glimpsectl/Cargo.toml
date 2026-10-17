@@ -24,7 +24,10 @@ minijinja.workspace = true
 notify.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 shadow-rs.workspace = true
+tempfile.workspace = true
+zip.workspace = true
 zbus.workspace = true
 tokio.workspace = true
 toml.workspace = true
@@ -33,7 +36,6 @@ tracing.workspace = true
 [dev-dependencies]
 glimpse-dbus = { workspace = true, features = ["testing"] }
 tokio = { workspace = true, features = ["test-util"] }
-tempfile.workspace = true
 
 [build-dependencies]
 shadow-rs.workspace = true

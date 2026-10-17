@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
@@ -76,7 +77,7 @@ fn desktop_value(value: &str) -> Result<()> {
     Ok(())
 }
 
-fn slug(id: &str) -> String {
+pub(super) fn slug(id: &str) -> String {
     let mut slug = String::new();
     for ch in words(id).1.chars() {
         if ch.is_ascii_alphanumeric() {
@@ -98,6 +99,14 @@ fn slug(id: &str) -> String {
     } else {
         format!("applet-{slug}")
     }
+}
+
+fn write_file(path: &Path, content: &[u8]) -> Result<()> {
+    fs::write(path, content)?;
+    if content.starts_with(b"#!") {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755))?;
+    }
+    Ok(())
 }
 
 fn template_dir(language: AppletLanguage, templates_root: Option<PathBuf>) -> PathBuf {
@@ -288,7 +297,7 @@ fn new_with_catalog(
             fs::create_dir_all(parent)?;
         }
 
-        fs::write(output, content)?;
+        write_file(&output, &content)?;
     }
     let shown = env::current_dir()
         .ok()

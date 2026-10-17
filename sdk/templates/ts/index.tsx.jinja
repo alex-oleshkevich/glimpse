@@ -1,16 +1,21 @@
 import { Indicator, Popover, Row, run, Section } from "glimpse-sdk";
 
+const ICON = {{ icon | tojson }};
+const NAME = {{ name | tojson }};
+
 function App() {
-  return (
-    <>
-      <Indicator icon={ {{ icon | tojson }} } tooltip={ {{ name | tojson }} }>{ {{ name | tojson }} }</Indicator>
-      <Popover icon={ {{ icon | tojson }} } title={ {{ name | tojson }} }>
-        <Section title={ {{ name | tojson }} }>
-          <Row title="It works" />
-        </Section>
-      </Popover>
-    </>
-  );
+    return (
+        <>
+            <Indicator icon={ICON} tooltip={NAME}>
+                {NAME}
+            </Indicator>
+            <Popover icon={ICON} title={NAME}>
+                <Section title={NAME}>
+                    <Row title="It works" />
+                </Section>
+            </Popover>
+        </>
+    );
 }
 
 await run(<App />);

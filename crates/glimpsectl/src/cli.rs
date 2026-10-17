@@ -560,12 +560,18 @@ pub enum AppletCommand {
     Run(RunArgs),
     #[command(about = "Validate an external applet")]
     Check(CheckArgs),
-    #[command(about = "Install a desktop entry for an external applet")]
+    #[command(about = "Build an applet package (.glimpse.zip)")]
+    Package(PackageArgs),
+    #[command(about = "Install an external applet from a directory or a .glimpse.zip package")]
     Install {
-        #[arg(default_value = ".", help = "Applet source directory")]
-        dir: PathBuf,
+        #[arg(
+            default_value = ".",
+            value_name = "DIR|PACKAGE",
+            help = "Applet source directory or .glimpse.zip package"
+        )]
+        target: PathBuf,
     },
-    #[command(about = "Remove a desktop entry installed by glimpsectl")]
+    #[command(about = "Remove an applet installed by glimpsectl")]
     Uninstall {
         #[arg(help = "Applet desktop-file ID")]
         id: String,
@@ -614,6 +620,20 @@ pub struct CheckArgs {
     pub run: bool,
     #[arg(long, default_value_t = 5, value_parser = clap::value_parser!(u64).range(1..), help = "Protocol smoke deadline in seconds")]
     pub timeout: u64,
+}
+
+#[derive(Debug, Args)]
+pub struct PackageArgs {
+    #[arg(default_value = ".", help = "Applet source directory")]
+    pub dir: PathBuf,
+    #[arg(long, help = "Install the package after building it")]
+    pub install: bool,
+    #[arg(
+        long,
+        value_name = "PATH",
+        help = "Write the package here instead of ./<id>.glimpse.zip"
+    )]
+    pub out: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -929,6 +949,7 @@ impl Command {
                     AppletCommand::New(_)
                         | AppletCommand::Run(_)
                         | AppletCommand::Check(_)
+                        | AppletCommand::Package(_)
                         | AppletCommand::Install { .. }
                         | AppletCommand::Uninstall { .. }
                         | AppletCommand::Restart { .. }

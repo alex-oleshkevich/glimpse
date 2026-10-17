@@ -1,13 +1,13 @@
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::io::Read;
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::process::CommandExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 use anyhow::{Context, Result, ensure};
-use glimpse_config::{ExecAppletConfig, is_desktop_id};
+use glimpse_config::ExecAppletConfig;
 use glimpse_services::{
     Edge, ExecEntry, FromApplet, MAX_LINE, Orientation, Outgoing, Placement, Tree, Zone,
 };
@@ -18,8 +18,8 @@ use tokio::signal::unix::{SignalKind, signal};
 use super::dev::Scratch;
 use crate::cli::CheckArgs;
 
-const GROUP: &str = "Desktop Entry";
-const MARKER: &str = "X-Glimpse-Installed-By";
+pub(super) const GROUP: &str = "Desktop Entry";
+pub(super) const MARKER: &str = "X-Glimpse-Installed-By";
 
 struct SmokeChild(Child);
 
@@ -40,6 +40,7 @@ async fn message(reader: &mut (impl AsyncBufRead + Unpin)) -> Result<FromApplet>
             !bytes.is_empty(),
             "applet disconnected before its first valid commit"
         );
+
         let length = bytes
             .iter()
             .position(|byte| *byte == b'\n')
@@ -50,7 +51,9 @@ async fn message(reader: &mut (impl AsyncBufRead + Unpin)) -> Result<FromApplet>
             "applet protocol line exceeds {MAX_LINE} bytes"
         );
         line.extend_from_slice(&bytes[..used]);
+
         reader.consume(used);
+
         if length.is_some() {
             return Ok(serde_json::from_slice(&line)?);
         }
@@ -156,7 +159,7 @@ pub async fn applet_check(args: CheckArgs, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn settings(dir: &Path, id: &str) -> Result<ExecAppletConfig> {
+pub(super) fn settings(dir: &Path, id: &str) -> Result<ExecAppletConfig> {
     let path = dir.join("devconfig.toml");
     match fs::symlink_metadata(&path) {
         Ok(_) => super::run::settings(&path, id),
@@ -169,7 +172,7 @@ fn settings(dir: &Path, id: &str) -> Result<ExecAppletConfig> {
     }
 }
 
-fn marked(path: &Path) -> Result<(String, fs::Metadata)> {
+pub(super) fn marked(path: &Path) -> Result<(String, fs::Metadata)> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
@@ -203,70 +206,6 @@ fn marked(path: &Path) -> Result<(String, fs::Metadata)> {
         .into());
     }
     Ok((contents, metadata))
-}
-
-fn install(dir: &Path, applications: &Path) -> Result<String> {
-    let dir = dir.canonicalize()?;
-    let (id, entry) = super::run::source(&dir)?;
-    settings(&dir, &id)?;
-    let desktop = glib::KeyFile::new();
-    desktop.load_from_file(&entry.path, glib::KeyFileFlags::KEEP_TRANSLATIONS)?;
-    desktop.set_string(
-        GROUP,
-        "Path",
-        dir.to_str().context("applet path is not UTF-8")?,
-    );
-    desktop.set_string(GROUP, MARKER, "glimpsectl");
-    fs::create_dir_all(applications)?;
-    let target = applications.join(format!("{id}.desktop"));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o644)
-        .open(&target)
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::AlreadyExists {
-                anyhow::Error::new(crate::errors::Refused(format!(
-                    "refusing to overwrite {}",
-                    target.display()
-                )))
-            } else {
-                error.into()
-            }
-        })?;
-    if let Err(error) = file.write_all(desktop.to_data().as_bytes()) {
-        let _ = fs::remove_file(&target);
-        return Err(error.into());
-    }
-    Ok(id)
-}
-
-fn uninstall(id: &str, applications: &Path) -> Result<()> {
-    ensure!(is_desktop_id(id), "invalid desktop-file id: {id}");
-    let target = applications.join(format!("{id}.desktop"));
-    let (_, opened) = marked(&target)?;
-    let current = fs::symlink_metadata(&target)?;
-    ensure!(
-        current.is_file() && (opened.dev(), opened.ino()) == (current.dev(), current.ino()),
-        "desktop entry changed during uninstall"
-    );
-    fs::remove_file(&target)?;
-    Ok(())
-}
-
-pub fn applet_install(dir: PathBuf, json: bool) -> Result<()> {
-    let id = install(&dir, &glib::user_data_dir().join("applications"))?;
-    if json {
-        super::emit(&serde_json::json!({"id": id}))?;
-    } else {
-        crate::render::print(&id)?;
-    }
-    eprintln!("Add [applets.\"{id}\"] with applet = \"{id}\", then add \"{id}\" to a panel zone.");
-    Ok(())
-}
-
-pub fn applet_uninstall(id: String) -> Result<()> {
-    uninstall(&id, &glib::user_data_dir().join("applications"))
 }
 
 #[cfg(test)]

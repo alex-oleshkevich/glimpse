@@ -1,0 +1,25 @@
+[doc("list recipes")]
+default:
+    @just --list --unsorted
+
+[doc("run the applet in the panel, restarting on source edits")]
+dev:
+    glimpsectl applet run --dev .
+
+[doc("build the package and install it")]
+install:
+    glimpsectl applet package --install .
+
+[doc("build the applet package")]
+package:
+    glimpsectl applet package .
+
+[doc("run the tests")]
+test:
+    uv run pytest
+
+[doc("lint")]
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run mypy

@@ -1,0 +1,13 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+    "files": { "includes": ["**", "!**/node_modules", "!build"] },
+    "formatter": {
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120
+    },
+    "javascript": {
+        "formatter": { "trailingCommas": "all" }
+    },
+    "assist": { "enabled": false }
+}

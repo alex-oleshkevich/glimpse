@@ -35,8 +35,12 @@ pub fn state_dir() -> Option<PathBuf> {
     dirs::state_dir().map(|dir| dir.join(FOLDER_NAME))
 }
 
+pub fn applets_dir() -> Option<PathBuf> {
+    dirs::data_dir().map(|dir| dir.join(FOLDER_NAME).join("applets"))
+}
+
 pub fn applet_dir(id: &str) -> Option<PathBuf> {
-    dirs::data_dir().map(|dir| dir.join(FOLDER_NAME).join("applets").join(id))
+    applets_dir().map(|dir| dir.join(id))
 }
 
 pub fn runtime_dir() -> Option<PathBuf> {
