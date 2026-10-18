@@ -207,8 +207,7 @@ With `--dev`, saving files drives the running test copy. Edits settle for 300 ms
 | Options                    | `SetOptions`            | The running applet gets live `options`.                       |
 | `env` or the desktop entry | `Detach`, then `Attach` | The panel checks the entry again and replaces the unit.       |
 
-For a folder target, `--dev` watches sources in that folder except hidden paths, `node_modules`, `build` and `dist`. For an installed id it watches the desktop entry and the applet config. The terminal key `t` prints the current drawing (`Tree`). `applet check --run` is a separate headless check where the command line tool starts the child itself and gives it a socket.
-
+For a folder target, `--dev` watches sources in that folder except hidden paths, `node_modules`, `build` and `dist`. For an installed id it watches the desktop entry and the applet config. The terminal key `t` prints the current drawing (`Tree`).
 ## What happens at panel start and exit?
 
 ```mermaid

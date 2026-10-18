@@ -9,7 +9,7 @@ Exec applets are desktop applications whose `[Desktop Entry]` group declares `Im
 | `Type` | Must be `Application` for the entry to load. |
 | `Implements` | Its string list must include `me.aresa.Glimpse.Applet1`. |
 | `Name` | Read through the desktop catalog as the applet name; also used for `%c` expansion. |
-| `Icon` | Optional. An empty value is absent. Used for `%i` expansion and as the icon of the applet's notifications when `notify` gives none; the SDK tree supplies the icons on the bar. |
+| `Icon` | Optional. An empty value is absent. Used for `%i` expansion and as the icon of the applet's notifications when `notify` gives none (the SDK receives it in the host's `hello`); the SDK tree supplies the icons on the bar. |
 | `Exec` | Required. Parsed into a program and arguments, then expanded using the rules below. An empty resulting argv is refused. |
 | `Path` | Optional working directory. If absent or empty, the host uses the canonical desktop file's parent directory. |
 | `Hidden` | An entry with `Hidden=true` is refused. |
@@ -40,4 +40,4 @@ The program is resolved against the applet's merged environment `PATH`. A deskto
 
 The desktop filename supplies the applet id. `me.aresa.GlimpseTodo.desktop` is placed in a panel zone as `me.aresa.GlimpseTodo`. Installed discovery asks the desktop catalog for implementations of `me.aresa.Glimpse.Applet1`.
 
-User entries can be installed under `${XDG_DATA_HOME:-$HOME/.local/share}/applications`. A development directory must contain exactly one `.desktop` file. Run `glimpsectl applet check .` there to validate the entry, local configuration, and `Exec` expansion without a panel. See [Install and share an applet](/applets/exec/share) for installation and panel configuration.
+User entries can be installed under `${XDG_DATA_HOME:-$HOME/.local/share}/applications`. A development directory must contain exactly one `.desktop` file. `just dev` there loads the entry and refuses one that is invalid; `just package` builds it into a package. See [Package and share an applet](/applets/exec/share) for installation and panel configuration.

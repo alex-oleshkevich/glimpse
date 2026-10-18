@@ -1,73 +1,60 @@
-# Install and share an applet
+# Package and share an applet
 
-Install an applet's desktop entry so the panel can discover it by id, then place that id in a panel zone. This guide uses the project from [the todo tutorial](/applets/exec/).
+Install your applet so it runs without a terminal, and build a file you can send to someone else.
+The [package format](/applets/exec/reference/package) lists what goes in and what the installer
+checks.
 
-## Prepare the project
+## Install it for yourself
 
-Keep the project in a permanent directory. From that directory, install dependencies and check it:
-
-```sh
-npm install
-npm run check
-glimpsectl applet check --run .
-```
-
-`glimpsectl applet check .` validates the desktop entry, local configuration, and `Exec` expansion without a panel. `--run` also starts the applet headlessly and validates its first tree against the panel's nesting and size limits.
-
-The generated desktop entry contains:
-
-```ini
-[Desktop Entry]
-Type=Application
-Version=1.5
-Name=Todo
-Comment=A list of things to do
-Icon=view-list-symbolic
-Exec=node --run start
-NoDisplay=true
-Implements=me.aresa.Glimpse.Applet1
-```
-
-`Implements` makes it discoverable as an applet. The start script bundles `index.tsx` into `build/applet.mjs` and runs it. Without `Path`, the host uses the desktop file's resolved directory as the working directory.
-
-## Install the desktop entry
-
-From the project directory, install the entry into your user applications directory:
+From the project directory:
 
 ```sh
-glimpsectl applet install
+just install
 ```
 
-It copies the entry to `${XDG_DATA_HOME:-$HOME/.local/share}/applications/`, sets its `Path` key to the project directory so the applet keeps running from there, and refuses to overwrite an entry that is already there. `glimpsectl applet uninstall me.aresa.GlimpseTodo` removes it again, and removes only entries it installed. The host discovers applets through the desktop application catalog; `NoDisplay=true` keeps this entry out of application menus without preventing applet discovery.
+This builds the applet, packages it, and installs the package: the files go to
+`~/.local/share/glimpse/applets/<id>/` and the desktop entry to `~/.local/share/applications/`.
+Then add the id to a panel zone, as [Configure an applet in the panel](/applets/exec/configure)
+shows.
 
-Check discovery:
+While you work on the applet, use `just dev`, which rebuilds and restarts it on every edit. Install
+again only to update the installed copy, then restart it so the panel runs the new version:
+
+```sh
+glimpsectl applet restart me.aresa.GlimpseTodo
+```
+
+Check that the panel sees it:
 
 ```sh
 glimpsectl applet list --installed
-glimpsectl applet inspect --installed me.aresa.GlimpseTodo
 ```
 
-## Place it and pass options
+## Share it
 
-Add `"me.aresa.GlimpseTodo"` to an existing panel zone in your glimpse configuration. For example, an existing `right` list becomes:
-
-```toml
-right = ["me.aresa.GlimpseTodo", "network", "audio"]
+```sh
+just package
 ```
 
-Add a top-level table for the options the applet understands:
+This writes `<id>.glimpse.zip` in the project directory. Send that file. The recipient installs it
+with:
 
-```toml
-[applets."me.aresa.GlimpseTodo"]
-options = { title = "Groceries" }
+```sh
+glimpsectl applet install me.aresa.GlimpseTodo.glimpse.zip
 ```
 
-Save the configuration. The panel starts the installed applet, and the todo chip reads "Groceries". A second instance can use its own configured name and options; see [exec settings](/config/applets/custom#exec).
+and places the id in a panel zone. A TypeScript applet needs `node` on the recipient's machine, and
+a Python applet needs `uv`; Go and Rust applets ship a binary.
 
-The panel runs the applet as a systemd user unit with a 256 MiB memory limit. If the process exits with an error, it restarts after 1 second, backing off to at most 60 seconds between attempts.
+::: warning
+Exec applets run with full access to your session, so install only applets whose code you trust.
+:::
 
-## Share the source
+## Remove it
 
-Share the source, `package.json`, `tsconfig.json`, the desktop entry, and local `config.toml`. Recipients install dependencies, install the entry on their machine, and place its id in their panel. Avoid distributing an absolute `Path` from your machine; use a link or have recipients set their own path.
+```sh
+glimpsectl applet uninstall me.aresa.GlimpseTodo
+```
 
-Exec applets have your full session access, so install applets whose code you trust. The [desktop entry reference](/applets/exec/reference/desktop-entry) lists the keys the host reads and the entries it refuses.
+This removes the files the install wrote and the desktop entry. Take the id out of your panel zones
+as well, or the panel keeps looking for it.

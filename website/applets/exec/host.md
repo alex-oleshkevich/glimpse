@@ -1,54 +1,105 @@
 # Notify, copy, open links and launch apps
 
-Use SDK host requests from event handlers to integrate an applet with the desktop. These functions send a request and return `void`.
+Call these from an event handler: a press, a toggle, a submitted entry. Each returns at once and
+reports nothing back.
 
-## Add host actions
+## Send a notification and copy text
 
-This complete `index.tsx` adds actions to a generated applet project:
+`notify` runs `notify-send` and `copy` runs `wl-copy` from your applet's process, so install
+libnotify and wl-clipboard. A missing tool prints one line to stderr; the applet keeps running.
 
-```tsx
-import {
-  ActionRow, closePopover, copy, Indicator, launch, notify, openUri,
-  Popover, run, Section,
-} from "glimpse-sdk";
+::: code-group
 
-function TodoActions() {
-  return (
-    <>
-      <Indicator icon="view-list-symbolic" tooltip="Todo actions" />
-      <Popover title="Todo actions">
-        <Section>
-          <ActionRow title="Notify" onActivate={() => notify({
-            summary: "Todo saved", body: "Your list is ready.", urgency: "normal",
-          })} />
-          <ActionRow title="Copy task" onActivate={() => copy("Buy groceries")} />
-          <ActionRow title="Open glimpse" onActivate={() => openUri(
-            "https://github.com/alex-oleshkevich/glimpse",
-          )} />
-          <ActionRow title="Open Files" onActivate={() => {
-            launch("org.gnome.Nautilus");
-            closePopover();
-          }} />
-        </Section>
-      </Popover>
-    </>
-  );
-}
+```tsx [TypeScript]
+import { copy, notify } from "glimpse-sdk";
 
-await run(<TodoActions />);
+notify({ summary: "Todo saved", body: "Your list is ready.", urgency: "normal" });
+copy("Buy groceries");
 ```
 
-Run it with `glimpsectl applet run --dev .`. The launch action requires GNOME Files; use the desktop-file id of another installed application for a different target. `launch` accepts an id with or without `.desktop`, not an arbitrary command line.
+```python [Python]
+ctx.notify("Todo saved", body="Your list is ready.", urgency="normal")
+ctx.copy("Buy groceries")
+```
 
-## Keep requests within host limits
+```go [Go]
+ctx.Notify(sdk.Notification{Summary: "Todo saved", Body: "Your list is ready.", Urgency: "normal"})
+ctx.Copy("Buy groceries")
+```
 
-| Request | Limit or behavior |
-| --- | --- |
-| `notify` | At most one per second per slot. Extra notifications are dropped. `summary` is required; `body`, `icon`, and `urgency` are optional. |
-| `copy` | Copies text. The payload is limited to 1 MiB, and the whole encoded protocol line must also fit within 1 MiB. |
-| `openUri` | At most 2,048 bytes. Only `http`, `https`, `mailto`, and `file` schemes are accepted. |
-| `openUri` with `file` | Opens a resolved directory or an eligible regular file. Executable files, desktop entries, scripts, binaries, installers, and archives that run are refused. |
-| `launch` | Resolves an installed desktop-file id. An empty id is refused. |
-| `closePopover` | Closes this applet's popover. |
+```rust [Rust]
+ctx.notify("Todo saved", Some("Your list is ready."), None, Some("normal"));
+ctx.copy("Buy groceries");
+```
 
-The host delays lines beyond 120 per second. This is separate from the notification cap and the ten-per-second combined cap on [media and compositor requests](/applets/exec/media). Send requests in response to an action, rather than during every render.
+:::
+
+The notification uses your desktop entry's name and icon unless you pass an icon. Urgency is `low`,
+`normal` or `critical`; anything else is `normal`.
+
+## Open a link or a file
+
+::: code-group
+
+```tsx [TypeScript]
+openUri("https://github.com/alex-oleshkevich/glimpse");
+```
+
+```python [Python]
+ctx.open_uri("https://github.com/alex-oleshkevich/glimpse")
+```
+
+```go [Go]
+ctx.OpenURI("https://github.com/alex-oleshkevich/glimpse")
+```
+
+```rust [Rust]
+ctx.open_uri("https://github.com/alex-oleshkevich/glimpse");
+```
+
+:::
+
+The panel opens `http`, `https`, `mailto` and `file` URIs up to 2,048 bytes in your default
+application. A `file` URI opens a folder or a document; the panel refuses anything that would run a
+program, such as a script, a binary, a desktop entry or an installer.
+
+## Launch an app and close the popover
+
+::: code-group
+
+```tsx [TypeScript]
+import { ActionRow, launch, usePopover } from "glimpse-sdk";
+
+function Files() {
+  const popover = usePopover();
+  return (
+    <ActionRow
+      title="Files"
+      onActivate={() => {
+        launch("org.gnome.Nautilus");
+        popover.close();
+      }}
+    />
+  );
+}
+```
+
+```python [Python]
+ctx.launch("org.gnome.Nautilus")
+ctx.close_popover()
+```
+
+```go [Go]
+ctx.Launch("org.gnome.Nautilus")
+ctx.ClosePopover()
+```
+
+```rust [Rust]
+ctx.launch("org.gnome.Nautilus");
+ctx.close_popover();
+```
+
+:::
+
+`launch` takes an installed desktop-file id, with or without `.desktop`, not a command line. The
+panel starts the app, so it gets focus and keeps running when your applet restarts.

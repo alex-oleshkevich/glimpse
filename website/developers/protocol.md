@@ -45,11 +45,11 @@ The same steps with the real names:
 
 1. The applet connects to the unix socket in `GLIMPSE_APPLET_SOCKET`. Both directions then carry NDJSON on that one connection.
 2. The applet sends `hello` with `v: 1`. The host starts a new generation and clears the protocol tree.
-3. The host answers with its own `hello` (`name`, `state`, `options`, `placement`), then sends `popover` if one is open and replays cached `service` values.
+3. The host answers with its own `hello` (`name`, `state`, `options`, `placement`, `entry`), then sends `popover` if one is open.
 4. The applet sends a `commit`, one batch of `ops` that builds or changes its widget tree.
 5. The host applies the batch to a copy of the tree, checks the whole batch, and only then publishes it to the exec widget. A rejected batch changes nothing on screen.
 6. A user gesture becomes an `event`. Events carry the generation of the tree they came from, and the host drops any event from an older generation.
-7. The applet replies with another `commit`, or with a request such as `notify`, `copy` or `open-uri`.
+7. The applet replies with another `commit`, or with a request such as `open-uri`.
 
 Object keys added by a newer peer are ignored. A commit is applied as a whole batch or
 not at all: if any operation in the batch is rejected, the tree does not change. The host
@@ -69,7 +69,6 @@ Every host message is an object with a `t` tag.
 | `placement` | The bar's placement changed |
 | `event` | A subscribed element handler fired |
 | `popover` | The instance's popover opened or closed |
-| `service` | A shared service value (`mpris`, `compositor`) changed |
 
 ### `hello`
 
@@ -83,6 +82,7 @@ reload.
 | `state` | string | Absolute path to the applet's persistent state directory, owned by the applet and mode 0700 |
 | `options` | object | The instance's options, a JSON object |
 | `placement` | placement | Where this instance is drawn |
+| `entry` | object or `null` | The applet's desktop entry: `id`, `name` and `icon` (string or `null`). May be absent |
 
 ### `options`
 
@@ -163,41 +163,6 @@ or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `se
 | --- | --- | --- |
 | `open` | boolean | Whether this instance's popover is showing |
 
-### `service`
-
-The whole current value of a service, sent after `hello` and on every change.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `name` | string | `mpris` or `compositor` |
-| `value` | object | Below |
-
-`mpris` is `{players}`. A player:
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `id` | string | Passed back in `mpris` requests |
-| `identity` | string | The player's own name |
-| `desktopEntry` | string or `null` | Its desktop-file id |
-| `playback` | string | `playing`, `paused`, `stopped` |
-| `current` | boolean | The player the panel follows |
-| `title`, `artist`, `album` | string or `null` | Capped at 256 characters |
-| `lengthUs` | number or `null` | Track length in microseconds |
-| `positionUs` | number | Position at `positionAt` |
-| `positionAt` | number | Unix milliseconds; a playing track advances by `rate` from here |
-| `rate` | number | Playback rate |
-| `can` | object | `play`, `pause`, `previous`, `next`, `seek`: booleans |
-
-`compositor` is `{name, workspaces, windows, outputs}`:
-
-| List | Fields |
-| --- | --- |
-| `workspaces` | `id`, `index`, `name`, `output`, `active`, `focused`, `urgent`, `windows` |
-| `windows` | `id`, `title`, `appId`, `workspace`, `focused`, `urgent` |
-| `outputs` | `connector`, `label`, `focused` |
-
-`name` is the compositor's name or `null`. Titles are capped at 256 characters.
-
 ## Applet to host
 
 Every applet message is an object with a `t` tag.
@@ -206,12 +171,8 @@ Every applet message is an object with a `t` tag.
 | --- | --- |
 | `hello` | First message on a connection; starts a new generation |
 | `commit` | A batch of tree operations |
-| `notify` | Post a notification |
-| `copy` | Copy text to the clipboard |
 | `open-uri` | Ask the host to open a URI |
 | `launch` | Ask the host to launch a desktop entry |
-| `mpris` | Control a media player |
-| `compositor` | Focus, move, rename or close workspaces and windows |
 | `close-popover` | Close this instance's popover |
 
 ### `hello`
@@ -232,21 +193,6 @@ the same process starts a new generation and an empty tree.
 Operations are applied in order to a copy of the tree. Ids, cycles, the parent table,
 the node cap and the child cap are checked before the copy replaces the live tree.
 
-### `notify`
-
-| Field | Type | Default |
-| --- | --- | --- |
-| `summary` | string | required |
-| `body` | string | `""` |
-| `icon` | string or absent | absent |
-| `urgency` | `low`, `normal`, `critical` | `normal` |
-
-### `copy`
-
-| Field | Type |
-| --- | --- |
-| `text` | string |
-
 ### `open-uri`
 
 | Field | Type |
@@ -263,29 +209,6 @@ entry, a script, a binary, an installer or an archive that runs.
 | Field | Type |
 | --- | --- |
 | `id` | string: a desktop-file id, with or without `.desktop` |
-
-### `mpris`
-
-| `op` | Fields |
-| --- | --- |
-| `control` | `player`, `action`: `play`, `pause`, `play-pause`, `stop`, `previous`, `next`, `raise` |
-| `seek` | `player`, `offset`: microseconds, negative goes back |
-| `set-position` | `player`, `position`: microseconds |
-
-### `compositor`
-
-A workspace target is `{"id":n}`, `{"index":n}`,
-`{"name":"…"}`, `"next"` or `"prev"`; a window target is `{"id":n}`, `"next"` or `"prev"`.
-
-| `op` | Fields |
-| --- | --- |
-| `focus-workspace` | `target`: a workspace target |
-| `focus-window` | `target`: a window target |
-| `move-window` | `window`, `target`: a workspace target |
-| `rename-workspace` | `id`, `name`: string, or `null` to clear |
-| `close-window` | `id` |
-
-An unknown `op` is an invalid line.
 
 ### `close-popover`
 

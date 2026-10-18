@@ -4,7 +4,7 @@ Tokens are the CSS custom properties a theme redefines, usually in `:root`. Thes
 tokens a theme can usefully change. Where a default names a GTK color, glimpse follows your GTK
 theme until you set the token. How to write a theme is in [Write a theme](/guide/theming).
 
-glimpse-lens — the magnifier, and the color picker and ruler it runs as tools — loads only the
+glimpse-lens (the magnifier, and the color picker and ruler it runs as tools) loads only the
 built-in stylesheet. Your theme and `~/.config/glimpse/styles.css` cannot change it.
 
 ## Surfaces and text

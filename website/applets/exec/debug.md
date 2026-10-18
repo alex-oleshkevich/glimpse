@@ -11,7 +11,7 @@ glimpsectl applet inspect --installed me.aresa.GlimpseTodo
 
 The list includes installed and placed applets, their desktop entries, commands, and state. Inspect separates desktop metadata, configuration placements and options, and runtime units. A refused desktop entry includes its reason. `runtime: unavailable` means the CLI could not obtain runtime information. Ignore the state column then: its `stopped` values do not confirm that an applet has stopped.
 
-From your project directory, run `glimpsectl applet check .` to validate the desktop entry, local configuration, and `Exec` expansion without a panel. Add `--run` to start the applet headlessly and validate its first tree against the panel's nesting and size limits.
+From your project directory, run `just dev`. It loads the desktop entry and local configuration, and it reports an entry the host refuses.
 
 ## Read installed applet logs
 
@@ -25,7 +25,7 @@ To narrow the output, copy a unit name from `applet inspect` and pass that exact
 
 The SDK redirects console methods to stderr. Installed applet stderr goes to the journal; an applet attached through `glimpsectl applet run` sends stderr to that command's terminal. Build errors from the generated start script appear there too.
 
-If the panel refuses a tree, it kills the applet unit without printing the reason in the development terminal. The reason appears in the panel log. Run `glimpsectl applet check --run .` to diagnose a rejected first tree, such as `section cannot hold section`. Limit errors caught by the SDK and exceptions thrown in event handlers print to stderr and end the process.
+If the panel refuses a tree, it kills the applet unit without printing the reason in the development terminal. The reason appears in the panel log. Look there for a rejected tree, such as `section cannot hold section`. Limit errors caught by the SDK and exceptions thrown in event handlers print to stderr and end the process.
 
 ## Restart after a fix
 

@@ -8,18 +8,18 @@ const developers = [
   {
     text: "For developers",
     items: [
-      { text: "Architecture", link: "/developers/" },
-      { text: "Design principles", link: "/developers/principles" },
-      { text: "How exec applets work", link: "/developers/exec-applets" },
-      { text: "Trust model", link: "/developers/trust" },
-      { text: "How the lock screen works", link: "/developers/lock-screen" },
+      { text: "How glimpse fits together", link: "/developers/" },
+      { text: "How an applet runs", link: "/developers/exec-applets" },
+      { text: "How development mode works", link: "/developers/dev-mode" },
+      { text: "What an applet can do", link: "/developers/trust" },
     ],
   },
   {
     text: "Reference",
     items: [
-      { text: "Applet protocol", link: "/developers/protocol" },
+      { text: "systemd and D-Bus", link: "/developers/systemd" },
       { text: "Installed files", link: "/developers/files" },
+      { text: "Applet protocol", link: "/developers/protocol" },
     ],
   },
   {
@@ -27,6 +27,8 @@ const developers = [
     items: [
       { text: "Build glimpse from source", link: "/contribute/build" },
       { text: "Translate glimpse", link: "/contribute/translate" },
+      { text: "Design principles", link: "/contribute/principles" },
+      { text: "How the lock screen works", link: "/contribute/lock-screen" },
     ],
   },
 ];
@@ -98,21 +100,26 @@ export default withMermaid(
             text: "Exec applets",
             items: [
               { text: "Build a todo applet", link: "/applets/exec/" },
+              { text: "Start in Python, Go or Rust", link: "/applets/exec/start" },
               { text: "Develop with live reload", link: "/applets/exec/live-reload" },
+              { text: "Configure an applet in the panel", link: "/applets/exec/configure" },
               { text: "Keep data between restarts", link: "/applets/exec/data" },
               { text: "Notify, copy, open links and launch apps", link: "/applets/exec/host" },
-              { text: "React to media players and workspaces", link: "/applets/exec/media" },
               { text: "Test an applet", link: "/applets/exec/testing" },
               { text: "Debug a running applet", link: "/applets/exec/debug" },
-              { text: "Install and share an applet", link: "/applets/exec/share" },
+              { text: "Package and share an applet", link: "/applets/exec/share" },
             ],
           },
           {
             text: "Reference",
             items: [
-              { text: "SDK API", link: "/applets/exec/reference/sdk" },
+              { text: "Elements", link: "/applets/exec/reference/elements" },
+              { text: "TypeScript SDK", link: "/applets/exec/reference/sdk" },
+              { text: "Python SDK", link: "/applets/exec/reference/python" },
+              { text: "Go SDK", link: "/applets/exec/reference/go" },
+              { text: "Rust SDK", link: "/applets/exec/reference/rust" },
               { text: "Desktop entry keys", link: "/applets/exec/reference/desktop-entry" },
-              { text: "Applet protocol", link: "/developers/protocol" },
+              { text: "Package format", link: "/applets/exec/reference/package" },
             ],
           },
         ],

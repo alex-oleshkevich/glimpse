@@ -310,7 +310,7 @@ Commands:
   action    Invoke a notification action
   dismiss   Mark a notification read and drop its popup
   clear     Dismiss every notification, or every one from a single application
-  dnd       Turn do not disturb on or off
+  dnd       Turn do not disturb on or off, or toggle it
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -422,13 +422,13 @@ Options:
 
 ### `glimpsectl notifications dnd`
 
-Turn do not disturb on or off. Without `--until` it stands until it is turned off again.
+Turn do not disturb on or off, or toggle it. Use `on --until HH:MM` to turn it off again at a local time.
 
 ```text
 Usage: glimpsectl notifications dnd [OPTIONS] <STATE>
 
 Arguments:
-  <STATE>  Whether to silence notifications [possible values: on, off]
+  <STATE>  Whether to silence notifications [possible values: on, off, toggle]
 
 Options:
       --until <HH:MM>        Turn it off again at this local time, today or tomorrow
@@ -619,9 +619,9 @@ Commands:
   restart    Restart the applet's systemd services
   new        Create an external applet
   run        Run an applet in the panel until Ctrl-C
-  check      Validate an external applet
-  install    Install a desktop entry for an external applet
-  uninstall  Remove a desktop entry installed by glimpsectl
+  package    Build an applet package (.glimpse.zip)
+  install    Install an external applet from a directory or a .glimpse.zip package
+  uninstall  Remove an applet installed by glimpsectl
   help       Print this message or the help of the given subcommand(s)
 
 Options:
@@ -764,6 +764,7 @@ Usage: glimpsectl applet new [OPTIONS]
 
 Options:
       --id <ID>                    Applet desktop-file ID
+      --language <LANGUAGE>        Applet language template [default: ts] [possible values: rs, ts, py, go]
       --name <NAME>                Applet display name
       --description <DESCRIPTION>  Applet description
       --icon <ICON>                Applet icon name
@@ -793,31 +794,31 @@ Options:
   -h, --help                  Print help
 ```
 
-### `glimpsectl applet check`
+### `glimpsectl applet package`
 
-Validate an external applet
+Build an applet package (.glimpse.zip)
 
 ```text
-Usage: glimpsectl applet check [OPTIONS] [DIR]
+Usage: glimpsectl applet package [OPTIONS] [DIR]
 
 Arguments:
   [DIR]  Applet source directory [default: .]
 
 Options:
-      --run                  Run a headless protocol smoke check
-      --timeout <TIMEOUT>    Protocol smoke deadline in seconds [default: 5]
+      --install              Install the package after building it
+      --out <PATH>           Write the package here instead of ./<id>.glimpse.zip
   -h, --help                 Print help
 ```
 
 ### `glimpsectl applet install`
 
-Install a desktop entry for an external applet
+Install an external applet from a directory or a .glimpse.zip package
 
 ```text
-Usage: glimpsectl applet install [OPTIONS] [DIR]
+Usage: glimpsectl applet install [OPTIONS] [DIR|PACKAGE]
 
 Arguments:
-  [DIR]  Applet source directory [default: .]
+  [DIR|PACKAGE]  Applet source directory or .glimpse.zip package [default: .]
 
 Options:
   -h, --help                 Print help
@@ -825,7 +826,7 @@ Options:
 
 ### `glimpsectl applet uninstall`
 
-Remove a desktop entry installed by glimpsectl
+Remove an applet installed by glimpsectl
 
 ```text
 Usage: glimpsectl applet uninstall [OPTIONS] <ID>

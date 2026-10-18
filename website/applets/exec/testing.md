@@ -1,27 +1,34 @@
 # Test an applet
 
-Use `glimpse-sdk/testing` to render an applet in memory, inspect its tree, and exercise handlers without starting a panel.
+Each SDK can run your applet without a panel: you feed it the panel's messages and check what it
+draws and asks for. `just test` runs the tests of a generated project. Run `just dev` as well: only
+the panel checks [which element may hold which](/applets/exec/reference/elements#parent-table).
 
-## Write a test
+## Check what the applet draws
 
-Add `copy.test.tsx` to a generated applet project:
+::: code-group
 
-```tsx
+```tsx [TypeScript]
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ReactNode } from "react";
-import { Button, copy, Indicator, Popover } from "glimpse-sdk";
+import { Button, Indicator, Popover, usePopover } from "glimpse-sdk";
 import { render } from "glimpse-sdk/testing";
 
-test("copies a task when the button is clicked", async () => {
-  const app = await render(
+function Todo() {
+  const popover = usePopover();
+  return (
     <>
       <Indicator icon="view-list-symbolic" />
       <Popover title="Todo">
-        <Button text="Copy task" onClick={() => copy("Buy groceries")} />
+        <Button text="Close" onClick={popover.close} />
       </Popover>
-    </> as ReactNode,
+    </>
   );
+}
+
+test("closes the popover when the button is clicked", async () => {
+  const app = await render((<Todo />) as ReactNode);
   try {
     const tree = app.tree() as {
       children: Array<{ type: string; children: Array<{
@@ -31,41 +38,98 @@ test("copies a task when the button is clicked", async () => {
     const popover = tree.children.find((node) => node.type === "popover");
     const button = popover?.children.find((node) => node.type === "button");
     assert.ok(button);
-    assert.equal(button.props.text, "Copy task");
+    assert.equal(button.props.text, "Close");
     await app.click(button.id);
-    assert.deepEqual(app.requests(), [{ t: "copy", text: "Buy groceries" }]);
+    assert.deepEqual(app.requests(), [{ t: "close-popover" }]);
   } finally {
     await app.close();
   }
 });
 ```
 
-Bundle the test with the project's existing esbuild dependency, then run Node's test runner:
+```python [Python]
+from glimpse_sdk import Session
 
-```sh
-npx esbuild copy.test.tsx --bundle --platform=node --format=esm --outfile=build/copy.test.mjs
-node --test build/copy.test.mjs
+from applet import App
+
+
+def test_build_shows_the_indicator() -> None:
+    app = App()
+    session = Session(app, lambda line: None)
+    widgets = app.build(session.ctx)
+    assert widgets[0].kind == "indicator"
+    assert widgets[0].props["text"] == "Glimpse Todo"
 ```
 
-The test checks both the rendered button and its clipboard request. It does not change your real clipboard. The `ReactNode` assertion bridges the SDK's JSX return type and the test host's React input type.
+```go [Go]
+// main_test.go
+package main
 
-Run `glimpsectl applet check .` to validate the desktop entry, local configuration, and `Exec` expansion without a panel. `glimpsectl applet check --run .` also starts the applet headlessly and validates its first tree, reporting errors such as `section cannot hold section`.
+import (
+	"testing"
 
-## Supply host state
+	sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
+)
 
-`render(element, host)` accepts optional `options`, `placement`, and `state` fields. `state` is a directory path; omitting it gives the test a temporary directory that `close()` removes.
+func TestMounts(t *testing.T) {
+	var lines []string
+	session := sdk.NewSession(&app{}, func(line string) { lines = append(lines, line) })
+	session.Handle(map[string]any{"t": "hello", "v": float64(1), "name": "test",
+		"state": t.TempDir(), "options": map[string]any{}})
+	session.Flush()
+	if len(lines) == 0 {
+		t.Fatal("no commit")
+	}
+}
+```
 
-The returned session provides:
+```rust [Rust]
+// at the end of src/main.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-| Method | Use |
-| --- | --- |
-| `tree()` | Get a cloned root with `id`, `type`, `props`, and `children`. Its TypeScript return type is `unknown`; narrow it before inspecting fields. |
-| `requests()` | Get the host requests sent so far as `Array<Record<string, unknown>>`. |
-| `click(id)` | Click a `Button` or activate an `ActionRow`, returning `Promise<void>`. |
-| `event(id, name, args?)` | Send another subscribed event, such as `onToggle` with `[true]`. |
-| `setOptions(options)` | Replace options and update `useOptions()`. |
-| `setPopoverOpen(open)` | Update `usePopoverOpen()`. |
-| `setService(name, value)` | Supply a service snapshot: `setService("mpris", { players: [player] })` or `setService("compositor", { name, workspaces, windows, outputs })`. |
-| `close()` | Unmount and release the session. Await it before starting another render. |
+    #[test]
+    fn mounts() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut session = Session::new(App, tx);
+        session.handle(&json!({"t": "hello", "v": 1, "name": "test", "state": "", "options": {}}));
+        session.flush().expect("a valid tree");
+        assert!(rx.try_recv().is_ok());
+    }
+}
+```
 
-All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Use `glimpsectl applet check --run .` to check the first tree's nesting. Run `glimpsectl applet run --dev .` to exercise later updates and inspect the displayed text. If the panel rejects a tree, it stops the applet and logs the reason; the development terminal prints nothing about that rejection.
+:::
+
+Save a TypeScript test as `<name>.test.tsx` in the project folder. `just test` bundles each one into
+`build/tests/` and runs it with `node --test`. The Python test is the one `glimpsectl applet new` generates. In Go and Rust, each line the session
+writes is a protocol message; a `commit` holds the operations that build the tree, described in
+[Applet protocol](/developers/protocol#commit).
+
+## Drive a TypeScript applet
+
+```ts
+function render(
+  element: ReactNode,
+  host?: {
+    options?: Record<string, unknown>;
+    placement?: Record<string, unknown>;
+    state?: string;
+  },
+): Promise<Rendered>;
+
+interface Rendered {
+  tree(): unknown;                              // id, type, props, children; narrow it first
+  requests(): Array<Record<string, unknown>>;  // e.g. { t: "close-popover" }
+  click(id: number): Promise<void>;             // clicks a Button or activates an ActionRow
+  event(id: number, name: string, args?: unknown[]): Promise<void>; // e.g. "onToggle", [true]
+  setOptions(options: Record<string, unknown>): Promise<void>;
+  setPopoverOpen(open: boolean): Promise<void>; // what usePopover().open sees
+  close(): Promise<void>;                       // unmounts; await it before the next render
+}
+```
+
+Without `state`, the test gets a temporary directory that `close()` removes.
+
+The in-memory host checks the size limits but not nesting or text cleaning.
