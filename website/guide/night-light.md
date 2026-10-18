@@ -34,8 +34,8 @@ temperature = 3400
 ```
 
 `transition-minutes` sets how long the change between day and night takes (15 by default). The
-change finishes at sunset or at `start-time`, so it starts that many minutes before. `0` switches in
-one step.
+change finishes at sunset or at `start-time`, so it starts that many minutes before. `0` changes over a few seconds
+instead of a full transition.
 
 ## Change it for now
 

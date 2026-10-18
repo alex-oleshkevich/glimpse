@@ -34,8 +34,8 @@ in the machine's own zone.
   `SetTemperature` suppresses the ramp until the phase changes, `SetSchedule` arrives, or the process
   restarts. A pause suppresses it without replacing it; a valid manual temperature clears the pause.
   `Pause` applies 6500K until the existing night boundary, refuses daytime, and clears on resume,
-  a new mode, a `[night-light]` edit, or a restart. It ends in a step, not a ramp: the screen jumps to whichever steady temperature the
-  schedule already holds. `SetTemperature(0)` clears it, since 0 is outside the 1000–6500 range.
+  a new mode, a `[night-light]` edit, or a restart. It glides to neutral, it does not step.
+  `SetTemperature(0)` clears it, since 0 is outside the 1000–6500 range.
 - **`configured` reports the document's own schedule, never the effective one** — published
   `schedule` is `effective()` (`forced.unwrap_or(config.schedule)`), so once `SetSchedule` forces
   `off` there is nothing left in it for a UI to switch back to; `manual` tracks `SetTemperature` only.
@@ -49,10 +49,13 @@ in the machine's own zone.
 - **Exit 4 means the compositor will never offer gamma control, and nothing else** — the unit carries
   `RestartPreventExitStatus=4`, so only a missing `zwlr_gamma_control_manager_v1` global maps to it; a
   socket not there yet or a failed registry roundtrip stay retryable, or a restart would strand it.
-- **The ramp completes at the boundary** — the screen reaches the night temperature *at* sunset
-  rather than starting to warm there, letting the service read one instant, `next_change`, instead of
-  remembering the last one. A night shorter than the transition never reaches full temperature: the
-  two ramps can overlap, and the honest result is a partial ramp rather than a jump.
+- **The ramp completes at the boundary, and a change no boundary covers glides** — the scheduled
+  ramp reaches the night temperature *at* sunset, letting the service read one instant,
+  `next_change`, instead of remembering the last one. A night shorter than the transition never
+  reaches full temperature: the two ramps can overlap, and the honest result is a partial ramp
+  rather than a jump. Switching the light on, starting mid-night, a manual temperature, a pause, or
+  a `transition-minutes = 0` step all take the short glide instead. The boundary ramp owns the tick
+  while it is moving; the glide owns it otherwise.
 - **The compositor is reached before the D-Bus name is taken, and the name before gamma control is.**
   A missing compositor then exits 1 for `Restart=on-failure`; a `Type=dbus` unit that releases its name
   is stopped with `SIGTERM`, which systemd counts as clean and never restarts. A second copy of this
