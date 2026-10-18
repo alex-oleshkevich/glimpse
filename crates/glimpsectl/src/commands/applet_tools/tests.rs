@@ -32,26 +32,3 @@ fn missing_settings_are_empty_but_existing_invalid_settings_are_refused() {
     std::os::unix::fs::symlink(dir.join("missing.toml"), &path).unwrap();
     assert!(settings(&dir, "org.example.Test").is_err());
 }
-
-#[tokio::test]
-async fn bounded_wire_reader_rejects_oversized_and_invalid_messages() {
-    let mut reader = BufReader::new(&b"{\"t\":\"hello\",\"v\":1}\n"[..]);
-    assert!(matches!(
-        message(&mut reader).await.unwrap(),
-        FromApplet::Hello { v: 1 }
-    ));
-    let large = vec![b'x'; MAX_LINE + 2];
-    assert!(
-        message(&mut BufReader::new(large.as_slice()))
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("exceeds")
-    );
-    assert!(
-        message(&mut BufReader::new(&b"garbage\n"[..]))
-            .await
-            .is_err()
-    );
-    assert!(message(&mut BufReader::new(&b""[..])).await.is_err());
-}

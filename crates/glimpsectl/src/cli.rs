@@ -558,8 +558,6 @@ pub enum AppletCommand {
     New(NewAppletArgs),
     #[command(about = "Run an applet in the panel until Ctrl-C")]
     Run(RunArgs),
-    #[command(about = "Validate an external applet")]
-    Check(CheckArgs),
     #[command(about = "Build an applet package (.glimpse.zip)")]
     Package(PackageArgs),
     #[command(about = "Install an external applet from a directory or a .glimpse.zip package")]
@@ -610,16 +608,6 @@ pub struct DevPanelArgs {
         help = "Applets to place on the test panel"
     )]
     pub applets: Vec<String>,
-}
-
-#[derive(Debug, Args)]
-pub struct CheckArgs {
-    #[arg(default_value = ".", help = "Applet source directory")]
-    pub dir: PathBuf,
-    #[arg(long, help = "Run a headless protocol smoke check")]
-    pub run: bool,
-    #[arg(long, default_value_t = 5, value_parser = clap::value_parser!(u64).range(1..), help = "Protocol smoke deadline in seconds")]
-    pub timeout: u64,
 }
 
 #[derive(Debug, Args)]
@@ -948,7 +936,6 @@ impl Command {
                 | Self::Applet(
                     AppletCommand::New(_)
                         | AppletCommand::Run(_)
-                        | AppletCommand::Check(_)
                         | AppletCommand::Package(_)
                         | AppletCommand::Install { .. }
                         | AppletCommand::Uninstall { .. }

@@ -446,6 +446,7 @@ async fn answered((sent, answer): Pending) -> Result<(), CommandError> {
 
 struct Slot {
     origin: Origin,
+    primary: Option<u64>,
     public: SlotState,
     placement: Placement,
     applet_id: String,
@@ -462,6 +463,7 @@ struct Slot {
     link: Option<Link>,
     stop: CancellationToken,
     popover_open: bool,
+    popover_own: bool,
     last_notify: Option<Instant>,
     calls: (Instant, u32),
     last_failed_reason: Option<String>,
@@ -499,6 +501,50 @@ impl Exec {
         launcher::unit_name(&self.config.panel, applet_id, slot, self.next_unit)
     }
 
+    fn root(&self, id: u64) -> u64 {
+        self.slots
+            .get(&id)
+            .and_then(|slot| slot.primary)
+            .unwrap_or(id)
+    }
+
+    fn sync_aliases(&mut self) {
+        let primaries: Vec<u64> = self
+            .slots
+            .values()
+            .filter_map(|slot| slot.primary)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        for primary_id in primaries {
+            let Some(primary) = self.slots.get(&primary_id) else {
+                continue;
+            };
+            let public = SlotState {
+                requests: Vec::new(),
+                ..primary.public.clone()
+            };
+            let env = primary.env.clone();
+            let options = primary.options.clone();
+            let entry = primary.entry.clone();
+            let applet_id = primary.applet_id.clone();
+            let mut any_open = primary.popover_own;
+            for slot in self.slots.values_mut() {
+                if slot.primary == Some(primary_id) {
+                    slot.public = public.clone();
+                    slot.env = env.clone();
+                    slot.options = options.clone();
+                    slot.entry = entry.clone();
+                    slot.applet_id = applet_id.clone();
+                    any_open |= slot.popover_own;
+                }
+            }
+            if let Some(primary) = self.slots.get_mut(&primary_id) {
+                primary.popover_open = any_open;
+            }
+        }
+    }
+
     fn dev_slot(
         &mut self,
         slot_id: u64,
@@ -511,6 +557,7 @@ impl Exec {
         let unit = self.next_unit(&applet_id, slot_id);
         Slot {
             origin: Origin::Dev,
+            primary: None,
             public: SlotState {
                 applet,
                 generation: 0,
@@ -538,6 +585,7 @@ impl Exec {
             link: None,
             stop: CancellationToken::new(),
             popover_open: false,
+            popover_own: false,
             last_notify: None,
             calls: (Instant::now(), 0),
             last_failed_reason: None,
@@ -589,6 +637,7 @@ impl Exec {
     }
 
     fn restart_slot(&mut self, id: u64) {
+        let id = self.root(id);
         self.next_spawn += 1;
         let spawn = self.next_spawn;
         let Some(applet_id) = self.slots.get(&id).map(|slot| slot.applet_id.clone()) else {
@@ -857,6 +906,9 @@ impl Service for Exec {
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut subs = Vec::new();
         for (&slot_id, slot) in &self.slots {
+            if slot.primary.is_some() {
+                continue;
+            }
             if matches!(
                 slot.public.status,
                 Status::Starting | Status::Running | Status::Restarting { .. }
@@ -975,6 +1027,9 @@ impl Service for Exec {
 
     async fn stop(self, _ctx: &Ctx<Self>) {
         for slot in self.slots.values() {
+            if slot.primary.is_some() {
+                continue;
+            }
             self.dependencies.launcher.stop(&slot.unit).await;
             let _ = tokio::fs::remove_file(&slot.socket).await;
         }
@@ -1030,20 +1085,47 @@ impl Service for Exec {
                     _ => None,
                 };
                 self.next_spawn += 1;
-                let unit = self.next_unit(&applet_id, slot);
+                let primary = if matches!(status, Status::Starting) {
+                    self.slots
+                        .iter()
+                        .find(|(_, other)| {
+                            other.primary.is_none()
+                                && other.origin == Origin::Spawned
+                                && other.public.applet == applet
+                        })
+                        .map(|(&id, _)| id)
+                } else {
+                    None
+                };
+                let public = match primary.and_then(|id| self.slots.get(&id)) {
+                    Some(other) => SlotState {
+                        requests: Vec::new(),
+                        ..other.public.clone()
+                    },
+                    None => SlotState {
+                        applet: applet.clone(),
+                        generation: 0,
+                        tree: Arc::new(Tree::default()),
+                        status,
+                        title: String::new(),
+                        icon: None,
+                        requests: Vec::new(),
+                    },
+                };
+                if let Some(primary_id) = primary {
+                    tracing::info!(%applet, slot, primary = primary_id, "applet slot shares the instance process");
+                }
+                let unit = if primary.is_some() {
+                    String::new()
+                } else {
+                    self.next_unit(&applet_id, slot)
+                };
                 self.slots.insert(
                     slot,
                     Slot {
                         origin: Origin::Spawned,
-                        public: SlotState {
-                            applet,
-                            generation: 0,
-                            tree: Arc::new(Tree::default()),
-                            status,
-                            title: String::new(),
-                            icon: None,
-                            requests: Vec::new(),
-                        },
+                        primary,
+                        public,
                         placement,
                         applet_id,
                         env,
@@ -1059,6 +1141,7 @@ impl Service for Exec {
                         link: None,
                         stop: CancellationToken::new(),
                         popover_open: false,
+                        popover_own: false,
                         last_notify: None,
                         calls: (Instant::now(), 0),
                         last_failed_reason,
@@ -1087,6 +1170,7 @@ impl Service for Exec {
                     )))
                 } else if let Some((&slot_id, _)) = self.slots.iter().find(|(_, slot)| {
                     self.desktop_id(&slot.public.applet) == id
+                        && slot.primary.is_none()
                         && (slot.origin == Origin::Spawned
                             || (slot.origin == Origin::Dev
                                 && matches!(slot.public.status, Status::Ended | Status::Failed(_))))
@@ -1183,6 +1267,7 @@ impl Service for Exec {
                 options,
                 reply,
             }) => {
+                let slot = self.root(slot);
                 let result = if let Some(slot) = self.slots.get_mut(&slot) {
                     slot.options = options.clone();
                     if matches!(slot.public.status, Status::Running) {
@@ -1215,21 +1300,40 @@ impl Service for Exec {
             Input::Command(Command::Detach { slot, reply }) => {
                 if let Some(state) = self.slots.remove(&slot) {
                     state.stop.cancel();
-                    if state.origin == Origin::Dev {
-                        self.taken_dev.remove(&state.applet_id);
+                    if state.primary.is_none() {
+                        if state.origin == Origin::Dev {
+                            self.taken_dev.remove(&state.applet_id);
+                        }
+                        let launcher = Arc::clone(&self.dependencies.launcher);
+                        let unit = state.unit.clone();
+                        let socket = state.socket.clone();
+                        ctx.spawn_detached(move |_ctx| async move {
+                            launcher.stop(&unit).await;
+                            let _ = tokio::fs::remove_file(&socket).await;
+                        });
+                        if let Some(&promoted) = self
+                            .slots
+                            .iter()
+                            .find(|(_, other)| other.primary == Some(slot))
+                            .map(|(id, _)| id)
+                        {
+                            for other in self.slots.values_mut() {
+                                if other.primary == Some(slot) {
+                                    other.primary = Some(promoted);
+                                }
+                            }
+                            if let Some(slot) = self.slots.get_mut(&promoted) {
+                                slot.primary = None;
+                            }
+                            self.restart_slot(promoted);
+                        }
                     }
-                    let launcher = Arc::clone(&self.dependencies.launcher);
-                    let unit = state.unit.clone();
-                    let socket = state.socket.clone();
-                    ctx.spawn_detached(move |_ctx| async move {
-                        launcher.stop(&unit).await;
-                        let _ = tokio::fs::remove_file(&socket).await;
-                    });
                 }
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::SendEvent { event, reply }) => {
-                if let Some(slot) = self.slots.get_mut(&event.slot)
+                let root = self.root(event.slot);
+                if let Some(slot) = self.slots.get_mut(&root)
                     && slot.public.generation == event.generation
                     && matches!(slot.public.status, Status::Running)
                 {
@@ -1246,15 +1350,27 @@ impl Service for Exec {
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::Popover { slot, open, reply }) => {
+                let root = self.root(slot);
                 let result = if let Some(slot) = self.slots.get_mut(&slot) {
-                    slot.popover_open = open;
-                    if matches!(slot.public.status, Status::Running) {
-                        Self::send(slot, Outgoing::Popover { open });
-                    }
+                    slot.popover_own = open;
                     Ok(())
                 } else {
                     Err(CommandError::InvalidArgument("unknown slot".to_owned()))
                 };
+                if result.is_ok() {
+                    let effective = self
+                        .slots
+                        .values()
+                        .filter(|other| other.primary == Some(root))
+                        .any(|other| other.popover_own)
+                        || self.slots.get(&root).is_some_and(|slot| slot.popover_own);
+                    if let Some(slot) = self.slots.get_mut(&root) {
+                        slot.popover_open = effective;
+                        if matches!(slot.public.status, Status::Running) {
+                            Self::send(slot, Outgoing::Popover { open: effective });
+                        }
+                    }
+                }
                 let _ = reply.send(result);
             }
 
@@ -1432,6 +1548,9 @@ impl Service for Exec {
             }
             Input::Event(Event::Retry) => {
                 for (&slot, state) in &mut self.slots {
+                    if state.primary.is_some() {
+                        continue;
+                    }
                     if state.origin == Origin::Spawned
                         && matches!(state.public.status, Status::Failed(_) | Status::Running)
                         && !state.resolving
@@ -1523,7 +1642,7 @@ impl Service for Exec {
             Input::Config(config) => {
                 let mut respawn = Vec::new();
                 for (&id, slot) in &mut self.slots {
-                    if slot.origin == Origin::Dev {
+                    if slot.origin == Origin::Dev || slot.primary.is_some() {
                         continue;
                     }
                     match config.applets.get(&slot.public.applet) {
@@ -1575,6 +1694,7 @@ impl Service for Exec {
                 }
             }
         }
+        self.sync_aliases();
         self.publish();
     }
 }

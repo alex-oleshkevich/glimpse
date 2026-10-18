@@ -166,7 +166,7 @@ impl Launcher for ProcessLauncher {
                         return;
                     }
                     match status {
-                        Ok(status) if status.success() => {
+                        Ok(status) if status.success() && !restart => {
                             let _ = state.send(Some(UnitState::Gone));
                             return;
                         }

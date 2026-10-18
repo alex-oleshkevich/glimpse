@@ -167,7 +167,7 @@ pub fn unit_properties(spec: &UnitSpec) -> Result<Vec<(&'static str, Value<'_>)>
         ("CollectMode", Value::from("inactive-or-failed")),
         (
             "Restart",
-            Value::from(if spec.restart { "on-failure" } else { "no" }),
+            Value::from(if spec.restart { "always" } else { "no" }),
         ),
         ("RestartUSec", Value::from(1_000_000u64)),
         ("RestartSteps", Value::from(6u32)),

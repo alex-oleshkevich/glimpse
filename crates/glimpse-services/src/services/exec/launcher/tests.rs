@@ -167,7 +167,7 @@ fn unit_properties_carry_the_restart_curve() {
             .find(|(key, _)| *key == name)
             .map(|(_, value)| format!("{value:?}"))
     };
-    assert!(get("Restart").is_some_and(|v| v.contains("on-failure")));
+    assert!(get("Restart").is_some_and(|v| v.contains("always")));
     assert!(get("RestartUSec").is_some_and(|v| v.contains("1000000")));
     assert_eq!(
         props

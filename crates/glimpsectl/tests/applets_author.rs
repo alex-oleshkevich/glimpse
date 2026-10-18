@@ -68,9 +68,12 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
     assert_eq!(
         files,
         [
+            ".gitignore",
             "README.md",
+            "biome.json",
             "devconfig.toml",
             "index.tsx",
+            "justfile",
             "me.example.Hello.desktop",
             "package.json",
             "tsconfig.json"
@@ -80,20 +83,20 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
         assert!(!fs::read_to_string(dir.join(name)).unwrap().contains("{{"));
     }
     let desktop = fs::read_to_string(dir.join("me.example.Hello.desktop")).unwrap();
-    assert!(desktop.contains("\nExec=node --run start\n"));
+    assert!(desktop.contains("\nExec=node applet.mjs\n"));
     assert!(!desktop.contains("\nPath="));
     assert!(
         package_scripts(&dir)["start"]
             .as_str()
             .unwrap()
-            .ends_with("node build/applet.mjs")
+            .ends_with("node applet.mjs")
     );
     assert!(desktop.contains("\nName=Hello \"Applet\"\n"));
     assert!(desktop.ends_with("Implements=me.aresa.Glimpse.Applet1\n"));
     assert!(
         fs::read_to_string(dir.join("index.tsx"))
             .unwrap()
-            .contains(r#"title={ "Hello \"Applet\"" }"#)
+            .contains(r#"const NAME = "Hello \"Applet\"";"#)
     );
     let package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
@@ -124,7 +127,7 @@ fn new_renders_every_language_without_placeholders() {
         (
             AppletLanguage::Rs,
             "src/main.rs",
-            "env CARGO_TARGET_DIR=/tmp/glimpse-hello cargo run --release --quiet",
+            "./hello",
             "Cargo.toml",
         ),
         (
@@ -133,7 +136,7 @@ fn new_renders_every_language_without_placeholders() {
             "uv run applet.py",
             "applet.py",
         ),
-        (AppletLanguage::Go, "main.go", "go run .", "go.mod"),
+        (AppletLanguage::Go, "main.go", "./hello", "go.mod"),
     ];
     for (language, entry, exec, vendored) in cases {
         let root = tempfile::tempdir().unwrap();

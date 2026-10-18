@@ -20,7 +20,6 @@ glimpsectl doctor
 glimpsectl applet list
 glimpsectl applet inspect me.example.Clock --installed
 glimpsectl applet restart me.example.Clock
-glimpsectl applet check --run
 glimpsectl applet run --dev --isolated .
 ```
 
@@ -51,9 +50,7 @@ both clean up only their own child and runtime files.
 `applet new` selects `$GLIMPSE_SDK_TEMPLATES_DIR/<language>` or
 `DATA_DIR/sdk/templates/<language>`. It renders only `.jinja` files with minijinja and copies
 other files unchanged.
-`applet check` validates its desktop entry and config without a panel or bus;
-`--run` also checks its protocol greeting and first commit with temporary state and a bounded
-unconfined process. `applet package` runs the applet's `just build`, which assembles production
+`applet package` runs the applet's `just build`, which assembles production
 files into `dist/`, and writes `<id>.glimpse.zip` holding only those files plus a generated
 `metadata.toml` listing each with its sha256. `applet install` checks a package against its own
 metadata, copies it under `applet_dir(<id>)`, writes a marked desktop entry and prints a config

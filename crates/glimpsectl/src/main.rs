@@ -178,9 +178,6 @@ async fn run(cli: Cli) -> Result<()> {
                 commands::applets_run(args, &cli.panel_app_id, cli.json).await
             }
             AppletCommand::Restart { id } => commands::applets_restart(id).await,
-            AppletCommand::Check(args) => {
-                commands::applet_tools::applet_check(args, cli.json).await
-            }
             AppletCommand::Package(args) => {
                 commands::package_manager::applet_package(args, cli.json)
             }

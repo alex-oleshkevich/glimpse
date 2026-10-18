@@ -23,6 +23,47 @@ async fn hello_is_answered() {
 }
 
 #[tokio::test]
+async fn second_slot_for_an_instance_shares_its_process() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    let units = |launcher: &ProcessLauncher| {
+        launcher
+            .started()
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let before = units(&launcher);
+    assert_eq!(before.len(), 1);
+    handle.attach(2, "test", placement()).await.expect("attach");
+    let shared = status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    assert_eq!(
+        shared.generation,
+        handle.snapshot().slots[&1].generation,
+        "alias mirrors the primary generation"
+    );
+    assert_eq!(units(&launcher), before, "no second unit started");
+    let pids = output.with_extension("pid");
+    assert_eq!(file_lines(&pids, 1).await.len(), 1, "one process");
+    handle.detach(2).await.expect("detach alias");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    assert_eq!(units(&launcher), before, "alias detach keeps the unit");
+    handle.attach(2, "test", placement()).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    handle.detach(1).await.expect("detach primary");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    assert_eq!(units(&launcher).len(), 2, "promoted alias starts its own unit");
+    assert_eq!(file_lines(&pids, 2).await.len(), 2);
+    handle.detach(2).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn placement_change_does_not_respawn() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"

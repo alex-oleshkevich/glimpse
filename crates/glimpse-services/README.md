@@ -184,8 +184,10 @@ no commands at all.
 **exec** — **the service never forks**: each start is a transient systemd user unit
 `app-glimpse-<panel>-<applet>-<slot>-<pid>-<n>.service` started through the injected `Launcher`, and
 systemd owns the process, its restart curve, cgroup, `MemoryMax` and logs. Applets run unconfined
-with the panel's environment; there is no sandbox. Each slot listens on its own socket under the
-runtime dir, named in `GLIMPSE_APPLET_SOCKET`, and serves one connection at a time; the applet speaks
+with the panel's environment; there is no sandbox. One configured instance runs one process: the
+first slot naming it owns the unit and listens on its socket under the runtime dir, named in
+`GLIMPSE_APPLET_SOCKET`, serving one connection at a time; later slots for the same instance mirror
+its state and route their commands to it, and one takes over if the owner detaches. The applet speaks
 first with `Hello`, and every `Hello` resets its tree and advances the generation, so stale UI events
 cannot reach a reloaded applet.
 `argv[0]` resolves against the merged environment's `PATH`; the working directory is
