@@ -97,6 +97,17 @@ fn package_json_keeps_build_output_on_stderr() {
 }
 
 #[test]
+fn package_out_directory_receives_the_named_archive() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = fixture(root.path());
+    let out_dir = root.path().join("out");
+    fs::create_dir(&out_dir).unwrap();
+    let (_, path) = manager(root.path()).package(&dir, Some(&out_dir)).unwrap();
+    assert_eq!(path, out_dir.join("org.example.Test.glimpse.zip"));
+    assert!(path.is_file());
+}
+
+#[test]
 fn package_install_and_uninstall_round_trip() {
     let root = tempfile::tempdir().unwrap();
     let dir = fixture(root.path());

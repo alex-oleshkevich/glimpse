@@ -310,10 +310,8 @@ fn new_with_catalog(
         crate::render::print(&id)?;
     }
     eprintln!(
-        "Created {id} in {}\n\ncd {}\n{}\nglimpsectl applet run --dev --isolated .\n\n[applets.\"{id}\"]\napplet = \"{id}\"\nthen add it to a panel zone: center = [\"{id}\"]",
-        shown.display(),
-        shown.display(),
-        language.setup_hint()
+        "Created {id} in {shown}\n\ncd {shown}\njust dev\n\nThen add \"{id}\" to a panel zone to keep it, for example: left = [\"{id}\"]",
+        shown = shown.display(),
     );
     Ok(())
 }

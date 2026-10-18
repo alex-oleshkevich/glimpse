@@ -270,11 +270,14 @@ impl PackageManager {
         let source = dir.canonicalize()?;
         let staging = tempfile::tempdir()?;
         let metadata = self.stage(dir, staging.path())?;
-        let out = match out {
-            Some(out) if out.is_absolute() => out.to_path_buf(),
+        let file_name = format!("{}.{PACKAGE_EXTENSION}", metadata.id);
+        let mut out = match out {
             Some(out) => std::env::current_dir()?.join(out),
-            None => std::env::current_dir()?.join(format!("{}.{PACKAGE_EXTENSION}", metadata.id)),
+            None => std::env::current_dir()?,
         };
+        if out.is_dir() {
+            out.push(file_name);
+        }
         ensure!(
             !out.starts_with(&source)
                 || out
@@ -663,10 +666,7 @@ fn print_installed(installed: &Installed, json: bool) -> Result<()> {
     } else {
         crate::render::print(&installed.id)?;
     }
-    eprintln!(
-        "Add [applets.\"{0}\"] with applet = \"{0}\", then add \"{0}\" to a panel zone.",
-        installed.id
-    );
+    eprintln!("Add \"{}\" to a panel zone.", installed.id);
     Ok(())
 }
 

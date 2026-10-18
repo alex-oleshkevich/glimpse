@@ -20,7 +20,7 @@ glimpsectl doctor
 glimpsectl applet list
 glimpsectl applet inspect me.example.Clock --installed
 glimpsectl applet restart me.example.Clock
-glimpsectl applet run --dev --isolated .
+just dev
 ```
 
 ## Contents
