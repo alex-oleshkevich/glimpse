@@ -176,15 +176,17 @@ impl WorkspaceName {
 
 fn step(compositor: &CompositorHandle, direction: Direction) {
     let compositor = compositor.clone();
-    let forward = matches!(direction, Direction::Up | Direction::Right);
+    let target = target(direction);
     spawn_command("compositor.focus_workspace", async move {
-        compositor
-            .focus_workspace(match forward {
-                true => WorkspaceRef::Next,
-                false => WorkspaceRef::Prev,
-            })
-            .await
+        compositor.focus_workspace(target).await
     });
+}
+
+fn target(direction: Direction) -> WorkspaceRef {
+    match direction {
+        Direction::Down | Direction::Right => WorkspaceRef::Next,
+        Direction::Up | Direction::Left => WorkspaceRef::Prev,
+    }
 }
 
 fn snapshot(compositor: &CompositorHandle) -> Vec<WorkspaceInfo> {
@@ -235,3 +237,6 @@ fn rename(
         .await;
     });
 }
+
+#[cfg(test)]
+mod tests;
