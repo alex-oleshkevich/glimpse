@@ -7,7 +7,7 @@ redirectConsole();
 export { Fragment, jsx, jsxDEV, jsxs } from "./jsx-runtime.ts";
 export * from "./elements.ts";
 export * from "./hooks.ts";
-export * from "./services.ts";
+export * from "./desktop.ts";
 export type { Io, Placement } from "./wire.ts";
 
 function defaultIo(): Io {

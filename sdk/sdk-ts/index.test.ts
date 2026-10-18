@@ -26,7 +26,6 @@ import {
 	CheckButton,
 	ChoiceList,
 	closePopover,
-	copy,
 	createElement,
 	Dots,
 	DropDown,
@@ -40,9 +39,10 @@ import {
 	Indicator,
 	Label,
 	MeterRow,
-	notify,
 	Notice,
 	openUri,
+	launch,
+	useAppletName,
 	Popover,
 	RangeBar,
 	Bars,
@@ -62,6 +62,19 @@ import {
 	useEffect,
 	useState,
 } from "./index.ts";
+
+// @ts-expect-error
+import type { useMpris } from "./index.ts";
+// @ts-expect-error
+import type { useCompositor } from "./index.ts";
+// @ts-expect-error
+import type { mpris } from "./index.ts";
+// @ts-expect-error
+import type { compositor } from "./index.ts";
+// @ts-expect-error
+import type { positionNow } from "./index.ts";
+
+import { entryStore } from "./state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
 	if (!condition) throw new Error(message);
@@ -301,10 +314,10 @@ function mockExit(throwOnExit: boolean): {
 
 test("applet sdk", async (t) => {
 	await t.test("sends queued requests after SDK hello", async () => {
-		notify({ summary: "early" });
+		openUri("https://example.com/early");
 		const lines = await drive(createElement(Indicator), [hostLine()]);
 		assert(lines[0] === '{"t":"hello","v":1}', lines.join("\n"));
-		assert(lines[1] === '{"t":"notify","summary":"early"}', lines.join("\n"));
+		assert(lines[1] === '{"t":"open-uri","uri":"https://example.com/early"}', lines.join("\n"));
 	});
 
 	await t.test(
@@ -328,6 +341,34 @@ test("applet sdk", async (t) => {
 	await t.test("hello fixture matches hello.ndjson", async () => {
 		const lines = await drive(createElement(HelloApp), [hostLine()]);
 		assertMessages(lines, fixture("hello.ndjson"));
+	});
+
+	await t.test("old host service messages are ignored and applet name still renders", async () => {
+		function App() {
+			const options = useOptions<{ text?: string }>();
+			return createElement(Indicator, { text: `${useAppletName()}:${options.text ?? "before"}` });
+		}
+		const lines = await drive(createElement(App), [
+			{ t: "hello", v: 1, name: "slot" },
+			{ t: "service", name: "mpris", value: {} },
+			{ t: "options", options: { text: "after" } },
+		]);
+		assert(entryStore.get() === null, "missing entry is null");
+		assert(lines.some((line) => line.includes("slot:after")), lines.join("\n"));
+	});
+
+	await t.test("hello validates entry and clears stale attribution", async () => {
+		const valid = { id: "me.example.App", name: "App", icon: null };
+		const withIcon = { ...valid, icon: "app-icon" };
+		for (const entry of [
+			valid, withIcon, undefined, null, [], "bad",
+			{ ...valid, id: 1 }, { ...valid, name: null }, { id: "id", name: "App" },
+			{ ...valid, icon: false },
+		]) {
+			await drive(createElement(Indicator), [{ t: "hello", v: 1, entry }]);
+			const expected = entry === valid || entry === withIcon ? entry : null;
+			assert(JSON.stringify(entryStore.get()) === JSON.stringify(expected), JSON.stringify(entry));
+		}
 	});
 
 	await t.test("state dir comes from host hello", async () => {
@@ -525,19 +566,6 @@ test("applet sdk", async (t) => {
 			}
 			assert(exit.code() === 70, `exit ${exit.code()}`);
 		}
-	});
-
-	await t.test("rejects outgoing lines over 1 MiB", () => {
-		let error: unknown;
-		try {
-			copy("x".repeat(1_048_576));
-		} catch (caught) {
-			error = caught;
-		}
-		assert(
-			error instanceof Error && error.name === "ProtocolLimitError",
-			String(error),
-		);
 	});
 
 	await t.test("icon tooltips reach the wire", async () => {
@@ -933,16 +961,8 @@ test("applet sdk", async (t) => {
 	await t.test("requests fixture matches requests.ndjson", () => {
 		const lines: string[] = [];
 		setEmit((message) => lines.push(JSON.stringify(message)));
-		notify({
-			summary: "Timer",
-			body: "The tomato is done",
-			icon: "alarm-symbolic",
-			urgency: "critical",
-		});
-		notify({ summary: "Ping", urgency: "low" });
-		notify({ summary: "Saved" });
-		copy("buy milk");
 		openUri("https://example.com/todos");
+		launch("me.example.Todo");
 		closePopover();
 		assertMessages(lines, fixture("requests.ndjson"));
 	});

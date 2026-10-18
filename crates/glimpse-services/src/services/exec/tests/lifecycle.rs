@@ -2,8 +2,14 @@ use super::*;
 
 #[tokio::test]
 async fn hello_is_answered() {
-    let (_dir, entry, output) = script(LOOP);
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let (_dir, mut entry, output) = script(LOOP);
+    entry.icon = Some("timer-symbolic".to_owned());
+    let expected_entry = HelloEntry {
+        id: "me.example.Test".to_owned(),
+        name: entry.name.clone(),
+        icon: entry.icon.clone(),
+    };
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     assert!(matches!(
@@ -15,7 +21,7 @@ async fn hello_is_answered() {
     let line = file_contains(&output, "\"t\":\"hello\"").await;
     let reply: Outgoing = serde_json::from_str(line.lines().next().expect("line")).expect("reply");
     assert!(
-        matches!(reply, Outgoing::Hello { v: 1, options, placement: p, .. } if options.get("color") == Some(&Value::from("blue")) && p == placement())
+        matches!(reply, Outgoing::Hello { v: 1, name, options, placement: p, entry, .. } if name == "test" && options.get("color") == Some(&Value::from("blue")) && p == placement() && entry == Some(expected_entry))
     );
     handle.detach(1).await.expect("detach");
     cancel.cancel();
@@ -27,7 +33,7 @@ async fn second_slot_for_an_instance_shares_its_process() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
     ));
-    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+    let ((handle, _sender, cancel, task, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     let units = |launcher: &ProcessLauncher| {
         launcher
@@ -56,7 +62,11 @@ async fn second_slot_for_an_instance_shares_its_process() {
     status(&handle, 2, |s| matches!(s, Status::Running)).await;
     handle.detach(1).await.expect("detach primary");
     status(&handle, 2, |s| matches!(s, Status::Running)).await;
-    assert_eq!(units(&launcher).len(), 2, "promoted alias starts its own unit");
+    assert_eq!(
+        units(&launcher).len(),
+        2,
+        "promoted alias starts its own unit"
+    );
     assert_eq!(file_lines(&pids, 2).await.len(), 2);
     handle.detach(2).await.expect("detach");
     cancel.cancel();
@@ -68,7 +78,7 @@ async fn second_slot_with_a_vertical_placement_starts_its_own_unit() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
     ));
-    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+    let ((handle, _sender, cancel, task, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -90,7 +100,7 @@ async fn alias_placed_vertically_starts_its_own_unit() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
     ));
-    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+    let ((handle, _sender, cancel, task, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -124,7 +134,7 @@ async fn close_popover_reaches_an_alias_open_uri_stays_on_the_primary() {
     let (_dir, entry, _output) = script(
         "import time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nfor line in r:\n    if '\"t\":\"event\"' in line:\n        send('{\"t\":\"close-popover\"}')\n        send('{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}')\n        break\ntime.sleep(30)\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let primary = status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -175,7 +185,7 @@ async fn placement_change_does_not_respawn() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"
     ));
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -203,7 +213,7 @@ async fn options_change_does_not_respawn() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"
     ));
-    let ((handle, sender, cancel, task, _selection, _launcher), mut config) =
+    let ((handle, sender, cancel, task, _launcher), mut config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -235,7 +245,7 @@ async fn options_changed_while_starting_follow_hello() {
     let (_dir, entry, output) = script(
         "import time\ntime.sleep(0.3)\nsend('{\"t\":\"hello\",\"v\":1}')\nopen(sys.argv[1], 'w').write(r.readline())\ntime.sleep(5)\n",
     );
-    let ((handle, sender, cancel, task, _selection, _launcher), mut config) =
+    let ((handle, sender, cancel, task, _launcher), mut config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     config
@@ -257,7 +267,7 @@ async fn removed_instance_stays_failed_without_respawning() {
     let (_dir, entry, output) = script(
         "open(sys.argv[1], 'a').write(str(os.getpid()) + '\\n')\nsend('{\\\"t\\\":\\\"hello\\\",\\\"v\\\":1}')\nfor line in r:\n    pass\n",
     );
-    let ((handle, sender, cancel, task, _selection, _launcher), mut config) =
+    let ((handle, sender, cancel, task, _launcher), mut config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -297,7 +307,7 @@ async fn crash_reconnects_and_runs_again() {
     let (_dir, entry, output) = script(
         "import time\nmarker = sys.argv[1] + '.marker'\nopen(sys.argv[1], 'a').write(str(os.getpid()) + '\\n')\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nif not os.path.exists(marker):\n    open(marker, 'w').close()\n    sys.exit(1)\nfor line in r:\n    pass\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let first = status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -317,8 +327,7 @@ async fn exits_before_hello_keeps_restarting() {
         "#!/usr/bin/env python3\nimport os, sys\nopen(sys.argv[1], 'a').write(str(os.getpid()) + '\\n')\nsys.exit(3)\n",
     );
     let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
-    let ((handle, sender, cancel, task, _selection, launcher), mut config) =
-        running(catalog.clone());
+    let ((handle, sender, cancel, task, launcher), mut config) = running(catalog.clone());
     handle.attach(1, "test", placement()).await.expect("attach");
     file_lines(&output, 2).await;
     assert!(
@@ -351,8 +360,7 @@ async fn exits_before_hello_keeps_restarting() {
 async fn retry_recovers() {
     let (_dir, entry, _output) = script(LOOP);
     let catalog = FakeCatalog(Arc::new(Mutex::new(Err("not installed".to_owned()))));
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
-        running(catalog.clone());
+    let ((handle, _sender, cancel, task, _launcher), _config) = running(catalog.clone());
     handle.attach(1, "test", placement()).await.expect("attach");
     assert!(
         matches!(status(&handle, 1, |s| matches!(s, Status::Failed(_))).await.status, Status::Failed(reason) if reason == "not installed")
@@ -369,7 +377,7 @@ async fn stale_generation_is_dropped_and_detach_kills_child() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"
     ));
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let state = status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -409,7 +417,7 @@ async fn detach_stops_the_unit_and_unlinks_the_socket() {
     ));
     let test = configured();
     let socket = test.config.socket_path(1);
-    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, _sender, cancel, task, _launcher) = running_with(
         test,
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         None,
@@ -436,7 +444,7 @@ async fn detach_stops_the_unit_and_unlinks_the_socket() {
 #[tokio::test]
 async fn missing_systemd_fails_the_slot() {
     let (_dir, entry, _output) = script(LOOP);
-    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, _sender, cancel, task, _launcher) = running_with(
         configured(),
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         Some(Arc::new(FailingLauncher)),
@@ -462,7 +470,7 @@ async fn unresolvable_program_fails_the_slot() {
         path: PathBuf::from("/nonexistent/missing.desktop"),
         exec: "definitely-not-a-program-xyz".to_owned(),
     };
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let failed = status(&handle, 1, |s| matches!(s, Status::Failed(_))).await;
@@ -480,7 +488,7 @@ async fn reset_failed_ignores_stale_duplicate_and_detached_generations() {
     let (_dir, entry, _output) = script(LOOP);
     let launcher = Arc::new(ControlledLauncher::default());
     launcher.sweep_release.notify_one();
-    let (handle, sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, sender, cancel, task, _launcher) = running_with(
         configured(),
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
@@ -556,7 +564,7 @@ async fn reset_failed_ignores_stale_duplicate_and_detached_generations() {
 async fn startup_sweep_finishes_before_a_queued_attach() {
     let (_dir, entry, _output) = script(LOOP);
     let launcher = Arc::new(ControlledLauncher::default());
-    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, _sender, cancel, task, _launcher) = running_with(
         configured(),
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
@@ -589,7 +597,7 @@ async fn retry_recovers_a_launch_failure_without_a_catalog_change() {
         .unavailable
         .store(true, std::sync::atomic::Ordering::Relaxed);
     launcher.sweep_release.notify_one();
-    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, _sender, cancel, task, _launcher) = running_with(
         configured(),
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         Some(Arc::clone(&launcher) as Arc<dyn Launcher>),
@@ -631,7 +639,7 @@ async fn start_sweeps_the_panels_units_and_prunes_dead_sockets() {
             .await
             .expect("start sleeper");
     }
-    let (handle, _sender, cancel, task, _selection, _launcher) = running_with(
+    let (handle, _sender, cancel, task, _launcher) = running_with(
         test,
         Arc::new(FakeCatalog(Arc::new(Mutex::new(Ok(entry))))),
         Some(Arc::clone(&process) as Arc<dyn Launcher>),

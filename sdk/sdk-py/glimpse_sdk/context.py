@@ -1,6 +1,9 @@
 import asyncio
 import collections.abc
-import time
+import dataclasses
+import subprocess
+import sys
+import threading
 import typing
 
 from glimpse_sdk.elements import Urgency
@@ -9,17 +12,54 @@ if typing.TYPE_CHECKING:
     from glimpse_sdk.session import Session
 
 
-type Target = str | int | dict[str, typing.Any]
+@dataclasses.dataclass(frozen=True)
+class AppletEntry:
+    id: str
+    name: str
+    icon: str | None
 
 
-def position_now(player: dict[str, typing.Any], now_ms: float | None = None) -> float:
-    if player.get("playback") != "playing":
-        return float(player.get("positionUs", 0))
+def notify_argv(
+    name: str,
+    entry: AppletEntry | None,
+    summary: str,
+    body: str | None,
+    icon: str | None,
+    urgency: str | None,
+) -> list[str]:
+    app = entry.name if entry is not None and entry.name else name
+    level = urgency if urgency in ("low", "normal", "critical") else "normal"
+    argv = ["notify-send", f"--app-name={app}", f"--urgency={level}"]
+    resolved_icon = icon or (entry.icon if entry is not None else None)
 
-    now = time.time() * 1000 if now_ms is None else now_ms
-    position = player["positionUs"] + (now - player["positionAt"]) * 1000 * player.get("rate", 1)
-    length = player.get("lengthUs")
-    return float(min(position, length) if length else position)
+    if resolved_icon:
+        argv.append(f"--icon={resolved_icon}")
+
+    if entry is not None and entry.id:
+        argv.append(f"--hint=string:desktop-entry:{entry.id.removesuffix('.desktop')}")
+
+    argv.append("--")
+    argv.append(summary)
+
+    if body:
+        argv.append(body)
+
+    return argv
+
+
+def _spawn(program: str, args: list[str], stdin: str | None = None) -> None:
+    try:
+        proc = subprocess.Popen(
+            [program, *args],
+            stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        if stdin is not None:
+            threading.Thread(target=proc.communicate, args=(stdin.encode(),), daemon=True).start()
+    except OSError as error:
+        print(f"glimpse: failed to run {program}: {error}", file=sys.stderr)
 
 
 class Context:
@@ -30,16 +70,7 @@ class Context:
         self.options: dict[str, typing.Any] = {}
         self.placement: dict[str, typing.Any] | None = None
         self.popover_open = False
-        self.services: dict[str, typing.Any] = {}
-
-    @property
-    def mpris(self) -> list[dict[str, typing.Any]] | None:
-        value = self.services.get("mpris")
-        return value.get("players") if isinstance(value, dict) else None
-
-    @property
-    def compositor(self) -> dict[str, typing.Any] | None:
-        return self.services.get("compositor")
+        self.entry: AppletEntry | None = None
 
     def spawn[T](
         self, coro: collections.abc.Coroutine[typing.Any, typing.Any, T]
@@ -56,16 +87,11 @@ class Context:
         icon: str | None = None,
         urgency: Urgency | None = None,
     ) -> None:
-        msg: dict[str, typing.Any] = {"t": "notify", "summary": summary}
-
-        for key, value in (("body", body), ("icon", icon), ("urgency", urgency)):
-            if value is not None:
-                msg[key] = value
-
-        self._session.send(msg)
+        argv = notify_argv(self.name, self.entry, summary, body, icon, urgency)
+        _spawn(argv[0], argv[1:])
 
     def copy(self, text: str) -> None:
-        self._session.send({"t": "copy", "text": text})
+        _spawn("wl-copy", [], stdin=text)
 
     def open_uri(self, uri: str) -> None:
         self._session.send({"t": "open-uri", "uri": uri})
@@ -75,35 +101,3 @@ class Context:
 
     def close_popover(self) -> None:
         self._session.send({"t": "close-popover"})
-
-    def mpris_control(self, player: str, action: str) -> None:
-        self._session.send({"t": "mpris", "player": player, "op": "control", "action": action})
-
-    def mpris_seek(self, player: str, offset_us: float) -> None:
-        self._session.send(
-            {"t": "mpris", "player": player, "op": "seek", "offset": round(offset_us)}
-        )
-
-    def mpris_set_position(self, player: str, position_us: float) -> None:
-        self._session.send(
-            {"t": "mpris", "player": player, "op": "set-position", "position": round(position_us)}
-        )
-
-    def focus_workspace(self, target: Target) -> None:
-        self._session.send({"t": "compositor", "op": "focus-workspace", "target": target})
-
-    def focus_window(self, target: Target) -> None:
-        self._session.send({"t": "compositor", "op": "focus-window", "target": target})
-
-    def move_window(self, window: int, target: Target) -> None:
-        self._session.send(
-            {"t": "compositor", "op": "move-window", "window": window, "target": target}
-        )
-
-    def rename_workspace(self, workspace_id: int, name: str | None) -> None:
-        self._session.send(
-            {"t": "compositor", "op": "rename-workspace", "id": workspace_id, "name": name}
-        )
-
-    def close_window(self, window_id: int) -> None:
-        self._session.send({"t": "compositor", "op": "close-window", "id": window_id})

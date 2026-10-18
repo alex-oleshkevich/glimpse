@@ -33,7 +33,6 @@ from glimpse_sdk import (
     Label,
     MeterRow,
     Notice,
-    Placeholder,
     Popover,
     RangeBar,
     Readout,
@@ -121,46 +120,10 @@ class Kitchen(BaseApplet[KitchenState]):
     def build(self, ctx: Context) -> list[W]:
         title = ctx.options.get("title") or "Kitchen sink"
         placement = ctx.placement or {}
-        players = ctx.mpris or []
-        compositor = ctx.compositor or {}
-        workspaces = compositor.get("workspaces") or []
         open_items = sum(not item.done for item in self.state.items)
         state = "open" if ctx.popover_open else "closed"
         zone = placement.get("zone", "?")
         history = [((self.state.seconds + i * 7) % 10) / 10 for i in range(24)]
-
-        player_rows = [
-            ActionRow(
-                key=player["id"],
-                icon="media-playback-start-symbolic",
-                title=player.get("title") or player.get("identity") or "Player",
-                subtitle=player.get("artist") or player.get("playback") or "",
-                on_activate=functools.partial(ctx.mpris_control, player["id"], "play-pause"),
-            )
-            for player in players
-        ] or [
-            Placeholder(
-                icon="media-playback-stop-symbolic",
-                title="No players",
-                description="MPRIS service is empty",
-            )
-        ]
-
-        workspace_rows = [
-            ActionRow(
-                key=ws["id"],
-                title=ws.get("name") or f"Workspace {ws['id']}",
-                subtitle=f"{ws.get('windows', 0)} windows",
-                on_activate=functools.partial(ctx.focus_workspace, {"id": ws["id"]}),
-            )
-            for ws in workspaces
-        ] or [
-            Placeholder(
-                icon="window-symbolic",
-                title="No workspaces",
-                description="Compositor service is empty",
-            )
-        ]
 
         return [
             Indicator(
@@ -477,8 +440,6 @@ class Kitchen(BaseApplet[KitchenState]):
                             ),
                         ],
                     ),
-                    Section(title="Players (MPRIS service)", children=player_rows),
-                    Section(title="Workspaces (compositor service)", children=workspace_rows),
                 ],
             ),
         ]

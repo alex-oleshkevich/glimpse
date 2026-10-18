@@ -1,4 +1,4 @@
-use crate::context::{App, Ctx};
+use crate::context::{App, AppletEntry, Ctx};
 use crate::protocol::{
     Check, Fail, In, MAX_CHILDREN, MAX_ITEMS, MAX_LINE, MAX_NODES, MAX_OPS, MAX_SERIES, controlled,
     oversized, seq_of,
@@ -51,7 +51,7 @@ impl<A: App> Session<A> {
                 options: json!({}),
                 placement: None,
                 popover_open: false,
-                services: Map::new(),
+                entry: None,
                 tx: tx.clone(),
             },
         }
@@ -332,6 +332,7 @@ impl<A: App> Session<A> {
                 self.ctx.placement = msg["placement"]
                     .as_object()
                     .map(|_| msg["placement"].clone());
+                self.ctx.entry = entry_of(&msg["entry"]);
                 self.mounted = true;
                 self.dirty = true;
                 self.app.start(&self.ctx);
@@ -355,14 +356,6 @@ impl<A: App> Session<A> {
             Some("popover") => {
                 self.ctx.popover_open = msg["open"].as_bool().unwrap_or(false);
                 self.dirty = true;
-            }
-            Some("service") => {
-                if let Some(name) = msg["name"].as_str() {
-                    self.ctx
-                        .services
-                        .insert(name.to_owned(), msg["value"].clone());
-                    self.dirty = true;
-                }
             }
             Some("event") => self.event(msg),
             Some(_) => {}
@@ -415,4 +408,12 @@ impl<A: App> Session<A> {
         }
         Ok(())
     }
+}
+
+fn entry_of(value: &Value) -> Option<AppletEntry> {
+    Some(AppletEntry {
+        id: value["id"].as_str()?.to_owned(),
+        name: value["name"].as_str()?.to_owned(),
+        icon: value["icon"].as_str().map(str::to_owned),
+    })
 }

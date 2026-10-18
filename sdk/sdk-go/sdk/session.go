@@ -63,7 +63,7 @@ func NewSession(app App, writeLine func(string)) *Session {
 		nextID:    1,
 		Dirty:     true,
 	}
-	s.Ctx = &Context{session: s, Options: map[string]any{}, Services: map[string]any{}}
+	s.Ctx = &Context{session: s, Options: map[string]any{}}
 	return s
 }
 
@@ -307,6 +307,14 @@ func (s *Session) Handle(msg map[string]any) {
 		}
 
 		s.Ctx.Placement, _ = msg["placement"].(map[string]any)
+		s.Ctx.Entry = nil
+		if entry, ok := msg["entry"].(map[string]any); ok {
+			s.Ctx.Entry = &AppletEntry{}
+			s.Ctx.Entry.ID, _ = entry["id"].(string)
+			s.Ctx.Entry.Name, _ = entry["name"].(string)
+			s.Ctx.Entry.Icon, _ = entry["icon"].(string)
+		}
+
 		s.Mounted = true
 		s.markDirty()
 		if mounter, ok := s.app.(Mounter); ok {
@@ -337,11 +345,6 @@ func (s *Session) Handle(msg map[string]any) {
 	case "popover":
 		s.Ctx.PopoverOpen = msg["open"] == true
 		s.markDirty()
-	case "service":
-		if name, ok := msg["name"].(string); ok {
-			s.Ctx.Services[name] = msg["value"]
-			s.markDirty()
-		}
 	case "event":
 		s.event(msg)
 	}

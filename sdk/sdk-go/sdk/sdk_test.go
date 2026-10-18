@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -245,22 +246,20 @@ func TestKeyedReorderMoves(t *testing.T) {
 	}
 }
 
-func TestAllHostRequestsReachTheWire(t *testing.T) {
+func TestRemainingRequestsReachTheWire(t *testing.T) {
 	h := newHost(t)
 	ctx := h.session.Ctx
-	ctx.Notify(Notification{Summary: "Hi", Body: "b", Urgency: "low"})
-	ctx.Copy("x")
 	ctx.OpenURI("https://example.org")
 	ctx.Launch("org.example.App")
 	ctx.ClosePopover()
-	ctx.MprisControl("p", "play-pause")
-	ctx.MprisSeek("p", -5_000_000)
-	ctx.MprisSetPosition("p", 12_000_000)
-	ctx.FocusWorkspace(map[string]any{"index": 1})
-	ctx.FocusWindow("next")
-	ctx.MoveWindow(7, map[string]any{"name": "web"})
-	ctx.RenameWorkspace(3, nil)
-	ctx.CloseWindow(7)
+
+	if got := strings.Join(wireKinds(t, h), ","); got != "open-uri,launch,close-popover" {
+		t.Errorf("wire kinds = %q", got)
+	}
+}
+
+func wireKinds(t *testing.T, h *host) []string {
+	t.Helper()
 	var kinds []string
 	for _, line := range *h.lines {
 		var msg map[string]any
@@ -271,10 +270,146 @@ func TestAllHostRequestsReachTheWire(t *testing.T) {
 			kinds = append(kinds, msg["t"].(string))
 		}
 	}
-	want := "notify,copy,open-uri,launch,close-popover,mpris,mpris,mpris,compositor,compositor,compositor,compositor,compositor"
-	if strings.Join(kinds, ",") != want {
-		t.Errorf("kinds = %v", kinds)
+	return kinds
+}
+
+func TestNotifyAndCopyStayOffTheWire(t *testing.T) {
+	h := newHost(t)
+	t.Setenv("PATH", "")
+	h.session.Ctx.Notify(Notification{Summary: "Hi", Body: "b", Urgency: "low"})
+	h.session.Ctx.Copy("x")
+
+	if got := wireKinds(t, h); len(got) != 0 {
+		t.Errorf("wire kinds = %v", got)
 	}
+}
+
+func TestNotifyArgv(t *testing.T) {
+	entry := &AppletEntry{ID: "me.aresa.ColorPicker.desktop", Name: "Color Picker", Icon: "color-select-symbolic"}
+	cases := []struct {
+		label string
+		name  string
+		entry *AppletEntry
+		n     Notification
+		want  []string
+	}{
+		{
+			"entry present",
+			"slot", entry,
+			Notification{Summary: "Hi", Body: "b", Urgency: "low"},
+			[]string{
+				"notify-send", "--app-name=Color Picker", "--urgency=low",
+				"--icon=color-select-symbolic", "--hint=string:desktop-entry:me.aresa.ColorPicker",
+				"--", "Hi", "b",
+			},
+		},
+		{
+			"entry absent",
+			"slot", nil,
+			Notification{Summary: "Hi"},
+			[]string{"notify-send", "--app-name=slot", "--urgency=normal", "--", "Hi"},
+		},
+		{
+			"empty body omitted",
+			"slot", entry,
+			Notification{Summary: "Hi", Body: ""},
+			[]string{
+				"notify-send", "--app-name=Color Picker", "--urgency=normal",
+				"--icon=color-select-symbolic", "--hint=string:desktop-entry:me.aresa.ColorPicker",
+				"--", "Hi",
+			},
+		},
+		{
+			"blank entry name and icon fall back",
+			"slot", &AppletEntry{ID: "org.example.App"},
+			Notification{Summary: "Hi", Icon: "face-smile-symbolic", Urgency: "critical"},
+			[]string{
+				"notify-send", "--app-name=slot", "--urgency=critical",
+				"--icon=face-smile-symbolic", "--hint=string:desktop-entry:org.example.App",
+				"--", "Hi",
+			},
+		},
+		{
+			"explicit icon wins over entry icon",
+			"slot", entry,
+			Notification{Summary: "Hi", Icon: "face-smile-symbolic"},
+			[]string{
+				"notify-send", "--app-name=Color Picker", "--urgency=normal",
+				"--icon=face-smile-symbolic", "--hint=string:desktop-entry:me.aresa.ColorPicker",
+				"--", "Hi",
+			},
+		},
+		{
+			"unknown urgency is normal",
+			"slot", nil,
+			Notification{Summary: "Hi", Urgency: "bogus"},
+			[]string{"notify-send", "--app-name=slot", "--urgency=normal", "--", "Hi"},
+		},
+		{
+			"flag-like summary stays after the separator",
+			"slot", nil,
+			Notification{Summary: "-u critical"},
+			[]string{"notify-send", "--app-name=slot", "--urgency=normal", "--", "-u critical"},
+		},
+	}
+
+	for _, c := range cases {
+		if got := notifyArgv(c.name, c.entry, c.n); !slices.Equal(got, c.want) {
+			t.Errorf("%s: argv = %q, want %q", c.label, got, c.want)
+		}
+	}
+}
+
+func TestHelloEntry(t *testing.T) {
+	read := func(entry any) *AppletEntry {
+		t.Helper()
+		session := NewSession(&testApp{}, func(string) {})
+		message := map[string]any{"t": "hello", "v": float64(1), "name": "slot", "state": "/tmp/x"}
+		if entry != nil {
+			message["entry"] = entry
+		}
+		session.Handle(message)
+		return session.Ctx.Entry
+	}
+
+	got := read(map[string]any{"id": "me.aresa.ColorPicker", "name": "Color Picker", "icon": nil})
+	if got == nil || got.ID != "me.aresa.ColorPicker" || got.Name != "Color Picker" || got.Icon != "" {
+		t.Errorf("entry = %+v", got)
+	}
+	if got := read(nil); got != nil {
+		t.Errorf("absent entry = %+v", got)
+	}
+	if got := read("nope"); got != nil {
+		t.Errorf("malformed entry = %+v", got)
+	}
+}
+
+func TestHelloWithoutEntryAndServiceMessageStillRenders(t *testing.T) {
+	h := newHost(t)
+	if h.session.Ctx.Entry != nil {
+		t.Errorf("entry = %+v, want nil", h.session.Ctx.Entry)
+	}
+	if h.root.Children[0] == nil {
+		t.Fatal("no tree after hello without entry")
+	}
+
+	commits := h.feed(map[string]any{"t": "service", "name": "mpris", "value": map[string]any{"players": []any{}}})
+	if len(opsOf(commits)) != 0 {
+		t.Errorf("service message produced ops: %v", opsOf(commits))
+	}
+
+	n := h.find("togglerow", "Alpha")
+	ops := opsOf(h.feed(map[string]any{
+		"t": "event", "id": float64(n.ID), "name": "onToggle",
+		"args": []any{true}, "seq": float64(9),
+	}))
+	if len(ops) != 1 || ops[0]["op"] != "set" {
+		t.Errorf("session unresponsive after service message: %v", ops)
+	}
+}
+
+func TestSpawnMissingProgramReturns(t *testing.T) {
+	spawn("glimpse-no-such-tool", []string{"x"}, "text", true)
 }
 
 func TestCapsAndNonFinite(t *testing.T) {
@@ -307,16 +442,6 @@ func TestRenderPanicIsRenderError(t *testing.T) {
 type boomApp struct{}
 
 func (boomApp) Build(ctx *Context) []Widget { panic("boom") }
-
-func TestPositionNow(t *testing.T) {
-	player := map[string]any{
-		"playback": "playing", "positionUs": float64(1_000_000),
-		"positionAt": float64(1000), "rate": float64(1),
-	}
-	if got := PositionNow(player, 3000); got != 3_000_000 {
-		t.Errorf("position = %v", got)
-	}
-}
 
 type wideApp struct{}
 

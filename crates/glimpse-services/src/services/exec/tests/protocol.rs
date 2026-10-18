@@ -5,7 +5,7 @@ async fn requests_are_served_without_a_gesture() {
     let (_dir, entry, _output) = script(
         "import time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend('{\"t\":\"copy\",\"text\":\"copied\"}')\nsend('{\"t\":\"open-uri\",\"uri\":\"javascript:x\"}')\nsend('{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}')\nsend('{\"t\":\"launch\",\"id\":\"org.example.App\"}')\ntime.sleep(30)\n",
     );
-    let ((handle, _sender, cancel, task, selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -30,33 +30,9 @@ async fn requests_are_served_without_a_gesture() {
         accepted.requests[1].1,
         BarRequest::Launch("org.example.App".to_owned())
     );
-    assert_eq!(selection.offered().len(), 1);
     handle.detach(1).await.expect("detach");
     cancel.cancel();
     let _ = task.await;
-}
-
-#[test]
-fn note_uses_the_entry_name_and_icon() {
-    let request = FromApplet::Notify {
-        summary: "Done".to_owned(),
-        body: "Saved".to_owned(),
-        icon: None,
-        urgency: Urgency::Normal,
-    };
-    let entry = Entry {
-        argv: Vec::new(),
-        cwd: None,
-        name: "Pomodoro".to_owned(),
-        icon: Some("timer-symbolic".to_owned()),
-        path: PathBuf::new(),
-        exec: String::new(),
-    };
-    let note = note(&entry, "me.example.Pomodoro", &request).expect("note");
-    assert_eq!(note.name, "Pomodoro");
-    assert_eq!(note.id, "me.example.Pomodoro");
-    assert_eq!(note.icon, "timer-symbolic");
-    assert_eq!(note.summary, "Done");
 }
 
 #[test]
@@ -85,7 +61,7 @@ async fn rejects_bad_lines_trees_and_flood_without_stopping_sibling() {
                 env: BTreeMap::new(),
             },
         );
-        let (handle, _sender, cancel, task, _selection, launcher) =
+        let (handle, _sender, cancel, task, launcher) =
             running_with(test, Arc::new(PairCatalog { bad, good }), None);
         handle
             .attach(1, "test", placement())
@@ -125,7 +101,7 @@ async fn full_queue_kills_child() {
     let (_dir, entry, _output) = script(
         "send('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nwhile True:\n    send('{\"t\":\"commit\",\"ops\":[]}')\n",
     );
-    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+    let ((handle, _sender, cancel, task, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let state = status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -206,7 +182,7 @@ async fn a_second_hello_resets_the_tree_and_bumps_generation_without_respawn() {
     let (_dir, entry, output) = script(
         "import json, time\nopen(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator'}}]}))\ntime.sleep(0.05)\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\ntime.sleep(30)\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let first = tokio::time::timeout(Duration::from_secs(5), async {
@@ -245,7 +221,7 @@ async fn an_unknown_message_and_a_flood_do_not_stop_the_child() {
     let (_dir, entry, _output) = script(
         "import json, time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend('{\"t\":\"dance\"}')\nfor _ in range(300):\n    send('{\"t\":\"commit\",\"ops\":[]}')\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator'}}]}))\ntime.sleep(30)\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let state = tokio::time::timeout(Duration::from_secs(10), async {
@@ -270,11 +246,42 @@ async fn an_unknown_message_and_a_flood_do_not_stop_the_child() {
 }
 
 #[tokio::test]
+async fn removed_service_requests_do_not_stop_the_child() {
+    let (_dir, entry, _output) = script(
+        "import json, time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend('{\"t\":\"notify\",\"summary\":\"x\"}')\nsend('{\"t\":\"copy\",\"text\":\"x\"}')\nsend('{\"t\":\"mpris\",\"player\":\"p\",\"op\":\"control\",\"action\":\"play\"}')\nsend('{\"t\":\"compositor\",\"op\":\"close-window\",\"id\":1}')\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator'}}]}))\ntime.sleep(30)\n",
+    );
+    let ((handle, _sender, cancel, task, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let state = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(state) = handle
+                .snapshot()
+                .slots
+                .get(&1)
+                .filter(|s| s.tree.children(ROOT) == [1])
+            {
+                return state.clone();
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("commit after removed requests");
+    assert_eq!(state.status, Status::Running);
+    assert_eq!(launcher.kill_count(), 0);
+    assert_eq!(launcher.started().len(), 1);
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn a_sixth_hello_within_ten_seconds_kills_the_unit() {
     let (_dir, entry, _output) = script(
         "import time\nfor _ in range(6):\n    send('{\"t\":\"hello\",\"v\":1}')\n    time.sleep(0.05)\ntime.sleep(30)\n",
     );
-    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+    let ((handle, _sender, cancel, task, launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Restarting { .. })).await;
@@ -290,8 +297,7 @@ async fn a_vanished_entry_stops_the_running_child() {
         "open(sys.argv[1], 'w').write(str(os.getpid()))\n{LOOP}"
     ));
     let catalog = FakeCatalog(Arc::new(Mutex::new(Ok(entry))));
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
-        running(catalog.clone());
+    let ((handle, _sender, cancel, task, _launcher), _config) = running(catalog.clone());
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
     let pid = file_lines(&output, 1).await[0].clone();

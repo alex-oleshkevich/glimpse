@@ -159,10 +159,6 @@ impl PanelServices {
             buses.clone(),
             ExecDependencies {
                 catalog: Arc::new(DesktopCatalog),
-                selection,
-                notifications: notifications.handle(),
-                mpris: mpris.clone(),
-                compositor: compositor.clone(),
                 launcher: Arc::new(SystemdLauncher::new(session.clone())),
             },
         );

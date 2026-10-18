@@ -2,33 +2,15 @@ package sdk
 
 import (
 	"fmt"
-	"math"
 	"os"
-	"time"
+	"os/exec"
+	"strings"
 )
 
-func PositionNow(player map[string]any, nowMs float64) float64 {
-	position, _ := player["positionUs"].(float64)
-	if player["playback"] != "playing" {
-		return position
-	}
-
-	if nowMs == 0 {
-		nowMs = float64(time.Now().UnixMilli())
-	}
-
-	at, _ := player["positionAt"].(float64)
-	rate, ok := player["rate"].(float64)
-	if !ok {
-		rate = 1
-	}
-
-	out := position + (nowMs-at)*1000*rate
-	if length, ok := player["lengthUs"].(float64); ok && length > 0 && out > length {
-		return length
-	}
-
-	return out
+type AppletEntry struct {
+	ID   string
+	Name string
+	Icon string
 }
 
 type Context struct {
@@ -38,29 +20,7 @@ type Context struct {
 	Options     map[string]any
 	Placement   map[string]any
 	PopoverOpen bool
-	Services    map[string]any
-}
-
-func (c *Context) Mpris() []map[string]any {
-	value, ok := c.Services["mpris"].(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	raw, _ := value["players"].([]any)
-	players := make([]map[string]any, 0, len(raw))
-	for _, item := range raw {
-		if player, ok := item.(map[string]any); ok {
-			players = append(players, player)
-		}
-	}
-
-	return players
-}
-
-func (c *Context) Compositor() map[string]any {
-	value, _ := c.Services["compositor"].(map[string]any)
-	return value
+	Entry       *AppletEntry
 }
 
 func (c *Context) send(msg map[string]any) {
@@ -75,24 +35,61 @@ func (c *Context) send(msg map[string]any) {
 
 func (c *Context) Wake() { c.session.Wake() }
 
-func (c *Context) Notify(n Notification) {
-	msg := map[string]any{"t": "notify", "summary": n.Summary}
-	if n.Body != "" {
-		msg["body"] = n.Body
+func spawn(program string, args []string, stdin string, hasStdin bool) {
+	cmd := exec.Command(program, args...)
+	if hasStdin {
+		cmd.Stdin = strings.NewReader(stdin)
 	}
 
-	if n.Icon != "" {
-		msg["icon"] = n.Icon
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 
-	if n.Urgency != "" {
-		msg["urgency"] = string(n.Urgency)
-	}
-
-	c.send(msg)
+	go func() { _ = cmd.Wait() }()
 }
 
-func (c *Context) Copy(text string) { c.send(map[string]any{"t": "copy", "text": text}) }
+func notifyArgv(name string, entry *AppletEntry, n Notification) []string {
+	app := name
+	if entry != nil && entry.Name != "" {
+		app = entry.Name
+	}
+
+	urgency := string(n.Urgency)
+	if urgency != "low" && urgency != "normal" && urgency != "critical" {
+		urgency = "normal"
+	}
+
+	args := []string{"notify-send", "--app-name=" + app, "--urgency=" + urgency}
+
+	icon := n.Icon
+	if icon == "" && entry != nil {
+		icon = entry.Icon
+	}
+	if icon != "" {
+		args = append(args, "--icon="+icon)
+	}
+
+	if entry != nil {
+		if id := strings.TrimSuffix(entry.ID, ".desktop"); id != "" {
+			args = append(args, "--hint=string:desktop-entry:"+id)
+		}
+	}
+
+	args = append(args, "--", n.Summary)
+	if n.Body != "" {
+		args = append(args, n.Body)
+	}
+
+	return args
+}
+
+func (c *Context) Notify(n Notification) {
+	argv := notifyArgv(c.Name, c.Entry, n)
+	spawn(argv[0], argv[1:], "", false)
+}
+
+func (c *Context) Copy(text string) { spawn("wl-copy", nil, text, true) }
 
 func (c *Context) OpenURI(uri string) {
 	c.send(map[string]any{"t": "open-uri", "uri": uri})
@@ -101,35 +98,3 @@ func (c *Context) OpenURI(uri string) {
 func (c *Context) Launch(id string) { c.send(map[string]any{"t": "launch", "id": id}) }
 
 func (c *Context) ClosePopover() { c.send(map[string]any{"t": "close-popover"}) }
-
-func (c *Context) MprisControl(player, action string) {
-	c.send(map[string]any{"t": "mpris", "player": player, "op": "control", "action": action})
-}
-
-func (c *Context) MprisSeek(player string, offsetUs float64) {
-	c.send(map[string]any{"t": "mpris", "player": player, "op": "seek", "offset": math.Round(offsetUs)})
-}
-
-func (c *Context) MprisSetPosition(player string, positionUs float64) {
-	c.send(map[string]any{"t": "mpris", "player": player, "op": "set-position", "position": math.Round(positionUs)})
-}
-
-func (c *Context) FocusWorkspace(target any) {
-	c.send(map[string]any{"t": "compositor", "op": "focus-workspace", "target": target})
-}
-
-func (c *Context) FocusWindow(target any) {
-	c.send(map[string]any{"t": "compositor", "op": "focus-window", "target": target})
-}
-
-func (c *Context) MoveWindow(window int, target any) {
-	c.send(map[string]any{"t": "compositor", "op": "move-window", "window": window, "target": target})
-}
-
-func (c *Context) RenameWorkspace(id int, name *string) {
-	c.send(map[string]any{"t": "compositor", "op": "rename-workspace", "id": id, "name": name})
-}
-
-func (c *Context) CloseWindow(id int) {
-	c.send(map[string]any{"t": "compositor", "op": "close-window", "id": id})
-}

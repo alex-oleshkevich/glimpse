@@ -9,7 +9,7 @@ Exec applets are desktop applications whose `[Desktop Entry]` group declares `Im
 | `Type` | Must be `Application` for the entry to load. |
 | `Implements` | Its string list must include `me.aresa.Glimpse.Applet1`. |
 | `Name` | Read through the desktop catalog as the applet name; also used for `%c` expansion. |
-| `Icon` | Optional. An empty value is absent. Used for `%i` expansion and as the icon of the applet's notifications when `notify` gives none; the SDK tree supplies the icons on the bar. |
+| `Icon` | Optional. An empty value is absent. Used for `%i` expansion and as the icon of the applet's notifications when `notify` gives none (the SDK receives it in the host's `hello`); the SDK tree supplies the icons on the bar. |
 | `Exec` | Required. Parsed into a program and arguments, then expanded using the rules below. An empty resulting argv is refused. |
 | `Path` | Optional working directory. If absent or empty, the host uses the canonical desktop file's parent directory. |
 | `Hidden` | An entry with `Hidden=true` is refused. |

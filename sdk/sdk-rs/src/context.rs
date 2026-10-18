@@ -2,32 +2,11 @@ use crate::protocol::{In, MAX_LINE};
 use crate::widget::Widget;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
+use std::io::Write;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::mpsc::Sender;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-pub fn position_now(player: &Value) -> f64 {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_millis() as f64)
-        .unwrap_or(0.0);
-    position_now_at(player, now)
-}
-
-pub fn position_now_at(player: &Value, now_ms: f64) -> f64 {
-    let position = player["positionUs"].as_f64().unwrap_or(0.0);
-    if player["playback"].as_str() != Some("playing") {
-        return position;
-    }
-    let at = player["positionAt"].as_f64().unwrap_or(0.0);
-    let rate = player["rate"].as_f64().unwrap_or(1.0);
-    let out = position + (now_ms - at) * 1000.0 * rate;
-    match player["lengthUs"].as_f64() {
-        Some(length) if length > 0.0 => out.min(length),
-        _ => out,
-    }
-}
 
 #[derive(Clone)]
 pub struct WakeHandle {
@@ -42,13 +21,20 @@ impl WakeHandle {
 
 pub type Waker = WakeHandle;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppletEntry {
+    pub id: String,
+    pub name: String,
+    pub icon: Option<String>,
+}
+
 pub struct Ctx {
     pub name: String,
     pub state_dir: String,
     pub options: Value,
     pub placement: Option<Value>,
     pub popover_open: bool,
-    pub services: Map<String, Value>,
+    pub entry: Option<AppletEntry>,
     pub(crate) tx: Sender<In>,
 }
 
@@ -88,18 +74,6 @@ impl Ctx {
         std::fs::write(path, text)
     }
 
-    pub fn mpris(&self) -> Option<Vec<Value>> {
-        self.services
-            .get("mpris")?
-            .get("players")?
-            .as_array()
-            .cloned()
-    }
-
-    pub fn compositor(&self) -> Option<&Value> {
-        self.services.get("compositor")
-    }
-
     fn send(&self, value: Value) {
         if let Ok(line) = serde_json::to_string(&value)
             && line.len() <= MAX_LINE
@@ -115,23 +89,19 @@ impl Ctx {
         icon: Option<&str>,
         urgency: Option<&str>,
     ) {
-        let mut msg = json!({"t": "notify", "summary": summary});
-        if let Some(fields) = msg.as_object_mut() {
-            if let Some(body) = body {
-                fields.insert("body".to_owned(), json!(body));
-            }
-            if let Some(icon) = icon {
-                fields.insert("icon".to_owned(), json!(icon));
-            }
-            if let Some(urgency) = urgency {
-                fields.insert("urgency".to_owned(), json!(urgency));
-            }
-        }
-        self.send(msg);
+        let args = notify_argv(
+            &self.name,
+            self.entry.as_ref(),
+            summary,
+            body,
+            icon,
+            urgency,
+        );
+        spawn("notify-send", &args, None);
     }
 
     pub fn copy(&self, text: &str) {
-        self.send(json!({"t": "copy", "text": text}));
+        spawn("wl-copy", &[], Some(text));
     }
 
     pub fn open_uri(&self, uri: &str) {
@@ -145,42 +115,70 @@ impl Ctx {
     pub fn close_popover(&self) {
         self.send(json!({"t": "close-popover"}));
     }
+}
 
-    pub fn mpris_control(&self, player: &str, action: &str) {
-        self.send(json!({"t": "mpris", "player": player, "op": "control", "action": action}));
+pub(crate) fn notify_argv(
+    name: &str,
+    entry: Option<&AppletEntry>,
+    summary: &str,
+    body: Option<&str>,
+    icon: Option<&str>,
+    urgency: Option<&str>,
+) -> Vec<String> {
+    let app = entry
+        .map(|entry| entry.name.as_str())
+        .filter(|app| !app.is_empty())
+        .unwrap_or(name);
+    let urgency = urgency
+        .filter(|level| matches!(*level, "low" | "normal" | "critical"))
+        .unwrap_or("normal");
+    let mut args = vec![format!("--app-name={app}"), format!("--urgency={urgency}")];
+    let icon = icon.filter(|icon| !icon.is_empty()).or_else(|| {
+        entry
+            .and_then(|entry| entry.icon.as_deref())
+            .filter(|icon| !icon.is_empty())
+    });
+    if let Some(icon) = icon {
+        args.push(format!("--icon={icon}"));
     }
+    if let Some(entry) = entry.filter(|entry| !entry.id.is_empty()) {
+        let id = entry.id.strip_suffix(".desktop").unwrap_or(&entry.id);
+        args.push(format!("--hint=string:desktop-entry:{id}"));
+    }
+    args.push("--".to_owned());
+    args.push(summary.to_owned());
+    if let Some(body) = body.filter(|body| !body.is_empty()) {
+        args.push(body.to_owned());
+    }
+    args
+}
 
-    pub fn mpris_seek(&self, player: &str, offset_us: i64) {
-        self.send(json!({"t": "mpris", "player": player, "op": "seek", "offset": offset_us}));
-    }
-
-    pub fn mpris_set_position(&self, player: &str, position_us: i64) {
-        self.send(
-            json!({"t": "mpris", "player": player, "op": "set-position", "position": position_us}),
-        );
-    }
-
-    pub fn focus_workspace(&self, target: Value) {
-        self.send(json!({"t": "compositor", "op": "focus-workspace", "target": target}));
-    }
-
-    pub fn focus_window(&self, target: Value) {
-        self.send(json!({"t": "compositor", "op": "focus-window", "target": target}));
-    }
-
-    pub fn move_window(&self, window: i64, target: Value) {
-        self.send(
-            json!({"t": "compositor", "op": "move-window", "window": window, "target": target}),
-        );
-    }
-
-    pub fn rename_workspace(&self, id: i64, name: Option<&str>) {
-        self.send(json!({"t": "compositor", "op": "rename-workspace", "id": id, "name": name}));
-    }
-
-    pub fn close_window(&self, id: i64) {
-        self.send(json!({"t": "compositor", "op": "close-window", "id": id}));
-    }
+pub(crate) fn spawn(program: &str, args: &[String], stdin: Option<&str>) {
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        });
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(err) => {
+            eprintln!("cannot start {program}: {err}");
+            return;
+        }
+    };
+    let pipe = child.stdin.take();
+    let text = stdin.map(str::to_owned);
+    std::thread::spawn(move || {
+        if let (Some(text), Some(mut pipe)) = (text, pipe) {
+            let _ = pipe.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+    });
 }
 
 pub trait App {

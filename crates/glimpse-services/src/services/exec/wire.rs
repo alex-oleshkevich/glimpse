@@ -12,101 +12,15 @@ pub enum FromApplet {
     Commit {
         ops: Vec<Op>,
     },
-    Notify {
-        summary: String,
-        #[serde(default)]
-        body: String,
-        #[serde(default)]
-        icon: Option<String>,
-        #[serde(default)]
-        urgency: Urgency,
-    },
-    Copy {
-        text: String,
-    },
     OpenUri {
         uri: String,
     },
     Launch {
         id: String,
     },
-    Mpris {
-        player: String,
-        #[serde(flatten)]
-        call: MprisCall,
-    },
-    Compositor {
-        #[serde(flatten)]
-        call: CompositorCall,
-    },
     ClosePopover,
     #[serde(other)]
     Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(tag = "op", rename_all = "kebab-case")]
-pub enum MprisCall {
-    Control { action: MprisAction },
-    Seek { offset: i64 },
-    SetPosition { position: i64 },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum MprisAction {
-    Play,
-    Pause,
-    PlayPause,
-    Stop,
-    Previous,
-    Next,
-    Raise,
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(tag = "op", rename_all = "kebab-case")]
-pub enum CompositorCall {
-    FocusWorkspace {
-        target: WorkspaceTarget,
-    },
-    FocusWindow {
-        target: WindowTarget,
-    },
-    MoveWindow {
-        window: u64,
-        target: WorkspaceTarget,
-    },
-    RenameWorkspace {
-        id: u64,
-        name: Option<String>,
-    },
-    CloseWindow {
-        id: u64,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum WorkspaceTarget {
-    Id { id: u64 },
-    Index { index: u8 },
-    Name { name: String },
-    Step(Step),
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum WindowTarget {
-    Id { id: u64 },
-    Step(Step),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Step {
-    Next,
-    Prev,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -145,15 +59,6 @@ pub struct WireNode {
     pub children: Vec<WireNode>,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Urgency {
-    Low,
-    #[default]
-    Normal,
-    Critical,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
 pub enum Outgoing {
@@ -163,6 +68,7 @@ pub enum Outgoing {
         state: String,
         options: Map<String, Value>,
         placement: Placement,
+        entry: Option<HelloEntry>,
     },
     Options {
         options: Map<String, Value>,
@@ -179,10 +85,13 @@ pub enum Outgoing {
     Popover {
         open: bool,
     },
-    Service {
-        name: String,
-        value: Value,
-    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HelloEntry {
+    pub id: String,
+    pub name: String,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

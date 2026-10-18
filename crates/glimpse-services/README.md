@@ -197,11 +197,10 @@ panel startup sweeps leftover units and the sockets of dead panels; a clean stop
 and a crashed panel closes the sockets so applets exit on EOF. Without the systemd user manager every
 slot fails with a reason and the panel keeps running. A dev slot from AppletHost takes over the
 same-id slot, has no automatic restart, and writes stderr to the caller. The host passes the applet's state
-directory as `state` in `hello`. Notifications are capped at one per second, MPRIS and compositor
-calls at ten; a URI must pass the scheme allowlist, and the panel refuses an executable file or a
-launcher type. Lines past the rate cap are read later, never fatal; invalid JSON, oversized lines,
-invalid trees, more than five `Hello`s in ten seconds and a full write queue kill only the offending
-unit.
+directory as `state` and its desktop entry's id, name and icon as `entry` in `hello`. A URI must
+pass the scheme allowlist, and the panel refuses an executable file or a launcher type. Lines past
+the rate cap are read later, never fatal; invalid JSON, oversized lines, invalid trees, more than
+five `Hello`s in ten seconds and a full write queue kill only the offending unit.
 
 ## Rules
 

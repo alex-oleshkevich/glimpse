@@ -29,8 +29,6 @@ enum Msg {
     OpenUri,
     Launch,
     Close,
-    Player(String),
-    Workspace(Value),
 }
 
 struct Item {
@@ -134,8 +132,6 @@ impl glimpse_sdk::App for App {
             Msg::OpenUri => ctx.open_uri("https://example.org"),
             Msg::Launch => ctx.launch("org.gnome.Nautilus"),
             Msg::Close => ctx.close_popover(),
-            Msg::Player(id) => ctx.mpris_control(&id, "play-pause"),
-            Msg::Workspace(target) => ctx.focus_workspace(target),
         }
     }
 
@@ -176,69 +172,6 @@ impl glimpse_sdk::App for App {
                     .into(),
             ))
             .collect();
-
-        let mut players: Vec<Widget<Msg>> = ctx
-            .mpris()
-            .unwrap_or_default()
-            .iter()
-            .map(|player| {
-                let id = player["id"].as_str().unwrap_or("").to_owned();
-                action_row()
-                    .key(id.clone())
-                    .icon("media-playback-start-symbolic")
-                    .title(
-                        player["title"]
-                            .as_str()
-                            .or_else(|| player["identity"].as_str())
-                            .unwrap_or("Player"),
-                    )
-                    .subtitle(player["artist"].as_str().unwrap_or(""))
-                    .on_activate(move || Msg::Player(id.clone()))
-                    .into()
-            })
-            .collect();
-
-        if players.is_empty() {
-            players.push(
-                placeholder()
-                    .icon("media-playback-stop-symbolic")
-                    .title("No players")
-                    .description("MPRIS service is empty")
-                    .into(),
-            );
-        }
-
-        let mut workspaces: Vec<Widget<Msg>> = Vec::new();
-        if let Some(list) = ctx
-            .compositor()
-            .and_then(|value| value["workspaces"].as_array())
-        {
-            for ws in list {
-                let id = ws["id"].clone();
-                workspaces.push(
-                    action_row()
-                        .key(ws["id"].as_i64().unwrap_or(0))
-                        .title(
-                            ws["name"]
-                                .as_str()
-                                .map_or_else(|| format!("Workspace {}", ws["id"]), str::to_owned),
-                        )
-                        .subtitle(format!("{} windows", ws["windows"]))
-                        .on_activate(move || Msg::Workspace(json!({"id": id})))
-                        .into(),
-                );
-            }
-        }
-
-        if workspaces.is_empty() {
-            workspaces.push(
-                placeholder()
-                    .icon("window-symbolic")
-                    .title("No workspaces")
-                    .description("Compositor service is empty")
-                    .into(),
-            );
-        }
 
         let ind = indicator()
             .icon("applications-graphics-symbolic")
@@ -556,12 +489,6 @@ impl glimpse_sdk::App for App {
                                 .tone(RowTone::Destructive)
                                 .on_activate(|| Msg::Close),
                         ),
-                )
-                .child(section().title("Players (MPRIS service)").children(players))
-                .child(
-                    section()
-                        .title("Workspaces (compositor service)")
-                        .children(workspaces),
                 )
                 .into(),
         ]

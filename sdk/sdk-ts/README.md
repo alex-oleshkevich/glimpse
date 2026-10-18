@@ -46,9 +46,8 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
   loads `key` from `state.json` in that directory on the first render (a missing or corrupt
   file falls back to `initial`) and writes the whole JSON object back when the value changes,
   so several keys share one file. It persists nothing when the state dir is empty.
-- Host requests: `notify`, `copy`, `openUri`, `launch` and `closePopover`.
-- Services: `useMpris` with `mpris.*`, `useCompositor` with
-  `compositor.*`. `positionNow` advances a playing track's position.
+- Host requests: `openUri`, `launch` and `closePopover`.
+- SDK helpers: `notify` and `copy` run `notify-send` and `wl-copy` from the applet process.
 
 An exec applet runs unconfined as a systemd user unit and has the user's full session.
 

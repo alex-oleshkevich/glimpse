@@ -16,6 +16,8 @@ optdepends=(
     'kdeconnect: the phone applet'
     'ddcutil: its udev rule lets the brightness applet reach external displays'
     'xdg-desktop-portal: routes app inhibit requests to glimpse-idle'
+    'libnotify: notifications from SDK applets'
+    'wl-clipboard: clipboard from SDK applets'
 )
 # cargo already strips (profile.release strip = true), so splitting debug symbols yields a
 # package of nothing but .build-id links that pacman will not remove with its parent.

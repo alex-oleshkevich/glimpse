@@ -4,12 +4,11 @@ use std::sync::{Arc, Mutex};
 
 use futures_util::future::BoxFuture;
 use futures_util::stream::BoxStream;
-use glimpse_dbus::{Buses, notifications::NotificationsProvider};
+use glimpse_dbus::Buses;
 use tokio_util::sync::CancellationToken;
 
 use super::launcher::{Launcher, NEEDS_SYSTEMD, ProcessLauncher, UnitSpec, UnitState};
 use super::*;
-use crate::selection::FakeSelection;
 use crate::service::ServiceRuntime;
 
 #[derive(Clone)]
@@ -178,7 +177,6 @@ type Running = (
     tokio::sync::mpsc::Sender<Input<Exec>>,
     CancellationToken,
     tokio::task::JoinHandle<()>,
-    FakeSelection,
     Arc<ProcessLauncher>,
 );
 
@@ -205,31 +203,16 @@ fn running_with(
         cancel.clone(),
     );
     let sender = runtime.sender();
-    let selection = FakeSelection::default();
     let process = Arc::new(ProcessLauncher::new());
     let deps = Dependencies {
         catalog,
-        selection: Arc::new(selection.clone()),
-        notifications: NotificationsProvider::unavailable("no bus in tests").handle(),
-        mpris: ServiceRuntime::<crate::services::mpris::Mpris>::new(
-            crate::services::mpris::Config::from(&glimpse_config::Config::default()),
-            Buses::unavailable("no bus in tests"),
-            cancel.clone(),
-        )
-        .1,
-        compositor: ServiceRuntime::<crate::services::compositor::Compositor>::new(
-            crate::NoConfig,
-            Buses::unavailable("no bus in tests"),
-            cancel.clone(),
-        )
-        .1,
         launcher: launcher.unwrap_or_else(|| Arc::clone(&process) as Arc<dyn Launcher>),
     };
     let task = tokio::spawn(async move {
         let _keep = (_state_dir, _runtime_dir);
         runtime.run(deps).await;
     });
-    (handle, sender, cancel, task, selection, process)
+    (handle, sender, cancel, task, process)
 }
 
 async fn status(handle: &ExecHandle, slot: u64, predicate: impl Fn(&Status) -> bool) -> SlotState {

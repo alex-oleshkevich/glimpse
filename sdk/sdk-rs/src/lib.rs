@@ -5,7 +5,7 @@ mod run;
 mod session;
 mod widget;
 
-pub use context::{App, Ctx, WakeHandle, Waker, position_now, position_now_at};
+pub use context::{App, AppletEntry, Ctx, WakeHandle, Waker};
 pub use elements::*;
 pub use protocol::{Check, Fail, In};
 pub use run::run;

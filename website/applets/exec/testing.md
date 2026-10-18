@@ -4,21 +4,21 @@ Use `glimpse-sdk/testing` to render an applet in memory, inspect its tree, and e
 
 ## Write a test
 
-Add `copy.test.tsx` to a generated applet project:
+Add `close.test.tsx` to a generated applet project:
 
 ```tsx
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ReactNode } from "react";
-import { Button, copy, Indicator, Popover } from "glimpse-sdk";
+import { Button, closePopover, Indicator, Popover } from "glimpse-sdk";
 import { render } from "glimpse-sdk/testing";
 
-test("copies a task when the button is clicked", async () => {
+test("closes the popover when the button is clicked", async () => {
   const app = await render(
     <>
       <Indicator icon="view-list-symbolic" />
       <Popover title="Todo">
-        <Button text="Copy task" onClick={() => copy("Buy groceries")} />
+        <Button text="Close" onClick={() => closePopover()} />
       </Popover>
     </> as ReactNode,
   );
@@ -31,9 +31,9 @@ test("copies a task when the button is clicked", async () => {
     const popover = tree.children.find((node) => node.type === "popover");
     const button = popover?.children.find((node) => node.type === "button");
     assert.ok(button);
-    assert.equal(button.props.text, "Copy task");
+    assert.equal(button.props.text, "Close");
     await app.click(button.id);
-    assert.deepEqual(app.requests(), [{ t: "copy", text: "Buy groceries" }]);
+    assert.deepEqual(app.requests(), [{ t: "close-popover" }]);
   } finally {
     await app.close();
   }
@@ -43,11 +43,11 @@ test("copies a task when the button is clicked", async () => {
 Bundle the test with the project's existing esbuild dependency, then run Node's test runner:
 
 ```sh
-npx esbuild copy.test.tsx --bundle --platform=node --format=esm --outfile=build/copy.test.mjs
-node --test build/copy.test.mjs
+npx esbuild close.test.tsx --bundle --platform=node --format=esm --outfile=build/close.test.mjs
+node --test build/close.test.mjs
 ```
 
-The test checks both the rendered button and its clipboard request. It does not change your real clipboard. The `ReactNode` assertion bridges the SDK's JSX return type and the test host's React input type.
+The test checks both the rendered button and its close request. The `ReactNode` assertion bridges the SDK's JSX return type and the test host's React input type.
 
 Run `glimpsectl applet run --dev .` to load the desktop entry and start the applet in the panel. The panel validates each tree against its nesting and size limits and logs rejections such as `section cannot hold section`.
 
@@ -65,7 +65,6 @@ The returned session provides:
 | `event(id, name, args?)` | Send another subscribed event, such as `onToggle` with `[true]`. |
 | `setOptions(options)` | Replace options and update `useOptions()`. |
 | `setPopoverOpen(open)` | Update `usePopoverOpen()`. |
-| `setService(name, value)` | Supply a service snapshot: `setService("mpris", { players: [player] })` or `setService("compositor", { name, workspaces, windows, outputs })`. |
 | `close()` | Unmount and release the session. Await it before starting another render. |
 
 All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Run `glimpsectl applet run --dev .` to check nesting, exercise updates and inspect the displayed text. If the panel rejects a tree, it stops the applet and logs the reason; the development terminal prints nothing about that rejection.

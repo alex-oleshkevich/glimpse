@@ -1,5 +1,5 @@
 from glimpse_sdk.applet import BaseApplet, State
-from glimpse_sdk.context import Context, position_now
+from glimpse_sdk.context import AppletEntry, Context
 from glimpse_sdk.elements import *
 from glimpse_sdk.protocol import (
     CONTROLLED,
@@ -28,6 +28,7 @@ __all__ = [
     "TEXT_KINDS",
     "ActionRow",
     "Addon",
+    "AppletEntry",
     "Bars",
     "BaseApplet",
     "Box",
@@ -72,6 +73,5 @@ __all__ = [
     "ToggleButton",
     "ToggleRow",
     "W",
-    "position_now",
     "run",
 ]

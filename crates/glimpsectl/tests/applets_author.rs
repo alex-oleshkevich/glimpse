@@ -105,7 +105,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
     let package: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
     assert_eq!(package["name"], "me.example.Hello");
-    assert_eq!(package["dependencies"]["glimpse-sdk"], "^0.12.0");
+    assert_eq!(package["dependencies"]["glimpse-sdk"], "^0.13.0");
     assert!(
         fs::read_to_string(dir.join("index.tsx"))
             .unwrap()
@@ -191,7 +191,7 @@ fn new_renders_every_language_without_placeholders() {
     assert!(
         fs::read_to_string(dir.join("Cargo.toml"))
             .unwrap()
-            .contains("glimpse-sdk = \"0.9\"")
+            .contains("glimpse-sdk = \"0.13\"")
     );
     let dir = root.path().join("go");
     applets_new_with_catalog(
@@ -208,7 +208,7 @@ fn new_renders_every_language_without_placeholders() {
     assert!(
         fs::read_to_string(dir.join("go.mod"))
             .unwrap()
-            .contains("require github.com/alex-oleshkevich/glimpse/sdk/sdk-go v0.9.0")
+            .contains("require github.com/alex-oleshkevich/glimpse/sdk/sdk-go v0.13.0")
     );
     let dir = root.path().join("py");
     applets_new_with_catalog(
@@ -220,7 +220,7 @@ fn new_renders_every_language_without_placeholders() {
     assert!(
         fs::read_to_string(dir.join("applet.py"))
             .unwrap()
-            .contains("dependencies = [\"glimpse-applet-sdk>=0.9\"]")
+            .contains("dependencies = [\"glimpse-applet-sdk>=0.13\"]")
     );
 }
 

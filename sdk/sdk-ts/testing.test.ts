@@ -1,25 +1,109 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
+import { EventEmitter } from "node:events";
 import { existsSync, statSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { isAbsolute } from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
+import { PassThrough } from "node:stream";
 import { createElement, useEffect, useState } from "react";
 import {
 	closePopover,
-	compositor,
 	copy,
 	launch,
-	mpris,
 	notify,
 	openUri,
-	positionNow,
-	useCompositor,
-	useMpris,
 	useOptions,
 	usePlacement,
 	usePopoverOpen,
 	useStateDir,
 } from "./index.ts";
 import { render } from "./testing.ts";
+import { notifyArgv, spawnTool } from "./desktop.ts";
+import { entryStore, nameStore } from "./state.ts";
+
+test("notifyArgv attributes entries and keeps hostile summaries after the separator", () => {
+	const entry = { id: "me.example.App.desktop", name: "App", icon: "fallback" };
+	assert.deepEqual(notifyArgv({ summary: "-u critical", body: "", icon: "" }, "slot", entry), [
+		"--app-name=App", "--urgency=normal", "--icon=fallback",
+		"--hint=string:desktop-entry:me.example.App", "--", "-u critical",
+	]);
+	assert.deepEqual(notifyArgv({ summary: "", body: "Body", urgency: "low", icon: "explicit" }, "slot", entry), [
+		"--app-name=App", "--urgency=low", "--icon=explicit",
+		"--hint=string:desktop-entry:me.example.App", "--", "", "Body",
+	]);
+	assert.deepEqual(notifyArgv({ summary: "Saved", urgency: "critical" }, "slot", null), [
+		"--app-name=slot", "--urgency=critical", "--", "Saved",
+	]);
+	assert.deepEqual(notifyArgv({ summary: "Saved", urgency: "bogus" as "normal" }, "slot", null), [
+		"--app-name=slot", "--urgency=normal", "--", "Saved",
+	]);
+	assert.deepEqual(notifyArgv({ summary: "Saved", urgency: "bogus" as "normal" }, "slot", { id: "", name: "", icon: null }), [
+		"--app-name=slot", "--urgency=normal", "--", "Saved",
+	]);
+	assert.deepEqual(notifyArgv({ summary: "Saved" }, "slot", { ...entry, id: "app.desktop.desktop" }), [
+		"--app-name=App", "--urgency=normal", "--icon=fallback",
+		"--hint=string:desktop-entry:app.desktop", "--", "Saved",
+	]);
+});
+
+test("notify and copy spawn directly without writing socket requests", async () => {
+	const calls: unknown[][] = [];
+	const inputs: PassThrough[] = [];
+	const children: EventEmitter[] = [];
+	const spawnMock = mock.method(childProcess, "spawn", ((...args: unknown[]) => {
+		calls.push(args);
+		const stdin = new PassThrough();
+		inputs.push(stdin);
+		const child = Object.assign(new EventEmitter(), { stdin: args[0] === "wl-copy" ? stdin : null });
+		children.push(child);
+		return child;
+	}) as typeof childProcess.spawn);
+	syncBuiltinESMExports();
+	const view = await render(createElement("indicator"));
+	try {
+		nameStore.set("slot");
+		entryStore.set({ id: "app.desktop", name: "App", icon: "app-icon" });
+		notify({ summary: "Saved" });
+		copy("buy milk");
+		copy("");
+		assert.deepEqual(view.requests(), []);
+		assert.deepEqual(calls, [
+			["notify-send", ["--app-name=App", "--urgency=normal", "--icon=app-icon", "--hint=string:desktop-entry:app", "--", "Saved"], { stdio: ["ignore", "ignore", "ignore"] }],
+			["wl-copy", [], { stdio: ["pipe", "ignore", "ignore"] }],
+			["wl-copy", [], { stdio: ["pipe", "ignore", "ignore"] }],
+		]);
+		assert.equal(inputs[1].read().toString(), "buy milk");
+		assert.equal(inputs[1].writableEnded, true);
+		assert.equal(inputs[2].writableEnded, true);
+		const errors: string[] = [];
+		const stderrMock = mock.method(process.stderr, "write", ((line: string) => { errors.push(line); return true; }) as typeof process.stderr.write);
+		try {
+			inputs[1].emit("error", new Error("broken\npipe"));
+			children[1].emit("error", new Error("failed"));
+			assert.deepEqual(errors, ["wl-copy: broken pipe\n"]);
+		} finally {
+			stderrMock.mock.restore();
+		}
+	} finally {
+		await view.close();
+		spawnMock.mock.restore();
+		syncBuiltinESMExports();
+	}
+});
+
+test("spawnTool missing program reports once and survives asynchronous errors", async () => {
+	const errors: string[] = [];
+	const stderrMock = mock.method(process.stderr, "write", ((line: string) => { errors.push(line); return true; }) as typeof process.stderr.write);
+	try {
+		assert.doesNotThrow(() => spawnTool("glimpse-no-such-tool", []));
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.equal(errors.length, 1);
+		assert.match(errors[0], /^glimpse-no-such-tool: .*ENOENT.*\n$/);
+	} finally {
+		stderrMock.mock.restore();
+	}
+});
 
 test("testing host renders, dispatches, updates, and closes", async () => {
 	function App() {
@@ -33,15 +117,13 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 				title: clicked ? "Clicked" : options.title,
 				onActivate: () => {
 					setClicked(true);
-					copy("copied");
-					notify({ summary: "done" });
 					openUri("https://example.com");
 					closePopover();
 				},
 			}),
 			createElement("button", {
 				text: open ? "Open" : "Closed",
-				onClick: () => copy("button"),
+				onClick: () => launch("me.example.App"),
 			}),
 			createElement("row", { title: options.title, key: "inert" }),
 		);
@@ -70,8 +152,6 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 	await view.click(row.id);
 	assert.equal(children()[0].props.title, "Clicked");
 	assert.deepEqual(view.requests(), [
-		{ t: "copy", text: "copied" },
-		{ t: "notify", summary: "done" },
 		{ t: "open-uri", uri: "https://example.com" },
 		{ t: "close-popover" },
 	]);
@@ -81,7 +161,7 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 	await view.setPopoverOpen(true);
 	assert.equal(children()[1].props.text, "Open");
 	await view.click(button.id);
-	assert.deepEqual(view.requests().at(-1), { t: "copy", text: "button" });
+	assert.deepEqual(view.requests().at(-1), { t: "launch", id: "me.example.App" });
 	await view.close();
 	await assert.rejects(view.click(row.id), /closed/);
 });
@@ -128,76 +208,6 @@ test("generic events deliver control arguments and reject missing handlers", asy
 		view.event(children[0].id, "onToggle", [true]),
 		/closed/,
 	);
-});
-
-test("services reach hooks and commands reach the host", async () => {
-	function App() {
-		const players = useMpris();
-		const desktop = useCompositor();
-		const player = players?.[0];
-		return createElement(
-			"popover",
-			null,
-			createElement("actionrow", {
-				title: player?.title ?? "none",
-				onActivate: () => {
-					if (player) mpris.control(player.id, "next");
-					compositor.focusWorkspace({ index: 2 });
-					compositor.closeWindow(9);
-					launch("org.gnome.Nautilus");
-				},
-			}),
-			createElement("row", {
-				title: desktop ? `${desktop.workspaces.length}` : "none",
-			}),
-		);
-	}
-
-	const view = await render(createElement(App));
-	const children = () =>
-		(
-			view.tree() as {
-				children: Array<{
-					children: Array<{ id: number; props: Record<string, unknown> }>;
-				}>;
-			}
-		).children[0].children;
-	assert.equal(children()[0].props.title, "none");
-	assert.equal(children()[1].props.title, "none");
-	const player = {
-		id: "spotify",
-		identity: "Spotify",
-		desktopEntry: null,
-		playback: "playing",
-		current: true,
-		title: "Song",
-		artist: null,
-		album: null,
-		lengthUs: 10_000_000,
-		positionUs: 1_000_000,
-		positionAt: 1_000,
-		rate: 1,
-		can: { play: true, pause: true, previous: true, next: true, seek: true },
-	} as const;
-	await view.setService("mpris", { players: [player] });
-	await view.setService("compositor", {
-		name: "niri",
-		workspaces: [{ id: 1 }, { id: 2 }],
-		windows: [],
-		outputs: [],
-	});
-	assert.equal(children()[0].props.title, "Song");
-	assert.equal(children()[1].props.title, "2");
-	await view.click(children()[0].id);
-	assert.deepEqual(view.requests(), [
-		{ t: "mpris", player: "spotify", op: "control", action: "next" },
-		{ t: "compositor", op: "focus-workspace", target: { index: 2 } },
-		{ t: "compositor", op: "close-window", id: 9 },
-		{ t: "launch", id: "org.gnome.Nautilus" },
-	]);
-	assert.equal(positionNow(player, 2_000), 2_000_000);
-	assert.equal(positionNow(player, 60_000), 10_000_000);
-	await view.close();
 });
 
 test("testing host applies set, move, and remove commits", async () => {
@@ -249,7 +259,7 @@ test("only one render can own the reconciler session", async () => {
 test("closing a render stops its requests before the next render", async () => {
 	function App() {
 		useEffect(() => {
-			const timer = setInterval(() => copy("first"), 5);
+			const timer = setInterval(() => openUri("https://example.com/first"), 5);
 			return () => clearInterval(timer);
 		}, []);
 		return createElement("popover");
@@ -269,7 +279,7 @@ test("a failed interval is unmounted before the next render", async () => {
 		const [ticks, setTicks] = useState(0);
 		useEffect(() => {
 			const timer = setInterval(() => {
-				copy("first");
+				openUri("https://example.com/first");
 				setTicks((value) => value + 1);
 			}, 5);
 			return () => clearInterval(timer);

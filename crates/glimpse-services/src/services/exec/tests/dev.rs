@@ -7,7 +7,7 @@ async fn dev_tree_requires_a_taken_key_and_tracks_restart() {
     let (_dir, entry, _output) = script(
         "import json\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nsend(json.dumps({'t':'commit','ops':[{'op':'insert','parent':0,'node':{'id':1,'type':'indicator','props':{'tooltip':str(os.getpid())}}}]}))\nfor line in r:\n    pass\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry.clone())))));
     let key = handle
         .attach_dev("test", dev_request(dev_entry(&entry)))
@@ -66,7 +66,7 @@ async fn dev_tree_requires_a_taken_key_and_tracks_restart() {
 async fn dev_takes_over_and_detach_returns_the_configured_applet() {
     let (_dir, entry, output) = script(PID_LOOP);
     let (_dev_dir, dev, dev_output) = script(PID_LOOP);
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -102,7 +102,7 @@ async fn dev_restart_after_a_crash_starts_it_again() {
     let (_dev_dir, dev, dev_output) = script(
         "marker = sys.argv[1] + '.marker'\nopen(sys.argv[1], 'a').write(str(os.getpid()) + '\\n')\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nif not os.path.exists(marker):\n    open(marker, 'w').close()\n    sys.exit(1)\nfor line in r:\n    pass\n",
     );
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     status(&handle, 1, |s| matches!(s, Status::Running)).await;
@@ -137,7 +137,7 @@ async fn dev_reconnects_after_eof_and_unit_exit_is_terminal() {
         let (_dev_dir, dev, output) = script(
             "import json, time\nopen(sys.argv[1], 'w').write(str(os.getpid()))\nsend('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    if json.loads(line).get('t') == 'event':\n        break\nr.close()\n_sock.close()\nwhile not os.path.exists(sys.argv[1] + '.resume'):\n    time.sleep(0.01)\n_sock = socket.socket(socket.AF_UNIX)\n_sock.connect(os.environ['GLIMPSE_APPLET_SOCKET'])\nr = _sock.makefile('r', encoding='utf-8')\nsend('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    pass\n",
         );
-        let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+        let ((handle, _sender, cancel, task, launcher), _config) =
             running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
         let dev_handle = handle
             .attach_dev("test", dev_request(dev_entry(&dev)))
@@ -185,7 +185,7 @@ async fn dev_reconnects_after_eof_and_unit_exit_is_terminal() {
 async fn dev_pending_attaches_when_its_widget_arrives() {
     let (_dir, entry, _output) = script(LOOP);
     let (_dev_dir, dev, dev_output) = script(PID_LOOP);
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     let dev_handle = handle
         .attach_dev("test", dev_request(dev_entry(&dev)))
@@ -210,7 +210,7 @@ async fn dev_pending_attaches_when_its_widget_arrives() {
 async fn dev_set_options_reach_the_running_slot() {
     let (_dir, entry, _output) = script(LOOP);
     let (_dev_dir, dev, dev_output) = script(PID_LOOP);
-    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+    let ((handle, _sender, cancel, task, _launcher), _config) =
         running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
     handle.attach(1, "test", placement()).await.expect("attach");
     let dev_handle = handle

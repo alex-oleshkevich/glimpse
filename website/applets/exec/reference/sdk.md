@@ -145,10 +145,8 @@ The host allows 300 nodes including the root, 200 children per parent, and 1,200
 | `usePopoverOpen` | `usePopoverOpen(): boolean`. Whether the popover is open. |
 | `useAppletName` | `useAppletName(): string`. This configured instance's name. |
 | `useStateDir` | `useStateDir(): string`. Host-provided persistent directory, keyed by desktop id and created with mode `0700`. |
-| `useMpris` | `useMpris(): Player[] \| null`. Current media players; `null` before the first snapshot. |
-| `useCompositor` | `useCompositor(): CompositorSnapshot \| null`. Desktop state; `null` before the first snapshot. |
 
-## Host requests
+## Desktop actions
 
 | Function | Signature |
 | --- | --- |
@@ -158,98 +156,7 @@ The host allows 300 nodes including the root, 200 children per parent, and 1,200
 | `launch` | `launch(id: string): void` |
 | `closePopover` | `closePopover(): void` |
 
-`notify` defaults to an empty body and normal urgency. The host caps it at one notification per second per slot, cleans its text, and cuts the summary at 256 characters and the body at 4,096. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [host requests and limits](/applets/exec/host) for file restrictions and clipboard limits.
-
-## Service requests
-
-| Function | Signature |
-| --- | --- |
-| `mpris.control` | `mpris.control(player: string, action: PlayerAction): void` |
-| `mpris.seek` | `mpris.seek(player: string, offsetUs: number): void` |
-| `mpris.setPosition` | `mpris.setPosition(player: string, positionUs: number): void` |
-| `compositor.focusWorkspace` | `compositor.focusWorkspace(target: WorkspaceTarget): void` |
-| `compositor.focusWindow` | `compositor.focusWindow(target: WindowTarget): void` |
-| `compositor.moveWindow` | `compositor.moveWindow(window: number, target: WorkspaceTarget): void` |
-| `compositor.renameWorkspace` | `compositor.renameWorkspace(id: number, name: string \| null): void` |
-| `compositor.closeWindow` | `compositor.closeWindow(id: number): void` |
-
-Player arguments are player ids. Seek offsets and positions are rounded to integer microseconds; negative offsets seek backward. Passing `null` as a workspace name clears it. Workspace `index` targets must be integers from `0` through `255`; workspace and window ids must be nonnegative integers. A service request the host cannot parse stops the applet.
-
-MPRIS and compositor requests share a cap of ten requests per second per slot; excess requests are dropped. Player ids and workspace rename strings are limited to 256 bytes.
-
-```ts
-type PlayerAction = "play" | "pause" | "play-pause" | "stop" | "previous" | "next" | "raise";
-type Step = "next" | "prev";
-type WorkspaceTarget = { id: number } | { index: number } | { name: string } | Step;
-type WindowTarget = { id: number } | Step;
-```
-
-### Player state
-
-```ts
-type Player = {
-  id: string;
-  identity: string;
-  desktopEntry: string | null;
-  playback: "playing" | "paused" | "stopped";
-  current: boolean;
-  title: string | null;
-  artist: string | null;
-  album: string | null;
-  lengthUs: number | null;
-  positionUs: number;
-  positionAt: number;
-  rate: number;
-  can: {
-    play: boolean;
-    pause: boolean;
-    previous: boolean;
-    next: boolean;
-    seek: boolean;
-  };
-};
-```
-
-`positionAt` is Unix time in milliseconds; `positionUs` is the position at that time. `current` identifies the player the panel follows. Titles, artists, and albums are capped at 256 characters.
-
-`positionNow(player: Player, now: number = Date.now()): number` returns microseconds. It leaves paused or stopped positions unchanged and advances playing positions using elapsed milliseconds and `rate`, capped by a truthy `lengthUs`. It does not start a timer.
-
-### Compositor state
-
-```ts
-type Workspace = {
-  id: number;
-  index: number | null;
-  name: string | null;
-  output: string | null;
-  active: boolean;
-  focused: boolean;
-  urgent: boolean;
-  windows: number;
-};
-
-type Window = {
-  id: number;
-  title: string | null;
-  appId: string | null;
-  workspace: number | null;
-  focused: boolean;
-  urgent: boolean;
-};
-
-type Output = {
-  connector: string;
-  label: string | null;
-  focused: boolean;
-};
-
-type CompositorSnapshot = {
-  name: string | null;
-  workspaces: Workspace[];
-  windows: Window[];
-  outputs: Output[];
-};
-```
+`notify` defaults to an empty body and normal urgency. It runs `notify-send` from the applet process and `copy` runs `wl-copy`, so libnotify and wl-clipboard must be installed; the notification daemon applies its own limits. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [host requests and limits](/applets/exec/host) for file restrictions.
 
 ## Runtime and JSX exports
 

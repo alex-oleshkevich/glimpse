@@ -7,7 +7,7 @@ import math
 import threading
 import typing
 
-from glimpse_sdk.context import Context
+from glimpse_sdk.context import AppletEntry, Context
 from glimpse_sdk.protocol import (
     CONTROLLED,
     MAX_CHILDREN,
@@ -252,6 +252,17 @@ class Session:
                 self.ctx.state_dir = msg.get("state") or ""
                 self.ctx.options = msg.get("options") or {}
                 self.ctx.placement = msg.get("placement")
+                raw_entry = msg.get("entry")
+                self.ctx.entry = (
+                    AppletEntry(
+                        id=raw_entry["id"], name=raw_entry["name"], icon=raw_entry.get("icon")
+                    )
+                    if isinstance(raw_entry, dict)
+                    and isinstance(raw_entry.get("id"), str)
+                    and isinstance(raw_entry.get("name"), str)
+                    and (raw_entry.get("icon") is None or isinstance(raw_entry.get("icon"), str))
+                    else None
+                )
                 self.mounted = True
                 self.dirty = True
 
@@ -269,9 +280,6 @@ class Session:
                 self.dirty = True
             case "popover":
                 self.ctx.popover_open = msg.get("open") is True
-                self.dirty = True
-            case "service" if isinstance(msg.get("name"), str):
-                self.ctx.services[msg["name"]] = msg.get("value")
                 self.dirty = True
             case "event":
                 self._event(msg)

@@ -57,6 +57,7 @@ export type HostMessage =
 			t: "hello";
 			v?: number;
 			name?: string;
+			entry?: unknown;
 			state?: string;
 			options?: Props;
 			placement?: Placement;
@@ -64,7 +65,6 @@ export type HostMessage =
 	| { t: "options"; options?: Props }
 	| { t: "placement"; placement?: Placement }
 	| { t: "popover"; open?: boolean }
-	| { t: "service"; name?: string; value?: unknown }
 	| {
 			t: "event";
 			id?: number;

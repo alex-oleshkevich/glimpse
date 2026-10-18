@@ -35,8 +35,9 @@ reload.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `v` | number | `1` |
-| `name` | string | This instance's name |
+| `name` | string | This instance's slot config key |
 | `state` | string | Absolute path to the applet's persistent state directory, owned by the applet and mode 0700 |
+| `entry` | object or null | The desktop entry's `id`, `name`, `icon` |
 | `options` | object | The instance's options, a JSON object |
 | `placement` | placement | Where this instance is drawn |
 
@@ -118,40 +119,7 @@ or an outside press reports `onToggle(false)` with a bumped `seq`. An applet `se
 | --- | --- | --- |
 | `open` | boolean | Whether this instance's popover is showing |
 
-### `service`
-
-The whole current value of a service, sent after `hello` and on every change.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `name` | string | `mpris` or `compositor` |
-| `value` | object | Below |
-
-`mpris` is `{players}`. A player:
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `id` | string | Passed back in `mpris` requests |
-| `identity` | string | The player's own name |
-| `desktopEntry` | string or `null` | Its desktop-file id |
-| `playback` | string | `playing`, `paused`, `stopped` |
-| `current` | boolean | The player the panel follows |
-| `title`, `artist`, `album` | string or `null` | Capped at 256 characters |
-| `lengthUs` | number or `null` | Track length in microseconds |
-| `positionUs` | number | Position at `positionAt` |
-| `positionAt` | number | Unix milliseconds; a playing track advances by `rate` from here |
-| `rate` | number | Playback rate |
-| `can` | object | `play`, `pause`, `previous`, `next`, `seek` — booleans |
-
-`compositor` is `{name, workspaces, windows, outputs}`:
-
-| List | Fields |
-| --- | --- |
-| `workspaces` | `id`, `index`, `name`, `output`, `active`, `focused`, `urgent`, `windows` |
-| `windows` | `id`, `title`, `appId`, `workspace`, `focused`, `urgent` |
-| `outputs` | `connector`, `label`, `focused` |
-
-`name` is the compositor's name or `null`. Titles are capped at 256 characters.
+`notify` and `copy` are SDK helpers that run `notify-send` and `wl-copy` from the applet process.
 
 ## Applet to host
 
@@ -175,21 +143,6 @@ the same process starts a new generation and an empty tree.
 Operations are applied in order to a copy of the tree. Ids, cycles, the parent table,
 the node cap and the child cap are checked before the copy replaces the live tree.
 
-### `notify`
-
-| Field | Type | Default |
-| --- | --- | --- |
-| `summary` | string | required |
-| `body` | string | `""` |
-| `icon` | string or absent | absent |
-| `urgency` | `low`, `normal`, `critical` | `normal` |
-
-### `copy`
-
-| Field | Type |
-| --- | --- |
-| `text` | string |
-
 ### `open-uri`
 
 | Field | Type |
@@ -206,29 +159,6 @@ entry, a script, a binary, an installer or an archive that runs.
 | Field | Type |
 | --- | --- |
 | `id` | string — a desktop-file id, with or without `.desktop` |
-
-### `mpris`
-
-| `op` | Fields |
-| --- | --- |
-| `control` | `player`, `action`: `play`, `pause`, `play-pause`, `stop`, `previous`, `next`, `raise` |
-| `seek` | `player`, `offset` — microseconds, negative goes back |
-| `set-position` | `player`, `position` — microseconds |
-
-### `compositor`
-
-A workspace target is `{"id":n}`, `{"index":n}`,
-`{"name":"…"}`, `"next"` or `"prev"`; a window target is `{"id":n}`, `"next"` or `"prev"`.
-
-| `op` | Fields |
-| --- | --- |
-| `focus-workspace` | `target` — a workspace target |
-| `focus-window` | `target` — a window target |
-| `move-window` | `window`, `target` — a workspace target |
-| `rename-workspace` | `id`, `name` — string, or `null` to clear |
-| `close-window` | `id` |
-
-An unknown `op` is an invalid line.
 
 ### `close-popover`
 

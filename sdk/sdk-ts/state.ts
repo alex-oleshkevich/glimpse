@@ -31,7 +31,8 @@ export const placementStore = createStore<Placement | null>(null);
 export const nameStore = createStore("");
 export const stateStore = createStore("");
 export const openStore = createStore(false);
-export const servicesStore = createStore<Record<string, unknown>>({});
+export type AppletEntry = { id: string; name: string; icon: string | null };
+export const entryStore = createStore<AppletEntry | null>(null);
 
 export function writeAll(fd: number, text: string): void {
 	const bytes = encoder.encode(text);

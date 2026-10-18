@@ -101,7 +101,6 @@ export default withMermaid(
               { text: "Develop with live reload", link: "/applets/exec/live-reload" },
               { text: "Keep data between restarts", link: "/applets/exec/data" },
               { text: "Notify, copy, open links and launch apps", link: "/applets/exec/host" },
-              { text: "React to media players and workspaces", link: "/applets/exec/media" },
               { text: "Test an applet", link: "/applets/exec/testing" },
               { text: "Debug a running applet", link: "/applets/exec/debug" },
               { text: "Install and share an applet", link: "/applets/exec/share" },

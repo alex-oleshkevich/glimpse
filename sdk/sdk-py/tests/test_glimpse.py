@@ -3,6 +3,7 @@ import collections.abc
 import contextlib
 import dataclasses
 import functools
+import io
 import json
 import os
 import socket
@@ -15,6 +16,7 @@ from unittest import mock
 
 import glimpse_sdk as glimpse
 from glimpse_sdk import (
+    AppletEntry,
     BaseApplet,
     Context,
     Entry,
@@ -26,6 +28,7 @@ from glimpse_sdk import (
     ToggleRow,
     W,
 )
+from glimpse_sdk.context import _spawn, notify_argv
 from glimpse_sdk.session import App as AppProtocol
 
 Node = dict[str, typing.Any]
@@ -241,49 +244,19 @@ class TestSession(unittest.TestCase):
         ops = [op for commit in commits for op in commit["ops"]]
         self.assertTrue(any(op.get("seq") == 9 for op in ops))
 
-    def test_all_host_requests_reach_the_wire(self) -> None:
+    def test_remaining_host_requests_reach_the_wire(self) -> None:
         ctx = self.host.session.ctx
-        ctx.notify("Hi", body="b", icon="i", urgency="low")
-        ctx.copy("x")
         ctx.open_uri("https://example.org")
         ctx.launch("org.example.App")
         ctx.close_popover()
-        ctx.mpris_control("p", "play-pause")
-        ctx.mpris_seek("p", -5_000_000)
-        ctx.mpris_set_position("p", 12_000_000)
-        ctx.focus_workspace({"index": 1})
-        ctx.focus_window("next")
-        ctx.move_window(7, {"name": "web"})
-        ctx.rename_workspace(3, None)
-        ctx.close_window(7)
         sent = [json.loads(line) for line in self.host.lines if '"hello"' not in line]
         self.assertEqual(
-            [m["t"] for m in sent],
+            sent,
             [
-                "notify",
-                "copy",
-                "open-uri",
-                "launch",
-                "close-popover",
-                "mpris",
-                "mpris",
-                "mpris",
-                "compositor",
-                "compositor",
-                "compositor",
-                "compositor",
-                "compositor",
+                {"t": "open-uri", "uri": "https://example.org"},
+                {"t": "launch", "id": "org.example.App"},
+                {"t": "close-popover"},
             ],
-        )
-        self.assertEqual(
-            sent[7], {"t": "mpris", "player": "p", "op": "set-position", "position": 12_000_000}
-        )
-        self.assertEqual(
-            sent[10],
-            {"t": "compositor", "op": "move-window", "window": 7, "target": {"name": "web"}},
-        )
-        self.assertEqual(
-            sent[11], {"t": "compositor", "op": "rename-workspace", "id": 3, "name": None}
         )
 
     def test_non_finite_numbers_become_null(self) -> None:
@@ -319,17 +292,6 @@ class TestSession(unittest.TestCase):
 
         with self.assertRaises(glimpse.LimitError):
             session.flush()
-
-    def test_position_now_advances_a_playing_track(self) -> None:
-        player = {
-            "playback": "playing",
-            "positionUs": 1_000_000,
-            "positionAt": 1000,
-            "rate": 1,
-            "lengthUs": None,
-        }
-        self.assertEqual(glimpse.position_now(player, now_ms=3000), 3_000_000)
-        self.assertEqual(glimpse.position_now({**player, "playback": "paused"}), 1_000_000)
 
     def test_fresh_subtree_over_children_cap_is_a_limit_error(self) -> None:
         class Wide(BaseApplet[State]):
@@ -375,6 +337,109 @@ class TestSession(unittest.TestCase):
         session.handle({"t": "options", "options": {}})
         session.flush()
         self.assertEqual(lines, [])
+
+
+class ClientSideHelpersTest(unittest.TestCase):
+    def test_notify_argv_uses_entry_name_icon_and_hint(self) -> None:
+        entry = AppletEntry(id="me.example.App.desktop", name="My App", icon="app-icon")
+        self.assertEqual(
+            notify_argv("slot-key", entry, "Hi", "Body", None, "low"),
+            [
+                "notify-send",
+                "--app-name=My App",
+                "--urgency=low",
+                "--icon=app-icon",
+                "--hint=string:desktop-entry:me.example.App",
+                "--",
+                "Hi",
+                "Body",
+            ],
+        )
+        self.assertIn(
+            "--icon=explicit", notify_argv("slot-key", entry, "Hi", None, "explicit", None)
+        )
+
+    def test_notify_argv_without_entry_uses_name_and_no_hint(self) -> None:
+        self.assertEqual(
+            notify_argv("slot-key", None, "Hi", None, None, None),
+            ["notify-send", "--app-name=slot-key", "--urgency=normal", "--", "Hi"],
+        )
+
+    def test_notify_argv_bogus_urgency_becomes_normal(self) -> None:
+        self.assertIn("--urgency=normal", notify_argv("slot-key", None, "Hi", None, None, "bogus"))
+
+    def test_notify_argv_summary_after_separator_and_empty_body_omitted(self) -> None:
+        argv = notify_argv("slot-key", None, "-u critical", "", None, None)
+        self.assertEqual(argv[-2:], ["--", "-u critical"])
+
+    def test_notify_and_copy_send_no_socket_line(self) -> None:
+        lines: list[str] = []
+        session = Session(EmptyApp(), lines.append)
+        session.handle(HELLO)
+        lines.clear()
+
+        with mock.patch("glimpse_sdk.context._spawn") as spawn:
+            session.ctx.notify("Hi", body="b", icon="i", urgency="low")
+            session.ctx.copy("x")
+
+        self.assertEqual(lines, [])
+        self.assertEqual(spawn.call_count, 2)
+        self.assertEqual(spawn.call_args_list[0].args[0], "notify-send")
+        self.assertEqual(
+            spawn.call_args_list[0].args[1],
+            notify_argv("test", None, "Hi", "b", "i", "low")[1:],
+        )
+        self.assertEqual(spawn.call_args_list[1].args, ("wl-copy", []))
+        self.assertEqual(spawn.call_args_list[1].kwargs, {"stdin": "x"})
+
+    def test_hello_without_entry_and_service_message_still_renders(self) -> None:
+        lines: list[str] = []
+        session = Session(App(), lines.append)
+        session.handle(HELLO)
+        session.handle({"t": "service", "name": "mpris", "value": {"players": []}})
+        session.flush()
+        self.assertIsNone(session.ctx.entry)
+        self.assertIn('"commit"', "".join(lines))
+
+    def test_hello_entry_is_exposed_and_malformed_entry_is_none(self) -> None:
+        session = Session(EmptyApp(), discard)
+        session.handle(
+            {
+                **HELLO,
+                "entry": {"id": "me.example.App", "name": "My App", "icon": None},
+            }
+        )
+        self.assertEqual(
+            session.ctx.entry, AppletEntry(id="me.example.App", name="My App", icon=None)
+        )
+        malformed = Session(EmptyApp(), discard)
+        malformed.handle({**HELLO, "entry": {"id": 3, "name": "My App", "icon": "i"}})
+        self.assertIsNone(malformed.ctx.entry)
+
+    def test_spawn_of_a_missing_program_does_not_raise(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            _spawn("glimpse-no-such-tool", [])
+
+    def test_spawn_swallows_a_broken_pipe_on_stdin(self) -> None:
+        proc = mock.Mock()
+        handed_off = threading.Event()
+        proc.communicate.side_effect = lambda data: handed_off.set()
+
+        with (
+            mock.patch("glimpse_sdk.context.subprocess.Popen", return_value=proc),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            _spawn("wl-copy", [], stdin="x")
+
+        self.assertTrue(handed_off.wait(timeout=5))
+        proc.communicate.assert_called_once_with(b"x")
+
+    def test_removed_surface_raises_attribute_error(self) -> None:
+        session = Session(EmptyApp(), discard)
+
+        for attr in ("mpris", "compositor", "services", "mpris_control"):
+            with self.subTest(attr=attr), self.assertRaises(AttributeError):
+                getattr(session.ctx, attr)
 
 
 class ConcurrentSendTest(unittest.TestCase):
@@ -544,7 +609,6 @@ class RunLoopTest(unittest.TestCase):
                         time.sleep(0.1)
                         self.text = "after"
                         ctx.wake()
-                        ctx.notify("from a thread")
 
                     threading.Thread(target=later).start()
 
@@ -554,7 +618,6 @@ class RunLoopTest(unittest.TestCase):
         texts = json.dumps(lines)
         self.assertEqual(code, 0)
         self.assertIn("after", texts)
-        self.assertIn("from a thread", texts)
 
     def test_a_render_error_exits_70(self) -> None:
         class Boom(BaseApplet[State]):

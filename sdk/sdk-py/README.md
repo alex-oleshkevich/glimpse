@@ -38,9 +38,9 @@ run(App())
 - Controlled props (`value`, `active`, `open`, `selected`) always come from state. An event's
   `seq` is copied onto the confirming `set`; an event older than the last applied `seq` is
   dropped; a rejected edit still confirms, so the panel restores the state value.
-- `ctx` carries `name`, `state_dir`, `options`, `placement`, `popover_open`, and the `mpris`
-  and `compositor` service snapshots, plus the host requests (`notify`, `copy`, `open_uri`,
-  `launch`, `close_popover`, `mpris_control`, workspace and window commands).
+- `ctx` carries `name`, `state_dir`, `options`, `placement`, `popover_open`, and `entry`, plus
+  the host requests (`open_uri`, `launch`, `close_popover`) and the client-side helpers
+  (`notify`, `copy`), which spawn `notify-send` and `wl-copy` directly.
 - Subclass `BaseApplet[YourState]` with a frozen-dataclass `state = YourState()` and `build(ctx)`;
   `Applet.main()` runs it. `set_state(field=value)` replaces the state, rebuilds when it changed,
   and writes the fields listed in `persist` to `state.json` (loaded before `start`). Call it on the
@@ -54,7 +54,8 @@ run(App())
   without locks. A rebuild follows each completion; a long-running task calls `ctx.wake()` after each state change. An exception in a spawned coroutine exits
   the applet with code 1, like a raising handler. Never block `build` or a handler: use an async
   library, or `await asyncio.to_thread(fn, ...)` for a blocking call. Plain threads call `ctx.wake()`
-  after updating state; `wake()` and the host requests (`notify`, `copy`, …) are safe from any thread.
+  after updating state; `wake()`, the host requests and the client-side helpers (`notify`,
+  `copy`, …) are safe from any thread.
 - Nothing builds before the host `hello`. A handler that raises exits with code 1 and a tree
   over a protocol limit with code 70; a closed socket exits 0.
 
@@ -69,8 +70,8 @@ stays byte-identical to `sdk/sdk-py/glimpse_sdk/`. The example desktop entry run
 
 ## Example and tests
 
-`examples/kitchen_sink/` exercises every element kind, every handler, both services, host
-requests, persistence, a one-second timer, and keyed reordering. Run it against an isolated
+`examples/kitchen_sink/` exercises every element kind, every handler, host requests and the
+client-side helpers, persistence, a one-second timer, and keyed reordering. Run it against an isolated
 second panel — never the session bar — as described in `docs/live-testing.md`.
 
 ```

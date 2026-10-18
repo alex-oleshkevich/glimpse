@@ -98,50 +98,6 @@ func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
 		}))
 	}
 
-	players := []any{}
-	for _, p := range ctx.Mpris() {
-		id, _ := p["id"].(string)
-		players = append(players, sdk.ActionRow(sdk.ActionRowProps{
-			Key: id, Icon: "media-playback-start-symbolic",
-			Title:      firstText(p["title"], p["identity"], "Player"),
-			Subtitle:   firstText(p["artist"], p["playback"]),
-			OnActivate: func() { ctx.MprisControl(id, "play-pause") },
-		}))
-	}
-
-	if len(players) == 0 {
-		players = append(players, sdk.Placeholder(sdk.PlaceholderProps{
-			Icon: "media-playback-stop-symbolic", Title: "No players",
-			Description: "MPRIS service is empty",
-		}))
-	}
-
-	workspaces := []any{}
-	if compositor := ctx.Compositor(); compositor != nil {
-		if list, ok := compositor["workspaces"].([]any); ok {
-			for _, raw := range list {
-				ws, _ := raw.(map[string]any)
-				id, _ := ws["id"].(float64)
-				name := text(ws["name"])
-				if name == "" {
-					name = fmt.Sprintf("Workspace %v", ws["id"])
-				}
-				workspaces = append(workspaces, sdk.ActionRow(sdk.ActionRowProps{
-					Key: id, Title: name,
-					Subtitle:   fmt.Sprintf("%v windows", ws["windows"]),
-					OnActivate: func() { ctx.FocusWorkspace(map[string]any{"id": id}) },
-				}))
-			}
-		}
-	}
-
-	if len(workspaces) == 0 {
-		workspaces = append(workspaces, sdk.Placeholder(sdk.PlaceholderProps{
-			Icon: "window-symbolic", Title: "No workspaces",
-			Description: "Compositor service is empty",
-		}))
-	}
-
 	vertical := ctx.Placement != nil && ctx.Placement["orientation"] == "vertical"
 	indicatorText := "KS"
 	if vertical {
@@ -318,8 +274,6 @@ func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
 				sdk.ActionRow(sdk.ActionRowProps{Title: "Launch files", OnActivate: func() { ctx.Launch("org.gnome.Nautilus") }}),
 				sdk.ActionRow(sdk.ActionRowProps{Title: "Close popover", Tone: "destructive", OnActivate: func() { ctx.ClosePopover() }}),
 			),
-			sdk.Section(sdk.SectionProps{Title: "Players (MPRIS service)"}, players...),
-			sdk.Section(sdk.SectionProps{Title: "Workspaces (compositor service)"}, workspaces...),
 		),
 	}
 }

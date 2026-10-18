@@ -1,4 +1,3 @@
-mod bridge;
 mod catalog;
 mod launcher;
 mod spawn;
@@ -13,14 +12,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
-use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use serde_json::{Map, Value};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
-use crate::selection::{Offer as SelectionOffer, Selection};
-use crate::services::compositor::{CompositorHandle, CompositorState};
-use crate::services::mpris::{MprisHandle, MprisPlayers};
 use crate::{CommandError, Ctx, Input, Service, ServiceEndpoint, Sub};
 
 pub use launcher::{Launcher, SystemdLauncher, UnitSpec, UnitState};
@@ -39,16 +34,13 @@ pub use tree::{
     ToggleButtonProps, ToggleControl, ToggleRowProps, Tone, Transition, Tree, Violation,
 };
 pub use wire::{
-    Edge, FromApplet, MAX_LINE, Op, Orientation, Outgoing, Placement, Urgency, WireNode, Zone,
+    Edge, FromApplet, HelloEntry, MAX_LINE, Op, Orientation, Outgoing, Placement, WireNode, Zone,
 };
 
 const MAX_UPDATES_PER_SECOND: u32 = 120;
 const RETRY: Duration = Duration::from_secs(5);
 const RESET_AFTER: Duration = Duration::from_secs(60);
-const TEXT: &str = "text/plain;charset=utf-8";
 const URI_CAP: usize = 2048;
-const CALLS_PER_SECOND: u32 = 10;
-const NAME_CAP: usize = 256;
 
 fn protect_state_dir(state: &Path) -> Result<(), String> {
     std::fs::create_dir_all(state)
@@ -135,10 +127,6 @@ impl Config {
 
 pub struct Dependencies {
     pub catalog: Arc<dyn Catalog>,
-    pub selection: Arc<dyn Selection>,
-    pub notifications: NotificationsProviderHandle,
-    pub mpris: MprisHandle,
-    pub compositor: CompositorHandle,
     pub launcher: Arc<dyn Launcher>,
 }
 
@@ -167,8 +155,6 @@ pub enum SubKey {
     Child { slot: u64, spawn: u64 },
     Reset { slot: u64, generation: u64 },
     Retry,
-    Mpris,
-    Compositor,
 }
 
 pub enum Event {
@@ -222,8 +208,6 @@ pub enum Event {
         generation: u64,
     },
     Retry,
-    Mpris(MprisPlayers),
-    Compositor(CompositorState),
     RetryReady {
         slot: u64,
         spawn: u64,
@@ -464,8 +448,6 @@ struct Slot {
     stop: CancellationToken,
     popover_open: bool,
     popover_own: bool,
-    last_notify: Option<Instant>,
-    calls: (Instant, u32),
     last_failed_reason: Option<String>,
     serial: u64,
     catalog_misses: u32,
@@ -484,8 +466,6 @@ pub struct Exec {
     next_spawn: u64,
     next_unit: u64,
     next_generation: u64,
-    mpris: Option<Value>,
-    compositor: Option<Value>,
 }
 
 impl Exec {
@@ -599,8 +579,6 @@ impl Exec {
             stop: CancellationToken::new(),
             popover_open: false,
             popover_own: false,
-            last_notify: None,
-            calls: (Instant::now(), 0),
             last_failed_reason: None,
             serial: 0,
             catalog_misses: 0,
@@ -689,80 +667,11 @@ impl Exec {
         }
     }
 
-    fn request(&mut self, slot_id: u64, request: FromApplet, ctx: &Ctx<Self>) {
+    fn request(&mut self, slot_id: u64, request: FromApplet) {
         let Some(slot) = self.slots.get_mut(&slot_id) else {
             return;
         };
-        if let FromApplet::Notify { .. } = &request {
-            if slot
-                .last_notify
-                .is_some_and(|at| at.elapsed() < Duration::from_secs(1))
-            {
-                tracing::warn!(applet = %slot.public.applet, "notification rate exceeded");
-                return;
-            }
-            slot.last_notify = Some(Instant::now());
-            if let Some(entry) = slot
-                .entry
-                .as_ref()
-                .and_then(|entry| note(entry, &slot.applet_id, &request))
-            {
-                let provider = self.dependencies.notifications.clone();
-                ctx.spawn_detached(move |_ctx| async move {
-                    if let Err(error) = provider
-                        .post(
-                            &entry.name,
-                            &entry.id,
-                            &entry.icon,
-                            &entry.summary,
-                            &entry.body,
-                            entry.urgency,
-                        )
-                        .await
-                    {
-                        tracing::warn!(%error, "applet notification failed");
-                    }
-                });
-            }
-            return;
-        }
-        let oversized = match &request {
-            FromApplet::Mpris { player, .. } => player.len() > NAME_CAP,
-            FromApplet::Compositor {
-                call:
-                    wire::CompositorCall::RenameWorkspace {
-                        name: Some(name), ..
-                    },
-            } => name.len() > NAME_CAP,
-            _ => false,
-        };
-        if oversized {
-            tracing::warn!(applet = %slot.public.applet, "applet sent an oversized service argument");
-            return;
-        }
         match request {
-            FromApplet::Mpris { .. } | FromApplet::Compositor { .. } => {
-                if slot.calls.0.elapsed() >= Duration::from_secs(1) {
-                    slot.calls = (Instant::now(), 0);
-                }
-                if slot.calls.1 >= CALLS_PER_SECOND {
-                    tracing::warn!(applet = %slot.public.applet, "service call rate exceeded");
-                    return;
-                }
-                slot.calls.1 += 1;
-                self.call(request, ctx);
-            }
-            FromApplet::Copy { text } => {
-                if text.len() <= 1 << 20 {
-                    let offer = SelectionOffer {
-                        mime: TEXT.to_owned(),
-                        data: Arc::from(text.into_bytes()),
-                    };
-                    if let Err(error) = self.dependencies.selection.offer(offer) {
-                        tracing::warn!(%error, "applet copy failed");
-                    }
-                }
-            }
             FromApplet::OpenUri { uri } => {
                 if !allowed_uri(&uri) {
                     tracing::warn!(applet = %slot.public.applet, "applet asked to open a refused uri");
@@ -781,45 +690,6 @@ impl Exec {
             }
             FromApplet::ClosePopover => slot.push_request(BarRequest::ClosePopover),
             _ => {}
-        }
-    }
-}
-
-impl Exec {
-    fn call(&self, request: FromApplet, ctx: &Ctx<Self>) {
-        let mpris = self.dependencies.mpris.clone();
-        let compositor = self.dependencies.compositor.clone();
-        ctx.spawn_detached(move |_ctx| async move {
-            let result = match request {
-                FromApplet::Mpris { player, call } => bridge::mpris_call(mpris, player, call).await,
-                FromApplet::Compositor { call } => bridge::compositor_call(compositor, call).await,
-                _ => Ok(()),
-            };
-            if let Err(error) = result {
-                tracing::warn!(%error, "applet service call failed");
-            }
-        });
-    }
-
-    fn share(&mut self, name: &str, value: Value) {
-        let slot_value = match name {
-            "mpris" => &mut self.mpris,
-            _ => &mut self.compositor,
-        };
-        if slot_value.as_ref() == Some(&value) {
-            return;
-        }
-        *slot_value = Some(value.clone());
-        for slot in self.slots.values_mut() {
-            if matches!(slot.public.status, Status::Running) {
-                Self::send(
-                    slot,
-                    Outgoing::Service {
-                        name: name.to_owned(),
-                        value: value.clone(),
-                    },
-                );
-            }
         }
     }
 }
@@ -846,41 +716,6 @@ fn allowed_uri(uri: &str) -> bool {
                 .iter()
                 .any(|allowed| scheme.eq_ignore_ascii_case(allowed))
         })
-}
-
-struct Note {
-    name: String,
-    id: String,
-    icon: String,
-    summary: String,
-    body: String,
-    urgency: NotificationUrgency,
-}
-
-fn note(entry: &Entry, id: &str, request: &FromApplet) -> Option<Note> {
-    let FromApplet::Notify {
-        summary,
-        body,
-        icon,
-        urgency,
-    } = request
-    else {
-        return None;
-    };
-    Some(Note {
-        name: entry.name.clone(),
-        id: id.to_owned(),
-        icon: tree::icon(icon.clone())
-            .or_else(|| entry.icon.clone())
-            .unwrap_or_default(),
-        summary: glimpse_utils::clean(summary, 256),
-        body: glimpse_utils::clean(body, 4096),
-        urgency: match urgency {
-            Urgency::Low => NotificationUrgency::Low,
-            Urgency::Normal => NotificationUrgency::Normal,
-            Urgency::Critical => NotificationUrgency::Critical,
-        },
-    })
 }
 
 fn prune_dead_sockets(dir: &Path) {
@@ -982,26 +817,6 @@ impl Service for Exec {
                 ));
             }
         }
-        let active = self.slots.values().any(|slot| {
-            matches!(
-                slot.public.status,
-                Status::Starting | Status::Running | Status::Restarting { .. }
-            )
-        });
-        if active {
-            subs.push(Sub::watch(
-                SubKey::Mpris,
-                self.dependencies.mpris.subscribe(),
-                Event::Mpris,
-                Event::Mpris(MprisPlayers::default()),
-            ));
-            subs.push(Sub::watch(
-                SubKey::Compositor,
-                self.dependencies.compositor.subscribe(),
-                Event::Compositor,
-                Event::Compositor(CompositorState::default()),
-            ));
-        }
         if self.slots.values().any(|slot| {
             slot.origin == Origin::Spawned
                 && matches!(slot.public.status, Status::Failed(_) | Status::Running)
@@ -1033,8 +848,6 @@ impl Service for Exec {
             next_spawn: 0,
             next_unit: 0,
             next_generation: 0,
-            mpris: None,
-            compositor: None,
         }
     }
 
@@ -1156,8 +969,6 @@ impl Service for Exec {
                         stop: CancellationToken::new(),
                         popover_open: false,
                         popover_own: false,
-                        last_notify: None,
-                        calls: (Instant::now(), 0),
                         last_failed_reason,
                         serial: 0,
                         catalog_misses: 0,
@@ -1448,22 +1259,15 @@ impl Service for Exec {
                             state: state_dir,
                             options: state.options.clone(),
                             placement: state.placement.clone(),
+                            entry: state.entry.as_ref().map(|entry| HelloEntry {
+                                id: state.applet_id.clone(),
+                                name: entry.name.clone(),
+                                icon: entry.icon.clone(),
+                            }),
                         },
                     );
                     if state.popover_open {
                         Self::send(state, Outgoing::Popover { open: true });
-                    }
-                    for (name, value) in [("mpris", &self.mpris), ("compositor", &self.compositor)]
-                    {
-                        if let Some(value) = value {
-                            Self::send(
-                                state,
-                                Outgoing::Service {
-                                    name: name.to_owned(),
-                                    value: value.clone(),
-                                },
-                            );
-                        }
                     }
                 }
             }
@@ -1486,7 +1290,7 @@ impl Service for Exec {
                     .get(&slot)
                     .is_some_and(|s| s.spawn == spawn && matches!(s.public.status, Status::Running))
                 {
-                    self.request(slot, request, ctx);
+                    self.request(slot, request);
                 }
             }
             Input::Event(Event::Disconnected { slot, spawn })
@@ -1612,12 +1416,6 @@ impl Service for Exec {
                         });
                     }
                 }
-            }
-            Input::Event(Event::Mpris(players)) => {
-                self.share("mpris", bridge::mpris_value(&players));
-            }
-            Input::Event(Event::Compositor(state)) => {
-                self.share("compositor", bridge::compositor_value(&state));
             }
             Input::Event(Event::RetryReady {
                 slot,

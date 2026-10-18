@@ -39,10 +39,14 @@ func main() { sdk.Run(app{}) }
 - Controlled props (`value`, `active`, `open`, `selected`) always come from state. An event's
   `seq` is copied onto the confirming `set`; an event older than the last applied `seq` is
   dropped; a rejected edit still confirms, so the panel restores the state value.
-- `Context` carries `Name`, `StateDir`, `Options`, `Placement`, `PopoverOpen`, and the
-  `Mpris` and `Compositor` service snapshots, plus the host requests (`Notify`, `Copy`,
-  `OpenURI`, `Launch`, `ClosePopover`, MPRIS control/seek/set-position, workspace and window
-  commands). `PositionNow` advances a playing track's position.
+- `Context` carries `Name`, `StateDir`, `Options`, `Placement`, `PopoverOpen`, the
+  optional `Entry` (the host's desktop entry `ID`, `Name` and `Icon`), and the host
+  requests `OpenURI`, `Launch` and `ClosePopover`. `Notify` and `Copy` are
+  client-side helpers: they spawn `notify-send` and `wl-copy` from the applet
+  process and never touch the wire. `Notify` takes its app name from `Entry.Name`,
+  falling back to `Name`, maps an unknown urgency to `normal`, and uses `Entry.Icon`
+  when no icon is given. A child that cannot be started writes one line to stderr
+  and the applet keeps running.
 - Work off the event path (a ticker, a goroutine, a file watch) calls `ctx.Wake()` to schedule
   a rebuild.
 - An app embeds `sdk.Applet[YourState]` (with an optional `Initial` value) and runs with
@@ -57,9 +61,9 @@ func main() { sdk.Run(app{}) }
 
 ## Example and tests
 
-`examples/kitchen_sink/` exercises every element kind, every handler, both services, host
-requests, persistence, a one-second ticker, and keyed reordering. Run it against an isolated
-second panel — never the session bar — as described in `docs/live-testing.md`.
+`examples/kitchen_sink/` exercises every element kind, every handler, the desktop
+helpers, persistence, a one-second ticker, and keyed reordering. Run it against an
+isolated second panel — never the session bar — as described in `docs/live-testing.md`.
 
 ```
 go test ./...

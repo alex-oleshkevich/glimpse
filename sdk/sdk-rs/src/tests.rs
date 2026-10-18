@@ -1,4 +1,5 @@
 use super::*;
+use crate::context::{notify_argv, spawn};
 use serde_json::Value;
 use std::sync::mpsc::{Receiver, channel};
 
@@ -248,31 +249,93 @@ fn keyed_reorder_moves() {
 }
 
 #[test]
-fn all_host_requests_reach_the_wire() {
+fn wire_requests_reach_the_socket() {
     let host = Host::new();
     let ctx = host.session.ctx();
-    ctx.notify("Hi", Some("b"), Some("i"), Some(Urgency::Low.as_str()));
-    ctx.copy("x");
     ctx.open_uri("https://example.org");
     ctx.launch("org.example.App");
     ctx.close_popover();
-    ctx.mpris_control("p", "play-pause");
-    ctx.mpris_seek("p", -5_000_000);
-    ctx.mpris_set_position("p", 12_000_000);
-    ctx.focus_workspace(json!({"index": 1}));
-    ctx.focus_window(json!("next"));
-    ctx.move_window(7, json!({"name": "web"}));
-    ctx.rename_workspace(3, None);
-    ctx.close_window(7);
     let mut kinds = Vec::new();
     while let Ok(In::Send(line)) = host.rx.try_recv() {
         let value: Value = serde_json::from_str(&line).expect("sent line parses");
         kinds.push(value["t"].as_str().unwrap_or("").to_owned());
     }
-    assert_eq!(
-        kinds.join(","),
-        "notify,copy,open-uri,launch,close-popover,mpris,mpris,mpris,compositor,compositor,compositor,compositor,compositor"
+    assert_eq!(kinds.join(","), "open-uri,launch,close-popover");
+}
+
+fn applet_entry(id: &str, name: &str, icon: Option<&str>) -> AppletEntry {
+    AppletEntry {
+        id: id.to_owned(),
+        name: name.to_owned(),
+        icon: icon.map(str::to_owned),
+    }
+}
+
+#[test]
+fn notify_argv_uses_the_entry() {
+    let entry = applet_entry(
+        "me.aresa.Picker.desktop",
+        "Picker",
+        Some("color-select-symbolic"),
     );
+    assert_eq!(
+        notify_argv("slot", Some(&entry), "Hi", Some("body"), None, Some("low")),
+        [
+            "--app-name=Picker",
+            "--urgency=low",
+            "--icon=color-select-symbolic",
+            "--hint=string:desktop-entry:me.aresa.Picker",
+            "--",
+            "Hi",
+            "body",
+        ]
+    );
+    let explicit = notify_argv("slot", Some(&entry), "Hi", None, Some("mail"), None);
+    assert!(explicit.contains(&"--icon=mail".to_owned()));
+}
+
+#[test]
+fn notify_argv_without_entry() {
+    assert_eq!(
+        notify_argv("slot", None, "Hi", Some(""), Some(""), Some("bogus")),
+        ["--app-name=slot", "--urgency=normal", "--", "Hi"]
+    );
+}
+
+#[test]
+fn notify_argv_keeps_hostile_summary_after_the_separator() {
+    let args = notify_argv("slot", None, "-u critical", None, None, None);
+    assert_eq!(args[args.len() - 2..], ["--", "-u critical"]);
+}
+
+#[test]
+fn spawn_of_a_missing_program_returns() {
+    spawn("glimpse-no-such-tool", &[], None);
+    spawn("glimpse-no-such-tool", &[], Some("text"));
+}
+
+#[test]
+fn hello_without_entry_still_mounts_and_ignores_service() {
+    let mut host = Host::new();
+    host.feed(&json!({"t": "service", "name": "mpris", "value": {"players": []}}));
+    assert!(host.session.ctx().entry.is_none());
+    host.find("togglerow", Some("Alpha"));
+}
+
+#[test]
+fn hello_sets_the_entry() {
+    let (tx, _rx) = channel();
+    let mut session = Session::new(
+        TestApp {
+            items: Vec::new(),
+            draft: String::new(),
+        },
+        tx,
+    );
+    let mut msg = hello();
+    msg["entry"] = json!({"id": "a.B", "name": "B", "icon": null});
+    session.handle(&msg);
+    assert_eq!(session.ctx().entry, Some(applet_entry("a.B", "B", None)));
 }
 
 #[test]
@@ -416,13 +479,6 @@ fn typed_handlers_dispatch() {
     ));
 }
 
-#[test]
-fn position_now_advances_a_playing_track() {
-    let player =
-        json!({"playback": "playing", "positionUs": 1_000_000, "positionAt": 1000, "rate": 1});
-    assert_eq!(position_now_at(&player, 3000.0), 3_000_000.0);
-}
-
 struct WideApp;
 
 impl App for WideApp {
@@ -502,7 +558,7 @@ fn state_ctx(dir: &std::path::Path) -> (Ctx, Receiver<In>) {
             options: json!({}),
             placement: None,
             popover_open: false,
-            services: serde_json::Map::new(),
+            entry: None,
             tx,
         },
         rx,
@@ -566,7 +622,7 @@ fn state_is_a_no_op_without_a_state_dir() {
         options: json!({}),
         placement: None,
         popover_open: false,
-        services: serde_json::Map::new(),
+        entry: None,
         tx,
     };
     assert_eq!(ctx.load_state::<Value>(), None);

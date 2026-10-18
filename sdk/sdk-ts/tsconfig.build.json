@@ -12,7 +12,7 @@
 		"jsx-runtime.ts",
 		"elements.ts",
 		"hooks.ts",
-		"services.ts",
+		"desktop.ts",
 		"wire.ts",
 		"state.ts",
 		"host.ts",

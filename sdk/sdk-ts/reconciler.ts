@@ -6,7 +6,6 @@ export {
 	redirectConsole,
 	restoreConsole,
 	send,
-	servicesStore,
 	setEmit,
 	stateStore,
 } from "./state.ts";

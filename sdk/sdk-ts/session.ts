@@ -5,13 +5,13 @@ import Reconciler from "react-reconciler";
 
 import { blankNode, flush, makeHost } from "./host.ts";
 import {
+	entryStore,
 	nameStore,
 	openStore,
 	optionsStore,
 	placementStore,
 	redirectConsole,
 	runtime,
-	servicesStore,
 	setEmit,
 	stateStore,
 	writeAll,
@@ -123,15 +123,6 @@ function apply(message: HostMessage): void {
 		openStore.set(message.open === true);
 		return;
 	}
-	if (message.t === "service") {
-		if (typeof message.name === "string") {
-			servicesStore.set({
-				...servicesStore.get(),
-				[message.name]: message.value,
-			});
-		}
-		return;
-	}
 	if (message.t === "event") dispatchEvent(message);
 }
 
@@ -180,7 +171,19 @@ export async function session(
 						typeof message.state === "string" ? message.state : "",
 					);
 					openStore.set(false);
-					servicesStore.set({});
+					const entry = message.entry;
+					entryStore.set(
+						entry !== null &&
+							typeof entry === "object" &&
+							"id" in entry &&
+							typeof entry.id === "string" &&
+							"name" in entry &&
+							typeof entry.name === "string" &&
+							"icon" in entry &&
+							(typeof entry.icon === "string" || entry.icon === null)
+							? { id: entry.id, name: entry.name, icon: entry.icon }
+							: null,
+					);
 					await mountFresh(element);
 					continue;
 				}
