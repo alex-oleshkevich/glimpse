@@ -427,6 +427,73 @@ fn a_command_gesture_that_names_no_program_is_refused_by_key() {
 }
 
 #[test]
+fn a_command_applet_refuses_the_removed_shell_key() {
+    let error =
+        toml::from_str::<Config>("[applets.volume-up]\nextends = \"command\"\nshell = true\n")
+            .expect_err("shell is not a key")
+            .to_string();
+    assert!(error.contains("unknown field `shell`"), "{error}");
+}
+
+#[test]
+fn a_command_applet_refuses_the_removed_right_click_key() {
+    let error = toml::from_str::<Config>(
+        "[applets.volume-up]\nextends = \"command\"\non-right-click = [\"x\"]\n",
+    )
+    .expect_err("on-right-click is not a key")
+    .to_string();
+    assert!(error.contains("unknown field `on-right-click`"), "{error}");
+}
+
+#[test]
+fn a_command_applet_inherits_the_panel_environment_by_default() {
+    let parsed = toml::from_str::<Config>("[applets.volume-up]\nextends = \"command\"\n")
+        .expect("a command applet parses");
+    let AppletKind::Command(command) = &parsed.applets["volume-up"].kind else {
+        panic!("a command applet");
+    };
+    assert!(command.inherit_env);
+    assert!(CommandAppletConfig::default().inherit_env);
+    let serialized = toml::to_string(&CommandAppletConfig::default()).expect("serializes");
+    assert!(!serialized.contains("inherit-env"), "{serialized}");
+    let off = toml::from_str::<CommandAppletConfig>("inherit-env = false\n").expect("parses");
+    assert!(!off.inherit_env);
+    assert!(
+        toml::to_string(&off)
+            .expect("serializes")
+            .contains("inherit-env = false")
+    );
+}
+
+#[test]
+fn a_command_applet_refuses_an_invalid_env_name() {
+    let error = toml::from_str::<Config>(
+        "[applets.volume-up]\nextends = \"command\"\nenv = { \"BAD-NAME\" = \"x\" }\n",
+    )
+    .expect_err("an invalid environment variable name")
+    .to_string();
+    assert!(
+        error.contains("env name is invalid: \"BAD-NAME\""),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_command_applet_env_round_trips() {
+    let parsed = toml::from_str::<Config>(
+        "[applets.volume-up]\nextends = \"command\"\nenv = { PULSE_SINK = \"@DEFAULT_SINK@\" }\non-click = [\"pactl\", \"info\"]\n",
+    )
+    .expect("a command applet with environment variables parses");
+    let AppletKind::Command(command) = &parsed.applets["volume-up"].kind else {
+        panic!("a command applet");
+    };
+    assert_eq!(command.env["PULSE_SINK"], "@DEFAULT_SINK@");
+    let serialized = toml::to_string(&parsed).expect("the configuration serializes");
+    let round_trip: Config = toml::from_str(&serialized).expect("the configuration parses again");
+    assert_eq!(round_trip.applets["volume-up"], parsed.applets["volume-up"]);
+}
+
+#[test]
 fn a_command_icon_path_must_be_absolute() {
     let relative = "[applets.shot]\nextends = \"command\"\nicon = \"icons/shot.png\"\n";
     let absolute = "[applets.shot]\nextends = \"command\"\nicon = \"/usr/share/shot.png\"\n";

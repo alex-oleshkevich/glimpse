@@ -78,6 +78,8 @@ impl Command {
     }
 
     fn run(&mut self, command: Vec<String>) {
+        let env = self.config.env.clone();
+        let inherit = self.config.inherit_env;
         let program = command.first().cloned().unwrap_or_default();
         let reported = self.reported.clone();
         let report = Report {
@@ -88,7 +90,7 @@ impl Command {
         };
         let body = gettext("{program} could not be started.").replace("{program}", &program);
         relm4::spawn_local(async move {
-            let Err(error) = launch(&command).await else {
+            let Err(error) = launch(&command, inherit, &env).await else {
                 return;
             };
             let now = Instant::now();
@@ -106,8 +108,7 @@ fn argv(config: &CommandAppletConfig, pointer: Pointer) -> &[String] {
     match pointer {
         Pointer::Press(Button::Left) => &config.on_click,
         Pointer::Press(Button::Middle) => &config.on_middle_click,
-        Pointer::Press(Button::Right) => &config.on_right_click,
-        Pointer::Press(Button::Other(_)) => &[],
+        Pointer::Press(Button::Right | Button::Other(_)) => &[],
         Pointer::Scroll(Direction::Up) => &config.on_scroll_up,
         Pointer::Scroll(Direction::Down) => &config.on_scroll_down,
         Pointer::Scroll(Direction::Left) => &config.on_scroll_left,
