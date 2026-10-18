@@ -242,9 +242,11 @@ fn every_template_builds_into_dist_and_dev_has_no_build_dependency() {
         .unwrap();
         let justfile = fs::read_to_string(dir.join("justfile")).unwrap();
         let build = justfile
-            .split("build:\n")
+            .split("\nbuild:")
             .nth(1)
+            .and_then(|rest| rest.split_once('\n'))
             .unwrap()
+            .1
             .split("\n\n")
             .next()
             .unwrap();
