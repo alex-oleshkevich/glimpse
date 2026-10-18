@@ -11,7 +11,7 @@ glimpsectl applet inspect --installed me.aresa.GlimpseTodo
 
 The list includes installed and placed applets, their desktop entries, commands, and state. Inspect separates desktop metadata, configuration placements and options, and runtime units. A refused desktop entry includes its reason. `runtime: unavailable` means the CLI could not obtain runtime information. Ignore the state column then: its `stopped` values do not confirm that an applet has stopped.
 
-From your project directory, run `glimpsectl applet run --dev .`. It loads the desktop entry and local configuration, and it reports an entry the host refuses.
+From your project directory, run `just dev`. It loads the desktop entry and local configuration, and it reports an entry the host refuses.
 
 ## Read installed applet logs
 

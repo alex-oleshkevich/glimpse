@@ -1,10 +1,14 @@
-# SDK API
+# TypeScript SDK
 
 The `glimpse-sdk` package exports React components, hooks, host requests, and supporting types for exec applets. Configure TypeScript with `"jsx": "react-jsx"` and `"jsxImportSource": "glimpse-sdk"`.
 
-## Component props
+## Components
 
-Every component accepts the React `key?: string | number` attribute. All props below are optional except `SliderRow.value`. `children` has type `Node`. The notation `string`, `number`, and `boolean` means the corresponding TypeScript type; quoted values are string literals.
+Every component accepts React's `key?: string | number`. A prop marked `?` is optional; only
+`SliderRow.value` is required. The interface names are for reading: the package exports the
+components, and `React.ComponentProps<typeof Indicator>` gives a component's props type. Which
+component may hold which is in [Elements](/applets/exec/reference/elements#parent-table); a
+rejected commit stops the applet.
 
 ### Shared types
 
@@ -23,165 +27,790 @@ type ClassName =
   | "network-popover__rule" | "bluetooth-popover" | "network-popover";
 ```
 
-`className` takes one `ClassName`, not a space-separated class list. There is no applet CSS.
+`className` takes one `ClassName`, not a space-separated list. There is no applet CSS. Icon props
+accept only ASCII letters, digits, `_`, `.` and `-`; any other name is dropped. Text props are
+plain text, never markup, capped at 256 characters.
 
-### Indicator and popover
+## Bar and popover
 
-| Component | Props |
-| --- | --- |
-| `Indicator` | `icon?: string`, `tooltip?: string`, `text?: string`, `badge?: string`, `overlay?: string`, `dot?: string`, `severity?: "info" \| "warning" \| "error"`, `attention?: boolean`, `notice?: boolean`, `className?: ClassName`, `onPress?: (button: number) => void`, `onScroll?: (dx: number, dy: number) => void`, `children?: Node` |
-| `Popover` | `className?: ClassName`, `icon?: string`, `title?: string`, `subtitle?: string`, `size?: PopoverSize`, `children?: Node` |
-| `Addon` | `children?: Node` |
-| `Container` | `width?: number`, `height?: number`, `background?: Paint`, `color?: Paint`, `align?: Align`, `children?: Node` |
-| `Section` | `title?: string`, `count?: string`, `className?: ClassName`, `children?: Node` |
+### Indicator
 
-An `Indicator`'s `onPress` receives `2` for middle and `3` for right, or the raw button code for any other button. A left click opens the popover and never fires `onPress`. `onScroll` receives numeric deltas. Text children of `Indicator`, `Label`, and `Button` supply their displayed text. The root accepts indicators and popovers; the panel shows the first popover.
+The chip on the bar. See [indicator](/applets/exec/reference/elements#indicator).
 
-`dot` takes a CSS color such as `"#e01b24"`; an unparseable value shows no dot. `attention` shows a dot while no badge is visible. `notice` gives the icon and label a rounded accent background. `severity="warning"` and `severity="error"` style the chip; `"info"` looks the same as no severity.
+```ts
+interface IndicatorProps {
+  icon?: string;
+  tooltip?: string;
+  text?: string;
+  badge?: string;
+  overlay?: string;
+  dot?: string;
+  severity?: "info" | "warning" | "error";
+  attention?: boolean;
+  notice?: boolean;
+  className?: ClassName;
+  onPress?: (button: number) => void;
+  onScroll?: (dx: number, dy: number) => void;
+  children?: Node;     // text children become the label
+}
+```
 
-### Rows
+```tsx
+<Indicator
+  icon="view-list-symbolic"
+  text="3 left"
+  tooltip="Todo"
+  onPress={(button) => {
+    if (button === 2) clearDone();
+  }}
+/>
+```
 
-The following base props apply to every component in the next table unless stated otherwise:
+### Popover
 
-| Prop | Type |
-| --- | --- |
-| `icon`, `title`, `subtitle`, `value`, `tooltip` | `string` |
-| `tone` | `RowTone` |
-| `inactive`, `busy` | `boolean` |
-| `typography` | `RowTypography` |
+The card that opens on a left click. See [popover](/applets/exec/reference/elements#popover).
 
-| Component | Base props and additional props |
-| --- | --- |
-| `Row` | Base props except `busy`; `children?: Node` |
-| `ActionRow` | Base props; `onActivate?: () => void`, `children?: Node` |
-| `ToggleRow` | Base props; `control?: "check" \| "switch"`, `active?: boolean`, `onToggle?: (active: boolean) => void` |
-| `MeterRow` | Base props; `level?: number`, `children?: Node` |
-| `ExpanderRow` | Base props; `open?: boolean`, `tint?: boolean`, `titleLines?: number`, `onToggle?: (open: boolean) => void`, `children?: Node` |
-| `SliderRow` | Does not use the base props. `title?: string`, `subtitle?: string`, `value: number`, `min?: number`, `max?: number`, `step?: number`, `tone?: RowTone`, `inactive?: boolean`, `tooltip?: string`, `onMove?: (value: number) => void`, `onChange?: (value: number) => void`, `children?: Node` |
-| `Start` | `children?: Node` |
-| `End` | `children?: Node` |
+```ts
+interface PopoverProps {
+  className?: ClassName;
+  icon?: string;
+  title?: string;
+  subtitle?: string;
+  size?: PopoverSize;
+  children?: Node;
+}
+```
 
-`MeterRow.level` is a fraction from `0` to `1`. `SliderRow.onMove` reports dragging; `onChange` reports release or a keyboard step. Inactive action, toggle, and meter rows suppress primary input. An inactive expander can still expand for inspection.
+```tsx
+<Popover icon="view-list-symbolic" title="Todo" subtitle="3 left">
+  <Section title="Today">
+    <ToggleRow title="Buy groceries" control="check" active={done} onToggle={setDone} />
+  </Section>
+</Popover>
+```
 
-`ExpanderRow.titleLines` defaults to `1` and is limited to `1` through `4`. `SliderRow.step` defaults to `0.01`.
+### Addon
 
-### Inputs and actions
+One control in the popover header's end slot. See [addon](/applets/exec/reference/elements#addon).
 
-| Component | Props |
-| --- | --- |
-| `Entry` | `placeholder?: string`, `value?: string`, `className?: ClassName`, `onChange?: (value: string) => void`, `onSubmit?: (value: string) => void` |
-| `Button` | `text?: string`, `icon?: string`, `tooltip?: string`, `sensitive?: boolean`, `className?: ClassName`, `onClick?: () => void`, `children?: Node` |
-| `Switch` | `active?: boolean`, `sensitive?: boolean`, `className?: ClassName`, `onToggle?: (active: boolean) => void` |
-| `Scale` | `value?: number`, `min?: number`, `max?: number`, `step?: number`, `sensitive?: boolean`, `className?: ClassName`, `onChange?: (value: number) => void` |
-| `ToggleButton` | `label?: string`, `icon?: string`, `active?: boolean`, `className?: ClassName`, `onToggle?: (active: boolean) => void` |
-| `CheckButton` | `label?: string`, `active?: boolean`, `className?: ClassName`, `onToggle?: (active: boolean) => void` |
-| `DropDown` | `options?: string[]`, `selected?: number`, `className?: ClassName`, `onSelect?: (index: number) => void` |
-| `ChoiceList` | `choices?: { label: string; detail?: string; icon?: string; warning?: boolean }[]`, `selected?: number`, `className?: ClassName`, `onSelect?: (index: number) => void` |
-| `Calendar` | `year?: number`, `month?: number`, `selected?: string`, `today?: string`, `events?: { date: string; colors?: Tone[] }[]`, `className?: ClassName`, `onMonth?: (year: number, month: number) => void`, `onSelect?: (date: string) => void` |
-| `Notice` | `icon?: string`, `title?: string`, `subtitle?: string`, `severity?: "info" \| "warning" \| "error"`, `className?: ClassName`, `onActivate?: () => void` |
+```ts
+interface AddonProps {
+  children?: Node;
+}
+```
 
-Calendar dates use `YYYY-MM-DD`; the host clamps months to `1` through `12` and years to `1` through `9999`. Selection indexes are numbers. Controlled inputs need updated props in response to their callbacks. `Notice.onActivate` makes the notice a button. Give icon-only buttons a tooltip for their accessible name.
+```tsx
+<Popover title="Focus">
+  <Addon>
+    <Switch active={focused} onToggle={setFocused} />
+  </Addon>
+</Popover>
+```
 
-### Layout and display
+### Container
 
-| Component | Props |
-| --- | --- |
-| `Box` | `orientation?: "horizontal" \| "vertical"`, `spacing?: number`, `homogeneous?: boolean`, `halign?: Align`, `valign?: Align`, `hexpand?: boolean`, `vexpand?: boolean`, `className?: ClassName`, `children?: Node` |
-| `Label` | `text?: string`, `wrap?: boolean`, `xalign?: number`, `ellipsize?: "none" \| "start" \| "middle" \| "end"`, `lines?: number`, `className?: ClassName`, `children?: Node` |
-| `Image` | `icon?: string`, `tooltip?: string`, `pixelSize?: number`, `className?: ClassName` |
-| `Swatch` | `color?: string`, `tooltip?: string`, `size?: "regular" \| "large"` |
-| `Placeholder` | `icon?: string`, `title?: string`, `description?: string`, `className?: ClassName` |
-| `Spinner` | `className?: ClassName` |
-| `Separator` | `orientation?: "horizontal" \| "vertical"`, `className?: ClassName` |
-| `FactList` | `facts?: { label: string; value: string; warning?: boolean }[]` |
-| `Readout` | `value?: string`, `unit?: string`, `className?: ClassName` |
-| `Dots` | `colors?: Tone[]`, `uniform?: boolean`, `size?: number`, `max?: number`, `className?: ClassName` |
-| `Revealer` | `revealed?: boolean`, `transition?: "slide-down" \| "crossfade" \| "none"`, `className?: ClassName`, `children?: Node` |
-| `Stack` | `visible?: number`, `className?: ClassName`, `children?: Node` |
-| `RangeBar` | `min?: number`, `max?: number`, `low?: number`, `high?: number`, `now?: number`, `className?: ClassName` |
-| `Bars` | `values?: Array<number \| null>`, `maximum?: number`, `highlightLast?: boolean`, `label?: string`, `tooltips?: Array<string \| null>`, `className?: ClassName` |
-| `Sparkline` | `values?: Array<number \| null>`, `fill?: boolean`, `showLast?: boolean`, `label?: string`, `className?: ClassName` |
+A sized, painted box around one child. See [container](/applets/exec/reference/elements#container).
 
-`Label` displays plain text, never markup. `Image.icon` is a themed icon name, not a path. `Swatch.color` is a CSS color. `Stack.visible` selects a child by index. `Bars` and `Sparkline` accept `null` for missing data and retain at most 366 values.
+```ts
+interface ContainerProps {
+  width?: number;
+  height?: number;
+  background?: Paint;
+  color?: Paint;
+  align?: Align;
+  children?: Node;
+}
+```
 
-All icon props accept only ASCII letters, digits, `_`, `.` and `-`. A name with any other character is dropped, leaving the widget without that icon.
+```tsx
+<Container width={160} background="blue" color="light" align="center">
+  <Label text="Deep work" />
+</Container>
+```
 
-The host clamps `Container.width` and `height` to `-1` through `1024`, `Box.spacing` to `0` through `24`, and `Label.xalign` to `0` through `1`. `Label.lines` accepts nonnegative values, rounds them, and caps them at `8`. `Image.pixelSize` is rounded and clamped to `8` through `64`. `Dots.size` is clamped to `2` through `16`, and `Dots.max` to `1` through `3`.
+### Section
 
-`SliderRow`, `Scale`, and `RangeBar` default to `min=0` and `max=1`. If `min >= max`, the host resets that range to `0` through `1`. Slider values and `RangeBar.low` and `now` are clamped to the range; `RangeBar.high` is clamped between `low` and `max`.
+A titled group of body elements. See [section](/applets/exec/reference/elements#section).
 
-### Nesting and size limits
+```ts
+interface SectionProps {
+  title?: string;
+  count?: string;
+  className?: ClassName;
+  children?: Node;
+}
+```
 
-JSX types permit some children that the host rejects. Text children on `Indicator`, `Label`, and `Button` become text props, not child widgets. Other children must follow these rules:
+```tsx
+<Section title="Today" count="2">
+  <ToggleRow title="Buy groceries" control="check" active={done} onToggle={setDone} />
+  <ToggleRow title="Call the dentist" control="check" active={false} />
+</Section>
+```
 
-| Parent | Allowed children |
-| --- | --- |
-| Root | `Indicator`, `Popover` |
-| `Popover` | At most one `Addon`, plus body elements |
-| `Addon` | At most one `Readout`, `Switch`, `Container`, or `Swatch` |
-| `Container` | At most one body element except `Section` |
-| `Section`, `Revealer`, `Stack` | Body elements except `Section` |
-| `Box` | Body elements |
-| `Row`, `MeterRow` | At most one `Image`, `Readout`, or `Spinner` |
-| `ActionRow` | At most one `Image`, `Readout`, or `Spinner`, plus at most one `Start` |
-| `ExpanderRow` | At most one `End` and one `Start`; drawer children are `ActionRow`, `ToggleRow`, `MeterRow`, `SliderRow`, `ExpanderRow`, `FactList`, `ChoiceList`, or `Row` |
-| `End` | At most one `Image`, `Readout`, or `Spinner` |
-| `Start` | At most one `Image`, `Button`, `Readout`, `Spinner`, `Dots`, or `Swatch` |
-| `SliderRow` | At most one `Start` |
-| Other components | No child widgets |
+## Rows
 
-Body elements are the exported components other than `Indicator`, `Popover`, `Addon`, `Start`, `End`, and `Swatch`.
+Rows share these props. See [row](/applets/exec/reference/elements#row).
 
-The host allows 300 nodes including the root, 200 children per parent, and 1,200 operations per commit. An array prop longer than 64 items, at any depth, is rejected rather than shortened; chart `values` and `tooltips` allow 366. Most text is cleaned and capped at 256 characters, badges at eight, the indicator label on the chip at 32, and entry values at 4,096. A rejected commit stops the applet.
+```ts
+interface RowProps {
+  icon?: string;
+  title?: string;
+  subtitle?: string;
+  value?: string;
+  tone?: RowTone;
+  inactive?: boolean;
+  tooltip?: string;
+  typography?: RowTypography;
+  busy?: boolean;
+}
+```
+
+### Row
+
+A static row. See [row](/applets/exec/reference/elements#row).
+
+```ts
+interface PlainRowProps extends Omit<RowProps, "busy"> {
+  children?: Node;
+}
+```
+
+```tsx
+<Row icon="network-wireless-symbolic" title="Lighthouse" value="5 GHz" typography="numeric" />
+```
+
+### ActionRow
+
+A row you click. See [actionrow](/applets/exec/reference/elements#actionrow).
+
+```ts
+interface ActionRowProps extends RowProps {
+  onActivate?: () => void;
+  children?: Node;
+}
+```
+
+```tsx
+<ActionRow
+  icon="folder-documents-symbolic"
+  title="Open the project page"
+  onActivate={() => openUri("https://github.com/alex-oleshkevich/glimpse")}
+/>
+```
+
+### ToggleRow
+
+A row with a switch or a check box. See [togglerow](/applets/exec/reference/elements#togglerow).
+
+```ts
+interface ToggleRowProps extends RowProps {
+  control?: "check" | "switch"; // "switch" when absent
+  active?: boolean;
+  onToggle?: (active: boolean) => void;
+}
+```
+
+```tsx
+<ToggleRow title="Buy groceries" control="check" active={done} onToggle={setDone} />
+```
+
+### MeterRow
+
+A row with a level bar. See [meterrow](/applets/exec/reference/elements#meterrow).
+
+```ts
+interface MeterRowProps extends RowProps {
+  level?: number;
+  children?: Node;
+}
+```
+
+```tsx
+<MeterRow icon="drive-harddisk-symbolic" title="Home" value="72%" level={0.72} />
+```
+
+### ExpanderRow
+
+A row that opens a drawer of rows below it. See [expanderrow](/applets/exec/reference/elements#expanderrow).
+
+```ts
+interface ExpanderRowProps extends RowProps {
+  open?: boolean;
+  tint?: boolean;
+  titleLines?: number;
+  onToggle?: (open: boolean) => void;
+  children?: Node;
+}
+```
+
+```tsx
+<ExpanderRow title="Work" open={open} onToggle={setOpen}>
+  <End>
+    <Readout value="2" unit="left" />
+  </End>
+  <ActionRow title="Write the report" onActivate={() => setDone(true)} />
+  <ActionRow title="Review pull requests" onActivate={() => setDone(true)} />
+</ExpanderRow>
+```
+
+### SliderRow
+
+A row with a slider. See [sliderrow](/applets/exec/reference/elements#sliderrow).
+
+```ts
+interface SliderRowProps {
+  title?: string;
+  subtitle?: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  tone?: RowTone;
+  inactive?: boolean;
+  tooltip?: string;
+  onMove?: (value: number) => void;
+  onChange?: (value: number) => void;
+  children?: Node;
+}
+```
+
+```tsx
+<SliderRow title="Volume" value={volume} onChange={setVolume}>
+  <Start>
+    <Image icon="audio-volume-high-symbolic" />
+  </Start>
+</SliderRow>
+```
+
+### Start and End
+
+Slots in a row head, [start](/applets/exec/reference/elements#start) and [end](/applets/exec/reference/elements#end).
+
+```ts
+interface StartProps {
+  children?: Node;
+}
+
+interface EndProps {
+  children?: Node;
+}
+```
+
+```tsx
+<ActionRow title="Accent color" onActivate={() => setDone(true)}>
+  <Start>
+    <Swatch color="#3584e4" />
+  </Start>
+</ActionRow>
+```
+
+## Inputs
+
+### Entry
+
+A text field. See [entry](/applets/exec/reference/elements#entry).
+
+```ts
+interface EntryProps {
+  placeholder?: string;
+  value?: string;
+  className?: ClassName;
+  onChange?: (value: string) => void;
+  onSubmit?: (value: string) => void;
+}
+```
+
+```tsx
+<Entry placeholder="New task" value={draft} onChange={setDraft} onSubmit={addTask} />
+```
+
+### Button
+
+A push button. See [button](/applets/exec/reference/elements#button).
+
+```ts
+interface ButtonProps {
+  text?: string;
+  icon?: string;
+  tooltip?: string;
+  sensitive?: boolean; // true when absent
+  className?: ClassName;
+  onClick?: () => void;
+  children?: Node;     // text children become the label
+}
+```
+
+```tsx
+<Button icon="list-add-symbolic" tooltip="Add a task" className="flat" onClick={() => addTask(draft)} />
+```
+
+### Switch
+
+An on/off switch. See [switch](/applets/exec/reference/elements#switch).
+
+```ts
+interface SwitchProps {
+  active?: boolean;
+  sensitive?: boolean;
+  className?: ClassName;
+  onToggle?: (active: boolean) => void;
+}
+```
+
+```tsx
+<Switch active={focused} onToggle={setFocused} />
+```
+
+### Scale
+
+A bare slider. See [scale](/applets/exec/reference/elements#scale).
+
+```ts
+interface ScaleProps {
+  value?: number;
+  min?: number;  // 0
+  max?: number;  // 1
+  step?: number;
+  sensitive?: boolean;
+  className?: ClassName;
+  onChange?: (value: number) => void;
+}
+```
+
+```tsx
+<Scale value={volume} min={0} max={1} step={0.05} onChange={setVolume} />
+```
+
+### ToggleButton and CheckButton
+
+A button that stays pressed, [togglebutton](/applets/exec/reference/elements#togglebutton), and a check box, [checkbutton](/applets/exec/reference/elements#checkbutton).
+
+```ts
+interface ToggleButtonProps {
+  label?: string;
+  icon?: string;
+  active?: boolean;
+  className?: ClassName;
+  onToggle?: (active: boolean) => void;
+}
+
+interface CheckButtonProps {
+  label?: string;
+  active?: boolean;
+  className?: ClassName;
+  onToggle?: (active: boolean) => void;
+}
+```
+
+```tsx
+<Box spacing={6}>
+  <ToggleButton icon="starred-symbolic" label="Starred" active={focused} onToggle={setFocused} />
+  <CheckButton label="Show done" active={done} onToggle={setDone} />
+</Box>
+```
+
+### DropDown
+
+A compact choice from a list of strings. See [dropdown](/applets/exec/reference/elements#dropdown).
+
+```ts
+interface DropDownProps {
+  options?: string[];
+  selected?: number;
+  className?: ClassName;
+  onSelect?: (index: number) => void;
+}
+```
+
+```tsx
+<DropDown options={["Today", "This week", "All"]} selected={range} onSelect={setRange} />
+```
+
+### ChoiceList
+
+A visible list of choices. See [choicelist](/applets/exec/reference/elements#choicelist).
+
+```ts
+interface ChoiceListProps {
+  choices?: { label: string; detail?: string; icon?: string; warning?: boolean }[];
+  selected?: number;
+  className?: ClassName;
+  onSelect?: (index: number) => void;
+}
+```
+
+```tsx
+<ChoiceList
+  choices={[
+    { label: "Balanced", icon: "power-profile-balanced-symbolic" },
+    { label: "Power saver", detail: "Slower, quieter", icon: "power-profile-power-saver-symbolic" },
+  ]}
+  selected={range}
+  onSelect={setRange}
+/>
+```
+
+### Calendar
+
+A month grid. See [calendar](/applets/exec/reference/elements#calendar).
+
+```ts
+interface CalendarProps {
+  year?: number;
+  month?: number;
+  selected?: string;
+  today?: string;
+  events?: { date: string; colors?: Tone[] }[];
+  className?: ClassName;
+  onMonth?: (year: number, month: number) => void;
+  onSelect?: (date: string) => void;
+}
+```
+
+```tsx
+<Calendar
+  year={2026}
+  month={10}
+  today="2026-10-18"
+  events={[{ date: "2026-10-21", colors: ["accent"] }]}
+  onSelect={(date) => setDraft(date)}
+/>
+```
+
+### Notice
+
+A highlighted message. See [notice](/applets/exec/reference/elements#notice).
+
+```ts
+interface NoticeProps {
+  icon?: string;
+  title?: string;
+  subtitle?: string;
+  severity?: "info" | "warning" | "error";
+  className?: ClassName;
+  onActivate?: () => void;
+}
+```
+
+```tsx
+<Notice icon="dialog-warning-symbolic" title="Sync failed" subtitle="Click to retry" severity="warning" onActivate={() => setDone(false)} />
+```
+
+## Layout and display
+
+### Box
+
+Lays out body elements in a row or a column. See [box](/applets/exec/reference/elements#box).
+
+```ts
+interface BoxProps {
+  orientation?: "horizontal" | "vertical"; // "horizontal" when absent
+  spacing?: number;
+  homogeneous?: boolean;
+  halign?: Align;
+  valign?: Align;
+  hexpand?: boolean;
+  vexpand?: boolean;
+  className?: ClassName;
+  children?: Node;
+}
+```
+
+```tsx
+<Box orientation="vertical" spacing={4}>
+  <Label text="Next up" className="heading" />
+  <Label text="Buy groceries" className="dim-label" />
+</Box>
+```
+
+### Label
+
+Plain text. See [label](/applets/exec/reference/elements#label).
+
+```ts
+interface LabelProps {
+  text?: string;
+  wrap?: boolean;
+  xalign?: number;
+  ellipsize?: "none" | "start" | "middle" | "end";
+  lines?: number;
+  className?: ClassName;
+  children?: Node; // text children become the text
+}
+```
+
+```tsx
+<Label text="Pick up the parcel before the post office closes at six." wrap lines={2} ellipsize="end" />
+```
+
+### Image
+
+A themed icon. See [image](/applets/exec/reference/elements#image).
+
+```ts
+interface ImageProps {
+  icon?: string;
+  tooltip?: string;
+  pixelSize?: number;
+  className?: ClassName;
+}
+```
+
+```tsx
+<Image icon="weather-clear-symbolic" pixelSize={32} tooltip="Clear sky" />
+```
+
+### Swatch
+
+A chip filled with a CSS color. See [swatch](/applets/exec/reference/elements#swatch).
+
+```ts
+interface SwatchProps {
+  color?: string;
+  tooltip?: string;
+  size?: "regular" | "large";
+}
+```
+
+```tsx
+<Popover title="Picked color">
+  <Addon>
+    <Swatch color="#e0563f" size="large" tooltip="#e0563f" />
+  </Addon>
+</Popover>
+```
+
+### Placeholder
+
+An empty state. See [placeholder](/applets/exec/reference/elements#placeholder).
+
+```ts
+interface PlaceholderProps {
+  icon?: string;
+  title?: string;
+  description?: string;
+  className?: ClassName;
+}
+```
+
+```tsx
+<Placeholder icon="checkbox-checked-symbolic" title="All done" description="Nothing left for today." />
+```
+
+### Spinner and Separator
+
+A busy spinner, [spinner](/applets/exec/reference/elements#spinner), and a line between groups, [separator](/applets/exec/reference/elements#separator).
+
+```ts
+interface SpinnerProps {
+  className?: ClassName;
+}
+
+interface SeparatorProps {
+  orientation?: "horizontal" | "vertical"; // "horizontal" when absent
+  className?: ClassName;
+}
+```
+
+```tsx
+<Box orientation="vertical">
+  <Spinner />
+  <Separator />
+</Box>
+```
+
+### FactList
+
+Label and value pairs. See [factlist](/applets/exec/reference/elements#factlist).
+
+```ts
+interface FactListProps {
+  facts?: { label: string; value: string; warning?: boolean }[];
+}
+```
+
+```tsx
+<FactList
+  facts={[
+    { label: "Due", value: "Friday" },
+    { label: "Overdue", value: "2 tasks", warning: true },
+  ]}
+/>
+```
+
+### Readout
+
+A large value with a unit. See [readout](/applets/exec/reference/elements#readout).
+
+```ts
+interface ReadoutProps {
+  value?: string;
+  unit?: string;
+  className?: ClassName;
+}
+```
+
+```tsx
+<Readout value="21" unit="°C" />
+```
+
+### Dots
+
+A row of small tone dots. See [dots](/applets/exec/reference/elements#dots).
+
+```ts
+interface DotsProps {
+  colors?: Tone[];
+  uniform?: boolean;
+  size?: number;
+  max?: number;
+  className?: ClassName;
+}
+```
+
+```tsx
+<Dots colors={["success", "success", "warning"]} />
+```
+
+### Revealer and Stack
+
+Show or hide children, [revealer](/applets/exec/reference/elements#revealer), and show one child by index, [stack](/applets/exec/reference/elements#stack).
+
+```ts
+interface RevealerProps {
+  revealed?: boolean;
+  transition?: "slide-down" | "crossfade" | "none"; // "slide-down" when absent
+  className?: ClassName;
+  children?: Node;
+}
+
+interface StackProps {
+  visible?: number; // 0 when absent
+  className?: ClassName;
+  children?: Node;
+}
+```
+
+```tsx
+<Stack visible={done ? 1 : 0}>
+  <Label text="Working on it" />
+  <Label text="Done" />
+</Stack>
+```
+
+### RangeBar
+
+A range on a scale. See [rangebar](/applets/exec/reference/elements#rangebar).
+
+```ts
+interface RangeBarProps {
+  min?: number;  // 0
+  max?: number;  // 1
+  low?: number;
+  high?: number;
+  now?: number;
+  className?: ClassName;
+}
+```
+
+```tsx
+<RangeBar min={-5} max={30} low={8} high={19} now={14} />
+```
+
+### Bars and Sparkline
+
+Small charts, [bars](/applets/exec/reference/elements#bars) and [sparkline](/applets/exec/reference/elements#sparkline).
+
+```ts
+interface BarsProps {
+  values?: Array<number | null>;
+  maximum?: number;
+  highlightLast?: boolean; // true when absent
+  label?: string;
+  tooltips?: Array<string | null>;
+  className?: ClassName;
+}
+
+interface SparklineProps {
+  values?: Array<number | null>;
+  fill?: boolean;
+  showLast?: boolean;
+  label?: string;
+  className?: ClassName;
+}
+```
+
+```tsx
+<Box orientation="vertical" spacing={6}>
+  <Bars values={[3, 5, null, 2, 4]} tooltips={["Mon", "Tue", null, "Thu", "Fri"]} label="Tasks done per day" />
+  <Sparkline values={[18, 19, 21, 20, 22]} showLast label="Temperature today" />
+</Box>
+```
 
 ## Hooks
 
-| Hook | Signature and result |
-| --- | --- |
-| `useState` | `useState<T>(initial: T \| (() => T)): [T, (action: T \| ((prev: T) => T)) => void]`. React state. |
-| `useEffect` | `useEffect(effect: () => void \| (() => void), deps?: readonly unknown[]): void`. React effect and optional cleanup. |
-| `useOptions` | `useOptions<T extends Record<string, unknown> = Record<string, unknown>>(): T`. Current options; updates without a restart. The generic is a cast, not runtime validation. |
-| `usePlacement` | `usePlacement(): Placement \| null`. Current placement; `null` before it is supplied. |
-| `usePopoverOpen` | `usePopoverOpen(): boolean`. Whether the popover is open. |
-| `useAppletName` | `useAppletName(): string`. This configured instance's name. |
-| `useStateDir` | `useStateDir(): string`. Host-provided persistent directory, keyed by desktop id and created with mode `0700`. |
+```ts
+function useState<T>(initial: T | (() => T)): [T, (action: T | ((prev: T) => T)) => void];
+function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
+function useOptions<T extends Record<string, unknown> = Record<string, unknown>>(): T;
+function usePlacement(): Placement | null;
+function usePopover(): { open: boolean; close: () => void };
+function useAppletName(): string;
+function useStateDir(): string;
+function usePersistentState<T>(key: string, initial: T): [T, (action: T | ((prev: T) => T)) => void];
+```
+
+- `useState` and `useEffect` are React's.
+- `useOptions` returns the current options, which update without a restart. The type parameter is a cast, not validation.
+- `usePlacement` returns `null` until the panel sends the placement.
+- `usePopover` tells whether the popover is open, and `close` closes it. `close` is the same function on every render.
+- `useAppletName` returns this configured instance's name.
+- `useStateDir` returns the applet's own directory for files, created with mode `0700`.
+- `usePersistentState` works like `useState` and saves `key` to `state.json` in that directory. It loads the saved value on the first render; a missing or unreadable file gives `initial`. Several keys share one file.
 
 ## Desktop actions
 
-| Function | Signature |
-| --- | --- |
-| `notify` | `notify(message: { summary: string; body?: string; icon?: string; urgency?: "low" \| "normal" \| "critical" }): void` |
-| `copy` | `copy(text: string): void` |
-| `openUri` | `openUri(uri: string): void` |
-| `launch` | `launch(id: string): void` |
-| `closePopover` | `closePopover(): void` |
+```ts
+function notify(message: {
+  summary: string;
+  body?: string;
+  icon?: string;
+  urgency?: "low" | "normal" | "critical";
+}): void;
+function copy(text: string): void;
+function openUri(uri: string): void;
+function launch(id: string): void;
+```
 
-`notify` defaults to an empty body and normal urgency. It runs `notify-send` from the applet process and `copy` runs `wl-copy`, so libnotify and wl-clipboard must be installed; the notification daemon applies its own limits. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [host requests and limits](/applets/exec/host) for file restrictions.
+`notify` defaults to an empty body and normal urgency. It runs `notify-send` from the applet process and `copy` runs `wl-copy`, so libnotify and wl-clipboard must be installed; the notification daemon applies its own limits. `launch` takes an installed desktop-file id with or without `.desktop`. `openUri` accepts only `http`, `https`, `mailto`, and eligible `file` URIs, at most 2,048 bytes. See [Notify, copy, open links and launch apps](/applets/exec/host) for file restrictions.
 
 ## Runtime and JSX exports
 
-| Export | Type or signature |
-| --- | --- |
-| `run` | `run(element: unknown, io?: Io): Promise<void>` |
-| `createElement` | `createElement(type: unknown, props?: Record<string, unknown> \| null, ...children: unknown[]): unknown` |
-| `Fragment` | React's `Fragment`, re-exported for grouping siblings without a host node. |
-| `jsx`, `jsxs`, `jsxDEV` | Each has signature `(type: unknown, props: unknown, key?: unknown) => unknown`; used by the JSX runtime. |
-
-`run` uses the socket named by `GLIMPSE_APPLET_SOCKET`, or stdin/stdout when that variable is absent. It redirects console methods to stderr and exits with code zero when the session ends normally. A supplied `Io` replaces the default transport.
-
 ```ts
-type Io = {
+function run(element: unknown, io?: Io): Promise<void>;
+function createElement(
+  type: unknown,
+  props?: Record<string, unknown> | null,
+  ...children: unknown[]
+): unknown;
+const Fragment: typeof React.Fragment;
+function jsx(type: unknown, props: unknown, key?: unknown): unknown;
+function jsxs(type: unknown, props: unknown, key?: unknown): unknown;
+function jsxDEV(type: unknown, props: unknown, key?: unknown): unknown;
+
+interface Io {
   writeLine: (line: string) => void;
   lines: AsyncIterable<string | string[]>;
-};
+}
 
-type Placement = {
+interface Placement {
   output: string | null;
   position: string;
   orientation: string;
   zone: string;
   size: number;
-};
+}
 
 type Node =
   | string | number | boolean | null | undefined | Node[]
@@ -189,6 +818,11 @@ type Node =
 
 type FC<P = object> = (props: P & { key?: string | number }) => Node;
 ```
+
+`run` connects to the socket named by `GLIMPSE_APPLET_SOCKET`. Without that variable and without an
+`io`, it prints `GLIMPSE_APPLET_SOCKET is not set: run the applet under the panel` and exits 1. A
+supplied `Io` replaces the socket. `run` redirects console methods to stderr and exits 0 when the
+session ends. `jsx`, `jsxs` and `jsxDEV` are what the JSX runtime calls; you never call them.
 
 The host's placement values are `top`, `bottom`, `left`, or `right` for `position`; `horizontal` or `vertical` for `orientation`; and `left`, `center`, or `right` for `zone`. `size` is the bar's logical-pixel thickness, and `output` is its connector name or `null`.
 

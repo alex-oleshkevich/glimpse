@@ -1,49 +1,24 @@
 # Keep data between restarts
 
-Use `useStateDir()` to store an applet's data outside its source directory. The host creates this persistent directory with mode `0700`; the SDK supplies its path before mounting your component.
+Each applet gets a state directory, `~/.local/state/glimpse/applets/<id>/`, mode 0700. Every SDK can
+save your state to `state.json` there and load it when the applet starts.
 
-## Load once and save changes
+## Save state with the SDK
 
-This complete `index.tsx` keeps a task title across restarts. It treats a missing file as a new list, preserves an unreadable file until you edit, and writes through a temporary file before replacing the saved one:
+This keeps a task title across restarts:
 
-```tsx
-import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import {
-  Entry, Indicator, notify, Popover, run, useEffect, useState, useStateDir,
-} from "glimpse-sdk";
+::: code-group
+
+```tsx [TypeScript]
+import { Entry, Indicator, Popover, run, usePersistentState } from "glimpse-sdk";
 
 function Task() {
-  const stateDir = useStateDir();
-  const [loaded] = useState(() => {
-    try {
-      return { value: readFileSync(join(stateDir, "task.txt"), "utf8"), failed: false };
-    } catch (error) {
-      const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
-      if (!missing) console.error("Could not read task:", error);
-      return { value: "", failed: !missing };
-    }
-  });
-  const [value, setValue] = useState(loaded.value);
-
-  useEffect(() => {
-    if (!stateDir || loaded.failed && value === loaded.value) return;
-    const target = join(stateDir, "task.txt");
-    const temp = `${target}.${process.pid}.tmp`;
-    try {
-      writeFileSync(temp, value);
-      renameSync(temp, target);
-    } catch (error) {
-      rmSync(temp, { force: true });
-      notify({ summary: "Could not save task", body: String(error) });
-    }
-  }, [value, stateDir, loaded]);
-
+  const [title, setTitle] = usePersistentState("title", "");
   return (
     <>
       <Indicator icon="view-list-symbolic" tooltip="Saved task" />
       <Popover title="Saved task">
-        <Entry placeholder="Task title" value={value} onChange={setValue} />
+        <Entry placeholder="Task title" value={title} onChange={setTitle} />
       </Popover>
     </>
   );
@@ -52,8 +27,115 @@ function Task() {
 await run(<Task />);
 ```
 
-Run it with `glimpsectl applet run --dev .`, enter a title, then type `r` and Enter in the terminal. Open the popover again to see the saved title.
+```python [Python]
+from dataclasses import dataclass
 
-## Choose filenames for shared data
+from glimpse_sdk import BaseApplet, Context, Entry, Indicator, Popover, State, W
 
-The host directory is keyed by desktop-file id, so instances of the same applet share it. Use distinct filenames if those instances need separate data; `useAppletName()` supplies the configured instance name. The [todo tutorial](/applets/exec/#_5-keep-the-list-between-restarts) shows JSON validation for structured data.
+
+@dataclass(frozen=True)
+class Saved(State):
+    title: str = ""
+
+
+class App(BaseApplet[Saved]):
+    state = Saved()
+    persist = ("title",)
+
+    def build(self, ctx: Context) -> list[W]:
+        return [
+            Indicator(icon="view-list-symbolic", tooltip="Saved task"),
+            Popover(
+                title="Saved task",
+                children=[
+                    Entry(
+                        placeholder="Task title",
+                        value=self.state.title,
+                        on_change=lambda title: self.set_state(title=title),
+                    )
+                ],
+            ),
+        ]
+
+
+if __name__ == "__main__":
+    App.main()
+```
+
+```go [Go]
+type state struct {
+	Title string `json:"title"`
+}
+
+type app struct {
+	sdk.Applet[state]
+}
+
+func (a *app) Build(ctx *sdk.Context) []sdk.Widget {
+	return []sdk.Widget{
+		sdk.Indicator(sdk.IndicatorProps{Icon: "view-list-symbolic", Tooltip: "Saved task"}),
+		sdk.Popover(sdk.PopoverProps{Title: "Saved task"},
+			sdk.Entry(sdk.EntryProps{
+				Placeholder: "Task title",
+				Value:       a.State().Title,
+				OnChange:    func(title string) { a.SetState(func(s *state) { s.Title = title }) },
+			})),
+	}
+}
+```
+
+```rust [Rust]
+struct Task {
+    title: String,
+}
+
+enum Msg {
+    Title(String),
+}
+
+impl App for Task {
+    type Msg = Msg;
+
+    fn start(&mut self, ctx: &Ctx) {
+        self.title = ctx.load_state().unwrap_or_default();
+    }
+
+    fn update(&mut self, ctx: &Ctx, msg: Msg) {
+        let Msg::Title(title) = msg;
+        let _ = ctx.save_state(&title);
+        self.title = title;
+    }
+
+    fn build(&self, _ctx: &Ctx) -> Vec<Widget<Msg>> {
+        vec![
+            indicator().icon("view-list-symbolic").tooltip("Saved task").into(),
+            popover()
+                .title("Saved task")
+                .child(
+                    entry()
+                        .placeholder("Task title")
+                        .value(self.title.as_str())
+                        .on_change(Msg::Title),
+                )
+                .into(),
+        ]
+    }
+}
+```
+
+:::
+
+Run it with `just dev`, type a title, then type `r` and Enter in the terminal to restart the applet.
+Open the popover again: the title is still there.
+
+## Keep two instances apart
+
+The state directory belongs to the applet id, so [two instances](/applets/exec/configure#run-it-twice-with-different-settings)
+of one applet share it. To keep their data apart, put the instance name in the key or file name:
+`useAppletName()` in TypeScript, `ctx.name` in Python and Rust, `ctx.Name` in Go.
+
+## Write your own files
+
+For anything bigger than a few values, write your own files in the state directory:
+`useStateDir()` in TypeScript, `ctx.state_dir` in Python and Rust, `ctx.StateDir` in Go. Write to a
+temporary file and rename it over the old one, so a crash mid-write never leaves half a file.

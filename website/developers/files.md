@@ -1,79 +1,31 @@
 # Installed files
 
-Every file `scripts/install.sh` puts on the system, where it goes, and what reads it. The
-destinations come from `scripts/glimpse-paths.sh`, which `scripts/uninstall.sh` shares, so an
-uninstall removes exactly this list. Paths use the default `/usr` prefix; `PREFIX` changes it and
-`DESTDIR` stages the whole tree for a package. The `.deb` and `.rpm` packages install the same system
-files and never write into a home directory.
+Every file an install puts on the system, and the files glimpse and your applets write at runtime.
+Paths use the default `/usr` prefix. The `.deb` and `.rpm` packages install the same system files
+and never write into a home directory.
 
-| Installed at | From | Purpose |
-| --- | --- | --- |
-| `/usr/bin/` | `target/release/`, `data/bin/glimpse-dpms` | The glimpse binaries and the screen power helper |
-| `/usr/lib/systemd/user/` | `data/systemd/` | [Systemd units](#systemd-units) |
-| `/usr/share/dbus-1/services/` | `data/dbus-1/services/` | [D-Bus activation files](#d-bus-service-files) |
-| `/usr/share/xdg-desktop-portal/portals/` | `data/portals/*.portal` | [Portal backends](#portals) |
-| `/etc/xdg-desktop-portal/` | `data/portals/*-portals.conf` | [Portal preferences](#portals) |
-| `/etc/pam.d/glimpse-lock` | `data/pam.d/` | [The lock screen's PAM stack](#pam) |
-| `/etc/geoclue/conf.d/glimpse.conf` | `data/geoclue/conf.d/` | [Location access](#geoclue) |
-| `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | `data/` | [The screenshot app's launcher](#launcher-and-icons) |
-| `/usr/share/glimpse/` | `data/`, `sdk/templates/` | [Shared data](#shared-data) |
-| `/usr/share/locale/<lang>/LC_MESSAGES/glimpse.mo` | `po/`, built by `just build-translations` | Translations, one catalog per language |
-| `~/.config/glimpse/config.toml` | `data/config.commented.toml` | [A starting configuration](#your-configuration) |
+| Installed at | Purpose |
+| --- | --- |
+| `/usr/bin/` | The glimpse binaries and the screen power helper |
+| `/usr/lib/systemd/user/` | [Systemd units](/developers/systemd) |
+| `/usr/share/dbus-1/services/` | [D-Bus activation files](/developers/systemd) |
+| `/usr/share/xdg-desktop-portal/portals/` | [Portal backends](#portals) |
+| `/etc/xdg-desktop-portal/` | [Portal preferences](#portals) |
+| `/etc/pam.d/glimpse-lock` | [The lock screen's PAM stack](#pam) |
+| `/etc/geoclue/conf.d/glimpse.conf` | [Location access](#geoclue) |
+| `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | [The screenshot app's launcher](#launcher-and-icons) |
+| `/usr/share/glimpse/` | [Shared data](#shared-data) |
+| `/usr/share/locale/<lang>/LC_MESSAGES/glimpse.mo` | Translations, one catalog per language |
+| `~/.config/glimpse/config.toml` | [A starting configuration](#your-configuration) |
 
-## Systemd units
+## Applet files
 
-| Unit | Runs | Bus name (`BusName`) | Relationships and restart |
-| --- | --- | --- | --- |
-| `glimpse-session.target` | The session target itself | None | `WantedBy=graphical-session.target`; `PartOf=` and `After=` it. Wants the panel, wallpaper, sunset, notifications, idle, lock, desktop and settings-daemon units. Propagates reloads to all of those except lock and desktop. |
-| `glimpse-panel.service` | `glimpse-panel` (`Type=exec`) | None | Part of `glimpse-session.target`, after it. `Restart=on-failure` (which excludes `SIGTERM`, so losing the session bus does not restart it). |
-| `glimpse-wallpaper.service` | `glimpse-wallpaper` (`Type=exec`) | None | Part of `glimpse-session.target`, after it. Restart on failure. |
-| `glimpse-lock.service` | `glimpse-lock` (`Type=exec`) | None | Part of `graphical-session.target` only (not of `glimpse-session.target`), after it. `Restart=always`, `StartLimitIntervalSec=0`. No hardening options; see [How the lock screen works](/developers/lock-screen). |
-| `glimpse-notifications.service` | `glimpse-notifications` (`Type=dbus`) | `me.aresa.Glimpse.Notifications` | Part of `glimpse-session.target` and `Requisite=` on it, after it: its start fails unless the target is already active. Restart on failure. |
-| `glimpse-idle.service` | `glimpse-idle` (`Type=dbus`) | `me.aresa.Glimpse.Idle` | Part of `glimpse-session.target` and `Requisite=` on it, after it: its start fails unless the target is already active. Restart on failure. |
-| `glimpse-settings-daemon.service` | `glimpse-settings-daemon` (`Type=dbus`) | `me.aresa.Glimpse.Settings` | Part of `glimpse-session.target` and `Requisite=` on it, after it: its start fails unless the target is already active. Restart on failure. |
-| `glimpse-sunset.service` | `glimpse-sunset` (`Type=dbus`) | `me.aresa.Glimpse.NightLight` | Part of `glimpse-session.target`, after it. Restart on failure, except exit status 4 (the compositor has no gamma control), which `RestartPreventExitStatus=4` does not retry. No D-Bus activation file exists for this name. |
-| `glimpse-weather.service` | `glimpse-weather` (`Type=dbus`) | `me.aresa.Glimpse.Weather` | Part of `glimpse-session.target` and `Requisite=` on it, after it: its start fails unless the target is already active. Restart on failure. Not wanted by the target; started by D-Bus activation. |
-| `glimpse-shot-portal.service` | `glimpse-shot portal` (`Type=dbus`) | `me.aresa.Glimpse.Shot.Portal` | Part of `glimpse-session.target` and `Requisite=` on it, after it: its start fails unless the target is already active. No restart directive; started by D-Bus activation. |
-| `glimpse-desktop.service` | `glimpsectl session declare` (`Type=oneshot`, `RemainAfterExit`) | None | Part of `glimpse-session.target`. After `niri.service`; before `graphical-session.target` and `xdg-desktop-autostart.target`. |
-
-Common directives across the long-running services: `StartLimitBurst=5` within
-`StartLimitIntervalSec=60`, `RestartSec=2`, and `ExecReload=/bin/kill -HUP $MAINPID` (a reload is a
-`SIGHUP`; every binary also reloads on its own when its configuration files change). The shot-portal unit
-sets none of these, and the lock unit replaces the start limit with `StartLimitIntervalSec=0`. The night light unit also sets `RestartPreventExitStatus=4`, so a session whose compositor has
-no gamma control does not use up its restart budget.
-
-Hardening directives are set per unit. `NoNewPrivileges`, `LockPersonality` and `RestrictRealtime`
-appear on every long-running unit except the lock and shot-portal units. The idle, settings-daemon,
-sunset and weather units additionally set `ProtectKernelTunables`, `ProtectKernelModules`,
-`ProtectControlGroups` and `RestrictSUIDSGID`; the wallpaper unit sets the same minus `RestrictSUIDSGID`;
-the notifications unit sets `ProtectKernelTunables`, `ProtectKernelModules` and `ProtectControlGroups`.
-The lock unit sets none of them, on purpose.
-
-Transient units for exec applets are created at runtime by the panel and are not installed files; their
-name pattern and properties are in [How exec applets work](/developers/exec-applets).
-
-## D-Bus service files
-
-Installed under `data/dbus-1/services/`. A call to the name starts the unit named by `SystemdService`
-when no process owns the name.
-
-| Name | `Exec` | `SystemdService` |
-| --- | --- | --- |
-| `me.aresa.Glimpse.Idle` | `/usr/bin/glimpse-idle` | `glimpse-idle.service` |
-| `me.aresa.Glimpse.Idle.Portal` | `/usr/bin/glimpse-idle` | `glimpse-idle.service` |
-| `me.aresa.Glimpse.Notifications` | `/usr/bin/glimpse-notifications` | `glimpse-notifications.service` |
-| `me.aresa.Glimpse.Settings` | `/usr/bin/glimpse-settings-daemon` | `glimpse-settings-daemon.service` |
-| `me.aresa.Glimpse.Shot.Portal` | `/usr/bin/glimpse-shot portal` | `glimpse-shot-portal.service` |
-| `me.aresa.Glimpse.Shot` | `/usr/bin/glimpse-shot --gapplication-service` | None (plain D-Bus activation of the GTK application) |
-| `me.aresa.Glimpse.Weather` | `/usr/bin/glimpse-weather` | `glimpse-weather.service` |
-| `org.freedesktop.Notifications` | `/usr/bin/glimpse-notifications` | `glimpse-notifications.service` |
-| `org.freedesktop.ScreenSaver` | `/usr/bin/glimpse-idle` | `glimpse-idle.service` |
-
-There is no service file for `me.aresa.Glimpse.NightLight`: the name is owned only while
-`glimpse-sunset.service` runs, and calls to it do not activate anything. The panel, wallpaper and lock
-units likewise have no service files. Interface names differ from bus names for the glimpse providers
-(the weather object, for example, is `me.aresa.Glimpse.Weather1` on the `me.aresa.Glimpse.Weather` name);
-[Architecture](/developers/) lists them.
+| Path | What |
+| --- | --- |
+| `~/.local/share/glimpse/applets/<id>/` | An applet installed with `glimpsectl applet install`, with its `metadata.toml` |
+| `~/.local/share/applications/<id>.desktop` | Its desktop entry: `Path` points at the directory above, and an `Exec` of `./<file>` is made absolute |
+| `~/.local/state/glimpse/applets/<id>/` | The applet's state directory, mode 0700 |
+| `$XDG_RUNTIME_DIR/glimpse/applets/` | The panel's applet sockets, `<panel-pid>-<slot>.sock` |
 
 ## Portals
 
