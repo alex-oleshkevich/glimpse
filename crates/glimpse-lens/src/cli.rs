@@ -36,6 +36,12 @@ pub struct Cli {
 
     #[arg(
         long,
+        help = "Copy the result to the clipboard through the panel; requires --tool."
+    )]
+    pub copy: bool,
+
+    #[arg(
+        long,
         default_value_t = 180,
         value_name = "PIXELS",
         help = "The lens radius in logical pixels."
@@ -64,6 +70,11 @@ impl Cli {
                 ErrorKind::ArgumentConflict,
                 "--format and --json require --tool picker",
             ));
+        }
+        if self.copy && self.tool.is_none() {
+            return Err(
+                Self::command().error(ErrorKind::ArgumentConflict, "--copy requires --tool")
+            );
         }
         Ok(())
     }

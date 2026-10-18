@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Magnifier
+Comment=Magnify part of the screen
+Icon=me.aresa.Glimpse.Lens
+Exec=glimpse-lens
+TryExec=glimpse-lens
+Terminal=false
+StartupNotify=false
+Categories=Utility;Graphics;
+Keywords=magnifier;zoom;lens;enlarge;

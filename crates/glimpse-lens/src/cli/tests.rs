@@ -7,6 +7,7 @@ fn the_default_is_a_plain_magnifier() {
     assert_eq!(cli.tool, None);
     assert!(cli.format.is_none());
     assert!(!cli.json);
+    assert!(!cli.copy);
     assert_eq!(cli.radius, 180);
     assert_eq!(cli.zoom, 3);
     assert!(cli.validate().is_ok());
@@ -59,6 +60,18 @@ fn ruler_accepts_lens_overrides_and_unknown_tools_are_rejected() {
     assert_eq!(cli.zoom, 12);
     assert!(cli.validate().is_ok());
     assert!(Cli::try_parse_from(["glimpse-lens", "--tool", "unknown"]).is_err());
+}
+
+#[test]
+fn copy_requires_a_tool() {
+    let cli = Cli::try_parse_from(["glimpse-lens", "--copy"]).unwrap();
+    assert!(cli.copy);
+    assert_eq!(cli.validate().unwrap_err().exit_code(), 2);
+    for tool in ["picker", "ruler"] {
+        let cli = Cli::try_parse_from(["glimpse-lens", "--tool", tool, "--copy"]).unwrap();
+        assert!(cli.copy);
+        assert!(cli.validate().is_ok());
+    }
 }
 
 #[test]

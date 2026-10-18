@@ -16,6 +16,17 @@ fn an_output_going_away_discards_what_was_already_confirmed() {
 }
 
 #[test]
+fn the_last_distance_is_whole_pixels_and_the_last_segment_wins() {
+    let back = Segment {
+        from: (626, 364),
+        to: (600, 100),
+    };
+    assert_eq!(last_distance(&[]), None);
+    assert_eq!(last_distance(&[EXAMPLE]).as_deref(), Some("235"));
+    assert_eq!(last_distance(&[EXAMPLE, back]).as_deref(), Some("265"));
+}
+
+#[test]
 fn a_session_with_nothing_confirmed_prints_nothing() {
     assert_eq!(ndjson(&[]), None);
 }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-10-16 20:41+0200\n"
+"POT-Creation-Date: 2026-10-18 20:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -368,7 +368,6 @@ msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/audio/render.rs:82
 #: crates/glimpse-panel/src/applets/audio/render/tests.rs:89
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:407
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:61
 msgid "Muted"
 msgstr ""
@@ -848,15 +847,15 @@ msgstr ""
 msgid "Yesterday"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:85
+#: crates/glimpse-panel/src/applets/command.rs:87
 msgid "Command"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:87
+#: crates/glimpse-panel/src/applets/command.rs:89
 msgid "Could not run a command"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/command.rs:89
+#: crates/glimpse-panel/src/applets/command.rs:91
 msgid "{program} could not be started."
 msgstr ""
 
@@ -3092,7 +3091,7 @@ msgid "Locked by the hardware switch"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/widget_demo_popover.blp:214
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:411
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:68
 msgid "Mute"
 msgstr ""
@@ -3106,7 +3105,7 @@ msgstr ""
 msgid "Name this workspace"
 msgstr ""
 
-#: crates/glimpse-widgets/src/audio_popover/mod.rs:410
+#: crates/glimpse-widgets/src/audio_popover/mod.rs:409
 #: crates/glimpse-widgets/src/widget_demo_popover/imp.rs:66
 msgid "Unmute"
 msgstr ""
@@ -3337,6 +3336,42 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:87
 msgid "No windows"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:3
+msgid "Color Picker"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:4
+msgid "Pick a color from the screen and copy it"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Picker.desktop:11
+msgid "color;picker;eyedropper;pipette;hex;"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:3
+msgid "Ruler"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:4
+msgid "Measure distances on the screen"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.Ruler.desktop:11
+msgid "ruler;measure;distance;pixels;"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.desktop:3
+msgid "Magnifier"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.desktop:4
+msgid "Magnify part of the screen"
+msgstr ""
+
+#: data/me.aresa.Glimpse.Lens.desktop:11
+msgid "magnifier;zoom;lens;enlarge;"
 msgstr ""
 
 #: data/me.aresa.Glimpse.Shot.desktop:4

@@ -13,7 +13,7 @@ and never write into a home directory.
 | `/etc/xdg-desktop-portal/` | [Portal preferences](#portals) |
 | `/etc/pam.d/glimpse-lock` | [The lock screen's PAM stack](#pam) |
 | `/etc/geoclue/conf.d/glimpse.conf` | [Location access](#geoclue) |
-| `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | [The screenshot app's launcher](#launcher-and-icons) |
+| `/usr/share/applications/`, `/usr/share/metainfo/`, `/usr/share/icons/hicolor/` | [App launchers and icons](#launcher-and-icons) |
 | `/usr/share/glimpse/` | [Shared data](#shared-data) |
 | `/usr/share/locale/<lang>/LC_MESSAGES/glimpse.mo` | Translations, one catalog per language |
 | `~/.config/glimpse/config.toml` | [A starting configuration](#your-configuration) |
@@ -71,10 +71,13 @@ default.
 
 ## Launcher and icons
 
-glimpse-shot is the only glimpse program with an app launcher:
-`/usr/share/applications/me.aresa.Glimpse.Shot.desktop`, with Screen, Window and Region actions, its
-AppStream entry in `/usr/share/metainfo/`. `/usr/share/icons/hicolor/` gets the glimpse-shot icon and
-the glimpse icon, each in a full color and a symbolic version.
+Two glimpse programs have app launchers. glimpse-shot has
+`/usr/share/applications/me.aresa.Glimpse.Shot.desktop`, with Screen, Window and Region actions, and
+its AppStream entry in `/usr/share/metainfo/`. glimpse-lens has one entry per tool:
+`me.aresa.Glimpse.Lens.desktop` (Magnifier), `me.aresa.Glimpse.Lens.Ruler.desktop` (Ruler) and
+`me.aresa.Glimpse.Lens.Picker.desktop` (Color Picker). The Ruler and Color Picker entries pass
+`--copy`, so the result lands on the clipboard. `/usr/share/icons/hicolor/` gets the glimpse,
+glimpse-shot and glimpse-lens icons, each in a full color and a symbolic version.
 
 ## Shared data
 

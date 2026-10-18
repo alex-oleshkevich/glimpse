@@ -19,9 +19,18 @@ for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$dbusdir/$(basename "$f")"
 done
 install -Dm644 target/locale/me.aresa.Glimpse.Shot.desktop "$applicationsdir/me.aresa.Glimpse.Shot.desktop"
+install -Dm644 target/locale/me.aresa.Glimpse.Lens.desktop "$applicationsdir/me.aresa.Glimpse.Lens.desktop"
+install -Dm644 target/locale/me.aresa.Glimpse.Lens.Ruler.desktop "$applicationsdir/me.aresa.Glimpse.Lens.Ruler.desktop"
+install -Dm644 target/locale/me.aresa.Glimpse.Lens.Picker.desktop "$applicationsdir/me.aresa.Glimpse.Lens.Picker.desktop"
 install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$destdir$prefix/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"
 install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Shot.svg"
 install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Shot-symbolic.svg"
+install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.svg"
+install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens-symbolic.svg"
+install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.Ruler.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.Ruler.svg"
+install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens.Ruler-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens.Ruler-symbolic.svg"
+install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.Picker.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.Lens.Picker.svg"
+install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens.Picker-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse.Lens.Picker-symbolic.svg"
 install -Dm644 data/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg "$destdir$prefix/share/icons/hicolor/scalable/apps/me.aresa.Glimpse.svg"
 install -Dm644 data/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg "$destdir$prefix/share/icons/hicolor/symbolic/apps/me.aresa.Glimpse-symbolic.svg"
 for f in data/portals/*.portal; do

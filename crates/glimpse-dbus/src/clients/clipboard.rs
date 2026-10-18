@@ -27,6 +27,8 @@ pub trait Clipboard1 {
 
     fn copy(&self, id: u64) -> zbus::Result<()>;
 
+    fn copy_text(&self, text: &str) -> zbus::Result<()>;
+
     fn pin(&self, id: u64, pinned: bool) -> zbus::Result<()>;
 
     fn forget(&self, id: u64) -> zbus::Result<()>;

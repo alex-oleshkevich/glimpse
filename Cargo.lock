@@ -1412,6 +1412,7 @@ dependencies = [
  "gettext-rs",
  "glib",
  "glimpse-config",
+ "glimpse-dbus",
  "glimpse-utils",
  "glimpse-wayland",
  "glimpse-widgets",
@@ -1421,7 +1422,9 @@ dependencies = [
  "serde_json",
  "shadow-rs",
  "thiserror",
+ "tokio",
  "tracing",
+ "zbus",
 ]
 
 [[package]]
