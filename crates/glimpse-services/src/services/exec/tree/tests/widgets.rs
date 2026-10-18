@@ -308,13 +308,9 @@ fn a_revealer_holds_any_number_of_children_and_a_stack_any() {
         )])
         .expect("two");
     assert!(many.apply(vec![Op::Remove { parent: 2, id: 3 }]).is_ok());
-    assert_eq!(
+    assert!(
         many.apply(vec![insert(2, leaf(5, "section"), None)])
-            .expect_err("section"),
-        Violation::BadParent {
-            parent: ElementKind::Revealer,
-            child: ElementKind::Section,
-        }
+            .is_ok()
     );
     assert!(root.apply(vec![insert(1, leaf(2, "stack"), None)]).is_ok());
     assert!(
@@ -371,19 +367,6 @@ fn addon_and_container_reject_bad_children_and_clamp_props() {
         None,
     )]);
     assert_eq!(two_body, Err(Violation::ChildCount { parent: 2 }));
-
-    let section = root.apply(vec![insert(
-        1,
-        wire(2, "container", json!({}), vec![leaf(3, "section")]),
-        None,
-    )]);
-    assert_eq!(
-        section,
-        Err(Violation::BadParent {
-            parent: ElementKind::Container,
-            child: ElementKind::Section,
-        })
-    );
 
     let under_row = root.apply(vec![insert(
         1,

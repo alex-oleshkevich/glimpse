@@ -179,6 +179,48 @@ fn the_parent_table_rejects_the_combinations_it_names() {
 }
 
 #[test]
+fn a_section_never_has_a_section_ancestor() {
+    let tree = hosted(&Tree::default());
+    let nested = Violation::BadParent {
+        parent: ElementKind::Section,
+        child: ElementKind::Section,
+    };
+    let deep = wire(
+        2,
+        "section",
+        json!({}),
+        vec![wire(3, "box", json!({}), vec![leaf(4, "section")])],
+    );
+    assert_eq!(
+        tree.apply(vec![insert(1, deep, None)])
+            .expect_err("section > box > section"),
+        nested
+    );
+    let base = tree
+        .apply(vec![
+            insert(1, wire(2, "section", json!({}), vec![leaf(3, "box")]), None),
+            insert(1, leaf(4, "section"), None),
+        ])
+        .expect("two sections");
+    let moved = vec![Op::Move {
+        parent: 3,
+        id: 4,
+        before: None,
+    }];
+    assert_eq!(base.apply(moved).expect_err("move under box"), nested);
+    assert_eq!(base.children(1), &[2, 4]);
+    assert_eq!(base.parent_of(4), Some(1));
+    for kind in ["revealer", "stack", "container", "box"] {
+        tree.apply(vec![insert(
+            1,
+            wire(2, kind, json!({}), vec![leaf(3, "section")]),
+            None,
+        )])
+        .unwrap_or_else(|error| panic!("section in {kind}: {error:?}"));
+    }
+}
+
+#[test]
 fn two_hundred_children_fit_and_one_more_does_not() {
     let children = (3..=202).map(|id| leaf(id, "label")).collect();
     let tree = hosted(&Tree::default())
