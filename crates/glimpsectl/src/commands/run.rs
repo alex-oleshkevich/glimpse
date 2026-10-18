@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{self, IsTerminal};
 use std::os::fd::AsFd;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -11,7 +12,7 @@ use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name};
 use glimpse_services::{DesktopCatalog, ExecEntry};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::process::Command;
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use zbus::zvariant::Fd;
@@ -94,16 +95,33 @@ fn watched(path: &Path, dir: &Path) -> bool {
     })
 }
 
-async fn build(dir: &Path) -> Result<()> {
-    let status = Command::new("just")
-        .arg("build")
-        .current_dir(dir)
-        .stdout(io::stderr())
-        .status()
-        .await
+async fn build(
+    dir: &Path,
+    interrupt: &mut Signal,
+    terminate: &mut Signal,
+    hangup: &mut Signal,
+) -> Result<bool> {
+    let mut just = super::package_manager::just_build(dir);
+    just.process_group(0).stdin(std::process::Stdio::null());
+    let mut child = Command::from(just)
+        .kill_on_drop(true)
+        .spawn()
         .context("cannot run `just build`")?;
+    let group = child.id().map(|pid| pid as libc::pid_t);
+    let status = tokio::select! {
+        status = child.wait() => Some(status.context("cannot run `just build`")?),
+        _ = interrupt.recv() => None,
+        _ = terminate.recv() => None,
+        _ = hangup.recv() => None,
+    };
+    let Some(status) = status else {
+        if let Some(group) = group {
+            unsafe { libc::killpg(group, libc::SIGKILL) };
+        }
+        return Ok(false);
+    };
     ensure!(status.success(), "`just build` failed");
-    Ok(())
+    Ok(true)
 }
 
 async fn attach(
@@ -188,16 +206,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
         (target, entry, dir)
     };
     let source_desktop = entry.path.clone();
-    let builds = directory_target
-        && ["justfile", "Justfile", ".justfile"]
-            .iter()
-            .any(|name| dir.join(name).is_file());
-    if builds {
-        build(&dir).await?;
-        entry = DesktopCatalog
-            .resolve_file(&dir.join("dist").join(format!("{id}.desktop")))
-            .map_err(anyhow::Error::msg)?;
-    }
+    let builds = directory_target && super::package_manager::has_justfile(&dir);
     let applet_config = match applet_config {
         Some(path) => path,
         None if directory_target => {
@@ -307,6 +316,14 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
         .destination(name.clone())?
         .build()
         .await?;
+    if builds {
+        if !build(&dir, &mut interrupt, &mut terminate, &mut hangup).await? {
+            return Ok(());
+        }
+        entry = DesktopCatalog
+            .resolve_file(&dir.join("dist").join(format!("{id}.desktop")))
+            .map_err(anyhow::Error::msg)?;
+    }
     let mut handle = Some(attach(&proxy, &host, &entry, &current_settings, &flags).await?);
     let mut tty = io::stdin().is_terminal();
     let (command_tx, mut commands) = mpsc::unbounded_channel();
@@ -335,6 +352,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
     let mut config_at: Option<Instant> = None;
     let mut changed_files: Vec<PathBuf> = Vec::new();
     let mut reattach = false;
+    let mut rebuild = false;
     eprintln!("Running {id}. Press Ctrl-C to stop; r restarts, t prints the current tree.");
     if json { super::emit(&serde_json::json!({"id": id, "handle": handle, "panel": isolated_panel.as_ref().map_or(panel_app_id, |panel| panel.app_id.as_str())}))?; }
 
@@ -348,7 +366,10 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
             }
             command = commands.recv(), if tty => {
                 match command {
-                    Some(line) if line.trim() == "r" => restart_at = Some(Instant::now()),
+                    Some(line) if line.trim() == "r" => {
+                        restart_at = Some(Instant::now());
+                        rebuild = true;
+                    }
                     Some(line) if line.trim() == "t" => {
                         if let Some(handle) = handle.as_deref() {
                             match super::within(proxy.tree(handle)).await {
@@ -369,6 +390,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                         if applet_config == path { config_at = Some(config_at.map_or(settled, |at| at.max(settled))); }
                         else if if directory_target { watched(&path, &dir) } else { path == entry.path } {
                             changed = true;
+                            rebuild = true;
                             reattach |= path == source_desktop;
                             changed_files.push(path);
                         }
@@ -402,9 +424,15 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                 restart_at = None;
                 if let Some(reason) = restart_reason.take().or_else(|| changed_file(&changed_files, &dir)) { eprintln!("{reason}"); }
                 changed_files.clear();
-                if builds && let Err(error) = build(&dir).await {
-                    eprintln!("build failed, keeping the running applet: {error:#}");
-                    continue;
+                if builds && std::mem::take(&mut rebuild) {
+                    match build(&dir, &mut interrupt, &mut terminate, &mut hangup).await {
+                        Ok(true) => {}
+                        Ok(false) => break,
+                        Err(error) => {
+                            eprintln!("build failed, keeping the running applet: {error:#}");
+                            continue;
+                        }
+                    }
                 }
                 if reattach {
                     reattach = false;

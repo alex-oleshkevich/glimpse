@@ -22,6 +22,21 @@ const MAX_METADATA_BYTES: u64 = 1024 * 1024;
 const MAX_ENTRIES: usize = 10_000;
 const DIST_DIR: &str = "dist";
 
+pub(super) fn has_justfile(dir: &Path) -> bool {
+    ["justfile", "Justfile", ".justfile"]
+        .iter()
+        .any(|name| dir.join(name).is_file())
+}
+
+pub(super) fn just_build(dir: &Path) -> Command {
+    let mut command = Command::new("just");
+    command
+        .arg("build")
+        .current_dir(dir)
+        .stdout(std::io::stderr());
+    command
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileEntry {
@@ -207,9 +222,7 @@ impl PackageManager {
         let (id, _) = find_desktop(&dir)?;
         settings(&dir, &id)?;
         ensure!(
-            ["justfile", "Justfile", ".justfile"]
-                .iter()
-                .any(|name| dir.join(name).is_file()),
+            has_justfile(&dir),
             "packaging runs `just build`; add a justfile whose build recipe assembles production files into {DIST_DIR}/"
         );
         let dist = dir.join(DIST_DIR);
@@ -221,10 +234,7 @@ impl PackageManager {
             fs::remove_dir_all(&dist)?;
         }
         eprintln!("build: just build (runs the applet's build recipe unconfined)");
-        let status = Command::new("just")
-            .arg("build")
-            .current_dir(&dir)
-            .stdout(std::io::stderr())
+        let status = just_build(&dir)
             .status()
             .context("cannot run `just build`")?;
         ensure!(status.success(), "`just build` failed");

@@ -286,7 +286,11 @@ fn every_template_builds_into_dist_and_dev_has_no_build_dependency() {
             }
             AppletLanguage::Go => assert!(build.contains("go build -o dist/hello .")),
             AppletLanguage::Rs => {
-                assert!(build.contains("cp \"${CARGO_TARGET_DIR:-target}/release/hello\" dist/"))
+                assert!(
+                    build.contains(
+                        "install -m755 \"${CARGO_TARGET_DIR:-target}/release/hello\" dist/"
+                    )
+                )
             }
             AppletLanguage::Py => {
                 assert!(build.contains("cp applet.py me.example.Hello.desktop dist/"))

@@ -837,6 +837,42 @@ async fn missing_config_toml_fails_with_a_hint() -> Result<()> {
 }
 
 #[tokio::test]
+async fn missing_config_toml_fails_before_building() -> Result<()> {
+    let mut h = Harness::start(Setup {
+        config: None,
+        justfile: Some(("justfile", BUILD_RECIPE)),
+        ..Setup::default()
+    })
+    .await?;
+    let output = h.output_after_exit().await?;
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("no devconfig.toml"));
+    assert!(!h.applet.join("dist").exists());
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_env_only_change_restarts_without_building() -> Result<()> {
+    let mut h = Harness::start(Setup {
+        config: Some("env = { A = \"1\" }\n"),
+        justfile: Some(("justfile", BUILD_RECIPE)),
+        extra: &["--dev"],
+        ..Setup::default()
+    })
+    .await?;
+    let Event::Attach { handle, .. } = h.event().await? else {
+        anyhow::bail!("expected attach")
+    };
+    fs::write(h.applet.join("devconfig.toml"), "env = { A = \"2\" }\n")?;
+    assert_eq!(h.event().await?, Event::Detach(handle));
+    let Event::Attach { handle: next, .. } = h.event().await? else {
+        anyhow::bail!("expected attach")
+    };
+    assert_eq!(fs::read_to_string(h.applet.join("dist/builds"))?, "x");
+    h.stop(&next).await
+}
+
+#[tokio::test]
 async fn refused_attach_reports_the_reason_and_fails() -> Result<()> {
     let mut h = Harness::start(Setup {
         refuse_attach: true,

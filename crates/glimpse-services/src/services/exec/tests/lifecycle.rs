@@ -672,3 +672,198 @@ async fn start_sweeps_the_panels_units_and_prunes_dead_sockets() {
     cancel.cancel();
     let _ = task.await;
 }
+
+async fn alive_pids(pids: &PathBuf, expected: usize) -> usize {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let content = tokio::fs::read_to_string(pids).await.unwrap_or_default();
+            let alive = content
+                .lines()
+                .filter(|pid| std::path::Path::new(&format!("/proc/{}", pid.trim())).exists())
+                .count();
+            if alive == expected {
+                return alive;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("alive process count")
+}
+
+fn vertical() -> Placement {
+    Placement {
+        orientation: Orientation::Vertical,
+        ..placement()
+    }
+}
+
+#[tokio::test]
+async fn promoted_slot_requests_continue_above_the_shared_serials() {
+    let (_dir, entry, _output) = script(
+        "send('{\"t\":\"hello\",\"v\":1}')\nfor line in r:\n    if '\"t\":\"event\"' in line:\n        for _ in range(3):\n            send('{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}')\n",
+    );
+    let ((handle, _sender, cancel, task, _launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let root = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    let event = |slot, generation| UserEvent {
+        slot,
+        generation,
+        id: 1,
+        name: "press".to_owned(),
+        args: Vec::new(),
+        seq: None,
+    };
+    handle
+        .send_event(event(1, root.generation))
+        .await
+        .expect("event");
+    let published = loop {
+        let state = handle.snapshot();
+        if state.slots[&1].requests.len() == 3 {
+            break state.slots[&1].requests.last().expect("request").0;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+    handle.detach(1).await.expect("detach");
+    let promoted = next_generation(&handle, 2, root.generation).await;
+    handle
+        .send_event(event(2, promoted.generation))
+        .await
+        .expect("event");
+    let state = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let state = handle.snapshot();
+            if state.slots[&2].requests.len() == 3 {
+                return state;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("requests");
+    assert!(
+        state.slots[&2]
+            .requests
+            .iter()
+            .all(|(serial, _)| *serial > published)
+    );
+    handle.detach(2).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn split_alias_clears_the_roots_popover() {
+    let (_dir, entry, output) = script(LOOP);
+    let ((handle, _sender, cancel, task, _launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    handle.popover(2, true).await.expect("popover");
+    file_contains(&output, "\"t\":\"popover\",\"open\":true").await;
+    handle.place(2, vertical()).await.expect("place");
+    file_contains(&output, "\"t\":\"popover\",\"open\":false").await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let seen = tokio::fs::read_to_string(&output).await.unwrap_or_default();
+            if seen.matches("\"t\":\"popover\",\"open\":true").count() == 2 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the split slot learns its own open popover on Hello");
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn slots_moved_to_one_placement_end_on_one_unit() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    let pids = output.with_extension("pid");
+    for slot in 1..=3 {
+        handle
+            .attach(slot, "test", placement())
+            .await
+            .expect("attach");
+    }
+    status(&handle, 3, |s| matches!(s, Status::Running)).await;
+    assert_eq!(launcher.started().len(), 1);
+    for (slot, processes) in [(1, 2), (2, 3), (3, 3)] {
+        handle.place(slot, vertical()).await.expect("place");
+        file_lines(&pids, processes).await;
+    }
+    assert_eq!(alive_pids(&pids, 1).await, 1);
+    assert_eq!(launcher.started().len(), 3);
+    for slot in 1..=3 {
+        handle.detach(slot).await.expect("detach");
+    }
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn output_only_change_neither_splits_nor_restarts() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    let before = status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    let mut elsewhere = placement();
+    elsewhere.output = Some("DP-2".to_owned());
+    handle.place(2, elsewhere).await.expect("place");
+    handle.place(1, placement()).await.expect("place");
+    let after = status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    assert_eq!(after.generation, before.generation);
+    assert_eq!(launcher.started().len(), 1);
+    assert_eq!(alive_pids(&output.with_extension("pid"), 1).await, 1);
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn regroup_never_merges_a_dev_slot() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry.clone())))));
+    handle
+        .attach_dev("test", dev_request(dev_entry(&entry)))
+        .await
+        .expect("dev");
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    assert_eq!(launcher.started().len(), 2);
+    handle.place(2, vertical()).await.expect("place");
+    handle.place(2, placement()).await.expect("place");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    assert_eq!(launcher.started().len(), 2);
+    assert_eq!(alive_pids(&output.with_extension("pid"), 2).await, 2);
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}

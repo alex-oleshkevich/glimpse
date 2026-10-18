@@ -6,7 +6,7 @@ default:
 build:
     cargo build --release
     mkdir -p dist
-    cp "${CARGO_TARGET_DIR:-target}/release/{{ slug }}" dist/
+    install -m755 "${CARGO_TARGET_DIR:-target}/release/{{ slug }}" dist/
     cp {{ id }}.desktop dist/
 
 [doc("run the applet in the panel, restarting on source edits")]
