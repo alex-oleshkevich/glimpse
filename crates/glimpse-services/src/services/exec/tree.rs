@@ -846,6 +846,7 @@ impl Tree {
             return Err(Violation::TooManyChildren { parent });
         }
         check_child_counts(&next.nodes)?;
+        check_no_nested_sections(&next)?;
         Ok(next)
     }
 
@@ -1217,11 +1218,11 @@ fn kind_allowed(parent: ElementKind, child: ElementKind) -> bool {
                 | ElementKind::Container
                 | ElementKind::Swatch
         ),
-        ElementKind::Box => is_body(child),
-        ElementKind::Container
+        ElementKind::Box
+        | ElementKind::Container
         | ElementKind::Section
         | ElementKind::Revealer
-        | ElementKind::Stack => is_body(child) && child != ElementKind::Section,
+        | ElementKind::Stack => is_body(child),
         ElementKind::ActionRow => matches!(
             child,
             ElementKind::Image | ElementKind::Readout | ElementKind::Spinner | ElementKind::Start
@@ -1762,6 +1763,27 @@ fn check_items(props: &Map<String, Value>) -> Result<(), Violation> {
     });
     if over {
         return Err(Violation::TooManyItems);
+    }
+    Ok(())
+}
+
+fn check_no_nested_sections(tree: &Tree) -> Result<(), Violation> {
+    let is_section = |id: &u32| {
+        tree.nodes
+            .get(id)
+            .is_some_and(|node| node.element.kind() == ElementKind::Section)
+    };
+    for id in tree.nodes.keys().filter(|id| is_section(id)) {
+        let mut ancestor = tree.parents.get(id);
+        while let Some(parent) = ancestor {
+            if is_section(parent) {
+                return Err(Violation::BadParent {
+                    parent: ElementKind::Section,
+                    child: ElementKind::Section,
+                });
+            }
+            ancestor = tree.parents.get(parent);
+        }
     }
     Ok(())
 }
