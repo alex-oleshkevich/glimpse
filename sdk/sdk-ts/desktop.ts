@@ -62,7 +62,3 @@ export function openUri(uri: string): void {
 export function launch(id: string): void {
 	send({ t: "launch", id });
 }
-
-export function closePopover(): void {
-	send({ t: "close-popover" });
-}

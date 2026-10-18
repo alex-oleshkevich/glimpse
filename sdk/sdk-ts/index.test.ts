@@ -25,7 +25,6 @@ import {
 	Calendar,
 	CheckButton,
 	ChoiceList,
-	closePopover,
 	createElement,
 	Dots,
 	DropDown,
@@ -74,7 +73,7 @@ import type { compositor } from "./index.ts";
 // @ts-expect-error
 import type { positionNow } from "./index.ts";
 
-import { entryStore } from "./state.ts";
+import { entryStore, send } from "./state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
 	if (!condition) throw new Error(message);
@@ -963,7 +962,7 @@ test("applet sdk", async (t) => {
 		setEmit((message) => lines.push(JSON.stringify(message)));
 		openUri("https://example.com/todos");
 		launch("me.example.Todo");
-		closePopover();
+		send({ t: "close-popover" });
 		assertMessages(lines, fixture("requests.ndjson"));
 	});
 
