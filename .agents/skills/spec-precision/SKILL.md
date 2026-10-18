@@ -13,6 +13,19 @@ Measured on one real epic, September 2026: a task with a clean spec finished in 
 round at 104k tokens**. A task whose spec carried three defects took **three rounds and
 494k**. Same model, same reviewer discipline. Each spec defect bought a round.
 
+## Size the brief to the task
+
+A brief costs more than it saves when it outweighs the change. Pick the tier first:
+
+- **Trivial** — one file, a few lines, no new behavior to reason about (a config key, a
+  swapped condition). The brief is the task id, the file and the verify command.
+- **Normal** — one package, real logic. Add the model file, the 2-3 traps, and the
+  self-check of every symbol the brief names.
+- **Risky** — crosses packages, a protocol, concurrency, persisted data, or anything
+  hard to undo. Everything in this skill applies.
+
+When unsure between two tiers, take the higher one.
+
 ## The self-check — do this before sending
 
 **For every type, function, module path, file and command the spec names, confirm it
@@ -48,14 +61,20 @@ That is one blast-radius query per named symbol. It costs minutes and saves roun
 - **What NOT to do**, where it is non-obvious. The boundary with a sibling task, the
   refactor that must not be mixed in, the dependency that must not be added.
 
-## Acceptance criteria — write them before the code exists
+## Acceptance criteria — write them once, before the code exists
 
 Criteria written after seeing an implementation get shaped by it: you end up describing
 what was built rather than what was asked, and the review confirms the code matches
 itself.
 
-    AC-1  As <who>, I want <capability>, so that <outcome>.
-          GIVEN <state> WHEN <action> THEN <observable result>
+Criteria live in one place: on the task in the tracker. Before dispatch, make the task
+itself self-contained: every decision settled, every file and symbol named, every
+criterion written, so the worker does not guess and only codes. A missing criterion goes
+onto the task, never only into a brief. The brief then hands the task over verbatim
+(paste `bd show <id>`; notes override the description) and never rewrites the criteria,
+so the builder and the reviewer read the same list.
+
+    AC-1  GIVEN <state> WHEN <who> <does what> THEN <what they observe>
           Verify by: <command, test name, or inspection>
 
 - **One per requirement, including every "do not."** A prohibition is a criterion:
@@ -67,11 +86,15 @@ itself.
   you cannot check is a criterion you have not written.
 - **Mine the spec for concrete data.** A mentioned malformed input is a test case. A
   measured value is a boundary.
-- **Add the boundaries the spec implies but never states:** empty input, absent optional
-  field, value at and past a cap, two of a thing where the spec says one, the resource
-  disappearing mid-operation, and **the state before the first event ever arrives** —
-  that last one is reachable in production and never in a test that constructs an object
-  and immediately feeds it events.
+- **Add a boundary only where this change can reach it.** For each one below, ask whether
+  the changed code can be in that state; if it cannot, skip it. Normal tasks usually need
+  one or two, trivial tasks none.
+  - Code that takes a collection or optional input: empty, absent.
+  - Code that enforces a cap or clamp: the value at the cap and one past it.
+  - Code that assumes one of a thing: two of it.
+  - Code that holds a resource: the resource disappearing mid-operation.
+  - Code that reacts to events: **the state before the first event arrives** — reachable
+    in production, never in a test that constructs an object and feeds it events at once.
 
 ## When the spec turns out to be wrong
 

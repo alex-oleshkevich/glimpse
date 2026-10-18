@@ -187,10 +187,10 @@ loss. Serialised builds are a cost to accept, not a problem to engineer around.
 ## Acceptance criteria — from the spec, before the code exists
 
 Written per `spec-precision`, which holds the full rules and the boundary-case list.
-The shape, because the templates below paste it verbatim:
+They are stored once on the task, which is made self-contained before anything spawns;
+the templates below hand that task over verbatim instead of restating it. The shape:
 
-    AC-1  As <who>, I want <capability>, so that <outcome>.
-          GIVEN <state> WHEN <action> THEN <observable result>
+    AC-1  GIVEN <state> WHEN <who> <does what> THEN <what they observe>
           Verify by: <command, test name, or inspection>
 
 Criteria written after seeing an implementation get shaped by it: you describe what was
@@ -381,9 +381,9 @@ lockfiles, snapshots.
     - Dependencies: <none / this one is approved, default settings>
     - <the 2-4 traps, as imperatives, each with its consequence>
 
-    STEP 4 — acceptance criteria. Satisfy every one; where a criterion names a test,
-    write it:
-    <the AC list, verbatim>
+    STEP 4 — acceptance criteria: the AC section of the task below. Satisfy every one;
+    where a criterion names a test, write it.
+    <the task, pasted verbatim from TRACKER SHOW>
 
     STEP 5 — verify with EXACTLY these:
         <only commands that can actually pass for this change>
@@ -428,8 +428,7 @@ lockfiles, snapshots.
     every line added without a criterion behind it is a line nobody asked for and
     nobody is testing.
 
-    ACCEPTANCE CRITERIA:
-    <the AC list, verbatim>
+    ACCEPTANCE CRITERIA: the AC section of the task you read above.
 
     ALSO VERDICT ON:
     <each judgement call the builder flagged, with the consequence spelled out — not
