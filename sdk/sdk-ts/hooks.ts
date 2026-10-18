@@ -7,6 +7,7 @@ import {
 	openStore,
 	optionsStore,
 	placementStore,
+	send,
 	stateStore,
 } from "./state.ts";
 import type { Placement } from "./wire.ts";
@@ -40,8 +41,13 @@ export function usePlacement(): Placement | null {
 	);
 }
 
-export function usePopoverOpen(): boolean {
-	return react.useSyncExternalStore(openStore.subscribe, openStore.get);
+function closePopover(): void {
+	send({ t: "close-popover" });
+}
+
+export function usePopover(): { open: boolean; close: () => void } {
+	const open = react.useSyncExternalStore(openStore.subscribe, openStore.get);
+	return { open, close: closePopover };
 }
 
 export function useAppletName(): string {

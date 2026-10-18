@@ -8,14 +8,13 @@ import test, { mock } from "node:test";
 import { PassThrough } from "node:stream";
 import { createElement, useEffect, useState } from "react";
 import {
-	closePopover,
 	copy,
 	launch,
 	notify,
 	openUri,
 	useOptions,
 	usePlacement,
-	usePopoverOpen,
+	usePopover,
 	useStateDir,
 } from "./index.ts";
 import { render } from "./testing.ts";
@@ -109,7 +108,7 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 	function App() {
 		const [clicked, setClicked] = useState(false);
 		const options = useOptions<{ title?: string }>();
-		const open = usePopoverOpen();
+		const popover = usePopover();
 		return createElement(
 			"popover",
 			null,
@@ -118,11 +117,11 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 				onActivate: () => {
 					setClicked(true);
 					openUri("https://example.com");
-					closePopover();
+					popover.close();
 				},
 			}),
 			createElement("button", {
-				text: open ? "Open" : "Closed",
+				text: popover.open ? "Open" : "Closed",
 				onClick: () => launch("me.example.App"),
 			}),
 			createElement("row", { title: options.title, key: "inert" }),
@@ -164,6 +163,31 @@ test("testing host renders, dispatches, updates, and closes", async () => {
 	assert.deepEqual(view.requests().at(-1), { t: "launch", id: "me.example.App" });
 	await view.close();
 	await assert.rejects(view.click(row.id), /closed/);
+});
+
+test("usePopover exposes open and a stable close", async () => {
+	const closes: Array<() => void> = [];
+	function App() {
+		const popover = usePopover();
+		closes.push(popover.close);
+		return createElement(
+			"popover",
+			null,
+			createElement("button", { text: popover.open ? "Open" : "Closed" }),
+		);
+	}
+	const view = await render(createElement(App));
+	const text = () =>
+		(view.tree() as { children: Array<{ children: Array<{ props: Record<string, unknown> }> }> })
+			.children[0].children[0].props.text;
+	assert.equal(text(), "Closed");
+	await view.setPopoverOpen(true);
+	assert.equal(text(), "Open");
+	assert.ok(closes.length > 1);
+	assert.ok(closes.every((close) => close === closes[0]));
+	closes[0]();
+	assert.deepEqual(view.requests(), [{ t: "close-popover" }]);
+	await view.close();
 });
 
 test("generic events deliver control arguments and reject missing handlers", async () => {

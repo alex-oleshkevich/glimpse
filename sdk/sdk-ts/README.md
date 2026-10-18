@@ -40,13 +40,14 @@ Set `"jsxImportSource": "glimpse-sdk"` in `tsconfig.json`.
   `Box`, `Label`, `Image`, `Button`, `Switch`, `Scale`, `Spinner`, `Separator`, `FactList`,
   `ChoiceList`, `Readout`, `Notice`, `Calendar`, `Dots`, `DropDown`, `ToggleButton`,
   `CheckButton`, `Revealer`, `Stack`, `RangeBar`, `Bars` and `Sparkline`.
-- Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopoverOpen`,
+- Hooks: `useState`, `useEffect`, `useOptions`, `usePlacement`, `usePopover`,
   `useAppletName`, `useStateDir` and `usePersistentState`. `useStateDir` returns the applet's
   private, persistent directory. `usePersistentState(key, initial)` works like `useState`: it
   loads `key` from `state.json` in that directory on the first render (a missing or corrupt
   file falls back to `initial`) and writes the whole JSON object back when the value changes,
   so several keys share one file. It persists nothing when the state dir is empty.
-- Host requests: `openUri`, `launch` and `closePopover`.
+- Host requests: `openUri`, `launch`, and `close()` from `usePopover()`, which also returns
+  `open`.
 - SDK helpers: `notify` and `copy` run `notify-send` and `wl-copy` from the applet process.
 
 An exec applet runs unconfined as a systemd user unit and has the user's full session.
