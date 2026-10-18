@@ -34,20 +34,21 @@ temperature = 3400
 ```
 
 `transition-minutes` sets how long the change between day and night takes (15 by default). The
-change finishes at sunset or at `start-time`, so it starts that many minutes before.
+change finishes at sunset or at `start-time`, so it starts that many minutes before. `0` changes over a few seconds
+instead of a full transition.
 
 ## Change it for now
 
 These commands never write the config file, and editing `[night-light]` or restarting the night
 light service drops all of them:
 
-| Command                                      | Effect                                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `glimpsectl night-light pause`               | keeps neutral daylight until the current night ends; refused during the day                 |
-| `glimpsectl night-light resume`              | ends a pause early                                                                          |
-| `glimpsectl night-light temperature 3000`    | holds that temperature until the next sunset or sunrise, or your `start-time` or `end-time` |
-| `glimpsectl night-light temperature --clear` | follows the schedule again                                                                  |
-| `glimpsectl night-light schedule off`        | turns it off; `automatic` or `schedule` forces those instead                                |
+| Command | Effect |
+| --- | --- |
+| `glimpsectl night-light pause` | keeps neutral daylight until the current night ends; refused during the day |
+| `glimpsectl night-light resume` | ends a pause early |
+| `glimpsectl night-light temperature 3000` | holds that temperature until the next sunset or sunrise, or your `start-time` or `end-time` |
+| `glimpsectl night-light temperature --clear` | follows the schedule again |
+| `glimpsectl night-light schedule off` | turns it off; `automatic` or `schedule` forces those instead |
 
 ## Check what it is doing
 

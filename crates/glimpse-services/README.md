@@ -65,8 +65,9 @@ follower in sunset. Owner loss clears the observed phase and degrades automatic 
 schedules remain independent. The tick period lives in its own subscription key, so crossing a
 transition window rebuilds the timer at the new cadence while the ramp position still comes from the clock. Release is
 decided on the solar phase, not the computed value, since a ramp can round to `DAY` without meaning
-daylight — a manual override held at exactly `DAY` releases too. A pause holds neutral `DAY`
-until the existing night boundary; it never changes the manual temperature override.
+daylight — a manual override held at exactly `DAY` releases too, and `Off` glides to `DAY` first.
+A pause holds neutral `DAY` until the existing night boundary; it never changes the manual
+temperature override.
 
 **battery** — mirrors UPower and power-profiles-daemon. The chip reads `DisplayDevice`; internals and
 charge-threshold details come from the real `BAT*` objects, since the composite omits them. `TimeTo*`

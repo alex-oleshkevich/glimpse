@@ -119,6 +119,11 @@ impl Ramp {
         (self.from as f64 + (self.to as f64 - self.from as f64) * progress).round() as u32
     }
 
+    fn step(&self) -> u32 {
+        let share = RAMPING.as_secs_f64() / self.duration.as_seconds_f64();
+        (self.from.abs_diff(self.to) as f64 * share).ceil() as u32 + 1
+    }
+
     fn moving(&self, now: DateTime<Utc>) -> bool {
         self.duration > TimeDelta::zero()
             && now >= self.started
@@ -389,11 +394,14 @@ impl NightLight {
             self.manual = None;
         }
         if self.effective() == Schedule::Off {
-            self.glide = None;
-            return self.release(ctx);
+            let wanted = self.glide_toward(now, DAY, None);
+            if wanted == DAY {
+                return self.release(ctx);
+            }
+            return self.drive(ctx, wanted);
         }
         if self.paused_until.is_some() {
-            let wanted = self.glide_toward(now, DAY, false);
+            let wanted = self.glide_toward(now, DAY, None);
             return self.drive(ctx, wanted);
         }
         let Some((phase, next_change)) = self.boundary(now) else {
@@ -408,14 +416,14 @@ impl NightLight {
         }
 
         let boundary = next_change.map(|change| Ramp::to_boundary(&phase, change, &self.config));
-        let (target, on_boundary_ramp) = match self.manual {
-            Some((kelvin, _)) => (kelvin, false),
+        let (target, ramp_step) = match self.manual {
+            Some((kelvin, _)) => (kelvin, None),
             None => match &boundary {
-                Some(ramp) => (ramp.value(now), ramp.moving(now)),
-                None => (steady(&phase, &self.config), false),
+                Some(ramp) => (ramp.value(now), ramp.moving(now).then(|| ramp.step())),
+                None => (steady(&phase, &self.config), None),
             },
         };
-        let wanted = self.glide_toward(now, target, on_boundary_ramp);
+        let wanted = self.glide_toward(now, target, ramp_step);
         if wanted == target && target == DAY && (self.manual.is_some() || phase == SolarPhase::Day)
         {
             return self.release(ctx);
@@ -423,14 +431,19 @@ impl NightLight {
         self.drive(ctx, wanted);
     }
 
-    fn glide_toward(&mut self, now: DateTime<Utc>, target: u32, on_boundary_ramp: bool) -> u32 {
-        if on_boundary_ramp {
-            self.glide = None;
+    fn glide_toward(&mut self, now: DateTime<Utc>, target: u32, ramp_step: Option<u32>) -> u32 {
+        let on_screen = self.applied.unwrap_or(DAY);
+        if ramp_step.is_some_and(|step| self.glide.is_none() && on_screen.abs_diff(target) <= step)
+        {
             return target;
         }
         let running = match self.glide.take() {
+            Some(mut ramp) if ramp_step.is_some() => {
+                ramp.to = target;
+                ramp
+            }
             Some(ramp) if ramp.to == target => ramp,
-            _ => Ramp::glide(self.applied.unwrap_or(DAY), target, now),
+            _ => Ramp::glide(on_screen, target, now),
         };
         let wanted = running.value(now);
         if wanted == target {
