@@ -12,8 +12,9 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 - `config_alert.rs` — configuration problems as one notification under `<app id>.Config`
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
-  `popover::launch`, which starts an argv in a transient user service with no shell, kept until its
-  cgroup empties so whatever a launcher forks survives it, reports a start job ending other than
+  `popover::launch`, which starts an argv in a transient user service with no shell, from the
+  panel's environment or, when asked, from a clean one built with `env -i`, kept until its cgroup
+  empties so whatever a launcher forks survives it, reports a start job ending other than
   `done` as an error, and falls back to a direct spawn when the user manager is unavailable; its
   D-Bus half runs on relm4's tokio runtime, since zbus finds no reactor on the GLib executor
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
@@ -198,9 +199,10 @@ fresh snapshot at signal time, never a value captured when the popover was built
 **power** — charge comes from `DisplayDevice`, with a profile or AC icon on desktops; internals
 and the charge-limit switch come from the first present `BAT*` object, since the composite omits them.
 
-**command** — a user-defined chip running one argv per gesture with no shell; a program that
-cannot start is throttled to one notification per interval. **session** — power actions confirm in a
-parentless dialog after the popover closes, with the action as the default response; lock runs immediately.
+**command** — a user-defined chip running one argv per gesture with no shell, from the panel's
+environment plus its `env`, or from only the session variables and its `env` when `inherit-env` is
+off; a program that cannot start is throttled to one notification per interval. **session** — power
+actions confirm in a parentless dialog after the popover closes, with the action as the default response; lock runs immediately.
 
 **privacy** — a use with no application (location, a screencopy cast) is titled by the resource.
 **A `PipeWire` cast's card offers only *Stop sharing*** — nothing else opens, since a camera cannot

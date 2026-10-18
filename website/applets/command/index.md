@@ -30,16 +30,16 @@ Save the file. A camera icon appears in that zone. Hover over it to see "Select 
 
 Left-click the camera, then drag a rectangle over the area you want. The screenshot editor opens for that region. Its editing and saving controls are covered in [Screenshots](/ecosystem/shot).
 
-## 4. Add right-click and scroll actions
+## 4. Add middle-click and scroll actions
 
 Add these lines inside `[applets.screenshot]`, alongside `on-click`:
 
 ```toml
-on-right-click = ["glimpse-shot", "--window"]
+on-middle-click = ["glimpse-shot", "--window"]
 on-scroll-up = ["glimpse-shot", "--screen"]
 on-scroll-down = ["glimpse-shot", "--region"]
 ```
 
-Save again. Right-click now lets you pick a window. One upward scroll notch starts a screen capture; one downward notch starts region selection. Each notch runs its command, so use a single notch when trying these actions.
+Save again. Middle-click now lets you pick a window. One upward scroll notch starts a screen capture; one downward notch starts region selection. Each notch runs its command, so use a single notch when trying these actions.
 
-The [command settings reference](/config/applets/custom#command) also lists middle-click and horizontal scroll gestures.
+The [command settings reference](/config/applets/custom#command) also lists the horizontal scroll gestures.

@@ -176,7 +176,7 @@ pub struct Tray {
 /// notch. Several sit side by side as `[applets.<name>]` tables with `extends = "command"`. Every
 /// program is a command and its arguments, `["grim", "-g", "0,0 640x480"]`, with no shell between
 /// here and the program. A gesture with no program does nothing.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Command {
     /// What the bar's tooltip reads. Plain text. Unset shows no tooltip.
@@ -189,15 +189,20 @@ pub struct Command {
     /// Text beside your icon.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// Variables set for every program this chip runs, replacing any with the same name.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub env: BTreeMap<String, String>,
+    /// Start every program from the panel's environment. When off, a program gets only
+    /// `XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `DISPLAY`, its activation token and `env`.
+    #[serde(skip_serializing_if = "Clone::clone")]
+    #[schemars(extend("default" = true))]
+    pub inherit_env: bool,
     /// What a left click runs.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_click: Vec<String>,
     /// What a middle click runs.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_middle_click: Vec<String>,
-    /// What a right click runs.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub on_right_click: Vec<String>,
     /// What scrolling up runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_up: Vec<String>,
@@ -210,6 +215,24 @@ pub struct Command {
     /// What scrolling right runs, once per notch.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub on_scroll_right: Vec<String>,
+}
+
+impl Default for Command {
+    fn default() -> Self {
+        Self {
+            tooltip_format: None,
+            icon: None,
+            label: None,
+            env: BTreeMap::new(),
+            inherit_env: true,
+            on_click: Vec::new(),
+            on_middle_click: Vec::new(),
+            on_scroll_up: Vec::new(),
+            on_scroll_down: Vec::new(),
+            on_scroll_left: Vec::new(),
+            on_scroll_right: Vec::new(),
+        }
+    }
 }
 
 /// The clipboard applet's own settings.
@@ -954,10 +977,10 @@ fn runnable(kind: &Kind) -> Result<(), toml::de::Error> {
     let Kind::Command(command) = kind else {
         return Ok(());
     };
+    validate_env(&command.env).map_err(toml::de::Error::custom)?;
     let gestures = [
         ("on-click", &command.on_click),
         ("on-middle-click", &command.on_middle_click),
-        ("on-right-click", &command.on_right_click),
         ("on-scroll-up", &command.on_scroll_up),
         ("on-scroll-down", &command.on_scroll_down),
         ("on-scroll-left", &command.on_scroll_left),

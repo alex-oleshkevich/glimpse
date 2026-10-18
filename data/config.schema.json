@@ -177,6 +177,13 @@
           "description": "Your own commands on the bar.",
           "type": "object",
           "properties": {
+            "env": {
+              "description": "Variables set for every program this chip runs, replacing any with the same name.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
             "extends": {
               "type": "string",
               "const": "command"
@@ -187,6 +194,11 @@
                 "string",
                 "null"
               ]
+            },
+            "inherit-env": {
+              "description": "Start every program from the panel's environment. When off, a program gets only\n`XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `DISPLAY`, its activation token and `env`.",
+              "type": "boolean",
+              "default": true
             },
             "label": {
               "description": "Text beside your icon.",
@@ -204,13 +216,6 @@
             },
             "on-middle-click": {
               "description": "What a middle click runs.",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "on-right-click": {
-              "description": "What a right click runs.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -1055,6 +1060,13 @@
             "description": "Your own commands on the bar.",
             "type": "object",
             "properties": {
+              "env": {
+                "description": "Variables set for every program this chip runs, replacing any with the same name.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
               "extends": {
                 "type": "string",
                 "const": "command"
@@ -1065,6 +1077,11 @@
                   "string",
                   "null"
                 ]
+              },
+              "inherit-env": {
+                "description": "Start every program from the panel's environment. When off, a program gets only\n`XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `DISPLAY`, its activation token and `env`.",
+                "type": "boolean",
+                "default": true
               },
               "label": {
                 "description": "Text beside your icon.",
@@ -1082,13 +1099,6 @@
               },
               "on-middle-click": {
                 "description": "What a middle click runs.",
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "on-right-click": {
-                "description": "What a right click runs.",
                 "type": "array",
                 "items": {
                   "type": "string"

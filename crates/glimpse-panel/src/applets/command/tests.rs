@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 fn argv_of(program: &str) -> Vec<String> {
     vec![program.to_owned()]
@@ -9,7 +10,6 @@ fn every_gesture_runs_its_own_program() {
     let config = CommandAppletConfig {
         on_click: argv_of("left"),
         on_middle_click: argv_of("middle"),
-        on_right_click: argv_of("right"),
         on_scroll_up: argv_of("up"),
         on_scroll_down: argv_of("down"),
         on_scroll_left: argv_of("west"),
@@ -19,7 +19,6 @@ fn every_gesture_runs_its_own_program() {
     let cases = [
         (Pointer::Press(Button::Left), "left"),
         (Pointer::Press(Button::Middle), "middle"),
-        (Pointer::Press(Button::Right), "right"),
         (Pointer::Scroll(Direction::Up), "up"),
         (Pointer::Scroll(Direction::Down), "down"),
         (Pointer::Scroll(Direction::Left), "west"),
@@ -28,6 +27,7 @@ fn every_gesture_runs_its_own_program() {
     for (pointer, program) in cases {
         assert_eq!(argv(&config, pointer), [program], "{pointer:?}");
     }
+    assert!(argv(&config, Pointer::Press(Button::Right)).is_empty());
     assert!(argv(&config, Pointer::Press(Button::Other(8))).is_empty());
 }
 
@@ -36,9 +36,13 @@ async fn an_unconfigured_gesture_runs_nothing() {
     let config = CommandAppletConfig::default();
     assert!(argv(&config, Pointer::Press(Button::Left)).is_empty());
     assert!(
-        launch(argv(&config, Pointer::Press(Button::Left)))
-            .await
-            .is_ok()
+        launch(
+            argv(&config, Pointer::Press(Button::Left)),
+            true,
+            &BTreeMap::new()
+        )
+        .await
+        .is_ok()
     );
 }
 
@@ -95,5 +99,9 @@ async fn a_chip_with_neither_icon_nor_label_takes_no_room() {
 
 #[tokio::test]
 async fn a_launch_that_cannot_start_is_an_error() {
-    assert!(launch(&argv_of("glimpse-no-such-program")).await.is_err());
+    assert!(
+        launch(&argv_of("glimpse-no-such-program"), true, &BTreeMap::new())
+            .await
+            .is_err()
+    );
 }

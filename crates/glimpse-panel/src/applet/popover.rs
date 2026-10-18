@@ -1,6 +1,7 @@
 use super::Opener;
 use futures_util::StreamExt;
 use glimpse_dbus::systemd1::Systemd1ManagerProxy;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -29,13 +30,17 @@ impl Seat {
 pub fn run(command: &[String]) {
     let command = command.to_vec();
     relm4::spawn_local(async move {
-        if let Err(error) = launch(&command).await {
+        if let Err(error) = launch(&command, true, &BTreeMap::new()).await {
             tracing::warn!(program = command.first(), %error, "command did not start");
         }
     });
 }
 
-pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
+pub async fn launch(
+    command: &[String],
+    inherit: bool,
+    vars: &BTreeMap<String, String>,
+) -> Result<(), gtk4::glib::Error> {
     let Some(program) = command.first() else {
         return Ok(());
     };
@@ -50,16 +55,19 @@ pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
         std::process::id(),
         LAUNCH_SERIAL.fetch_add(1, Ordering::Relaxed)
     );
-    let (unit, properties) = transient_unit(
-        command,
-        path,
-        &suffix,
-        [
-            token.as_ref().map(ToString::to_string),
-            std::env::var("WAYLAND_DISPLAY").ok(),
-            std::env::var("DISPLAY").ok(),
-        ],
-    );
+    let environment = environment(panel_environment(), inherit, token.as_deref(), vars);
+    let clean_env = if inherit {
+        None
+    } else {
+        let env = gtk4::glib::find_program_in_path("env")
+            .and_then(|env| env.into_os_string().into_string().ok())
+            .ok_or_else(|| {
+                gtk4::glib::Error::new(gtk4::glib::FileError::Noent, "program not found")
+            })?;
+        Some(env)
+    };
+    let (unit, properties) =
+        transient_unit(command, path, &suffix, clean_env.as_deref(), &environment);
     let started = relm4::spawn(start(unit, properties))
         .await
         .unwrap_or_else(|error| Err(zbus::Error::Failure(error.to_string())));
@@ -70,12 +78,11 @@ pub async fn launch(command: &[String]) -> Result<(), gtk4::glib::Error> {
         }
     }
     let launcher = gtk4::gio::SubprocessLauncher::new(gtk4::gio::SubprocessFlags::NONE);
-    if !glimpse_utils::language_was_inherited() {
-        launcher.unsetenv("LANGUAGE");
-    }
-    if let Some(token) = token {
-        launcher.setenv("XDG_ACTIVATION_TOKEN", &token, true);
-    }
+    let variables: Vec<std::ffi::OsString> = environment
+        .iter()
+        .map(|(name, value)| format!("{name}={value}").into())
+        .collect();
+    launcher.set_environ(&variables);
     let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
     launcher.spawn(&argv).map(drop)
 }
@@ -122,11 +129,60 @@ fn finished(result: Option<&str>) -> Result<(), gtk4::glib::Error> {
     }
 }
 
+fn panel_environment() -> Vec<(String, String)> {
+    let language = glimpse_utils::language_was_inherited();
+    std::env::vars_os()
+        .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
+        .filter(|(name, _)| language || name != "LANGUAGE")
+        .collect()
+}
+
+fn set_variable(environment: &mut Vec<(String, String)>, name: &str, value: &str) {
+    if value.contains('\0') {
+        return;
+    }
+    if let Some(entry) = environment.iter_mut().find(|(key, _)| key == name) {
+        entry.1 = value.to_owned();
+    } else {
+        environment.push((name.to_owned(), value.to_owned()));
+    }
+}
+
+fn environment(
+    panel: Vec<(String, String)>,
+    inherit: bool,
+    token: Option<&str>,
+    vars: &BTreeMap<String, String>,
+) -> Vec<(String, String)> {
+    let mut environment = Vec::new();
+    for (name, value) in &panel {
+        let kept = if inherit {
+            glimpse_config::exec_env_name_allowed(name)
+        } else {
+            matches!(
+                name.as_str(),
+                "XDG_RUNTIME_DIR" | "WAYLAND_DISPLAY" | "DISPLAY"
+            )
+        };
+        if kept {
+            set_variable(&mut environment, name, value);
+        }
+    }
+    if let Some(token) = token {
+        set_variable(&mut environment, "XDG_ACTIVATION_TOKEN", token);
+    }
+    for (name, value) in vars {
+        set_variable(&mut environment, name, value);
+    }
+    environment
+}
+
 fn transient_unit(
     command: &[String],
     path: &str,
     suffix: &str,
-    environment: [Option<String>; 3],
+    clean_env: Option<&str>,
+    environment: &[(String, String)],
 ) -> (String, Vec<(&'static str, Value<'static>)>) {
     let basename = Path::new(&command[0])
         .file_name()
@@ -141,23 +197,29 @@ fn transient_unit(
             escaped.push_str(&format!("\\x{byte:02x}"));
         }
     }
-    let environment: Vec<String> = ["XDG_ACTIVATION_TOKEN", "WAYLAND_DISPLAY", "DISPLAY"]
-        .into_iter()
-        .zip(environment)
-        .filter_map(|(name, value)| value.map(|value| format!("{name}={value}")))
+    let variables: Vec<String> = environment
+        .iter()
+        .map(|(name, value)| format!("{name}={value}"))
         .collect();
+    let (exec, variables) = match clean_env {
+        None => ((path.to_owned(), command.to_vec(), false), variables),
+        Some(env) => {
+            let mut argv = vec!["env".to_owned(), "-i".to_owned()];
+            argv.extend(variables);
+            argv.push(path.to_owned());
+            argv.extend(command[1..].iter().cloned());
+            ((env.to_owned(), argv, false), Vec::new())
+        }
+    };
     (
         format!("app-glimpse-{escaped}-{suffix}.service"),
         vec![
-            (
-                "ExecStart",
-                Value::from(vec![(path.to_owned(), command.to_vec(), false)]),
-            ),
+            ("ExecStart", Value::from(vec![exec])),
             ("Type", Value::from("exec")),
             ("ExitType", Value::from("cgroup")),
             ("Slice", Value::from("app.slice")),
             ("CollectMode", Value::from("inactive-or-failed")),
-            ("Environment", Value::from(environment)),
+            ("Environment", Value::from(variables)),
         ],
     )
 }

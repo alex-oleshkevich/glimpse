@@ -21,10 +21,21 @@ right = ["screenshot", "network", "audio"]
 
 Give every command applet its own name and `extends = "command"`.
 
+For pipes, `&&` or `$VARIABLES`, run the shell yourself with `["sh", "-c", "<command line>"]`.
+`env` sets variables for every program the chip runs:
+
+```toml
+[applets.volume-up]
+extends = "command"
+icon = "audio-volume-high-symbolic"
+env = { PULSE_SINK = "@DEFAULT_SINK@" }
+on-click = ["sh", "-c", "pactl set-sink-volume $PULSE_SINK +5% && notify-send Louder"]
+```
+
 <ConfigTable path="applets.command" describe />
 
-Left, middle and right click each run their own command, as do the four scroll directions. Each
-wheel notch runs once; other mouse buttons do nothing.
+Left and middle click each run their own command, as do the four scroll directions. Each wheel
+notch runs once; other mouse buttons do nothing.
 
 An absolute SVG icon path works. If the file is missing, the chip uses `system-run-symbolic`.
 
