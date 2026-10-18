@@ -224,6 +224,7 @@ impl PackageManager {
         let status = Command::new("just")
             .arg("build")
             .current_dir(&dir)
+            .stdout(std::io::stderr())
             .status()
             .context("cannot run `just build`")?;
         ensure!(status.success(), "`just build` failed");
@@ -289,7 +290,11 @@ impl PackageManager {
             .collect();
         names.push(METADATA_FILE.to_owned());
         names.sort();
-        let mut archive = zip::ZipWriter::new(File::create(&out)?);
+        let temp = tempfile::NamedTempFile::new_in(
+            out.parent()
+                .context("package output has no parent directory")?,
+        )?;
+        let mut archive = zip::ZipWriter::new(temp);
         for name in names {
             let source_file = staging.path().join(&name);
             let mode = fs::metadata(&source_file)?.permissions().mode();
@@ -299,7 +304,10 @@ impl PackageManager {
             archive.start_file(&name, options)?;
             std::io::copy(&mut File::open(&source_file)?, &mut archive)?;
         }
-        archive.finish()?;
+        let temp = archive.finish()?;
+        temp.as_file()
+            .set_permissions(fs::Permissions::from_mode(0o644))?;
+        temp.persist(&out).map_err(|error| error.error)?;
         Ok((metadata, out))
     }
 
@@ -544,12 +552,16 @@ impl PackageManager {
         let _ = fs::remove_dir_all(&backup);
         let mut staged = Vec::new();
         collect(staging, staging, &mut staged)?;
-        copy_listed(staging, &fresh, &staged)?;
+        if let Err(error) = copy_listed(staging, &fresh, &staged) {
+            let _ = fs::remove_dir_all(&fresh);
+            return Err(error);
+        }
 
         if replaced {
             fs::rename(&target, &backup)?;
         }
         if let Err(error) = fs::rename(&fresh, &target) {
+            let _ = fs::remove_dir_all(&fresh);
             if replaced {
                 let _ = fs::rename(&backup, &target);
             }

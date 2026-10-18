@@ -508,6 +508,13 @@ impl Exec {
             .unwrap_or(id)
     }
 
+    fn same_placement(a: &Placement, b: &Placement) -> bool {
+        a.position == b.position
+            && a.orientation == b.orientation
+            && a.zone == b.zone
+            && a.size == b.size
+    }
+
     fn sync_aliases(&mut self) {
         let primaries: Vec<u64> = self
             .slots
@@ -521,7 +528,13 @@ impl Exec {
                 continue;
             };
             let public = SlotState {
-                requests: Vec::new(),
+                requests: primary
+                    .public
+                    .requests
+                    .iter()
+                    .filter(|(_, request)| matches!(request, BarRequest::ClosePopover))
+                    .cloned()
+                    .collect(),
                 ..primary.public.clone()
             };
             let env = primary.env.clone();
@@ -1092,6 +1105,7 @@ impl Service for Exec {
                             other.primary.is_none()
                                 && other.origin == Origin::Spawned
                                 && other.public.applet == applet
+                                && Self::same_placement(&other.placement, &placement)
                         })
                         .map(|(&id, _)| id)
                 } else {
@@ -1284,8 +1298,10 @@ impl Service for Exec {
                 placement,
                 reply,
             }) => {
+                let mut changed = false;
                 let result = if let Some(slot) = self.slots.get_mut(&slot) {
                     if slot.placement != placement {
+                        changed = true;
                         slot.placement = placement.clone();
                         if matches!(slot.public.status, Status::Running) {
                             Self::send(slot, Outgoing::Placement { placement });
@@ -1295,6 +1311,26 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown slot".to_owned()))
                 };
+                if changed {
+                    let split: Vec<u64> = self
+                        .slots
+                        .iter()
+                        .filter(|(_, slot)| {
+                            slot.primary.is_some_and(|primary| {
+                                self.slots.get(&primary).is_some_and(|root| {
+                                    !Self::same_placement(&slot.placement, &root.placement)
+                                })
+                            })
+                        })
+                        .map(|(&id, _)| id)
+                        .collect();
+                    for id in split {
+                        if let Some(slot) = self.slots.get_mut(&id) {
+                            slot.primary = None;
+                        }
+                        self.restart_slot(id);
+                    }
+                }
                 let _ = reply.send(result);
             }
             Input::Command(Command::Detach { slot, reply }) => {

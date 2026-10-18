@@ -80,8 +80,12 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
         ]
     );
     for name in &files {
-        assert!(!fs::read_to_string(dir.join(name)).unwrap().contains("{{"));
+        let content = fs::read_to_string(dir.join(name)).unwrap();
+        assert!(!content.replace("{{ zone }}", "").contains("{{"), "{name}");
     }
+    let justfile = fs::read_to_string(dir.join("justfile")).unwrap();
+    assert!(justfile.lines().any(|line| line == "dev zone=\"left\":"));
+    assert!(justfile.contains("\n    glimpsectl applet run --dev --zone {{ zone }} .\n"));
     let desktop = fs::read_to_string(dir.join("me.example.Hello.desktop")).unwrap();
     assert!(desktop.contains("\nExec=node applet.mjs\n"));
     assert!(!desktop.contains("\nPath="));
@@ -89,7 +93,7 @@ fn new_renders_a_valid_scaffold_without_placeholders() {
         package_scripts(&dir)["start"]
             .as_str()
             .unwrap()
-            .ends_with("node applet.mjs")
+            .ends_with("node dist/applet.mjs")
     );
     assert!(desktop.contains("\nName=Hello \"Applet\"\n"));
     assert!(desktop.ends_with("Implements=me.aresa.Glimpse.Applet1\n"));
@@ -124,12 +128,7 @@ fn new_refuses_values_a_desktop_entry_cannot_carry_unescaped() {
 #[test]
 fn new_renders_every_language_without_placeholders() {
     let cases = [
-        (
-            AppletLanguage::Rs,
-            "src/main.rs",
-            "./hello",
-            "Cargo.toml",
-        ),
+        (AppletLanguage::Rs, "src/main.rs", "./hello", "Cargo.toml"),
         (
             AppletLanguage::Py,
             "applet.py",
@@ -166,7 +165,11 @@ fn new_renders_every_language_without_placeholders() {
                 relative.display()
             );
             let content = fs::read_to_string(dir.join(relative)).unwrap();
-            assert!(!content.contains("{{"), "{}", relative.display());
+            assert!(
+                !content.replace("{{ zone }}", "").contains("{{"),
+                "{}",
+                relative.display()
+            );
         }
         let desktop = fs::read_to_string(dir.join("me.example.Hello.desktop")).unwrap();
         assert!(desktop.contains(&format!("\nExec={exec}\n")));
@@ -219,6 +222,77 @@ fn new_renders_every_language_without_placeholders() {
             .unwrap()
             .contains("dependencies = [\"glimpse-applet-sdk>=0.9\"]")
     );
+}
+
+#[test]
+fn every_template_builds_into_dist_and_dev_has_no_build_dependency() {
+    for language in [
+        AppletLanguage::Ts,
+        AppletLanguage::Py,
+        AppletLanguage::Go,
+        AppletLanguage::Rs,
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join(language.dir());
+        applets_new_with_catalog(
+            args_for(language, &dir, "Hello"),
+            &template_for(language),
+            |_| false,
+        )
+        .unwrap();
+        let justfile = fs::read_to_string(dir.join("justfile")).unwrap();
+        let build = justfile
+            .split("build:\n")
+            .nth(1)
+            .unwrap()
+            .split("\n\n")
+            .next()
+            .unwrap();
+        assert!(
+            justfile.lines().any(|line| line == "dev zone=\"left\":"),
+            "{}",
+            language.dir()
+        );
+        assert!(
+            justfile.contains("\n    glimpsectl applet run --dev --zone {{ zone }} .\n"),
+            "{}",
+            language.dir()
+        );
+        assert!(build.contains("me.example.Hello.desktop dist/"), "{build}");
+        assert!(!build.contains("cp hello "), "{build}");
+        assert!(!build.contains("cp applet.mjs "), "{build}");
+        assert!(!build.contains("./hello"), "{build}");
+        let ignore = fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(
+            ignore
+                .lines()
+                .any(|line| line.trim_start_matches('/') == "dist/")
+        );
+        assert!(
+            !ignore
+                .lines()
+                .any(|line| matches!(line.trim_start_matches('/'), "applet.mjs" | "hello"))
+        );
+        match language {
+            AppletLanguage::Ts => {
+                let scripts = package_scripts(&dir);
+                assert!(
+                    scripts["build"]
+                        .as_str()
+                        .unwrap()
+                        .ends_with("--outfile=dist/applet.mjs")
+                );
+                assert_eq!(scripts["start"], "node --run build && node dist/applet.mjs");
+            }
+            AppletLanguage::Go => assert!(build.contains("go build -o dist/hello .")),
+            AppletLanguage::Rs => {
+                assert!(build.contains("cp \"${CARGO_TARGET_DIR:-target}/release/hello\" dist/"))
+            }
+            AppletLanguage::Py => {
+                assert!(build.contains("cp applet.py me.example.Hello.desktop dist/"))
+            }
+        }
+    }
 }
 
 #[test]

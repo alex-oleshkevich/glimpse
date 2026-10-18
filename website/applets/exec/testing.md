@@ -49,7 +49,7 @@ node --test build/copy.test.mjs
 
 The test checks both the rendered button and its clipboard request. It does not change your real clipboard. The `ReactNode` assertion bridges the SDK's JSX return type and the test host's React input type.
 
-Run `glimpsectl applet check .` to validate the desktop entry, local configuration, and `Exec` expansion without a panel. `glimpsectl applet check --run .` also starts the applet headlessly and validates its first tree, reporting errors such as `section cannot hold section`.
+Run `glimpsectl applet run --dev .` to load the desktop entry and start the applet in the panel. The panel validates each tree against its nesting and size limits and logs rejections such as `section cannot hold section`.
 
 ## Supply host state
 
@@ -68,4 +68,4 @@ The returned session provides:
 | `setService(name, value)` | Supply a service snapshot: `setService("mpris", { players: [player] })` or `setService("compositor", { name, workspaces, windows, outputs })`. |
 | `close()` | Unmount and release the session. Await it before starting another render. |
 
-All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Use `glimpsectl applet check --run .` to check the first tree's nesting. Run `glimpsectl applet run --dev .` to exercise later updates and inspect the displayed text. If the panel rejects a tree, it stops the applet and logs the reason; the development terminal prints nothing about that rejection.
+All event and update methods return `Promise<void>`. The in-memory host checks commit shape and the SDK's limits on nodes, children, operations and array lengths, but not the panel's nesting rules or text cleaning. Run `glimpsectl applet run --dev .` to check nesting, exercise updates and inspect the displayed text. If the panel rejects a tree, it stops the applet and logs the reason; the development terminal prints nothing about that rejection.

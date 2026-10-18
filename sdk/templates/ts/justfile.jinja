@@ -5,12 +5,11 @@ default:
 [doc("build production files into dist/")]
 build:
     node --run build
-    mkdir -p dist
-    cp applet.mjs {{ id }}.desktop dist/
+    cp {{ id }}.desktop dist/
 
 [doc("run the applet in the panel, restarting on source edits")]
-dev: build
-    glimpsectl applet run --dev .
+dev zone="left":
+    glimpsectl applet run --dev --zone {% raw %}{{ zone }}{% endraw %} .
 
 [doc("build the package and install it")]
 install:

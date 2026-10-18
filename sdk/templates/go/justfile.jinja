@@ -4,13 +4,13 @@ default:
 
 [doc("build production files into dist/")]
 build:
-    go build -o {{ slug }} .
     mkdir -p dist
-    cp {{ slug }} {{ id }}.desktop dist/
+    go build -o dist/{{ slug }} .
+    cp {{ id }}.desktop dist/
 
 [doc("run the applet in the panel, restarting on source edits")]
-dev: build
-    glimpsectl applet run --dev .
+dev zone="left":
+    glimpsectl applet run --dev --zone {% raw %}{{ zone }}{% endraw %} .
 
 [doc("build the package and install it")]
 install:

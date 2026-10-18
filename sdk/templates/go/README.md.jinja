@@ -5,8 +5,7 @@ Applet id: `{{ id }}`.
 Requires Go. `just lint` also needs `golangci-lint`. The SDK is the `sdk-go` module; run `go mod tidy` once to fetch it.
 
 Run `just dev`: it builds the binary, loads `devconfig.toml` and attaches the
-applet with its options and env. Options edits update it; re-run `just build` after source
-edits and the restart picks up the new binary.
+applet with its options and env. Options edits update it; source edits rebuild and restart it.
 
 The justfile wraps the whole loop: `just dev`, `just test`, `just lint`, `just package`,
 `just install`.

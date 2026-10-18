@@ -40,4 +40,4 @@ The program is resolved against the applet's merged environment `PATH`. A deskto
 
 The desktop filename supplies the applet id. `me.aresa.GlimpseTodo.desktop` is placed in a panel zone as `me.aresa.GlimpseTodo`. Installed discovery asks the desktop catalog for implementations of `me.aresa.Glimpse.Applet1`.
 
-User entries can be installed under `${XDG_DATA_HOME:-$HOME/.local/share}/applications`. A development directory must contain exactly one `.desktop` file. Run `glimpsectl applet check .` there to validate the entry, local configuration, and `Exec` expansion without a panel. See [Install and share an applet](/applets/exec/share) for installation and panel configuration.
+User entries can be installed under `${XDG_DATA_HOME:-$HOME/.local/share}/applications`. A development directory must contain exactly one `.desktop` file. `glimpsectl applet run --dev .` there loads the entry and refuses one that is invalid; `glimpsectl applet package .` builds it into a package. See [Install and share an applet](/applets/exec/share) for installation and panel configuration.

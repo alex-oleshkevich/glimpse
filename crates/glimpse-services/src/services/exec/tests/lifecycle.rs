@@ -64,6 +64,113 @@ async fn second_slot_for_an_instance_shares_its_process() {
 }
 
 #[tokio::test]
+async fn second_slot_with_a_vertical_placement_starts_its_own_unit() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let mut vertical = placement();
+    vertical.orientation = Orientation::Vertical;
+    handle.attach(2, "test", vertical).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    let units: std::collections::BTreeSet<_> = launcher.started().into_iter().collect();
+    assert_eq!(units.len(), 2);
+    assert_eq!(file_lines(&output.with_extension("pid"), 2).await.len(), 2);
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn alias_placed_vertically_starts_its_own_unit() {
+    let (_dir, entry, output) = script(&format!(
+        "open(sys.argv[1] + '.pid', 'a').write(str(os.getpid()) + '\\n')\n{LOOP}"
+    ));
+    let ((handle, _sender, cancel, task, _selection, launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    let mut other_output = placement();
+    other_output.output = Some("DP-2".to_owned());
+    handle
+        .attach(2, "test", other_output.clone())
+        .await
+        .expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    let pids = output.with_extension("pid");
+    assert_eq!(file_lines(&pids, 1).await.len(), 1);
+    let units: std::collections::BTreeSet<_> = launcher.started().into_iter().collect();
+    assert_eq!(units.len(), 1);
+    let mut vertical = other_output;
+    vertical.orientation = Orientation::Vertical;
+    handle.place(2, vertical).await.expect("place");
+    assert_eq!(file_lines(&pids, 2).await.len(), 2);
+    let units: std::collections::BTreeSet<_> = launcher.started().into_iter().collect();
+    assert_eq!(units.len(), 2);
+    status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
+async fn close_popover_reaches_an_alias_open_uri_stays_on_the_primary() {
+    let (_dir, entry, _output) = script(
+        "import time\nsend('{\"t\":\"hello\",\"v\":1}')\nr.readline()\nfor line in r:\n    if '\"t\":\"event\"' in line:\n        send('{\"t\":\"close-popover\"}')\n        send('{\"t\":\"open-uri\",\"uri\":\"https://example.com/open\"}')\n        break\ntime.sleep(30)\n",
+    );
+    let ((handle, _sender, cancel, task, _selection, _launcher), _config) =
+        running(FakeCatalog(Arc::new(Mutex::new(Ok(entry)))));
+    handle.attach(1, "test", placement()).await.expect("attach");
+    let primary = status(&handle, 1, |s| matches!(s, Status::Running)).await;
+    handle.attach(2, "test", placement()).await.expect("attach");
+    status(&handle, 2, |s| matches!(s, Status::Running)).await;
+    handle
+        .send_event(UserEvent {
+            slot: 1,
+            generation: primary.generation,
+            id: 1,
+            name: "press".to_owned(),
+            args: Vec::new(),
+            seq: None,
+        })
+        .await
+        .expect("event");
+    let state = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let state = handle.snapshot();
+            if state
+                .slots
+                .get(&1)
+                .is_some_and(|slot| slot.requests.len() == 2)
+            {
+                return state;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("requests");
+    let primary = &state.slots[&1];
+    let alias = &state.slots[&2];
+    assert_eq!(primary.requests[0].1, BarRequest::ClosePopover);
+    assert_eq!(
+        primary.requests[1].1,
+        BarRequest::OpenUri("https://example.com/open".to_owned())
+    );
+    assert_eq!(alias.requests, vec![primary.requests[0].clone()]);
+    handle.detach(2).await.expect("detach");
+    handle.detach(1).await.expect("detach");
+    cancel.cancel();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn placement_change_does_not_respawn() {
     let (_dir, entry, output) = script(&format!(
         "open(sys.argv[1] + '.pid', 'w').write(str(os.getpid()))\n{LOOP}"

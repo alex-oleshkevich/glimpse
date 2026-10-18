@@ -56,6 +56,47 @@ fn make_zip(path: &Path, id: &str, entries: &[(&str, &[u8], u32)]) {
 }
 
 #[test]
+fn package_json_keeps_build_output_on_stderr() {
+    if std::env::var_os("GLIMPSE_TEST_PACKAGE_JSON_CHILD").is_some() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = fixture(root.path());
+        let justfile = dir.join("justfile");
+        let recipe = fs::read_to_string(&justfile).unwrap();
+        fs::write(
+            &justfile,
+            format!("{recipe}    @echo package-build-stdout\n"),
+        )
+        .unwrap();
+        applet_package(
+            PackageArgs {
+                dir,
+                out: Some(root.path().join("test.glimpse.zip")),
+                install: false,
+            },
+            true,
+        )
+        .unwrap();
+        return;
+    }
+
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "commands::package_manager::tests::package_json_keeps_build_output_on_stderr",
+            "--nocapture",
+        ])
+        .env("GLIMPSE_TEST_PACKAGE_JSON_CHILD", "1")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(output.status.success(), "{stdout}\n{stderr}");
+    assert!(stdout.contains("\"id\""), "{stdout}");
+    assert!(!stdout.contains("package-build-stdout"), "{stdout}");
+    assert!(stderr.contains("package-build-stdout"), "{stderr}");
+}
+
+#[test]
 fn package_install_and_uninstall_round_trip() {
     let root = tempfile::tempdir().unwrap();
     let dir = fixture(root.path());
@@ -63,6 +104,7 @@ fn package_install_and_uninstall_round_trip() {
     let out = root.path().join("org.example.Test.glimpse.zip");
     let (metadata, path) = manager.package(&dir, Some(&out)).unwrap();
     assert_eq!(path, out);
+    assert_eq!(fs::metadata(&out).unwrap().mode() & 0o777, 0o644);
     assert_eq!(metadata.id, "org.example.Test");
     let listed: Vec<&str> = metadata
         .files

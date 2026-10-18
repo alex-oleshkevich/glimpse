@@ -215,6 +215,7 @@ impl Host {
 
 struct Setup<'a> {
     config: Option<&'a str>,
+    justfile: Option<(&'a str, &'a str)>,
     extra: &'a [&'a str],
     refuse_attach: bool,
     serve: bool,
@@ -224,6 +225,7 @@ impl Default for Setup<'_> {
     fn default() -> Self {
         Self {
             config: Some(""),
+            justfile: None,
             extra: &[],
             refuse_attach: false,
             serve: true,
@@ -283,6 +285,9 @@ impl Harness {
         )?;
         if let Some(config) = setup.config {
             fs::write(applet.join("devconfig.toml"), config)?;
+        }
+        if let Some((name, recipe)) = setup.justfile {
+            fs::write(applet.join(name), recipe)?;
         }
         let mut command = Command::new(env!("CARGO_BIN_EXE_glimpsectl"));
         command
@@ -547,12 +552,108 @@ async fn attach_carries_the_selection_options_env_and_stderr() -> Result<()> {
 }
 
 #[tokio::test]
+async fn directory_with_justfile_builds_once_and_attaches_dist() -> Result<()> {
+    for name in ["justfile", "Justfile", ".justfile"] {
+        let mut h = Harness::start(Setup {
+            justfile: Some((name, BUILD_RECIPE)),
+            ..Setup::default()
+        })
+        .await?;
+        let Event::Attach { path, handle, .. } = h.event().await? else {
+            anyhow::bail!("expected attach")
+        };
+        assert_eq!(
+            path,
+            h.applet
+                .join(format!("dist/{ID}.desktop"))
+                .display()
+                .to_string()
+        );
+        assert_eq!(fs::read_to_string(h.applet.join("dist/builds"))?, "x");
+        h.stop(&handle).await?;
+        assert_eq!(fs::read_to_string(h.applet.join("dist/builds"))?, "x");
+    }
+    Ok(())
+}
+
+const BUILD_RECIPE: &str = "build:\n    mkdir -p dist\n    cp org.example.DevTest.desktop dist/\n    printf x >> dist/builds\n";
+
+#[tokio::test]
+async fn directory_without_justfile_attaches_source() -> Result<()> {
+    let mut h = Harness::start(Setup::default()).await?;
+    let handle = h.attach().await?;
+    h.stop(&handle).await
+}
+
+#[tokio::test]
+async fn failed_startup_build_does_not_attach() -> Result<()> {
+    let mut h = Harness::start(Setup {
+        justfile: Some(("justfile", "build:\n    false\n")),
+        ..Setup::default()
+    })
+    .await?;
+    let output = h.output_after_exit().await?;
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("`just build` failed"));
+    assert!(h.events.try_recv().is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn dev_rebuilds_before_restart_and_source_desktop_reattach() -> Result<()> {
+    let mut h = Harness::start(Setup {
+        justfile: Some(("justfile", BUILD_RECIPE)),
+        extra: &["--dev"],
+        ..Setup::default()
+    })
+    .await?;
+    let Event::Attach { path, handle, .. } = h.event().await? else {
+        anyhow::bail!("expected attach")
+    };
+    let marker = h.applet.join("dist/builds");
+    h.silent(Duration::from_millis(600)).await;
+    assert_eq!(fs::read_to_string(&marker)?, "x");
+    fs::write(h.applet.join("source.ts"), "changed")?;
+    assert_eq!(h.event().await?, Event::Restart(handle.clone()));
+    assert_eq!(fs::read_to_string(&marker)?, "xx");
+    h.silent(Duration::from_millis(600)).await;
+    fs::write(
+        &h.desktop,
+        fs::read_to_string(&h.desktop)?.replace("Dev Test", "Changed"),
+    )?;
+    assert_eq!(h.event().await?, Event::Detach(handle));
+    let Event::Attach {
+        path: next_path,
+        handle,
+        ..
+    } = h.event().await?
+    else {
+        anyhow::bail!("expected reattach")
+    };
+    assert_eq!(next_path, path);
+    assert!(fs::read_to_string(&next_path)?.contains("Name=Changed"));
+    assert_eq!(fs::read_to_string(&marker)?, "xxx");
+    h.silent(Duration::from_millis(600)).await;
+    fs::write(h.applet.join("justfile"), "build:\n    false\n")?;
+    h.stderr_contains("build failed, keeping the running applet")
+        .await?;
+    h.silent(Duration::from_millis(600)).await;
+    assert_eq!(fs::read_to_string(&marker)?, "xxx");
+    fs::write(h.applet.join("justfile"), BUILD_RECIPE)?;
+    assert_eq!(h.event().await?, Event::Restart(handle.clone()));
+    assert_eq!(fs::read_to_string(&marker)?, "xxxx");
+    h.stop(&handle).await
+}
+
+#[tokio::test]
 async fn source_edit_restarts_and_ignored_directory_does_not() -> Result<()> {
     let mut h = Harness::dev("", &[]).await?;
     let handle = h.attach().await?;
     h.stderr_contains("attached to").await?;
     fs::create_dir(h.applet.join("node_modules"))?;
     fs::write(h.applet.join("node_modules/x"), "ignored")?;
+    fs::create_dir_all(h.applet.join("target/release"))?;
+    fs::write(h.applet.join("target/release/.cargo-lock"), "locked")?;
     h.silent(Duration::from_millis(600)).await;
     fs::write(h.applet.join("source.ts"), "changed")?;
     assert_eq!(h.event().await?, Event::Restart(handle.clone()));

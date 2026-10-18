@@ -10,6 +10,7 @@ use glimpse_config::{ExecAppletConfig, exec_env_name_allowed, is_desktop_id};
 use glimpse_dbus::{applet_host::AppletHostProxy, applet_host_name};
 use glimpse_services::{DesktopCatalog, ExecEntry};
 use notify::{EventKind, RecursiveMode, Watcher};
+use tokio::process::Command;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -87,9 +88,22 @@ fn watched(path: &Path, dir: &Path) -> bool {
     path.strip_prefix(dir).is_ok_and(|relative| {
         relative.components().all(|part| {
             let name = part.as_os_str().to_string_lossy();
-            !name.starts_with('.') && !matches!(name.as_ref(), "node_modules" | "build" | "dist")
+            !name.starts_with('.')
+                && !matches!(name.as_ref(), "node_modules" | "build" | "dist" | "target")
         })
     })
+}
+
+async fn build(dir: &Path) -> Result<()> {
+    let status = Command::new("just")
+        .arg("build")
+        .current_dir(dir)
+        .stdout(io::stderr())
+        .status()
+        .await
+        .context("cannot run `just build`")?;
+    ensure!(status.success(), "`just build` failed");
+    Ok(())
 }
 
 async fn attach(
@@ -173,6 +187,17 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
             .to_path_buf();
         (target, entry, dir)
     };
+    let source_desktop = entry.path.clone();
+    let builds = directory_target
+        && ["justfile", "Justfile", ".justfile"]
+            .iter()
+            .any(|name| dir.join(name).is_file());
+    if builds {
+        build(&dir).await?;
+        entry = DesktopCatalog
+            .resolve_file(&dir.join("dist").join(format!("{id}.desktop")))
+            .map_err(anyhow::Error::msg)?;
+    }
     let applet_config = match applet_config {
         Some(path) => path,
         None if directory_target => {
@@ -344,7 +369,7 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                         if applet_config == path { config_at = Some(config_at.map_or(settled, |at| at.max(settled))); }
                         else if if directory_target { watched(&path, &dir) } else { path == entry.path } {
                             changed = true;
-                            reattach |= path == entry.path;
+                            reattach |= path == source_desktop;
                             changed_files.push(path);
                         }
                     }
@@ -377,6 +402,10 @@ pub async fn applets_run(args: RunArgs, panel_app_id: &str, json: bool) -> Resul
                 restart_at = None;
                 if let Some(reason) = restart_reason.take().or_else(|| changed_file(&changed_files, &dir)) { eprintln!("{reason}"); }
                 changed_files.clear();
+                if builds && let Err(error) = build(&dir).await {
+                    eprintln!("build failed, keeping the running applet: {error:#}");
+                    continue;
+                }
                 if reattach {
                     reattach = false;
                     match DesktopCatalog.resolve_file(&entry.path) {

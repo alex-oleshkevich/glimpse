@@ -9,10 +9,10 @@ Keep the project in a permanent directory. From that directory, install dependen
 ```sh
 npm install
 npm run check
-glimpsectl applet check --run .
+just dev
 ```
 
-`glimpsectl applet check .` validates the desktop entry, local configuration, and `Exec` expansion without a panel. `--run` also starts the applet headlessly and validates its first tree against the panel's nesting and size limits.
+`just dev` builds the applet and runs `glimpsectl applet run --dev .`, which loads the desktop entry and local configuration and restarts the applet on source edits. The panel validates each tree against its nesting and size limits and logs rejections.
 
 The generated desktop entry contains:
 
@@ -66,8 +66,22 @@ Save the configuration. The panel starts the installed applet, and the todo chip
 
 The panel runs the applet as a systemd user unit with a 256 MiB memory limit. If the process exits with an error, it restarts after 1 second, backing off to at most 60 seconds between attempts.
 
-## Share the source
+## Share a package
 
-Share the source, `package.json`, `tsconfig.json`, the desktop entry, and local `config.toml`. Recipients install dependencies, install the entry on their machine, and place its id in their panel. Avoid distributing an absolute `Path` from your machine; use a link or have recipients set their own path.
+Build a package from the project directory:
+
+```sh
+just package
+```
+
+`just package` runs `just build`, which assembles the production files into `dist/`, and writes `<id>.glimpse.zip` holding only those files and a generated `metadata.toml` that lists each with its sha256. `just install` builds the package and installs it in one step.
+
+Recipients install the file with:
+
+```sh
+glimpsectl applet install me.aresa.GlimpseTodo.glimpse.zip
+```
+
+It checks the package against its own metadata, copies the files into the applet's own directory, writes the desktop entry, and prints a config suggestion. Recipients place the id in their panel as above. Pass `--out PATH` to `glimpsectl applet package` to write the package elsewhere.
 
 Exec applets have your full session access, so install applets whose code you trust. The [desktop entry reference](/applets/exec/reference/desktop-entry) lists the keys the host reads and the entries it refuses.

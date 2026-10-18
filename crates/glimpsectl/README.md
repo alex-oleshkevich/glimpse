@@ -35,12 +35,13 @@ glimpsectl applet run --dev --isolated .
 ## Rules
 
 `applet run` asks the panel's `AppletHost` to run an applet as a systemd unit until Ctrl-C, passing
-glimpsectl's stderr as the unit's, with options and env from the nearby `config.toml` or the file
-passed to `--applet-config` plus `--env`; an installed id requires the flag. `--dev` restarts on
-source edits, updates options live, and attaches again when env or the desktop entry changes.
-The CLI never relays an applet. The `t` command reads its validated tree from the panel over the
-same sender-owned attachment. Numeric `--bar` selects a config panel; global `--panel` selects
-the running panel's app id.
+glimpsectl's stderr as the unit's, with options and env from `devconfig.toml` in the directory or
+the file passed to `--applet-config` plus `--env`; an installed id requires the flag. A directory
+with a justfile runs `just build` before attaching its `dist/` desktop entry and before `--dev`
+restarts; failed builds keep the running applet. `--dev` updates options live and attaches again
+when env or the source desktop entry changes. The CLI never relays an applet. The `t` command reads
+its validated tree from the panel over the same sender-owned attachment. Numeric `--bar` selects a
+config panel; global `--panel` selects the running panel's app id.
 
 `dev panel` starts a foreground test panel with a fresh app id and an explicit scratch config
 under `runtime_dir()`, using defaults unless a config was explicitly supplied. `applet run
