@@ -464,14 +464,15 @@ sends `["YYYY-MM-DD"]`. Neither fires for a state set by the applet. Each event 
 
 ### `dots`
 
-A row of small tone dots, such as a status at a glance. A leaf.
+A row of dots for a status at a glance. A leaf. One tone in `colors` draws one dot, in order.
+For example, `[success, error]` draws a success dot, then an error dot.
 
 | Prop | Type | Notes |
 | --- | --- | --- |
-| `colors` | array of tone | Up to 64 tones: `accent`, `dim`, `success`, `warning`, `error`. A tone names a theme color, so the dots follow the current theme |
+| `colors` | array of tone | Up to 64 tones: `accent`, `dim`, `success`, `warning`, `error`. A tone is a named theme color, so the dots change with the theme |
 | `uniform` | boolean | Draw every dot in the faded text color instead of `colors` |
 | `size` | number | Dot diameter in pixels, 2 to 16. Defaults to 4 |
-| `max` | number | Most dots drawn, 1 to 3. Defaults to 3, so only the first 3 `colors` show |
+| `max` | number | How many dots to show, 1 to 3. Defaults to 3. Extra `colors` are ignored, so at most 3 dots ever show |
 | `className` | class | |
 
 ### `dropdown`
