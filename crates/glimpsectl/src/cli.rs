@@ -619,7 +619,7 @@ pub struct PackageArgs {
     #[arg(
         long,
         value_name = "PATH",
-        help = "Write the package here instead of ./<id>.glimpse.zip"
+        help = "Write the package to this file or directory instead of ./<id>.glimpse.zip"
     )]
     pub out: Option<PathBuf>,
 }
@@ -888,15 +888,6 @@ impl AppletLanguage {
             Self::Ts => "ts",
             Self::Py => "py",
             Self::Go => "go",
-        }
-    }
-
-    pub fn setup_hint(self) -> &'static str {
-        match self {
-            Self::Rs => "just build",
-            Self::Ts => "npm install && just build",
-            Self::Py => "python3 -m py_compile applet.py",
-            Self::Go => "just build",
         }
     }
 }
