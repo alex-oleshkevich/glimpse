@@ -4,6 +4,18 @@ The `glimpse-sdk` crate. Its only dependencies are `serde` and `serde_json`. Ele
 are in [Elements](/applets/exec/reference/elements); this page covers how a Rust applet is put
 together.
 
+::: tip Create an applet
+
+```sh
+glimpsectl applet new --language rs --id me.aresa.GlimpseTodo --yes
+cd glimpse-todo
+just dev
+```
+
+[Start an applet](/applets/exec/start) explains each step and the files it creates.
+
+:::
+
 ```rust
 use glimpse_sdk::*;
 use std::process::ExitCode;

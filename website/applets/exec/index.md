@@ -20,7 +20,33 @@ Answer the prompts with these values:
 | Icon | `view-list-symbolic` |
 | Directory | `glimpse-todo` |
 
-Use a new or empty directory. The id must not already be installed. The command creates `index.tsx`, `package.json`, `tsconfig.json`, `justfile`, `devconfig.toml`, `README.md`, and `me.aresa.GlimpseTodo.desktop`.
+Use a new or empty directory. The id must not already be installed. The command creates `.gitignore`, `README.md`, `biome.json`, `devconfig.toml`, `index.tsx`, `justfile`, `me.aresa.GlimpseTodo.desktop`, `package.json`, and `tsconfig.json`.
+
+The applet is in `index.tsx`:
+
+```tsx
+import { Indicator, Popover, Row, run, Section } from "glimpse-sdk";
+
+const ICON = "view-list-symbolic";
+const NAME = "Todo";
+
+function App() {
+    return (
+        <>
+            <Indicator icon={ICON} tooltip={NAME}>
+                {NAME}
+            </Indicator>
+            <Popover icon={ICON} title={NAME}>
+                <Section title={NAME}>
+                    <Row title="It works" />
+                </Section>
+            </Popover>
+        </>
+    );
+}
+
+await run(<App />);
+```
 
 ```sh
 cd glimpse-todo
@@ -33,37 +59,56 @@ The generated TypeScript configuration uses `jsxImportSource: "glimpse-sdk"`. Ke
 
 ## 2. Show a task and an open count
 
-Replace the generated `index.tsx` with:
+Change `index.tsx` (lines starting with `+` are new, `-` are removed):
 
-```tsx
-import {
-  Indicator, Popover, run, Section, ToggleRow, useState,
-} from "glimpse-sdk";
-
-function Todo() {
-  const [done, setDone] = useState(false);
-  return (
-    <>
-      <Indicator icon="view-list-symbolic" tooltip="Todo" badge={done ? "0" : "1"}>
-        Todo
-      </Indicator>
-      <Popover icon="view-list-symbolic" title="Todo">
-        <Section title="Todo" count={done ? "0" : "1"}>
-          <ToggleRow title="Buy groceries" control="check" active={done} onToggle={setDone} />
-        </Section>
-      </Popover>
-    </>
-  );
-}
-
-await run(<Todo />);
+```diff
+@@ -1,21 +1,21 @@
+-import { Indicator, Popover, Row, run, Section } from "glimpse-sdk";
++import {
++  Indicator, Popover, run, Section, ToggleRow, useState,
++} from "glimpse-sdk";
+ 
+-const ICON = "view-list-symbolic";
+-const NAME = "Todo";
+-
+-function App() {
+-    return (
+-        <>
+-            <Indicator icon={ICON} tooltip={NAME}>
+-                {NAME}
+-            </Indicator>
+-            <Popover icon={ICON} title={NAME}>
+-                <Section title={NAME}>
+-                    <Row title="It works" />
+-                </Section>
+-            </Popover>
+-        </>
+-    );
++function Todo() {
++  const [done, setDone] = useState(false);
++  return (
++    <>
++      <Indicator icon="view-list-symbolic" tooltip="Todo" badge={done ? "0" : "1"}>
++        Todo
++      </Indicator>
++      <Popover icon="view-list-symbolic" title="Todo">
++        <Section title="Todo" count={done ? "0" : "1"}>
++          <ToggleRow title="Buy groceries" control="check" active={done} onToggle={setDone} />
++        </Section>
++      </Popover>
++    </>
++  );
+ }
+ 
+-await run(<App />);
++await run(<Todo />);
 ```
 
 Save, then click Todo. The badge shows one open task. Click the "Buy groceries" row and the badge becomes zero. `useState` keeps the done state while this process runs. `ToggleRow` with `control="check"` shows a check mark at the end of the row only while the task is done.
 
 ## 3. Add tasks from an entry
 
-Change `index.tsx` (lines starting with `+` are new, `-` are removed):
+Change `index.tsx`:
 
 ```diff
 @@ -1,17 +1,42 @@

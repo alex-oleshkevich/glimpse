@@ -2,6 +2,20 @@
 
 The `glimpse-sdk` package exports React components, hooks, host requests, and supporting types for exec applets. Configure TypeScript with `"jsx": "react-jsx"` and `"jsxImportSource": "glimpse-sdk"`.
 
+::: tip Create an applet
+
+```sh
+glimpsectl applet new --language ts --id me.aresa.GlimpseTodo --yes
+cd glimpse-todo
+just dev
+```
+
+The [todo tutorial](/applets/exec/) builds a full applet from this project. `just lint` checks the
+code with [Biome](https://biomejs.dev/), which the project's `npm install` brings; its site has the
+editor extension and a standalone install.
+
+:::
+
 ## Components
 
 Every component accepts React's `key?: string | number`. A prop marked `?` is optional; only

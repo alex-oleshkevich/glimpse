@@ -6,6 +6,18 @@ installs the SDK on the first run, so `uv` must be on the machine that runs the 
 their props are in [Elements](/applets/exec/reference/elements); this page covers how a Python
 applet is put together.
 
+::: tip Create an applet
+
+```sh
+glimpsectl applet new --language py --id me.aresa.GlimpseTodo --yes
+cd glimpse-todo
+just dev
+```
+
+[Start an applet](/applets/exec/start) explains each step and the files it creates.
+
+:::
+
 ```python
 from dataclasses import dataclass
 
