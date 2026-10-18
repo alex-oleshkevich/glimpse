@@ -124,12 +124,7 @@ fn new_refuses_values_a_desktop_entry_cannot_carry_unescaped() {
 #[test]
 fn new_renders_every_language_without_placeholders() {
     let cases = [
-        (
-            AppletLanguage::Rs,
-            "src/main.rs",
-            "./hello",
-            "Cargo.toml",
-        ),
+        (AppletLanguage::Rs, "src/main.rs", "./hello", "Cargo.toml"),
         (
             AppletLanguage::Py,
             "applet.py",

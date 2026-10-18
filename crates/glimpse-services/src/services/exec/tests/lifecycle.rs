@@ -56,7 +56,11 @@ async fn second_slot_for_an_instance_shares_its_process() {
     status(&handle, 2, |s| matches!(s, Status::Running)).await;
     handle.detach(1).await.expect("detach primary");
     status(&handle, 2, |s| matches!(s, Status::Running)).await;
-    assert_eq!(units(&launcher).len(), 2, "promoted alias starts its own unit");
+    assert_eq!(
+        units(&launcher).len(),
+        2,
+        "promoted alias starts its own unit"
+    );
     assert_eq!(file_lines(&pids, 2).await.len(), 2);
     handle.detach(2).await.expect("detach");
     cancel.cancel();
