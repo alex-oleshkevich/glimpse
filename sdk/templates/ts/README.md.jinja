@@ -2,7 +2,7 @@
 
 Applet id: `{{ id }}`.
 
-Run `npm install`, then `glimpsectl applet run --dev .`: it loads `devconfig.toml` and attaches the
+Run `npm install`, then `just dev`: it loads `devconfig.toml` and attaches the
 applet with its options and env. Options edits update it; source
 edits rebuild and restart it. `just build` bundles `index.tsx` into `dist/applet.mjs`; the desktop
 entry runs that bundle. `npm run check` type-checks.

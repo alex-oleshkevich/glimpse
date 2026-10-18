@@ -449,7 +449,6 @@ struct Slot {
     popover_open: bool,
     popover_own: bool,
     last_failed_reason: Option<String>,
-    serial: u64,
     catalog_misses: u32,
     resolving: bool,
     running_since: Option<Instant>,
@@ -464,6 +463,7 @@ pub struct Exec {
     pending_dev: BTreeMap<String, DevRequest>,
     taken_dev: BTreeMap<String, u64>,
     next_spawn: u64,
+    next_serial: u64,
     next_unit: u64,
     next_generation: u64,
 }
@@ -489,10 +489,13 @@ impl Exec {
     }
 
     fn same_placement(a: &Placement, b: &Placement) -> bool {
-        a.position == b.position
-            && a.orientation == b.orientation
-            && a.zone == b.zone
-            && a.size == b.size
+        Placement {
+            output: None,
+            ..a.clone()
+        } == Placement {
+            output: None,
+            ..b.clone()
+        }
     }
 
     fn sync_aliases(&mut self) {
@@ -521,7 +524,6 @@ impl Exec {
             let options = primary.options.clone();
             let entry = primary.entry.clone();
             let applet_id = primary.applet_id.clone();
-            let mut any_open = primary.popover_own;
             for slot in self.slots.values_mut() {
                 if slot.primary == Some(primary_id) {
                     slot.public = public.clone();
@@ -529,12 +531,96 @@ impl Exec {
                     slot.options = options.clone();
                     slot.entry = entry.clone();
                     slot.applet_id = applet_id.clone();
-                    any_open |= slot.popover_own;
                 }
             }
-            if let Some(primary) = self.slots.get_mut(&primary_id) {
-                primary.popover_open = any_open;
+        }
+        let roots: Vec<u64> = self
+            .slots
+            .iter()
+            .filter(|(_, slot)| slot.primary.is_none())
+            .map(|(&id, _)| id)
+            .collect();
+        for id in roots {
+            let open = self.slots.iter().any(|(&other, slot)| {
+                (other == id || slot.primary == Some(id)) && slot.popover_own
+            });
+            if let Some(slot) = self.slots.get_mut(&id)
+                && slot.popover_open != open
+            {
+                slot.popover_open = open;
+                if matches!(slot.public.status, Status::Running) {
+                    Self::send(slot, Outgoing::Popover { open });
+                }
             }
+        }
+    }
+
+    fn regroup(&mut self, ctx: &Ctx<Self>, applet: &str) {
+        let ids: Vec<u64> = self
+            .slots
+            .iter()
+            .filter(|(_, slot)| slot.origin == Origin::Spawned && slot.public.applet == applet)
+            .map(|(&id, _)| id)
+            .collect();
+        let mut roots: Vec<u64> = Vec::new();
+        let spawned_roots: Vec<u64> = ids
+            .iter()
+            .copied()
+            .filter(|id| self.slots[id].primary.is_none())
+            .collect();
+        for id in spawned_roots {
+            let target = roots.iter().copied().find(|&root| {
+                Self::same_placement(&self.slots[&root].placement, &self.slots[&id].placement)
+            });
+            let Some(target) = target else {
+                roots.push(id);
+                continue;
+            };
+            self.next_spawn += 1;
+            let spawn = self.next_spawn;
+            let Some(slot) = self.slots.get_mut(&id) else {
+                continue;
+            };
+            tracing::info!(%applet, slot = id, primary = target, "applet slot merged into the instance process");
+            if let Some(link) = slot.link.take() {
+                link.stop.cancel();
+            }
+            slot.stop.cancel();
+            slot.spawn = spawn;
+            slot.primary = Some(target);
+            let unit = std::mem::take(&mut slot.unit);
+            let socket = slot.socket.clone();
+            let launcher = Arc::clone(&self.dependencies.launcher);
+            ctx.spawn_detached(move |_ctx| async move {
+                launcher.stop(&unit).await;
+                let _ = tokio::fs::remove_file(&socket).await;
+            });
+        }
+        let mut started: Vec<u64> = Vec::new();
+        for &id in &ids {
+            let Some(old) = self.slots[&id].primary else {
+                continue;
+            };
+            let root = self.root(old);
+            if Self::same_placement(&self.slots[&root].placement, &self.slots[&id].placement) {
+                if let Some(slot) = self.slots.get_mut(&id) {
+                    slot.primary = Some(root);
+                }
+                continue;
+            }
+            let target = roots.iter().copied().find(|&other| {
+                Self::same_placement(&self.slots[&other].placement, &self.slots[&id].placement)
+            });
+            if let Some(slot) = self.slots.get_mut(&id) {
+                slot.primary = target;
+            }
+            if target.is_none() {
+                roots.push(id);
+                started.push(id);
+            }
+        }
+        for id in started {
+            self.restart_slot(id);
         }
     }
 
@@ -580,7 +666,6 @@ impl Exec {
             popover_open: false,
             popover_own: false,
             last_failed_reason: None,
-            serial: 0,
             catalog_misses: 0,
             resolving: false,
             running_since: None,
@@ -671,33 +756,34 @@ impl Exec {
         let Some(slot) = self.slots.get_mut(&slot_id) else {
             return;
         };
+        let serial = &mut self.next_serial;
         match request {
             FromApplet::OpenUri { uri } => {
                 if !allowed_uri(&uri) {
                     tracing::warn!(applet = %slot.public.applet, "applet asked to open a refused uri");
                 } else if is_file(&uri) {
-                    slot.push_request(BarRequest::OpenFile { uri });
+                    slot.push_request(serial, BarRequest::OpenFile { uri });
                 } else {
-                    slot.push_request(BarRequest::OpenUri(uri));
+                    slot.push_request(serial, BarRequest::OpenUri(uri));
                 }
             }
             FromApplet::Launch { id } => {
                 if id.strip_suffix(".desktop").unwrap_or(&id).is_empty() {
                     tracing::warn!(applet = %slot.public.applet, "applet asked to launch an empty id");
                 } else {
-                    slot.push_request(BarRequest::Launch(id));
+                    slot.push_request(serial, BarRequest::Launch(id));
                 }
             }
-            FromApplet::ClosePopover => slot.push_request(BarRequest::ClosePopover),
+            FromApplet::ClosePopover => slot.push_request(serial, BarRequest::ClosePopover),
             _ => {}
         }
     }
 }
 
 impl Slot {
-    fn push_request(&mut self, request: BarRequest) {
-        self.serial += 1;
-        self.public.requests.push((self.serial, request));
+    fn push_request(&mut self, serial: &mut u64, request: BarRequest) {
+        *serial += 1;
+        self.public.requests.push((*serial, request));
         if self.public.requests.len() > 8 {
             self.public.requests.remove(0);
         }
@@ -846,6 +932,7 @@ impl Service for Exec {
             pending_dev: BTreeMap::new(),
             taken_dev: BTreeMap::new(),
             next_spawn: 0,
+            next_serial: 0,
             next_unit: 0,
             next_generation: 0,
         }
@@ -970,7 +1057,6 @@ impl Service for Exec {
                         popover_open: false,
                         popover_own: false,
                         last_failed_reason,
-                        serial: 0,
                         catalog_misses: 0,
                         resolving: false,
                         running_since: None,
@@ -1109,10 +1195,10 @@ impl Service for Exec {
                 placement,
                 reply,
             }) => {
-                let mut changed = false;
+                let mut changed = None;
                 let result = if let Some(slot) = self.slots.get_mut(&slot) {
                     if slot.placement != placement {
-                        changed = true;
+                        changed = Some(slot.public.applet.clone());
                         slot.placement = placement.clone();
                         if matches!(slot.public.status, Status::Running) {
                             Self::send(slot, Outgoing::Placement { placement });
@@ -1122,25 +1208,8 @@ impl Service for Exec {
                 } else {
                     Err(CommandError::InvalidArgument("unknown slot".to_owned()))
                 };
-                if changed {
-                    let split: Vec<u64> = self
-                        .slots
-                        .iter()
-                        .filter(|(_, slot)| {
-                            slot.primary.is_some_and(|primary| {
-                                self.slots.get(&primary).is_some_and(|root| {
-                                    !Self::same_placement(&slot.placement, &root.placement)
-                                })
-                            })
-                        })
-                        .map(|(&id, _)| id)
-                        .collect();
-                    for id in split {
-                        if let Some(slot) = self.slots.get_mut(&id) {
-                            slot.primary = None;
-                        }
-                        self.restart_slot(id);
-                    }
+                if let Some(applet) = changed {
+                    self.regroup(ctx, &applet);
                 }
                 let _ = reply.send(result);
             }
@@ -1197,27 +1266,12 @@ impl Service for Exec {
                 let _ = reply.send(Ok(()));
             }
             Input::Command(Command::Popover { slot, open, reply }) => {
-                let root = self.root(slot);
                 let result = if let Some(slot) = self.slots.get_mut(&slot) {
                     slot.popover_own = open;
                     Ok(())
                 } else {
                     Err(CommandError::InvalidArgument("unknown slot".to_owned()))
                 };
-                if result.is_ok() {
-                    let effective = self
-                        .slots
-                        .values()
-                        .filter(|other| other.primary == Some(root))
-                        .any(|other| other.popover_own)
-                        || self.slots.get(&root).is_some_and(|slot| slot.popover_own);
-                    if let Some(slot) = self.slots.get_mut(&root) {
-                        slot.popover_open = effective;
-                        if matches!(slot.public.status, Status::Running) {
-                            Self::send(slot, Outgoing::Popover { open: effective });
-                        }
-                    }
-                }
                 let _ = reply.send(result);
             }
 
