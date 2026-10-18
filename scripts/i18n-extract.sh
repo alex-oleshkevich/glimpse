@@ -57,7 +57,10 @@ cp "$work/glimpse.pot" "$out"
 xgettext --language=Desktop --join-existing --sort-by-file \
     --package-name=glimpse --package-version="$version" \
     --msgid-bugs-address="https://github.com/alex-oleshkevich/glimpse/issues" \
-    -o "$out" data/me.aresa.Glimpse.Shot.desktop
+    -o "$out" data/me.aresa.Glimpse.Shot.desktop \
+    data/me.aresa.Glimpse.Lens.desktop \
+    data/me.aresa.Glimpse.Lens.Ruler.desktop \
+    data/me.aresa.Glimpse.Lens.Picker.desktop
 
 python3 scripts/i18n-coverage.py "$out" "${files[@]}"
 

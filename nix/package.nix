@@ -62,6 +62,9 @@ rustPlatform.buildRustPackage {
     done
     mkdir -p "$out/share/applications"
     msgfmt --desktop --template data/me.aresa.Glimpse.Shot.desktop -d po -o "$out/share/applications/me.aresa.Glimpse.Shot.desktop"
+    msgfmt --desktop --template data/me.aresa.Glimpse.Lens.desktop -d po -o "$out/share/applications/me.aresa.Glimpse.Lens.desktop"
+    msgfmt --desktop --template data/me.aresa.Glimpse.Lens.Ruler.desktop -d po -o "$out/share/applications/me.aresa.Glimpse.Lens.Ruler.desktop"
+    msgfmt --desktop --template data/me.aresa.Glimpse.Lens.Picker.desktop -d po -o "$out/share/applications/me.aresa.Glimpse.Lens.Picker.desktop"
     substituteInPlace "$out/share/applications/me.aresa.Glimpse.Shot.desktop" \
       --replace-fail "Exec=gapplication" "Exec=${glib.bin}/bin/gapplication"
     install -Dm644 data/me.aresa.Glimpse.Shot.metainfo.xml "$out/share/metainfo/me.aresa.Glimpse.Shot.metainfo.xml"

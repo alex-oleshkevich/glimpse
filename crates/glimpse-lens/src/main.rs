@@ -1,4 +1,5 @@
 mod cli;
+mod clipboard;
 mod errors;
 mod lens;
 mod marks;
@@ -51,6 +52,11 @@ fn run(cli: Cli) -> Result<()> {
             let segments = measure::measure(settings)?;
             let lines = measure::ndjson(&segments).ok_or(errors::Cancelled)?;
             write!(std::io::stdout(), "{lines}").context("cannot write the measurements")?;
+            if cli.copy
+                && let Some(distance) = measure::last_distance(&segments)
+            {
+                clipboard::copy(&distance)?;
+            }
         }
         tool => {
             let format = cli.format.unwrap_or(glimpse_config::ColorFormat::Hex);
@@ -68,6 +74,9 @@ fn run(cli: Cli) -> Result<()> {
                     false => format.render(color),
                 };
                 writeln!(std::io::stdout(), "{line}").context("cannot write the color")?;
+                if cli.copy {
+                    clipboard::copy(&line)?;
+                }
             } else if let Err(error) = result
                 && error.downcast_ref::<errors::Cancelled>().is_none()
             {

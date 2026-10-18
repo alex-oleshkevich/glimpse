@@ -47,6 +47,12 @@ fn confirmed(outcome: Option<Outcome>) -> Vec<Segment> {
     }
 }
 
+pub fn last_distance(segments: &[Segment]) -> Option<String> {
+    segments
+        .last()
+        .map(|segment| format!("{:.0}", segment.distance()))
+}
+
 pub fn ndjson(segments: &[Segment]) -> Option<String> {
     if segments.is_empty() {
         return None;

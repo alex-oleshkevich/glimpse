@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Color Picker
+Comment=Pick a color from the screen and copy it
+Icon=me.aresa.Glimpse.Lens.Picker
+Exec=glimpse-lens --tool picker --copy
+TryExec=glimpse-lens
+Terminal=false
+StartupNotify=false
+Categories=Utility;Graphics;
+Keywords=color;picker;eyedropper;pipette;hex;

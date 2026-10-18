@@ -9,6 +9,7 @@ use zbus::{Connection, DBusError};
 #[derive(Debug, DBusError)]
 #[zbus(prefix = "me.aresa.Glimpse.Clipboard1.Error", impl_display = true)]
 pub enum Error {
+    InvalidArgs(String),
     NoSuchEntry(String),
     Unavailable(String),
     #[zbus(error)]
@@ -46,6 +47,13 @@ impl Provider {
 
     async fn copy(&self, id: u64) -> Result<(), Error> {
         Ok(self.clipboard.restore(id).await?)
+    }
+
+    async fn copy_text(&self, text: String) -> Result<(), Error> {
+        if text.is_empty() {
+            return Err(Error::InvalidArgs("the text is empty".to_owned()));
+        }
+        Ok(self.clipboard.copy_text(text).await?)
     }
 
     async fn pin(&self, id: u64, pinned: bool) -> Result<(), Error> {

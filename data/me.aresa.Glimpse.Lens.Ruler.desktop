@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Ruler
+Comment=Measure distances on the screen
+Icon=me.aresa.Glimpse.Lens.Ruler
+Exec=glimpse-lens --tool ruler --copy
+TryExec=glimpse-lens
+Terminal=false
+StartupNotify=false
+Categories=Utility;Graphics;
+Keywords=ruler;measure;distance;pixels;
